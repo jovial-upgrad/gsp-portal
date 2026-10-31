@@ -197,3 +197,6 @@
   .switch__track:active .switch__knob { transform: none; }
   .switch__track[aria-checked='true']:active .switch__knob { transform: translateX(16px); }
 }
+
+/* "* Required", once per form (QC, 1 Nov) */
+.req-note { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }

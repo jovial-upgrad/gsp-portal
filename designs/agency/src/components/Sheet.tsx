@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icon } from './Icon';
+import { askDiscard } from './unsaved';
+import { RequiredNote } from './forms';
 import './sheet.css';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -28,6 +30,8 @@ export function Sheet({
   expandable = false,
   className = '',
   style,
+  dirty = false,
+  what,
 }: {
   open: boolean;
   onClose: () => void;
@@ -52,12 +56,29 @@ export function Sheet({
   expandable?: boolean;
   className?: string;
   style?: CSSProperties;
+  /** Changes nobody saved: Esc, Close and the scrim ask "Discard changes?" first (QC, 1 Nov). */
+  dirty?: boolean;
+  /** What the changes are to, for that question ("the queue"). */
+  what?: string;
 }) {
   const reduce = useReducedMotion();
   const panel = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const layer = typeof document === 'undefined' ? null : document.getElementById('layer');
   const [full, setFull] = useState(false);
+  // "* Required" once, at the top, when the form has a required field
+  const [req, setReq] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => setReq(!!panel.current?.querySelector('.sheet__body .field__req')), 40);
+    return () => window.clearTimeout(t);
+  });
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const tryClose = () => {
+    if (!dirtyRef.current) return onClose();
+    void askDiscard(what).then((ok) => ok && onClose());
+  };
 
   // it opens at its normal size every time
   useEffect(() => {
@@ -77,7 +98,9 @@ export function Sheet({
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      onClose();
+      // a menu or picker open inside the sheet closes first
+      if (e.defaultPrevented) return;
+      tryClose();
       return;
     }
     if (e.key !== 'Tab' || !panel.current) return;
@@ -103,7 +126,7 @@ export function Sheet({
     </button>
   );
   const close = (
-    <button type="button" className="icon-btn sheet__close" aria-label="Close" onClick={onClose}>
+    <button type="button" className="icon-btn sheet__close" aria-label="Close" onClick={tryClose}>
       <Icon name="close" size={18} />
     </button>
   );
@@ -129,7 +152,10 @@ export function Sheet({
       </header>
       {band}
       {nav}
-      <div className="sheet__body">{children}</div>
+      <div className="sheet__body">
+        {req && <RequiredNote className="sheet__req" />}
+        {children}
+      </div>
       {footer && <footer className="sheet__foot">{footer}</footer>}
     </>
   );
@@ -141,7 +167,7 @@ export function Sheet({
           <motion.div
             className="sheet__scrim"
             aria-hidden="true"
-            onClick={onClose}
+            onClick={tryClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

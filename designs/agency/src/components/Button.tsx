@@ -2,7 +2,8 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import './button.css';
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'link';
+  /** `danger`: red, for the button that deletes or discards (QC, 1 Nov, rule 4). */
+  variant?: 'primary' | 'secondary' | 'ghost' | 'link' | 'danger' | 'danger-quiet';
   size?: 'md' | 'sm';
   loading?: boolean;
   block?: boolean;
