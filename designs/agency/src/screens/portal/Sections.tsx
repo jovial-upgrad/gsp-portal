@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { RpEarnings } from '../../finance/RpEarnings';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import type { Account } from '../signin/model';
@@ -72,6 +73,8 @@ export function LockedSection({ section, join, onDocs, go }: { section: Section;
 
 /** Sections the prototype doesn't cover yet say so plainly, inside the real frame. */
 export function LaterSection({ section }: { section: Section }) {
+  // Earnings (Jovial, 31 Oct): the RP's commission from Finance's engine
+  if (section === 'earnings') return <RpEarnings />;
   return (
     <div className="page">
       <h1 className="page__title">{labelOf(section)}</h1>

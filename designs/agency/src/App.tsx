@@ -13,6 +13,15 @@ import { TeamSignIn } from './institution/signin/TeamSignIn';
 import { TEAM_AUTH_PRESETS } from './institution/signin/model';
 // GSP Admin (GSP · Admin, 30 Oct): builds on the Institution Team, with its own sign-in
 import { Portal as AdminPortal } from './admin/portal/Portal';
+import type { ComponentProps } from 'react';
+
+/** GSP Admin's portal for each role that uses it, with that role's menu (admin/portal/variants.ts). */
+const ADMIN_PORTALS = {
+  'gsp-admin': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="admin" />,
+  'gsp-recruitment': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="recruitment" />,
+  'gsp-bap': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="bap" />,
+  'gsp-finance': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="finance" />,
+};
 import { TeamSignIn as AdminSignIn } from './admin/signin/TeamSignIn';
 import { TEAM_AUTH_PRESETS as ADMIN_AUTH_PRESETS } from './admin/signin/model';
 import { PORTAL_PRESETS, portalAccount } from './screens/portal/model';
@@ -23,7 +32,7 @@ import type { PortalStart } from './screens/portal/Portal';
 import type { Section } from './screens/portal/model';
 import { AuthScene } from './shell/AuthScene';
 import { ProtoPanel, type Device } from './proto/ProtoPanel';
-import { roleOf, type Role } from './proto/roles';
+import { ADMIN_LIKE, roleOf, type Role } from './proto/roles';
 import { setLink, useLink } from './proto/link';
 import { SideBySide } from './proto/SideBySide';
 import { sampleApplications, courseOf } from './data/applications';
@@ -218,11 +227,11 @@ export default function App() {
   // Sign in and becoming a partner share one scene that stays mounted and looks the same: the photo, its statement
   // and the panel stay in place and only the panel's content changes; only going in or out of the portal fades the whole page.
   const isPublic = route === 'auth' || route === 'signup';
-  const RolePortal = role === 'gsp-team' ? GspPortal : role === 'institution-partner' ? InstitutionPortal : role === 'gsp-admin' ? AdminPortal : Portal;
+  const RolePortal = role === 'gsp-team' ? GspPortal : role === 'institution-partner' ? InstitutionPortal : ADMIN_LIKE.includes(role) ? ADMIN_PORTALS[role as keyof typeof ADMIN_PORTALS] : Portal;
   // the Institution Team and GSP Admin sign in with a GSP email, each in its own scene
-  const team = role === 'institution-partner' || role === 'gsp-admin';
-  const TeamGate = role === 'gsp-admin' ? AdminSignIn : TeamSignIn;
-  const teamPresets = role === 'gsp-admin' ? ADMIN_AUTH_PRESETS : TEAM_AUTH_PRESETS;
+  const team = role === 'institution-partner' || ADMIN_LIKE.includes(role);
+  const TeamGate = ADMIN_LIKE.includes(role) ? AdminSignIn : TeamSignIn;
+  const teamPresets = ADMIN_LIKE.includes(role) ? ADMIN_AUTH_PRESETS : TEAM_AUTH_PRESETS;
   // switching role shows that role's portal: the same state if one is open, otherwise its Home, signed in
   const switchRole = (r: Role) => {
     setRole(r);

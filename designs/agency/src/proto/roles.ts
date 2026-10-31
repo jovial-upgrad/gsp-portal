@@ -5,16 +5,26 @@
  * RP Admin; the Institution Team started as a copy of GSP Team (src/institution) and never touches either. GSP
  * Admin (GSP · Admin, 30 Oct) builds on the Institution Team (src/admin), with its own configuration.
  */
-export type Role = 'rp-admin' | 'gsp-team' | 'institution-partner' | 'gsp-admin';
+export type Role = 'rp-admin' | 'gsp-team' | 'gsp-recruitment' | 'gsp-bap' | 'gsp-finance' | 'institution-partner' | 'gsp-admin';
 
+/**
+ * Jovial, 31 Oct: seven roles. GSP Team is now **GSP · Admissions** (its key stays `gsp-team`). GSP · Recruitment,
+ * GSP · BAP and GSP · Finance are new: each is GSP Admin's portal (src/admin/portal) with its own menu and its own
+ * signed-in person (see admin/portal/variants.ts).
+ */
 export const ROLES: { key: Role; label: string; note: string }[] = [
   { key: 'rp-admin', label: 'RP Admin', note: 'The recruitment partner’s admin: the agency portal.' },
-  { key: 'gsp-team', label: 'GSP Team', note: 'GSP’s own team: GSP’s side of every application.' },
+  { key: 'gsp-team', label: 'GSP · Admissions', note: 'GSP’s Admissions team: GSP’s side of every application.' },
+  { key: 'gsp-recruitment', label: 'GSP · Recruitment', note: 'BDMs: their recruitment partners, students and applications.' },
+  { key: 'gsp-bap', label: 'GSP · BAP', note: 'Partner verification: new recruitment partners and their documents.' },
+  { key: 'gsp-finance', label: 'GSP · Finance', note: 'Commission terms, university invoices and RP payouts.' },
   { key: 'institution-partner', label: 'GSP · Institution', note: 'GSP’s Institution Team: universities, courses and partners.' },
   { key: 'gsp-admin', label: 'GSP · Admin', note: 'GSP’s admins: configuration, and the Institution Team’s pages.' },
 ];
+/** The roles that use GSP Admin's portal, each with its own menu. */
+export const ADMIN_LIKE: Role[] = ['gsp-admin', 'gsp-recruitment', 'gsp-bap', 'gsp-finance'];
 
 /** The two roles Side by side shows. */
 export const PAIR: Role[] = ['rp-admin', 'gsp-team'];
 
-export const roleOf = (v: string | null): Role => (v === 'gsp-team' || v === 'institution-partner' || v === 'gsp-admin' ? v : 'rp-admin');
+export const roleOf = (v: string | null): Role => (ROLES.some((r) => r.key === v) ? (v as Role) : 'rp-admin');

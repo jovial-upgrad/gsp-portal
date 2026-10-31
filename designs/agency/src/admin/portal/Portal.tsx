@@ -7,7 +7,8 @@ import { AccountMenu } from '../../components/AccountMenu';
 import { Icon } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import type { SignupState } from '../../screens/signup/model';
-import { GROUPS, HOME, NAV, TABS, type ConfigSection, type Focus, type NavItem, type PageProps, type Section, type Target } from './model';
+import { VARIANTS, type ConfigSection, type Focus, type NavItem, type PageProps, type Section, type Target, type Variant } from './model';
+import { FinancePage, FIN_SECTIONS, type FinSection } from '../../finance/FinancePage';
 // User modules and Institution: GSP · Institution's own pages, so a change there shows here too
 import { FindCourses } from '../../institution/courses/FindCourses';
 import { newSearch, runSearch, setCatalogue, type CourseSearch } from '../../institution/courses/search';
@@ -74,7 +75,10 @@ export function Portal({
   scrollTop,
   onSignOut,
   start,
+  variant = 'admin',
 }: {
+  /** Which role's menu (Jovial, 31 Oct): Admin, Recruitment, BAP or Finance. */
+  variant?: Variant;
   acc: Account;
   /** The agency registration a review state carries: only its country is used, for course search. */
   join: SignupState | null;
@@ -84,11 +88,16 @@ export function Portal({
   start?: PortalStart;
 }) {
   const reduce = useReducedMotion();
+  const V = VARIANTS[variant];
+  const { home: HOME, groups: GROUPS, tabs: TABS } = V;
+  const NAV: NavItem[] = [HOME, ...V.flat, ...GROUPS.flatMap((g) => g.items)];
+  // who's signed in: GSP Admin's person for Admin, the role's own for the others
+  const ME = variant === 'admin' ? GSP_USER : { ...GSP_USER, ...V.user, org: 'GSP' };
   // the application pages are GSP · Institution's and act as its signed-in person: while GSP Admin is open, that's
   // Jovial (set before anything draws), and whoever it was comes back when GSP Admin closes
   const [handBack] = useState(() => {
     const was = { ...INSTITUTION_USER };
-    actAsInInstitution({ ...GSP_USER, set: true });
+    actAsInInstitution({ ...ME, set: true });
     return was;
   });
   useEffect(
@@ -192,8 +201,8 @@ export function Portal({
     setFocus({ ...t, key: Date.now() });
     scrollTop();
   };
-  const initials = GSP_USER.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
-  const org = `${GSP_USER.org} · ${GSP_USER.role}`;
+  const initials = ME.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
+  const org = `${ME.org} · ${ME.role}`;
 
   const item = (n: NavItem) => {
     const active = section === n.key;
@@ -213,6 +222,7 @@ export function Portal({
     <nav aria-label="Main">
       <ul className="pnav">
         {item(HOME)}
+        {V.flat.map(item)}
         {GROUPS.map((g) => {
           const here = g.items.some((i) => i.key === section);
           const open = fly?.key === g.key;
@@ -273,12 +283,14 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name };
   const content =
-    section === 'home' ? (
-      <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
+    variant === 'finance' && (section === 'home' || FIN_SECTIONS.includes(section as FinSection)) ? (
+      <FinancePage section={section as FinSection | 'home'} go={(k) => go(k as Section)} />
+    ) : section === 'home' ? (
+      <TeamHome first={ME.first} db={db} open={openRecord} me={ME.name} />
     ) : section === 'profile' ? (
-      <AccountPage name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />
+      <AccountPage name={ME.name} org={org} email={ME.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (
       <Students
         list={studentsView}
@@ -327,7 +339,7 @@ export function Portal({
         home={{ country, state: join?.form.state || '' }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
-        from={{ org: 'upGrad GSP', name: GSP_USER.name, email: GSP_USER.email }}
+        from={{ org: 'upGrad GSP', name: ME.name, email: ME.email }}
       />
     ) : section === 'universities' ? (
       <Universities {...page} appsByUni={appsByUni} />
@@ -338,16 +350,16 @@ export function Portal({
     ) : section === 'announcements' ? (
       <Announcements {...page} />
     ) : CONFIG.includes(section as ConfigSection) ? (
-      <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={GSP_USER.name} say={say} />
+      <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={ME.name} say={say} />
     ) : (
       <RecruitmentPartners {...page} />
     );
 
   return (
     <AppShell
-      brand={['GSP', 'Admin']}
+      brand={['GSP', V.brand]}
       sidebar={sidebar}
-      footer={<AccountMenu name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />}
+      footer={<AccountMenu name={ME.name} org={org} email={ME.email} onSignOut={onSignOut} />}
       tools={<ThemeToggle />}
       corner={inbox.corner}
       topEnd={
@@ -357,7 +369,7 @@ export function Portal({
           <button
             type="button"
             className={`topend__me ${section === 'profile' ? 'is-active' : ''}`}
-            aria-label={`Account: ${GSP_USER.name}, ${org}`}
+            aria-label={`Account: ${ME.name}, ${org}`}
             aria-current={section === 'profile' ? 'page' : undefined}
             onClick={() => go('profile')}
           >

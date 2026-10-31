@@ -12,7 +12,8 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
 export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'routing' | 'documents' | 'logs';
-export type Section = InstitutionSection | ConfigSection;
+export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how';
+export type Section = InstitutionSection | ConfigSection | FinSection;
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
 export type NavGroup = { key: string; label: string; icon: IconName; items: NavItem[] };
@@ -96,3 +97,43 @@ export const TABS: Section[] = ['home', 'applications', 'universities', 'routing
 
 // the records pages are GSP · Institution's own
 export type { Focus, PageProps, RecordSection, Target } from '../../institution/portal/model';
+
+/**
+ * The roles that use this portal (Jovial, 31 Oct), each with its own menu, phone tabs and signed-in person.
+ * Admin keeps the configuration; Recruitment and BAP get the recruitment partners and the user modules; Finance
+ * gets commissions.
+ */
+export type Variant = 'admin' | 'recruitment' | 'bap' | 'finance';
+export type VariantSpec = { brand: string; home: NavItem; flat: NavItem[]; groups: NavGroup[]; tabs: Section[]; user: { name: string; first: string; role: string; email: string } };
+const it = (key: Section, label: string, short: string, icon: IconName): NavItem => ({ key, label, short, icon });
+export const VARIANTS: Record<Variant, VariantSpec> = {
+  admin: { brand: 'Admin', home: HOME, flat: [], groups: GROUPS, tabs: TABS, user: { name: 'Jovial', first: 'Jovial', role: 'Admin', email: 'jovial@gsp.upgrad.com' } },
+  recruitment: {
+    brand: 'Recruitment',
+    home: HOME,
+    flat: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
+    groups: [],
+    tabs: ['home', 'rps', 'applications', 'students', 'courses'],
+    user: { name: 'Saurabh', first: 'Saurabh', role: 'Recruitment', email: 'saurabh@gsp.upgrad.com' },
+  },
+  bap: {
+    brand: 'BAP',
+    home: HOME,
+    flat: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search')],
+    groups: [],
+    tabs: ['home', 'rps', 'applications', 'courses'],
+    user: { name: 'Garima', first: 'Garima', role: 'BAP', email: 'garima@gsp.upgrad.com' },
+  },
+  finance: {
+    brand: 'Finance',
+    home: HOME,
+    flat: [it('applications', 'Applications', 'Applications', 'doc')],
+    groups: [
+      { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'Payout run', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download')] },
+      { key: 'fin-setup', label: 'Setup', icon: 'sliders', items: [it('fin-terms', 'Commission terms', 'Terms', 'key'), it('fin-setup', 'Finance setup', 'Setup', 'sliders'), it('fin-how', 'How Finance works', 'How', 'info')] },
+      { key: 'fin-records', label: 'Records', icon: 'building', items: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('universities', 'Universities', 'Universities', 'building')] },
+    ],
+    tabs: ['home', 'fin-run', 'fin-uni', 'applications', 'fin-terms'],
+    user: { name: 'Suman', first: 'Suman', role: 'Finance', email: 'suman@gsp.upgrad.com' },
+  },
+};

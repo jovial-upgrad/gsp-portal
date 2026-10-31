@@ -282,6 +282,12 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 ## New pages
 
+- [x] Jovial, 31 Oct: **seven roles** in the Role menu: RP Admin, **GSP · Admissions** (GSP Team renamed), **GSP · Recruitment** (Saurabh: recruitment partners, students, applications, course search, announcements), **GSP · BAP** (Garima: recruitment partners, applications, course search), **GSP · Finance** (Suman), GSP · Institution and GSP · Admin. Recruitment, BAP and Finance use GSP Admin's portal with their own menu (`admin/portal/model.ts`, `VARIANTS`). (ROLES_COMMIT)
+- [x] Jovial, 31 Oct: **commissions in the code** (`src/finance/`, ported from the add-on prototype with the sandbox's engine): GSP · Finance has Home (today's jobs), Applications, **Commissions** (University invoices, RP commission, Payout run, Exceptions, Reports), **Setup** (Commission terms, Finance setup, How Finance works) and Records (Recruitment partners, Universities). Every university line and every RP line opens **How it's worked out**. (ROLES_COMMIT)
+  - **A Commission tab on every application**, beside Chat, Documents, Submission and Activity, in every role. GSP roles see both sides, university to GSP and GSP to the RP, each line with its working; **RP Admin sees only its own side** (its rate, its amounts in its payout currency, why), never GSP's commission or the university's rate. Before enrolment every line is an estimate; a university with no terms in Finance yet uses the course record's rate, flagged for GSP.
+  - **RP Admin's Earnings** is no longer a placeholder: the agency's commission, its tier progress, the invoice to approve before pay day, and bank details.
+  - Open question: the application's Commission tab and Finance's pages use separate sample data for now (Finance has 30 sample enrolments). They join when applications and commissions share one data model (Rishi).
+
 - [ ] **End-to-end admissions flow**, including the university states, in the **counsellor** and **GSP admissions** views. Nesil and Jovial, by **Wed 28 Oct**.
 - [ ] **Admin view.** Nesil and Jovial, by Thu 29 Oct.
   - Nesil, 29 Oct, in RP Admin only: Profile has **Branches** (name, country, state, city, branch BDM set by the system) and **Team** (name, email, phone with country code, role, branch), with adding, editing (moving someone to another branch included) and removing each.

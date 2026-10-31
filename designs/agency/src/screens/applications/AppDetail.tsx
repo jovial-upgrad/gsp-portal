@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
@@ -44,10 +45,11 @@ import type { RecordTab } from '../students/StudentRecord';
 import { AssistMark, StageTrack, Thinking } from './parts';
 import { Assist } from './Assist';
 
-export type AppTab = 'chat' | 'documents' | 'activity';
+export type AppTab = 'chat' | 'documents' | 'commission' | 'activity';
 const TABS: [AppTab, string, IconName][] = [
   ['chat', 'Chat', 'chat'],
   ['documents', 'Documents', 'folder'],
+  ['commission', 'Commission', 'wallet'],
   ['activity', 'Activity', 'clock'],
 ];
 /** The one tag in the header's corner: who has the application now, never two at once. */
@@ -475,6 +477,7 @@ export function AppDetail({
                 }
               />
             )}
+            {tab === 'commission' && <AppCommission a={a} agency={''} side="rp" />}
             {tab === 'activity' && <Activity a={a} />}
           </motion.div>
         </AnimatePresence>

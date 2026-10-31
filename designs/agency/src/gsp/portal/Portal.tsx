@@ -371,7 +371,7 @@ export function Portal({
   return (
     <>
       <AppShell
-        brand={['GSP', 'Team']}
+        brand={['GSP', 'Admissions']}
         inert={docsOpen}
         sidebar={sidebar}
         footer={<AccountMenu name={GSP_USER.name} org={`${GSP_USER.org} · ${GSP_USER.role}`} email={GSP_USER.email} onSignOut={onSignOut} />}

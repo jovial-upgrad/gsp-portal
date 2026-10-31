@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
@@ -43,12 +44,13 @@ import { NameDialog, nameFromFile } from './NameDialog';
 import { OWNER_TAG } from './owners';
 import { GSP_USER } from '../user';
 
-export type AppTab = 'chat' | 'mail' | 'documents' | 'submission' | 'activity';
+export type AppTab = 'chat' | 'mail' | 'documents' | 'submission' | 'commission' | 'activity';
 const TABS: [AppTab, string, IconName][] = [
   ['chat', 'Chat', 'chat'],
   ['mail', 'Mail', 'mail'],
   ['documents', 'Documents', 'folder'],
   ['submission', 'Submission', 'upload'],
+  ['commission', 'Commission', 'wallet'],
   ['activity', 'Activity', 'clock'],
 ];
 /** The one tag in the header's corner: who has the application now, as GSP sees it, never two at once. */
@@ -554,6 +556,7 @@ export function AppDetail({
               />
             )}
             {tab === 'submission' && <SubmissionTab a={a} desk={desk} onRef={setRef} say={say} />}
+            {tab === 'commission' && <AppCommission a={a} agency={agency} side="both" />}
             {tab === 'activity' && <Activity a={a} agency={agency} />}
           </motion.div>
         </AnimatePresence>
