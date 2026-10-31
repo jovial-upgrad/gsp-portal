@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { WorkPage } from '../../work/WorkPage';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
 import { ThemeToggle } from '../../components/ThemeToggle';
@@ -272,7 +273,7 @@ export function Portal({
     </>
   );
 
-  const tabs = NAV.filter((n) => n.key !== 'profile');
+  const tabs = NAV.filter((n) => n.key !== 'profile' && n.key !== 'courses');
   const tabbar = (
     <nav className="tabbar glass" aria-label="Main">
       <GlassRim />
@@ -307,7 +308,9 @@ export function Portal({
   );
 
   const content =
-    section === 'home' ? (
+    section === 'mywork' || section === 'mail' ? (
+      <WorkPage section={section} role="gsp-team" go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+    ) : section === 'home' ? (
       <Home acc={{ ...acc, first: GSP_USER.first }} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} />
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />

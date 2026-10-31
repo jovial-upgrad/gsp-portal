@@ -9,6 +9,7 @@ import type { Account } from '../../screens/signin/model';
 import type { SignupState } from '../../screens/signup/model';
 import { VARIANTS, type ConfigSection, type Focus, type NavItem, type PageProps, type Section, type Target, type Variant } from './model';
 import { FinancePage, FIN_SECTIONS, type FinSection } from '../../finance/FinancePage';
+import { WorkPage, WORK_SECTIONS, type WorkSection } from '../../work/WorkPage';
 // User modules and Institution: GSP · Institution's own pages, so a change there shows here too
 import { FindCourses } from '../../institution/courses/FindCourses';
 import { newSearch, runSearch, setCatalogue, type CourseSearch } from '../../institution/courses/search';
@@ -285,7 +286,9 @@ export function Portal({
 
   const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name };
   const content =
-    variant === 'finance' && (section === 'home' || FIN_SECTIONS.includes(section as FinSection)) ? (
+    WORK_SECTIONS.includes(section as WorkSection) ? (
+      <WorkPage section={section as WorkSection} role={`gsp-${variant}`} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+    ) : variant === 'finance' && (section === 'home' || FIN_SECTIONS.includes(section as FinSection)) ? (
       <FinancePage section={section as FinSection | 'home'} go={(k) => go(k as Section)} />
     ) : section === 'home' ? (
       <TeamHome first={ME.first} db={db} open={openRecord} me={ME.name} />

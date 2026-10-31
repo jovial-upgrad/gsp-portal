@@ -13,7 +13,8 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  */
 export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'routing' | 'documents' | 'logs';
 export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how';
-export type Section = InstitutionSection | ConfigSection | FinSection;
+export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules';
+export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
 export type NavGroup = { key: string; label: string; icon: IconName; items: NavItem[] };
@@ -107,11 +108,16 @@ export type Variant = 'admin' | 'recruitment' | 'bap' | 'finance';
 export type VariantSpec = { brand: string; home: NavItem; flat: NavItem[]; groups: NavGroup[]; tabs: Section[]; user: { name: string; first: string; role: string; email: string } };
 const it = (key: Section, label: string, short: string, icon: IconName): NavItem => ({ key, label, short, icon });
 export const VARIANTS: Record<Variant, VariantSpec> = {
-  admin: { brand: 'Admin', home: HOME, flat: [], groups: GROUPS, tabs: TABS, user: { name: 'Jovial', first: 'Jovial', role: 'Admin', email: 'jovial@gsp.upgrad.com' } },
+  admin: {
+    brand: 'Admin',
+    home: HOME,
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail')],
+    groups: [...GROUPS, { key: 'work', label: 'Work', icon: 'clock', items: [it('work-sla', 'Queues, SLA and escalation', 'SLA', 'clock'), it('work-rules', 'Task rules', 'Rules', 'sliders')] }],
+    tabs: TABS, user: { name: 'Jovial', first: 'Jovial', role: 'Admin', email: 'jovial@gsp.upgrad.com' } },
   recruitment: {
     brand: 'Recruitment',
     home: HOME,
-    flat: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'students', 'courses'],
     user: { name: 'Saurabh', first: 'Saurabh', role: 'Recruitment', email: 'saurabh@gsp.upgrad.com' },
@@ -119,7 +125,7 @@ export const VARIANTS: Record<Variant, VariantSpec> = {
   bap: {
     brand: 'BAP',
     home: HOME,
-    flat: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search')],
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'courses'],
     user: { name: 'Garima', first: 'Garima', role: 'BAP', email: 'garima@gsp.upgrad.com' },
@@ -127,7 +133,7 @@ export const VARIANTS: Record<Variant, VariantSpec> = {
   finance: {
     brand: 'Finance',
     home: HOME,
-    flat: [it('applications', 'Applications', 'Applications', 'doc')],
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('applications', 'Applications', 'Applications', 'doc')],
     groups: [
       { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'Payout run', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download')] },
       { key: 'fin-setup', label: 'Setup', icon: 'sliders', items: [it('fin-terms', 'Commission terms', 'Terms', 'key'), it('fin-setup', 'Finance setup', 'Setup', 'sliders'), it('fin-how', 'How Finance works', 'How', 'info')] },

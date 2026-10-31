@@ -4,7 +4,7 @@ import type { Account } from '../../screens/signin/model';
 import { SAMPLE, accountCreated, type SignupState } from '../../screens/signup/model';
 import { SAMPLE_FILES, docsFor } from '../../screens/signup/docs';
 
-export type Section = 'home' | 'applications' | 'students' | 'courses' | 'earnings' | 'profile';
+export type Section = 'home' | 'mywork' | 'mail' | 'applications' | 'students' | 'courses' | 'earnings' | 'profile';
 
 /**
  * setup: the account exists, but the business details and documents haven't gone to GSP; only Home is open.
@@ -16,10 +16,12 @@ export type Access = 'setup' | 'verifying' | 'all';
 /** The menu never changes order with the account's state; locked sections keep their place and say so. */
 export const NAV: { key: Section; label: string; short: string; icon: IconName; locked: boolean }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home', locked: false },
-  { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search', locked: false },
+  // Jovial, 31 Oct: GSP · Admissions works from My work and Mail; Earnings is the RP's, not Admissions'
+  { key: 'mywork', label: 'My work', short: 'My work', icon: 'checkCircle', locked: false },
+  { key: 'mail', label: 'Mail', short: 'Mail', icon: 'mail', locked: false },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people', locked: true },
-  { key: 'earnings', label: 'Earnings', short: 'Earnings', icon: 'wallet', locked: true },
+  { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search', locked: false },
   { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: false },
 ];
 
