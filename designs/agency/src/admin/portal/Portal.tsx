@@ -25,7 +25,7 @@ import type { NoteTarget } from '../../data/inbox';
 import type { Desk } from '../../institution/applications/desk';
 import { GSP_USER } from '../user';
 import { GSP_USER as INSTITUTION_USER, signInAs as actAsInInstitution } from '../../institution/user';
-import { sampleDb } from '../../institution/data/store';
+import { useSharedDb } from '../../institution/data/store';
 import { forSearch, searchable } from '../../institution/data/catalogue';
 import { TeamHome } from '../../institution/records/Home';
 import { Universities } from '../../institution/records/Universities';
@@ -43,6 +43,7 @@ import '../../screens/portal/portal.css';
 import '../../institution/institution.css';
 import '../admin.css';
 import { useLiveApps } from '../../data/live';
+import { setSession } from '../../data/downloads';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -121,12 +122,15 @@ export function Portal({
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));
   // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
   useLiveApps(setApps);
+  // who's signed in, for the download log (data/downloads.ts)
+  setSession(ME.name, ME.role);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
   const team = teamFor(acc.name);
 
   // the records the team keeps; its changes stay in this portal
-  const [db, setDb] = useState(sampleDb);
+  // the catalogue and records: one copy for every role (institution/data/store.ts)
+  const [db, setDb] = useSharedDb();
   const [focus, setFocus] = useState<Focus | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
   const say = (text: string) => setMsg({ text, key: Date.now() });

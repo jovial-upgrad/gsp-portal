@@ -164,31 +164,30 @@ export const sampleEmails = (users: User[]): EmailGroup[] => {
 export type BdmRow = { id: string; country: string; area: string; bdm: string; fallback?: boolean };
 let n = 0;
 const row = (country: string, area: string, bdm: string, fallback = false): BdmRow => ({ id: `b${++n}`, country, area, bdm, fallback });
-export const sampleBdm = (): BdmRow[] => [
-  row('India', 'Kerala', N('mayank.kansal')),
-  row('India', 'Haryana, Delhi', N('harsh.solanki')),
-  row('India', 'Ludhiana, Amritsar, Jalandhar', N('ramandeep.kaur')),
-  row('India', 'Karnataka, Andhra Pradesh, Telangana', N('harsh.solanki')),
-  row('India', 'Rest of India', N('saurabh.chaudhary')),
-  row('Bangladesh', 'Dhaka', N('sania.shanta')),
-  row('Bangladesh', 'Rest of Bangladesh', N('gsp.bangladesh')),
-  row('Vietnam', 'Ho Chi Minh City', N('quan.hoang')),
-  row('Vietnam', 'Rest of Vietnam', N('quan.hoang')),
-  row('Philippines', 'All', N('arielle.sevilleno')),
-  row('Myanmar', 'All', N('nilar.win')),
-  row('Indonesia', 'All', N('rifaldo.marbun')),
-  row('Malaysia', 'All', N('rifaldo.marbun')),
-  row('Pakistan', 'All', N('ali.butt')),
-  row('Latin America and Europe', 'All countries', N('ali.butt')),
-  row('Africa', 'All countries', N('gsp.bangladesh')),
-  row('Sri Lanka', 'All', N('kanchani.jayawardhana')),
-  row('Nepal', 'All', N('ali.butt')),
-  row('Australia', 'All', N('ali.butt')),
-  row('Thailand', 'All', N('rifaldo.marbun')),
-  row('Bhutan', 'All', N('nilar.win')),
-  row('China', 'All', N('ali.butt')),
-  row('All other countries', 'All', N('ali.butt'), true),
-];
+/**
+ * BDM assignment from the staff list (Jovial, 31 Oct): each Recruitment person's area (cities or states) is a row for
+ * their country; whoever covers a whole country (an area naming the country, or no area) takes "Rest of" it. A
+ * region of several countries gets a row per country. Anything else goes to Ali Butt (Global).
+ */
+const BDM_COUNTRIES: Record<string, string[]> = { 'Indonesia, Malaysia and Thailand': ['Indonesia', 'Malaysia', 'Thailand'], 'Myanmar and Bhutan': ['Myanmar', 'Bhutan'] };
+export const sampleBdm = (): BdmRow[] => {
+  n = 0;
+  const out: BdmRow[] = [];
+  const rec = STAFF.filter((x) => x.role === 'Recruitment' && !x.regions.includes('Global'));
+  const regions = [...new Set(rec.flatMap((x) => x.regions))];
+  for (const reg of regions) {
+    const ppl = rec.filter((x) => x.regions.includes(reg));
+    const countries = BDM_COUNTRIES[reg] ?? [reg];
+    const whole = ppl.find((x) => !x.area || x.area === reg) ?? ppl[0];
+    for (const country of countries) {
+      for (const x of ppl) if (x.area && x.area !== reg) out.push(row(country, x.area, label(x)));
+      const some = ppl.some((x) => x.area && x.area !== reg);
+      out.push(row(country, some ? `Rest of ${country}` : REGION_ROWS.includes(country) ? 'All countries' : 'All', label(whole)));
+    }
+  }
+  out.push(row('All other countries', 'All', N('ali.butt'), true));
+  return out;
+};
 export const REGION_ROWS = ['Latin America and Europe', 'Africa'];
 
 /* ---------- currency exchange: the one source (Jovial, 31 Oct). Course search and Finance both read it ---------- */

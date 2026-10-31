@@ -4,13 +4,13 @@
  * program level and study area. Courses the student can't be offered are hidden, and the count says so.
  */
 import { inrPer as inrPerOf } from '../../admin/data/store';
+// what Course search reads: the Institution Team's catalogue, in every role (Jovial, 31 Oct)
+import { searchCatalogue } from '../../institution/data/store';
 import {
   AREAS,
-  COURSES,
   CURRENCY,
   DESTINATIONS,
   LEVELS,
-  UNIVERSITIES,
   blockedFor,
   daysTo,
   earnOf,
@@ -121,7 +121,7 @@ export function universityIn(text: string): { uni: University; alias?: string } 
   if (!q.length) return null;
   let best: { uni: University; alias?: string; score: number } | null = null;
   const typed = q.join(' ');
-  for (const uni of UNIVERSITIES) {
+  for (const uni of searchCatalogue().unis) {
     for (const name of [uni.name, ...(uni.aka ?? [])]) {
       const t = words(name).filter((w) => !STOP.has(w));
       const all = q.every((w) => t.some((x) => close(w, x)));
@@ -319,7 +319,7 @@ export function results(s: CourseSearch): Results {
   const f = s.filters;
   const named = s.keyword ? universityIn(s.keyword) : null;
   const q = named ? [] : words(s.keyword).filter((w) => !STOP.has(w));
-  let pool = COURSES.filter((c) => (!n.dest || c.uni.country === n.dest) && (!n.level || c.level === n.level) && (!n.area || c.area === n.area));
+  let pool = searchCatalogue().courses.filter((c) => (!n.dest || c.uni.country === n.dest) && (!n.level || c.level === n.level) && (!n.area || c.area === n.area));
   pool = pool.filter((c) => (named ? c.uni.id === named.uni.id : keywordMatch(c, q)));
   const blocked = n.country ? pool.filter((c) => blockedFor(c.uni, n.country, n.state)) : [];
   pool = pool.filter((c) => !blocked.includes(c));
@@ -350,7 +350,7 @@ export function results(s: CourseSearch): Results {
 }
 
 /** How many courses the fields chosen so far would give, while some are still empty. */
-export const soFar = (n: Need) => COURSES.filter((c) => (!n.dest || c.uni.country === n.dest) && (!n.level || c.level === n.level) && (!n.area || c.area === n.area)).length;
+export const soFar = (n: Need) => searchCatalogue().courses.filter((c) => (!n.dest || c.uni.country === n.dest) && (!n.level || c.level === n.level) && (!n.area || c.area === n.area)).length;
 
 /* ---------- options ---------- */
 
@@ -365,11 +365,11 @@ export const FEE_CAPS: Record<string, number[]> = {
 export const currencyOf = (n: Need) => (n.dest ? CURRENCY[n.dest] : '');
 export const intakeMonths = (n: Need) => {
   const ms = new Set<string>();
-  COURSES.filter((c) => !n.dest || c.uni.country === n.dest).forEach((c) => c.intakes.forEach((i) => intakeState(i) !== 'closed' && ms.add(i.month)));
+  searchCatalogue().courses.filter((c) => !n.dest || c.uni.country === n.dest).forEach((c) => c.intakes.forEach((i) => intakeState(i) !== 'closed' && ms.add(i.month)));
   const order = (m: string) => new Date(`1 ${m}`).getTime();
   return [...ms].sort((a, b) => order(a) - order(b));
 };
-export const universitiesFor = (n: Need) => UNIVERSITIES.filter((u) => !n.dest || u.country === n.dest).sort((a, b) => a.name.localeCompare(b.name));
+export const universitiesFor = (n: Need) => searchCatalogue().unis.filter((u) => !n.dest || u.country === n.dest).sort((a, b) => a.name.localeCompare(b.name));
 
 export const SORTS: [Sort, string][] = [
   ['match', 'Best match'],

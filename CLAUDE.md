@@ -17,6 +17,10 @@ The agency portal prototype lives in `designs/agency/`. `README.md` there descri
 
 - **Every time a task is done**, build the shared file (`npm run build:artifact` in `designs/agency`) and send `designs/agency/dist-artifact/gsp-partner-portal.html` to Jovial, so the latest version opens in the conversation. Say which role and screen to look at.
 
+## Asking Jovial for input
+
+- **Anything that needs Jovial's input goes in a Google Sheet** (Jovial, 31 Oct), not a doc or a chat list: [GSP portal: inputs from Jovial](https://docs.google.com/spreadsheets/d/1FssT6z-AQP6JNQdf64mcRtMt1sdZ3lkhpO_5gWhAHBQ/edit). Add a tab or rows there, prefilled with what the prototype uses today.
+
 ## Branches
 
 - `main` always holds the latest working prototype. Each piece of work gets a short branch (`admin-config`, `roles`, `commissions`…), merged into `main` once it's built and tested. Roles live in their own folders under `designs/agency/src/`, not on branches.

@@ -12,7 +12,7 @@
  */
 import { UNIVERSITIES, type Destination } from '../../data/courses';
 import { nameOf, staffIn, label } from '../../data/staff';
-import { partnerManagerFor } from '../../data/partners';
+import { partnerManagerFor, businessDocsFor } from '../../data/partners';
 import { RPS } from '../../data/dataset';
 import { sampleRegions, NATIONALITY } from '../../admin/data/config';
 /** An Institution person's name from the staff list, by the start of their email. */
@@ -319,13 +319,26 @@ export type RecruitmentPartner = {
   activity: { at: string; what: string }[];
 };
 
-const DOCS = ['Business registration certificate', 'Company profile', 'Owner’s ID', 'Business reference'];
-const docs = (state: RpDoc['state'], missing = 0): RpDoc[] => DOCS.map((name, i) => ({ name, state: i >= DOCS.length - missing ? 'Missing' : state, file: `${name.replace(/[^A-Za-z]+/g, '_')}.pdf` }));
+/** An RP's documents: the ones GSP · Admin's rules ask an agency in its country for (data/partners.ts). */
+let docsCountry = 'India';
+const docs = (state: RpDoc['state'], missing = 0): RpDoc[] => {
+  const names = businessDocsFor(docsCountry).map((d) => d.name);
+  return names.map((name, i) => ({ name, state: i >= names.length - missing ? 'Missing' : state, file: `${name.replace(/[^A-Za-z]+/g, '_')}.pdf` }));
+};
 const rp = (id: string, code: number, name: string, city: string, country: string, status: RpStatus, since: string, contact: RecruitmentPartner['contact'], foundUs: string, bdm: string, admissions: string, d: RpDoc[], activity: RecruitmentPartner['activity'], masterPartner = 'None'): RecruitmentPartner => ({ id, code: `AG-${code}`, name, city, country, status, since, contact, foundUs, bdm, admissions, masterPartner, docs: d, activity });
 
 /** Each RP's BDM and Admissions contact come from the staff list: the BDM by the RP's city (data/partners.ts), the contact as its sales region's (Admin › Sales regions). */
 const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
   ...r,
+  // the documents Admin's rules ask an agency in this country for, in the state the sample gave them
+  docs: (() => {
+    docsCountry = r.country;
+    const want = businessDocsFor(r.country).map((d) => d.name);
+    return want.map((name, i) => {
+      const had = r.docs.find((x) => x.name === name) ?? r.docs[i] ?? r.docs[r.docs.length - 1];
+      return { name, state: had ? had.state : 'Missing', file: `${name.replace(/[^A-Za-z]+/g, '_')}.pdf` };
+    });
+  })(),
   bdm: partnerManagerFor(r.country, r.city, '')?.name ?? '',
   admissions: sampleRegions().find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
 });

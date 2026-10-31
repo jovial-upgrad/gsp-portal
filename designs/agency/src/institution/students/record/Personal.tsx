@@ -7,7 +7,7 @@ import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
 import { CITIES, fullName, type Student } from '../../../data/students';
 import { fillFromPassport, savePassport } from './read';
-import { expiryNote, parseDate, typeDate, yearsSince } from '../../../data/dates';
+import { parseDate, typeDate, yearsSince } from '../../../data/dates';
 import { atOtherAgency, isEmail, passportOk, sameStudent } from '../form';
 import { ReadBox, ReadNote, readMs } from '../ReadBox';
 import { Choice, Sel, Txt, type Update } from './fields';
@@ -30,7 +30,6 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
   /** Sets fields and drops their "read from a document" mark. */
   const set = (patch: Partial<Student>) => update((p) => ({ ...p, ...patch, read: p.read.filter((k) => !(k in patch)) }));
   const dup = sameStudent(s, list, s.id);
-  const exp = expiryNote(s.passportExpiry);
   const dob = parseDate(s.dob);
 
   const readFile = (file: File) => {
@@ -44,7 +43,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
 
   return (
     <div className="rsec">
-      {reading || (!s.docs.passport && !(s.dob || s.gender || s.passportExpiry)) ? (
+      {reading || (!s.docs.passport && !(s.dob || s.gender)) ? (
         <ReadBox
           id="rp-file"
           title="Fill this in from the passport"
@@ -56,7 +55,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
         />
       ) : (
         s.docs.passport &&
-        s.read.some((k) => ['gender', 'dob', 'passportExpiry', 'first', 'last', 'passport'].includes(k)) && <ReadNote text="Filled in from the passport, which is in Documents. What was read is highlighted: check it." />
+        s.read.some((k) => ['gender', 'dob', 'first', 'last', 'passport'].includes(k)) && <ReadNote text="Filled in from the passport, which is in Documents. What was read is highlighted: check it." />
       )}
 
       <fieldset className="rgroup">
@@ -101,26 +100,6 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
             onChange={(v) => set({ dob: v })}
             hint={dob ? `Age ${yearsSince(dob)}` : undefined}
             error={s.dob && !dob ? 'Enter the date as DD/MM/YYYY, like 19/05/2002.' : dob && dob.getTime() > Date.now() ? 'The date of birth can’t be in the future.' : null}
-          />
-          <Txt
-            id="rp-expiry"
-            label="Passport expiry"
-            required
-            value={s.passportExpiry}
-            read={read('passportExpiry')}
-            placeholder="DD/MM/YYYY"
-            inputMode="numeric"
-            format={typeDate}
-            onChange={(v) => set({ passportExpiry: v })}
-            error={s.passportExpiry && !parseDate(s.passportExpiry) ? 'Enter the date as DD/MM/YYYY, like 11/02/2033.' : null}
-            after={
-              exp && (
-                <p className={`field__msg field__msg--${exp.level === 'bad' ? 'error' : 'warn'}`} id="rp-expiry-hint">
-                  <Icon name="alert" size={16} />
-                  <span>{exp.text}</span>
-                </p>
-              )
-            }
           />
         </div>
         <Choice

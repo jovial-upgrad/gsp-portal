@@ -8,7 +8,7 @@
  * with none (Finance's default applies to those).
  */
 import DATASET from '../data/dataset.json';
-import { sampleApplications, courseOf, intakeStart } from '../data/applications';
+import { sampleApplications, courseOf, startOf, censusOf } from '../data/applications';
 import { sampleStudents } from '../data/students';
 import { UNI_TERMS, rpByName, dataApp } from '../data/dataset';
 import { compute } from './engine';
@@ -45,10 +45,12 @@ export function datasetFinanceApps(cfg, today) {
     const c = courseOf(a);
     const st = studs.find((x) => x.id === a.studentId);
     const rp = a.rp ? rpByName(a.rp) : null;
-    const start = (d && d.intakeDate) || iso(intakeStart(a.intake));
+    // the course's start and census: Finance's own record for its enrolments, otherwise the catalogue's intake dates
+    const start = (d && d.intakeDate) || iso(startOf(a));
+    const census = d && d.intakeDate ? undefined : iso(censusOf(a));
     apps[a.id] = {
       id: a.id, student: st ? `${st.first} ${st.last}` : a.studentId, rp: rp ? rp.id : 'R-TEST', uni: UNI_TERMS[c.uni.id] ?? `none-${c.uni.id}`,
-      level: LEVEL[c.level] ?? 'PG', intake: start, tuition: c.tuition, scholarship: c.scholarship, enrolled: start,
+      level: LEVEL[c.level] ?? 'PG', intake: start, ...(census ? { census } : {}), tuition: c.tuition, scholarship: c.scholarship, enrolled: start,
       studentType: (d && d.fin && d.fin.studentType) || 'New', nationality: st ? st.nationality : 'India', courseYears: d && d.fin && d.fin.courseYears,
       inv: {}, paidIP: {}, paidRP: {}, gspLead: !!(d && d.fin && d.fin.gspLead), ...(withdrawn ? { withdrawn } : {}),
     };

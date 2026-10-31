@@ -1,3 +1,4 @@
+import { adminCfg } from '../admin/data/store';
 import geoJson from './geo.json';
 
 export type Country = { name: string; iso: string; dial: string; states: string[] };
@@ -31,21 +32,29 @@ export const FOUND_US = [
   'Other',
 ];
 
-/** Business documents asked for after sign-up (PM prototype `SU_DOCS` / `DOCRULES`). */
+/**
+ * Business documents asked for after sign-up (Jovial, 31 Oct): GSP · Admin › Document configuration's recruitment
+ * partner rules, by the agency's country (India's own list; another for everyone else). A document whose name says
+ * "if …" is optional.
+ */
 export type DocNeed = { name: string; hint: string; optional?: boolean };
+const HINT: [RegExp, string][] = [
+  [/registration/i, 'Shows your registered business name'],
+  [/PAN/, 'Business PAN, not a personal one'],
+  [/GST/, 'Only if you are GST registered'],
+  [/profile/i, 'A short PDF about your agency'],
+  [/ID/, 'Passport or national ID'],
+  [/reference/i, 'Someone who knows your work: their name, email and phone'],
+];
 export function businessDocsFor(country: string): DocNeed[] {
-  if (country === 'India')
-    return [
-      { name: 'Business registration certificate', hint: 'Shows your registered business name' },
-      { name: 'PAN card', hint: 'Business PAN, not a personal one' },
-      { name: 'GST certificate', hint: 'Only if you are GST registered', optional: true },
-    ];
-  return [
-    { name: 'Business registration certificate', hint: 'Shows your registered business name' },
-    { name: 'Company profile', hint: 'A short PDF about your agency' },
-    { name: 'Owner’s ID', hint: 'Passport or national ID' },
-    { name: 'A business reference', hint: 'A letter from someone who knows your work, with their email and phone' },
-  ];
+  const rule = adminCfg().rpDocs.find((r) =>
+    r.applies === 'All countries' ? true : r.applies === 'Only these countries' ? r.countries.includes(country) : !r.countries.includes(country),
+  );
+  return (rule?.docs ?? []).map((d) => ({
+    name: d.replace(/\s*\(if [^)]*\)/i, ''),
+    hint: HINT.find(([re]) => re.test(d))?.[1] ?? '',
+    optional: /\(if /i.test(d) || undefined,
+  }));
 }
 
 import { STAFF, fullName, label, type Staff } from './staff';
@@ -54,36 +63,37 @@ import { CITIES } from './students';
 export type Contact = { name: string; role: string; phone: string; email: string; initials: string };
 
 /**
- * Who looks after a new agency: the Recruitment person on GSP's staff list (data/staff.ts) whose area covers the
- * agency's city or its state; otherwise the one who covers the whole country (Saurabh Chaudhary's area is "India");
- * otherwise the first Recruitment person for that sales region. A referral code (the first three letters of a
- * Recruitment person's first name, like ADI-204) wins over all of these. The staff list has no phone numbers.
+ * Who looks after a new agency (Jovial, 31 Oct): GSP · Admin › BDM assignment, which starts from the staff list's
+ * areas. Most specific match first: the agency's city, then its state, then the rest of its country, then all other
+ * countries. A referral code (the first three letters of a Recruitment person's first name, like ADI-204) wins.
+ * The staff list has no phone numbers.
  */
 const SAME_CITY: Record<string, string> = { calicut: 'kozhikode', trichy: 'tiruchirappalli', vijaywada: 'vijayawada', 'new delhi': 'delhi', 'ho chi minh': 'ho chi minh city', gurugram: 'gurgaon' };
 const norm = (x: string) => { const v = x.trim().toLowerCase(); return SAME_CITY[v] ?? v; };
-const areasOf = (s: Staff) => s.area.split(',').map(norm).filter(Boolean);
 const stateOf = (city: string) => Object.keys(CITIES).find((st) => CITIES[st].some((c) => norm(c) === norm(city)));
-const BDMS = STAFF.filter((s) => s.role === 'Recruitment');
 const contactOf = (s: Staff, role: string): Contact => ({ name: label(s), initials: initialsOf(fullName(s)), role, phone: '', email: s.email });
+const byLabel = (n: string) => STAFF.find((x) => label(x) === n);
 
 const initialsOf = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('');
 
-/** The GSP partner manager (BDM) a new sign-up is given. A referral code wins over the area rule. */
+/** The GSP partner manager (BDM) a new sign-up is given. A referral code wins over the assignment table. */
 export function partnerManagerFor(country: string, city: string, referral: string): Contact | null {
   const code = referral.trim().toUpperCase();
   const pre = code.slice(0, 3);
-  const byRef = pre.length === 3 ? BDMS.filter((s) => s.first.toUpperCase().startsWith(pre)) : [];
+  const byRef = pre.length === 3 ? STAFF.filter((s) => s.role === 'Recruitment' && s.first.toUpperCase().startsWith(pre)) : [];
   if (byRef.length === 1) return contactOf(byRef[0], `Partner manager · from referral code ${code}`);
-  const inCountry = BDMS.filter((s) => s.regions.includes(country));
-  const st = stateOf(city);
-  const cityHit = city.trim() && inCountry.find((s) => areasOf(s).includes(norm(city)));
-  const stateHit = st && inCountry.find((s) => areasOf(s).includes(norm(st)));
-  const whole = inCountry.find((s) => areasOf(s).includes(norm(country)));
-  const any = inCountry.find((s) => !s.area) ?? inCountry[0];
-  const hit = cityHit || stateHit || whole || any;
-  if (!hit) return null;
-  const where = cityHit ? `${city.trim()}, ${country}` : stateHit ? `${st}, ${country}` : country;
-  return contactOf(hit, `Partner manager · ${where}`);
+  const rows = adminCfg().bdm;
+  const st = city.trim() ? stateOf(city) : undefined;
+  const areas = (area: string) => area.split(',').map(norm);
+  const mine = rows.filter((r) => r.country === country);
+  const cityRow = city.trim() && mine.find((r) => areas(r.area).includes(norm(city)));
+  const stateRow = st && mine.find((r) => areas(r.area).includes(norm(st)));
+  const restRow = mine.find((r) => r.area.startsWith('Rest of') || r.area === 'All' || r.area === 'All countries');
+  const hit = cityRow || stateRow || restRow || rows.find((r) => r.fallback);
+  const who = hit && byLabel(hit.bdm);
+  if (!who) return null;
+  const where = cityRow ? `${city.trim()}, ${country}` : stateRow ? `${st}, ${country}` : restRow ? country : 'all other countries';
+  return contactOf(who, `Partner manager · ${where}`);
 }
 
 /** Emails that already have a GSP account (sample data from the PM prototype). */

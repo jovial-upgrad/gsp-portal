@@ -154,6 +154,16 @@ const subscribe = (f: () => void) => {
 };
 /** For stores outside React (Finance's): called on every change. */
 export const onAdminChange = (f: () => void) => subscribe(f);
+/** A course's living costs and visa and health fees, from Admin's tables as they are now. */
+export function costsOf(c: { uni: { country: string }; living: number; otherFees: [string, number][] }) {
+  const cfg = load();
+  const l = cfg.living.find((y) => y.country === c.uni.country);
+  const fees = (cfg.visaFees ?? []).filter((f) => f.country === c.uni.country);
+  return {
+    living: l ? l.perYear : c.living,
+    otherFees: fees.length ? fees.map((f) => [`${f.label}, ${f.per === 'year' ? 'a year' : 'once'}`, f.amount] as [string, number]) : c.otherFees,
+  };
+}
 /** Rupees for one unit of a currency, from Admin's Currency exchange (course search's budget in lakhs). */
 export const inrPer = (code: string) => inrPerFrom(load().rates, code);
 /** Admin's settings in a component, kept up to date. */

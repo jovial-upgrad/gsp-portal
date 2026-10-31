@@ -211,8 +211,8 @@ export function newUniRec(f: { name: string; utype: UniType; country: University
   return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, priority: '', cricos: '', logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {} };
 }
 
-/** A university as Course search reads it: its live campuses, its territory as blocks, and its partner's commission. */
-export function forSearch(u: UniRec, p: InstitutionPartner | undefined): University {
+/** A university as Course search reads it: its live campuses and its territory as blocks. */
+export function forSearch(u: UniRec, _p?: InstitutionPartner): University {
   const t = u.territory;
   const states = new Map<string, string[]>();
   t.blocked.forEach((b) => states.set(b.country, [...(states.get(b.country) ?? []), b.state]));
@@ -222,7 +222,8 @@ export function forSearch(u: UniRec, p: InstitutionPartner | undefined): Univers
     campuses: u.campuses.filter((c) => !u.inactive.includes(c.name)),
     priorityFor: t.priority,
     blocked: [...out.map((country) => ({ country })), ...[...states].filter(([c]) => !out.includes(c)).map(([country, s]) => ({ country, states: s }))],
-    rate: p?.commission?.state === 'Active' ? p.commission.rate : u.rate,
+    // GSP's rate comes from Finance's terms (data/courses.ts termsRate), not the partner record (Jovial, 31 Oct)
+    rate: u.rate,
   };
 }
 
@@ -330,6 +331,17 @@ let rid = 0;
 const ruleId = () => `r${(++rid).toString(36)}`;
 export const newRuleId = ruleId;
 
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** A sample intake's dates: the course starts on a Monday in the intake's month (the same one for every course at the university), census 4 weeks later, deposit 30 days after the deadline. */
+function datesFor(month: string, deadline: string, uniId: string): IntakeDates {
+  const [m, y] = month.split(' ');
+  const d = new Date(Date.UTC(Number(y), MON.indexOf(m), 1));
+  while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCDate(d.getUTCDate() + 7 * ([...uniId].reduce((t, ch) => t + ch.charCodeAt(0), 0) % 3));
+  const start = d.toISOString().slice(0, 10);
+  return { deposit: plusDays(deadline, 30), accept: '', start, census: plusDays(start, 28) };
+}
+
 export function sampleCourseRecs(): CourseRec[] {
   return COURSES.map((c, i) => ({
     ...c,
@@ -341,7 +353,8 @@ export function sampleCourseRecs(): CourseRec[] {
     firstYearFee: 0,
     // 30 Oct: the fee the team enters is the full course fee; tuition a year follows from it
     fullFee: Math.round((c.tuition * c.months) / 12),
-    dates: Object.fromEntries(c.intakes.map((x) => [x.month, { deposit: plusDays(x.deadline, 30), accept: '', start: '', census: '' }])),
+    // each intake's dates (Jovial, 31 Oct): the source for course search and the application; start on a Monday, census four weeks on
+    dates: Object.fromEntries(c.intakes.map((x) => [x.month, datesFor(x.month, x.deadline, c.uni.id)])),
     academicRules: [{ id: ruleId(), countries: [], qual: 'Applicable to all', board: '', scale: 'Percentage', min: c.academic, backlogs: c.backlogs !== undefined ? String(c.backlogs) : '', note: '' }],
     englishRules: [
       { id: ruleId(), countries: [], test: 'IELTS Academic', overall: c.ielts[0], min: c.ielts[1], note: '' },

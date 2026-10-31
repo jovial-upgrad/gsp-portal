@@ -1,9 +1,10 @@
+import { costsOf } from '../../admin/data/store';
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
-import { COURSES, FLAG, FLAG_COLOURS, blockedFor, earnOf, intakeState, money, scholarshipsOf, type Campus, type Course, type University } from '../../data/courses';
+import { COURSES, FLAG, FLAG_COLOURS, blockedFor, earnOf, intakeState, money, scholarshipsOf, type Campus, type Course, type University, intakeDates } from '../../data/courses';
 import { RP_COUNTRY } from '../../data/entry';
 import { EntryTab } from '../../screens/courses/EntryTab';
 import type { CourseSearch } from './search';
@@ -364,6 +365,11 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
                 <span className="cm-intake__t">
                   <span className="cm-intake__name">{i.month} intake</span>
                   <span className="cm-intake__by">{st === 'closed' ? `Closed ${day(i.deadline)}` : `Apply by ${day(i.deadline)}`}</span>
+                  {intakeDates(c.id, i.month)?.start && (
+                    <span className="cm-intake__by">
+                      Starts {day(intakeDates(c.id, i.month)!.start)} · Census {day(intakeDates(c.id, i.month)!.census)}
+                    </span>
+                  )}
                 </span>
                 {st === 'closed' && (
                   <span className="cm-state cm-state--closed">
@@ -476,12 +482,14 @@ function CampusCard({ u, k, current = false }: { u: University; k: Campus; curre
 
 function Costs({ c }: { c: Course }) {
   const schols = scholarshipsOf(c);
-  const others = c.otherFees.reduce((n, [, v]) => n + v, 0);
-  const firstYear = c.tuition - c.scholarship + c.appFee + c.living + others;
+  // living costs and visa and health fees: GSP · Admin's tables (Jovial, 31 Oct)
+  const { living, otherFees } = costsOf(c);
+  const others = otherFees.reduce((n, [, v]) => n + v, 0);
+  const firstYear = c.tuition - c.scholarship + c.appFee + living + others;
   // the first year, part by part, in a fixed order: each part keeps its colour whatever the course
   const parts = [
     { key: 'tuition', label: c.scholarship ? 'Tuition, after the scholarship' : 'Tuition', v: c.tuition - c.scholarship },
-    { key: 'living', label: 'Living costs', v: c.living },
+    { key: 'living', label: 'Living costs', v: living },
     { key: 'visa', label: 'Visa and health cover', v: others },
     { key: 'app', label: 'Application fee', v: c.appFee },
   ].filter((x) => x.v > 0);
@@ -509,8 +517,8 @@ function Costs({ c }: { c: Course }) {
         </Box>
         <Box id="cs-other" icon="globe" title="Other costs">
           <dl className="cdl">
-            <Row k="Living costs a year (visa figure)" v={money(c.living, c.currency)} />
-            {c.otherFees.map(([k, v]) => (
+            <Row k="Living costs a year (visa figure)" v={money(living, c.currency)} />
+            {otherFees.map(([k, v]) => (
               <Row key={k} k={k} v={`≈ ${money(v, c.currency)}`} />
             ))}
           </dl>

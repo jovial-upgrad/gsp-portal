@@ -51,7 +51,7 @@ const isEditable = (k: RecordTab): k is Editable => EDITABLE.includes(k);
 const hasData = (k: Editable, s: Student) =>
   k === 'personal'
     ? // the passport's own details, or the passport: before either, it opens ready to upload the passport
-      !!(s.docs.passport || s.dob || s.gender || s.passportExpiry || s.city)
+      !!(s.docs.passport || s.dob || s.gender || s.city)
     : k === 'education'
       ? Object.values(s.edu).some((e) => !!(e.level || e.institution || e.qualification || e.score))
       : k === 'work'
@@ -62,7 +62,7 @@ const hasData = (k: Editable, s: Student) =>
 
 /** What each section owns, so saving one section never touches another (or what an upload read meanwhile). */
 const OWN: Record<Editable, (keyof Student)[]> = {
-  personal: ['first', 'last', 'oneName', 'nationality', 'passport', 'dob', 'passportExpiry', 'gender', 'email', 'dial', 'phone', 'country', 'state', 'city'],
+  personal: ['first', 'last', 'oneName', 'nationality', 'passport', 'dob', 'gender', 'email', 'dial', 'phone', 'country', 'state', 'city'],
   education: ['eduCountry', 'highest', 'edu'],
   work: ['work'],
   tests: ['tests'],

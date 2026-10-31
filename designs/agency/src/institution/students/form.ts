@@ -131,7 +131,7 @@ export function makeStudent(a: AddState, me: string): Student {
     disability: '',
     disabilityNote: '',
     docs: a.file ? { passport: { name: 'Passport', file: a.file.name, status: 'uploaded' } } : {},
-    read: x ? ['gender', 'dob', 'passportExpiry'] : [],
+    read: x ? ['gender', 'dob'] : [],
     counsellor: f.counsellor,
     added: Date.now(),
     addedBy: me,

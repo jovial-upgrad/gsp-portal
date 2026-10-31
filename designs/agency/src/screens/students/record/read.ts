@@ -17,7 +17,6 @@ export function fillFromPassport(p: Student, file: string): Student {
   if (!p.passport) fill.passport = r.passport;
   if (!p.gender) fill.gender = r.gender;
   if (!p.dob) fill.dob = r.dob;
-  if (!p.passportExpiry) fill.passportExpiry = r.passportExpiry;
   return { ...p, ...fill, read: mark(p, Object.keys(fill)) };
 }
 

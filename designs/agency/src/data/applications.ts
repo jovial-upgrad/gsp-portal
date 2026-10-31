@@ -11,10 +11,12 @@
  * checking a document before GSP sees it, checking eligibility, forecasting dates and drafting messages.
  * They answer only from the application's own data, and they never change it.
  */
+import { adminCfg } from '../admin/data/store';
+import { condOf, whenText } from '../admin/data/config';
 import { person, label, idOf, staffById } from './staff';
 import { datasetApplications } from './dataset';
-import { COURSES, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
-import { LEVELS as EDU_LEVELS, TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
+import { COURSES, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
+import { TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
 
 export const DAY = 86_400_000;
@@ -370,36 +372,43 @@ const OWN: [RegExp, string, string][] = [
  * (financial documents after the offer, references if the university wants them, a gap explanation) isn't
  * collected here: GSP asks for it in the chat when it's needed.
  */
+/** The study level as GSP · Admin's document rules name it. */
+const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 'Diploma', 'Bachelor’s degree': 'Undergraduate', 'Postgraduate diploma': 'Postgraduate', 'Master’s degree': 'Postgraduate', 'PhD or research': 'Doctorate' };
+/**
+ * The documents an application asks for when it's added (Jovial, 31 Oct): GSP · Admin › Document configuration's
+ * rules for the New stage that the RP uploads, where each rule applies to this course (its study level, the
+ * university's country, where the student is). A rule with a condition the prototype can't check ("the university
+ * has its own form") asks for it as optional, with the condition as the reason. The English test comes from the
+ * course's English rule, as before.
+ */
 export function docsFor(s: Student, c: Course): AppDoc[] {
-  const pg = isPgCourse(c);
-  // the student has studied to this level: their highest education is at or above it, or its marksheet is on the profile
-  const holds = (l: EduLevel) => EDU_LEVELS.indexOf(s.highest) <= EDU_LEVELS.indexOf(l) || !!s.docs[eduDocKey(l)];
   const out: AppDoc[] = [];
-  for (const [name, need, when] of c.docs) {
-    if (/^Passport/.test(name)) out.push({ key: 'passport', name: 'Passport', what: 'The photo page and the address page', need: 'required' });
-    else if (/transcripts|mark sheets/.test(name)) {
-      out.push(markDoc('g10', 'required'));
-      if (c.level !== 'Foundation') out.push(markDoc('g12', 'required'));
-      else if (holds('g12')) out.push(markDoc('g12', 'optional'));
-      if (pg) out.push(markDoc('ug', 'required'));
-      else if (holds('ug')) out.push(markDoc('ug', 'optional'));
-      if (c.level === 'PhD or research') out.push(markDoc('pg', 'required'));
-      else if (pg && holds('pg')) out.push(markDoc('pg', 'optional'));
-    } else if (/^English test/.test(name)) {
-      const t = s.tests.find((x) => TESTS[x.type].kind === 'English' && x.overall);
-      if (t) out.push({ key: testDocKey(t), name: testDocName(t), what: `${testSummary(t)}, from ${s.first}’s profile`, need: 'required' });
-      else
-        out.push({
-          key: 'english',
-          name: 'English test score report',
-          what: c.englishFlex ? `${c.uni.name} can take it later; GSP asks for it before the offer is final` : `${c.name} needs one before GSP can submit`,
-          need: c.englishFlex ? 'optional' : 'required',
-        });
-    } else if (when === 'With the application') {
+  const level = RULE_LEVEL[c.level] ?? 'Postgraduate';
+  const inDest = s.country === c.uni.country || (s.country === 'United Kingdom' && c.uni.country === 'UK');
+  const add = (d: AppDoc) => { if (!out.some((x) => x.key === d.key)) out.push(d); };
+  for (const r of adminCfg().docRules) {
+    if (!r.on || r.stage !== 'New' || r.by !== 'RP') continue;
+    const k = condOf(r);
+    if (k.levels.length && !k.levels.includes(level)) continue;
+    if (k.countries.length && !k.countries.includes(c.uni.country)) continue;
+    if (k.where === 'Already in the destination' && !inDest) continue;
+    if (k.where === 'Outside the destination' && inDest) continue;
+    const need: AppDoc['need'] = r.setting === 'Mandatory' && !k.other ? 'required' : 'optional';
+    const name = r.doc;
+    if (/^Passport/i.test(name)) add({ key: 'passport', name: 'Passport', what: 'The photo page and the address page', need });
+    else if (/class 10|10th|ssc/i.test(name)) add(markDoc('g10', need));
+    else if (/class 12|12th|hsc/i.test(name)) add(markDoc('g12', need));
+    else if (/^UG |undergraduate|bachelor/i.test(name)) add(markDoc('ug', need));
+    else if (/^PG |postgraduate|master/i.test(name)) add(markDoc('pg', need));
+    else {
       const own = OWN.find(([re]) => re.test(name));
-      out.push({ key: profileKeyFor(name) ?? name.toLowerCase().replace(/[^a-z]+/g, '-'), name: own?.[1] ?? name, what: own?.[2] ?? `${c.uni.name} asks for it with the application`, need: need === 'Required' ? 'required' : 'optional' });
+      add({ key: profileKeyFor(name) ?? name.toLowerCase().replace(/[^a-z]+/g, '-'), name: own?.[1] ?? name, what: k.other ? `When ${k.other.charAt(0).toLowerCase()}${k.other.slice(1)}` : own?.[2] ?? `GSP asks for it for ${whenText(k).toLowerCase()}`, need });
     }
   }
+  // the English test: from the course's English rule
+  const t = s.tests.find((x) => TESTS[x.type].kind === 'English' && x.overall);
+  if (t) add({ key: testDocKey(t), name: testDocName(t), what: `${testSummary(t)}, from ${s.first}’s profile`, need: 'required' });
+  else add({ key: 'english', name: 'English test score report', what: c.englishFlex ? `${c.uni.name} can take it later; GSP asks for it before the offer is final` : `${c.name} needs one before GSP can submit`, need: c.englishFlex ? 'optional' : 'required' });
   return out;
 }
 
@@ -564,6 +573,15 @@ function otherPerson(file: string, s: Student) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** Courses start around the fourth week of the intake month. */
+/** When the application's course starts and its census date (Jovial, 31 Oct): the catalogue's intake dates; without them, the 22nd of the month and four weeks on. */
+export function startOf(a: Pick<Application, 'courseId' | 'intake'>) {
+  const d = intakeDates(a.courseId, a.intake);
+  return d?.start ? Date.parse(d.start + 'T00:00:00Z') : intakeStart(a.intake);
+}
+export function censusOf(a: Pick<Application, 'courseId' | 'intake'>) {
+  const d = intakeDates(a.courseId, a.intake);
+  return d?.census ? Date.parse(d.census + 'T00:00:00Z') : startOf(a) + 28 * DAY;
+}
 export function intakeStart(intake: string) {
   const [m, y] = intake.split(' ');
   return new Date(Number(y), MONTHS.indexOf(m), 22).getTime();

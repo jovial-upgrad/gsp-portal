@@ -285,7 +285,6 @@ export function readiness(s: Student) {
       ['passport number', !!s.passport],
       ['gender', !!s.gender],
       ['date of birth', !!parseDate(s.dob)],
-      ['passport expiry', !!parseDate(s.passportExpiry)],
       ['current country', !!s.country],
       ['state', !hasStates || !!s.state],
       ['city', !!s.city.trim()],

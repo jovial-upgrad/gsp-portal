@@ -30,6 +30,7 @@ import { useLinkedData } from '../../proto/link';
 import '../signup/signup.css';
 import './portal.css';
 import { useLiveApps } from '../../data/live';
+import { setSession } from '../../data/downloads';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -114,6 +115,8 @@ export function Portal({
   const [apps, setApps] = useState<Application[]>(() => (start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications())).filter((x) => !x.rp));
   // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
   useLiveApps(setApps);
+  // who's signed in, for the download log (data/downloads.ts)
+  setSession(acc.name, acc.role ?? 'RP Admin');
   // connected to the other role for testing (Role, beside Prototype): see proto/link.ts
   // the bell and the megaphone: this portal's notifications (real ones from the other role while connected), and
   // announcements as the Institution Team's model has them (this role's own copy: nothing that team changes reaches here)

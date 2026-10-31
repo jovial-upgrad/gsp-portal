@@ -7,7 +7,7 @@
  * every line is an estimate.
  */
 import { useMemo, useState } from 'react';
-import { courseOf, intakeStart, type Application } from '../data/applications';
+import { courseOf, startOf, censusOf, type Application } from '../data/applications';
 import { compute, money, nice } from './engine';
 import { getState } from './store';
 import { UNI_TERMS, rpByName } from '../data/dataset';
@@ -48,8 +48,8 @@ function priced(a: Application, agency: string) {
     uni = { id: `x-${c.uni.id}`, name: c.uni.name, group: '', country: COUNTRY[c.uni.country] ?? 'AU', cur: c.currency, ends: '', trigger: 'census', inst: 2, payDays: 30, cap: null, levels: { [lvl]: c.rate || c.uni.rate }, fixed: {}, tier: null, annuity: null };
     cfg2.unis.push(uni);
   }
-  const start = iso(intakeStart(a.intake));
-  const app = { id: a.id, student: '', rp: rp.id, uni: uni.id, level: lvl, intake: start, tuition: c.tuition, scholarship: c.scholarship, enrolled: start, studentType: 'New', nationality: rp.region, inv: {}, paidIP: {}, paidRP: {} };
+  const start = iso(startOf(a));
+  const app = { census: iso(censusOf(a)), id: a.id, student: '', rp: rp.id, uni: uni.id, level: lvl, intake: start, tuition: c.tuition, scholarship: c.scholarship, enrolled: start, studentType: 'New', nationality: rp.region, inv: {}, paidIP: {}, paidRP: {} };
   const res = compute(cfg2, { ...s.comm.apps, [a.id]: app }, today);
   const one = { ...res, ip: res.ip.filter((x) => x.app === a.id), rp: res.rp.filter((x) => x.app === a.id) };
   return { res: one, r: res.apps[a.id], cfg: cfg2, uni, rp, assumed, enrolled: false, today };

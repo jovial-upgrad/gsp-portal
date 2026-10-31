@@ -293,6 +293,19 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - **My work** and **Mail** link to the same applications; **confirming a status in Mail changes the application in every role**, and an application Mail marks enrolled joins Finance's ledgers at once (`src/data/live.ts`).
   - **RPs**: one list for the RP pickers and the Institution Team's Recruitment partners page (every RP an application is with); the sample agency is the GSP test agency everywhere.
 
+- [x] Jovial, 31 Oct (evening, in the QC doc's inventory): **Admin and the Institution catalogue are the sources** (31 Oct, commit “Admin and the catalogue are the sources”)
+  - **Admin's settings are saved and shared:** one store every role reads (`src/admin/data/store.ts`).
+  - **Currency exchange is the one source:** rates in AUD per unit, kept by week; course search's lakh budget and Finance's pricing both read it. Finance's FX card is read-only and points to Admin.
+  - **Living costs** and a new **Visa and health fees** page (set up like Living costs) feed every course page's costs.
+  - **Document configuration** decides the documents asked for when an application is added (New stage, uploaded by the RP, where the rule applies); the English test still comes from the course. **RP documents** for sign-up and on the RP page come from its RP rules, India and everyone else.
+  - **BDM assignment** starts from the staff list's areas, and a new RP's partner manager comes from it.
+  - **Download log:** every CSV downloaded anywhere is logged with who, role, page, filters and rows.
+  - **Course search in every role reads the Institution catalogue:** live universities only (a paused one disappears), live courses, territory, campuses; scholarships on the course's costs come from the university's record; each intake shows its **start and census dates** (also answering the Course page item above for start and census), and applications, the GSP submission card and Finance use the same dates. The submission channel and logins on GSP's application come from the university's record.
+  - **Passport validity** removed everywhere (the profile field, its warnings and the completeness check).
+  - The university's commission rate is Finance's, not the Institution partner record's.
+  - Open, in Jovial's sheet *GSP portal: inputs from Jovial*: permissions, sales regions, nationality map, routing rules, queues, mailboxes, and 23 questions.
+  - Parked by Jovial: **grade conversion** (percentage to GPA, CGPA to percentage). Pick it up at the end.
+
 
 ## New pages
 

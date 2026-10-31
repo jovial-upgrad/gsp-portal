@@ -1,7 +1,7 @@
-import { money, type Destination } from '../../data/courses';
+import { money, submission, type Destination } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { fullName, type Student } from '../../data/students';
-import { ENROL_DOC, ENROL_DOC_LONG, VISA_NAME, courseOf, destOf, gspContact, stageOf, type Application, type StatusKey } from '../../data/applications';
+import { ENROL_DOC, ENROL_DOC_LONG, VISA_NAME, censusOf, courseOf, destOf, gspContact, stageOf, type Application, type StatusKey } from '../../data/applications';
 
 /**
  * What only GSP's team keeps for an application: the university's mail about it, where and how it's
@@ -42,17 +42,13 @@ export const intakeStart = (intake: string) => {
 /** A date with its year: "31 Mar 2027". */
 export const longDate = (t: number) => `${shortDate(new Date(t))} ${new Date(t).getFullYear()}`;
 
-/** How each university takes applications from GSP: Australia and New Zealand mostly through StudyLink. */
+/** How the university takes applications from GSP: the Institution Team's university record (Jovial, 31 Oct). */
 function channelFor(a: Application): Channel {
   const u = courseOf(a).uni;
-  const web = u.website ?? `${u.id}.edu`;
-  const code = u.id.slice(0, 3).toUpperCase();
-  const n = [...u.id].reduce((t, ch) => t + ch.charCodeAt(0), 0);
-  const kind = u.country === 'Australia' || u.country === 'New Zealand' ? (n % 3 ? 'studylink' : 'portal') : n % 2 ? 'portal' : 'mail';
-  if (kind === 'mail') return { via: 'mail', email: `international.admissions@${web}` };
-  return kind === 'studylink'
-    ? { via: 'studylink', url: `https://www.studylink.com/${u.id}`, username: `upgradgsp.${u.id}`, password: `Gsp-${code}-${2026 + (n % 3)}!` }
-    : { via: 'portal', url: `https://agents.${web}`, username: `UPGRAD-GSP-${code}`, password: `Up${code.toLowerCase()}#${4000 + (n % 900)}` };
+  const sub = submission(u.id);
+  if (!sub || sub.channel === 'Email') return { via: 'mail', email: sub?.link || `international@${u.website ?? `${u.id}.edu`}` };
+  if (sub.channel === 'StudyLink') return { via: 'studylink', url: `https://www.studylink.com/${u.id}`, username: sub.username ?? '', password: sub.secret ?? '' };
+  return { via: 'portal', url: `https://${sub.link}`, username: sub.username ?? '', password: sub.secret ?? '' };
 }
 
 /** The university's mail so far, from where the application has got to. */
@@ -212,7 +208,7 @@ export function statusMail(a: Application, s: Student, k: StatusKey, at: number)
 /** Census date: about four weeks after the course starts. Final tuition fee: the course's yearly tuition. */
 export function deskFor(a: Application, s: Student): Desk {
   const c = courseOf(a);
-  return { mails: mailsFor(a, s), channel: channelFor(a), census: intakeStart(a.intake) + 30 * DAY, fee: c.tuition };
+  return { mails: mailsFor(a, s), channel: channelFor(a), census: censusOf(a), fee: c.tuition };
 }
 
 /** GSP Assist's summary of a mail: the written one, or its first few sentences. */

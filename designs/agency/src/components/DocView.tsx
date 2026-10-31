@@ -46,10 +46,6 @@ export function Paper({ d, s }: { d: DocRef; s?: Student }) {
                 <dt>Date of birth</dt>
                 <dd className="num">{s.dob || '14/03/2002'}</dd>
               </div>
-              <div>
-                <dt>Date of expiry</dt>
-                <dd className="num">{s.passportExpiry || '09/11/2033'}</dd>
-              </div>
             </dl>
           </div>
           <p className="dpp__mrz num" aria-hidden="true">

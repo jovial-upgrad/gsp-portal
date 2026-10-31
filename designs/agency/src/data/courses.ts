@@ -483,6 +483,26 @@ export function blockedFor(u: University, country: string, state: string) {
 export type Scholarship = { name: string; amount: string; per: string; who: string; auto: boolean; from: 'course' | 'university' };
 
 /** The university's own awards, from its id, so no other data moves (sample data until GSP's scholarship feed is in). */
+/** An intake's dates and a university's submission channel as the Institution Team keeps them (set by institution/data/store.ts). */
+export type IntakeDates = { deposit: string; accept: string; start: string; census: string };
+export type Submission = { channel: string; link: string; username?: string; secret?: string };
+let intakeDatesOf: (courseId: string, month: string) => IntakeDates | undefined = () => undefined;
+let submissionOf: (uniId: string) => Submission | undefined = () => undefined;
+export const setCatalogueReaders = (dates: typeof intakeDatesOf, sub: typeof submissionOf) => {
+  intakeDatesOf = dates;
+  submissionOf = sub;
+};
+/** An intake's start, census and deposit dates, from the catalogue. */
+export const intakeDates = (courseId: string, month: string) => intakeDatesOf(courseId, month);
+/** How the university takes applications, from the catalogue. */
+export const submission = (uniId: string) => submissionOf(uniId);
+
+/** A university's scholarships as the Institution Team keeps them (set by institution/data/store.ts, to keep the modules apart). */
+type UniScholarship = { name: string; amountType: string; low: number; high: number; currency: string; from: string[]; levels: string[]; areas: string[]; conditions: string };
+let uniScholarshipsOf: (uniId: string) => UniScholarship[] | undefined = () => undefined;
+export const setUniScholarships = (f: typeof uniScholarshipsOf) => {
+  uniScholarshipsOf = f;
+};
 export function scholarshipsOf(c: Course): Scholarship[] {
   let h = 0;
   for (const ch of `${c.uni.id}:schol`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -497,6 +517,18 @@ export function scholarshipsOf(c: Course): Scholarship[] {
       auto: !!c.scholarshipAuto,
       from: 'course',
     });
+  // the university's scholarships from the Institution Team's catalogue (Jovial, 31 Oct), where it has them
+  const kept = uniScholarshipsOf(c.uni.id);
+  if (kept) {
+    for (const x of kept) {
+      if (x.levels.length && !x.levels.includes(c.level)) continue;
+      if (x.areas.length && !x.areas.includes(c.area)) continue;
+      if (list.some((y) => y.name === x.name)) continue;
+      const amount = x.amountType === 'Percentage' ? (x.low === x.high ? `${x.high}% off tuition` : `${x.low}–${x.high}% off tuition`) : x.low === x.high ? money(x.high, x.currency) : `Up to ${money(x.high, x.currency)}`;
+      list.push({ name: x.name, amount, per: 'off the first year', who: x.conditions || (x.from.length ? `Students from ${x.from.join(', ')}` : 'Students who meet entry'), auto: false, from: 'university' });
+    }
+    return list;
+  }
   const uni: Scholarship[] = [
     { name: 'Early acceptance bursary', amount: money(round(c.tuition * 0.06), c.currency), per: 'off the first year', who: 'Pay the deposit within 30 days of the offer', auto: true, from: 'university' },
     { name: 'High achiever award', amount: `Up to ${money(round(c.tuition * 0.25), c.currency)}`, per: 'off the first year', who: `${Math.min(c.academic + 15, 90)}% or more in the last qualification`, auto: false, from: 'university' },
