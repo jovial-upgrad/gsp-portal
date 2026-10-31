@@ -169,3 +169,20 @@
   .cfg__resultfacts { grid-template-columns: minmax(0, 1fr); }
   .cfg__history li { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+/* Logs: date range (31 Oct) */
+.cfg__date { display: inline-flex; align-items: center; gap: var(--sp-8); font-size: var(--t-label); color: var(--text-2); }
+.cfg__date .control { min-width: 150px; }
+.cfg__editbar { display: inline-flex; gap: var(--sp-8); }
+.cfg__readonly { color: var(--text-2); }
+.cfg__addrow { padding: var(--sp-12) var(--sp-20); border-top: 1px solid var(--line); }
+.cfg__pair { display: flex; gap: var(--sp-8); }
+.cfg__code { max-width: 72px; }
+.cfg__editing { margin-bottom: var(--sp-16); }
+.cfg__login--deactivated { color: var(--text-3); }
+.cfg__tab tr.is-off td { opacity: .6; }
+.cfg__permform { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-16); align-items: end; }
+.cfg__levels { display: flex; flex-wrap: wrap; gap: var(--sp-8) var(--sp-16); }
+.cfg__permsave { display: flex; align-items: center; }
+.cfg__tab tr.is-picked td { background: var(--surface-2); }
+.cfg__lv--N { color: var(--text-3); }

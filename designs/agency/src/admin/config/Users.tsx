@@ -11,7 +11,7 @@ import { GSP_ROLES, type GspRole, type User, type UserStatus } from '../data/con
 import type { ConfigProps } from './ConfigPage';
 import { History } from './parts';
 
-const STATUSES: UserStatus[] = ['Not sent', 'Link sent', 'Active'];
+const STATUSES: UserStatus[] = ['Link sent', 'Active', 'Deactivated'];
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 const ago = (at?: number) => {
   if (!at) return '';
@@ -43,8 +43,13 @@ export function Users({ cfg, change, say }: ConfigProps) {
     setStatus('');
   };
   const send = (u: User) => {
-    change('Create roles', `Sent a login link to ${u.name} (${u.email})`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: 'Link sent', sentAt: Date.now() } : x)) }));
-    say(`Login link sent to ${u.email}. It works for 7 days.`);
+    change('Create roles', `Sent a login email to ${u.name} (${u.email})`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: x.status === 'Active' ? 'Active' : 'Link sent', sentAt: Date.now() } : x)) }));
+    say(`Login email sent to ${u.email}. The link works for 7 days.`);
+  };
+  /* Jovial, 31 Oct: deactivate (they can't sign in; they stay on record) or activate again. */
+  const setActive = (u: User, on: boolean) => {
+    change('Create roles', `${on ? 'Activated' : 'Deactivated'} ${u.name}`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: on ? 'Link sent' : 'Deactivated', sentAt: on ? Date.now() : x.sentAt } : x)) }));
+    say(on ? `${u.name} is active again. A new login email went to ${u.email}.` : `${u.name} is deactivated and can’t sign in. They stay in queues and email groups until you change them.`);
   };
   return (
     <>
@@ -61,7 +66,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
           Export as CSV
         </Button>
         <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
-          Create role
+          Create user
         </Button>
       </PageHead>
 
@@ -120,7 +125,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
               </thead>
               <tbody>
                 {rows.map((u) => (
-                  <tr key={u.id}>
+                  <tr key={u.id} className={u.status === 'Deactivated' ? 'is-off' : undefined}>
                     <td>
                       <span className="cfg__strong">{u.name}</span>
                       <span className="cfg__sub">{u.email}</span>
@@ -137,9 +142,9 @@ export function Users({ cfg, change, say }: ConfigProps) {
                     </td>
                     <td className="cfg__acts">
                       <span className="cfg__rowacts">
-                        {u.status !== 'Active' && (
+                        {u.status !== 'Deactivated' && (
                           <Button variant="secondary" size="sm" iconLeft={<Icon name="mail" size={16} />} onClick={() => send(u)}>
-                            {u.status === 'Link sent' ? 'Resend link' : 'Send login link'}
+                            Resend login email
                           </Button>
                         )}
                         <MoreMenu
@@ -147,6 +152,11 @@ export function Users({ cfg, change, say }: ConfigProps) {
                           label={`More for ${u.name}`}
                           items={[
                             { id: 'edit', label: 'Edit role', icon: 'edit', onPick: () => setEdit(u) },
+                            ...(u.status === 'Deactivated'
+                              ? [{ id: 'activate', label: 'Activate', icon: 'check' as const, onPick: () => setActive(u, true) }]
+                              : u.role === 'Admin' && cfg.users.filter((x) => x.role === 'Admin' && x.status !== 'Deactivated').length === 1
+                                ? []
+                                : [{ id: 'deactivate', label: 'Deactivate', icon: 'lock' as const, onPick: () => setActive(u, false) }]),
                             ...(u.role === 'Admin' && cfg.users.filter((x) => x.role === 'Admin').length === 1 ? [] : [{ id: 'remove', label: 'Delete role', icon: 'close' as const, danger: true, onPick: () => setRemoving(u) }]),
                           ]}
                         />
@@ -167,11 +177,11 @@ export function Users({ cfg, change, say }: ConfigProps) {
         users={cfg.users}
         regions={cfg.regions.map((r) => r.name)}
         onClose={() => setEdit(null)}
-        onSave={(u, andSend) => {
+        onSave={(u) => {
           const isNew = !cfg.users.some((x) => x.id === u.id);
-          const next: User = andSend ? { ...u, status: 'Link sent', sentAt: Date.now() } : u;
-          change('Create roles', `${isNew ? 'Created' : 'Edited'} ${u.name}: ${u.role}, ${u.region}${andSend ? ', and sent a login link' : ''}`, (c) => ({ ...c, users: isNew ? [next, ...c.users] : c.users.map((x) => (x.id === u.id ? next : x)) }));
-          say(andSend ? `${u.name} ${isNew ? 'added' : 'saved'}. Login link sent to ${u.email}; it works for 7 days.` : `${u.name} ${isNew ? 'added' : 'saved'}.`);
+          const next: User = isNew ? { ...u, status: 'Link sent', sentAt: Date.now() } : u;
+          change('Create roles', `${isNew ? 'Created' : 'Edited'} ${u.name}: ${u.role}, ${u.region}${isNew ? ', and sent a login email' : ''}`, (c) => ({ ...c, users: isNew ? [next, ...c.users] : c.users.map((x) => (x.id === u.id ? next : x)) }));
+          say(isNew ? `${u.name} created. A login email went to ${u.email}; the link works for 7 days.` : `${u.name} saved.`);
           setEdit(null);
         }}
       />
@@ -200,7 +210,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
 }
 
 /** Create or edit a role: name, email, phone with the country code, role, title and sales region. */
-function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boolean; user: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User, andSend: boolean) => void }) {
+function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boolean; user: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User) => void }) {
   const blank = (): User => ({ id: `u${Date.now()}`, name: '', email: '', dial: '+91', phone: '', role: 'Admission', title: '', region: '', status: 'Not sent' });
   const [v, setV] = useState<User>(blank);
   const [tried, setTried] = useState(false);
@@ -218,34 +228,26 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
     region: !v.region ? 'Pick their sales region.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
-  const save = (andSend: boolean) => {
+  const save = () => {
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
-    onSave({ ...v, name: v.name.trim(), email, title: v.title.trim() }, andSend);
+    onSave({ ...v, name: v.name.trim(), email, title: v.title.trim() });
   };
-  const sendable = !user || user.status !== 'Active';
   return (
     <Sheet
       open={open}
       onClose={onClose}
       center
       className="iform cfg__sheet"
-      title={user ? `Edit ${user.name}’s role` : 'Create a role'}
-      sub={user ? undefined : 'They get a login link by email when you send it, to set their password.'}
+      title={user ? `Edit ${user.name}’s role` : 'Create a user'}
+      sub={user ? undefined : 'They get a login email straight away, to set their password and sign in.'}
       footer={
         <div className="asf">
           <div className="asf__acts">
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            {sendable && (
-              <Button variant="secondary" onClick={() => save(false)}>
-                {user ? 'Save' : 'Save without sending'}
-              </Button>
-            )}
-            <Button onClick={() => save(sendable)} iconLeft={sendable ? <Icon name="mail" size={18} /> : undefined}>
-              {sendable ? 'Save and send login link' : 'Save'}
-            </Button>
+            <Button onClick={save}>{user ? 'Save' : 'Create user'}</Button>
           </div>
         </div>
       }

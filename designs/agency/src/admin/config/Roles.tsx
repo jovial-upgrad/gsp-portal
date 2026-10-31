@@ -7,7 +7,7 @@ import { MoreMenu } from '../../components/MoreMenu';
 import { Field, SelectInput, TextInput } from '../../components/forms';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { PageHead } from '../../institution/records/parts';
-import { LEVELS, OBJECTS, REGION_COUNTRIES, ROLES, type Level, type Queue, type Region, type User } from '../data/config';
+import { LEVELS, OBJECTS, ROLES, type Level, type Queue, type Region, type User } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { History, Panel } from './parts';
 
@@ -22,7 +22,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
   const usersIn = (r: string) => cfg.users.filter((u) => u.region === r).length;
   return (
     <>
-      <PageHead title="Sales regions" lead="Internal sales regions. A GSP user belongs to one, or to Global; so does an RP. Each region has its Admissions contact, whom its recruitment partners see on every page.">
+      <PageHead title="Sales regions" lead="Internal sales regions. A GSP user belongs to one, or to Global; so does an RP. Every region has an Admissions contact, whom its recruitment partners see on every page.">
         <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
           Add sales region
         </Button>
@@ -33,7 +33,6 @@ export function Regions({ cfg, change, say }: ConfigProps) {
             <thead>
               <tr>
                 <th scope="col">Sales region</th>
-                <th scope="col">Countries</th>
                 <th scope="col">Admissions contact</th>
                 <th scope="col">Users</th>
                 <th scope="col">
@@ -47,7 +46,6 @@ export function Regions({ cfg, change, say }: ConfigProps) {
                 return (
                   <tr key={r.name}>
                     <td className="cfg__strong">{r.name}</td>
-                    <td className="cfg__muted">{(REGION_COUNTRIES[r.name] ?? [r.name]).join(', ')}</td>
                     <td>{fixed ? <span className="cfg__muted">–</span> : r.contact || <span className="cfg__muted">Not set</span>}</td>
                     <td className="num">{usersIn(r.name)}</td>
                     <td className="cfg__acts">
@@ -74,6 +72,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
         open={!!edit}
         region={edit === 'new' ? null : edit}
         regions={cfg.regions}
+        contacts={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Admission Ops') && u.status !== 'Deactivated').map((u) => u.name)}
         onClose={() => setEdit(null)}
         onSave={(r) => {
           const was = edit === 'new' ? null : edit;
@@ -115,7 +114,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
 }
 
 /** Add or edit a sales region: its name and its Admissions contact. */
-function RegionDialog({ open, region, regions, onClose, onSave }: { open: boolean; region: Region | null; regions: Region[]; onClose: () => void; onSave: (r: Region) => void }) {
+function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { open: boolean; region: Region | null; regions: Region[]; contacts: string[]; onClose: () => void; onSave: (r: Region) => void }) {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [tried, setTried] = useState(false);
@@ -127,9 +126,10 @@ function RegionDialog({ open, region, regions, onClose, onSave }: { open: boolea
   }, [open, region?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const v = name.trim();
   const err = v.length < 2 ? 'Name the region, like Middle East.' : regions.some((r) => r.name !== region?.name && r.name.toLowerCase() === v.toLowerCase()) ? 'There’s already a region with this name.' : null;
+  const cerr = !contact ? 'Choose its Admissions contact.' : null;
   const save = () => {
     setTried(true);
-    if (!err) onSave({ name: v, contact: contact.trim() });
+    if (!err && !cerr) onSave({ name: v, contact });
   };
   return (
     <Sheet
@@ -153,8 +153,12 @@ function RegionDialog({ open, region, regions, onClose, onSave }: { open: boolea
         <Field id="rg-name" label="Sales region" required error={tried ? err : null}>
           <TextInput id="rg-name" value={name} invalid={tried && !!err} placeholder="Like: Middle East" onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field id="rg-contact" label="Admissions contact" optional hint="Its recruitment partners see this person on every page.">
-          <TextInput id="rg-contact" value={contact} placeholder="Not set" onChange={(e) => setContact(e.target.value)} />
+        <Field id="rg-contact" label="Admissions contact" required error={tried ? cerr : null} hint="Its recruitment partners see this person on every page.">
+          <SelectInput id="rg-contact" value={contact} placeholder="Choose" invalid={tried && !!cerr} onChange={(e) => setContact(e.target.value)}>
+            {[...new Set([...contacts, contact].filter(Boolean))].map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </SelectInput>
         </Field>
       </div>
     </Sheet>
@@ -171,106 +175,105 @@ const GROUPS: [string, number, number][] = [
 const LEVEL_NAME = Object.fromEntries(LEVELS) as Record<Level, string>;
 
 /**
- * Permission roles (PM: Settings › Permissions, decided 25 Oct): what each role can do with each object, from No
- * access to Manage. Pick a role to change its column; every role side by side to compare. Super Admin manages all.
+ * Permission roles (Jovial, 31 Oct): GSP's nine roles. Pick a role, pick what it's about, and choose No access, View
+ * or View + edit; the role's whole list is below, and picking a line there fills the form. Admin can do everything.
+ * Scope (sales region, recruitment partner, branch) still limits which records a person sees.
  */
 export function Permissions({ cfg, change, say }: ConfigProps) {
-  const [role, setRole] = useState<string>(ROLES[0]);
-  const [all, setAll] = useState(false);
-  const fixed = role === 'Super Admin';
+  const [role, setRole] = useState<string>('Admission');
+  const [obj, setObj] = useState<string>(OBJECTS[0]);
+  const [lvl, setLvl] = useState<Level>(cfg.perms[OBJECTS[0]]?.['Admission'] ?? 'N');
+  const fixed = role === 'Admin';
+  const current = cfg.perms[obj]?.[role] ?? 'N';
+  const pick = (r: string, o: string) => {
+    setRole(r);
+    setObj(o);
+    setLvl(cfg.perms[o]?.[r] ?? 'N');
+  };
   return (
     <>
-      <PageHead
-        title="Permission roles"
-        lead="What each role can see and change. Every GSP role gets the same menu and screens; a role sees only what it has access to, and View means no changes. RPs see only their own records. Super Admin can do everything."
-      >
-        <Button variant="secondary" iconLeft={<Icon name={all ? 'user' : 'people'} size={16} />} onClick={() => setAll((x) => !x)}>
-          {all ? 'One role at a time' : 'Every role side by side'}
-        </Button>
-      </PageHead>
-      {!all && (
-        <div className="cfg__roles" role="group" aria-label="Permission role">
-          {ROLES.map((r) => (
-            <button key={r} type="button" className="ichip" aria-pressed={role === r} onClick={() => setRole(r)}>
-              {r}
-            </button>
-          ))}
+      <PageHead title="Permission roles" lead="What each role can see and change. A role sees only what it has access to; View means it can’t change anything. Admin can do everything." />
+      <Panel title="Change access">
+        <div className="cfg__permform">
+          <Field id="pm-role" label="Role" required>
+            <SelectInput id="pm-role" value={role} onChange={(e) => pick(e.target.value, obj)}>
+              {ROLES.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field id="pm-obj" label="What" required>
+            <SelectInput id="pm-obj" value={obj} onChange={(e) => pick(role, e.target.value)}>
+              {GROUPS.map(([g, a, b]) => (
+                <optgroup key={g} label={g}>
+                  {OBJECTS.slice(a, b).map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </SelectInput>
+          </Field>
+          <fieldset className="cfg__radios cfg__levels" disabled={fixed}>
+            <legend>Access</legend>
+            {LEVELS.map(([k, label]) => (
+              <label key={k} className="cfg__radio">
+                <input type="radio" name="pm-level" checked={(fixed ? 'E' : lvl) === k} onChange={() => setLvl(k)} />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+          <div className="cfg__permsave">
+            {fixed ? (
+              <span className="cfg__muted">Admin has every access; it can’t be changed.</span>
+            ) : (
+              <Button
+                disabled={lvl === current}
+                onClick={() => {
+                  change('Permission roles', `${role}: ${obj} → ${LEVEL_NAME[lvl]}`, (c) => ({ ...c, perms: { ...c.perms, [obj]: { ...c.perms[obj], [role]: lvl } } }));
+                  say(`${role}: ${obj} → ${LEVEL_NAME[lvl]}. Applies on their next page load.`);
+                }}
+              >
+                Save
+              </Button>
+            )}
+          </div>
         </div>
-      )}
-      <Panel flush note={!all ? (fixed ? 'Super Admin manages everything; it can’t be changed.' : `Change a level to change it for everyone with the ${role} role, at once. Scope (sales region, recruitment partner, branch) still limits which records they see.`) : undefined} title={all ? undefined : role}>
+      </Panel>
+      <Panel flush title={`${role}’s access`} note="Pick a line to change it above.">
         <div className="stab-wrap">
-          <table className={`itab cfg__tab ${all ? 'cfg__matrix' : ''}`}>
+          <table className="itab cfg__tab cfg__click">
             <thead>
               <tr>
                 <th scope="col">What</th>
-                {all ? (
-                  ROLES.map((r) => (
-                    <th key={r} scope="col" className="cfg__rot">
-                      <span>{r}</span>
-                    </th>
-                  ))
-                ) : (
-                  <th scope="col">Access</th>
-                )}
+                <th scope="col">Access</th>
               </tr>
             </thead>
             {GROUPS.map(([g, a, b]) => (
               <tbody key={g}>
                 <tr className="cfg__grouprow">
-                  <th scope="rowgroup" colSpan={all ? ROLES.length + 1 : 2}>
+                  <th scope="rowgroup" colSpan={2}>
                     {g}
                   </th>
                 </tr>
-                {OBJECTS.slice(a, b).map((o) => (
-                  <tr key={o}>
-                    <td>{o}</td>
-                    {all ? (
-                      ROLES.map((r) => (
-                        <td key={r} className="cfg__lvl">
-                          <span className={`cfg__lv cfg__lv--${cfg.perms[o][r]}`} title={`${r}: ${LEVEL_NAME[cfg.perms[o][r]]}`}>
-                            {cfg.perms[o][r]}
-                          </span>
-                        </td>
-                      ))
-                    ) : (
-                      <td className="cfg__levelcell">
-                        {fixed ? (
-                          <span className="cfg__lv cfg__lv--M">Manage</span>
-                        ) : (
-                          <SelectInput
-                            id={`pr-${o}`}
-                            aria-label={`${role}: ${o}`}
-                            value={cfg.perms[o][role]}
-                            onChange={(e) => {
-                              const l = e.target.value as Level;
-                              change('Permission roles', `${role}: ${o} → ${LEVEL_NAME[l]}`, (c) => ({ ...c, perms: { ...c.perms, [o]: { ...c.perms[o], [role]: l } } }));
-                              say(`${role}: ${o} → ${LEVEL_NAME[l]}. Applies on their next page load.`);
-                            }}
-                          >
-                            {LEVELS.map(([k, label]) => (
-                              <option key={k} value={k}>
-                                {label}
-                              </option>
-                            ))}
-                          </SelectInput>
-                        )}
+                {OBJECTS.slice(a, b).map((o) => {
+                  const l = fixed ? 'E' : cfg.perms[o]?.[role] ?? 'N';
+                  return (
+                    <tr key={o} aria-selected={o === obj} className={o === obj ? 'is-picked' : undefined} onClick={() => pick(role, o)}>
+                      <td>
+                        <button type="button" className="cfg__rowlink" onClick={(e) => (e.stopPropagation(), pick(role, o))}>
+                          {o}
+                        </button>
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td>
+                        <span className={`cfg__lv cfg__lv--${l}`}>{LEVEL_NAME[l]}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             ))}
           </table>
         </div>
-        {all && (
-          <p className="cfg__legend">
-            {LEVELS.map(([k, label]) => (
-              <span key={k}>
-                <span className={`cfg__lv cfg__lv--${k}`}>{k}</span> {label}
-              </span>
-            ))}
-          </p>
-        )}
       </Panel>
       <History log={cfg.log} area="Permission roles" />
     </>
@@ -314,10 +317,7 @@ export function Queues({ cfg, change, say }: ConfigProps) {
                     <td className="cfg__strong">{q.name}</td>
                     <td>
                       {lead ? (
-                        <>
-                          <span className="cfg__strong">{lead.name}</span>
-                          <span className="cfg__sub">{lead.title || lead.role}</span>
-                        </>
+                        <span className="cfg__strong">{lead.name}</span>
                       ) : (
                         <span className="cfg__warn">No leader</span>
                       )}
@@ -438,7 +438,7 @@ function QueueDialog({ open, queue, queues, users, onClose, onSave }: { open: bo
           <SelectInput id="qu-lead" value={lead} placeholder="Choose one person" invalid={!!show('lead')} onChange={(e) => setLead(e.target.value)}>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name} · {u.role}
+                {u.name}
               </option>
             ))}
           </SelectInput>

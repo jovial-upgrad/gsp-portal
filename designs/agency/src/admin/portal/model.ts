@@ -8,10 +8,10 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  * here later. The rest are GSP Admin's own configuration: **User roles** (Create roles, Sales regions, Permission
  * roles, Queues, Emails),
  * **Recruitment** (BDM assignment), **Course configuration** (Currency exchange, Living costs), **Application
- * configuration** (Application routing, Document configuration) and **Other configurations** (Filters, Logs).
+ * configuration** (Application routing, Document configuration) and **Other configurations** (Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
-export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'routing' | 'documents' | 'filters' | 'logs';
+export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'routing' | 'documents' | 'logs';
 export type Section = InstitutionSection | ConfigSection;
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
@@ -83,7 +83,6 @@ export const GROUPS: NavGroup[] = [
     label: 'Other configurations',
     icon: 'sliders',
     items: [
-      { key: 'filters', label: 'Filters configuration', short: 'Filters', icon: 'sort' },
       { key: 'logs', label: 'Logs', short: 'Logs', icon: 'clock' },
     ],
   },

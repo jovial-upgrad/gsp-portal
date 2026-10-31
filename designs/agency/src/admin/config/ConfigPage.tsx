@@ -16,6 +16,7 @@ import {
   sampleRpDocs,
   sampleRules,
   REGION_BDM,
+  regionQueueName,
   type BdmRow,
   type DocRule,
   type EmailGroup,
@@ -37,7 +38,7 @@ import { Bdm } from './Bdm';
 import { Currency, LivingCosts } from './Course';
 import { Routing } from './Routing';
 import { Documents } from './Documents';
-import { Filters, Logs } from './Other';
+import { Logs } from './Other';
 import './config.css';
 
 /** Everything GSP Admin configures, held by its portal; each change is logged. */
@@ -53,6 +54,8 @@ export type Cfg = {
   rules: RouteRule[];
   lists: Record<string, string[]>;
   regionBdm: Record<string, string>;
+  /** Each region's Admissions queue (a queue id). */
+  regionQueue: Record<string, string>;
   docRules: DocRule[];
   rpDocs: RpDocRule[];
   filters: FilterSet[];
@@ -60,11 +63,12 @@ export type Cfg = {
 };
 export const sampleCfg = (): Cfg => {
   const users = sampleUsers();
+  const queues = sampleQueues(users);
   return {
     users,
     regions: sampleRegions(),
     perms: samplePerms(),
-    queues: sampleQueues(users),
+    queues,
     emails: sampleEmails(users),
     bdm: sampleBdm(),
     rates: sampleRates(),
@@ -72,6 +76,7 @@ export const sampleCfg = (): Cfg => {
     rules: sampleRules(),
     lists: sampleLists(),
     regionBdm: { ...REGION_BDM },
+    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === regionQueueName(r))?.id ?? ''])),
     docRules: sampleDocRules(),
     rpDocs: sampleRpDocs(),
     filters: sampleFilters(),
@@ -97,7 +102,7 @@ export function ConfigPage({ section, cfg, setCfg, me, say }: { section: ConfigS
   const change: ConfigProps['change'] = (area, text, fn) =>
     setCfg((c) => {
       const next = fn(c);
-      return { ...next, log: [{ id: `l${Date.now()}`, at: Date.now(), who: me, area, text, kind: 'change', role: 'Super Admin' }, ...next.log] };
+      return { ...next, log: [{ id: `l${Date.now()}`, at: Date.now(), who: me, area, text, kind: 'change', role: 'Admin' }, ...next.log] };
     });
   const p: ConfigProps = { cfg, change, say, me };
   const pages: Record<ConfigSection, ReactNode> = {
@@ -111,7 +116,6 @@ export function ConfigPage({ section, cfg, setCfg, me, say }: { section: ConfigS
     living: <LivingCosts {...p} />,
     routing: <Routing {...p} />,
     documents: <Documents {...p} />,
-    filters: <Filters {...p} />,
     logs: <Logs {...p} />,
   };
   return <div className="ipage cfg">{pages[section]}</div>;

@@ -4,9 +4,11 @@ import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
-import { Field, SelectInput, TextInput } from '../../components/forms';
+import { Field, SelectInput } from '../../components/forms';
 import { COUNTRIES, countryByName } from '../../data/partners';
 import { PageHead } from '../../institution/records/parts';
+import { MultiPick } from '../../institution/records/MultiPick';
+import { CITIES } from '../../data/students';
 import { REGION_ROWS, type BdmRow } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { History, Panel } from './parts';
@@ -23,7 +25,7 @@ const label = (r: BdmRow) => `${r.country} · ${r.area} → ${r.bdm}`;
 export function Bdm({ cfg, change, say }: ConfigProps) {
   const [edit, setEdit] = useState<BdmRow | 'new' | null>(null);
   const [removing, setRemoving] = useState<BdmRow | null>(null);
-  const bdms = [...new Set(cfg.bdm.map((r) => r.bdm))].sort();
+  const bdms = cfg.users.filter((u) => u.role === 'Recruitment' && u.status !== 'Deactivated').map((u) => u.name).sort();
   return (
     <>
       <PageHead
@@ -119,7 +121,6 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
   const [country, setCountry] = useState('');
   const [covers, setCovers] = useState<Covers>('whole');
   const [places, setPlaces] = useState<string[]>([]);
-  const [city, setCity] = useState('');
   const [bdm, setBdm] = useState('');
   const [tried, setTried] = useState(false);
   useEffect(() => {
@@ -127,7 +128,6 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
     setCountry(row?.country ?? '');
     setCovers(row ? coversOf(row) : 'whole');
     setPlaces(row && coversOf(row) === 'some' ? row.area.split(',').map((x) => x.trim()) : []);
-    setCity('');
     setBdm(row?.bdm ?? '');
     setTried(false);
   }, [open, row?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -143,7 +143,8 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
     bdm: !bdm.trim() ? 'Choose a BDM.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
-  const toggle = (p: string) => setPlaces((l) => (l.includes(p) ? l.filter((x) => x !== p) : [...l, p]));
+  // states, then each state's main cities (Jovial, 31 Oct: one searchable list to tick)
+  const placeOptions = [...new Set([...states, ...states.flatMap((st) => CITIES[st] ?? []), ...places])];
   const save = () => {
     setTried(true);
     if (fallback ? err.bdm : Object.values(err).some(Boolean)) return;
@@ -198,57 +199,19 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
               </fieldset>
             )}
             {covers === 'some' && (
-              <Field id="bd-places" label="States or cities" required error={show('places')}>
-                <div className="cfg__places">
-                  {places.length ? (
-                    <div className="cfg__chips">
-                      {places.map((p) => (
-                        <span key={p} className="cfg__chip">
-                          {p}
-                          <button type="button" aria-label={`Remove ${p}`} onClick={() => toggle(p)}>
-                            <Icon name="close" size={12} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="cfg__note">None chosen yet.</p>
-                  )}
-                  {states.length > 0 && (
-                    <div className="cfg__stategrid">
-                      {states.map((s) => (
-                        <button key={s} type="button" className="ichip" aria-pressed={places.includes(s)} disabled={taken.has(s)} title={taken.has(s) ? 'Already in another row' : undefined} onClick={() => toggle(s)}>
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div className="cfg__add">
-                    <TextInput id="bd-city" aria-label="Add a city" placeholder="Add a city, like Ludhiana" value={city} onChange={(e) => setCity(e.target.value)} />
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        const v = city.trim();
-                        if (v && !places.includes(v)) setPlaces((l) => [...l, v]);
-                        setCity('');
-                      }}
-                    >
-                      Add city
-                    </Button>
-                  </div>
-                </div>
+              <Field id="bd-places" label="States or cities" required error={show('places')} hint="Search and tick as many as this BDM covers. Ones already in another row aren’t offered.">
+                <MultiPick id="bd-places" label="States or cities" value={places} options={placeOptions.filter((x) => !taken.has(x) || places.includes(x))} empty="Choose states or cities" search onChange={setPlaces} />
               </Field>
             )}
           </>
         )}
-        <Field id="bd-bdm" label="BDM" required error={show('bdm')} hint="Pick one, or type a new name.">
-          <TextInput id="bd-bdm" list="bd-bdms" value={bdm} invalid={!!show('bdm')} placeholder="Choose or type" onChange={(e) => setBdm(e.target.value)} />
+        <Field id="bd-bdm" label="BDM" required error={show('bdm')}>
+          <SelectInput id="bd-bdm" value={bdm} placeholder="Choose a BDM" invalid={!!show('bdm')} onChange={(e) => setBdm(e.target.value)}>
+            {[...new Set([...bdms, bdm].filter(Boolean))].map((b) => (
+              <option key={b}>{b}</option>
+            ))}
+          </SelectInput>
         </Field>
-        <datalist id="bd-bdms">
-          {bdms.map((b) => (
-            <option key={b} value={b} />
-          ))}
-        </datalist>
         {!fallback && overlap && (
           <p className="cfg__warnbox">
             <Icon name="alert" size={16} /> Overlaps an existing row: {label(overlap)}. The more specific row wins.

@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Icon';
 import type { LogEntry } from '../data/config';
 
 /** A configuration section: a card with its title, a line on what it does, and its action. */
@@ -46,5 +48,39 @@ export function History({ log, area }: { log: LogEntry[]; area: string }) {
         <p className="cfg__note">No changes yet.</p>
       )}
     </details>
+  );
+}
+
+/**
+ * Edit, then Save (Jovial, 31 Oct): a page's settings are read-only until Edit is clicked; changes are made on a
+ * draft and only kept when Save is clicked. Cancel throws the draft away.
+ */
+export function useDraft<T>(saved: T) {
+  const [draft, setDraft] = useState<T | null>(null);
+  return {
+    editing: draft !== null,
+    value: draft ?? saved,
+    dirty: draft !== null && JSON.stringify(draft) !== JSON.stringify(saved),
+    set: (fn: (t: T) => T) => setDraft((d) => fn(d ?? saved)),
+    start: () => setDraft(structuredClone(saved)),
+    stop: () => setDraft(null),
+  };
+}
+
+/** The Edit / Cancel / Save buttons for a page (or a panel) in edit-then-save mode. */
+export function EditBar({ editing, dirty, onEdit, onCancel, onSave, label = 'Edit' }: { editing: boolean; dirty: boolean; onEdit: () => void; onCancel: () => void; onSave: () => void; label?: string }) {
+  return editing ? (
+    <span className="cfg__editbar">
+      <Button variant="secondary" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button onClick={onSave} disabled={!dirty}>
+        Save
+      </Button>
+    </span>
+  ) : (
+    <Button variant="secondary" iconLeft={<Icon name="edit" size={18} />} onClick={onEdit}>
+      {label}
+    </Button>
   );
 }

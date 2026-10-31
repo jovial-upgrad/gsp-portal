@@ -3,9 +3,11 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { PageHead } from '../../institution/records/parts';
-import { DESTINATIONS, NATIONALITY, ROUTING_RPS, route, workRegions } from '../data/config';
+import { MultiPick } from '../../institution/records/MultiPick';
+import { Sheet } from '../../components/Sheet';
+import { DESTINATIONS, NATIONALITY, ROUTING_RPS, route, type Region, type RouteRule } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
-import { History, Panel } from './parts';
+import { EditBar, History, Panel, useDraft } from './parts';
 
 const EXAMPLES: [string, { rp: string; nationality: string; now: string; dest: string }][] = [
   ['Indian student, Indian RP', { rp: 'BrightPath Overseas', nationality: 'India', now: 'India', dest: 'Australia' }],
@@ -16,38 +18,61 @@ const EXAMPLES: [string, { rp: string; nationality: string; now: string; dest: s
   ['Unmapped nationality', { rp: 'Horizon Overseas', nationality: 'United Arab Emirates', now: 'United Arab Emirates', dest: 'Australia' }],
 ];
 
+type Draft = { rules: RouteRule[]; lists: Record<string, string[]>; regionBdm: Record<string, string>; regionQueue: Record<string, string>; regions: Region[] };
+
 /**
  * Application routing (PM: Settings › Application routing): when an application is submitted it gets its region
  * (which Admissions queue works it), its BDM, its source region and the rule that set them. The rules run from the
- * top and the first that matches wins; switch one off or move it. Test any case first; nothing is saved.
+ * top and the first that matches wins. Jovial, 31 Oct: nothing changes until Edit is clicked, and nothing is kept
+ * until Save; regional lists can be added and take several RPs at once; region defaults pick the BDM and the
+ * Admissions queue from lists, and new sales regions can be added here. Test any case; the test is never saved.
  */
 export function Routing({ cfg, change, say }: ConfigProps) {
   const [t, setT] = useState(EXAMPLES[1][1]);
-  const [addTo, setAddTo] = useState<Record<string, string>>({});
-  const r = route(cfg.rules, cfg.lists, t);
-  const keepAt = cfg.rules.findIndex((x) => x.id === 'keep');
-  const onAt = cfg.rules.findIndex((x) => x.id === 'onshore');
-  const move = (i: number, d: -1 | 1) => {
-    const a = cfg.rules[i];
-    const b = cfg.rules[i + d];
-    change('Application routing', `Moved “${a.title}” ${d < 0 ? 'above' : 'below'} “${b.title}”`, (c) => {
-      const rules = [...c.rules];
-      [rules[i], rules[i + d]] = [rules[i + d], rules[i]];
-      return { ...c, rules };
+  const [addTo, setAddTo] = useState<Record<string, string[]>>({});
+  const [newList, setNewList] = useState('');
+  const [newRegion, setNewRegion] = useState(false);
+  const saved: Draft = { rules: cfg.rules, lists: cfg.lists, regionBdm: cfg.regionBdm, regionQueue: cfg.regionQueue, regions: cfg.regions };
+  const d = useDraft(saved);
+  const v = d.value;
+  const ed = d.editing;
+  const r = route(v.rules, v.lists, t, v.regionBdm);
+  const keepAt = v.rules.findIndex((x) => x.id === 'keep');
+  const onAt = v.rules.findIndex((x) => x.id === 'onshore');
+  const move = (i: number, dir: -1 | 1) =>
+    d.set((x) => {
+      const rules = [...x.rules];
+      [rules[i], rules[i + dir]] = [rules[i + dir], rules[i]];
+      return { ...x, rules };
     });
+  const onList = new Set(Object.values(v.lists).flat());
+  const bdms = cfg.users.filter((u) => u.role === 'Recruitment' && u.status !== 'Deactivated').map((u) => u.name);
+  const admissionsQueues = cfg.queues.filter((q) => /Admissions$/.test(q.name));
+  const queueName = (id: string) => cfg.queues.find((q) => q.id === id)?.name ?? '';
+  const defaultRegions = Object.keys(v.regionBdm);
+  const save = () => {
+    const what: string[] = [];
+    if (JSON.stringify(v.rules) !== JSON.stringify(cfg.rules)) what.push('rules');
+    if (JSON.stringify(v.lists) !== JSON.stringify(cfg.lists)) what.push('regional RP lists');
+    if (JSON.stringify(v.regionBdm) !== JSON.stringify(cfg.regionBdm) || JSON.stringify(v.regionQueue) !== JSON.stringify(cfg.regionQueue)) what.push('region defaults');
+    if (v.regions.length !== cfg.regions.length) what.push(`new sales region ${v.regions.filter((x) => !cfg.regions.some((y) => y.name === x.name)).map((x) => x.name).join(', ')}`);
+    change('Application routing', `Saved ${what.join(', ') || 'no changes'}`, (c) => ({ ...c, ...v }));
     say('Saved. Applies to applications submitted from now. Submitted applications keep their values.');
+    d.stop();
   };
-  const onList = new Set(Object.values(cfg.lists).flat());
   return (
     <>
       <PageHead
         title="Application routing"
         lead="When an application is submitted it gets four values: its region (which Admissions queue works it and where it is reported), its BDM, its source region (the RP’s region) and the rule that set them. The rules run from the top; the first one that matches wins. A change applies to applications submitted after it; submitted applications never change."
-      />
+      >
+        <EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={d.stop} onSave={save} />
+      </PageHead>
+      {ed && <p className="cfg__warnbox cfg__editing">You’re editing. Nothing is kept until you click Save.</p>}
       <div className="cfg__routing">
         <Panel title="Rules, in order">
           <ol className="cfg__rules">
-            {cfg.rules.map((x, i) => {
+            {v.rules.map((x, i) => {
               const last = x.id === 'fb';
               return (
                 <li key={x.id} className={`cfg__rule ${x.on || last ? '' : 'is-off'}`}>
@@ -67,25 +92,20 @@ export function Routing({ cfg, change, say }: ConfigProps) {
                   <div className="cfg__ruleacts">
                     {last ? (
                       <span className="cfg__muted">Always last</span>
-                    ) : (
+                    ) : ed ? (
                       <>
-                        <Switch
-                          id={`rt-on-${x.id}`}
-                          checked={x.on}
-                          onChange={(v) => {
-                            change('Application routing', `${v ? 'Switched on' : 'Switched off'} “${x.title}”`, (c) => ({ ...c, rules: c.rules.map((y) => (y.id === x.id ? { ...y, on: v } : y)) }));
-                            say(`“${x.title}” ${v ? 'on' : 'off'}. Applies to applications submitted from now.`);
-                          }}
-                        >
+                        <Switch id={`rt-on-${x.id}`} checked={x.on} onChange={(on) => d.set((y) => ({ ...y, rules: y.rules.map((z) => (z.id === x.id ? { ...z, on } : z)) }))}>
                           <span className="vh">{x.title}: </span>On
                         </Switch>
                         <button type="button" className="icon-btn" aria-label={`Move “${x.title}” up`} disabled={i === 0} onClick={() => move(i, -1)}>
                           <Icon name="chevronDown" size={16} style={{ transform: 'rotate(180deg)' }} />
                         </button>
-                        <button type="button" className="icon-btn" aria-label={`Move “${x.title}” down`} disabled={cfg.rules[i + 1]?.id === 'fb'} onClick={() => move(i, 1)}>
+                        <button type="button" className="icon-btn" aria-label={`Move “${x.title}” down`} disabled={v.rules[i + 1]?.id === 'fb'} onClick={() => move(i, 1)}>
                           <Icon name="chevronDown" size={16} />
                         </button>
                       </>
+                    ) : (
+                      <span className="cfg__muted">{x.on ? 'On' : 'Off'}</span>
                     )}
                   </div>
                 </li>
@@ -98,7 +118,6 @@ export function Routing({ cfg, change, say }: ConfigProps) {
             </p>
           )}
         </Panel>
-
         <Panel title="Test a routing" note="Try any case before you change a rule. Nothing is saved.">
           <div className="cfg__examples" role="group" aria-label="Examples">
             {EXAMPLES.map(([l, v]) => (
@@ -166,7 +185,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
                 </div>
                 <div>
                   <dt>Admissions queue</dt>
-                  <dd>{r.hit.region} Admissions</dd>
+                  <dd>{queueName(v.regionQueue[r.hit.region]) || `${r.hit.region} Admissions`}</dd>
                 </div>
               </dl>
               <p className="cfg__k">How it got there</p>
@@ -185,72 +204,99 @@ export function Routing({ cfg, change, say }: ConfigProps) {
         </Panel>
       </div>
 
-      <Panel title="Regional RP lists" note="Every application from an RP on a list goes to the list’s region, whatever the student’s nationality. An RP can be on one list only." flush>
+      <Panel
+        title="Regional RP lists"
+        note="Every application from an RP on a list goes to the list’s region, whatever the student’s nationality. An RP can be on one list only."
+        action={
+          ed && (
+            <span className="cfg__add">
+              <SelectInput id="rl-new" aria-label="Region for a new list" value={newList} placeholder="Add a region" allowEmpty onChange={(e) => setNewList(e.target.value)}>
+                {v.regions.filter((x) => x.name !== 'Global' && !(x.name in v.lists)).map((x) => (
+                  <option key={x.name}>{x.name}</option>
+                ))}
+              </SelectInput>
+              <Button variant="secondary" size="sm" disabled={!newList} onClick={() => { d.set((x) => ({ ...x, lists: { ...x.lists, [newList]: [] } })); setNewList(''); }}>
+                Add region
+              </Button>
+            </span>
+          )
+        }
+        flush
+      >
         <div className="stab-wrap">
           <table className="itab cfg__tab">
             <thead>
               <tr>
                 <th scope="col">Region</th>
                 <th scope="col">RPs on the list</th>
-                <th scope="col">Add an RP</th>
+                {ed && <th scope="col">Add RPs</th>}
               </tr>
             </thead>
             <tbody>
-              {Object.entries(cfg.lists).map(([reg, rps]) => (
+              {Object.entries(v.lists).map(([reg, rps]) => (
                 <tr key={reg}>
-                  <td className="cfg__strong">{reg}</td>
+                  <td className="cfg__strong">
+                    {reg}
+                    {ed && (
+                      <Button variant="link" size="sm" onClick={() => d.set((x) => { const lists = { ...x.lists }; delete lists[reg]; return { ...x, lists }; })}>
+                        Remove list
+                      </Button>
+                    )}
+                  </td>
                   <td>
                     <div className="cfg__chips">
                       {rps.map((p) => (
                         <span key={p} className="cfg__chip">
                           {p}
-                          <button
-                            type="button"
-                            aria-label={`Take ${p} off the ${reg} list`}
-                            onClick={() => {
-                              change('Application routing', `Took ${p} off the ${reg} list`, (c) => ({ ...c, lists: { ...c.lists, [reg]: c.lists[reg].filter((x) => x !== p) } }));
-                              say(`${p} taken off the ${reg} list.`);
-                            }}
-                          >
-                            <Icon name="close" size={12} />
-                          </button>
+                          {ed && (
+                            <button type="button" aria-label={`Take ${p} off the ${reg} list`} onClick={() => d.set((x) => ({ ...x, lists: { ...x.lists, [reg]: x.lists[reg].filter((y) => y !== p) } }))}>
+                              <Icon name="close" size={12} />
+                            </button>
+                          )}
                         </span>
                       ))}
                       {!rps.length && <span className="cfg__muted">None yet</span>}
                     </div>
                   </td>
-                  <td>
-                    <div className="cfg__add">
-                      <SelectInput id={`rl-${reg}`} aria-label={`RP to add to the ${reg} list`} value={addTo[reg] ?? ''} placeholder="Choose RP" allowEmpty onChange={(e) => setAddTo((x) => ({ ...x, [reg]: e.target.value }))}>
-                        {ROUTING_RPS.filter((p) => !onList.has(p.name)).map((p) => (
-                          <option key={p.name} value={p.name}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </SelectInput>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={!addTo[reg]}
-                        onClick={() => {
-                          const p = addTo[reg];
-                          change('Application routing', `Added ${p} to the ${reg} list`, (c) => ({ ...c, lists: { ...c.lists, [reg]: [...c.lists[reg], p] } }));
-                          say(`${p} added to the ${reg} list.`);
-                          setAddTo((x) => ({ ...x, [reg]: '' }));
-                        }}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                  </td>
+                  {ed && (
+                    <td>
+                      <div className="cfg__add">
+                        <MultiPick id={`rl-${reg}`} label={`RPs to add to the ${reg} list`} value={addTo[reg] ?? []} options={ROUTING_RPS.filter((p) => !onList.has(p.name)).map((p) => p.name)} empty="Choose RPs" search onChange={(l) => setAddTo((x) => ({ ...x, [reg]: l }))} />
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={!addTo[reg]?.length}
+                          onClick={() => {
+                            const add = addTo[reg];
+                            d.set((x) => ({ ...x, lists: { ...x.lists, [reg]: [...x.lists[reg], ...add] } }));
+                            setAddTo((x) => ({ ...x, [reg]: [] }));
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
+          {!Object.keys(v.lists).length && <p className="cfg__note cfg__empty">No regional lists.</p>}
         </div>
       </Panel>
 
-      <Panel title="Region defaults" note="The BDM an application gets when a rule says “that region’s default BDM”, and the Admissions queue that works it." flush>
+      <Panel
+        title="Region defaults"
+        note="The BDM an application gets when a rule says “that region’s default BDM”, and the Admissions queue that works the region’s applications."
+        action={
+          ed && (
+            <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => setNewRegion(true)}>
+              Add sales region
+            </Button>
+          )
+        }
+        flush
+      >
         <div className="stab-wrap">
           <table className="itab cfg__tab">
             <thead>
@@ -261,33 +307,124 @@ export function Routing({ cfg, change, say }: ConfigProps) {
               </tr>
             </thead>
             <tbody>
-              {[...workRegions(cfg.regions), { name: 'Direct', contact: '' }].map((reg) => (
-                <tr key={reg.name}>
-                  <td className="cfg__strong">{reg.name}</td>
+              {defaultRegions.map((reg) => (
+                <tr key={reg}>
+                  <td className="cfg__strong">{reg}</td>
                   <td>
-                    <TextInput
-                      id={`rd-${reg.name}`}
-                      aria-label={`${reg.name}: default application BDM`}
-                      className="cfg__cellinput"
-                      defaultValue={cfg.regionBdm[reg.name] ?? ''}
-                      placeholder="Not set"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v === (cfg.regionBdm[reg.name] ?? '')) return;
-                        change('Application routing', `${reg.name}: default BDM → ${v || 'Not set'}`, (c) => ({ ...c, regionBdm: { ...c.regionBdm, [reg.name]: v } }));
-                        say(`${reg.name}’s default BDM saved.`);
-                      }}
-                    />
-                    {!cfg.regionBdm[reg.name] && <span className="cfg__warn">Applications that need a region default here will have no BDM</span>}
+                    {ed ? (
+                      <SelectInput id={`rd-${reg}`} aria-label={`${reg}: default application BDM`} value={v.regionBdm[reg] ?? ''} placeholder="Choose a BDM" allowEmpty onChange={(e) => d.set((x) => ({ ...x, regionBdm: { ...x.regionBdm, [reg]: e.target.value } }))}>
+                        {[...new Set([...bdms, v.regionBdm[reg]].filter(Boolean))].map((n) => (
+                          <option key={n}>{n}</option>
+                        ))}
+                      </SelectInput>
+                    ) : (
+                      v.regionBdm[reg] || <span className="cfg__muted">Not set</span>
+                    )}
+                    {!v.regionBdm[reg] && <span className="cfg__warn">Applications that need a region default here will have no BDM</span>}
                   </td>
-                  <td className="cfg__muted">{reg.name} Admissions</td>
+                  <td>
+                    {ed ? (
+                      <SelectInput id={`rq-${reg}`} aria-label={`${reg}: Admissions queue`} value={v.regionQueue[reg] ?? ''} placeholder="Choose a queue" allowEmpty onChange={(e) => d.set((x) => ({ ...x, regionQueue: { ...x.regionQueue, [reg]: e.target.value } }))}>
+                        {admissionsQueues.map((q) => (
+                          <option key={q.id} value={q.id}>
+                            {q.name}
+                          </option>
+                        ))}
+                      </SelectInput>
+                    ) : (
+                      queueName(v.regionQueue[reg]) || <span className="cfg__muted">Not set</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </Panel>
+      <NewRegionDialog
+        open={newRegion}
+        taken={v.regions.map((x) => x.name)}
+        admissions={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Admission Ops') && u.status !== 'Deactivated').map((u) => u.name)}
+        bdms={bdms}
+        queues={admissionsQueues}
+        onClose={() => setNewRegion(false)}
+        onAdd={(x) => {
+          d.set((y) => ({ ...y, regions: [...y.regions.filter((z) => z.name !== 'Global'), { name: x.name, contact: x.contact }, ...y.regions.filter((z) => z.name === 'Global')], regionBdm: { ...y.regionBdm, [x.name]: x.bdm }, regionQueue: { ...y.regionQueue, [x.name]: x.queue } }));
+          setNewRegion(false);
+        }}
+      />
       <History log={cfg.log} area="Application routing" />
     </>
+  );
+}
+
+/** A new sales region, from Region defaults: its name, its Admissions contact, default BDM and Admissions queue. */
+function NewRegionDialog({ open, taken, admissions, bdms, queues, onClose, onAdd }: { open: boolean; taken: string[]; admissions: string[]; bdms: string[]; queues: { id: string; name: string }[]; onClose: () => void; onAdd: (x: { name: string; contact: string; bdm: string; queue: string }) => void }) {
+  const [x, setX] = useState({ name: '', contact: '', bdm: '', queue: '' });
+  const [tried, setTried] = useState(false);
+  const err = {
+    name: !x.name.trim() ? 'Name the region.' : taken.some((t) => t.toLowerCase() === x.name.trim().toLowerCase()) ? 'There’s already a region with this name.' : null,
+    contact: !x.contact ? 'Choose its Admissions contact.' : null,
+  };
+  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const close = () => { setX({ name: '', contact: '', bdm: '', queue: '' }); setTried(false); onClose(); };
+  return (
+    <Sheet
+      open={open}
+      onClose={close}
+      center
+      className="iform cfg__sheet"
+      title="Add sales region"
+      sub="It’s added to Sales regions too, when you save this page."
+      footer={
+        <div className="asf">
+          <div className="asf__acts">
+            <Button variant="secondary" onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setTried(true);
+                if (err.name || err.contact) return;
+                onAdd({ ...x, name: x.name.trim() });
+                setX({ name: '', contact: '', bdm: '', queue: '' });
+                setTried(false);
+              }}
+            >
+              Add region
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="iform__grid">
+        <Field id="nr-name" label="Region name" required error={show('name')}>
+          <TextInput id="nr-name" value={x.name} invalid={!!show('name')} onChange={(e) => setX({ ...x, name: e.target.value })} />
+        </Field>
+        <Field id="nr-contact" label="Admissions contact" required error={show('contact')}>
+          <SelectInput id="nr-contact" value={x.contact} placeholder="Choose" invalid={!!show('contact')} onChange={(e) => setX({ ...x, contact: e.target.value })}>
+            {admissions.map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="nr-bdm" label="Default application BDM" optional>
+          <SelectInput id="nr-bdm" value={x.bdm} placeholder="Choose" allowEmpty onChange={(e) => setX({ ...x, bdm: e.target.value })}>
+            {bdms.map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="nr-queue" label="Admissions queue" optional>
+          <SelectInput id="nr-queue" value={x.queue} placeholder="Choose" allowEmpty onChange={(e) => setX({ ...x, queue: e.target.value })}>
+            {queues.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+      </div>
+    </Sheet>
   );
 }

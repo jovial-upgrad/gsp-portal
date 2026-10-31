@@ -9,7 +9,7 @@ import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
 import type { EmailGroup, EmailPerm } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
-import { History, Panel } from './parts';
+import { EditBar, History, Panel, useDraft } from './parts';
 
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 const dateText = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -24,12 +24,8 @@ export function Emails({ cfg, change, say }: ConfigProps) {
   const [cur, setCur] = useState(cfg.emails[0]?.id ?? '');
   const [edit, setEdit] = useState<EmailGroup | 'new' | null>(null);
   const [removing, setRemoving] = useState<EmailGroup | null>(null);
-  const [adding, setAdding] = useState<string[]>([]);
   const g = cfg.emails.find((x) => x.id === cur) ?? cfg.emails[0];
-  useEffect(() => setAdding([]), [g?.id]);
-  const nameOf = (id: string) => cfg.users.find((u) => u.id === id);
   const upd = (what: string, fn: (x: EmailGroup) => EmailGroup) => change('Emails', `${g.email}: ${what}`, (c) => ({ ...c, emails: c.emails.map((x) => (x.id === g.id ? fn(x) : x)) }));
-  const notIn = g ? cfg.users.filter((u) => !g.users.some((x) => x.id === u.id)) : [];
   return (
     <>
       <PageHead title="Emails" lead="GSP’s email groups: the shared inboxes it syncs, and who can see each one or send from it. Pick a group to choose its users.">
@@ -67,95 +63,7 @@ export function Emails({ cfg, change, say }: ConfigProps) {
           </ul>
         </Panel>
 
-        {g && (
-          <Panel
-            title="Email group users"
-            note={
-              <>
-                Who can see <b>{g.email}</b>, and who can send from it. New users can only view.
-              </>
-            }
-            flush
-          >
-            <div className="cfg__foot cfg__addusers">
-              <MultiPick id={`eu-${g.id}`} label="Users to add" value={adding} options={notIn.map((u) => u.name)} onChange={setAdding} empty="Choose users" search />
-              <Button
-                variant="secondary"
-                iconLeft={<Icon name="plus" size={16} />}
-                disabled={!adding.length}
-                onClick={() => {
-                  const ids = adding.map((n) => cfg.users.find((u) => u.name === n)?.id).filter((x): x is string => !!x);
-                  upd(`added ${adding.join(', ')} (only view)`, (x) => ({ ...x, users: [...x.users, ...ids.map((id) => ({ id, perm: 'view' as EmailPerm }))] }));
-                  say(`${adding.length === 1 ? adding[0] : `${adding.length} users`} can now view ${g.email}.`);
-                  setAdding([]);
-                }}
-              >
-                Add users
-              </Button>
-            </div>
-            {g.users.length ? (
-              <div className="stab-wrap">
-                <table className="itab cfg__tab">
-                  <thead>
-                    <tr>
-                      <th scope="col">User</th>
-                      <th scope="col">Role</th>
-                      <th scope="col">Permission</th>
-                      <th scope="col">
-                        <span className="vh">Remove</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.users.map((x) => {
-                      const u = nameOf(x.id);
-                      if (!u) return null;
-                      return (
-                        <tr key={x.id}>
-                          <td>
-                            <span className="cfg__strong">{u.name}</span>
-                            <span className="cfg__sub">{u.email}</span>
-                          </td>
-                          <td className="cfg__muted">{u.role}</td>
-                          <td>
-                            <SelectInput
-                              id={`ep-${g.id}-${x.id}`}
-                              aria-label={`${u.name}: permission`}
-                              value={x.perm}
-                              onChange={(e) => {
-                                const p = e.target.value as EmailPerm;
-                                upd(`${u.name} → ${PERM[p]}`, (y) => ({ ...y, users: y.users.map((z) => (z.id === x.id ? { ...z, perm: p } : z)) }));
-                                say(`${u.name} ${p === 'send' ? 'can now send from' : 'can now only view'} ${g.email}.`);
-                              }}
-                            >
-                              <option value="view">Only view</option>
-                              <option value="send">Can send</option>
-                            </SelectInput>
-                          </td>
-                          <td className="cfg__acts">
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              aria-label={`Take ${u.name} off ${g.email}`}
-                              onClick={() => {
-                                upd(`took ${u.name} off`, (y) => ({ ...y, users: y.users.filter((z) => z.id !== x.id) }));
-                                say(`${u.name} can no longer see ${g.email}.`);
-                              }}
-                            >
-                              <Icon name="close" size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="cfg__empty">Nobody can see this group yet. Add users above.</p>
-            )}
-          </Panel>
-        )}
+        {g && <GroupUsers key={g.id} g={g} cfg={cfg} upd={upd} say={say} />}
       </div>
       <History log={cfg.log} area="Emails" />
 
@@ -247,5 +155,109 @@ function GroupDialog({ open, group, groups, onClose, onSave }: { open: boolean; 
         )}
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * Email group users (Jovial, 31 Oct): read-only until Edit; add people, change who can send, take people off, then
+ * Save. Cancel throws the changes away.
+ */
+function GroupUsers({ g, cfg, upd, say }: { g: EmailGroup; cfg: ConfigProps['cfg']; upd: (what: string, fn: (x: EmailGroup) => EmailGroup) => void; say: (m: string) => void }) {
+  const d = useDraft(g.users);
+  const [adding, setAdding] = useState<string[]>([]);
+  const ed = d.editing;
+  const list = d.value;
+  const nameOf = (id: string) => cfg.users.find((u) => u.id === id);
+  const notIn = cfg.users.filter((u) => u.status !== 'Deactivated' && !list.some((x) => x.id === u.id));
+  const save = () => {
+    const added = list.filter((x) => !g.users.some((y) => y.id === x.id)).map((x) => nameOf(x.id)?.name);
+    const gone = g.users.filter((x) => !list.some((y) => y.id === x.id)).map((x) => nameOf(x.id)?.name);
+    const moved = list.filter((x) => g.users.some((y) => y.id === x.id && y.perm !== x.perm)).map((x) => `${nameOf(x.id)?.name} → ${PERM[x.perm]}`);
+    upd([added.length && `added ${added.join(', ')}`, gone.length && `took off ${gone.join(', ')}`, ...moved].filter(Boolean).join('; ') || 'no changes', (x) => ({ ...x, users: list }));
+    say(`${g.email}: saved.`);
+    setAdding([]);
+    d.stop();
+  };
+  return (
+    <Panel
+      title="Email group users"
+      note={
+        <>
+          Who can see <b>{g.email}</b>, and who can send from it. New users can only view.
+        </>
+      }
+      action={<EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => { setAdding([]); d.stop(); }} onSave={save} />}
+      flush
+    >
+      {ed && (
+        <div className="cfg__foot cfg__addusers">
+          <MultiPick id={`eu-${g.id}`} label="Users to add" value={adding} options={notIn.map((u) => u.name)} onChange={setAdding} empty="Choose users" search />
+          <Button
+            variant="secondary"
+            iconLeft={<Icon name="plus" size={16} />}
+            disabled={!adding.length}
+            onClick={() => {
+              const ids = adding.map((n) => cfg.users.find((u) => u.name === n)?.id).filter((x): x is string => !!x);
+              d.set((l) => [...l, ...ids.map((id) => ({ id, perm: 'view' as EmailPerm }))]);
+              setAdding([]);
+            }}
+          >
+            Add users
+          </Button>
+        </div>
+      )}
+      {list.length ? (
+        <div className="stab-wrap">
+          <table className="itab cfg__tab">
+            <thead>
+              <tr>
+                <th scope="col">User</th>
+                <th scope="col">Role</th>
+                <th scope="col">Permission</th>
+                {ed && (
+                  <th scope="col">
+                    <span className="vh">Remove</span>
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((x) => {
+                const u = nameOf(x.id);
+                if (!u) return null;
+                return (
+                  <tr key={x.id}>
+                    <td>
+                      <span className="cfg__strong">{u.name}</span>
+                      <span className="cfg__sub">{u.email}</span>
+                    </td>
+                    <td className="cfg__muted">{u.role}</td>
+                    <td>
+                      {ed ? (
+                        <SelectInput id={`ep-${g.id}-${x.id}`} aria-label={`${u.name}: permission`} value={x.perm} onChange={(e) => d.set((l) => l.map((z) => (z.id === x.id ? { ...z, perm: e.target.value as EmailPerm } : z)))}>
+                          <option value="view">Only view</option>
+                          <option value="send">Can send</option>
+                        </SelectInput>
+                      ) : (
+                        PERM[x.perm]
+                      )}
+                    </td>
+                    {ed && (
+                      <td className="cfg__acts">
+                        <button type="button" className="icon-btn" aria-label={`Take ${u.name} off ${g.email}`} onClick={() => d.set((l) => l.filter((z) => z.id !== x.id))}>
+                          <Icon name="close" size={16} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="cfg__empty">Nobody can see this group yet. {ed ? 'Add users above.' : 'Click Edit to add users.'}</p>
+      )}
+    </Panel>
   );
 }

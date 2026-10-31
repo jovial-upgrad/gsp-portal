@@ -1,7 +1,7 @@
 /**
  * The GSP Admin's sign-in (29 Oct): GSP people a GSP admin gave access to, by their GSP email. There's no
  * registering. The first time, they set up a password with a code sent to that email; later, they sign in, or reset
- * a forgotten password the same way. Prototype values: the code 000000, Ishaan Verma's password upGrad1234.
+ * a forgotten password the same way. Prototype values: the code 000000, Jovial's password upGrad1234.
  */
 import { TEST_PASSWORD } from '../../data/testing';
 
@@ -42,7 +42,7 @@ export type TeamAuth = {
 export type Member = { name: string; first: string; email: string; org: string; role: string; set: boolean };
 
 const MEMBERS: Member[] = [
-  { name: 'Ishaan Verma', first: 'Ishaan', email: 'ishaan.verma@gsp.upgrad.com', org: 'GSP', role: 'Admin', set: true },
+  { name: 'Jovial', first: 'Jovial', email: 'jovial@gsp.upgrad.com', org: 'GSP', role: 'Admin', set: true },
   // given access by a GSP admin, and yet to set up a password
   { name: 'Sara Thomas', first: 'Sara', email: 'sara.thomas@gsp.upgrad.com', org: 'GSP', role: 'Admin', set: false },
 ];

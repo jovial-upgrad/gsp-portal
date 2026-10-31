@@ -264,8 +264,21 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - Chosen in the build, for Nesil to confirm: **Home** (the queue) stays first, above the groups; the PM's **Task rules**, **Portal login access**, **Nationality to region** map and **Document categories** aren't built yet.
   - Open question: the settings here are this role's own (a changed currency rate doesn't change course search in the other roles yet). Should they drive the other roles?
 - [x] Nesil, 30 Oct (later), under **User roles**: **Create roles** (name, email, phone, role from Admin, Recruitment, Recruitment Ops, Admission, Admission Ops, Institution, Institution Ops, Finance; title; sales region; the list with filters, Export as CSV, edit and delete, and **Send login link**); **Sales regions** add, edit and delete; **Queues** as a name, a leader (one) and members (several), created, edited and deleted; **Emails**: email groups (email, email sync, sync start date) and their users, each Only view (the default) or Can send. (30 Oct, commit “GSP · Admin: Create roles, sales regions, queues and emails”)
+  - Answered, 31 Oct (Jovial): nine roles, three levels (see below).
   - Open question: Create roles has Nesil's eight roles; **Permission roles** still has the PM's fourteen (Admissions, BAP, Data team, IP team…). Should Permission roles move to the eight (plus the RP roles), and which PM role does each map to? In the samples: Admissions → Admission, Admissions Head → Admission Ops, BAP → Recruitment Ops, IP team → Institution, Data team → Institution Ops, Commissions & Finance → Finance, Super Admin → Admin.
   - Chosen in the build, for Nesil to confirm: a user has **one** sales region (Global for those who cover all), as the dropdown asked; the PM let GSP users have several. Queues lost the PM's assignment, time to act and away cover; members are picked by hand rather than following roles and regions.
+
+- [x] Jovial, 31 Oct, on the Admin configuration pages (in our own copy, `jovial-upgrad/gsp-portal`):
+  - **Other configurations:** Filters configuration removed. **Logs** is the download log only: filters Role, Person and a date range; columns Date, Time, Name, Role, Filters applied, Rows. No Changes or Downloads switch.
+  - **Application routing:** read-only until **Edit**, kept only on **Save** (Cancel throws it away). Regional RP lists: add a region; add RPs from a searchable multi-select. Region defaults: **Add sales region** (name, Admissions contact, default BDM, queue); default BDM from a single-select of Recruitment users; Admissions queue editable. Rest of world and Direct: BDM Ali, queue **Global Admissions** (a new queue led by Tasha).
+  - **Currency exchange** and **Living costs:** Edit, then Save; **Get today’s rates** / **Get current figures** fill the table to check before saving (simulated in the prototype); rows can be added for more destinations.
+  - **BDM assignment:** states and cities in one searchable multi-select; the BDM is a single-select of Recruitment users.
+  - **Create roles:** the dialog has two buttons, **Cancel** and **Create user** (the login email goes on creating). Each user can be **deactivated** (and activated again) or sent the **login email again**.
+  - **Sales regions:** no Countries column; the Admissions contact is required, picked from Admission and Admission Ops users.
+  - **Permission roles:** the nine GSP roles (Admin, Admission, Admission Ops, Recruitment, Recruitment Ops, Institution, Institution Ops, Finance, View Only), each from the PM role it replaces. Pick a role, pick what, choose **No access, View or View + edit**, Save; the role’s full list below.
+  - **Queues:** the leader shows without their role.
+  - **Document configuration** and **Email group users:** Edit, then Save. Every application document rule can be edited; **Applies when** is set from study levels, university countries, where the student is, and anything else.
+  - **Staff:** Jovial’s list everywhere in Admin (Admin is Jovial), queues for every region with their leads, and the shared mailboxes from the inbox analysis.
 
 ## New pages
 

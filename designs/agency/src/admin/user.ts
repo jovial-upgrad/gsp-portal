@@ -1,5 +1,5 @@
 /**
- * Who's signed in to GSP Admin (GSP · Admin, 30 Oct): Ishaan Verma by default, a GSP admin; whoever signs in,
+ * Who's signed in to GSP Admin (GSP · Admin, 30 Oct): Jovial by default, a GSP admin; whoever signs in,
  * after that (Sara Thomas, once she's set up her password). A GSP admin gives team members
  * access; they sign in with their GSP email (see signin/model.ts). The agency's own data in the copied Students and
  * Applications (its name, admin and counsellors) stays the RP's.

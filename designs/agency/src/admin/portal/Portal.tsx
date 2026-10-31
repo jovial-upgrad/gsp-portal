@@ -58,7 +58,7 @@ export type PortalStart = {
   app?: Omit<AppsStart, 'key'>;
 };
 const lensSpring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
-const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'queues', 'emails', 'bdm', 'currency', 'living', 'routing', 'documents', 'filters', 'logs'];
+const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'queues', 'emails', 'bdm', 'currency', 'living', 'routing', 'documents', 'logs'];
 const sectionOf = (s?: PortalStart['section']): Section => (!s || s === 'earnings' ? 'home' : s);
 
 export type { Focus };
@@ -66,7 +66,7 @@ export type { Focus };
 /**
  * GSP Admin's portal (GSP · Admin, 30 Oct), for GSP's admins: its configuration, and GSP · Institution's own pages
  * (User modules and Institution), in the same design and colours as every role (RP Admin's; Nesil tried teal, then
- * red and blue, and kept these). Signed in as Ishaan Verma, GSP · Admin; there's no registering or verification here.
+ * red and blue, and kept these). Signed in as Jovial, GSP · Admin; there's no registering or verification here.
  */
 export function Portal({
   acc,
@@ -85,7 +85,7 @@ export function Portal({
 }) {
   const reduce = useReducedMotion();
   // the application pages are GSP · Institution's and act as its signed-in person: while GSP Admin is open, that's
-  // Ishaan (set before anything draws), and whoever it was comes back when GSP Admin closes
+  // Jovial (set before anything draws), and whoever it was comes back when GSP Admin closes
   const [handBack] = useState(() => {
     const was = { ...INSTITUTION_USER };
     actAsInInstitution({ ...GSP_USER, set: true });
