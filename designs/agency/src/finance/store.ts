@@ -8,8 +8,10 @@ import { useSyncExternalStore } from 'react';
 import COMM from './comm.json';
 import { ROLES, DEFAULT_MATRIX } from './access';
 import { STAFF, label } from '../data/staff';
+import { withDatasetTerms, datasetFinanceApps, fxToToday } from './fromDataset';
+import { onLiveChange } from '../data/live';
 
-const KEY = 'gsp-finance-v2'; // v2: users from the staff list (31 Oct)
+const KEY = 'gsp-finance-v3'; // v3: the one data set's applications (31 Oct)
 
 /* Every GSP person comes from the staff list (data/staff.ts); the RP person is the sample agency's admin. */
 export const USERS = [
@@ -28,15 +30,36 @@ const KBS_REMITTANCE = {
   received: Date.now() - 20 * 36e5, attachments: ['KBS_Remittance_T2_2026.pdf'], ai: { intent: 'commission', conf: 98, record: null, reasons: [], fields: {} },
 };
 
+/**
+ * Finance's commission data: its terms (comm.json), with the applications from the one data set every module reads
+ * (finance/fromDataset.ts). Today is today, so the Commission tab on an application shows the same lines as here.
+ */
+function commFromDataset() {
+  const today = new Date().toISOString().slice(0, 10);
+  const cfg = fxToToday(withDatasetTerms(COMM.cfg), today);
+  cfg.settings.sandboxDate = today;
+  return { today, cfg, apps: datasetFinanceApps(cfg, today), runs: COMM.runs, run: null, checks: [] };
+}
+
 function fresh() {
   return {
     users: USERS, roles: ROLES, matrix: DEFAULT_MATRIX, queues: QUEUES, persona: null, log: [], tasks: [], records: [],
-    comm: { today: COMM.today, cfg: COMM.cfg, apps: COMM.apps, runs: COMM.runs, run: null, checks: [] },
+    comm: commFromDataset(),
     mail: { emails: [KBS_REMITTANCE] },
   };
 }
 
 let state;
+/** An application enrolled elsewhere (Mail, say) joins Finance's applications as soon as it does. */
+function joinEnrolled() {
+  if (!state) return;
+  const now = datasetFinanceApps(state.comm.cfg, state.comm.today);
+  const add = Object.keys(now).filter((id) => !state.comm.apps[id]);
+  if (!add.length) return;
+  state = { ...state, comm: { ...state.comm, apps: { ...state.comm.apps, ...Object.fromEntries(add.map((id) => [id, now[id]])) } } };
+  save();
+  listeners.forEach((f) => f());
+}
 try { state = JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch { state = fresh(); }
 if (!state.comm) state = fresh();
 const listeners = new Set();
@@ -44,6 +67,8 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catc
 
 export function getState() { return state; }
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+onLiveChange(joinEnrolled);
+joinEnrolled();
 export function useStore(select = (s) => s) { return select(useSyncExternalStore(subscribe, getState)); }
 export function update(fn, logText) {
   const next = structuredClone(state);

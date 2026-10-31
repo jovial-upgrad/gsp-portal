@@ -6,6 +6,7 @@
  */
 import { countryByName } from './partners';
 import { parseDate, parseMonth } from './dates';
+import { datasetStudents } from './dataset';
 
 /* ---------- education ---------- */
 
@@ -405,7 +406,7 @@ const doc = (name: string, file: string, status: DocStatus = 'verified'): Doc =>
 /** A Bengaluru agency's students: one just added (profile incomplete, no applications yet), and four with complete profiles and applications. */
 export function sampleStudents(me: string): Student[] {
   const now = Date.now();
-  return [
+  const own: Student[] = [
     {
       ...blank(me),
       id: 'S-24818',
@@ -536,4 +537,6 @@ export function sampleStudents(me: string): Student[] {
       added: now - 58 * DAY,
     },
   ];
+  // the sample agency's own (above), then the students of every other application GSP has (data/dataset.ts)
+  return [...own, ...datasetStudents(me)];
 }

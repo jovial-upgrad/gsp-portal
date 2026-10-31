@@ -19,6 +19,7 @@ import { PersonaBar, usePersona, HostContext } from './persona';
 import { Icon } from '../components/Icon';
 import '../finance/finance.css';
 import './mail.css';
+import { setLiveStatus } from '../data/live';
 
 const OVERSIGHT = ['admission-ops', 'admin', 'view-only'];
 const regionQueue = (r) => 'q-adm-' + String(r || '').toLowerCase().replace(/\W+/g, '-');
@@ -254,6 +255,8 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
     const name = r ? r.student || r.label : '';
     if (rule.act === 'status') {
       finish(`Status moved to “${rule.status}”${rule.attach && t.attachments ? `; ${rule.attach} added to Documents` : ''}.`, (d) => { const x = d.records.find((y) => y.id === r.id); x.status = rule.status; x.since = Date.now(); });
+      // the application itself, in every role (data/live.ts)
+      if (rule.key) setLiveStatus(r.id, { status: rule.key, at: Date.now(), by: user.name, end: rule.end, note: rule.status });
       toast(`${name}: status moved to “${rule.status}”.`);
     } else if (rule.act === 'task' || rule.act === 'finance') {
       const qid = rule.act === 'finance' ? 'q-finance' : queueById(s, regionQueue(r.region)) ? regionQueue(r.region) : 'q-mail';

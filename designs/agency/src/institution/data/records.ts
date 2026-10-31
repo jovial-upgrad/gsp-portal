@@ -13,6 +13,7 @@
 import { UNIVERSITIES, type Destination } from '../../data/courses';
 import { nameOf, staffIn, label } from '../../data/staff';
 import { partnerManagerFor } from '../../data/partners';
+import { RPS } from '../../data/dataset';
 import { sampleRegions, NATIONALITY } from '../../admin/data/config';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
@@ -328,7 +329,26 @@ const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
   bdm: partnerManagerFor(r.country, r.city, '')?.name ?? '',
   admissions: sampleRegions().find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
 });
-export const sampleRps = (): RecruitmentPartner[] => rpRows().map(staffed);
+/** Every other RP GSP's applications are with (data/dataset.ts), by Finance's id: signed partners, so their applications link here. */
+const COUNTRY_OF: Record<string, string> = { 'Indonesia, Malaysia and Thailand': 'Indonesia', 'Myanmar and Bhutan': 'Myanmar', Africa: 'Nigeria', 'Latin America and Europe': 'Colombia', Direct: 'Australia' };
+const datasetRps = (): RecruitmentPartner[] =>
+  RPS.filter((r) => r.id !== 'R-TEST').map((r) => ({
+    id: `rp-${r.id.toLowerCase()}`,
+    code: /^\d+$/.test(r.id) ? `AG-${r.id}` : r.id,
+    name: r.name.replace(/^Sample: /, ''),
+    city: '',
+    country: COUNTRY_OF[r.region] ?? r.region,
+    status: 'Agreement signed',
+    since: '2025-01-01',
+    contact: { name: '', email: '', phone: '' },
+    foundUs: '',
+    bdm: '',
+    admissions: '',
+    masterPartner: 'None',
+    docs: docs('Verified'),
+    activity: [{ at: '2025-01-01', what: r.terms ? 'Agreement signed; RP terms with Finance' : 'Agreement signed; no RP terms with Finance yet' }],
+  }));
+export const sampleRps = (): RecruitmentPartner[] => [...rpRows(), ...datasetRps()].map(staffed);
 const rpRows = (): RecruitmentPartner[] => [
   rp('rp-dhaka', 1042, 'Dhaka Global Education', 'Dhaka', 'Bangladesh', 'Verifying', inDays(-8), { name: 'Nusrat Jahan', email: 'nusrat@dhakaglobaledu.com', phone: '+880 1711 552 019' }, 'Event or fair', '', '', docs('With BAP'), [{ at: inDays(-7), what: 'All documents uploaded' }, { at: inDays(-8), what: 'Signed up' }]),
   rp('rp-eduvista', 1043, 'EduVista Consultants', 'Hyderabad', 'India', 'Verifying', inDays(-9), { name: 'Kiran Reddy', email: 'kiran@eduvista.in', phone: '+91 98490 11220' }, 'Google search', '', '', docs('With BAP'), [{ at: inDays(-8), what: 'All documents uploaded' }, { at: inDays(-9), what: 'Signed up' }]),

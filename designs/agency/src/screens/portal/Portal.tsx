@@ -29,6 +29,7 @@ import { sampleApplications, studentApps, type Application } from '../../data/ap
 import { useLinkedData } from '../../proto/link';
 import '../signup/signup.css';
 import './portal.css';
+import { useLiveApps } from '../../data/live';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -107,9 +108,12 @@ export function Portal({
   // the course search lives here, so leaving Find courses and coming back keeps it
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || 'India', join?.form.state || ''));
   // students live here too: a new agency starts with none, an established one with its own
-  const [students, setStudents] = useState<Student[]>(() => start?.students ?? (join ? [] : sampleStudents(acc.name)));
+  // an RP sees only its own students and applications: GSP's others (with another RP) aren't theirs
+  const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp));
   // and applications, for those students; the student list shows each one's applications from here
-  const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications()));
+  const [apps, setApps] = useState<Application[]>(() => (start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications())).filter((x) => !x.rp));
+  // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
+  useLiveApps(setApps);
   // connected to the other role for testing (Role, beside Prototype): see proto/link.ts
   // the bell and the megaphone: this portal's notifications (real ones from the other role while connected), and
   // announcements as the Institution Team's model has them (this role's own copy: nothing that team changes reaches here)
@@ -145,8 +149,8 @@ export function Portal({
     setJump(undefined);
     setSection(start.section);
     if (start.search) setSearch(start.search);
-    if (start.students) setStudents(start.students);
-    if (start.apps || start.students) setApps(start.apps ?? (start.students?.length ? sampleApplications() : []));
+    if (start.students) setStudents(start.students.filter((x) => !x.rp));
+    if (start.apps || start.students) setApps((start.apps ?? (start.students?.length ? sampleApplications() : [])).filter((x) => !x.rp));
   }, [start?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const jumpTo = (p: Omit<PortalStart, 'key'>) => {
     setJump({ ...p, key: `jump-${Date.now()}` });

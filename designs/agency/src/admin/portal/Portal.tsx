@@ -42,6 +42,7 @@ import '../../screens/portal/portal.css';
 // GSP · Institution's styles, shared; GSP Admin's own (its menu) are in ../admin.css
 import '../../institution/institution.css';
 import '../admin.css';
+import { useLiveApps } from '../../data/live';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -118,6 +119,8 @@ export function Portal({
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(country, join?.form.state || ''));
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? sampleStudents(acc.name));
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));
+  // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
+  useLiveApps(setApps);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
   const team = teamFor(acc.name);

@@ -285,6 +285,15 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - The export has no phone numbers or titles, so none show; contact cards show the email instead.
   - Open question: the export's own inconsistencies (two Sumit Singhs, Faryal Abbas twice, notes inside names, region spellings, a shared mailbox as Faisal Khan's email, BDM areas that overlap or disagree with BDM assignment) are listed in the QC doc. Who fixes them in the CRM?
 
+- [x] Jovial, 31 Oct (evening): **one application data set, connected across every module**, and working for the commissions demo (`src/data/dataset.json`, built by `scripts/gen_dataset.py`; read through `src/data/dataset.ts`). (31 Oct, commit “One application data set across every module”)
+  - **86 applications**: the sample agency's 9 (unchanged) plus 77 more: the 47 CRM-shaped applications from the work sample (every stage, real RPs and universities) and Finance's 30 enrolments. One id each (GSP-#####); the old sample ids (A00391…, A00401…) map to them.
+  - Each application points by id to its **student** (77 more students), its **course** and so its **university**, its **RP** (Finance's RP id) and its **GSP owner** (a staff id). The RP portal shows only the agency's own; every GSP role sees all.
+  - **The catalogue** gains the 29 universities the applications use; **every university's commission rate comes from Finance's terms** (18 catalogue universities with no contract get sample terms, marked as such), so course cards, the Commission tab and Finance agree.
+  - **Finance** prices the same applications: invoices, university payments and RP payouts follow the dates (some held back to show overdue payments, a short payment and RPs in the next run). The **Commission tab** shows Finance's own lines for enrolled applications; RP Earnings matches both.
+  - **My work** and **Mail** link to the same applications; **confirming a status in Mail changes the application in every role**, and an application Mail marks enrolled joins Finance's ledgers at once (`src/data/live.ts`).
+  - **RPs**: one list for the RP pickers and the Institution Team's Recruitment partners page (every RP an application is with); the sample agency is the GSP test agency everywhere.
+
+
 ## New pages
 
 - [x] Jovial, 31 Oct: **My work** and **Mail** in the code (`src/work/`). My work (tasks from the task rules, by queue, with working-day SLAs) is in every GSP role; Admin's new **Work** group has **Queues, SLA and escalation** and **Task rules**. (31 Oct, 3970d0a)

@@ -187,7 +187,13 @@ const extra = (): UniRec[] => [
 ];
 
 export function sampleUniRecs(): UniRec[] {
-  const list = [...UNIVERSITIES.map(record), ...extra()];
+  // UTAS is in the catalogue now (GSP's applications use it), live: it keeps its partner from here
+  const more = extra();
+  const list = [...UNIVERSITIES.map(record), ...more.filter((x) => !UNIVERSITIES.some((u) => u.id === x.id))];
+  for (const x of more) {
+    const have = list.find((u) => u.id === x.id && u !== x);
+    if (have) have.ip = x.ip;
+  }
   const get = (id: string) => list.find((u) => u.id === id)!;
   // what the samples show: the Flinders set-up from the PM prototype, and who last changed some of it
   const f = get('flinders');

@@ -1,0 +1,3886 @@
+{
+ "about": "One application data set (Jovial, 31 Oct). Built by scripts/gen_dataset.py from the CRM-shaped work sample and Finance’s demo enrolments. Do not edit by hand.",
+ "unis": [
+  {
+   "id": "ecu",
+   "name": "Edith Cowan University",
+   "country": "Australia",
+   "city": "Perth",
+   "fin": "11",
+   "college": false
+  },
+  {
+   "id": "scu",
+   "name": "Southern Cross University",
+   "country": "Australia",
+   "city": "Gold Coast",
+   "fin": "26",
+   "college": false
+  },
+  {
+   "id": "tafesa",
+   "name": "TAFE SA",
+   "country": "Australia",
+   "city": "Adelaide",
+   "fin": null,
+   "college": true
+  },
+  {
+   "id": "uws",
+   "name": "University of the West of Scotland",
+   "country": "UK",
+   "city": "Paisley",
+   "fin": "36",
+   "college": false
+  },
+  {
+   "id": "ais",
+   "name": "Auckland Institute of Studies",
+   "country": "New Zealand",
+   "city": "Auckland",
+   "fin": "31a",
+   "college": true
+  },
+  {
+   "id": "kbs",
+   "name": "Kaplan Business School",
+   "country": "Australia",
+   "city": "Sydney",
+   "fin": "21a",
+   "college": true
+  },
+  {
+   "id": "utas",
+   "name": "University of Tasmania",
+   "country": "Australia",
+   "city": "Hobart",
+   "fin": "29",
+   "college": false
+  },
+  {
+   "id": "uwtsd",
+   "name": "University of Wales Trinity Saint David",
+   "country": "UK",
+   "city": "London",
+   "fin": null,
+   "college": false
+  },
+  {
+   "id": "vuw",
+   "name": "Victoria University of Wellington",
+   "country": "New Zealand",
+   "city": "Wellington",
+   "fin": "14",
+   "college": false
+  },
+  {
+   "id": "wsu",
+   "name": "Western Sydney University",
+   "country": "Australia",
+   "city": "Sydney",
+   "fin": "39",
+   "college": false
+  },
+  {
+   "id": "notredame",
+   "name": "University of Notre Dame Australia",
+   "country": "Australia",
+   "city": "Fremantle",
+   "fin": null,
+   "college": false
+  },
+  {
+   "id": "aut",
+   "name": "Auckland University of Technology",
+   "country": "New Zealand",
+   "city": "Auckland",
+   "fin": "03",
+   "college": false
+  },
+  {
+   "id": "griffithu",
+   "name": "Griffith University",
+   "country": "Australia",
+   "city": "Brisbane",
+   "fin": "25",
+   "college": false
+  },
+  {
+   "id": "uwa",
+   "name": "University of Western Australia",
+   "country": "Australia",
+   "city": "Perth",
+   "fin": "06",
+   "college": false
+  },
+  {
+   "id": "eit",
+   "name": "Engineering Institute of Technology",
+   "country": "Australia",
+   "city": "Perth",
+   "fin": null,
+   "college": true
+  },
+  {
+   "id": "curtincollege",
+   "name": "Curtin College",
+   "country": "Australia",
+   "city": "Perth",
+   "fin": null,
+   "college": true
+  },
+  {
+   "id": "latrobe",
+   "name": "La Trobe University",
+   "country": "Australia",
+   "city": "Melbourne",
+   "fin": "23",
+   "college": false
+  },
+  {
+   "id": "winchester",
+   "name": "University of Winchester",
+   "country": "UK",
+   "city": "Winchester",
+   "fin": null,
+   "college": false
+  },
+  {
+   "id": "londonmet",
+   "name": "London Metropolitan University",
+   "country": "UK",
+   "city": "London",
+   "fin": "15",
+   "college": false
+  },
+  {
+   "id": "toiohomai",
+   "name": "Toi Ohomai Institute of Technology",
+   "country": "New Zealand",
+   "city": "Tauranga",
+   "fin": null,
+   "college": true
+  },
+  {
+   "id": "acu",
+   "name": "Australian Catholic University",
+   "country": "Australia",
+   "city": "Sydney",
+   "fin": null,
+   "college": false
+  },
+  {
+   "id": "cdu",
+   "name": "Charles Darwin University",
+   "country": "Australia",
+   "city": "Darwin",
+   "fin": "08",
+   "college": false
+  },
+  {
+   "id": "tafewa",
+   "name": "TAFE International Western Australia",
+   "country": "Australia",
+   "city": "Perth",
+   "fin": null,
+   "college": true
+  },
+  {
+   "id": "tafensw",
+   "name": "TAFE NSW",
+   "country": "Australia",
+   "city": "Sydney",
+   "fin": "27",
+   "college": true
+  },
+  {
+   "id": "macquarie",
+   "name": "Macquarie University",
+   "country": "Australia",
+   "city": "Sydney",
+   "fin": null,
+   "college": false
+  },
+  {
+   "id": "torrens",
+   "name": "Torrens University Australia",
+   "country": "Australia",
+   "city": "Adelaide",
+   "fin": "01",
+   "college": false
+  },
+  {
+   "id": "greenwichcollege",
+   "name": "Greenwich College",
+   "country": "Australia",
+   "city": "Sydney",
+   "fin": null,
+   "college": true
+  },
+  {
+   "id": "swinburne",
+   "name": "Swinburne University of Technology",
+   "country": "Australia",
+   "city": "Melbourne",
+   "fin": "13",
+   "college": false
+  },
+  {
+   "id": "csu",
+   "name": "Charles Sturt University",
+   "country": "Australia",
+   "city": "Wagga Wagga",
+   "fin": "37",
+   "college": false
+  }
+ ],
+ "link": {
+  "flinders": "12",
+  "adelaide": "04",
+  "deakin": "10",
+  "newcastle": "28",
+  "uow": "35",
+  "cqu": "09",
+  "vu": "38",
+  "murdoch": "24",
+  "rmit": "02",
+  "feduni": "17",
+  "massey": "22",
+  "waikato": "30",
+  "canberra": "07",
+  "unisc": "34",
+  "ecu": "11",
+  "scu": "26",
+  "uws": "36",
+  "ais": "31a",
+  "kbs": "21a",
+  "utas": "29",
+  "vuw": "14",
+  "wsu": "39",
+  "aut": "03",
+  "griffithu": "25",
+  "uwa": "06",
+  "latrobe": "23",
+  "londonmet": "15",
+  "cdu": "08",
+  "tafensw": "27",
+  "torrens": "01",
+  "swinburne": "13",
+  "csu": "37",
+  "abertay": "C-abertay",
+  "coventry": "C-coventry",
+  "herts": "C-herts",
+  "northumbria": "C-northumbria",
+  "greenwich": "C-greenwich",
+  "ulster": "C-ulster",
+  "leeds": "C-leeds",
+  "birmingham": "C-birmingham",
+  "windsor": "C-windsor",
+  "algoma": "C-algoma",
+  "fanshawe": "C-fanshawe",
+  "tru": "C-tru",
+  "lincoln": "C-lincoln",
+  "griffith": "C-griffith",
+  "dbs": "C-dbs",
+  "ul": "C-ul",
+  "pace": "C-pace",
+  "usf": "C-usf"
+ },
+ "rates": {
+  "flinders": {
+   "UG": 12.5,
+   "PG": 12.5,
+   "RES": 12.5,
+   "DIP": 12.5
+  },
+  "adelaide": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "DIP": 15,
+   "ELICOS": 20
+  },
+  "deakin": {
+   "UG": 12.5,
+   "PG": 12.5,
+   "RES": 12.5,
+   "SA": 15,
+   "ELICOS": 20
+  },
+  "newcastle": {
+   "UG": 15,
+   "PG": 15,
+   "SA": 15,
+   "ELICOS": 20
+  },
+  "uow": {
+   "UG": 10,
+   "PG": 10
+  },
+  "cqu": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "DIP": 15,
+   "SA": 15,
+   "VET": 17.5,
+   "FDN": 17.5,
+   "ELICOS": 20
+  },
+  "vu": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "DIP": 15,
+   "FDN": 15,
+   "VET": 20,
+   "SA": 17.5,
+   "ELICOS": 20
+  },
+  "murdoch": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 12.5,
+   "SA": 10
+  },
+  "rmit": {
+   "UG": 10,
+   "PG": 10,
+   "RES": 10,
+   "DIP": 10,
+   "SA": 10,
+   "VET": 12,
+   "FDN": 15,
+   "ELICOS": 15
+  },
+  "feduni": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "VET": 15,
+   "ELICOS": 15
+  },
+  "massey": {
+   "UG": 10,
+   "PG": 10,
+   "ELICOS": 20
+  },
+  "waikato": {
+   "UG": 15,
+   "PG": 13,
+   "SA": 12,
+   "ELICOS": 20
+  },
+  "canberra": {
+   "UG": 15,
+   "PG": 15,
+   "DIP": 15,
+   "SA": 15,
+   "ELICOS": 20
+  },
+  "unisc": {
+   "UG": 15,
+   "PG": 15,
+   "DIP": 15,
+   "RES": 15,
+   "SA": 15
+  },
+  "ecu": {
+   "UG": 15,
+   "PG": 15,
+   "DIP": 15,
+   "SA": 20
+  },
+  "scu": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "DIP": 10,
+   "SA": 10,
+   "ELICOS": 20
+  },
+  "uws": {
+   "UG": 25,
+   "PG": 25,
+   "RES": 25
+  },
+  "ais": {
+   "UG": 25,
+   "PG": 25,
+   "DIP": 25,
+   "VET": 25,
+   "ELICOS": 30
+  },
+  "kbs": {
+   "UG": 15,
+   "PG": 15,
+   "ELICOS": 20
+  },
+  "utas": {
+   "UG": 12.5,
+   "PG": 12.5,
+   "DIP": 15,
+   "FDN": 15,
+   "SA": 15,
+   "ELICOS": 20
+  },
+  "vuw": {
+   "UG": 13,
+   "PG": 13,
+   "SA": 13,
+   "ELICOS": 20
+  },
+  "wsu": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "SA": 15,
+   "ELICOS": 20,
+   "FDN": 15,
+   "DIP": 15
+  },
+  "aut": {
+   "UG": 12.5,
+   "PG": 12.5,
+   "DIP": 12.5,
+   "FDN": 15,
+   "ELICOS": 20
+  },
+  "griffithu": {
+   "UG": 12.5,
+   "PG": 12.5,
+   "DIP": 12.5,
+   "SA": 12.5,
+   "ELICOS": 20
+  },
+  "uwa": {
+   "UG": 10,
+   "PG": 10,
+   "RES": 10,
+   "SA": 10,
+   "ELICOS": 20
+  },
+  "latrobe": {
+   "UG": 10,
+   "PG": 10,
+   "RES": 10,
+   "DIP": 10,
+   "FDN": 10,
+   "SA": 10,
+   "ELICOS": 10
+  },
+  "londonmet": {
+   "UG": 20,
+   "PG": 20,
+   "SA": 10
+  },
+  "cdu": {
+   "UG": 15.5,
+   "PG": 15.5,
+   "RES": 15.5,
+   "DIP": 15.5,
+   "FDN": 15.5,
+   "VET": 13,
+   "SA": 20
+  },
+  "tafensw": {
+   "VET": 15,
+   "DIP": 15,
+   "UG": 15,
+   "ELICOS": 20
+  },
+  "torrens": {
+   "UG": 17.5,
+   "PG": 17.5,
+   "DIP": 17.5,
+   "VET": 17.5,
+   "SA": 20,
+   "ELICOS": 30
+  },
+  "swinburne": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "VET": 15,
+   "FDN": 20,
+   "ELICOS": 20,
+   "SA": 20
+  },
+  "csu": {
+   "UG": 15,
+   "PG": 15,
+   "RES": 15,
+   "SA": 9
+  },
+  "abertay": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "coventry": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "herts": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "northumbria": {
+   "UG": 14.0,
+   "PG": 14.0,
+   "RES": 14.0,
+   "DIP": 14.0,
+   "FDN": 14.0
+  },
+  "greenwich": {
+   "UG": 16.0,
+   "PG": 16.0,
+   "RES": 16.0,
+   "DIP": 16.0,
+   "FDN": 16.0
+  },
+  "ulster": {
+   "UG": 16.0,
+   "PG": 16.0,
+   "RES": 16.0,
+   "DIP": 16.0,
+   "FDN": 16.0
+  },
+  "leeds": {
+   "UG": 10.0,
+   "PG": 10.0,
+   "RES": 10.0,
+   "DIP": 10.0,
+   "FDN": 10.0
+  },
+  "birmingham": {
+   "UG": 10.0,
+   "PG": 10.0,
+   "RES": 10.0,
+   "DIP": 10.0,
+   "FDN": 10.0
+  },
+  "windsor": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "algoma": {
+   "UG": 18.0,
+   "PG": 18.0,
+   "RES": 18.0,
+   "DIP": 18.0,
+   "FDN": 18.0
+  },
+  "fanshawe": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "tru": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "lincoln": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "griffith": {
+   "UG": 15.0,
+   "PG": 15.0,
+   "RES": 15.0,
+   "DIP": 15.0,
+   "FDN": 15.0
+  },
+  "dbs": {
+   "UG": 16.0,
+   "PG": 16.0,
+   "RES": 16.0,
+   "DIP": 16.0,
+   "FDN": 16.0
+  },
+  "ul": {
+   "UG": 12.0,
+   "PG": 12.0,
+   "RES": 12.0,
+   "DIP": 12.0,
+   "FDN": 12.0
+  },
+  "pace": {
+   "UG": 12.0,
+   "PG": 12.0,
+   "RES": 12.0,
+   "DIP": 12.0,
+   "FDN": 12.0
+  },
+  "usf": {
+   "UG": 12.0,
+   "PG": 12.0,
+   "RES": 12.0,
+   "DIP": 12.0,
+   "FDN": 12.0
+  }
+ },
+ "sampleTerms": [
+  {
+   "id": "C-abertay",
+   "name": "Abertay University",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-coventry",
+   "name": "Coventry University",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-herts",
+   "name": "University of Hertfordshire",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-northumbria",
+   "name": "Northumbria University",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 14.0,
+    "PG": 14.0,
+    "RES": 14.0,
+    "DIP": 14.0,
+    "FDN": 14.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "14.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-greenwich",
+   "name": "University of Greenwich",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 16.0,
+    "PG": 16.0,
+    "RES": 16.0,
+    "DIP": 16.0,
+    "FDN": 16.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "16.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-ulster",
+   "name": "Ulster University",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 16.0,
+    "PG": 16.0,
+    "RES": 16.0,
+    "DIP": 16.0,
+    "FDN": 16.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "16.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-leeds",
+   "name": "University of Leeds",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 10.0,
+    "PG": 10.0,
+    "RES": 10.0,
+    "DIP": 10.0,
+    "FDN": 10.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "10.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-birmingham",
+   "name": "University of Birmingham",
+   "group": "",
+   "country": "UK",
+   "cur": "GBP",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 10.0,
+    "PG": 10.0,
+    "RES": 10.0,
+    "DIP": 10.0,
+    "FDN": 10.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "10.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-windsor",
+   "name": "University of Windsor",
+   "group": "",
+   "country": "CA",
+   "cur": "CAD",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-algoma",
+   "name": "Algoma University",
+   "group": "",
+   "country": "CA",
+   "cur": "CAD",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 18.0,
+    "PG": 18.0,
+    "RES": 18.0,
+    "DIP": 18.0,
+    "FDN": 18.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "18.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-fanshawe",
+   "name": "Fanshawe College",
+   "group": "",
+   "country": "CA",
+   "cur": "CAD",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-tru",
+   "name": "Thompson Rivers University",
+   "group": "",
+   "country": "CA",
+   "cur": "CAD",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-lincoln",
+   "name": "Lincoln University",
+   "group": "",
+   "country": "NZ",
+   "cur": "NZD",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-griffith",
+   "name": "Griffith College",
+   "group": "",
+   "country": "IE",
+   "cur": "EUR",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 15.0,
+    "PG": 15.0,
+    "RES": 15.0,
+    "DIP": 15.0,
+    "FDN": 15.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "15.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-dbs",
+   "name": "Dublin Business School",
+   "group": "",
+   "country": "IE",
+   "cur": "EUR",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 16.0,
+    "PG": 16.0,
+    "RES": 16.0,
+    "DIP": 16.0,
+    "FDN": 16.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "16.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-ul",
+   "name": "University of Limerick",
+   "group": "",
+   "country": "IE",
+   "cur": "EUR",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 12.0,
+    "PG": 12.0,
+    "RES": 12.0,
+    "DIP": 12.0,
+    "FDN": 12.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "12.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-pace",
+   "name": "Pace University",
+   "group": "",
+   "country": "US",
+   "cur": "USD",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 12.0,
+    "PG": 12.0,
+    "RES": 12.0,
+    "DIP": 12.0,
+    "FDN": 12.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "12.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  },
+  {
+   "id": "C-usf",
+   "name": "University of South Florida",
+   "group": "",
+   "country": "US",
+   "cur": "USD",
+   "ends": "2027-12-31",
+   "trigger": "census",
+   "inst": 1,
+   "payDays": 30,
+   "cap": null,
+   "levels": {
+    "UG": 12.0,
+    "PG": 12.0,
+    "RES": 12.0,
+    "DIP": 12.0,
+    "FDN": 12.0
+   },
+   "fixed": {},
+   "tier": null,
+   "flag": "sample",
+   "status": "Sample terms: no contract on file yet",
+   "sample": true,
+   "contract": {
+    "rate": "12.0% (the course record’s rate, until Finance adds the contract)"
+   }
+  }
+ ],
+ "rps": [
+  {
+   "id": "16018",
+   "name": "Visafast Migration Consultancy",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "10434",
+   "name": "Edunetwork Australia",
+   "region": "Vietnam",
+   "terms": true
+  },
+  {
+   "id": "10467",
+   "name": "IEMC Global Pty Ltd",
+   "region": "Vietnam",
+   "terms": true
+  },
+  {
+   "id": "10231",
+   "name": "Future Journey Visa Services",
+   "region": "Vietnam",
+   "terms": true
+  },
+  {
+   "id": "13828",
+   "name": "Affinity Global Experts",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "10310",
+   "name": "AGS - Advance Global Study Pty Ltd",
+   "region": "Vietnam",
+   "terms": true
+  },
+  {
+   "id": "12547",
+   "name": "Education Connect",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "12321",
+   "name": "Headstart Education and Visa Pty Ltd",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "12341",
+   "name": "MA Education Consultants Pty Ltd",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "11033",
+   "name": "Nikee Business Group",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "12337",
+   "name": "Pathway To Aus",
+   "region": "Philippines",
+   "terms": true
+  },
+  {
+   "id": "10097",
+   "name": "Pro Info & Edu Consultant",
+   "region": "Bangladesh",
+   "terms": true
+  },
+  {
+   "id": "16048",
+   "name": "Pro Info & Edu Consultant Australia Pty Ltd",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "10721",
+   "name": "Rightway Education and Services Pty Ltd",
+   "region": "Vietnam",
+   "terms": true
+  },
+  {
+   "id": "12582",
+   "name": "The Iconic Education and Migration",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "12197",
+   "name": "Unikey Global Pty Ltd",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "11986",
+   "name": "upGrad Abroad - India",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "15857",
+   "name": "Grace International",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "11408",
+   "name": "Wisdom Education",
+   "region": "Bangladesh",
+   "terms": true
+  },
+  {
+   "id": "16806",
+   "name": "Silver Fern Education",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "11641",
+   "name": "MWT Education",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "16909",
+   "name": "Jubeerich",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "12826",
+   "name": "Educareer Services",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "17358",
+   "name": "Study Square Global",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "S-IN1",
+   "name": "Horizon India Partners",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "S-NP1",
+   "name": "Kathmandu Pathways",
+   "region": "Nepal",
+   "terms": true
+  },
+  {
+   "id": "S-VN1",
+   "name": "Hanoi Study Hub",
+   "region": "Vietnam",
+   "terms": true
+  },
+  {
+   "id": "S-AU1",
+   "name": "Harbour Onshore Agency",
+   "region": "Australia",
+   "terms": true
+  },
+  {
+   "id": "S-MP1",
+   "name": "Lanka Partner Group",
+   "region": "Sri Lanka",
+   "terms": true
+  },
+  {
+   "id": "S-LK1",
+   "name": "Colombo Edu Link",
+   "region": "Sri Lanka",
+   "terms": true
+  },
+  {
+   "id": "S-NEW",
+   "name": "New contract, no terms yet",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "R-TEST",
+   "name": "GSP test agency",
+   "region": "India",
+   "terms": true
+  },
+  {
+   "id": "13885",
+   "name": "Tutee Connect",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "10883",
+   "name": "Chetanya Career Consultants Pvt Ltd",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "17340",
+   "name": "Trade Australia Journal",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "17292",
+   "name": "Study Inspire Pty Ltd",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "17266",
+   "name": "The Visa Terminal",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "11091",
+   "name": "Micro Info Tech Trg & Solutions",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "15837",
+   "name": "Buttar Immigration Consultants",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "18134",
+   "name": "ISV Overseas",
+   "region": "India",
+   "terms": false
+  },
+  {
+   "id": "17805",
+   "name": "Aussie Bengal Shield SAS PVT LTD",
+   "region": "Bangladesh",
+   "terms": false
+  },
+  {
+   "id": "16177",
+   "name": "Advance Visa Consultancy",
+   "region": "Bangladesh",
+   "terms": false
+  },
+  {
+   "id": "15176",
+   "name": "Unicampus Global",
+   "region": "Bangladesh",
+   "terms": false
+  },
+  {
+   "id": "17783",
+   "name": "Global Edu Bangladesh",
+   "region": "Bangladesh",
+   "terms": false
+  },
+  {
+   "id": "13826",
+   "name": "Eduwires",
+   "region": "Bangladesh",
+   "terms": false
+  },
+  {
+   "id": "15077",
+   "name": "Ra Global Solutions Bd",
+   "region": "Bangladesh",
+   "terms": false
+  },
+  {
+   "id": "16390",
+   "name": "ABN Overseas Education Pvt. Ltd.",
+   "region": "Pakistan",
+   "terms": false
+  },
+  {
+   "id": "17099",
+   "name": "Nc Solicitors (Private) Limited",
+   "region": "Pakistan",
+   "terms": false
+  },
+  {
+   "id": "12253",
+   "name": "routes overseas consultants",
+   "region": "Pakistan",
+   "terms": false
+  },
+  {
+   "id": "14960",
+   "name": "Lead Ahead Consultancy",
+   "region": "Nepal",
+   "terms": false
+  },
+  {
+   "id": "15802",
+   "name": "Educraft Education Network",
+   "region": "Nepal",
+   "terms": false
+  },
+  {
+   "id": "10745",
+   "name": "Apply International Education Consultancy Pvt Ltd",
+   "region": "Nepal",
+   "terms": false
+  },
+  {
+   "id": "17797",
+   "name": "Study Migration Hub",
+   "region": "Nepal",
+   "terms": false
+  },
+  {
+   "id": "13602",
+   "name": "AEMC Consultant PVT LTD",
+   "region": "Sri Lanka",
+   "terms": false
+  },
+  {
+   "id": "17348",
+   "name": "Eureka Australian Education Consultants Private Limited",
+   "region": "Sri Lanka",
+   "terms": false
+  },
+  {
+   "id": "13400",
+   "name": "Emergence Education Consultants",
+   "region": "Sri Lanka",
+   "terms": false
+  },
+  {
+   "id": "15876",
+   "name": "Innovative Creation Services Pty Ltd Corp",
+   "region": "Sri Lanka",
+   "terms": false
+  },
+  {
+   "id": "11165",
+   "name": "Kumardirect Pty Ltd",
+   "region": "Australia",
+   "terms": false
+  },
+  {
+   "id": "10354",
+   "name": "Hisa - Hanoi International Study Abroad Cooperation Company Limited",
+   "region": "Vietnam",
+   "terms": false
+  },
+  {
+   "id": "10841",
+   "name": "Golden Key Education Development Joint Stock Company",
+   "region": "Vietnam",
+   "terms": false
+  },
+  {
+   "id": "13858",
+   "name": "Veritas Consulting Group Pty Ltd",
+   "region": "Vietnam",
+   "terms": false
+  },
+  {
+   "id": "17568",
+   "name": "RRS International and Consultancy Services Inc",
+   "region": "Philippines",
+   "terms": false
+  },
+  {
+   "id": "12973",
+   "name": "Best Partner Pty Ltd",
+   "region": "Indonesia, Malaysia and Thailand",
+   "terms": false
+  },
+  {
+   "id": "12799",
+   "name": "PT Satu Impian Bersama T/A education ONE",
+   "region": "Indonesia, Malaysia and Thailand",
+   "terms": false
+  },
+  {
+   "id": "12066",
+   "name": "Campus Abroad Mauritius Ltd.",
+   "region": "Africa",
+   "terms": false
+  },
+  {
+   "id": "15046",
+   "name": "Eduwin Ricardo Prieto Rojas / Study Lites",
+   "region": "Africa",
+   "terms": false
+  },
+  {
+   "id": "11418",
+   "name": "Your Aussie Life PTY LTD",
+   "region": "Latin America and Europe",
+   "terms": false
+  },
+  {
+   "id": "18000",
+   "name": "Latin Education and Migration",
+   "region": "Latin America and Europe",
+   "terms": false
+  },
+  {
+   "id": "15923",
+   "name": "Ascenders Education Company Limited",
+   "region": "Myanmar and Bhutan",
+   "terms": false
+  },
+  {
+   "id": "17472",
+   "name": "Wangchuk Ecpf",
+   "region": "Myanmar and Bhutan",
+   "terms": false
+  },
+  {
+   "id": "10913",
+   "name": "upGrad GSP Direct",
+   "region": "Direct",
+   "terms": false
+  }
+ ],
+ "students": [
+  {
+   "id": "S-30001",
+   "first": "Dev",
+   "last": "Kaur",
+   "nationality": "India",
+   "email": "dev.kaur96@gmail.com",
+   "dial": "+91",
+   "phone": "83896 30568",
+   "passport": "M7781605",
+   "rp": "Tutee Connect"
+  },
+  {
+   "id": "S-30002",
+   "first": "Arjun",
+   "last": "Sharma",
+   "nationality": "India",
+   "email": "arjun.sharma75@gmail.com",
+   "dial": "+91",
+   "phone": "52549 15992",
+   "passport": "B5837279",
+   "rp": "Chetanya Career Consultants Pvt Ltd"
+  },
+  {
+   "id": "S-30003",
+   "first": "Navneet",
+   "last": "Nair",
+   "nationality": "India",
+   "email": "navneet.nair86@gmail.com",
+   "dial": "+91",
+   "phone": "99325 82962",
+   "passport": "A3278568",
+   "rp": "Trade Australia Journal"
+  },
+  {
+   "id": "S-30004",
+   "first": "Rohan",
+   "last": "Patel",
+   "nationality": "India",
+   "email": "rohan.patel82@gmail.com",
+   "dial": "+91",
+   "phone": "87820 92969",
+   "passport": "K3826264",
+   "rp": "Study Inspire Pty Ltd"
+  },
+  {
+   "id": "S-30005",
+   "first": "Kabir",
+   "last": "Sharma",
+   "nationality": "India",
+   "email": "kabir.sharma72@gmail.com",
+   "dial": "+91",
+   "phone": "55744 60610",
+   "passport": "Y3671254",
+   "rp": "The Visa Terminal"
+  },
+  {
+   "id": "S-30006",
+   "first": "Navneet",
+   "last": "Kaur",
+   "nationality": "India",
+   "email": "navneet.kaur18@gmail.com",
+   "dial": "+91",
+   "phone": "61480 11279",
+   "passport": "U4959551",
+   "rp": "Chetanya Career Consultants Pvt Ltd"
+  },
+  {
+   "id": "S-30007",
+   "first": "Simran",
+   "last": "Nair",
+   "nationality": "India",
+   "email": "simran.nair33@gmail.com",
+   "dial": "+91",
+   "phone": "46916 97978",
+   "passport": "X8512494",
+   "rp": "Micro Info Tech Trg & Solutions"
+  },
+  {
+   "id": "S-30008",
+   "first": "Meher",
+   "last": "Sharma",
+   "nationality": "India",
+   "email": "meher.sharma90@gmail.com",
+   "dial": "+91",
+   "phone": "45158 98775",
+   "passport": "U7587734",
+   "rp": "Buttar Immigration Consultants"
+  },
+  {
+   "id": "S-30009",
+   "first": "Rohan",
+   "last": "Nair",
+   "nationality": "India",
+   "email": "rohan.nair87@gmail.com",
+   "dial": "+91",
+   "phone": "76470 56383",
+   "passport": "R9043117",
+   "rp": "ISV Overseas"
+  },
+  {
+   "id": "S-30010",
+   "first": "Mithila",
+   "last": "Chowdhury",
+   "nationality": "Bangladesh",
+   "email": "mithila.chowdhury35@gmail.com",
+   "dial": "+880",
+   "phone": "24067 11556",
+   "passport": "L9035515",
+   "rp": "Education Connect"
+  },
+  {
+   "id": "S-30011",
+   "first": "Tanvir",
+   "last": "Islam",
+   "nationality": "Bangladesh",
+   "email": "tanvir.islam65@gmail.com",
+   "dial": "+880",
+   "phone": "74987 85584",
+   "passport": "H3684393",
+   "rp": "Aussie Bengal Shield SAS PVT LTD"
+  },
+  {
+   "id": "S-30012",
+   "first": "Mithila",
+   "last": "Islam",
+   "nationality": "Bangladesh",
+   "email": "mithila.islam99@gmail.com",
+   "dial": "+880",
+   "phone": "59623 72185",
+   "passport": "L5917357",
+   "rp": "Advance Visa Consultancy"
+  },
+  {
+   "id": "S-30013",
+   "first": "Rafiq",
+   "last": "Hossain",
+   "nationality": "Bangladesh",
+   "email": "rafiq.hossain14@gmail.com",
+   "dial": "+880",
+   "phone": "59349 30271",
+   "passport": "G3265742",
+   "rp": "Unicampus Global"
+  },
+  {
+   "id": "S-30014",
+   "first": "Imran",
+   "last": "Chowdhury",
+   "nationality": "Bangladesh",
+   "email": "imran.chowdhury60@gmail.com",
+   "dial": "+880",
+   "phone": "17583 57854",
+   "passport": "A2690163",
+   "rp": "Global Edu Bangladesh"
+  },
+  {
+   "id": "S-30015",
+   "first": "Imran",
+   "last": "Islam",
+   "nationality": "Bangladesh",
+   "email": "imran.islam54@gmail.com",
+   "dial": "+880",
+   "phone": "72104 13571",
+   "passport": "I2942397",
+   "rp": "Eduwires"
+  },
+  {
+   "id": "S-30016",
+   "first": "Sadia",
+   "last": "Rahman",
+   "nationality": "Bangladesh",
+   "email": "sadia.rahman53@gmail.com",
+   "dial": "+880",
+   "phone": "90732 32710",
+   "passport": "L5969274",
+   "rp": "Ra Global Solutions Bd"
+  },
+  {
+   "id": "S-30017",
+   "first": "Zainab",
+   "last": "Malik",
+   "nationality": "Pakistan",
+   "email": "zainab.malik80@gmail.com",
+   "dial": "+92",
+   "phone": "12512 97573",
+   "passport": "W9761226",
+   "rp": "ABN Overseas Education Pvt. Ltd."
+  },
+  {
+   "id": "S-30018",
+   "first": "Zainab",
+   "last": "Raza",
+   "nationality": "Pakistan",
+   "email": "zainab.raza89@gmail.com",
+   "dial": "+92",
+   "phone": "42192 31321",
+   "passport": "D2290712",
+   "rp": "Nc Solicitors (Private) Limited"
+  },
+  {
+   "id": "S-30019",
+   "first": "Usman",
+   "last": "Khan",
+   "nationality": "Pakistan",
+   "email": "usman.khan53@gmail.com",
+   "dial": "+92",
+   "phone": "41772 87461",
+   "passport": "T6943033",
+   "rp": "routes overseas consultants"
+  },
+  {
+   "id": "S-30020",
+   "first": "Ayesha",
+   "last": "Ahmed",
+   "nationality": "Pakistan",
+   "email": "ayesha.ahmed90@gmail.com",
+   "dial": "+92",
+   "phone": "26527 62267",
+   "passport": "Q2454517",
+   "rp": "MA Education Consultants Pty Ltd"
+  },
+  {
+   "id": "S-30021",
+   "first": "Zainab",
+   "last": "Malik",
+   "nationality": "Pakistan",
+   "email": "zainab.malik36@gmail.com",
+   "dial": "+92",
+   "phone": "36496 65413",
+   "passport": "E4617475",
+   "rp": "MA Education Consultants Pty Ltd"
+  },
+  {
+   "id": "S-30022",
+   "first": "Bibek",
+   "last": "Thapa",
+   "nationality": "Nepal",
+   "email": "bibek.thapa22@gmail.com",
+   "dial": "+977",
+   "phone": "33883 76399",
+   "passport": "A5755702",
+   "rp": "Lead Ahead Consultancy"
+  },
+  {
+   "id": "S-30023",
+   "first": "Bibek",
+   "last": "Shrestha",
+   "nationality": "Nepal",
+   "email": "bibek.shrestha98@gmail.com",
+   "dial": "+977",
+   "phone": "17909 25105",
+   "passport": "W7059857",
+   "rp": "Educraft Education Network"
+  },
+  {
+   "id": "S-30024",
+   "first": "Sandesh",
+   "last": "Shrestha",
+   "nationality": "Nepal",
+   "email": "sandesh.shrestha42@gmail.com",
+   "dial": "+977",
+   "phone": "54163 55329",
+   "passport": "Q8794860",
+   "rp": "Apply International Education Consultancy Pvt Ltd"
+  },
+  {
+   "id": "S-30025",
+   "first": "Sujata",
+   "last": "Karki",
+   "nationality": "Nepal",
+   "email": "sujata.karki77@gmail.com",
+   "dial": "+977",
+   "phone": "58882 65646",
+   "passport": "X3329077",
+   "rp": "Study Migration Hub"
+  },
+  {
+   "id": "S-30026",
+   "first": "Nimesha",
+   "last": "Jayasinghe",
+   "nationality": "Sri Lanka",
+   "email": "nimesha.jayasinghe56@gmail.com",
+   "dial": "+94",
+   "phone": "56399 82224",
+   "passport": "O5181865",
+   "rp": "AEMC Consultant PVT LTD"
+  },
+  {
+   "id": "S-30027",
+   "first": "Dilini",
+   "last": "Silva",
+   "nationality": "Sri Lanka",
+   "email": "dilini.silva87@gmail.com",
+   "dial": "+94",
+   "phone": "24583 32710",
+   "passport": "N2986663",
+   "rp": "Eureka Australian Education Consultants Private Limited"
+  },
+  {
+   "id": "S-30028",
+   "first": "Nimesha",
+   "last": "Jayasinghe",
+   "nationality": "Sri Lanka",
+   "email": "nimesha.jayasinghe55@gmail.com",
+   "dial": "+94",
+   "phone": "76954 58006",
+   "passport": "L6229152",
+   "rp": "Emergence Education Consultants"
+  },
+  {
+   "id": "S-30029",
+   "first": "Dilini",
+   "last": "Jayasinghe",
+   "nationality": "Sri Lanka",
+   "email": "dilini.jayasinghe26@gmail.com",
+   "dial": "+94",
+   "phone": "48438 91165",
+   "passport": "W5522351",
+   "rp": "Innovative Creation Services Pty Ltd Corp"
+  },
+  {
+   "id": "S-30030",
+   "first": "Thanh",
+   "last": "Sharma",
+   "nationality": "India",
+   "email": "thanh.sharma54@gmail.com",
+   "dial": "+91",
+   "phone": "79315 35039",
+   "passport": "I9531954",
+   "rp": "Pathway To Aus"
+  },
+  {
+   "id": "S-30031",
+   "first": "Thanh",
+   "last": "Sharma",
+   "nationality": "India",
+   "email": "thanh.sharma69@gmail.com",
+   "dial": "+91",
+   "phone": "64162 36867",
+   "passport": "D2762691",
+   "rp": "Study Inspire Pty Ltd"
+  },
+  {
+   "id": "S-30032",
+   "first": "Harpreet",
+   "last": "Tamang",
+   "nationality": "India",
+   "email": "harpreet.tamang68@gmail.com",
+   "dial": "+91",
+   "phone": "84046 65197",
+   "passport": "M7291317",
+   "rp": "Kumardirect Pty Ltd"
+  },
+  {
+   "id": "S-30033",
+   "first": "Riya",
+   "last": "Nguyen",
+   "nationality": "India",
+   "email": "riya.nguyen53@gmail.com",
+   "dial": "+91",
+   "phone": "83058 82381",
+   "passport": "J1240187",
+   "rp": "Kumardirect Pty Ltd"
+  },
+  {
+   "id": "S-30034",
+   "first": "Quang",
+   "last": "Nguyen",
+   "nationality": "Vietnam",
+   "email": "quang.nguyen37@gmail.com",
+   "dial": "+84",
+   "phone": "84672 53784",
+   "passport": "V6193928",
+   "rp": "Hisa - Hanoi International Study Abroad Cooperation Company Limited"
+  },
+  {
+   "id": "S-30035",
+   "first": "Lan",
+   "last": "Nguyen",
+   "nationality": "Vietnam",
+   "email": "lan.nguyen12@gmail.com",
+   "dial": "+84",
+   "phone": "31291 76752",
+   "passport": "S9403460",
+   "rp": "Golden Key Education Development Joint Stock Company"
+  },
+  {
+   "id": "S-30036",
+   "first": "Lan",
+   "last": "Nguyen",
+   "nationality": "Vietnam",
+   "email": "lan.nguyen50@gmail.com",
+   "dial": "+84",
+   "phone": "53733 54930",
+   "passport": "Q2963840",
+   "rp": "Veritas Consulting Group Pty Ltd"
+  },
+  {
+   "id": "S-30037",
+   "first": "Bea",
+   "last": "Reyes",
+   "nationality": "Philippines",
+   "email": "bea.reyes62@gmail.com",
+   "dial": "+63",
+   "phone": "56308 13665",
+   "passport": "A2173848",
+   "rp": "RRS International and Consultancy Services Inc"
+  },
+  {
+   "id": "S-30038",
+   "first": "Bea",
+   "last": "Cruz",
+   "nationality": "Philippines",
+   "email": "bea.cruz83@gmail.com",
+   "dial": "+63",
+   "phone": "72558 46601",
+   "passport": "D4496831",
+   "rp": "Pathway To Aus"
+  },
+  {
+   "id": "S-30039",
+   "first": "Putri",
+   "last": "Wijaya",
+   "nationality": "Indonesia",
+   "email": "putri.wijaya35@gmail.com",
+   "dial": "+62",
+   "phone": "23527 11247",
+   "passport": "F3582209",
+   "rp": "Best Partner Pty Ltd"
+  },
+  {
+   "id": "S-30040",
+   "first": "Nurul",
+   "last": "Wijaya",
+   "nationality": "Indonesia",
+   "email": "nurul.wijaya49@gmail.com",
+   "dial": "+62",
+   "phone": "70496 79949",
+   "passport": "D8113831",
+   "rp": "PT Satu Impian Bersama T/A education ONE"
+  },
+  {
+   "id": "S-30041",
+   "first": "Kwame",
+   "last": "Mensah",
+   "nationality": "Nigeria",
+   "email": "kwame.mensah30@gmail.com",
+   "dial": "+234",
+   "phone": "66680 48163",
+   "passport": "Q4088417",
+   "rp": "Campus Abroad Mauritius Ltd."
+  },
+  {
+   "id": "S-30042",
+   "first": "Wanjiru",
+   "last": "Mensah",
+   "nationality": "Nigeria",
+   "email": "wanjiru.mensah31@gmail.com",
+   "dial": "+234",
+   "phone": "71052 35047",
+   "passport": "L7534057",
+   "rp": "Eduwin Ricardo Prieto Rojas / Study Lites"
+  },
+  {
+   "id": "S-30043",
+   "first": "Mateo",
+   "last": "Rodríguez",
+   "nationality": "Colombia",
+   "email": "mateo.rodrguez22@gmail.com",
+   "dial": "+57",
+   "phone": "47689 81798",
+   "passport": "C3861615",
+   "rp": "Your Aussie Life PTY LTD"
+  },
+  {
+   "id": "S-30044",
+   "first": "Diego",
+   "last": "García",
+   "nationality": "Colombia",
+   "email": "diego.garca78@gmail.com",
+   "dial": "+57",
+   "phone": "70535 35268",
+   "passport": "S6077654",
+   "rp": "Latin Education and Migration"
+  },
+  {
+   "id": "S-30045",
+   "first": "Thura",
+   "last": "Win",
+   "nationality": "Myanmar",
+   "email": "thura.win58@gmail.com",
+   "dial": "+95",
+   "phone": "52529 32465",
+   "passport": "O4420329",
+   "rp": "Ascenders Education Company Limited"
+  },
+  {
+   "id": "S-30046",
+   "first": "Sonam",
+   "last": "Htet",
+   "nationality": "Myanmar",
+   "email": "sonam.htet76@gmail.com",
+   "dial": "+95",
+   "phone": "37735 74992",
+   "passport": "M6484457",
+   "rp": "Wangchuk Ecpf"
+  },
+  {
+   "id": "S-30047",
+   "first": "Alex",
+   "last": "Morgan",
+   "nationality": "India",
+   "email": "alex.morgan75@gmail.com",
+   "dial": "+91",
+   "phone": "40906 58583",
+   "passport": "P7996823",
+   "rp": "upGrad GSP Direct"
+  },
+  {
+   "id": "S-30048",
+   "first": "Aarav",
+   "last": "Mehta",
+   "nationality": "India",
+   "email": "aarav.mehta71@gmail.com",
+   "dial": "+91",
+   "phone": "95308 17284",
+   "passport": "F2592920",
+   "rp": null
+  },
+  {
+   "id": "S-30049",
+   "first": "Isha",
+   "last": "Reddy",
+   "nationality": "India",
+   "email": "isha.reddy16@gmail.com",
+   "dial": "+91",
+   "phone": "51220 61058",
+   "passport": "A7094009",
+   "rp": null
+  },
+  {
+   "id": "S-30050",
+   "first": "Rohan",
+   "last": "Gupta",
+   "nationality": "India",
+   "email": "rohan.gupta49@gmail.com",
+   "dial": "+91",
+   "phone": "15110 71210",
+   "passport": "L1822813",
+   "rp": null
+  },
+  {
+   "id": "S-30051",
+   "first": "Kavya",
+   "last": "Iyer",
+   "nationality": "India",
+   "email": "kavya.iyer72@gmail.com",
+   "dial": "+91",
+   "phone": "72753 10971",
+   "passport": "Y8108431",
+   "rp": null
+  },
+  {
+   "id": "S-30052",
+   "first": "Arjun",
+   "last": "Nair",
+   "nationality": "India",
+   "email": "arjun.nair60@gmail.com",
+   "dial": "+91",
+   "phone": "83268 49008",
+   "passport": "C9628406",
+   "rp": null
+  },
+  {
+   "id": "S-30053",
+   "first": "Meera",
+   "last": "Joshi",
+   "nationality": "India",
+   "email": "meera.joshi55@gmail.com",
+   "dial": "+91",
+   "phone": "17784 25013",
+   "passport": "D6811430",
+   "rp": null
+  },
+  {
+   "id": "S-30054",
+   "first": "Vikram",
+   "last": "Singh",
+   "nationality": "India",
+   "email": "vikram.singh22@gmail.com",
+   "dial": "+91",
+   "phone": "71002 67560",
+   "passport": "A7346427",
+   "rp": null
+  },
+  {
+   "id": "S-30055",
+   "first": "Neha",
+   "last": "Sharma",
+   "nationality": "India",
+   "email": "neha.sharma35@gmail.com",
+   "dial": "+91",
+   "phone": "41256 96464",
+   "passport": "F8064776",
+   "rp": null
+  },
+  {
+   "id": "S-30056",
+   "first": "Ananya",
+   "last": "Rajan",
+   "nationality": "India",
+   "email": "ananya.rajan27@gmail.com",
+   "dial": "+91",
+   "phone": "72060 87752",
+   "passport": "X9951998",
+   "rp": null
+  },
+  {
+   "id": "S-30057",
+   "first": "Joshua",
+   "last": "Ramos",
+   "nationality": "Philippines",
+   "email": "joshua.ramos61@gmail.com",
+   "dial": "+63",
+   "phone": "83778 40443",
+   "passport": "N7548469",
+   "rp": "Pathway To Aus"
+  },
+  {
+   "id": "S-30058",
+   "first": "Maria",
+   "last": "Santos",
+   "nationality": "Philippines",
+   "email": "maria.santos71@gmail.com",
+   "dial": "+63",
+   "phone": "20089 14961",
+   "passport": "R7131725",
+   "rp": "Pathway To Aus"
+  },
+  {
+   "id": "S-30059",
+   "first": "Liam",
+   "last": "Nguyen",
+   "nationality": "India",
+   "email": "liam.nguyen92@gmail.com",
+   "dial": "+91",
+   "phone": "90644 67008",
+   "passport": "Y3684359",
+   "rp": "Education Connect"
+  },
+  {
+   "id": "S-30060",
+   "first": "Harpreet",
+   "last": "Kaur",
+   "nationality": "India",
+   "email": "harpreet.kaur12@gmail.com",
+   "dial": "+91",
+   "phone": "24782 46505",
+   "passport": "Y9936199",
+   "rp": "MA Education Consultants Pty Ltd"
+  },
+  {
+   "id": "S-30061",
+   "first": "Siddharth",
+   "last": "Rao",
+   "nationality": "India",
+   "email": "siddharth.rao37@gmail.com",
+   "dial": "+91",
+   "phone": "51945 81123",
+   "passport": "F8547360",
+   "rp": "upGrad Abroad - India"
+  },
+  {
+   "id": "S-30062",
+   "first": "Priya",
+   "last": "Menon",
+   "nationality": "India",
+   "email": "priya.menon10@gmail.com",
+   "dial": "+91",
+   "phone": "32170 91328",
+   "passport": "A9493908",
+   "rp": "Silver Fern Education"
+  },
+  {
+   "id": "S-30063",
+   "first": "Rahul",
+   "last": "Varghese",
+   "nationality": "India",
+   "email": "rahul.varghese44@gmail.com",
+   "dial": "+91",
+   "phone": "48823 97085",
+   "passport": "U5827651",
+   "rp": "Silver Fern Education"
+  },
+  {
+   "id": "S-30064",
+   "first": "Sneha",
+   "last": "Kale",
+   "nationality": "India",
+   "email": "sneha.kale76@gmail.com",
+   "dial": "+91",
+   "phone": "26960 96919",
+   "passport": "W3435714",
+   "rp": "Silver Fern Education"
+  },
+  {
+   "id": "S-30065",
+   "first": "Tanvir",
+   "last": "Hasan",
+   "nationality": "Bangladesh",
+   "email": "tanvir.hasan19@gmail.com",
+   "dial": "+880",
+   "phone": "82059 39801",
+   "passport": "X8533277",
+   "rp": "Wisdom Education"
+  },
+  {
+   "id": "S-30066",
+   "first": "Nusrat",
+   "last": "Jahan",
+   "nationality": "Bangladesh",
+   "email": "nusrat.jahan40@gmail.com",
+   "dial": "+880",
+   "phone": "32492 49624",
+   "passport": "W6796819",
+   "rp": "Wisdom Education"
+  },
+  {
+   "id": "S-30067",
+   "first": "Tran",
+   "last": "Minh Anh",
+   "nationality": "Vietnam",
+   "email": "tran.minhanh23@gmail.com",
+   "dial": "+84",
+   "phone": "53196 32656",
+   "passport": "D9273302",
+   "rp": "Rightway Education and Services Pty Ltd"
+  },
+  {
+   "id": "S-30068",
+   "first": "Pham",
+   "last": "Thu Ha",
+   "nationality": "Vietnam",
+   "email": "pham.thuha27@gmail.com",
+   "dial": "+84",
+   "phone": "38501 60362",
+   "passport": "R3899254",
+   "rp": "Hanoi Study Hub"
+  },
+  {
+   "id": "S-30069",
+   "first": "Tharindu",
+   "last": "Silva",
+   "nationality": "Sri Lanka",
+   "email": "tharindu.silva26@gmail.com",
+   "dial": "+94",
+   "phone": "45265 10820",
+   "passport": "E7356954",
+   "rp": "Colombo Edu Link"
+  },
+  {
+   "id": "S-30070",
+   "first": "Aditya",
+   "last": "Kapoor",
+   "nationality": "India",
+   "email": "aditya.kapoor66@gmail.com",
+   "dial": "+91",
+   "phone": "74576 76951",
+   "passport": "S5691465",
+   "rp": "New contract, no terms yet"
+  },
+  {
+   "id": "S-30071",
+   "first": "Pooja",
+   "last": "Desai",
+   "nationality": "India",
+   "email": "pooja.desai80@gmail.com",
+   "dial": "+91",
+   "phone": "42010 73511",
+   "passport": "S3546653",
+   "rp": "Horizon India Partners"
+  },
+  {
+   "id": "S-30072",
+   "first": "Karan",
+   "last": "Malhotra",
+   "nationality": "India",
+   "email": "karan.malhotra75@gmail.com",
+   "dial": "+91",
+   "phone": "20680 43338",
+   "passport": "P1896090",
+   "rp": "Horizon India Partners"
+  },
+  {
+   "id": "S-30073",
+   "first": "Emily",
+   "last": "Tran",
+   "nationality": "India",
+   "email": "emily.tran54@gmail.com",
+   "dial": "+91",
+   "phone": "53343 97466",
+   "passport": "U7081188",
+   "rp": "Grace International"
+  },
+  {
+   "id": "S-30074",
+   "first": "Ishaan",
+   "last": "Bose",
+   "nationality": "India",
+   "email": "ishaan.bose83@gmail.com",
+   "dial": "+91",
+   "phone": "46400 42335",
+   "passport": "J7917641",
+   "rp": "Jubeerich"
+  },
+  {
+   "id": "S-30075",
+   "first": "Ayesha",
+   "last": "Khan",
+   "nationality": "India",
+   "email": "ayesha.khan86@gmail.com",
+   "dial": "+91",
+   "phone": "83705 95682",
+   "passport": "S9524679",
+   "rp": "Harbour Onshore Agency"
+  },
+  {
+   "id": "S-30076",
+   "first": "Dev",
+   "last": "Malhotra",
+   "nationality": "India",
+   "email": "dev.malhotra12@gmail.com",
+   "dial": "+91",
+   "phone": "77240 27308",
+   "passport": "C6989598",
+   "rp": "Study Square Global"
+  },
+  {
+   "id": "S-30077",
+   "first": "Gabriel",
+   "last": "Cruz",
+   "nationality": "India",
+   "email": "gabriel.cruz83@gmail.com",
+   "dial": "+91",
+   "phone": "67413 27968",
+   "passport": "D1556126",
+   "rp": "The Iconic Education and Migration"
+  }
+ ],
+ "apps": [
+  {
+   "id": "GSP-24201",
+   "was": "GSP-24201",
+   "rp": "Tutee Connect",
+   "rpId": "13885",
+   "region": "India",
+   "studentId": "S-30001",
+   "uni": "ecu",
+   "course": "Master of Engineering",
+   "level": "Master’s degree",
+   "intake": "03-Feb-2027",
+   "status": "ready",
+   "sinceDays": 1.0,
+   "officer": "u-ramish-jafery"
+  },
+  {
+   "id": "GSP-24202",
+   "was": "GSP-24202",
+   "rp": "Chetanya Career Consultants Pvt Ltd",
+   "rpId": "10883",
+   "region": "India",
+   "studentId": "S-30002",
+   "uni": "scu",
+   "course": "Master of Nursing (Graduate Entry)",
+   "level": "Master’s degree",
+   "intake": "04-Jan-2027",
+   "status": "enrolconf",
+   "sinceDays": 8.5,
+   "officer": "u-ramish-jafery"
+  },
+  {
+   "id": "GSP-24203",
+   "was": "GSP-24203",
+   "rp": "Trade Australia Journal",
+   "rpId": "17340",
+   "region": "India",
+   "studentId": "S-30003",
+   "uni": "tafesa",
+   "course": "Bachelor of Tourism, Hospitality and Events Management",
+   "level": "Bachelor’s degree",
+   "intake": "11-Jan-2027",
+   "status": "finance",
+   "sinceDays": 0.6,
+   "officer": "u-alfiya1-khan"
+  },
+  {
+   "id": "GSP-24204",
+   "was": "GSP-24204",
+   "rp": "Study Inspire Pty Ltd",
+   "rpId": "17292",
+   "region": "India",
+   "studentId": "S-30004",
+   "uni": "uws",
+   "course": "Master of Business Administration (MBA)",
+   "level": "Master’s degree",
+   "intake": "01-Jan-2027",
+   "status": "payreview",
+   "sinceDays": 5.0,
+   "officer": "u-ramish-jafery"
+  },
+  {
+   "id": "GSP-24205",
+   "was": "GSP-24205",
+   "rp": "The Visa Terminal",
+   "rpId": "17266",
+   "region": "India",
+   "studentId": "S-30005",
+   "uni": "ais",
+   "course": "Bachelor of Business",
+   "level": "Bachelor’s degree",
+   "intake": "02-Feb-2027",
+   "status": "uol",
+   "sinceDays": 3.5,
+   "officer": "u-ramish-jafery"
+  },
+  {
+   "id": "GSP-24206",
+   "was": "GSP-24206",
+   "rp": "Chetanya Career Consultants Pvt Ltd",
+   "rpId": "10883",
+   "region": "India",
+   "studentId": "S-30006",
+   "uni": "canberra",
+   "course": "Master of Public Health (Extended)",
+   "level": "Master’s degree",
+   "intake": "15-Feb-2027",
+   "status": "conditions",
+   "sinceDays": 6.2,
+   "officer": "u-alfiya1-khan"
+  },
+  {
+   "id": "GSP-24207",
+   "was": "GSP-24207",
+   "rp": "Micro Info Tech Trg & Solutions",
+   "rpId": "11091",
+   "region": "India",
+   "studentId": "S-30007",
+   "uni": "kbs",
+   "course": "Bachelor of Business (Hospitality & Tourism Management)",
+   "level": "Bachelor’s degree",
+   "intake": "09-Nov-2026",
+   "status": "visasub",
+   "sinceDays": 3.4,
+   "officer": "u-alfiya1-khan"
+  },
+  {
+   "id": "GSP-24208",
+   "was": "GSP-24208",
+   "rp": "Buttar Immigration Consultants",
+   "rpId": "15837",
+   "region": "India",
+   "studentId": "S-30008",
+   "uni": "utas",
+   "course": "Bachelor of Nursing",
+   "level": "Bachelor’s degree",
+   "intake": "16-Feb-2027",
+   "status": "visa",
+   "sinceDays": 4.8,
+   "officer": "u-alfiya1-khan"
+  },
+  {
+   "id": "GSP-24209",
+   "was": "GSP-24209",
+   "rp": "ISV Overseas",
+   "rpId": "18134",
+   "region": "India",
+   "studentId": "S-30009",
+   "uni": "uwtsd",
+   "course": "Data and Artificial Intelligence (Full-Time) (MSc)",
+   "level": "Master’s degree",
+   "intake": "02-Jan-2027",
+   "status": "reupload",
+   "sinceDays": 1.2,
+   "officer": "u-ramish-jafery"
+  },
+  {
+   "id": "GSP-24210",
+   "was": "GSP-24210",
+   "rp": "Education Connect",
+   "rpId": "12547",
+   "region": "Bangladesh",
+   "studentId": "S-30010",
+   "uni": "vuw",
+   "course": "Master of Health  - MHlth",
+   "level": "Master’s degree",
+   "intake": "22-Feb-2027",
+   "status": "payreview",
+   "sinceDays": 0.8,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24211",
+   "was": "GSP-24211",
+   "rp": "Aussie Bengal Shield SAS PVT LTD",
+   "rpId": "17805",
+   "region": "Bangladesh",
+   "studentId": "S-30011",
+   "uni": "wsu",
+   "course": "Bachelor of Science",
+   "level": "Bachelor’s degree",
+   "intake": "26-Jul-2027",
+   "status": "enrolconf",
+   "sinceDays": 2.7,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24212",
+   "was": "GSP-24212",
+   "rp": "Advance Visa Consultancy",
+   "rpId": "16177",
+   "region": "Bangladesh",
+   "studentId": "S-30012",
+   "uni": "notredame",
+   "course": "Master of Counselling",
+   "level": "Master’s degree",
+   "intake": "01-Feb-2027",
+   "status": "checking",
+   "sinceDays": 5.6,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24213",
+   "was": "GSP-24213",
+   "rp": "Unicampus Global",
+   "rpId": "15176",
+   "region": "Bangladesh",
+   "studentId": "S-30013",
+   "uni": "greenwich",
+   "course": "BSc Hons in Computing",
+   "level": "Bachelor’s degree",
+   "intake": "04-Jan-2027",
+   "status": "uol",
+   "sinceDays": 3.6,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24214",
+   "was": "GSP-24214",
+   "rp": "Global Edu Bangladesh",
+   "rpId": "17783",
+   "region": "Bangladesh",
+   "studentId": "S-30014",
+   "uni": "aut",
+   "course": "Master of Architecture (Professional)",
+   "level": "Master’s degree",
+   "intake": "01-Feb-2027",
+   "status": "ready",
+   "sinceDays": 8.0,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24215",
+   "was": "GSP-24215",
+   "rp": "Eduwires",
+   "rpId": "13826",
+   "region": "Bangladesh",
+   "studentId": "S-30015",
+   "uni": "griffithu",
+   "course": "Bachelor of Business",
+   "level": "Bachelor’s degree",
+   "intake": "02-Nov-2026",
+   "status": "finance",
+   "sinceDays": 8.6,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24216",
+   "was": "GSP-24216",
+   "rp": "Ra Global Solutions Bd",
+   "rpId": "15077",
+   "region": "Bangladesh",
+   "studentId": "S-30016",
+   "uni": "griffith",
+   "course": "BSc in Computing Science",
+   "level": "Bachelor’s degree",
+   "intake": "08-Feb-2027",
+   "status": "lodged",
+   "sinceDays": 7.5,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24217",
+   "was": "GSP-24217",
+   "rp": "ABN Overseas Education Pvt. Ltd.",
+   "rpId": "16390",
+   "region": "Pakistan",
+   "studentId": "S-30017",
+   "uni": "notredame",
+   "course": "Bachelor of Computer Science",
+   "level": "Bachelor’s degree",
+   "intake": "11-Jan-2027",
+   "status": "checking",
+   "sinceDays": 4.4,
+   "officer": "u-sabrina-hyder"
+  },
+  {
+   "id": "GSP-24218",
+   "was": "GSP-24218",
+   "rp": "Nc Solicitors (Private) Limited",
+   "rpId": "17099",
+   "region": "Pakistan",
+   "studentId": "S-30018",
+   "uni": "uwa",
+   "course": "Master of Business Analytics",
+   "level": "Master’s degree",
+   "intake": "22-Feb-2027",
+   "status": "uol",
+   "sinceDays": 3.2,
+   "officer": "u-sabrina-hyder"
+  },
+  {
+   "id": "GSP-24219",
+   "was": "GSP-24219",
+   "rp": "routes overseas consultants",
+   "rpId": "12253",
+   "region": "Pakistan",
+   "studentId": "S-30019",
+   "uni": "eit",
+   "course": "Master of Engineering (Mechanical)",
+   "level": "Master’s degree",
+   "intake": "15-Feb-2027",
+   "status": "enrolconf",
+   "sinceDays": 5.6,
+   "officer": "u-sabrina-hyder"
+  },
+  {
+   "id": "GSP-24220",
+   "was": "GSP-24220",
+   "rp": "MA Education Consultants Pty Ltd",
+   "rpId": "12341",
+   "region": "Pakistan",
+   "studentId": "S-30020",
+   "uni": "curtincollege",
+   "course": "Master Qualifying Program (MQP)",
+   "level": "Postgraduate diploma",
+   "intake": "22-Feb-2027",
+   "status": "ready",
+   "sinceDays": 5.5,
+   "officer": "u-sabrina-hyder"
+  },
+  {
+   "id": "GSP-24221",
+   "was": "GSP-24221",
+   "rp": "MA Education Consultants Pty Ltd",
+   "rpId": "12341",
+   "region": "Pakistan",
+   "studentId": "S-30021",
+   "uni": "utas",
+   "course": "Master of Agriculture and Food Sciences (Specialisation)",
+   "level": "Master’s degree",
+   "intake": "22-Feb-2027",
+   "status": "finance",
+   "sinceDays": 2.9,
+   "officer": "u-sabrina-hyder"
+  },
+  {
+   "id": "GSP-24222",
+   "was": "GSP-24222",
+   "rp": "Lead Ahead Consultancy",
+   "rpId": "14960",
+   "region": "Nepal",
+   "studentId": "S-30022",
+   "uni": "latrobe",
+   "course": "Global Master of Business Administration",
+   "level": "Master’s degree",
+   "intake": "02-Nov-2026",
+   "status": "finance",
+   "sinceDays": 6.3,
+   "officer": "u-swornim-prajapati"
+  },
+  {
+   "id": "GSP-24223",
+   "was": "GSP-24223",
+   "rp": "Educraft Education Network",
+   "rpId": "15802",
+   "region": "Nepal",
+   "studentId": "S-30023",
+   "uni": "winchester",
+   "course": "BA (Hons) Business Management",
+   "level": "Bachelor’s degree",
+   "intake": "18-Jan-2027",
+   "status": "uol",
+   "sinceDays": 4.9,
+   "officer": "u-supriya-shrestha"
+  },
+  {
+   "id": "GSP-24224",
+   "was": "GSP-24224",
+   "rp": "Apply International Education Consultancy Pvt Ltd",
+   "rpId": "10745",
+   "region": "Nepal",
+   "studentId": "S-30024",
+   "uni": "londonmet",
+   "course": "Bachelor of Science in International Hospitality and Tourism Management (Tampa)",
+   "level": "Bachelor’s degree",
+   "intake": "01-Feb-2027",
+   "status": "payreview",
+   "sinceDays": 7.3,
+   "officer": "u-niruta-dahal"
+  },
+  {
+   "id": "GSP-24225",
+   "was": "GSP-24225",
+   "rp": "Study Migration Hub",
+   "rpId": "17797",
+   "region": "Nepal",
+   "studentId": "S-30025",
+   "uni": "toiohomai",
+   "course": "Master of Management- Thesis",
+   "level": "Master’s degree",
+   "intake": "22-Feb-2027",
+   "status": "checking",
+   "sinceDays": 3.3,
+   "officer": "u-alisha-kapali"
+  },
+  {
+   "id": "GSP-24226",
+   "was": "GSP-24226",
+   "rp": "AEMC Consultant PVT LTD",
+   "rpId": "13602",
+   "region": "Sri Lanka",
+   "studentId": "S-30026",
+   "uni": "waikato",
+   "course": "Master of Management in Business Analytics",
+   "level": "Master’s degree",
+   "intake": "01-Feb-2027",
+   "status": "uol",
+   "sinceDays": 1.9,
+   "officer": "u-subodya-suraweera"
+  },
+  {
+   "id": "GSP-24227",
+   "was": "GSP-24227",
+   "rp": "Eureka Australian Education Consultants Private Limited",
+   "rpId": "17348",
+   "region": "Sri Lanka",
+   "studentId": "S-30027",
+   "uni": "acu",
+   "course": "Bachelor of Nursing",
+   "level": "Bachelor’s degree",
+   "intake": "16-Feb-2027",
+   "status": "checking",
+   "sinceDays": 7.2,
+   "officer": "u-rashmi-arora"
+  },
+  {
+   "id": "GSP-24228",
+   "was": "GSP-24228",
+   "rp": "Emergence Education Consultants",
+   "rpId": "13400",
+   "region": "Sri Lanka",
+   "studentId": "S-30028",
+   "uni": "cdu",
+   "course": "Master of Nursing Practice (Pre-Registration)",
+   "level": "Master’s degree",
+   "intake": "01-Feb-2027",
+   "status": "ready",
+   "sinceDays": 8.0,
+   "officer": "u-rashmi-arora"
+  },
+  {
+   "id": "GSP-24229",
+   "was": "GSP-24229",
+   "rp": "Innovative Creation Services Pty Ltd Corp",
+   "rpId": "15876",
+   "region": "Sri Lanka",
+   "studentId": "S-30029",
+   "uni": "rmit",
+   "course": "Bachelor of Engineering (Mechanical Engineering) (Honours) - BH070P23",
+   "level": "Bachelor’s degree",
+   "intake": "01-Mar-2027",
+   "status": "payreview",
+   "sinceDays": 3.7,
+   "officer": "u-subodya-suraweera"
+  },
+  {
+   "id": "GSP-24230",
+   "was": "GSP-24230",
+   "rp": "Pathway To Aus",
+   "rpId": "12337",
+   "region": "Australia",
+   "studentId": "S-30030",
+   "uni": "tafewa",
+   "course": "Certificate IV in Veterinary Nursing",
+   "level": "Diploma",
+   "intake": "17-Jul-2028",
+   "status": "payreview",
+   "sinceDays": 0.4,
+   "officer": "u-jo-qiu"
+  },
+  {
+   "id": "GSP-24231",
+   "was": "GSP-24231",
+   "rp": "Study Inspire Pty Ltd",
+   "rpId": "17292",
+   "region": "Australia",
+   "studentId": "S-30031",
+   "uni": "uws",
+   "course": "MSc Digital Marketing",
+   "level": "Master’s degree",
+   "intake": "01-Jan-2027",
+   "status": "uol",
+   "sinceDays": 4.0,
+   "officer": "u-jo-qiu"
+  },
+  {
+   "id": "GSP-24232",
+   "was": "GSP-24232",
+   "rp": "Kumardirect Pty Ltd",
+   "rpId": "11165",
+   "region": "Australia",
+   "studentId": "S-30032",
+   "uni": "murdoch",
+   "course": "Graduate Diploma in Environmental Science",
+   "level": "Postgraduate diploma",
+   "intake": "15-Feb-2027",
+   "status": "finance",
+   "sinceDays": 2.1,
+   "officer": "u-jihan-pradila"
+  },
+  {
+   "id": "GSP-24233",
+   "was": "GSP-24233",
+   "rp": "Kumardirect Pty Ltd",
+   "rpId": "11165",
+   "region": "Australia",
+   "studentId": "S-30033",
+   "uni": "tafensw",
+   "course": "Diploma of Surveying",
+   "level": "Diploma",
+   "intake": "02-Feb-2026",
+   "status": "checking",
+   "sinceDays": 7.5,
+   "officer": "u-jihan-pradila"
+  },
+  {
+   "id": "GSP-24234",
+   "was": "GSP-24234",
+   "rp": "Hisa - Hanoi International Study Abroad Cooperation Company Limited",
+   "rpId": "10354",
+   "region": "Vietnam",
+   "studentId": "S-30034",
+   "uni": "adelaide",
+   "course": "Bachelor of Laws (Honours)",
+   "level": "Bachelor’s degree",
+   "intake": "01-Jul-2027",
+   "status": "ready",
+   "sinceDays": 7.0,
+   "officer": "u-ngoc-mai"
+  },
+  {
+   "id": "GSP-24235",
+   "was": "GSP-24235",
+   "rp": "Golden Key Education Development Joint Stock Company",
+   "rpId": "10841",
+   "region": "Vietnam",
+   "studentId": "S-30035",
+   "uni": "macquarie",
+   "course": "Bachelor of Commerce",
+   "level": "Bachelor’s degree",
+   "intake": "08-Feb-2027",
+   "status": "uol",
+   "sinceDays": 3.1,
+   "officer": "u-hien-to"
+  },
+  {
+   "id": "GSP-24236",
+   "was": "GSP-24236",
+   "rp": "Veritas Consulting Group Pty Ltd",
+   "rpId": "13858",
+   "region": "Vietnam",
+   "studentId": "S-30036",
+   "uni": "macquarie",
+   "course": "Master of Teaching (Secondary)",
+   "level": "Master’s degree",
+   "intake": "22-Feb-2027",
+   "status": "enrolconf",
+   "sinceDays": 2.4,
+   "officer": "u-hoa1-nguyen"
+  },
+  {
+   "id": "GSP-24237",
+   "was": "GSP-24237",
+   "rp": "RRS International and Consultancy Services Inc",
+   "rpId": "17568",
+   "region": "Philippines",
+   "studentId": "S-30037",
+   "uni": "aut",
+   "course": "Master of International Hospitality Management",
+   "level": "Master’s degree",
+   "intake": "05-Jul-2027",
+   "status": "ready",
+   "sinceDays": 4.7,
+   "officer": "u-darylle-leigh"
+  },
+  {
+   "id": "GSP-24238",
+   "was": "GSP-24238",
+   "rp": "Pathway To Aus",
+   "rpId": "12337",
+   "region": "Philippines",
+   "studentId": "S-30038",
+   "uni": "tafensw",
+   "course": "Advanced Diploma of Civil Construction Design",
+   "level": "Diploma",
+   "intake": "07-Feb-2028",
+   "status": "enrolconf",
+   "sinceDays": 8.1,
+   "officer": "u-lyka-gutierrez"
+  },
+  {
+   "id": "GSP-24239",
+   "was": "GSP-24239",
+   "rp": "Best Partner Pty Ltd",
+   "rpId": "12973",
+   "region": "Indonesia, Malaysia and Thailand",
+   "studentId": "S-30039",
+   "uni": "tafensw",
+   "course": "Bachelor of Business",
+   "level": "Bachelor’s degree",
+   "intake": "08-Feb-2027",
+   "status": "enrolconf",
+   "sinceDays": 6.1,
+   "officer": "u-hoa1-nguyen"
+  },
+  {
+   "id": "GSP-24240",
+   "was": "GSP-24240",
+   "rp": "PT Satu Impian Bersama T/A education ONE",
+   "rpId": "12799",
+   "region": "Indonesia, Malaysia and Thailand",
+   "studentId": "S-30040",
+   "uni": "ecu",
+   "course": "Master of Medical and Health Science by Research",
+   "level": "PhD or research",
+   "intake": "08-Feb-2027",
+   "status": "ready",
+   "sinceDays": 2.4,
+   "officer": "u-ngoc-mai"
+  },
+  {
+   "id": "GSP-24241",
+   "was": "GSP-24241",
+   "rp": "Campus Abroad Mauritius Ltd.",
+   "rpId": "12066",
+   "region": "Africa",
+   "studentId": "S-30041",
+   "uni": "notredame",
+   "course": "Bachelor of Laws",
+   "level": "Bachelor’s degree",
+   "intake": "01-Feb-2027",
+   "status": "checking",
+   "sinceDays": 3.3,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24242",
+   "was": "GSP-24242",
+   "rp": "Eduwin Ricardo Prieto Rojas / Study Lites",
+   "rpId": "15046",
+   "region": "Africa",
+   "studentId": "S-30042",
+   "uni": "waikato",
+   "course": "Doctor of Philosophy (International Management)",
+   "level": "PhD or research",
+   "intake": "03-Dec-2026",
+   "status": "ready",
+   "sinceDays": 3.6,
+   "officer": "u-kamrun-nahar"
+  },
+  {
+   "id": "GSP-24243",
+   "was": "GSP-24243",
+   "rp": "Your Aussie Life PTY LTD",
+   "rpId": "11418",
+   "region": "Latin America and Europe",
+   "studentId": "S-30043",
+   "uni": "torrens",
+   "course": "Master of Research Studies",
+   "level": "PhD or research",
+   "intake": "01-Feb-2027",
+   "status": "ready",
+   "sinceDays": 6.9,
+   "officer": "u-valentina-castillo"
+  },
+  {
+   "id": "GSP-24244",
+   "was": "GSP-24244",
+   "rp": "Latin Education and Migration",
+   "rpId": "18000",
+   "region": "Latin America and Europe",
+   "studentId": "S-30044",
+   "uni": "greenwichcollege",
+   "course": "Diploma of Leadership and Management",
+   "level": "Diploma",
+   "intake": "22-Mar-2027",
+   "status": "uol",
+   "sinceDays": 4.9,
+   "officer": "u-valentina-castillo"
+  },
+  {
+   "id": "GSP-24245",
+   "was": "GSP-24245",
+   "rp": "Ascenders Education Company Limited",
+   "rpId": "15923",
+   "region": "Myanmar and Bhutan",
+   "studentId": "S-30045",
+   "uni": "londonmet",
+   "course": "Bachelor of Science (Honours) in Computer Science (Cyber Security)",
+   "level": "Bachelor’s degree",
+   "intake": "24-Nov-2026",
+   "status": "enrolconf",
+   "sinceDays": 0.9,
+   "officer": "u-jade-bui"
+  },
+  {
+   "id": "GSP-24246",
+   "was": "GSP-24246",
+   "rp": "Wangchuk Ecpf",
+   "rpId": "17472",
+   "region": "Myanmar and Bhutan",
+   "studentId": "S-30046",
+   "uni": "latrobe",
+   "course": "Master of Nursing",
+   "level": "Master’s degree",
+   "intake": "01-Mar-2027",
+   "status": "finance",
+   "sinceDays": 3.2,
+   "officer": "u-hien-to"
+  },
+  {
+   "id": "GSP-24247",
+   "was": "GSP-24247",
+   "rp": "upGrad GSP Direct",
+   "rpId": "10913",
+   "region": "Direct",
+   "studentId": "S-30047",
+   "uni": "londonmet",
+   "course": "Master of Business Administration with a specialism in Digital Leadership",
+   "level": "Master’s degree",
+   "intake": "09-Nov-2026",
+   "status": "deposit",
+   "sinceDays": 8.7,
+   "officer": "u-jaspreet3-kaur"
+  },
+  {
+   "id": "GSP-22101",
+   "was": "A0040101",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30048",
+   "uni": "murdoch",
+   "course": "Master of Information Technology",
+   "level": "Master’s degree",
+   "intakeDate": "2025-07-21",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-anand3-mishra",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22102",
+   "was": "A0040102",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30049",
+   "uni": "ecu",
+   "course": "Master of Information Technology",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-23",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-p-deepak",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "ready",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22103",
+   "was": "A0040103",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30050",
+   "uni": "scu",
+   "course": "Bachelor of Information Technology",
+   "level": "Bachelor’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-sunny-khanduja",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22104",
+   "was": "A0040104",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30051",
+   "uni": "canberra",
+   "course": "Master of Professional Accounting",
+   "level": "Master’s degree",
+   "intakeDate": "2026-07-27",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-ramish-jafery",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "overdue",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22105",
+   "was": "A0040105",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30052",
+   "uni": "wsu",
+   "course": "Master of Business Administration",
+   "level": "Master’s degree",
+   "intakeDate": "2026-07-06",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-ramish-jafery",
+   "fin": {
+    "studentType": "",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22106",
+   "was": "A0040106",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30053",
+   "uni": "rmit",
+   "course": "Master of Business Administration",
+   "level": "Master’s degree",
+   "intakeDate": "2026-07-13",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-megha-malhotra",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "ready",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22107",
+   "was": "A0040107",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30054",
+   "uni": "swinburne",
+   "course": "Master of Professional Accounting",
+   "level": "Master’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "closed",
+   "withdrawn": {
+    "date": "2026-06-15",
+    "refund": true
+   },
+   "sinceDays": null,
+   "officer": "u-mamta-kanwal",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22108",
+   "was": "A0040108",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30055",
+   "uni": "latrobe",
+   "course": "Master of Business Administration",
+   "level": "Master’s degree",
+   "intakeDate": "2026-11-16",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-anand3-mishra",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22109",
+   "was": "A0040109",
+   "rp": null,
+   "rpId": "R-TEST",
+   "region": "India",
+   "studentId": "S-30056",
+   "uni": "uws",
+   "course": "Master of Professional Accounting",
+   "level": "Master’s degree",
+   "intakeDate": "2026-01-26",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-meenakshi-negi",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "ready",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22110",
+   "was": "A0040110",
+   "rp": "Pathway To Aus",
+   "rpId": "12337",
+   "region": "Philippines",
+   "studentId": "S-30057",
+   "uni": "murdoch",
+   "course": "Master of Information Technology",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-23",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-lyka-gutierrez",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22111",
+   "was": "A0040111",
+   "rp": "Pathway To Aus",
+   "rpId": "12337",
+   "region": "Philippines",
+   "studentId": "S-30058",
+   "uni": "cqu",
+   "course": "Master of Information Technology",
+   "level": "Master’s degree",
+   "intakeDate": "2026-10-12",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-ryn-enor",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "short",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22112",
+   "was": "A0040112",
+   "rp": "Education Connect",
+   "rpId": "12547",
+   "region": "Australia",
+   "studentId": "S-30059",
+   "uni": "torrens",
+   "course": "Bachelor of Business",
+   "level": "Bachelor’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-meetu-malhotra",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22113",
+   "was": "A0040113",
+   "rp": "MA Education Consultants Pty Ltd",
+   "rpId": "12341",
+   "region": "Australia",
+   "studentId": "S-30060",
+   "uni": "vu",
+   "course": "Master of Professional Accounting",
+   "level": "Master’s degree",
+   "intakeDate": "2026-07-13",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-meetu-malhotra",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "ready",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22114",
+   "was": "A0040114",
+   "rp": "upGrad Abroad - India",
+   "rpId": "11986",
+   "region": "India",
+   "studentId": "S-30061",
+   "uni": "griffithu",
+   "course": "Master of Professional Accounting",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-23",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-sapna-dua",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22115",
+   "was": "A0040115",
+   "rp": "Silver Fern Education",
+   "rpId": "16806",
+   "region": "India",
+   "studentId": "S-30062",
+   "uni": "latrobe",
+   "course": "Master of Business Administration",
+   "level": "Master’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-p-deepak",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22116",
+   "was": "A0040116",
+   "rp": "Silver Fern Education",
+   "rpId": "16806",
+   "region": "India",
+   "studentId": "S-30063",
+   "uni": "csu",
+   "course": "Master of Public Health",
+   "level": "Master’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-sakshi-shashi",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22117",
+   "was": "A0040117",
+   "rp": "Silver Fern Education",
+   "rpId": "16806",
+   "region": "India",
+   "studentId": "S-30064",
+   "uni": "newcastle",
+   "course": "Master of Information Technology",
+   "level": "Master’s degree",
+   "intakeDate": "2026-07-20",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-piyush-varshney",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "overdue",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22118",
+   "was": "A0040118",
+   "rp": "Wisdom Education",
+   "rpId": "11408",
+   "region": "Bangladesh",
+   "studentId": "S-30065",
+   "uni": "murdoch",
+   "course": "Master of Public Health",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-23",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-syeda-anjum",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "ready",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22119",
+   "was": "A0040119",
+   "rp": "Wisdom Education",
+   "rpId": "11408",
+   "region": "Bangladesh",
+   "studentId": "S-30066",
+   "uni": "scu",
+   "course": "Master of Business Administration",
+   "level": "Master’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-nigara-rahman",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22120",
+   "was": "A0040120",
+   "rp": "Rightway Education and Services Pty Ltd",
+   "rpId": "10721",
+   "region": "Vietnam",
+   "studentId": "S-30067",
+   "uni": "canberra",
+   "course": "Master of Data Science",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-16",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-hoa1-nguyen",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22121",
+   "was": "A0040121",
+   "rp": "Hanoi Study Hub",
+   "rpId": "S-VN1",
+   "region": "Vietnam",
+   "studentId": "S-30068",
+   "uni": "swinburne",
+   "course": "Master of Professional Accounting",
+   "level": "Master’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-ngan-do",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "ready",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22122",
+   "was": "A0040122",
+   "rp": "Colombo Edu Link",
+   "rpId": "S-LK1",
+   "region": "Sri Lanka",
+   "studentId": "S-30069",
+   "uni": "kbs",
+   "course": "Bachelor of Business",
+   "level": "Bachelor’s degree",
+   "intakeDate": "2025-03-03",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-subodya-suraweera",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": 3
+   }
+  },
+  {
+   "id": "GSP-22123",
+   "was": "A0040123",
+   "rp": "New contract, no terms yet",
+   "rpId": "S-NEW",
+   "region": "India",
+   "studentId": "S-30070",
+   "uni": "murdoch",
+   "course": "Master of Information Technology",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-23",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-jasveen-singh",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22124",
+   "was": "A0040124",
+   "rp": "Horizon India Partners",
+   "rpId": "S-IN1",
+   "region": "India",
+   "studentId": "S-30071",
+   "uni": "ecu",
+   "course": "Master of Business Administration",
+   "level": "Master’s degree",
+   "intakeDate": "2026-07-20",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-puneet-pal",
+   "fin": {
+    "studentType": "New",
+    "gspLead": true,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22125",
+   "was": "A0040125",
+   "rp": "Horizon India Partners",
+   "rpId": "S-IN1",
+   "region": "India",
+   "studentId": "S-30072",
+   "uni": "londonmet",
+   "course": "Master of Business Administration",
+   "level": "Master’s degree",
+   "intakeDate": "2026-05-11",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-manoj-pal",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "invoiced",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22126",
+   "was": "A0040126",
+   "rp": "Grace International",
+   "rpId": "15857",
+   "region": "Australia",
+   "studentId": "S-30073",
+   "uni": "wsu",
+   "course": "Master of Public Health",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-23",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-jo-qiu",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22127",
+   "was": "A0040127",
+   "rp": "Jubeerich",
+   "rpId": "16909",
+   "region": "India",
+   "studentId": "S-30074",
+   "uni": "canberra",
+   "course": "Master of Data Science",
+   "level": "Master’s degree",
+   "intakeDate": "2026-02-16",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-sumitkumar-singh",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "ready",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22128",
+   "was": "A0040128",
+   "rp": "Harbour Onshore Agency",
+   "rpId": "S-AU1",
+   "region": "Australia",
+   "studentId": "S-30075",
+   "uni": "scu",
+   "course": "Master of Information Technology",
+   "level": "Master’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-meenu-dubey",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22129",
+   "was": "A0040129",
+   "rp": "Study Square Global",
+   "rpId": "17358",
+   "region": "India",
+   "studentId": "S-30076",
+   "uni": "rmit",
+   "course": "Master of Professional Accounting",
+   "level": "Master’s degree",
+   "intakeDate": "2026-03-02",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-jaspreet2-kaur",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  },
+  {
+   "id": "GSP-22130",
+   "was": "A0040130",
+   "rp": "The Iconic Education and Migration",
+   "rpId": "12582",
+   "region": "Australia",
+   "studentId": "S-30077",
+   "uni": "murdoch",
+   "course": "Master of Data Science",
+   "level": "Master’s degree",
+   "intakeDate": "2026-07-20",
+   "status": "enrolled",
+   "withdrawn": null,
+   "sinceDays": null,
+   "officer": "u-jihan-pradila",
+   "fin": {
+    "studentType": "New",
+    "gspLead": false,
+    "scholarshipPct": 0,
+    "pay": "auto",
+    "courseYears": null
+   }
+  }
+ ],
+ "idmap": {
+  "GSP-24201": "GSP-24201",
+  "GSP-24202": "GSP-24202",
+  "GSP-24203": "GSP-24203",
+  "GSP-24204": "GSP-24204",
+  "GSP-24205": "GSP-24205",
+  "GSP-24206": "GSP-24206",
+  "GSP-24207": "GSP-24207",
+  "GSP-24208": "GSP-24208",
+  "GSP-24209": "GSP-24209",
+  "GSP-24210": "GSP-24210",
+  "GSP-24211": "GSP-24211",
+  "GSP-24212": "GSP-24212",
+  "GSP-24213": "GSP-24213",
+  "GSP-24214": "GSP-24214",
+  "GSP-24215": "GSP-24215",
+  "GSP-24216": "GSP-24216",
+  "GSP-24217": "GSP-24217",
+  "GSP-24218": "GSP-24218",
+  "GSP-24219": "GSP-24219",
+  "GSP-24220": "GSP-24220",
+  "GSP-24221": "GSP-24221",
+  "GSP-24222": "GSP-24222",
+  "GSP-24223": "GSP-24223",
+  "GSP-24224": "GSP-24224",
+  "GSP-24225": "GSP-24225",
+  "GSP-24226": "GSP-24226",
+  "GSP-24227": "GSP-24227",
+  "GSP-24228": "GSP-24228",
+  "GSP-24229": "GSP-24229",
+  "GSP-24230": "GSP-24230",
+  "GSP-24231": "GSP-24231",
+  "GSP-24232": "GSP-24232",
+  "GSP-24233": "GSP-24233",
+  "GSP-24234": "GSP-24234",
+  "GSP-24235": "GSP-24235",
+  "GSP-24236": "GSP-24236",
+  "GSP-24237": "GSP-24237",
+  "GSP-24238": "GSP-24238",
+  "GSP-24239": "GSP-24239",
+  "GSP-24240": "GSP-24240",
+  "GSP-24241": "GSP-24241",
+  "GSP-24242": "GSP-24242",
+  "GSP-24243": "GSP-24243",
+  "GSP-24244": "GSP-24244",
+  "GSP-24245": "GSP-24245",
+  "GSP-24246": "GSP-24246",
+  "GSP-24247": "GSP-24247",
+  "A0040101": "GSP-22101",
+  "A0040102": "GSP-22102",
+  "A0040103": "GSP-22103",
+  "A0040104": "GSP-22104",
+  "A0040105": "GSP-22105",
+  "A0040106": "GSP-22106",
+  "A0040107": "GSP-22107",
+  "A0040108": "GSP-22108",
+  "A0040109": "GSP-22109",
+  "A0040110": "GSP-22110",
+  "A0040111": "GSP-22111",
+  "A0040112": "GSP-22112",
+  "A0040113": "GSP-22113",
+  "A0040114": "GSP-22114",
+  "A0040115": "GSP-22115",
+  "A0040116": "GSP-22116",
+  "A0040117": "GSP-22117",
+  "A0040118": "GSP-22118",
+  "A0040119": "GSP-22119",
+  "A0040120": "GSP-22120",
+  "A0040121": "GSP-22121",
+  "A0040122": "GSP-22122",
+  "A0040123": "GSP-22123",
+  "A0040124": "GSP-22124",
+  "A0040125": "GSP-22125",
+  "A0040126": "GSP-22126",
+  "A0040127": "GSP-22127",
+  "A0040128": "GSP-22128",
+  "A0040129": "GSP-22129",
+  "A0040130": "GSP-22130"
+ }
+}

@@ -81,6 +81,7 @@ export default function Commissions({ view }) {
   );
 }
 
+const TODAY = new Date().toISOString().slice(0, 10);
 /* The commission clock. In the demo Finance can move time to see lines fall due. */
 function DemoClock({ c, canMove }) {
   const set = d => update(x => { x.comm.today = d; }, `Commission demo date set to ${nice(d)}`);
@@ -88,7 +89,7 @@ function DemoClock({ c, canMove }) {
     <div className="gspx-clock">
       <span className="muted">Demo date</span> <b className="num">{nice(c.today)}</b>
       {canMove && <><Button size="sm" onClick={() => set(addDays(c.today, 7))}>+1 week</Button><Button size="sm" onClick={() => set(addMonths(c.today, 1))}>+1 month</Button>
-        {c.today !== COMM.today && <LinkButton onClick={() => set(COMM.today)}>Back to {nice(COMM.today)}</LinkButton>}</>}
+        {c.today !== TODAY && <LinkButton onClick={() => set(TODAY)}>Back to today</LinkButton>}</>}
     </div>
   );
 }

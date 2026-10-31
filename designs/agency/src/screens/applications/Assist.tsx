@@ -50,7 +50,7 @@ export function Assist({
 }) {
   const reduce = useReducedMotion();
   const c = courseOf(a);
-  const g = gspContact(c.uni.country);
+  const g = gspContact(c.uni.country, a.officer);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLOListElement>(null);

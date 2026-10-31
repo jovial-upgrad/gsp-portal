@@ -11,7 +11,8 @@
  * checking a document before GSP sees it, checking eligibility, forecasting dates and drafting messages.
  * They answer only from the application's own data, and they never change it.
  */
-import { person, label } from './staff';
+import { person, label, idOf, staffById } from './staff';
+import { datasetApplications } from './dataset';
 import { COURSES, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
 import { LEVELS as EDU_LEVELS, TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
@@ -225,6 +226,10 @@ export type Application = {
   id: string;
   /** The recruitment partner it's for, when GSP adds it (30 Oct); an agency's own have none. */
   rp?: string;
+  /** The GSP admissions person who owns it: a staff id (data/staff.ts). */
+  officer?: string;
+  /** The sales region it's routed to. */
+  region?: string;
   studentId: string;
   courseId: string;
   intake: string;
@@ -290,8 +295,8 @@ export const isOpen = (a: Application) => a.status !== 'closed' && a.status !== 
  * India team. The staff list has no phone numbers, so none shows.
  */
 const CONTACT_OF = { main: person('ramish.jafery@upgrad.com'), ukie: person('prachi.pilani@upgrad.com') };
-export function gspContact(d: Destination) {
-  const s = d === 'UK' || d === 'Ireland' ? CONTACT_OF.ukie : CONTACT_OF.main;
+export function gspContact(d: Destination, officer?: string) {
+  const s = (officer && staffById(officer)) || (d === 'UK' || d === 'Ireland' ? CONTACT_OF.ukie : CONTACT_OF.main);
   return { name: label(s), role: 'GSP admissions', phone: '', email: s.email, first: s.first };
 }
 
@@ -674,7 +679,7 @@ export function sampleApplications(): Application[] {
   const now = Date.now();
   const ago = (d: number, h = 0) => now - d * DAY - h * HOUR;
   const offerAt = ago(1, 3);
-  return [
+  const own: Application[] = [
     {
       id: 'GSP-24102',
       studentId: 'S-24811',
@@ -936,6 +941,8 @@ export function sampleApplications(): Application[] {
       chat: [],
     },
   ];
+  // the sample agency's own (above), then every other application GSP has (data/dataset.ts)
+  return [...own.map((x) => ({ ...x, region: x.region ?? 'India', officer: x.officer ?? idOf(gspContact(destOf(x)).email) })), ...datasetApplications()];
 }
 
 /** The next application ID. */

@@ -27,6 +27,7 @@ import canberraLogo from '../assets/unis/canberra.png';
 import canberraMark from '../assets/unis/canberra-mark.png';
 import uniscLogo from '../assets/unis/unisc.svg';
 import uniscMark from '../assets/unis/unisc-mark.svg';
+import DATASET from './dataset.json';
 
 export const CURRENCY: Record<Destination, string> = { Australia: 'AUD', UK: 'GBP', Canada: 'CAD', 'New Zealand': 'NZD', Ireland: 'EUR', USA: 'USD' };
 export const FLAG: Record<Destination, string> = { Australia: '🇦🇺', UK: '🇬🇧', Canada: '🇨🇦', 'New Zealand': '🇳🇿', Ireland: '🇮🇪', USA: '🇺🇸' };
@@ -118,6 +119,25 @@ export const UNIVERSITIES: University[] = [
   { id: 'canberra', name: 'University of Canberra', aka: ['UC'], country: 'Australia', campuses: [{ name: 'Bruce', city: 'Canberra' }], rate: 15, offerDays: 6, checked: '21 Oct', priorityFor: ['India', 'Nepal'] },
   { id: 'unisc', name: 'University of the Sunshine Coast', aka: ['UniSC', 'USC'], country: 'Australia', campuses: [{ name: 'Sunshine Coast', city: 'Sippy Downs' }, { name: 'Moreton Bay', city: 'Petrie' }], rate: 16, offerDays: 5, checked: '14 Oct' },
 ];
+
+/**
+ * The universities GSP's applications use that this list didn't have (Jovial, 31 Oct: one application data set).
+ * Added at the end so every course above keeps its id and figures. From data/dataset.json.
+ */
+for (const u of DATASET.unis) {
+  UNIVERSITIES.push({ id: u.id, name: u.name, country: u.country as Destination, campuses: [{ name: u.city, city: u.city }], rate: 0, offerDays: 10, checked: '31 Oct', college: u.college || undefined });
+}
+/** GSP's commission rate on each university comes from Finance's terms (the contract, or sample terms until it's loaded). */
+const RATES = DATASET.rates as unknown as Record<string, Record<string, number>>;
+const FIN_LEVEL: Record<string, string> = { 'Master’s degree': 'PG', 'Postgraduate diploma': 'PG', 'PhD or research': 'RES', 'Bachelor’s degree': 'UG', Diploma: 'DIP', Foundation: 'FDN' };
+/** GSP's rate for a university at a level, from Finance's terms; undefined when Finance has no terms for it. */
+export const termsRate = (uniId: string, level?: string) => {
+  const r = RATES[uniId];
+  if (!r) return undefined;
+  const v = (level && r[FIN_LEVEL[level] ?? level]) ?? r.PG ?? r.UG ?? Object.values(r)[0];
+  return v == null ? undefined : Number(v);
+};
+for (const u of UNIVERSITIES) u.rate = termsRate(u.id) ?? 0;
 
 /** Website, type, founding year, a line about the university, logo, and each campus's address and setting (sample data). */
 const PROFILES: Record<string, { web: string; kind: string; founded: number; about: string; logo?: string; mark?: string; places: Record<string, [string, Campus['setting'], boolean?]> }> = {
@@ -430,6 +450,14 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
 }
 
 export const COURSES: Course[] = build();
+// each course's rate at its level, from Finance's terms
+for (const c of COURSES) c.rate = termsRate(c.uni.id, c.level) ?? 0;
+/** The courses GSP's applications are for, by name, where the generated list doesn't have one (a copy of a course at the same university and level). */
+for (const a of DATASET.apps) {
+  if (COURSES.some((c) => c.uni.id === a.uni && c.name === a.course)) continue;
+  const like = COURSES.find((c) => c.uni.id === a.uni && c.level === a.level) ?? COURSES.find((c) => c.uni.id === a.uni);
+  if (like) COURSES.push({ ...like, id: `${a.uni}-n${COURSES.filter((c) => c.uni.id === a.uni).length + 1}`, name: a.course, level: a.level as Level });
+}
 
 /** What the agency earns: 70% of GSP's commission on first-year tuition after any scholarship. */
 export const earnOf = (c: Course) => Math.round(((c.tuition - c.scholarship) * c.rate * 0.7) / 100 / 10) * 10;

@@ -152,25 +152,36 @@ export const RULES = [
   { id: 'r15', on: true, name: 'SLA breached', record: 'Any', when: 'A task is overdue by 2 working days', task: 'Escalated: [record]', to: 'q-adm-ops', who: 'leader-assigns', kind: 'k-escalation', sla: 1, closes: 'The original task is done' },
 ];
 
-/* Records. GSP-… applications are the designer's; A00… are sampled from GSP's real applications
-   (real RPs, universities, courses, stages; student names and numbers invented). */
+/* Records. Every application is the one the portals show (data/applications.ts and data/dataset.ts): one data set,
+   so a task or a mail opens the same application in any role. Only what My work adds sits here: who's waiting on
+   whom, and on what. */
 import SAMPLE from './sample.json';
-const DESIGNER_APPS = [
-  { id: 'GSP-23944', student: 'Rohan Gupta', uni: 'Northumbria University', status: 'Pending verification', stage: 'Pre-screening', branch: 'Mumbai', owner: 'u-divya', officer: 'u-alfiya1-khan', since: ago(0, 20) },
-  { id: 'GSP-24063', student: 'Sneha Patil', uni: 'Coventry University', status: 'Awaiting acceptance letter from university', stage: 'Acceptance', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-ramish-jafery', since: ago(3) },
-  { id: 'GSP-24055', student: 'Sneha Patil', uni: 'Flinders University', status: 'Pending verification', stage: 'Pre-screening', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-alfiya1-khan', since: ago(0, 14), waitingOn: 'RP', waitingFor: 'Gap explanation document', due: ago(-3) },
-  { id: 'GSP-24102', student: 'Priya Raman', uni: 'Deakin University', status: 'Conditional offer received, conditions pending', stage: 'Offer', branch: 'Bengaluru head office', owner: 'u-karthik', officer: 'u-alfiya1-khan', since: ago(5), waitingOn: 'RP', waitingFor: 'Offer conditions', due: ago(-2) },
-  { id: 'GSP-24061', student: 'Sneha Patil', uni: 'University of Newcastle', status: 'Document re-upload pending', stage: 'Pre-screening', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-alfiya1-khan', since: ago(4), waitingOn: 'RP', waitingFor: 'Re-uploaded 12th marksheet', due: ago(1) },
-  { id: 'GSP-23710', student: 'Fatima Sheikh', uni: 'RMIT University', status: 'Visa lodgement pending', stage: 'Visa', branch: 'Mumbai', owner: 'u-divya', officer: 'u-ramish-jafery', since: ago(2), waitingOn: 'RP', waitingFor: 'Visa lodgement proof', due: ago(-12) },
-  { id: 'GSP-23941', student: 'Rohan Gupta', uni: 'Coventry University', status: 'Submitted to university', stage: 'Application', branch: 'Mumbai', owner: 'u-divya', officer: 'u-alfiya1-khan', since: ago(12), waitingOn: 'University', waitingFor: 'Decision from Coventry', due: ago(-2) },
-  { id: 'GSP-24097', student: 'Priya Raman', uni: 'University of Wollongong', status: 'Submitted to university', stage: 'Application', branch: 'Bengaluru head office', owner: 'u-karthik', officer: 'u-alfiya1-khan', since: ago(13), waitingOn: 'University', waitingFor: 'Decision from Wollongong', due: ago(1) },
-].map(a => ({ ...a, type: 'Application', label: `${a.id} · ${a.student}, ${a.uni.replace(/^University of |University /, '').trim()}`, region: 'India', agency: 'GSP test agency' }));
-
-const SAMPLE_APPS = SAMPLE.records.map(r => ({ ...r, since: ago(r.sinceDays), due: r.dueDays != null ? ago(-r.dueDays) : undefined }));
+import { sampleApplications, courseOf, statusText, stageOf, STAGES } from '../data/applications';
+import { sampleStudents } from '../data/students';
+import { OLD_ID, rpByName } from '../data/dataset';
+const WAITING = {
+  'GSP-24055': { waitingOn: 'RP', waitingFor: 'Gap explanation document', due: ago(-3) },
+  'GSP-24102': { waitingOn: 'RP', waitingFor: 'Offer conditions', due: ago(-2) },
+  'GSP-24061': { waitingOn: 'RP', waitingFor: 'Re-uploaded 12th marksheet', due: ago(-1) },
+  'GSP-23710': { waitingOn: 'RP', waitingFor: 'Visa lodgement proof', due: ago(-12) },
+  'GSP-23941': { waitingOn: 'University', waitingFor: 'Decision from Coventry', due: ago(-2) },
+  'GSP-24097': { waitingOn: 'University', waitingFor: 'Decision from Wollongong', due: ago(-1) },
+};
+SAMPLE.records.forEach((r) => { if (r.waitingOn) WAITING[OLD_ID[r.id] ?? r.id] = { waitingOn: r.waitingOn, waitingFor: r.waitingFor, due: r.dueDays != null ? ago(-r.dueDays) : undefined }; });
+const STUDENTS = sampleStudents('');
+const APP_RECORDS = sampleApplications().map((a) => {
+  const c = courseOf(a);
+  const st = STUDENTS.find((x) => x.id === a.studentId);
+  const student = st ? `${st.first} ${st.last}` : a.studentId;
+  return {
+    id: a.id, type: 'Application', label: `${a.id} · ${student}, ${c.uni.name}`, student, region: a.region || 'India',
+    agency: a.rp || 'GSP test agency', rpId: a.rp ? rpByName(a.rp)?.id : 'R-TEST', uni: c.uni.name, course: c.name, intake: a.intake,
+    officer: a.officer, status: statusText(a), stage: STAGES[stageOf(a)], since: a.since, ...(WAITING[a.id] || {}),
+  };
+});
 
 export const RECORDS = [
-  ...DESIGNER_APPS,
-  ...SAMPLE_APPS,
+  ...APP_RECORDS,
   { id: 'rp-legal', type: 'RP', label: 'The Legal Immigration (18060)', region: 'India', agency: 'The Legal Immigration', owner: 'u-ramandeep-kaur' },
   { id: 'rp-tutee', type: 'RP', label: 'Tutee Connect', region: 'Bangladesh', agency: 'Tutee Connect', owner: 'u-sania-shanta' },
   { id: 'rp-visaterminal', type: 'RP', label: 'The Visa Terminal', region: 'Nepal', agency: 'The Visa Terminal', owner: 'u-ali-butt', waitingOn: 'RP', waitingFor: 'Owner’s ID, sent back', due: ago(5) },
@@ -200,7 +211,7 @@ export const TASKS = [
   t('T-1002', 'r4', 'k-uni-mail', 'GSP-24063', 'q-adm-india', 'u-ramish-jafery', ago(0, 3), { note: 'CAS arrived from Coventry by mail. Add it to Documents and move to Visa.' }),
   t('T-1003', 'r3', 'k-chase-uni', 'GSP-24097', 'q-adm-india', 'u-alfiya1-khan', ago(3)),
   t('T-1004', 'r7', 'k-qc', 'GSP-23944', 'q-adm-ops', null, ago(0, 5)),
-  ...SAMPLE.tasks.map(x => ({ ...x, created: ago(x.createdDays) })),
+  ...SAMPLE.tasks.map(x => ({ ...x, record: OLD_ID[x.record] ?? x.record, created: ago(x.createdDays) })),
   t('T-1009', 'r8', 'k-rp-verify', 'rp-legal', 'q-rp-ops', 'u-kartik-sharma', ago(3)),
   t('T-1010', 'r8', 'k-rp-verify', 'rp-tutee', 'q-rp-ops', null, ago(2)),
   t('T-1011', 'r9', 'k-rp-change', 'rp-isv', null, 'u-mayank-kansal', ago(5)),

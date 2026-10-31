@@ -10,46 +10,49 @@ import { useMemo, useState } from 'react';
 import { courseOf, intakeStart, type Application } from '../data/applications';
 import { compute, money, nice } from './engine';
 import { getState } from './store';
+import { UNI_TERMS, rpByName } from '../data/dataset';
 import { uniSteps } from './Commissions';
 import { convert } from './shared';
 import './finance.css';
 
 const LEVEL: Record<string, string> = { Foundation: 'FDN', Diploma: 'DIP', 'Bachelor’s degree': 'UG', 'Postgraduate diploma': 'PG', 'Master’s degree': 'PG', 'PhD or research': 'RES' };
 const COUNTRY: Record<string, string> = { Australia: 'AU', UK: 'UK', 'New Zealand': 'NZ', Canada: 'CA', Ireland: 'IE', USA: 'US' };
-const norm = (x: string) => x.toLowerCase().replace(/^the /, '').replace(/\(.*?\)/g, '').replace(/[^a-z]/g, '');
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
-const addDays = (d: string, n: number) => iso(new Date(d + 'T00:00:00Z').getTime() + n * 864e5);
 const TONE = { 'p-good': 'dpill--verified', 'p-warn': 'dpill--checking', 'p-bad': 'dpill--bad', 'p-acc': '', 'p-mute': '' };
 
-/** The application as the engine sees it, with the university's and the RP's terms from Finance. */
+/**
+ * The application as the engine sees it. An enrolled one is Finance's own copy (finance/fromDataset.ts), priced with
+ * every other enrolment so tiers count the same: the lines here are Finance's lines. Before enrolment it's an
+ * estimate from today's terms. The university and the RP are found by id (data/dataset.ts), never by name.
+ */
 function priced(a: Application, agency: string) {
+  const s = getState();
+  const cfg = s.comm.cfg;
+  const today = s.comm.today;
   const c = courseOf(a);
-  const cfg = structuredClone(getState().comm.cfg);
-  let uni = cfg.unis.find((u) => norm(u.name) === norm(c.uni.name) || norm(u.name).startsWith(norm(c.uni.name)) || norm(c.uni.name).startsWith(norm(u.name)));
+  const stored = s.comm.apps[a.id];
   const lvl = LEVEL[c.level] ?? 'PG';
-  let assumed = false;
+  const uniId = UNI_TERMS[c.uni.id];
+  let uni = cfg.unis.find((u) => u.id === (stored ? stored.uni : uniId));
+  const assumed = !uni;
+  const rpId = a.rp ? rpByName(a.rp)?.id : 'R-TEST';
+  const rp = cfg.rps.find((r) => r.id === rpId) ?? cfg.rps.find((r) => r.id === 'R-TEST');
+  if (stored) {
+    const res = compute(cfg, s.comm.apps, today);
+    const one = { ...res, ip: res.ip.filter((x) => x.app === a.id), rp: res.rp.filter((x) => x.app === a.id) };
+    return { res: one, r: res.apps[a.id], cfg, uni: uni ?? { name: c.uni.name, cur: c.currency, payDays: 30, levels: {}, trigger: 'census' }, rp, assumed, enrolled: true, today };
+  }
+  const cfg2 = structuredClone(cfg);
   if (!uni) {
-    // not in Finance's terms yet: the course record's rate, as an estimate
-    assumed = true;
-    uni = { id: `x-${c.uni.id}`, name: c.uni.name, group: '', country: COUNTRY[c.uni.country] ?? 'AU', cur: c.currency, ends: '', trigger: 'census', inst: 2, payDays: 30, cap: null, levels: { [lvl]: c.uni.rate }, fixed: {}, tier: null, annuity: null };
-    cfg.unis.push(uni);
+    // no terms in Finance for this university: the course record's rate, as an estimate
+    uni = { id: `x-${c.uni.id}`, name: c.uni.name, group: '', country: COUNTRY[c.uni.country] ?? 'AU', cur: c.currency, ends: '', trigger: 'census', inst: 2, payDays: 30, cap: null, levels: { [lvl]: c.rate || c.uni.rate }, fixed: {}, tier: null, annuity: null };
+    cfg2.unis.push(uni);
   }
-  const rp = cfg.rps.find((r) => norm(r.name) === norm(a.rp || agency)) ?? cfg.rps.find((r) => r.id === 'R-TEST');
-  const today = iso(Date.now());
   const start = iso(intakeStart(a.intake));
-  const enrolled = a.status === 'enrolled';
   const app = { id: a.id, student: '', rp: rp.id, uni: uni.id, level: lvl, intake: start, tuition: c.tuition, scholarship: c.scholarship, enrolled: start, studentType: 'New', nationality: rp.region, inv: {}, paidIP: {}, paidRP: {} };
-  let res = compute(cfg, { [a.id]: app }, today);
-  if (enrolled) {
-    res.apps[a.id].lines.forEach((l) => {
-      const paidOn = addDays(l.date, 30);
-      if (paidOn <= today) { app.inv[l.key] = l.date; app.paidIP[l.key] = { date: paidOn, amt: l.ent }; }
-    });
-    res = compute(cfg, { [a.id]: app }, today);
-    res.rp.forEach((x) => { if (x.ip && x.ip.paid && addDays(x.ip.paid.date, 14) <= today) app.paidRP[x.key] = x.ent; });
-    res = compute(cfg, { [a.id]: app }, today);
-  }
-  return { res, r: res.apps[a.id], cfg, uni, rp, assumed, enrolled, today };
+  const res = compute(cfg2, { ...s.comm.apps, [a.id]: app }, today);
+  const one = { ...res, ip: res.ip.filter((x) => x.app === a.id), rp: res.rp.filter((x) => x.app === a.id) };
+  return { res: one, r: res.apps[a.id], cfg: cfg2, uni, rp, assumed, enrolled: false, today };
 }
 
 export function AppCommission({ a, agency, side }: { a: Application; agency: string; side: 'both' | 'rp' }) {
@@ -67,6 +70,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
   return (
     <div className="gspx-fin gspx-appcomm">
       {est && <p className="gspx-note">The student hasn’t enrolled yet, so these are estimates from today’s terms. Commission is earned {uni.trigger === 'census' ? 'after the census date' : 'once the student starts and fees are paid'}, and paid to {side === 'rp' ? 'you' : 'the RP'} once the university pays GSP.</p>}
+      {uni.sample && side === 'both' && <p className="gspx-note gspx-note--warn">{uni.name}’s terms are sample terms: Finance has no contract on file yet, so the rate is the course record’s ({Object.values(uni.levels)[0]}%).</p>}
       {assumed && side === 'both' && <p className="gspx-note gspx-note--warn">{uni.name} has no terms in Finance yet, so the course record’s rate ({Object.values(uni.levels)[0]}%) is used. Finance adds the terms from the contract.</p>}
 
       {side === 'both' && (
