@@ -87,7 +87,9 @@ export function Sheet({
 
   useEffect(() => {
     if (!open) return;
-    opener.current = document.activeElement as HTMLElement | null;
+    // opened from a menu (a row's More menu): focus goes back to the menu's button, as the item itself goes away
+    const at = document.activeElement as HTMLElement | null;
+    opener.current = at?.closest('[role=menu]') ? (document.querySelector<HTMLElement>('[aria-haspopup="menu"][aria-expanded="true"]') ?? at) : at;
     const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>('.sheet__close')?.focus(), 30);
     return () => {
       window.clearTimeout(t);
