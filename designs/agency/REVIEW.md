@@ -306,7 +306,7 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - Open, in Jovial's sheet *GSP portal: inputs from Jovial*: permissions, sales regions, nationality map, routing rules, queues, mailboxes, and 23 questions.
   - Parked by Jovial: **grade conversion** (percentage to GPA, CGPA to percentage). Pick it up at the end.
 
-- [x] Jovial, 31 Oct (night, his *Pending Questions* sheet): **his answers built in** (31 Oct, COMMIT)
+- [x] Jovial, 31 Oct (night, his *Pending Questions* sheet): **his answers built in** (31 Oct, bf93246)
   - **Held changes** removed (it was the queue of course edits waiting for Institution's approval; no longer a permission row or a screen idea).
   - **Permissions** are his matrix (Admin, View Only, Finance, Institution, Institution Ops, Recruitment, Recruitment Ops, Admission, Admission Ops).
   - **Sales regions:** Myanmar and Bhutan are separate; contacts and default BDMs as in his table; Rest of world and Direct kept. **Queues:** one **SEA Admissions** queue (Vietnam, Indonesia/Malaysia/Thailand, Myanmar, Bhutan) led by Truc; Philippines led by Kimberley; China led by Caixia; Admission Ops also takes unmatched mail. Nationality map: UAE, Canada and US go to Rest of world.
