@@ -10,6 +10,21 @@ import { WHATSAPP_MARKETS, type SignupState } from '../signup/model';
 import { inSentence, returnedDocs, stillToReplace } from '../signup/docs';
 import { LOCKED_COPY, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { Track, type StepState } from './Track';
+import { adminCfg } from '../../admin/data/store';
+import { NATIONALITY } from '../../admin/data/config';
+import { STAFF, label } from '../../data/staff';
+import { courseOf, isOpen, needsYou, statusText, type Application } from '../../data/applications';
+import { fullName, type Student } from '../../data/students';
+import { shortDate } from '../../data/dates';
+
+/** The agency's region's Admissions contact (W15): GSP · Admin › Sales regions, as a person from the staff list. */
+export function admissionsContactFor(country: string): Contact | null {
+  const region = NATIONALITY[country] || country;
+  const name = adminCfg().regions.find((g) => g.name === region)?.contact;
+  const s = name ? STAFF.find((x) => label(x) === name) : undefined;
+  if (!s) return null;
+  return { name: label(s), role: `Admissions contact · ${region}`, phone: s.phone ? `${s.dial} ${s.phone}` : '', email: s.email, initials: `${s.first[0] ?? ''}${s.last[0] ?? ''}` };
+}
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const rise = (reduce: boolean | null, i: number) =>
@@ -37,7 +52,14 @@ export function Home({
   set,
   scrollTop,
   startKey,
+  apps = [],
+  students = [],
+  onOpenApp,
 }: {
+  /** The agency's applications and students, for what's pending on it (W24). */
+  apps?: Application[];
+  students?: Student[];
+  onOpenApp?: (id: string) => void;
   acc: Account;
   join: SignupState | null;
   access: Access;
@@ -113,6 +135,7 @@ export function Home({
           ) : (
             <>
               {join && <VerifiedCard join={join} onDocs={onDocs} reduce={reduce} />}
+              <PendingCard apps={apps} students={students} onOpen={onOpenApp} go={go} reduce={reduce} />
               <motion.section className="home__sec" aria-labelledby="start-title" {...rise(reduce, 2)}>
                 <h2 id="start-title" className="vh">
                   Start here
@@ -130,7 +153,7 @@ export function Home({
         <motion.aside className="home__side" aria-label="Help" {...rise(reduce, 2)}>
           <section className="card side-card" aria-labelledby="contact-title">
             <h2 id="contact-title" className="side-card__title">
-              Your GSP contact
+              Your GSP contacts
             </h2>
             {setup ? (
               // no one is assigned until the documents go to GSP
@@ -145,7 +168,14 @@ export function Home({
                 <p className="side-card__text">Once you upload your documents and send them for verification, we’ll assign one.</p>
               </div>
             ) : manager ? (
-              <ContactCard person={{ ...manager, role: 'Partner manager' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
+              <>
+                <ContactCard person={{ ...manager, role: 'Partner manager (BDM)' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
+                {/* and the region's Admissions contact, for applications (W15) */}
+                {(() => {
+                  const adm = admissionsContactFor(join?.form.country || 'India');
+                  return adm ? <ContactCard person={adm} hours="Mon–Sat, 9:30 am to 6:30 pm" /> : null;
+                })()}
+              </>
             ) : (
               <p className="side-card__text">Your partner manager will be in touch within 1 working day. Their name and number will show here.</p>
             )}
@@ -356,5 +386,51 @@ function StartTile({ icon, title, text, onClick }: { icon: IconName; title: stri
         <Icon name="arrowRight" size={18} className="stile__go" />
       </button>
     </li>
+  );
+}
+
+/**
+ * What's pending on the agency (W24, 1 Nov): each application waiting on it, what it needs and by when, soonest first.
+ */
+function PendingCard({ apps, students, onOpen, go, reduce }: { apps: Application[]; students: Student[]; onOpen?: (id: string) => void; go: (k: Section) => void; reduce: boolean | null }) {
+  const mine = apps.filter((a) => isOpen(a) && needsYou(a));
+  if (!apps.length) return null;
+  const dueOf = (a: Application) => Math.min(...a.needs.map((n) => n.due ?? Infinity), a.offer && a.status === 'conditions' ? a.offer.acceptBy : Infinity);
+  const rows = mine.map((a) => ({ a, due: dueOf(a) })).sort((x, y) => x.due - y.due);
+  const stu = (a: Application) => students.find((x) => x.id === a.studentId);
+  return (
+    <motion.section className="card side-card pend" aria-labelledby="pend-title" {...rise(reduce, 1)}>
+      <div className="pend__head">
+        <h2 id="pend-title" className="home__h2">
+          Pending on you
+        </h2>
+        <Button variant="secondary" size="sm" onClick={() => go('applications')}>
+          All applications
+        </Button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="side-card__text">Nothing is waiting on you. GSP and the universities have the rest.</p>
+      ) : (
+        <ul className="pend__list">
+          {rows.slice(0, 6).map(({ a, due }) => {
+            const s = stu(a);
+            const what = a.needs.filter((n) => !n.profile).map((n) => n.title);
+            const late = Number.isFinite(due) && due < Date.now();
+            return (
+              <li key={a.id} className="pend__item">
+                <button type="button" className="pend__open" onClick={() => (onOpen ? onOpen(a.id) : go('applications'))}>
+                  <span className="pend__who">
+                    {s ? fullName(s) : a.studentId} <span className="muted">· {courseOf(a).uni.name}</span>
+                  </span>
+                  <span className="pend__what">{what.length ? what.join(', ') : statusText(a)}</span>
+                </button>
+                <span className={`pend__due num ${late ? 'is-late' : ''}`}>{Number.isFinite(due) ? `${late ? 'Was due' : 'Due'} ${shortDate(new Date(due), true)}` : 'No due date'}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {rows.length > 6 && <p className="side-card__text">and {rows.length - 6} more in Applications.</p>}
+    </motion.section>
   );
 }

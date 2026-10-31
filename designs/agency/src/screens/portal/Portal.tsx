@@ -109,7 +109,9 @@ export function Portal({
   const reduce = useReducedMotion();
   const [section, setSection] = useState<Section>(start?.section ?? 'home');
   // the course search lives here, so leaving Find courses and coming back keeps it
-  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || 'India', join?.form.state || ''));
+  // the agency's own state, from its profile (W34): the registration's, or the head office's for an established agency
+  const homeState = join ? join.form.state || '' : sampleBranches().find((b) => b.main)?.state ?? '';
+  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || 'India', homeState));
   // students live here too: a new agency starts with none, an established one with its own
   // an RP sees only its own students and applications: GSP's others (with another RP) aren't theirs
   const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp));
@@ -327,7 +329,7 @@ export function Portal({
 
   const content =
     section === 'home' ? (
-      <Home acc={acc} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} />
+      <Home acc={acc} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />
     ) : section === 'profile' ? (
@@ -382,7 +384,7 @@ export function Portal({
         agency={acc.agency}
         onApply={(c) => jumpTo({ section: 'applications', app: { add: { courseId: c.id, studentId: search.studentId } } })}
         students={access === 'all' ? studentsView : []}
-        home={{ country: join?.form.country || 'India', state: join?.form.state || '' }}
+        home={{ country: join?.form.country || 'India', state: homeState }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}

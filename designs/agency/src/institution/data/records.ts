@@ -98,8 +98,10 @@ export type PartnerType = (typeof PARTNER_TYPES)[number];
 /** Where a partner is with GSP. The team sets it by hand, in any order; nothing moves it on its own. */
 export const BEFORE = ['Prospect', 'Met with', 'Proposal sent', 'Application submitted', 'Application received', 'Verbal approval', 'Agreement received'] as const;
 export const EXECUTED = 'Agreement executed';
+/** W30 (1 Nov): an executed agreement whose end date has passed, not renewed. */
+export const ENDED = 'Agreement ended';
 export const CLOSED = ['Not interested', 'Did not proceed', 'Terminated by GSP', 'Terminated by the institution', 'Merged with another partner'] as const;
-export const PARTNER_STATUSES = [...BEFORE, EXECUTED, ...CLOSED] as const;
+export const PARTNER_STATUSES = [...BEFORE, EXECUTED, ENDED, ...CLOSED] as const;
 export type PartnerStatus = (typeof PARTNER_STATUSES)[number];
 export const isClosed = (s: PartnerStatus) => (CLOSED as readonly string[]).includes(s);
 export const isBefore = (s: PartnerStatus) => (BEFORE as readonly string[]).includes(s);
@@ -146,12 +148,18 @@ export function agreementOf(p: InstitutionPartner) {
 export type Stage = 'executed' | 'before' | 'ending' | 'ended' | 'closed';
 export function stagesOf(p: InstitutionPartner): Stage[] {
   if (isClosed(p.status)) return ['closed'];
+  if (p.status === ENDED) return ['ended'];
   if (p.status !== EXECUTED) return ['before'];
   const a = agreementOf(p);
   if (!a) return ['executed'];
   const n = daysTo(a.end);
   return n < 0 ? ['ended'] : n <= 60 ? ['executed', 'ending'] : ['executed'];
 }
+/** The status as it reads now (W30): an executed agreement past its end date has ended. */
+export const statusNow = (p: InstitutionPartner): PartnerStatus => {
+  const a = agreementOf(p);
+  return p.status === EXECUTED && a && daysTo(a.end) < 0 ? ENDED : p.status;
+};
 /** Its universities can go live only while its agreement is executed and in date. */
 export const canGoLive = (p: InstitutionPartner | undefined) => !!p && p.status === EXECUTED && (agreementOf(p) ? daysTo(agreementOf(p)!.end) >= 0 : false);
 
@@ -210,7 +218,7 @@ export const samplePartners = (): InstitutionPartner[] => [
   direct('windsor', IN('namita.nath'), '2025-05-01', '2027-04-30', [contact('Marc Tremblay', 'International recruitment', 'Agreement and renewal', 'partnerships@uwindsor.ca')]),
   direct('fanshawe', IN('namita.nath'), '2026-01-01', '2028-12-31', [contact('Sarah Kim', 'Agent relations', 'Agreement and renewal', 'partnerships@fanshawec.ca')]),
   // ended, not renewed: its university is paused
-  direct('massey', IN('lalaine.dizon'), '2023-03-01', inDays(-243), [contact('Aroha Ngata', 'International office', 'Agreement and renewal', 'partnerships@massey.ac.nz')]),
+  direct('massey', IN('lalaine.dizon'), '2023-03-01', inDays(-243), [contact('Aroha Ngata', 'International office', 'Agreement and renewal', 'partnerships@massey.ac.nz')], { status: ENDED }),
   direct('waikato', IN('lalaine.dizon'), '2025-02-01', '2028-01-31', [contact('Ben Walker', 'International partnerships', 'Agreement and renewal', 'partnerships@waikato.ac.nz')]),
   direct('lincoln', IN('lalaine.dizon'), '2025-02-01', '2028-01-31', [contact('Hana Sato', 'Agent relations', 'Agreement and renewal', 'partnerships@lincoln.ac.nz')]),
   direct('griffith', IN('catherine.wilson'), '2025-09-01', '2027-08-31', [contact('Ciaran Doyle', 'International office', 'Agreement and renewal', 'partnerships@griffith.ie')]),

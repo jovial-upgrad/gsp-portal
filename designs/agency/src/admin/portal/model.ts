@@ -28,7 +28,7 @@ export const GROUPS: NavGroup[] = [
     label: 'User modules',
     icon: 'people',
     items: [
-      { key: 'courses', label: 'Course search', short: 'Search', icon: 'search' },
+      { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search' },
       { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
       { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
     ],
@@ -121,7 +121,7 @@ export const VARIANTS: Record<Variant, VariantSpec> = {
   recruitment: {
     brand: 'Recruitment',
     home: HOME,
-    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'students', 'courses'],
     user: me('saurabh.chaudhary'),
@@ -129,7 +129,7 @@ export const VARIANTS: Record<Variant, VariantSpec> = {
   bap: {
     brand: 'BAP',
     home: HOME,
-    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search')],
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'courses'],
     user: me('garima.bhardwaj'),
