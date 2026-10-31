@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { update, nameOf, getState } from './store';
 import { Card, Segmented, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, Chip, toast, fmtAge } from './kit';
 import { nice, money, LEVELS, TRIG, DEST, bandTxt, winName } from './engine';
+import { SALES_REGIONS } from '../institution/data/announcements';
 import { proposeChange, applyChange, impactOf, aud, opsOf } from './shared';
 
 const AREAS = [['unis', 'Universities'], ['rps', 'RP terms'], ['schemes', 'Schemes'], ['notices', 'Notices'], ['settings', 'Settings and FX']];
@@ -236,7 +237,8 @@ function RpSheet({ ro, c, r, onClose, propose }) {
   const blank = { id: '', name: '', region: 'India', scheme: 'S05', flat: null, gst: false, cur: 'AUD', bank: 'AU', payee: '', mp: false, annuityPct: null, note: '', bankVerified: true };
   const [d, set] = useDraft(r || blank);
   const own = d.flat != null && d.flat !== '';
-  const regions = [...new Set([...getState().regions, 'Australia Onshore'])];
+  // the sales regions Admin keeps, plus the regions already on RP terms (Australia Onshore is Finance's own)
+  const regions = [...new Set([...SALES_REGIONS, ...c.cfg.rps.map(x => x.region).filter(Boolean), 'Australia Onshore'])];
   const mps = c.cfg.rps.filter(x => x.mp && x.id !== d.id);
   const save = () => {
     if (!d.id || !d.name) { toast('Give the RP its ID and name.'); return; }
