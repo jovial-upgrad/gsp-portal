@@ -1,3 +1,4 @@
+import { setLiveFlags } from '../../data/live';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -72,6 +73,8 @@ export function Assist({
     if (!v || busy) return;
     const first = !chat.some((m) => m.from === 'gsp' && m.at > Date.now() - 60 * 60_000);
     push({ from: 'you', name: me, text: v });
+    // the officer gets a "Needs you" for it (W11, Jovial, 1 Nov)
+    setLiveFlags(a.id, { rpNews: Date.now(), rpWhat: 'message' });
     setText('');
     setBusy(true);
     timers.current.push(

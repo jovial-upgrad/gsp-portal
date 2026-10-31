@@ -189,9 +189,9 @@ export function ProtoPanel({
               </div>
               <div className="proto__link">
                 <p className="proto__label" id="proto-link">
-                  Connect RP Admin and GSP Team
+                  Connect RP Admin and every GSP role
                 </p>
-                <p className="proto__note">A connected application is the same in both roles: request a document or change the status in one, and the other shows it.</p>
+                <p className="proto__note">A connected application is the same in every role: the RP sends a message or a document and the officer gets a “Needs you” in My work; GSP changes the status and the RP sees it.</p>
                 <div className="proto__seg" role="radiogroup" aria-labelledby="proto-link">
                   {(
                     [

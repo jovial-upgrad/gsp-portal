@@ -34,7 +34,7 @@ import { AssistMark, StageTrack } from './parts';
 import { Chat, type AskSeed } from './Chat';
 import { MailTab } from './Mail';
 import { SubmissionTab, isSubmitted } from './Submission';
-import { setLiveStatus, setLiveFlags } from '../../data/live';
+import { setLiveStatus, setLiveFlags, flagsOf } from '../../data/live';
 import { StatusDialog, type StatusPick } from './StatusDialog';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
@@ -121,6 +121,10 @@ export function AppDetail({
   const earn = earnFor(a);
   const [withdraw, setWithdraw] = useState(false);
   const [changing, setChanging] = useState(false);
+  // opening it shows the officer what the RP sent: its "Needs you" in My work closes (W11)
+  useEffect(() => {
+    if ((flagsOf(a.id).rpNews ?? 0) > (flagsOf(a.id).rpSeen ?? 0)) setLiveFlags(a.id, { rpSeen: Date.now() });
+  }, [a.id, a.chat.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ask, setAsk] = useState<AskSeed | undefined>();
   const [docs, setDocs] = useState<DocTab>('all');
   const [rev, setRev] = useState<{ key: string; reject: boolean; list: string[] } | null>(null);

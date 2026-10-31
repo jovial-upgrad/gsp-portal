@@ -90,6 +90,7 @@ export const APP_RULES = [
   { id: 'a-visa', row: 'T17', kind: 'k-chase-uni', when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) !== 'gsp' && openRequests(a).length > 0, after: { d: 7 }, title: (n) => `Chase the RP: visa for ${n} not lodged`, sla: { h: 12 }, closes: 'Lodgement proof uploaded, or the status changes', remind: { d: 5 } },
   { id: 'a-visa-gsp', row: 'WH7', kind: 'k-submit', when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) === 'gsp', title: (n) => `Lodge the student visa for ${n} (GSP lodges this one)`, sla: { d: 7 }, closes: 'Status moves to Visa decision pending' },
   { id: 'a-late', row: 'T19', kind: 'k-chase-uni', when: (a) => ['checking', 'ready'].includes(a.status) && lateIntake(a), title: (n, a) => `Check ${uni(a)} still accepts ${n} for ${a.intake} (deadline passed)`, sla: { h: 12 }, closes: 'Officer records go ahead, moves the intake, or closes' },
+  { id: 'a-rp-news', row: 'W11', kind: 'k-uni-mail', when: (a, f) => (f.rpNews ?? 0) > (f.rpSeen ?? 0), since: (a, f) => f.rpNews, title: (n, a, f) => `Needs you: the RP sent ${f.rpWhat || 'a message'} on ${n}`, sla: { h: 1 }, closes: 'You open the application' },
   { id: 'a-enrol', row: 'T20', kind: 'k-enrol', when: (a) => a.status === 'enrolconf', title: (n, a) => `Confirm ${n}’s enrolment with ${uni(a)}`, sla: { d: 3 }, closes: 'Status moves to Student enrolled' },
 ];
 const lateIntake = (a) => {
@@ -140,7 +141,7 @@ export function appTasks(s, live, now = Date.now()) {
     const q = s.queues.find((x) => x.id === queue);
     for (const r of APP_RULES) {
       if (!r.when(a, f)) continue;
-      const since = r.id === 'a-conds-chase' && f.condsSent ? f.condsSent : a.since;
+      const since = r.since ? r.since(a, f) : r.id === 'a-conds-chase' && f.condsSent ? f.condsSent : a.since;
       const due0 = r.after ? addWorkingHours(cal, since, slaHours(r.after)) : since;
       if (r.after && now < due0) continue;
       const id = `A-${a.id}-${r.id}-${since}`;
@@ -153,7 +154,7 @@ export function appTasks(s, live, now = Date.now()) {
       const reminded = r.remind ? addWorkingHours(cal, since, slaHours(r.remind)) : null;
       out.push({
         id, rule: r.id, row: r.row, kind: r.kind, record: a.id, queue: tq, assignee, created: due0, status: 'open', auto: true,
-        title: r.title(a.student, a), slaHours: slaHours(r.sla), cal: cal.id, closes: r.closes,
+        title: r.title(a.student, a, f), slaHours: slaHours(r.sla), cal: cal.id, closes: r.closes,
         note: [covering ? (gone ? 'Their officer has left GSP: the leader has it' : `Covering while ${(s.users.find((u) => u.id === a.officer) || {}).name || 'the officer'} is on leave`) : null, reminded && now > reminded ? 'The RP was reminded automatically' : null, `Closes when: ${r.closes.toLowerCase()}`].filter(Boolean).join(' · '),
       });
     }

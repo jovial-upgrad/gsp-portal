@@ -1,4 +1,4 @@
-import { setLiveStatus } from '../../data/live';
+import { setLiveStatus, setLiveFlags } from '../../data/live';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -149,6 +149,7 @@ export function AppDetail({
       files: [...x.files, { name: n.title, file, from: 'you', at: now, status: 'checking', via: 'request', req: n.id }],
       history: [...x.history, { at: now, who: 'you', text: `Uploaded the ${named(n.title)} GSP asked for`, by: me }, ...(note ? [{ at: now, who: 'ai' as const, text: `GSP Assist read it first: ${note}` }] : [])],
     }));
+    setLiveFlags(a.id, { rpNews: now, rpWhat: `the ${named(n.title)}` });
     say(`${n.title} sent to ${n.request?.by ?? 'GSP'}.`);
     timers.current.push(
       window.setTimeout(() => {
@@ -170,6 +171,7 @@ export function AppDetail({
       history: [...x.history, { at: now, who: 'you', text: `Answered the ${named(n.title)} and sent them to GSP`, by: me }],
     }));
     setAnswering(null);
+    setLiveFlags(a.id, { rpNews: now, rpWhat: `the ${named(n.title)}` });
     say(`${n.title} sent to ${by}.`);
     timers.current.push(
       window.setTimeout(() => {
@@ -265,6 +267,7 @@ export function AppDetail({
       history: [...x.history, { at: now, who: 'you', text: 'Asked GSP to lodge the visa', by: me }],
       chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: gsp.name, text: `Happy to. I’ll lodge ${s.first}’s visa and upload the lodgement proof here.` }],
     }));
+    setLiveFlags(a.id, { visaBy: 'gsp', rpNews: now, rpWhat: 'a request for GSP to lodge the visa' });
     say(`GSP will lodge ${s.first}’s visa.`);
   };
 
