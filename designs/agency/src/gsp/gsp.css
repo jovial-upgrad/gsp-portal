@@ -1,0 +1,279 @@
+/* ==========================================================================
+   GSP Team only: what the GSP Team role adds to the shared screens. Every selector here is GSP Team's
+   own (g-prefixed, or scoped to .gapp), so RP Admin's screens never match it, though the build bundles it.
+   ========================================================================== */
+
+/* ---------- the application's header: change the status ---------- */
+.gstat__line { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sp-8); }
+.gstat__change { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 var(--sp-10); border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: var(--t-caption); font-weight: var(--fw-semi); transition: color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out); }
+.gstat__change:hover { color: var(--text); border-color: var(--text-3); background: var(--surface-2); }
+.gstat__change:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.sheet.sheet--center.gstat { width: min(540px, 100%); }
+.gstat__form { display: grid; gap: var(--sp-16); }
+/* a control that holds a textarea grows with it */
+.control.gstat__area { height: auto; align-items: stretch; }
+.control.gstat__area .control__input { min-height: 84px; padding: var(--sp-10) var(--sp-14, 14px); font: inherit; font-size: var(--t-input); line-height: var(--lh-body); resize: vertical; }
+
+.atabs__badge--gsp { background: var(--gsp-dot); color: #fff; }
+
+/* ---------- chat: the RP on the left in its own colour, the Request document template ---------- */
+.gchat__foot .achat__compose { align-items: flex-end; }
+.gchat .achat__attach { flex: none; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line-input); background: var(--surface); color: var(--text-2); cursor: pointer; transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out); }
+.gchat .achat__attach:hover { background: var(--surface-2); color: var(--text); }
+.gchat .achat__attach:has(+ #achat-file:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.msg--rp .msg__av { background: var(--surface); color: var(--you); box-shadow: inset 0 0 0 1.5px var(--you-line); }
+:root[data-theme='dark'] .msg--rp .msg__bubble { background: var(--surface-2); border-color: var(--line); box-shadow: none; }
+.gchat__foot { display: grid; border-top: 1px solid var(--line); }
+.gchat__foot .achat__compose { border-top: 0; padding-top: var(--sp-8); }
+.gchat__tools { display: flex; flex-wrap: wrap; gap: var(--sp-8); padding: var(--sp-12) var(--sp-20) 0; }
+.gchat__tools:last-child { padding-bottom: var(--sp-12); }
+/* the two templates, GSP's own actions: tinted in GSP's colour, a step up from a plain chip */
+.gchat__tpl { display: inline-flex; align-items: center; gap: var(--sp-8); height: 40px; padding: 0 var(--sp-16) 0 var(--sp-14, 14px); border: 1px solid var(--gsp-line); border-radius: var(--r-pill); background: var(--gsp-bg); color: var(--gsp); font: inherit; font-size: var(--t-label); font-weight: var(--fw-semi); cursor: pointer; transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.gchat__tpl:hover { border-color: var(--gsp); box-shadow: 0 2px 8px -4px color-mix(in srgb, var(--gsp) 50%, transparent); }
+.gchat__tpl:active { transform: translateY(1px); }
+.gchat__tpl:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* a conditions card in the chat opens the form */
+.areq.areq--open { width: 100%; font: inherit; text-align: left; color: inherit; cursor: pointer; transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.areq.areq--open:hover { border-color: var(--you); box-shadow: 0 4px 14px -8px rgba(9, 30, 66, 0.3); }
+.areq.areq--open.is-done:hover { border-color: var(--ok); }
+.areq.areq--open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.areq__view { display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-4); font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--link); }
+
+.greq { display: grid; grid-template-columns: minmax(0, 1fr) 184px; gap: var(--sp-10) var(--sp-12); margin: var(--sp-12) var(--sp-20) 0; padding: var(--sp-14, 14px) var(--sp-16); border: 1px solid var(--you-line); border-radius: 14px; background: var(--surface); box-shadow: 0 6px 18px -10px rgba(9, 30, 66, 0.24); }
+.greq:last-child { margin-bottom: var(--sp-16); }
+.greq__head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); }
+.greq__k { display: inline-flex; align-items: center; gap: var(--sp-6); font-size: var(--t-micro); line-height: var(--lh-micro); font-weight: var(--fw-semi); color: var(--you); text-transform: uppercase; letter-spacing: 0.05em; }
+.greq__field { display: grid; gap: var(--sp-6); min-width: 0; }
+.greq__field:nth-of-type(2) { grid-column: 1 / -1; grid-row: 3; }
+.greq__label { font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-semi); color: var(--text-2); }
+.greq .control { height: 44px; }
+.greq .control.gstat__area { height: auto; }
+.greq .control.gstat__area .control__input { min-height: 64px; }
+.greq .gmail__err,
+.greq__acts { grid-column: 1 / -1; }
+.greq__acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+
+/* ---------- mail ---------- */
+.gmail { display: grid; align-content: start; padding: 0; overflow: hidden; min-height: 100%; }
+.gmail__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-16); padding: var(--sp-16) var(--sp-20); border-bottom: 1px solid var(--line); }
+.gmail__head > div { display: grid; gap: 2px; }
+.gmail__items { list-style: none; margin: 0; padding: var(--sp-6); display: grid; gap: 2px; }
+.gmail__item { width: 100%; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--sp-12); align-items: start; padding: var(--sp-12) var(--sp-14, 14px); border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; transition: background-color var(--dur-2) var(--ease-out); }
+.gmail__item:hover { background: var(--surface-2); }
+.gmail__item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.gmail__av { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--gsp-bg); color: var(--gsp); font-size: var(--t-micro); font-weight: var(--fw-semi); }
+.gmail__av:has(.umark) { background: none; }
+.gmail__av .umark { width: 40px; height: 40px; border-radius: 12px; font-size: var(--t-micro); }
+.gmail__av--lg { width: 44px; height: 44px; }
+.gmail__av--lg .umark { width: 44px; height: 44px; }
+.gmail__t { display: grid; gap: 2px; min-width: 0; }
+.gmail__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-12); min-width: 0; }
+.gmail__from { display: inline-flex; align-items: center; gap: var(--sp-8); min-width: 0; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-medium); color: var(--text-2); }
+.gmail__when { flex: none; font-size: var(--t-caption); color: var(--text-3); white-space: nowrap; }
+.gmail__subject { font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); overflow-wrap: anywhere; }
+.gmail__item.is-unread .gmail__from,
+.gmail__item.is-unread .gmail__subject { color: var(--text); font-weight: var(--fw-semi); }
+.gmail__item.is-unread .gmail__when { color: var(--uni); font-weight: var(--fw-semi); }
+.gmail__dot { display: inline-block; width: 8px; height: 8px; margin: 0 var(--sp-8) 1px 0; border-radius: 50%; background: var(--uni-dot); vertical-align: middle; }
+.gmail__snip { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.gmail__snip svg { display: inline-block; margin-right: 4px; vertical-align: -2px; }
+.gmail__tag { display: inline-flex; align-items: center; height: 20px; padding: 0 var(--sp-8); border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--t-micro); font-weight: var(--fw-semi); }
+.gmail__tag--draft { background: var(--bad-bg); color: var(--bad); }
+.gmail__empty { display: grid; justify-items: center; gap: var(--sp-8); padding: var(--sp-48, 48px) var(--sp-20); text-align: center; }
+.gmail__empty-ic { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--text-2); }
+.gmail__empty-t { font-weight: var(--fw-semi); }
+
+.gmail__read,
+.gmail__compose { display: grid; align-content: start; gap: var(--sp-14, 14px); padding: var(--sp-16) var(--sp-20) var(--sp-24); }
+.gmail__back { justify-self: start; display: inline-flex; align-items: center; gap: var(--sp-6); margin: -4px 0 0 -6px; padding: 4px 6px; border: 0; border-radius: 8px; background: none; color: var(--link); font: inherit; font-size: var(--t-label); font-weight: var(--fw-semi); }
+.gmail__back:hover { background: var(--primary-soft); }
+.gmail__title { font-size: var(--t-title); line-height: var(--lh-title); font-weight: var(--fw-semi); overflow-wrap: anywhere; }
+.gmail__meta { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-12); align-items: center; }
+.gmail__who { display: grid; gap: 2px; min-width: 0; font-size: var(--t-label); line-height: var(--lh-label); overflow-wrap: anywhere; }
+.gmail__who .muted,
+.gmail__date { color: var(--text-3); font-size: var(--t-caption); }
+.gmail__date { white-space: nowrap; align-self: start; }
+.gmail__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); }
+/* GSP Assist's one action on a mail: its own colour, so it reads as AI and not as another mail action */
+.gmail__sum-btn { display: inline-flex; align-items: center; gap: var(--sp-6); height: var(--h-btn-sm); padding: 0 var(--sp-14, 14px); border: 1px solid var(--ai-line); border-radius: var(--r-pill); background: var(--ai-bg); color: var(--text); font: inherit; font-size: var(--t-label); font-weight: var(--fw-semi); transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out); }
+.gmail__sum-btn:hover { border-color: var(--ai); }
+.gmail__sum-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.gmail__sum { display: grid; gap: var(--sp-8); padding: var(--sp-14, 14px) var(--sp-16); border: 1px solid color-mix(in srgb, var(--ai-line) 70%, var(--line)); border-radius: 14px; background: color-mix(in srgb, var(--ai-bg) 55%, var(--surface)); }
+.gmail__sum-k { display: inline-flex; align-items: center; gap: var(--sp-6); font-size: var(--t-micro); line-height: var(--lh-micro); font-weight: var(--fw-semi); color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; }
+.gmail__sum-list { margin: 0; padding-left: 1.15rem; display: grid; gap: 4px; font-size: var(--t-label); line-height: var(--lh-body); color: var(--text); }
+.gmail__body { padding-top: var(--sp-14, 14px); border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--t-label); line-height: 1.5rem; color: var(--text); }
+.gmail__files { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+
+.gmail__fields { display: grid; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.gmail__field { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: var(--sp-8); min-height: 46px; padding: 0 var(--sp-14, 14px); border-top: 1px solid var(--line); transition: background-color var(--dur-2) var(--ease-out); }
+.gmail__field:first-child { border-top: 0; }
+.gmail__field:focus-within { background: var(--primary-soft); }
+.gmail__field:has(.is-bad) { box-shadow: inset 3px 0 0 var(--bad-dot); }
+.gmail__label { font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-3); }
+.gmail__from-me { font-size: var(--t-label); color: var(--text-2); overflow-wrap: anywhere; }
+.gmail__input { min-width: 0; height: 44px; border: 0; background: none; color: var(--text); font: inherit; font-size: var(--t-input); outline: none; }
+.gmail__text { width: 100%; min-height: 220px; padding: var(--sp-12) var(--sp-14, 14px); border: 1px solid var(--line-input); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-input); line-height: 1.5rem; resize: vertical; }
+.gmail__text:focus { outline: none; border-color: var(--focus); box-shadow: var(--input-glow); }
+.gmail__text.is-bad { border-color: var(--bad-dot); }
+.gmail__err { display: inline-flex; align-items: center; gap: var(--sp-6); font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-medium); color: var(--bad); }
+.gmail__compose-acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+
+/* ---------- submission ---------- */
+.gsub { display: grid; gap: var(--sp-16); }
+.gsub__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); }
+.gsub__via { display: inline-flex; align-items: center; gap: var(--sp-6); height: 28px; padding: 0 var(--sp-12); border-radius: var(--r-pill); background: var(--uni-bg); color: var(--uni); font-size: var(--t-caption); font-weight: var(--fw-semi); }
+.gsub__creds { margin: 0; display: grid; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.gsub__cred { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: var(--sp-12); min-height: 52px; padding: var(--sp-8) var(--sp-8) var(--sp-8) var(--sp-16); border-top: 1px solid var(--line); }
+.gsub__cred:first-child { border-top: 0; }
+.gsub__cred dt { font-size: var(--t-label); color: var(--text-2); }
+.gsub__cred dd { margin: 0; display: flex; align-items: center; gap: 2px; min-width: 0; }
+.gsub__cred .scopy { margin: 0; width: 36px; height: 36px; }
+.gsub__val { flex: 1; min-width: 0; font-size: var(--t-label); font-weight: var(--fw-medium); color: var(--text); overflow-wrap: anywhere; }
+.gsub__link { display: inline-flex; align-items: center; gap: var(--sp-6); color: var(--link); text-decoration: none; }
+.gsub__link:hover { text-decoration: underline; }
+.gsub__mono { font-family: var(--font-mono, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace); font-size: 0.95em; letter-spacing: 0.02em; }
+.gsub__ref { display: flex; align-items: center; gap: var(--sp-6); padding: var(--sp-12) var(--sp-16); border-radius: 12px; background: var(--surface-2); font-size: var(--t-title); line-height: var(--lh-title); font-weight: var(--fw-semi); }
+.gsub__ref .gsub__mono { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.gsub__form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); }
+.gsub__form .control { flex: 1 1 220px; max-width: 360px; }
+.gsub__note { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.gsub__note:empty { display: none; }
+.gsub__note.is-bad { color: var(--bad); font-weight: var(--fw-medium); }
+
+/* ---------- documents: the filter, and GSP's own ---------- */
+.gdocs__bar { display: grid; gap: var(--sp-12); }
+/* separate chips, not a segmented track: a filter inside the Documents tab, not tabs inside tabs */
+.gchips { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.gchip { position: relative; height: 36px; padding: 0 var(--sp-14, 14px); border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: var(--t-label); font-weight: var(--fw-medium); white-space: nowrap; transition: color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out); }
+.gchip:hover { color: var(--text); border-color: var(--text-3); }
+.gchip.is-on { color: var(--surface); border-color: var(--text); }
+.gchip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.gchip__lens { position: absolute; inset: -1px; border-radius: inherit; background: var(--text); }
+.gchip__in { position: relative; display: inline-flex; align-items: center; gap: var(--sp-8); }
+.gchip__n { min-width: 22px; height: 20px; padding: 0 6px; display: inline-grid; place-items: center; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--t-micro); font-weight: var(--fw-semi); line-height: 1; text-box: trim-both cap alphabetic; }
+.gchip.is-on .gchip__n { background: color-mix(in srgb, var(--surface) 22%, transparent); color: inherit; }
+.gdocs__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); }
+.gdocs__by .who { height: 24px; font-size: var(--t-caption); }
+/* the Required / Optional tag beside a document's name */
+.gapp .nadoc__tag { display: inline-flex; align-items: center; height: 20px; margin-left: var(--sp-6); padding: 0 var(--sp-8); border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--t-micro); font-weight: var(--fw-semi); vertical-align: 1px; }
+.gdocs__empty { font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
+.gdocs__k { margin: var(--sp-16) 0 var(--sp-4); font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); }
+
+/* ---------- key details: census date and final tuition fee, to correct ---------- */
+.gedit__val { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.gedit__pen { margin-right: -6px; }
+.cdl__row.gedit.is-editing { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); }
+.cdl__row.gedit.is-editing dd { text-align: left; }
+.gedit__form { display: grid; gap: var(--sp-8); }
+.control.gedit__control { height: 40px; }
+.gedit__control .control__input { padding: 0 var(--sp-12); font-size: var(--t-label); }
+.gedit__cur { padding-left: var(--sp-12); font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-3); }
+.gedit__cur + .control__input { padding-left: var(--sp-6); }
+.gedit__err { font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-medium); color: var(--bad); }
+.gedit__acts { display: flex; gap: var(--sp-8); }
+
+/* ---------- reviewing the RP's documents ---------- */
+/* GSP's own to-do, in GSP's colour, above anything with the RP */
+.aneed.aneed--gsp { border-color: var(--gsp-line); background: linear-gradient(100deg, var(--gsp-bg), color-mix(in srgb, var(--gsp-bg) 30%, var(--surface)) 70%); }
+.aneed--gsp .aneed__mark { background: var(--gsp-dot); }
+.aneed + .aneed { margin-top: calc(-1 * var(--sp-6)); }
+.greview { border-color: var(--gsp-line); scroll-margin-top: 80px; }
+.greview:focus { outline: none; }
+.greview .acard__title { display: inline-flex; align-items: center; gap: var(--sp-8); }
+.greview__list { list-style: none; display: grid; }
+.greview__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-10) var(--sp-12); padding: var(--sp-12) 0; border-top: 1px solid var(--line); }
+.greview__item .adoc__t { flex: 1 1 260px; }
+.greview__item .adoc__icon--have { background: var(--gsp-bg); color: var(--gsp); }
+.greview__acts { display: flex; flex-wrap: wrap; gap: var(--sp-6); margin-left: auto; }
+.gdoc__end { display: inline-flex; align-items: center; gap: var(--sp-6); flex: none; }
+
+.sheet.sheet--center.grev { width: min(680px, 100%); }
+.grev__file { font-weight: var(--fw-semi); color: var(--text); overflow-wrap: anywhere; }
+.grev__body { display: grid; gap: var(--sp-14, 14px); }
+/* Naming a document GSP uploads */
+.sheet.sheet--center.gname { width: min(540px, 100%); }
+.gname__file { display: inline-flex; align-items: center; gap: 6px; font-weight: var(--fw-semi); color: var(--text); overflow-wrap: anywhere; }
+.gname__form { display: grid; gap: var(--sp-14, 14px); }
+.gname__chips { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.gname__chips .gchip { height: 32px; font-size: var(--t-caption); }
+.gname__chips .gchip[aria-pressed='true'] { background: var(--text); border-color: var(--text); color: var(--surface); }
+.grev__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }
+.grev__steps { display: inline-flex; align-items: center; gap: var(--sp-6); margin-left: auto; }
+.grev__step { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface); color: var(--text); transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out); }
+.grev__step:hover:not(:disabled) { background: var(--surface-2); border-color: var(--text-3); }
+.grev__step:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.grev__step:disabled { color: var(--text-3); opacity: 0.5; cursor: not-allowed; }
+.grev__pos { min-width: 52px; text-align: center; font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); }
+.grev__why { display: grid; gap: var(--sp-10); }
+.grev__k { font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text); }
+.grev__chips { display: flex; flex-wrap: wrap; gap: var(--sp-8); margin-bottom: var(--sp-6); }
+.grev__chips .gchip { height: 32px; font-size: var(--t-caption); }
+.grev__hint { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.grev__hint.is-bad { color: var(--bad); font-weight: var(--fw-medium); }
+
+/* ---------- the course dialog ---------- */
+/* GSP Team's copy keeps its five facts in one row (RP Admin's now has four); three to a row in a narrower dialog,
+   two on phones, as before */
+.cs-stats.gcs-five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@container cmodal (max-width: 820px) {
+  .cs-stats.gcs-five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cs-stats.gcs-five .cs-stat:nth-child(3) { box-shadow: inset 1px 0 0 var(--line); }
+  .cs-stats.gcs-five .cs-stat:nth-child(4) { box-shadow: inset 0 1px 0 var(--line); }
+  .cs-stats.gcs-five .cs-stat:nth-child(5) { box-shadow: inset 1px 1px 0 var(--line); }
+}
+@container cmodal (max-width: 560px) {
+  .cs-stats.gcs-five { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-stats.gcs-five .cs-stat:nth-child(n) { box-shadow: inset 0 1px 0 var(--line); }
+  .cs-stats.gcs-five .cs-stat:nth-child(-n + 2) { box-shadow: none; }
+}
+
+/* the RP contact takes the agency's colour */
+.aperson__av.gperson__av { background: var(--you-bg); color: var(--you); }
+
+@media (max-width: 560px) {
+  .greview__acts { margin-left: 48px; }
+  .greq { grid-template-columns: minmax(0, 1fr); margin-inline: var(--sp-12); }
+  .greq__field:nth-of-type(2) { grid-row: auto; }
+  .gmail__meta { grid-template-columns: auto minmax(0, 1fr); }
+  .gmail__date { grid-column: 2; }
+  .gmail__read,
+  .gmail__compose { padding-inline: var(--sp-16); }
+  .gmail__field { grid-template-columns: 60px minmax(0, 1fr); }
+  .gsub__cred { grid-template-columns: minmax(0, 1fr); gap: 2px; padding-left: var(--sp-14, 14px); }
+  .gsub__cred dt { font-size: var(--t-caption); color: var(--text-3); }
+}
+
+/* ---------- the Request conditions template ---------- */
+.gcond__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-8); grid-column: 1 / -1; }
+.gcond__row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-8); }
+.gcond__n { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); font-size: var(--t-micro); font-weight: var(--fw-semi); color: var(--text-2); line-height: 1; text-box: trim-both cap alphabetic; }
+.gcond > .btn--ghost { justify-self: start; grid-column: 1 / -1; }
+.gcond .greq__field:first-of-type { grid-column: 1 / -1; }
+
+/* ---------- GSP Assist's nudge: a university document came by mail ---------- */
+.aneed.gnudge { align-items: flex-start; border-color: color-mix(in srgb, var(--gsp) 30%, var(--line)); background: linear-gradient(100deg, var(--gsp-bg), color-mix(in srgb, var(--gsp-bg) 30%, var(--surface)) 70%); }
+.gnudge__mark { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--surface); box-shadow: 0 1px 2px rgba(9, 30, 66, 0.12); }
+.gnudge__k { font-size: var(--t-micro); font-weight: var(--fw-semi); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.gnudge__file { display: inline-flex; align-items: center; gap: var(--sp-6); margin-top: var(--sp-8); padding: 4px 4px 4px var(--sp-10); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: var(--t-label); color: var(--text-2); max-width: 100%; }
+.gnudge__fname { min-width: 0; overflow-wrap: anywhere; font-weight: var(--fw-medium); color: var(--text); }
+.gnudge__acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); align-self: center; }
+@media (max-width: 720px) {
+  .aneed.gnudge { flex-wrap: wrap; }
+  .gnudge__acts { width: 100%; justify-content: flex-end; }
+}
+.gcond .greq__field--due, .gcond .greq__field:nth-of-type(2) { grid-column: 1 / -1; grid-row: auto; }
+
+/* ---------- documents: one card, in tabs by state (the RP's tabs, from GSP's side) ---------- */
+.gdocs__top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); }
+.gdocs__card { scroll-margin-top: 80px; }
+.gdocs__card:focus { outline: none; }
+/* what's waiting for GSP's check: GSP's own to-do, in GSP's colour, first */
+.gdocs__review { list-style: none; display: grid; gap: var(--sp-10); padding-top: var(--sp-6); }
+.grow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-10) var(--sp-12); padding: var(--sp-12) var(--sp-14, 14px); border: 1px solid var(--gsp-line); border-radius: var(--r-sm); background: color-mix(in srgb, var(--gsp-bg) 35%, var(--surface)); }
+.grow .adoc__t { flex: 1 1 240px; }
+.grow .adoc__icon { background: var(--gsp-bg); color: var(--gsp); }
+.grow .greview__acts { margin-left: auto; }
+.gdocs__k2 { margin: var(--sp-10) 0 0; font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); }
+
+.nanone__hint { margin: 0; padding: var(--sp-12) var(--sp-14, 14px); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); font-size: var(--t-label); color: var(--text-2); }

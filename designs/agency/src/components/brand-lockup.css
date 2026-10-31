@@ -1,0 +1,13 @@
+/* Logo | Partner Portal. The two lines together are as tall as the logo, and the rule matches them. */
+.lockup { display: inline-flex; align-items: center; gap: calc(var(--lockup-h) * 0.32); }
+.lockup > svg { flex: none; }
+.lockup__rule { flex: none; width: 1px; height: calc(var(--lockup-h) * 0.92); background: var(--line-strong); }
+.lockup__label {
+  display: grid;
+  font-size: calc(var(--lockup-h) * 0.41);
+  line-height: 1.12;
+  font-weight: var(--fw-semi);
+  letter-spacing: -0.005em;
+  color: var(--text-2);
+  white-space: nowrap;
+}

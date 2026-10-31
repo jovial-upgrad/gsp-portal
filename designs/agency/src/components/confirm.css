@@ -1,0 +1,23 @@
+/* A confirmation in the middle of the overlay layer, above sheets */
+.confirm-wrap { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--sp-16); pointer-events: auto; z-index: 2; }
+.confirm__scrim { position: absolute; inset: 0; background: var(--scrim); }
+.confirm {
+  position: relative;
+  width: min(440px, 100%);
+  display: grid;
+  gap: var(--sp-8);
+  padding: var(--sp-24);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+}
+.confirm__title { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); font-weight: var(--fw-semi); }
+.confirm__text { display: grid; gap: var(--sp-6); font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
+.confirm__text strong { color: var(--text); font-weight: var(--fw-medium); }
+.confirm__acts { display: flex; justify-content: flex-end; gap: var(--sp-8); margin-top: var(--sp-16); }
+
+@container app (max-width: 600px) {
+  .confirm-wrap { align-items: end; padding: var(--sp-12); }
+  .confirm__acts { display: grid; grid-template-columns: 1fr 1fr; }
+}

@@ -1,0 +1,23 @@
+.phone__dial {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: 100%;
+  padding: 0 var(--sp-10) 0 var(--sp-16);
+  border-right: 1px solid var(--line);
+  color: var(--text);
+  font-size: var(--t-input);
+}
+.phone__dial svg { color: var(--text-3); }
+.phone__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px;
+}
+.phone__dial:has(.phone__select:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-ctl) 0 0 var(--r-ctl); }
+.phone .control__input { padding-left: var(--sp-12); }

@@ -1,0 +1,58 @@
+/* ==========================================================================
+   Counsellor: the name with a pencil, and the short list the pencil opens.
+   ========================================================================== */
+
+.cpick { display: inline-flex; align-items: center; gap: var(--sp-4); min-width: 0; max-width: 100%; }
+.cpick__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: var(--t-label); line-height: var(--lh-label); }
+.cpick__you { color: var(--text-3); }
+.cpick__none { color: var(--text-3); }
+.cpick--md .cpick__name { font-weight: var(--fw-medium); }
+.cpick__edit {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: -4px 0;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-3);
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out);
+}
+.cpick__edit:hover,
+.cpick__edit.is-open { background: var(--primary-soft); color: var(--link); }
+
+.cpop {
+  position: absolute;
+  width: 264px;
+  padding: var(--sp-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+  transform-origin: top right;
+  z-index: 5;
+}
+.cpop.is-up { transform-origin: bottom right; translate: 0 -100%; }
+.cpop__title { padding: var(--sp-6) var(--sp-10) var(--sp-4); font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.cpop__list { list-style: none; display: grid; gap: 2px; outline: none; }
+.cpop__list:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 10px; }
+.cpop__opt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  min-height: 46px;
+  padding: var(--sp-6) var(--sp-10);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text);
+}
+.cpop__opt.is-active { background: var(--surface-2); }
+.cpop__av { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--link); font-size: var(--t-micro); font-weight: var(--fw-semi); }
+.cpop__t { flex: 1; min-width: 0; display: grid; }
+.cpop__name { font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-medium); }
+.cpop__meta { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.cpop__tick { flex: none; color: var(--link); }
+.cpop__opt.is-on .cpop__name { font-weight: var(--fw-semi); }

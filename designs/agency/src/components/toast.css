@@ -1,0 +1,22 @@
+/* ==========================================================================
+   Notifications: one card in the bottom-left corner of the page, beside the
+   menu, clear of the prototype's Role and Prototype buttons on the right.
+   ========================================================================== */
+
+.toast-wrap { position: fixed; z-index: 70; left: calc(var(--sidebar-w) + var(--sp-12) + var(--sp-24)); bottom: var(--sp-24); width: min(420px, calc(100% - var(--sidebar-w) - 64px)); pointer-events: none; }
+.toast { display: flex; align-items: flex-start; gap: var(--sp-12); padding: var(--sp-12) var(--sp-12) var(--sp-12) var(--sp-14, 14px); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 16px 40px -12px rgba(9, 30, 66, 0.35); pointer-events: auto; }
+:root[data-theme='dark'] .toast { border-color: var(--line-strong); background: var(--surface-2); }
+.toast__icon { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--surface-2); color: var(--text-3); }
+.toast--ok .toast__icon { background: var(--ok-bg); color: var(--ok); }
+.toast--star .toast__icon { background: var(--you-bg); color: var(--you-dot); }
+.toast--star .toast__icon svg { fill: currentColor; }
+.toast__t { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.toast__title { font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
+.toast__text { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
+.toast__link { padding: 0; border: 0; background: none; color: var(--link); font: inherit; font-weight: var(--fw-semi); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.toast__x { flex: none; margin: -4px -4px 0 0; color: var(--text-3); }
+
+/* phones: no menu beside the page; above the tab bar and the prototype's buttons */
+@container app (max-width: 900px) {
+  .toast-wrap { left: var(--sp-16); width: min(420px, calc(100% - 32px)); bottom: 150px; }
+}

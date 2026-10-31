@@ -1,0 +1,36 @@
+# Uploaded reference image analysis
+
+72 design reference images gathered directly and analysed image by image. Not one coherent product, a mood board spanning fintech dashboards, SaaS and CRM and logistics dashboards, edtech and LMS marketing sites plus one actual LMS course player, health and biometric wearable UI, AI agent workflow builders, AI assistant chat panels embedded inside other products, and general marketing landing pages across real estate, travel, sustainability, legal education, and pet care.
+
+## Design types present
+Marketing landing pages across a dozen sectors. SaaS dashboards for fintech, CRM, logistics, compliance, web analytics, and accounting. Mobile health and productivity apps. A strong edtech and LMS cluster worth studying directly for anything Prism related: named references include T-learn, LearnFlow AI, Skillex, Academia, SpineEdge, Studify, Tutora, BrightPath, LawCons, and an upGrad EPGP Applied AI program page. AI agent workflow builders shown as glowing node graphs on a dark canvas. AI assistant chat panels embedded inside otherwise unrelated products. Health and biometric spatial or AR style wearable UI.
+
+The single closest direct precedent to Prism's own asset page: a reference named Academia, an LMS course player with a left sidebar of course sections (Courses, Tutorials, Workshop, Certifications, Resources, Events, Community), a central video player with the instructor visible on camera, and a right hand lesson list showing duration and completion state per item.
+
+## Colour usage
+Two dominant modes recur. Light SaaS dashboards run an off white or white base plus exactly one accent colour, commonly lime green, orange, or blue. Dark "premium tech" surfaces run charcoal or near black plus a glowing accent, most often acid lime green specifically, which shows up repeatedly on fintech and workforce tooling references, including one screen that documents it as a literal named colour spec, hex E7FE55.
+
+Purple and lavender gradients are the single most consistent signal across the whole set, and specifically an AI signal. Every AI assistant panel, AI tutor card, and AI branded hero in this set uses a purple to pink or blue to purple gradient, always deliberately distinct from whatever the product's own brand colour is elsewhere on the same screen. This matches the wider "AI slop" pattern documented in `ai-feature-patterns.md`, worth treating as a convention to be aware of rather than one to copy directly. Warm orange to coral gradients mark health and promotional moments specifically. Green and sage tones mark sustainability and wellness brands. Earthy olive, khaki, and cream tones mark travel and therapy brands.
+
+## Typography
+Large, confident sans serif display headlines dominate hero sections throughout, bold weight, tight tracking. Worth naming as a genre convention rather than something to imitate directly, two entirely unrelated edtech brands in this set run headlines that are functionally the same sentence, "Learn Smarter. Grow Faster." and "Build Skills Achieve Goals." An occasional serif or script accent word inside an otherwise sans headline adds warmth in a few references, an italic script "Future", an elegant script travel logotype.
+
+Numbers are consistently the largest, most confident text on any dashboard screen in this set, a 730 credit score, a 41,540 dollar total, a 35.7 percent margin, always styled as display type rather than left as plain data, consistent with the broader "numbers as typography" principle.
+
+## Data and content representation
+Circular and radial gauges are the default for health metrics and percent complete states throughout, glucose readings, heart rate, compliance scores, loan pipeline percentages. Sparkline and small area charts live embedded inside individual stat cards rather than as separate chart blocks. Donut and ring charts handle proportion. Sankey style flow diagrams appear for pipeline visualization. Heatmap style coloured block grids handle logistics and inventory density. Status pills are colour coded identically across every reference regardless of sector, green for good or compliant, yellow or orange for pending or warning, red for overdue or urgent. Avatar stacks represent collaborators throughout.
+
+## AI feature representation, confirmed directly in this set
+A small, consistent vocabulary repeats across every unrelated product with an AI feature in this set: a floating pill shaped "ask anything or search" input bar, usually bottom centre, carrying a microphone icon. A dedicated AI Assistant panel or card, glass or translucent, purple to pink or blue to purple gradient, holding a conversational thread with suggested prompts already populated rather than a blank input. A sparkle icon paired consistently with an explicit "AI" label, never left to stand alone. Voice waveform or equaliser bar visualizations for a listening state. And a separate visual language entirely for AI agent or workflow builder tools specifically, glowing connected nodes on a dark canvas, distinct from the chat panel pattern used everywhere else.
+
+## Navigation patterns
+Left sidebar with icon plus label is the dominant pattern for SaaS dashboards throughout. Marketing sites use a conventional top horizontal nav, logo left, links centre, call to action button right. Inside a workspace, tab based section switching is common. The Academia reference's sidebar plus right hand lesson list pairing, noted above, is the one worth holding onto specifically for Prism.
+
+## Illustration and imagery approach
+Real editorial photography marks trust building, human centred sectors, education instructors, therapists, healthcare workers. Three dimensional cartoon or Pixar style illustrated characters mark younger, friendlier edtech brands. Flat cutout, paper doll style illustration with colour blocked circles behind each figure marks one deliberately playful tutoring brand. Three dimensional rendered objects, chrome coins, trucks, wind turbines, lend fintech and industrial tools a sense of credibility and weight. Hand drawn doodle style annotations give one language learning app a playful, scrapbook energy.
+
+## Shadow and elevation
+The single most common presentation choice across nearly every dashboard screenshot in this set is a literal physical device mockup, a laptop, monitor, or tablet shown at a slight angle, casting a real shadow from the device itself rather than from the interface. Inside the UI, elevation is done mostly through soft blur or glass translucency, or a tint shift between surfaces, rarely a hard drop shadow, consistent with a broader "separation without shadow" principle. Soft radial glows or blobs behind a card are used for ambient depth instead of a cast shadow in several references.
+
+## Structure and hierarchy
+The marketing hero pattern is close to universal across this set: a big headline, one line of subcopy, a call to action button, and a supporting stat row directly beneath. The dashboard pattern: one oversized hero metric in the top left, supporting metric cards in a grid beside or below it, a chart, then a list or table. Layered, overlapping cards show up specifically on the more premium feeling brands to add a sense of depth beyond a flat grid.

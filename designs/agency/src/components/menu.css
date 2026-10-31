@@ -1,0 +1,126 @@
+/* ==========================================================================
+   "More" button and its menu.
+   ========================================================================== */
+
+.mmore {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(9, 30, 66, 0.08);
+  transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+}
+:root[data-theme='dark'] .mmore { background: color-mix(in srgb, var(--bg) 80%, transparent); box-shadow: none; }
+.mmore:hover,
+.mmore.is-open { background: var(--surface); border-color: var(--line-strong); }
+/* `word`: a pill, the dots then "More" */
+.mmore--text { width: auto; display: inline-flex; gap: 6px; padding: 0 var(--sp-16) 0 var(--sp-12); border-radius: var(--r-pill); font: inherit; font-size: var(--t-label); font-weight: var(--fw-medium); }
+
+.mmenu {
+  position: absolute;
+  min-width: 220px;
+  padding: var(--sp-6);
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+  transform-origin: top right;
+  z-index: 5;
+}
+.mmenu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  height: 42px;
+  padding: 0 var(--sp-12);
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--t-label);
+  font-weight: var(--fw-medium);
+  text-align: left;
+}
+.mmenu__item > svg { color: var(--text-3); }
+.mmenu__item:hover,
+.mmenu__item:focus-visible { background: var(--surface-2); outline: none; }
+.mmenu__item.is-danger { color: var(--bad); }
+.mmenu__tick { flex: none; width: 18px; display: grid; place-items: center; color: var(--text); }
+.mmenu__item[aria-checked='true'] { font-weight: var(--fw-semi); }
+/* in a toolbar: the height of the fields beside it, with a border like theirs */
+.mmore--tool { width: 44px; height: 44px; border-color: var(--line-input); background: var(--surface); box-shadow: none; color: var(--text-2); }
+.mmore--tool:hover,
+.mmore--tool.is-open { border-color: var(--text-3); color: var(--text); }
+.mmenu__item.is-danger > svg { color: var(--bad); }
+/* with a label: a small secondary button whose chevron turns while the menu is open */
+.mmore-text__chev { transition: transform var(--dur-2) var(--ease-out); }
+.mmore-text.is-open .mmore-text__chev { transform: rotate(180deg); }
+
+/* ---------- Account: who's signed in, and a glass menu that opens above it ---------- */
+.acct {
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  min-width: 0;
+  padding: var(--sp-6) var(--sp-8);
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+.acct:hover,
+.acct.is-open { background: rgba(255, 255, 255, 0.42); }
+:root[data-theme='dark'] .acct:hover,
+:root[data-theme='dark'] .acct.is-open { background: rgba(255, 255, 255, 0.06); }
+.acct__avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--primary-soft);
+  color: var(--link);
+  font-size: var(--t-label);
+  font-weight: var(--fw-medium);
+}
+.acct__who { flex: 1; display: grid; min-width: 0; }
+.acct__name { color: var(--text); font-size: var(--t-label); font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct__org { font-size: var(--t-caption); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* points up while closed, since the menu opens upwards */
+.acct__chev { flex: none; color: var(--text-3); transform: rotate(180deg); transition: transform var(--dur-2) var(--ease-out); }
+.acct.is-open .acct__chev { transform: none; }
+
+.acctmenu {
+  position: absolute;
+  padding: var(--sp-6);
+  display: grid;
+  gap: var(--sp-4);
+  border-radius: var(--r-card);
+  pointer-events: auto;
+  transform-origin: bottom left;
+  z-index: 5;
+}
+.acctmenu > :not(.glass__rim, .glass__glint) { position: relative; z-index: 1; }
+.acctmenu__head { display: grid; gap: 1px; padding: var(--sp-8) var(--sp-10) var(--sp-10); border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 50%, transparent); }
+.acctmenu__label { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.acctmenu__mail { font-size: var(--t-label); line-height: var(--lh-label); color: var(--text); font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.acctmenu__items { display: grid; gap: 2px; }
+.acctmenu .mmenu__item:hover,
+.acctmenu .mmenu__item:focus-visible { background: rgba(255, 255, 255, 0.55); }
+:root[data-theme='dark'] .acctmenu .mmenu__item:hover,
+:root[data-theme='dark'] .acctmenu .mmenu__item:focus-visible { background: rgba(255, 255, 255, 0.08); }

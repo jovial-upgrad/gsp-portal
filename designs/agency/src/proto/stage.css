@@ -1,0 +1,35 @@
+/* The app measures its own width, so the phone frame shows the real narrow layout. */
+.app {
+  container: app / inline-size;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+/* Phone review frame (prototype only) */
+.stage {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding-block: var(--sp-24);
+  padding-left: max(var(--sp-16), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--sp-16), env(safe-area-inset-right, 0px));
+  background: var(--surface-3);
+}
+.device {
+  width: 100%;
+  height: min(844px, calc(100dvh - 48px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 40px;
+  border: 10px solid var(--text);
+  background: var(--bg);
+  box-shadow: var(--shadow-pop);
+  scrollbar-width: none;
+}
+.device::-webkit-scrollbar { display: none; }
+.device .app { min-height: 100%; }
+.device .shell__top { top: 0; }
+/* The overlay layer (sheets) sits inside the phone's screen, not over the whole browser */
+.device-wrap { position: relative; width: min(390px, 100%); }
+.device-wrap .device { width: 100%; }
+.device-wrap .layer { position: absolute; inset: 10px; border-radius: 30px; overflow: hidden; }

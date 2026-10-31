@@ -1,0 +1,7 @@
+/* The student enrolled: a green banner with a tick, and party poppers from both corners (Celebrate.tsx). */
+.aneed.acelebrate { position: relative; overflow: visible; border-color: var(--ok-line); background: var(--ok-bg); }
+.acelebrate__tick { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--ok-dot); color: #fff; }
+.poppers { position: absolute; inset: auto 0 0 0; height: 0; pointer-events: none; z-index: 2; }
+.poppers__bit { position: absolute; bottom: 0; display: block; will-change: transform, opacity; }
+.poppers__bit--l { left: 24px; }
+.poppers__bit--r { right: 24px; }

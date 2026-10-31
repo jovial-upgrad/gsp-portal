@@ -1,0 +1,299 @@
+/* ==========================================================================
+   The public scene: sign in and registration share it, so moving between them
+   feels like one place. Two layers, as Apple's Liquid Glass model asks:
+   content (the photo and what's written on it) and controls (one glass panel).
+   One alignment grid: --edge is the gap to the window, --pad the inner margin
+   (--pad-top, smaller, above the top line). The brand pill and the panel's top bar share a centre line; what
+   sits on the photo and the panel footer share a bottom line.
+   On desktop the photo and its words stay put while a long form scrolls.
+   ========================================================================== */
+
+/* Registered so the glass can change width (and the phone band height) smoothly between sign in and registration */
+@property --panel-w {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 500px;
+}
+@property --band {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 360px;
+}
+
+.auth {
+  --edge: 16px;
+  --pad: clamp(32px, 3.9cqw, 56px);
+  /* the brand pill and the theme switch sit higher than the other margins */
+  --pad-top: clamp(20px, 2cqw, 32px);
+  --panel-w: clamp(420px, 34cqw, 500px);
+  --bar-h: 52px;
+  /* the photo stops at the panel's edge; under the panel is its background extension */
+  --photo-w: calc(100% - var(--panel-w) - var(--edge));
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  min-height: 100dvh;
+  padding: var(--edge);
+  background: #2a2c31; /* the photo's mid-tone, while it decodes */
+  transition: --panel-w 560ms var(--ease-in-out), --band 480ms var(--ease-in-out);
+}
+/* registration needs room for two fields side by side */
+.auth--wide { --panel-w: clamp(500px, 40cqw, 600px); }
+
+/* ---------- Content layer: the photo ---------- */
+.auth__media {
+  grid-area: 1 / 1 / 2 / 3;
+  align-self: start;
+  position: sticky;
+  top: 0;
+  z-index: 0;
+  height: 100dvh;
+  margin: calc(var(--edge) * -1);
+  overflow: hidden;
+  pointer-events: none;
+}
+.auth__photo,
+.auth__ext,
+.auth__scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--photo-w);
+  height: 100%;
+}
+/* the photos take turns, crossfading; each sets where its student sits (--pos, --pos-wide, --pos-narrow) */
+.auth__slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s var(--ease-in-out); }
+.auth__slide.is-on { opacity: 1; }
+.auth__photo,
+.auth__ext { object-fit: cover; object-position: var(--pos); transition: object-position 560ms var(--ease-in-out); }
+/* beside the wider registration panel, the photo slides to keep the student clear of what's on it */
+.auth--wide:not(.auth--narrow) .auth__photo,
+.auth--wide:not(.auth--narrow) .auth__ext { object-position: var(--pos-wide); }
+.auth__photo {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  transform-origin: 30% 50%;
+}
+/*
+  Background extension (Apple's term): the photo mirrored at its edge and blurred, so the panel sits on the
+  photo's own light. Nothing moves behind the panel, so the blur is done once, here, with the glass's
+  saturation and lift baked in, and the panel skips the per-frame backdrop blur (see .auth__panel).
+*/
+.auth__ext {
+  transform: scaleX(-1);
+  transform-origin: right center;
+  filter: blur(28px) saturate(1.6) brightness(1.1);
+}
+:root[data-theme='dark'] .auth__ext { filter: blur(28px) saturate(1.5) brightness(0.82); }
+.auth__scrim {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  background:
+    linear-gradient(to top, var(--photo-scrim) 0%, rgba(6, 10, 18, 0.42) 30%, transparent 58%),
+    linear-gradient(to bottom, rgba(6, 10, 18, 0.32), transparent 24%);
+}
+
+.auth__hero {
+  grid-area: 1 / 1;
+  align-self: start;
+  position: sticky;
+  top: var(--edge);
+  z-index: 1;
+  height: calc(100dvh - var(--edge) * 2);
+  display: grid;
+  grid-template-rows: var(--bar-h) 1fr auto;
+  align-items: center;
+  padding: var(--pad-top) calc(var(--pad) + var(--edge)) var(--pad) var(--pad);
+}
+.auth__hero-body { grid-row: 3; min-width: 0; }
+
+/* Under the statement: a dot per photo; the one showing is a bar that fills for its turn */
+/* 24px targets around 6px dots, lined up with the statement's left edge */
+.auth__dots { display: flex; align-items: center; margin-top: var(--sp-16); margin-left: -9px; }
+.auth__dot {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: width 420ms var(--ease-in-out);
+}
+.auth__dot::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.5);
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+.auth__dot:hover::before { background: rgba(255, 255, 255, 0.8); }
+.auth__dot.is-on { width: 48px; }
+.auth__dot.is-on::before { background: rgba(255, 255, 255, 0.36); }
+.auth__dot:focus-visible { outline: none; }
+.auth__dot:focus-visible::before { box-shadow: 0 0 0 2px var(--photo-scrim), 0 0 0 4px #fff; }
+.auth__dot-fill {
+  position: absolute;
+  inset: 9px;
+  border-radius: var(--r-pill);
+  background: #fff;
+  transform-origin: left center;
+  animation: auth-dot-fill 6s linear both;
+}
+/* the reviewer reading the photo, or about to pick one: hold it */
+.auth__dots:hover .auth__dot-fill,
+.auth__dots:focus-within .auth__dot-fill { animation-play-state: paused; }
+@keyframes auth-dot-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Brand: the logo on regular glass (coloured artwork needs the legible variant) */
+.brandpill {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-12);
+  height: var(--bar-h);
+  padding: 0 var(--sp-20) 0 var(--sp-16);
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  transition: transform var(--dur-2) var(--ease-out);
+  --glass-shadow: 0 10px 30px rgba(6, 10, 18, 0.22);
+}
+.brandpill:hover { transform: translateY(-1px); }
+.brandpill:active { transform: scale(0.98); }
+.brandpill > .lockup { position: relative; z-index: 1; }
+
+/* ---------- Control layer: the glass panel ---------- */
+.auth__panel {
+  grid-area: 1 / 2;
+  z-index: 1;
+  display: grid;
+  /* equal rows above and below, so short content sits in the true centre of the card */
+  grid-template-rows: var(--bar-h) 1fr var(--bar-h);
+  min-width: 0;
+  min-height: calc(100dvh - var(--edge) * 2);
+  padding: var(--pad-top) var(--pad) var(--pad);
+  border-radius: 32px;
+}
+.auth__panel > :not(.glass__rim, .glass__glint, .auth__rings) { position: relative; z-index: 1; }
+/*
+  The glass picks up two lights: upGrad red from the top right, GSP blue from the bottom left. Their cores sit
+  just outside the corners, so the text near them keeps 4.5:1.
+  The extension under the panel is already blurred, so there's no backdrop blur to recompute on every hover or keystroke.
+*/
+.auth__panel.glass {
+  overflow: clip;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background:
+    linear-gradient(160deg, var(--glass-sheen), transparent 38%),
+    radial-gradient(780px 640px at calc(100% + 40px) -40px, var(--bloom-red), var(--bloom-red-2) 40%, transparent 72%),
+    radial-gradient(620px 480px at -60px calc(100% + 60px), var(--bloom-blue), var(--bloom-blue-2) 40%, transparent 72%),
+    var(--glass-tint);
+}
+/* faint rings rippling out of the red corner */
+.auth__rings {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 640px;
+  height: 640px;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle at 100% 0%, #000 22%, transparent 72%);
+  mask-image: radial-gradient(circle at 100% 0%, #000 22%, transparent 72%);
+}
+.auth__rings circle { fill: none; stroke: var(--ring); stroke-width: 1; vector-effect: non-scaling-stroke; transform-origin: 640px 0; transform-box: view-box; }
+
+.auth__bar { display: flex; align-items: center; gap: var(--sp-16); min-width: 0; }
+.auth__bar > .ttoggle { margin-left: auto; }
+.auth__bar-note { font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
+.auth__bar-note .btn--link { font-weight: var(--fw-medium); }
+.auth__center { display: grid; align-items: center; padding-block: var(--sp-32); min-width: 0; }
+.auth__center:focus { outline: none; }
+.auth__view { width: 100%; min-width: 0; }
+.auth__panel .btn--block { height: var(--h-input); }
+
+.auth__foot {
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-8) var(--sp-16);
+  font-size: var(--t-caption);
+  line-height: var(--lh-caption);
+  color: var(--text-2); /* it sits over the blue glow: size keeps it quiet, colour keeps it legible */
+}
+.auth__legal { display: flex; gap: var(--sp-16); }
+.auth__legal a { color: var(--text-2); text-decoration: none; }
+.auth__legal a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Narrow: the photo becomes a band, the panel a glass sheet over it ---------- */
+.auth--narrow {
+  --band: 360px;
+  --pad: 20px;
+  --bar-h: 44px;
+  --photo-w: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: var(--bg);
+}
+/* registration only needs the brand on the band, so the form starts higher */
+.auth--narrow.auth--wide { --band: 196px; }
+.auth--narrow .auth__media {
+  position: absolute;
+  inset: 0 0 auto 0;
+  margin: 0;
+  height: calc((var(--band) - var(--sp-24)) * 2);
+}
+.auth--narrow .auth__photo,
+.auth--narrow .auth__ext,
+.auth--narrow .auth__scrim { height: calc(var(--band) - var(--sp-24)); }
+.auth--narrow .auth__photo,
+.auth--narrow .auth__ext { object-position: var(--pos-narrow); }
+/* the sheet's top edge covers the seam, so the photo needs no fade here */
+.auth--narrow .auth__photo,
+.auth--narrow .auth__scrim { -webkit-mask-image: none; mask-image: none; }
+.auth--narrow .auth__ext {
+  transform: scaleY(-1);
+  transform-origin: center bottom;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 70%);
+  mask-image: linear-gradient(to bottom, transparent, #000 70%);
+}
+.auth--narrow .auth__hero {
+  align-self: stretch; /* full width in the column, so the theme switch sits at the right edge */
+  position: relative;
+  top: auto;
+  height: var(--band);
+  padding: max(var(--sp-16), env(safe-area-inset-top, 0px)) max(var(--pad), env(safe-area-inset-right, 0px)) var(--sp-48) max(var(--pad), env(safe-area-inset-left, 0px));
+}
+.auth--narrow .auth__toggle-photo { position: absolute; z-index: 2; top: max(var(--sp-16), env(safe-area-inset-top, 0px)); right: max(var(--pad), env(safe-area-inset-right, 0px)); height: var(--bar-h); align-items: center; }
+.auth--narrow .brandpill { padding: 0 var(--sp-16) 0 var(--sp-12); gap: var(--sp-10); }
+.auth--narrow .auth__panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: calc(var(--sp-24) * -1);
+  padding: var(--sp-32) max(var(--pad), env(safe-area-inset-right, 0px)) max(var(--sp-24), env(safe-area-inset-bottom, 0px)) max(var(--pad), env(safe-area-inset-left, 0px));
+  border-radius: 28px 28px 0 0;
+}
+.auth--narrow .auth__bar { min-height: 0; margin-bottom: var(--sp-20); }
+.auth--narrow .auth__center { flex: 1; padding-block: 0 var(--sp-32); align-items: start; }
+.auth--narrow .auth__bar,
+.auth--narrow .auth__center,
+.auth--narrow .auth__foot { width: 100%; max-width: 560px; margin-inline: auto; }
+.auth--narrow .auth__rings {
+  -webkit-mask-image: radial-gradient(circle at 100% 0%, #000 8%, transparent 42%);
+  mask-image: radial-gradient(circle at 100% 0%, #000 8%, transparent 42%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth,
+  .auth__photo,
+  .auth__ext,
+  .auth__slide,
+  .auth__dot { transition: none; }
+}

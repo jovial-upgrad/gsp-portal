@@ -1,0 +1,103 @@
+/* ==========================================================================
+   Liquid Glass, for the web.
+   Apple HIG (Materials): glass is the functional layer for controls and navigation
+   that floats above content; never the content layer itself; used sparingly.
+   - .glass (regular): blurs and lifts luminosity so text stays legible (panels,
+     sidebars, sheets, popovers). Most surfaces use this.
+   - .glass--clear: highly translucent, only over photos and video, with a dimming
+     tint so light content on it stays legible.
+   The rim is a specular edge: brightest where light would hit, and it catches the
+   pointer like a light source (GlassRim). Reduce transparency, more contrast and
+   browsers without backdrop-filter all get a solid surface.
+   Themes only change the variables; the recipe stays in one place.
+   ========================================================================== */
+
+.glass {
+  --glass-tint: rgba(255, 255, 255, 0.78);
+  --glass-sheen: rgba(255, 255, 255, 0.55);
+  --glass-filter: blur(28px) saturate(1.6) brightness(1.1);
+  --glass-edge: rgba(255, 255, 255, 0.95);
+  --glass-edge-low: rgba(255, 255, 255, 0.18);
+  --glass-inner:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 22px 36px -30px rgba(255, 255, 255, 0.9),
+    inset 0 -22px 36px -30px rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 24px 64px rgba(9, 30, 66, 0.2), 0 2px 8px rgba(9, 30, 66, 0.08);
+  /* labels on glass use a meta colour tuned to hold contrast over whatever is behind */
+  --text-3: var(--text-3-glass);
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(160deg, var(--glass-sheen), transparent 38%), var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-inner), var(--glass-shadow);
+}
+
+:root[data-theme='dark'] .glass {
+  --glass-tint: rgba(18, 24, 36, 0.66);
+  --glass-sheen: rgba(255, 255, 255, 0.07);
+  --glass-filter: blur(28px) saturate(1.5) brightness(0.82);
+  --glass-edge: rgba(255, 255, 255, 0.42);
+  --glass-edge-low: rgba(255, 255, 255, 0.06);
+  --glass-inner: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Clear glass only ever sits on photos, so it looks the same in both themes (declared after the themes so it wins) */
+:root .glass.glass--clear {
+  --glass-tint: rgba(10, 14, 22, 0.24);
+  --glass-sheen: rgba(255, 255, 255, 0.16);
+  --glass-filter: blur(12px) saturate(1.6);
+  --glass-edge: rgba(255, 255, 255, 0.7);
+  --glass-edge-low: rgba(255, 255, 255, 0.12);
+  --glass-inner: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* Specular rim: a ring drawn with a mask, lit from the top left (painted once) */
+.glass__rim,
+.glass__glint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.glass__rim {
+  background: linear-gradient(150deg, var(--glass-edge), var(--glass-edge-low) 32%, transparent 52%, var(--glass-edge-low) 78%, var(--glass-edge));
+}
+/* The pointer's light: a soft disc that slides under the ring mask, so only the nearby edge lights up */
+.glass__glint { overflow: hidden; padding: 2px; visibility: hidden; }
+.glass__light {
+  position: absolute;
+  top: -150px;
+  left: -150px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.35) 55%, transparent);
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: opacity 420ms var(--ease-out);
+}
+
+/* People who ask for less transparency or more contrast get a solid surface (a user preference, so it overrides) */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass {
+    background: var(--surface) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-pop) !important;
+  }
+  .glass.glass--clear { background: rgba(8, 12, 20, 0.88) !important; }
+  .glass__rim,
+  .glass__glint { display: none; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--surface); }
+  .glass.glass--clear { background: rgba(8, 12, 20, 0.84); }
+}

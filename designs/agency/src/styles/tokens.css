@@ -1,0 +1,202 @@
+/* ==========================================================================
+   GSP 3.0 agency portal · design tokens
+   Base: upGrad design system (type, spacing, radius, soft navy-tinted shadows).
+   GSP layer: navy primary from the deep end of the GSP logo blue, owner colours
+   from the brief (amber = agency, violet = GSP, blue = university), AI in teal.
+   Light values on :root; dark values under [data-theme="dark"]. Light is the
+   default; there is no "match my device" mode, so the OS setting never applies.
+   ========================================================================== */
+
+:root {
+  /* Type: Figtree stands in for the licensed CircularXX TT (same sizes, 400/500, -1% tracking) */
+  --font-sans: "CircularXX TT", "Figtree", "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --tracking: -0.01em;
+  --fw-book: 400;
+  --fw-medium: 500;
+  --fw-semi: 600;
+
+  --t-display: 2rem;      --lh-display: 2.5rem;    /* 32/40 page title */
+  --t-title: 1.25rem;     --lh-title: 1.75rem;     /* 20/28 card title */
+  --t-subtitle: 1.0625rem;--lh-subtitle: 1.5rem;   /* 17/24 */
+  --t-body: 0.9375rem;    --lh-body: 1.375rem;     /* 15/22 */
+  --t-input: 1rem;        --lh-input: 1.5rem;      /* 16, avoids zoom on phones */
+  --t-label: 0.875rem;    --lh-label: 1.25rem;     /* 14/20 */
+  --t-caption: 0.8125rem; --lh-caption: 1.125rem;  /* 13/18 */
+  --t-micro: 0.75rem;     --lh-micro: 1rem;        /* 12/16 caps labels */
+
+  /* Spacing (upGrad uG scale) */
+  --sp-2: 2px; --sp-4: 4px; --sp-6: 6px; --sp-8: 8px; --sp-10: 10px; --sp-12: 12px;
+  --sp-16: 16px; --sp-20: 20px; --sp-24: 24px; --sp-32: 32px; --sp-40: 40px;
+  --sp-48: 48px; --sp-64: 64px;
+
+  /* Radius */
+  --r-ctl: 12px;    /* inputs (Liquid Glass era: rounder controls; buttons are capsules) */
+  --r-sm: 12px;     /* small cards, tiles */
+  --r-card: 16px;   /* cards, modals */
+  --r-lg: 24px;
+  --r-pill: 999px;
+
+  /* Sizes */
+  --h-input: 48px;
+  --h-btn: 44px;
+  --h-btn-sm: 36px;
+  --sidebar-w: 272px;
+
+  /* Motion (animation-library-by-nesil: fast, calm, transform/opacity only) */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ---------- Colour: light ---------- */
+  --bg: #F5F6F8;
+  --surface: #FFFFFF;
+  --surface-2: #F0F2F5;        /* sunk areas, hovered rows */
+  --surface-3: #E8EBF0;
+  --line: #E4E7EC;
+  --line-strong: #CDD2DA;      /* decorative edges, markers */
+  --line-input: #8A93A2;       /* form control borders: 3.1:1 on white (WCAG 1.4.11) */
+  --text: #0B0F19;             /* headings */
+  --text-2: #344054;           /* body */
+  --text-3: #5D6676;           /* labels, meta (5.9:1 on white) */
+  --text-3-glass: #485061;     /* meta text on glass: holds 4.5:1 over the darkest glass */
+  --placeholder: #6A7383;
+
+  --primary: #0E2C4C;          /* navy from the GSP logo blue */
+  --primary-hover: #173F68;
+  --primary-press: #0A2038;
+  --on-primary: #FFFFFF;
+  --primary-soft: #E8EFF7;
+  --focus: #2B7AB3;
+  --link: #1A4F86;
+
+  --brand-red: #EE2C3C;        /* upGrad red: logo, brand phrases */
+  --brand-red-text: #BE2330;   /* red text at small sizes on white */
+  --logo-red: #FF0031;         /* from the official logo file */
+  --gsp-1: #AC225E; --gsp-2: #5E2D77; --gsp-3: #2B7AB3; --gsp-4: #04A5CB; /* logo gradient, sampled */
+
+  /* Owner colours (brief): always paired with words */
+  --you: #8F4E00;   --you-bg: #FFF1DB;   --you-line: #F2C27E;   --you-dot: #E08A00;
+  --gsp: #5B33A6;   --gsp-bg: #F1EBFC;   --gsp-line: #D5C4F5;   --gsp-dot: #7C4DDB;
+  --uni: #1A55AE;   --uni-bg: #E5EFFC;   --uni-line: #BCD3F5;   --uni-dot: #2F74E0;
+  /* Status */
+  --ok: #17703F;    --ok-bg: #E3F4EA;    --ok-line: #A9DABD;    --ok-dot: #2E9E5B;
+  --bad: #B4231B;   --bad-bg: #FDECEA;   --bad-line: #F4B8B2;   --bad-dot: #E5483B;
+  --neutral: #5D6676; --neutral-bg: #EEF0F3;
+  /* AI: GSP Assist wears the GSP logo's spectrum as a gradient (magenta, plum, blue, cyan), so it reads as
+     AI and never as the brand navy or a flat owner colour. --ai is the solid colour for small text. */
+  --ai-s1: #C2246B; --ai-s2: #7A2E91; --ai-s3: #2F6FD0; --ai-s4: #0AA6C9;
+  --ai-grad: linear-gradient(120deg, var(--ai-s1), var(--ai-s2) 38%, var(--ai-s3) 72%, var(--ai-s4));
+  --ai-grad-text: linear-gradient(90deg, #B01F63, #6B2D8C 50%, #2563B8);
+  --ai: #7E2470;    --ai-bg: #F8EEF6;    --ai-line: #E6C6E0;
+  --ai-wash-1: rgba(194, 36, 107, 0.10); --ai-wash-2: rgba(47, 111, 208, 0.10); --ai-wash-3: rgba(10, 166, 201, 0.10);
+  /* the aurora behind GSP Assist's surfaces: pastel blooms of its own spectrum, with a warm peach */
+  --ai-base: #F9F8F8;
+  --chat-bg: #F7F8FC;          /* the chat: a very light cool tint */
+  /* its liquid-glass frame: a thin band of frosted glass round a solid panel, with a cool tinted line
+     outside, a specular rim (bright top left, a lilac and blue refraction along the sides, a softer
+     catch bottom right) and a soft cool shadow */
+  --chat-line: rgba(118, 128, 178, 0.30);
+  --chat-bezel: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(234, 231, 251, 0.78) 34%, rgba(225, 235, 251, 0.78) 66%, rgba(255, 255, 255, 0.9));
+  --chat-rim: linear-gradient(145deg, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.4) 18%, rgba(150, 140, 225, 0.36) 42%, rgba(130, 170, 230, 0.3) 64%, rgba(255, 255, 255, 0.5) 84%, rgba(255, 255, 255, 0.95));
+  --chat-inner: inset 0 0 0 1px rgba(118, 128, 178, 0.18), 0 1px 3px rgba(40, 50, 110, 0.08);
+  --chat-glass: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 1px 2px rgba(30, 40, 80, 0.05), 0 16px 36px -16px rgba(40, 50, 110, 0.24);
+  --aur-peach: rgba(244, 192, 156, 0.6); --aur-lilac: rgba(176, 160, 232, 0.42); --aur-pink: rgba(238, 200, 214, 0.42); --aur-aqua: rgba(200, 214, 230, 0.5);
+  --ai-edge: linear-gradient(150deg, rgba(110, 104, 130, 0.2), rgba(110, 104, 130, 0.14) 50%, rgba(196, 150, 128, 0.22));
+  /* liquid glass on the aurora, at a light dose: tint, top sheen, a clear tinted line, a specular rim, inner light */
+  --ai-glass: rgba(255, 255, 255, 0.5); --ai-glass-hover: rgba(255, 255, 255, 0.72); --ai-glass-sheen: rgba(255, 255, 255, 0.6);
+  --ai-glass-line: rgba(64, 60, 84, 0.16);
+  --ai-glass-rim: rgba(255, 255, 255, 1); --ai-glass-rim-low: rgba(255, 255, 255, 0.6);
+  --ai-glass-inner: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -10px 18px -14px rgba(255, 255, 255, 0.9);
+  --ai-glass-drop: 0 1px 2px rgba(30, 28, 44, 0.05), 0 8px 22px -12px rgba(30, 28, 44, 0.18);
+  --ai-glass-drop-hi: 0 2px 4px rgba(30, 28, 44, 0.07), 0 14px 30px -12px rgba(30, 28, 44, 0.24);
+
+  --scrim: rgba(11, 15, 25, 0.48);
+  --shadow-xs: 0 1px 2px rgba(9, 30, 66, 0.06), 0 2px 6px rgba(9, 30, 66, 0.04);
+  --shadow-card: 0 2px 4px rgba(9, 30, 66, 0.04), 0 12px 32px rgba(9, 30, 66, 0.06);
+  --shadow-pop: 0 18px 48px rgba(9, 30, 66, 0.16), 0 2px 8px rgba(9, 30, 66, 0.06);
+  --input-glow: 0 0 0 4px rgba(43, 122, 179, 0.14);
+
+  --brand-tint: #FCF0F1; /* upGrad Fill/BG-Accent 1 */
+  --switch-on: #0E2C4C;
+  --switch-off: #E3E7ED;
+  --switch-off-line: #8A93A2;
+  --photo-scrim: rgba(6, 10, 18, 0.74);
+  /* sign-in glow: upGrad red in one corner, GSP blue in the other, with faint rings */
+  --bloom-red: rgba(239, 52, 70, 0.46);
+  --bloom-red-2: rgba(250, 140, 120, 0.22);
+  --bloom-blue: rgba(43, 122, 224, 0.32);
+  --bloom-blue-2: rgba(124, 77, 219, 0.14);
+  --ring: rgba(11, 15, 25, 0.08);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0B0F17;
+  --surface: #121823;
+  --surface-2: #171F2C;
+  --surface-3: #1E2836;
+  --line: #232D3C;
+  --line-strong: #364256;
+  --line-input: #5F6B80;
+  --text: #F1F4F8;
+  --text-2: #C9D0DA;
+  --text-3: #9AA4B4;
+  --text-3-glass: #B4BDCA;
+  --placeholder: #7F899A;
+  --primary: #DCE8F7;
+  --primary-hover: #FFFFFF;
+  --primary-press: #C2D5EE;
+  --on-primary: #0B1F38;
+  --primary-soft: #16263C;
+  --focus: #6CA8E0;
+  --link: #8EC0F2;
+  --brand-red: #FF4A5A;
+  --brand-red-text: #FF7A86;
+  --logo-red: #FF2D4F;
+  --gsp-1: #E0508C; --gsp-2: #A274E0; --gsp-3: #4FA3E0; --gsp-4: #36C9E6;
+  --you: #F6B95C;   --you-bg: rgba(224, 138, 0, 0.16);   --you-line: rgba(246, 185, 92, 0.36);  --you-dot: #F2A23A;
+  --gsp: #C2A6F6;   --gsp-bg: rgba(124, 77, 219, 0.2);   --gsp-line: rgba(194, 166, 246, 0.34); --gsp-dot: #A27CEE;
+  --uni: #8DBBF7;   --uni-bg: rgba(47, 116, 224, 0.2);   --uni-line: rgba(141, 187, 247, 0.34); --uni-dot: #5A97EE;
+  --ok: #74D7A0;    --ok-bg: rgba(46, 158, 91, 0.18);    --ok-line: rgba(116, 215, 160, 0.34);  --ok-dot: #4CC183;
+  --bad: #FF968C;   --bad-bg: rgba(229, 72, 59, 0.18);   --bad-line: rgba(255, 150, 140, 0.36); --bad-dot: #F26B5F;
+  --neutral: #A9B2C1; --neutral-bg: rgba(154, 164, 180, 0.14);
+  --ai-s1: #F05A9B; --ai-s2: #B07CF0; --ai-s3: #5AA2F5; --ai-s4: #3FD3EC;
+  --ai-grad-text: linear-gradient(90deg, #F27BB0, #C29BF5 50%, #7DB8F7);
+  --ai: #F0A6DB;    --ai-bg: rgba(194, 36, 107, 0.16);   --ai-line: rgba(240, 166, 219, 0.3);
+  --ai-wash-1: rgba(240, 90, 155, 0.12); --ai-wash-2: rgba(90, 162, 245, 0.12); --ai-wash-3: rgba(63, 211, 236, 0.10);
+  --ai-base: #151517;
+  --chat-bg: #151B28;
+  --chat-line: rgba(255, 255, 255, 0.12);
+  --chat-bezel: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(160, 150, 240, 0.1) 34%, rgba(120, 170, 240, 0.08) 66%, rgba(255, 255, 255, 0.08));
+  --chat-rim: linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.08) 20%, rgba(160, 150, 240, 0.26) 44%, rgba(120, 170, 240, 0.2) 66%, rgba(255, 255, 255, 0.08) 84%, rgba(255, 255, 255, 0.3));
+  --chat-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --chat-glass: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 16px 36px -16px rgba(0, 0, 0, 0.7);
+  --aur-peach: rgba(196, 98, 54, 0.26); --aur-lilac: rgba(128, 112, 196, 0.16); --aur-pink: rgba(160, 76, 100, 0.16); --aur-aqua: rgba(84, 130, 160, 0.1);
+  --ai-edge: linear-gradient(150deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07) 50%, rgba(220, 140, 100, 0.2));
+  --ai-glass: rgba(255, 255, 255, 0.06); --ai-glass-hover: rgba(255, 255, 255, 0.11); --ai-glass-sheen: rgba(255, 255, 255, 0.08);
+  --ai-glass-line: rgba(255, 255, 255, 0.16);
+  --ai-glass-rim: rgba(255, 255, 255, 0.5); --ai-glass-rim-low: rgba(255, 255, 255, 0.16);
+  --ai-glass-inner: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --ai-glass-drop: 0 8px 22px -12px rgba(0, 0, 0, 0.6);
+  --ai-glass-drop-hi: 0 14px 30px -12px rgba(0, 0, 0, 0.7);
+  --scrim: rgba(3, 6, 12, 0.66);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.28);
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --input-glow: 0 0 0 4px rgba(108, 168, 224, 0.2);
+  --switch-on: #4F8FD6;
+  --switch-off: #263042;
+  --switch-off-line: #5F6B80;
+  --photo-scrim: rgba(3, 6, 12, 0.8);
+  --brand-tint: rgba(255, 74, 90, 0.12);
+  --bloom-red: rgba(255, 74, 90, 0.34);
+  --bloom-red-2: rgba(255, 130, 110, 0.12);
+  --bloom-blue: rgba(79, 143, 236, 0.36);
+  --bloom-blue-2: rgba(162, 124, 238, 0.12);
+  --ring: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-theme="light"] { color-scheme: light; }

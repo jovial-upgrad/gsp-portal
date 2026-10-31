@@ -1,0 +1,46 @@
+.contact { display: grid; gap: var(--sp-12); }
+.contact__head { display: flex; gap: var(--sp-12); align-items: center; }
+.contact__avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--gsp-bg);
+  color: var(--gsp);
+  font-weight: var(--fw-medium);
+  font-size: var(--t-body);
+}
+.contact__who { min-width: 0; }
+.contact__name { color: var(--text); font-weight: var(--fw-medium); font-size: var(--t-subtitle); line-height: var(--lh-subtitle); }
+.contact__role { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.contact__lines { margin: 0; display: grid; gap: var(--sp-6); }
+.contact__lines dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-height: 32px; /* the height of the copy button, so a line without one sits the same */
+  font-size: var(--t-label);
+  color: var(--text-2);
+  min-width: 0;
+}
+.contact__lines svg { flex: none; color: var(--text-3); }
+.contact__email { min-width: 0; overflow-wrap: anywhere; }
+.copy {
+  margin-left: auto;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out);
+}
+.copy:hover { background: var(--surface-2); color: var(--text); }
+.contact__lines .copy svg { color: inherit; }
+.copy.is-done { color: var(--ok); }

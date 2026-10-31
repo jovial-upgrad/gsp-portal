@@ -1,0 +1,31 @@
+/* ---------- the menu, in groups (30 Oct): Home, then seven groups; a group opens its pages in a small glass menu beside the sidebar ---------- */
+.pnav__group { gap: var(--sp-10); padding-right: 6px; }
+.pnav__group .pnav__label { flex: 1; text-align: left; white-space: nowrap; }
+.pnav__arrow { flex: none; color: var(--text-3); transition: transform var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out); }
+.pnav__group:hover .pnav__arrow,
+.pnav__group.is-open .pnav__arrow { color: var(--text); transform: translateX(2px); }
+.pnav__group.is-open:not(.is-active) { background: rgba(255, 255, 255, 0.42); color: var(--text); }
+:root[data-theme='dark'] .pnav__group.is-open:not(.is-active) { background: rgba(255, 255, 255, 0.06); }
+.pfly.glass {
+  position: absolute;
+  z-index: 8;
+  min-width: 260px;
+  padding: var(--sp-8);
+  display: grid;
+  gap: 2px;
+  border-radius: var(--r-lg);
+  pointer-events: auto;
+  transform-origin: left top;
+}
+.pfly > :not(.glass__rim, .glass__glint) { position: relative; z-index: 1; }
+.pfly__title { padding: var(--sp-6) var(--sp-12) var(--sp-4); font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-semi); color: var(--text-3); }
+.pfly__item { display: flex; align-items: center; gap: var(--sp-12); height: 42px; padding: 0 var(--sp-12); border: 0; border-radius: var(--r-sm); background: none; color: var(--text-2); font: inherit; font-size: var(--t-body); text-align: left; cursor: pointer; }
+.pfly__item > svg { flex: none; color: var(--text-3); }
+.pfly__item:hover,
+.pfly__item:focus-visible { background: color-mix(in srgb, var(--surface) 72%, transparent); color: var(--text); outline: none; }
+.pfly__item:focus-visible { box-shadow: inset 0 0 0 2px var(--focus); }
+.pfly__item.is-active { background: var(--surface); color: var(--text); font-weight: var(--fw-medium); box-shadow: 0 1px 2px rgba(9, 30, 66, 0.1), 0 2px 8px rgba(9, 30, 66, 0.06); }
+.pfly__item.is-active > svg { color: var(--link); }
+:root[data-theme='dark'] .pfly__item:hover,
+:root[data-theme='dark'] .pfly__item:focus-visible { background: rgba(255, 255, 255, 0.07); }
+:root[data-theme='dark'] .pfly__item.is-active { background: rgba(255, 255, 255, 0.12); box-shadow: none; }

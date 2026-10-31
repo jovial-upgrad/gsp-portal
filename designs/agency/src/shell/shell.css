@@ -1,0 +1,307 @@
+/* ==========================================================================
+   Portal frame. The sign-in scene's light carries in: upGrad red glows from the
+   top right of the page, GSP blue from the foot of the sidebar. Glass is the
+   navigation layer only (sidebar, phone top bar, phone tab bar); content is solid.
+   ========================================================================== */
+
+.shell {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: calc(var(--sidebar-w) + var(--sp-12)) minmax(0, 1fr);
+  min-height: 100%;
+  background: var(--bg);
+}
+.shell::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 760px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(820px 620px at calc(100% + 60px) -100px, color-mix(in srgb, var(--bloom-red) 72%, transparent), var(--bloom-red-2) 38%, transparent 72%);
+}
+
+.skip {
+  position: absolute;
+  left: var(--sp-16);
+  top: -60px;
+  z-index: 100;
+  padding: var(--sp-10) var(--sp-16);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: var(--r-pill);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+.skip:focus { top: var(--sp-16); }
+
+/*
+  Sidebar: a floating panel of liquid glass, inset and concentric with the window. Behind it sits a soft field of
+  light (upGrad red at the top, a violet, GSP blue at the foot) that the glass blurs and saturates, so it reads as
+  glass rather than a white card. Its edges catch the light: a bright line top left, a softer one bottom right,
+  light gathered just inside the rim, and the rim brightens near the pointer.
+*/
+.shell {
+  --glow-a: rgba(255, 120, 110, 0.3);
+  --glow-b: rgba(140, 100, 235, 0.2);
+  --glow-c: rgba(43, 122, 224, 0.34);
+}
+:root[data-theme='dark'] .shell {
+  --glow-a: rgba(255, 90, 100, 0.2);
+  --glow-b: rgba(150, 110, 240, 0.18);
+  --glow-c: rgba(79, 143, 236, 0.3);
+}
+.shell__glow {
+  grid-area: 1 / 1;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  z-index: -1;
+  height: 100dvh;
+  max-height: 100%;
+  margin-right: -120px; /* the light spills a little past the panel, so its right edge sits on it too, then fades */
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 180px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 180px), transparent);
+  background:
+    radial-gradient(300px 260px at 70% 6%, var(--glow-a), transparent 70%),
+    radial-gradient(280px 360px at 12% 50%, var(--glow-b), transparent 70%),
+    radial-gradient(420px 380px at 24% 100%, var(--glow-c), transparent 72%);
+}
+.shell__side.glass {
+  grid-area: 1 / 1;
+  position: sticky;
+  top: var(--sp-12);
+  align-self: start;
+  height: calc(100dvh - var(--sp-24));
+  max-height: calc(100% - var(--sp-24));
+  margin: var(--sp-12) 0 var(--sp-12) var(--sp-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-32);
+  padding: var(--sp-24) var(--sp-16) var(--sp-16);
+  border-radius: var(--r-lg);
+  overflow: clip;
+  --glass-tint: rgba(255, 255, 255, 0.5);
+  --glass-sheen: rgba(255, 255, 255, 0.62);
+  --glass-filter: blur(24px) saturate(1.8);
+  --glass-inner:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    inset 1.5px 1.5px 1px -0.5px rgba(255, 255, 255, 0.95),
+    inset -1px -1px 1px -0.5px rgba(255, 255, 255, 0.55),
+    inset 0 0 28px rgba(255, 255, 255, 0.38);
+  --glass-shadow: 0 1px 2px rgba(9, 30, 66, 0.05), 0 20px 50px -18px rgba(9, 30, 66, 0.24);
+}
+:root[data-theme='dark'] .shell__side.glass {
+  --glass-tint: rgba(16, 22, 34, 0.5);
+  --glass-sheen: rgba(255, 255, 255, 0.08);
+  --glass-filter: blur(24px) saturate(1.6) brightness(0.9);
+  --glass-inner:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 1.5px 1.5px 1px -0.5px rgba(255, 255, 255, 0.28),
+    inset -1px -1px 1px -0.5px rgba(255, 255, 255, 0.1),
+    inset 0 0 28px rgba(255, 255, 255, 0.04);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 20px 50px -18px rgba(0, 0, 0, 0.6);
+}
+/* a fine grain, as frosted glass has, so the blur never bands */
+.shell__side.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+.shell__side > :not(.glass__rim, .glass__glint) { position: relative; z-index: 1; }
+/* the logo sits midway between the panel's top edge and a very light line; the menu starts a little below the line */
+.shell__brand { display: flex; padding: 0 var(--sp-8) var(--sp-24); margin-bottom: calc(var(--sp-16) - var(--sp-32)); }
+.shell__brand::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--line-strong) 45%, transparent);
+}
+.shell__sidebody { display: grid; gap: var(--sp-24); flex: 1; align-content: start; overflow-y: auto; margin-inline: -4px; padding-inline: 4px; }
+.shell__sidefoot { padding: var(--sp-16) var(--sp-4) 0; border-top: 1px solid color-mix(in srgb, var(--line-strong) 60%, transparent); display: grid; gap: var(--sp-12); }
+.shell__tools { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); }
+
+/* Phone top bar: glass, the page scrolls under it */
+.shell__top.glass {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: calc(var(--sp-10) + env(safe-area-inset-top, 0px)) max(var(--sp-16), env(safe-area-inset-right, 0px)) var(--sp-10) max(var(--sp-16), env(safe-area-inset-left, 0px));
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--line-strong) 55%, transparent);
+  --glass-tint: color-mix(in srgb, var(--bg) 72%, transparent);
+  --glass-sheen: transparent;
+}
+:root[data-theme='dark'] .shell__top.glass { --glass-tint: color-mix(in srgb, var(--bg) 70%, transparent); --glass-sheen: transparent; }
+.shell__toprow { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); min-height: 40px; }
+
+/*
+  Wide screens (Nesil, 30 Oct): the frame is the window's height. A strip at the top holds the notification buttons
+  and never moves; the page scrolls in its own area under the strip, so nothing passes behind the buttons, and it
+  fades out softly at the strip's edge (like upGrad's learner home).
+*/
+.shell { height: 100dvh; --shell-top: 64px; }
+.shell__main {
+  min-width: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.shell__main:focus { outline: none; }
+.shell__corner {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--sp-16) max(var(--sp-40), env(safe-area-inset-right, 0px)) var(--sp-8) max(var(--sp-32), env(safe-area-inset-left, 0px));
+}
+.shell__scroll {
+  position: relative; /* what's placed out of the flow inside the page (screen-reader-only text) stays in here */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block: var(--sp-16) var(--sp-64);
+  padding-left: max(var(--sp-32), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--sp-40), env(safe-area-inset-right, 0px));
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--sp-16));
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--sp-16));
+}
+/* no strip (a portal without the buttons): the page starts where it always did */
+.shell__main > .shell__scroll:first-child { padding-top: var(--sp-40); -webkit-mask-image: none; mask-image: none; }
+
+@container app (max-width: 900px) {
+  /* top bar, page, tab bar: only the page takes up spare height, so a short page doesn't stretch the bars */
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; }
+  .shell::before { height: 520px; background: radial-gradient(460px 400px at calc(100% + 60px) -80px, color-mix(in srgb, var(--bloom-red) 64%, transparent), var(--bloom-red-2) 38%, transparent 72%); }
+  .shell__side.glass,
+  .shell__glow { display: none; }
+  .shell__top.glass { display: block; }
+  /* phones: the window (or the phone frame) scrolls the page, under the glass top bar */
+  .shell { height: auto; --shell-top: 0px; }
+  .shell__corner { display: none; }
+  .shell__main { height: auto; display: block; }
+  .shell__scroll,
+  .shell__main > .shell__scroll:first-child {
+    position: static;
+    overflow: visible;
+    padding-block: var(--sp-20) var(--sp-24);
+    padding-left: max(var(--sp-16), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--sp-16), env(safe-area-inset-right, 0px));
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* ---------- Sidebar navigation ---------- */
+.pnav { list-style: none; display: grid; gap: 2px; }
+.pnav__item {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  height: 42px;
+  padding: 0 var(--sp-12);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-2);
+  font-size: var(--t-body);
+  text-align: left;
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.pnav__item > svg { flex: none; color: var(--text-3); }
+.pnav__item:hover { background: rgba(255, 255, 255, 0.42); color: var(--text); }
+:root[data-theme='dark'] .pnav__item:hover { background: rgba(255, 255, 255, 0.06); }
+.pnav__item:active { transform: scale(0.985); }
+.pnav__item.is-active { color: var(--text); font-weight: var(--fw-medium); }
+.pnav__item.is-active > svg { color: var(--link); }
+/* the selected item sits on a glass capsule, lit along its top edge, that slides between items */
+.pnav__lens {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.66));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 0 0 0.5px rgba(9, 30, 66, 0.07),
+    0 1px 1px rgba(9, 30, 66, 0.06),
+    0 6px 18px -6px rgba(9, 30, 66, 0.2);
+}
+:root[data-theme='dark'] .pnav__lens {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 20px -8px rgba(0, 0, 0, 0.55);
+}
+.pnav__label { flex: 1; min-width: 0; }
+.pnav__lock { flex: none; display: grid; place-items: center; color: var(--text-3); }
+
+/* ---------- Phone tab bar: floating glass capsule ---------- */
+.tabbar { display: none; }
+@container app (max-width: 900px) {
+  .tabbar {
+    display: block;
+    position: sticky;
+    bottom: max(var(--sp-12), env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    margin: 0 var(--sp-12) var(--sp-12);
+    border-radius: var(--r-pill);
+    padding: var(--sp-4);
+  }
+}
+.tabbar__list { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); position: relative; z-index: 1; }
+.tab {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 56px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-2);
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab.is-active { color: var(--text); font-weight: var(--fw-medium); }
+.tab.is-active .tab__icon { color: var(--link); }
+.tab__icon { position: relative; display: grid; place-items: center; color: var(--text-2); }
+.tab__lock {
+  position: absolute;
+  top: -5px;
+  right: -9px;
+  width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-2);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+.tab__lens {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.66));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 0 0.5px rgba(9, 30, 66, 0.07), 0 4px 14px -6px rgba(9, 30, 66, 0.22);
+}
+:root[data-theme='dark'] .tab__lens { background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.08); }

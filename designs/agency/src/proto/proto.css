@@ -1,0 +1,199 @@
+/* Prototype-only chrome: kept visually apart from the product (inverted, monospace tokens) */
+.proto {
+  position: fixed;
+  z-index: 200;
+  right: max(var(--sp-16), env(safe-area-inset-right, 0px));
+  bottom: max(var(--sp-16), env(safe-area-inset-bottom, 0px));
+  display: grid;
+  justify-items: end;
+  gap: var(--sp-10);
+}
+.proto__fab,
+.proto__rolebtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  height: 40px;
+  padding: 0 var(--sp-16);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--t-label);
+  font-weight: var(--fw-medium);
+  box-shadow: var(--shadow-pop);
+}
+.proto__panel {
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(640px, calc(100dvh - 96px));
+  overflow-y: auto;
+  padding: var(--sp-16);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+  animation: proto-in var(--dur-2) var(--ease-out);
+  transform-origin: bottom right;
+}
+@keyframes proto-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+.proto__head { display: flex; align-items: center; justify-content: space-between; }
+.proto__title { color: var(--text); font-weight: var(--fw-medium); }
+.proto__close { border: 0; background: none; color: var(--text-3); padding: 4px; border-radius: 6px; display: grid; }
+.proto__close:hover { background: var(--surface-2); }
+.proto__note { font-size: var(--t-caption); color: var(--text-3); margin-top: 2px; }
+.proto__label {
+  margin: var(--sp-16) 0 var(--sp-6);
+  font-size: var(--t-micro);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+/* group headings open and close their group; the chevron points right when closed */
+.proto__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 32px;
+  margin: var(--sp-10) 0 0;
+  padding: 0 var(--sp-10) 0 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+}
+.proto__toggle svg { color: var(--text-3); transition: transform var(--dur-2) var(--ease-out); }
+.proto__toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
+.proto__toggle:hover svg { color: var(--text); }
+/* clips while folding; the inset keeps the states' focus rings inside the clip */
+.proto__body { overflow: hidden; margin: 0 -4px; }
+.proto__inner { padding: 4px; }
+.proto__states { display: grid; gap: 2px; }
+.proto__state {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-8);
+  min-height: 34px;
+  padding: 0 var(--sp-10);
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--t-label);
+  text-align: left;
+}
+.proto__state:hover { background: var(--surface-2); }
+/* a variation of the state above it: indented, on a guide line */
+.proto__state--sub { position: relative; margin-left: var(--sp-12); }
+.proto__state--sub::before { content: ''; position: absolute; left: -6px; top: 4px; bottom: 4px; width: 1px; background: var(--line-strong); }
+.proto__state.is-on { background: var(--primary-soft); color: var(--text); font-weight: var(--fw-medium); }
+.proto code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-3);
+  letter-spacing: 0;
+}
+.proto__seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: 10px; background: var(--surface-2); }
+.proto__seg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-3);
+  font-size: var(--t-caption);
+  font-weight: var(--fw-medium);
+}
+.proto__seg button[aria-checked='true'] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs); }
+.proto__tips { list-style: none; display: grid; gap: var(--sp-6); font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
+.proto__tips li { padding-left: 12px; position: relative; }
+.proto__tips li::before { content: ''; position: absolute; left: 0; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); }
+.proto__tips code { color: var(--text); }
+.proto__reset {
+  margin-top: var(--sp-16);
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-8);
+  height: 36px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--t-label);
+}
+.proto__reset:hover { background: var(--surface-2); }
+
+/* On a narrow browser the portal's tab bar owns the bottom edge, so the prototype button sits above it */
+@media (max-width: 900px) {
+  .proto { bottom: calc(max(var(--sp-16), env(safe-area-inset-bottom, 0px)) + 80px); }
+}
+
+/* the two buttons side by side: the role the portal is seen as, then the prototype controls */
+.proto__fabs { display: flex; align-items: center; gap: var(--sp-8); }
+.proto__rolewrap { position: relative; }
+.proto__fab-k { color: color-mix(in srgb, var(--bg) 62%, transparent); font-weight: var(--fw-book); }
+.proto__fab-chev { margin-left: -2px; transition: transform var(--dur-2) var(--ease-out); }
+.proto__rolebtn[aria-expanded='true'] .proto__fab-chev { transform: rotate(180deg); }
+.proto__roles { position: absolute; right: 0; bottom: calc(100% + var(--sp-10)); width: min(300px, calc(100vw - 32px)); display: grid; gap: var(--sp-8); }
+.proto__roles .proto__states { margin-top: var(--sp-4); }
+.proto__role {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-10);
+  width: 100%;
+  padding: var(--sp-8) var(--sp-10);
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.proto__role:hover { background: var(--surface-2); }
+.proto__role.is-on { background: var(--primary-soft); }
+.proto__role svg { flex: none; color: var(--link); }
+.proto__role-t { display: grid; gap: 2px; }
+.proto__role-name { font-size: var(--t-label); font-weight: var(--fw-semi); }
+.proto__role-note { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
+/* narrow windows: the role menu lines up with the right edge, so it never runs off the left */
+@media (max-width: 560px) {
+  .proto__fabs { position: relative; }
+  .proto__rolewrap { position: static; }
+}
+
+/* connecting the two roles (in the Role menu) */
+.proto__link { display: grid; gap: var(--sp-8); margin-top: var(--sp-4); padding-top: var(--sp-12); border-top: 1px solid var(--line); }
+.proto__link .proto__label { margin: 0; }
+.proto__select { width: 100%; height: 36px; padding: 0 var(--sp-10); border: 1px solid var(--line-input); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-caption); }
+.proto__select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.proto__split { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-6); height: 36px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-caption); font-weight: var(--fw-semi); }
+.proto__split:hover { background: var(--surface-2); }
+.proto__linked { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; height: 20px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--ok-dot) 30%, transparent); font-size: var(--t-micro); font-weight: var(--fw-semi); }
+.proto__linked::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ok-dot); }
+
+/* Side by side: the two roles in two panes, the connection above them */
+.split { position: fixed; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); }
+.split__bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-16); padding: var(--sp-10) var(--sp-16); border-bottom: 1px solid var(--line); background: var(--surface); }
+.split__title { display: inline-flex; align-items: center; gap: var(--sp-8); font-weight: var(--fw-semi); }
+.split__link { display: inline-flex; align-items: center; gap: var(--sp-8); }
+.split__link select { height: 34px; max-width: 320px; padding: 0 var(--sp-10); border: 1px solid var(--line-input); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-label); }
+.split__k { font-size: var(--t-micro); font-weight: var(--fw-semi); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.split__note { flex: 1 1 200px; font-size: var(--t-caption); color: var(--text-2); }
+.split__exit { display: inline-flex; align-items: center; gap: var(--sp-6); height: 34px; padding: 0 var(--sp-12); border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-label); font-weight: var(--fw-semi); }
+.split__exit:hover { background: var(--surface-2); }
+.split__panes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line-strong); min-height: 0; }
+.split__pane { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; background: var(--bg); }
+.split__role { padding: var(--sp-6) var(--sp-16); background: var(--surface-2); }
+.split__pane:last-child .split__role { color: var(--gsp); }
+.split__pane iframe { width: 100%; height: 100%; border: 0; display: block; }
+@media (max-width: 900px) {
+  .split__panes { grid-template-columns: minmax(0, 1fr); grid-auto-rows: minmax(0, 1fr); }
+}

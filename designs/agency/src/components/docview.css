@@ -1,0 +1,34 @@
+/* A document, previewed and downloaded, in both roles (DocView.tsx). */
+.sheet.sheet--center.dprev { width: min(680px, 100%); }
+.dprev__file { font-weight: var(--fw-semi); color: var(--text); overflow-wrap: anywhere; }
+/* the page itself: white in both themes, as a scanned page would be */
+.dpaper { margin: 0; display: grid; gap: var(--sp-10); padding: var(--sp-16); border-radius: 14px; background: var(--surface-2); }
+.dpp { min-height: 300px; display: grid; align-content: start; gap: var(--sp-10); padding: var(--sp-24) var(--sp-24) var(--sp-20); border-radius: 6px; background: #fff; color: #1d2433; box-shadow: 0 1px 2px rgba(9, 30, 66, 0.12), 0 12px 28px -14px rgba(9, 30, 66, 0.3); }
+.dpp__k { font-size: var(--t-micro); font-weight: var(--fw-semi); letter-spacing: 0.08em; text-transform: uppercase; color: #5b6475; }
+.dpp__name { font-size: var(--t-subtitle); font-weight: var(--fw-semi); }
+.dpp__row { display: flex; gap: var(--sp-16); align-items: flex-start; }
+.dpp__photo { flex: none; width: 92px; height: 116px; display: grid; place-items: center; border-radius: 6px; background: #e7ebf2; color: #8a93a6; }
+.dpp__dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-8) var(--sp-16); }
+.dpp__dl dt { font-size: var(--t-micro); color: #5b6475; }
+.dpp__dl dd { margin: 0; font-size: var(--t-label); font-weight: var(--fw-semi); }
+.dpp__mrz { margin-top: auto; padding-top: var(--sp-10); border-top: 1px dashed #c9d0dc; font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace); font-size: var(--t-caption); letter-spacing: 0.12em; color: #3a4252; overflow: hidden; white-space: nowrap; }
+.dpp__table { width: 100%; border-collapse: collapse; font-size: var(--t-label); }
+.dpp__table th { text-align: left; font-size: var(--t-micro); font-weight: var(--fw-semi); color: #5b6475; padding: 6px 0; border-bottom: 1px solid #d5dbe5; }
+.dpp__table td { padding: 7px 0; border-bottom: 1px solid #eef1f5; }
+.dpp__table td:last-child, .dpp__table th:last-child { text-align: right; }
+.dpp__score { font-size: 3rem; line-height: 1; font-weight: var(--fw-semi); }
+.dpp__sub { font-size: var(--t-caption); color: #5b6475; }
+.dpp__lines { display: grid; gap: 10px; margin-top: var(--sp-8); }
+.dpp__lines span { height: 8px; border-radius: 4px; background: #e3e8ef; }
+.dpp__cap { display: inline-flex; align-items: center; gap: var(--sp-6); justify-self: center; font-size: var(--t-caption); color: var(--text-3); }
+
+/* Preview and Download beside a document */
+.dview { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.dview__btn { width: 32px; height: 32px; display: inline-grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease; }
+.dview__btn:hover { background: var(--surface-2); color: var(--text); }
+.dview__btn:focus-visible { outline: 2px solid var(--focus, #2563eb); outline-offset: 1px; }
+
+@media (max-width: 560px) {
+  .dpp { padding: var(--sp-16); }
+  .dpp__row { flex-direction: column; }
+}

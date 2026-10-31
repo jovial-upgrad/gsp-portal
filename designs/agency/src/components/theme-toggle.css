@@ -1,0 +1,40 @@
+.ttoggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.ttoggle__opt {
+  position: relative;
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-3);
+  transition: color var(--dur-2) var(--ease-out);
+}
+.ttoggle__opt:hover { color: var(--text); }
+.ttoggle__opt[aria-checked='true'] { color: var(--text); }
+.ttoggle__opt > svg { position: relative; z-index: 1; transition: transform var(--dur-3) var(--ease-out); }
+.ttoggle__opt[aria-checked='true'] > svg { transform: rotate(-12deg) scale(1.05); }
+.ttoggle__opt:active > svg { transform: scale(0.9); }
+.ttoggle__thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Floating over a photo: clear glass, white glyphs, a lit thumb */
+.ttoggle.glass { border: 0; background: linear-gradient(160deg, var(--glass-sheen), transparent 38%), var(--glass-tint); }
+.ttoggle--glass .ttoggle__opt { color: rgba(255, 255, 255, 0.82); }
+.ttoggle--glass .ttoggle__opt:hover,
+.ttoggle--glass .ttoggle__opt[aria-checked='true'] { color: #0b0f19; }
+.ttoggle--glass .ttoggle__opt:not([aria-checked='true']):hover { color: #fff; }
+.ttoggle--glass .ttoggle__thumb { background: rgba(255, 255, 255, 0.9); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18), inset 0 1px 0 #fff; }
