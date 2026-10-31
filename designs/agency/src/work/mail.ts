@@ -108,11 +108,13 @@ export const THREADS = [
     messages: [m('m1', ['TAFE SA International', 'international@tafesa.example'], 5.2, 'Dear Agent,\n\nBefore we can issue a CoE for Navneet Nair, we need evidence of funds covering 12 months of living costs, tuition and travel (AUD 29,710 + first-year tuition), with bank statements for the last 3 months.\n\nTAFE SA')],
   }),
   T({
-    id: 'C-1008', mailbox: 'mb-adm', subject: 'Offer for application 7781902', sender: 'University', org: 'Deakin University', record: 'GSP-24102', conf: 71, intent: 'cond', sla: 1, attachments: 1,
-    summary: 'A conditional offer for “Priya R.” at Deakin, condition: final transcripts. Check it’s Priya Raman.',
-    reasons: ['First name and initial match Priya Raman', 'Deakin is on one open application', 'Deakin’s number 7781902 isn’t on any application yet'],
-    fields: { 'Deakin application': '7781902', Condition: 'Final transcripts', Start: 'Trimester 1, 2027' },
-    messages: [m('m1', ['Deakin University', 'noreply@deakin.example'], 6, 'Dear Priya R.,\n\nCongratulations. You have been offered a conditional place in the Master of Information Technology, Trimester 1 2027. Condition: provide final transcripts.\n\nDeakin Admissions', { attachments: ['Offer_7781902.pdf'] })],
+    id: 'C-1008', mailbox: 'mb-adm', subject: 'Conditional offer – DKN-2611407 – Priya Raman', sender: 'University', org: 'Deakin University', record: 'GSP-24102', conf: 99, intent: 'cond', sla: 1, attachments: 1,
+    state: 'done', doneBy: 'u-ramish-jafery', doneAt: at(24 + 3), outcome: 'Offer added to Documents; its 3 conditions sent to the RP. Status moved to Conditional offer received.',
+    summary: 'Deakin’s conditional offer for Priya Raman, Master of Information Technology, Trimester 1 2027, with 3 conditions.',
+    // W20 (Jovial, 1 Nov): matched on the university reference stored at submission, and the same 3 conditions as the application
+    reasons: ['University reference DKN-2611407 is on this application', 'Sender is Deakin, the application’s university'],
+    fields: { 'University reference': 'DKN-2611407', Conditions: '3: final transcript, bank statements (6 months), acceptance', Start: 'Trimester 1, 2027' },
+    messages: [m('m1', ['Deakin University', 'noreply@deakin.example'], 24 + 4, 'Dear GSP,\n\nRe: DKN-2611407 – Priya Raman\n\nWe are pleased to offer a conditional place in the Master of Information Technology, Trimester 1 2027. Conditions (page 2):\n1. Final semester transcript showing the degree is complete\n2. Bank statements for the last 6 months showing at least AUD 67,510\n3. Confirmation the student accepts the offer and will start in February 2027\n\nDeakin Admissions', { attachments: ['Deakin_conditional_offer_Priya_Raman.pdf'] })],
   }),
   T({
     id: 'C-1009', mailbox: 'mb-adm', subject: '180204 – Offer letter', sender: 'RP', org: 'SCOL', record: 'GSP-24209', conf: 86, intent: 'rp', sla: 1, attachments: 2,

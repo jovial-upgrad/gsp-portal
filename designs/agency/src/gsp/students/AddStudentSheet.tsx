@@ -261,7 +261,7 @@ export function AddStudentSheet({
               onChange={(name) => name !== f.nationality && up({ nationality: name, dial: countryByName(name)?.dial ?? f.dial })}
             />
           </Field>
-          <Field id="as-country" required label="Current country" hint="Where the student lives now." error={show('country')}>
+          <Field id="as-country" required label="Current country of residence" hint="Where the student lives now." error={show('country')}>
             <CountryCombobox
               id="as-country"
               value={f.country}

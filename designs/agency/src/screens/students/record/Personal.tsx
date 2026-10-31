@@ -139,7 +139,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
       <fieldset className="rgroup">
         <legend className="rgroup__title">Where they live now</legend>
         <div className="grid2">
-          <Field id="rp-country" label="Current country" required hint={s.country === s.nationality ? 'Same as their nationality.' : undefined}>
+          <Field id="rp-country" label="Current country of residence" required hint={s.country === s.nationality ? 'Same as their nationality.' : undefined}>
             <CountryCombobox id="rp-country" value={s.country} describedBy={s.country === s.nationality ? 'rp-country-hint' : undefined} onChange={(v) => v !== s.country && set({ country: v, state: '', city: '' })} />
           </Field>
           {states.length > 0 ? (

@@ -324,8 +324,9 @@ export const NATIONALITY: Record<string, string> = {
 export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United States', 'New Zealand', 'Ireland'];
 
 /** Runs the rules from the top: the first that matches sets the region and BDM (PM: routing with its trace). */
-export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string }, defaults: Record<string, string> = REGION_BDM) {
-  const rp = ROUTING_RPS.find((r) => r.name === a.rp);
+export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string; rpInfo?: RoutingRp }, defaults: Record<string, string> = REGION_BDM) {
+  // any RP, not only the test's: the caller says where it is (data/regions.ts)
+  const rp = ROUTING_RPS.find((r) => r.name === a.rp) ?? (a.rp ? a.rpInfo : undefined);
   const listRegion = rp && Object.entries(lists).find(([, l]) => l.includes(rp.name))?.[0];
   const onshore = a.now === 'Australia' && a.dest === 'Australia';
   const test: Record<RouteRule['id'], () => { region: string; bdm: string; why: string } | null> = {

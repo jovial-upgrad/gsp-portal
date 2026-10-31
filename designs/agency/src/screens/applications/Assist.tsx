@@ -74,7 +74,7 @@ export function Assist({
     const first = !chat.some((m) => m.from === 'gsp' && m.at > Date.now() - 60 * 60_000);
     push({ from: 'you', name: me, text: v });
     // the officer gets a "Needs you" for it (W11, Jovial, 1 Nov)
-    setLiveFlags(a.id, { rpNews: Date.now(), rpWhat: 'message' });
+    setLiveFlags(a.id, { rpNews: Date.now(), rpWhat: 'a message' });
     setText('');
     setBusy(true);
     timers.current.push(

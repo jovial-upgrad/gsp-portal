@@ -35,6 +35,9 @@ import { Chat, type AskSeed } from './Chat';
 import { MailTab } from './Mail';
 import { SubmissionTab, isSubmitted } from './Submission';
 import { setLiveStatus, setLiveFlags, flagsOf } from '../../data/live';
+import { routeApplication } from '../../data/regions';
+import { regionQueueName } from '../../admin/data/config';
+import { officerOf } from '../../data/dataset';
 import { StatusDialog, type StatusPick } from './StatusDialog';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
@@ -620,6 +623,12 @@ export function AppDetail({
               <Row k="Application" v={<span className="num">{a.id}</span>} />
               {a.uniRef && <Row k="University reference" v={<span className="num">{a.uniRef}</span>} />}
               <Row k="Intake" v={a.intake} />
+              {(() => {
+                // W10 / SR4 (Jovial, 1 Nov): the sales region and the routing rule that set it
+                const r = routeApplication({ rp: a.rp, nationality: s.nationality, livesIn: s.country, dest: d });
+                const region = a.region ?? r.region;
+                return <Row k="Sales region" v={<span>{region} <span className="cdl__soft">· {region === r.region && r.rule ? `routed by rule ${r.rule}, ${r.title?.toLowerCase()}` : 'set by GSP'}{officerOf(a) ? ` · ${regionQueueName(region)}` : ''}</span></span>} />;
+              })()}
               <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={longDate(desk.census)} onSave={setCensus} />
               <EditRow
                 id="fee"

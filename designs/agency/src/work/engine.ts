@@ -19,6 +19,8 @@ import { withLive, liveFlags } from '../data/live';
 import { intakeState } from '../data/courses';
 import { onLeave } from '../data/leave';
 import { regionQueueId } from './seed';
+import { routeApplication } from '../data/regions';
+import { destOf } from '../data/applications';
 
 const H = 36e5;
 export const DAY_START = 9.5;
@@ -109,7 +111,9 @@ export function liveApps(live) {
   const apps = sampleApplications().map((a0) => {
     const a = withLive(a0, live);
     const st = studs.find((x) => x.id === a.studentId);
-    return { ...a, student: st ? `${st.first} ${st.last}` : a.studentId };
+    // an application with no sales region yet is routed by Admin's rules (W10, Sales region rules SR4)
+    const routed = a.region ? null : routeApplication({ rp: a.rp, nationality: st?.nationality ?? 'India', livesIn: st?.country ?? 'India', dest: destOf(a) });
+    return { ...a, ...(routed ? { region: routed.region, routed } : {}), student: st ? `${st.first} ${st.last}` : a.studentId };
   });
   cache = { key: live, apps };
   return apps;

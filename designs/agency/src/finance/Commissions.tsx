@@ -312,6 +312,16 @@ function Exceptions({ c, res, go, user, canEdit }) {
             <td>{toName(rule(e.type).to)}<span className="irow__sub">{rule(e.type).sla ? `${rule(e.type).sla} working day${rule(e.type).sla === 1 ? '' : 's'}` : ''}</span></td>
             <td><span className="gspx-wrap">{fx[1]}</span>
               {fx[0] && <LinkButton onClick={() => go(fx[0])}>Go to Terms</LinkButton>}
+              {(() => {
+                // W19 (Jovial, 1 Nov): an exception for another team becomes a task in its queue (or the officer's)
+                const to = rule(e.type).to;
+                if (!canEdit || !to || to === 'q-finance' || to === 'legal') return null;
+                const tid = `T-EXC-${e.app}-${e.type.replace(/\W+/g, '-')}`;
+                const has = s.tasks.find(t => t.id === tid);
+                if (has) return <span className="irow__sub">Task raised for {toName(to)}{has.status === 'done' ? ': done' : ''}</span>;
+                const rec = (s.records.find(r => r.id === e.app) || {});
+                return <LinkButton onClick={() => update(d => { d.tasks.unshift({ id: tid, record: e.app, kind: 'k-exception', queue: to === 'officer' ? null : to, assignee: to === 'officer' ? rec.officer || null : null, rule: null, title: `${e.type}: ${a.student || e.app}`, note: e.msg, created: Date.now(), status: 'open', slaDays: rule(e.type).sla || 2 }); }, `${user.name} sent “${e.type}” on ${e.app} to ${toName(to)}`) || toast(`Task raised for ${toName(to)}. It’s in their My work.`)}>Send to {toName(to)}</LinkButton>;
+              })()}
               {e.type === 'Send to Legal' && canEdit && (sent.includes(e.app) ? <span className="irow__sub">Sent to Legal</span> :
                 <LinkButton onClick={() => update(d => { d.comm.legal = [...(d.comm.legal || []), e.app]; }, `${user.name} forwarded the clawback for ${a.student} to Legal`) || toast('Forwarded to Legal.')}>Forward to Legal</LinkButton>)}
             </td>
