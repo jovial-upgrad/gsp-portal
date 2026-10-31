@@ -1,3 +1,4 @@
+import { fmtDate } from '../data/format';
 import { getDb } from '../institution/data/store';
 import { statusOf } from '../institution/data/announcements';
 import type { Course } from '../data/courses';
@@ -15,7 +16,7 @@ export function uniNews(c: Course, audience: 'RP' | 'GSP') {
     .sort((x, y) => (x.publish < y.publish ? 1 : -1));
 }
 const plain = (md: string) => md.replace(/[#*_>`[\]]/g, '').replace(/\(https?:[^)]*\)/g, '').split('\n').find((l) => l.trim()) ?? '';
-const day = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const day = (iso: string) => fmtDate(iso);
 
 export function UniNews({ c, audience }: { c: Course; audience: 'RP' | 'GSP' }) {
   const list = uniNews(c, audience);

@@ -3,14 +3,14 @@ import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { MoreMenu } from '../../components/MoreMenu';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useCheck, emailError, phoneError, dupError } from '../../components/validate';
 import { Toast, type ToastMsg } from '../../components/Toast';
 import { Field, SelectInput, TextInput, describedBy } from '../../components/forms';
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { countryByName, type Contact } from '../../data/partners';
 import { CITIES, type Member, type Student, type TeamRole } from '../../data/students';
-import { TEAM_ROLES, branchBdm, isEmail, lastAdmin, type Branch } from '../../data/team';
+import { TEAM_ROLES, branchBdm, lastAdmin, type Branch } from '../../data/team';
 
 type Props = {
   agency: string;
@@ -38,29 +38,43 @@ const location = (b: Pick<Branch, 'city' | 'state' | 'country'>) => [b.city, b.s
 export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches, students, setStudents }: Props) {
   const [branchDlg, setBranchDlg] = useState<{ edit?: Branch } | null>(null);
   const [memberDlg, setMemberDlg] = useState<{ edit?: Member } | null>(null);
-  const [removing, setRemoving] = useState<{ m: Member } | { b: Branch } | null>(null);
   const [toast, setToast] = useState<ToastMsg | null>(null);
-  const tell = (title: string, text?: string) => setToast({ key: Date.now(), title, text, icon: 'checkCircle', tone: 'ok' });
+  const tell = (title: string, text?: string, undo?: () => void) =>
+    setToast({ key: Date.now(), title, text, icon: undo ? 'info' : 'checkCircle', tone: undo ? 'plain' : 'ok', action: undo ? { label: 'Undo', onClick: undo } : undefined });
   const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? 'No branch';
   const main = branches.find((b) => b.main) ?? branches[0];
   const studentsOf = (m: Member) => students.filter((s) => s.counsellor === m.id).length;
 
-  const removeNow = () => {
-    if (!removing) return;
+  /* QC, 1 Nov (H33): removing is reversible, so it happens straight away and the notification offers Undo */
+  const removeNow = (removing: { m: Member } | { b: Branch }) => {
+    const was = { team, branches, students };
+    const undo = () => {
+      setTeam(() => was.team);
+      setBranches(() => was.branches);
+      setStudents(() => was.students);
+    };
     if ('m' in removing) {
       const m = removing.m;
       const n = studentsOf(m);
       setTeam((l) => l.filter((x) => x.id !== m.id));
       if (n) setStudents((l) => l.map((s) => (s.counsellor === m.id ? { ...s, counsellor: 'me' } : s)));
-      tell(`${m.name} removed from the team`, n ? `Their ${n === 1 ? 'student is' : `${n} students are`} now yours.` : undefined);
+      tell(`${m.name} removed from the team`, n ? `Their ${n === 1 ? 'student is' : `${n} students are`} now yours.` : `They can no longer sign in to ${agency}’s portal.`, undo);
     } else {
       const b = removing.b;
       const moved = team.filter((x) => x.branch === b.id).length;
       setBranches((l) => l.filter((x) => x.id !== b.id));
       if (moved) setTeam((l) => l.map((x) => (x.branch === b.id ? { ...x, branch: main?.id } : x)));
-      tell(`${b.name} removed`, moved ? `${moved === 1 ? 'Its team member is' : `Its ${moved} team members are`} now at ${main?.name}.` : undefined);
+      tell(`${b.name} removed`, moved ? `${moved === 1 ? 'Its team member is' : `Its ${moved} team members are`} now at ${main?.name}.` : undefined, undo);
     }
-    setRemoving(null);
+  };
+  const setRemoving = (r: { m: Member } | { b: Branch }) => {
+    removeNow(r);
+    // the row's menu has gone: focus goes to its section's heading (QC, 1 Nov, H8)
+    window.setTimeout(() => {
+      const h = document.getElementById('m' in r ? 'team-title' : 'br-title');
+      h?.setAttribute('tabindex', '-1');
+      h?.focus();
+    }, 60);
   };
 
   return (
@@ -200,31 +214,9 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
           const isNew = !team.some((x) => x.id === m.id);
           setTeam((l) => (isNew ? [...l, m] : l.map((x) => (x.id === m.id ? m : x))));
           setMemberDlg(null);
-          tell(isNew ? `Invitation sent to ${m.name}` : `${m.name} updated`, isNew ? `To ${m.email}, with a link that works for 7 days.` : `${m.role} · ${branchName(m.branch)}`);
+          tell(isNew ? `Invitation sent to ${m.name}` : `${m.name} saved`, isNew ? `To ${m.email}, with a link that works for 7 days.` : `${m.role} · ${branchName(m.branch)}`);
         }}
       />
-      <ConfirmDialog
-        open={!!removing}
-        title={removing ? ('m' in removing ? `Remove ${removing.m.name} from the team?` : `Remove ${removing.b.name}?`) : ''}
-        confirm="Remove"
-        cancel="Keep"
-        onCancel={() => setRemoving(null)}
-        onConfirm={removeNow}
-      >
-        {removing &&
-          ('m' in removing ? (
-            <p>
-              They can no longer sign in to {agency}’s portal.{' '}
-              {studentsOf(removing.m) ? `Their ${studentsOf(removing.m) === 1 ? 'student' : `${studentsOf(removing.m)} students`} and applications move to you.` : 'They have no students.'}
-            </p>
-          ) : (
-            <p>
-              {team.filter((x) => x.branch === removing.b.id).length
-                ? `Its ${team.filter((x) => x.branch === removing.b.id).length === 1 ? 'team member moves' : `${team.filter((x) => x.branch === removing.b.id).length} team members move`} to ${main?.name}.`
-                : 'Nobody on the team works there.'}
-            </p>
-          ))}
-      </ConfirmDialog>
       <Toast t={toast} onClose={() => setToast(null)} />
     </>
   );
@@ -233,31 +225,36 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
 /** Add or edit a branch: its name and where it is. The branch BDM follows from the city, set by the system (it shows in the table). */
 function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean; edit?: Branch; branches: Branch[]; onClose: () => void; onSave: (b: Branch) => void }) {
   const [b, setB] = useState<Branch>({ id: '', name: '', country: 'India', state: '', city: '' });
-  const [tried, setTried] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    setB(edit ?? { id: `br${Date.now()}`, name: '', country: 'India', state: '', city: '' });
-    setTried(false);
-  }, [open, edit?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [start, setStart] = useState<Branch>(b);
   const states = countryByName(b.country)?.states ?? [];
   const cities = CITIES[b.state] ?? [];
-  const taken = branches.some((x) => x.id !== b.id && x.name.trim().toLowerCase() === b.name.trim().toLowerCase());
+  // QC, 1 Nov (H25): the city comes from the state's list when there is one
   const err = {
-    name: b.name.trim().length < 2 ? 'Give the branch a name, like Mysuru.' : taken ? 'There’s already a branch with this name.' : null,
+    name: b.name.trim().length < 2 ? 'Enter the branch name, like Mysuru.' : dupError(b.name, branches.filter((x) => x.id !== b.id).map((x) => x.name), 'There’s already a branch with this name.'),
     country: b.country ? null : 'Pick the country.',
     state: states.length && !b.state ? 'Pick the state or province.' : null,
-    city: b.city.trim().length < 2 ? 'Enter the city.' : null,
+    city: cities.length ? (!b.city ? 'Pick the city.' : null) : b.city.trim().length < 2 ? 'Enter the city.' : null,
   };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const c = useCheck(err);
+  useEffect(() => {
+    if (!open) return;
+    const x = edit ?? { id: `br${Date.now()}`, name: '', country: 'India', state: '', city: '' };
+    setB(x);
+    setStart(x);
+    c.reset();
+  }, [open, edit?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dirty = JSON.stringify(b) !== JSON.stringify(start);
+  const show = (k: keyof typeof err) => c.err(k);
   const save = () => {
-    setTried(true);
-    if (Object.values(err).some(Boolean)) return;
+    if (!c.submit()) return;
     onSave({ ...b, name: b.name.trim(), city: b.city.trim() });
   };
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      dirty={dirty}
+      what={edit ? edit.name : 'the new branch'}
       center
       className="tsheet"
       title={edit ? `Edit ${edit.name}` : 'Add branch'}
@@ -267,7 +264,9 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={save}>{edit ? 'Save' : 'Add branch'}</Button>
+            <Button onClick={save} disabled={!!edit && !dirty}>
+              {edit ? 'Save' : 'Add branch'}
+            </Button>
           </div>
         </div>
       }
@@ -280,7 +279,7 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
         }}
       >
         <Field id="br-name" label="Branch name" required error={show('name')}>
-          <TextInput id="br-name" value={b.name} placeholder="Like: Mysuru" invalid={!!show('name')} aria-describedby={describedBy('br-name', show('name'))} onChange={(e) => setB((x) => ({ ...x, name: e.target.value }))} />
+          <TextInput id="br-name" value={b.name} placeholder="Like: Mysuru" onBlur={c.blur('name')} onChange={(e) => setB((x) => ({ ...x, name: e.target.value }))} />
         </Field>
         <Field id="br-country" label="Country" required error={show('country')}>
           <CountryCombobox id="br-country" value={b.country} invalid={!!show('country')} onChange={(v) => v !== b.country && setB((x) => ({ ...x, country: v, state: '', city: '' }))} />
@@ -288,7 +287,7 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
         <div className="grid2">
           <Field id="br-state" label="State or province" required={states.length > 0} error={show('state')}>
             {states.length ? (
-              <SelectInput id="br-state" value={b.state} placeholder="Choose" invalid={!!show('state')} onChange={(e) => setB((x) => ({ ...x, state: e.target.value, city: '' }))}>
+              <SelectInput id="br-state" value={b.state} placeholder="Choose" onBlur={c.blur('state')} onChange={(e) => setB((x) => ({ ...x, state: e.target.value, city: '' }))}>
                 {states.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -299,16 +298,19 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
               <TextInput id="br-state" value={b.state} onChange={(e) => setB((x) => ({ ...x, state: e.target.value }))} />
             )}
           </Field>
-          <Field id="br-city" label="City" required error={show('city')}>
-            <TextInput id="br-city" value={b.city} list={cities.length ? 'br-cities' : undefined} invalid={!!show('city')} onChange={(e) => setB((x) => ({ ...x, city: e.target.value }))} />
+          <Field id="br-city" label="City" required error={show('city')} hint={!cities.length && b.state ? undefined : !b.state && states.length ? 'Pick the state first.' : undefined}>
+            {cities.length ? (
+              <SelectInput id="br-city" value={b.city} placeholder="Choose" onBlur={c.blur('city')} onChange={(e) => setB((x) => ({ ...x, city: e.target.value }))}>
+                {[...new Set([...cities, b.city].filter(Boolean))].map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </SelectInput>
+            ) : (
+              <TextInput id="br-city" value={b.city} disabled={states.length > 0 && !b.state} onBlur={c.blur('city')} onChange={(e) => setB((x) => ({ ...x, city: e.target.value }))} />
+            )}
           </Field>
-          {cities.length > 0 && (
-            <datalist id="br-cities">
-              {cities.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          )}
         </div>
         <button type="submit" className="vh" tabIndex={-1} aria-hidden="true">
           Save
@@ -322,31 +324,36 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
 function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: boolean; edit?: Member; team: Member[]; branches: Branch[]; onClose: () => void; onSave: (m: Member) => void }) {
   const blank = (): Member => ({ id: `m${Date.now()}`, name: '', role: 'Counsellor', email: '', dial: '+91', phone: '', branch: branches.find((b) => b.main)?.id ?? branches[0]?.id, invited: true });
   const [m, setM] = useState<Member>(blank);
-  const [tried, setTried] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    setM(edit ? { dial: '+91', phone: '', email: '', ...edit } : blank());
-    setTried(false);
-  }, [open, edit?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [start, setStart] = useState<Member>(m);
   const email = (m.email ?? '').trim().toLowerCase();
-  const taken = team.some((x) => x.id !== m.id && (x.email ?? '').toLowerCase() === email);
   const onlyAdmin = !!edit && lastAdmin(team, edit);
+  // QC, 1 Nov: checked when left and on Send; the phone's length follows its country code; the first error is focused
   const err = {
     name: m.name.trim().length < 2 ? 'Enter their full name.' : null,
-    email: !isEmail(email) ? 'Enter a work email, like name@agency.com.' : taken ? 'Someone on the team already has this email.' : null,
-    phone: (m.phone ?? '').replace(/\D/g, '').length < 7 ? 'Enter their phone number.' : null,
+    email: emailError(email, { what: 'work email', example: 'name@agency.com' }) || dupError(email, team.filter((x) => x.id !== m.id).map((x) => x.email ?? ''), 'Someone on the team already has this email.'),
+    phone: phoneError(m.dial ?? '+91', m.phone ?? '', { required: true }),
     branch: m.branch ? null : 'Pick their branch.',
   };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const c = useCheck(err);
+  useEffect(() => {
+    if (!open) return;
+    const x = edit ? { dial: '+91', phone: '', email: '', ...edit } : blank();
+    setM(x);
+    setStart(x);
+    c.reset();
+  }, [open, edit?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dirty = JSON.stringify(m) !== JSON.stringify(start);
+  const show = (k: keyof typeof err) => c.err(k);
   const save = () => {
-    setTried(true);
-    if (Object.values(err).some(Boolean)) return;
+    if (!c.submit()) return;
     onSave({ ...m, name: m.name.trim(), email });
   };
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      dirty={dirty}
+      what={edit ? edit.name : 'the invitation'}
       center
       className="tsheet"
       title={edit ? `Edit ${edit.name}` : 'Invite team member'}
@@ -356,7 +363,9 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={save}>{edit ? 'Save' : 'Send invitation'}</Button>
+            <Button onClick={save} disabled={!!edit && !dirty}>
+              {edit ? 'Save' : 'Send invitation'}
+            </Button>
           </div>
         </div>
       }
@@ -369,13 +378,13 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
         }}
       >
         <Field id="tm-name" label="Full name" required error={show('name')}>
-          <TextInput id="tm-name" value={m.name} invalid={!!show('name')} aria-describedby={describedBy('tm-name', show('name'))} onChange={(e) => setM((x) => ({ ...x, name: e.target.value }))} />
+          <TextInput id="tm-name" value={m.name} onBlur={c.blur('name')} onChange={(e) => setM((x) => ({ ...x, name: e.target.value }))} />
         </Field>
         <Field id="tm-email" label="Work email" required error={show('email')}>
-          <TextInput id="tm-email" type="email" value={m.email ?? ''} invalid={!!show('email')} aria-describedby={describedBy('tm-email', show('email'))} onChange={(e) => setM((x) => ({ ...x, email: e.target.value }))} />
+          <TextInput id="tm-email" type="email" value={m.email ?? ''} onBlur={c.blur('email')} onChange={(e) => setM((x) => ({ ...x, email: e.target.value }))} />
         </Field>
         <Field id="tm-phone" label="Phone number" required error={show('phone')}>
-          <PhoneInput id="tm-phone" dial={m.dial ?? '+91'} number={m.phone ?? ''} invalid={!!show('phone')} describedBy={describedBy('tm-phone', show('phone'))} onDial={(v) => setM((x) => ({ ...x, dial: v }))} onNumber={(v) => setM((x) => ({ ...x, phone: v }))} />
+          <PhoneInput id="tm-phone" dial={m.dial ?? '+91'} number={m.phone ?? ''} invalid={!!show('phone')} describedBy={describedBy('tm-phone', show('phone'))} onBlur={c.blur('phone')} onDial={(v) => setM((x) => ({ ...x, dial: v }))} onNumber={(v) => setM((x) => ({ ...x, phone: v }))} />
         </Field>
         <div className="grid2">
           <Field id="tm-role" label="Role" required hint={onlyAdmin ? 'The only RP Admin: make someone else an RP Admin first.' : undefined}>
@@ -388,7 +397,7 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
             </SelectInput>
           </Field>
           <Field id="tm-branch" label="Branch" required error={show('branch')}>
-            <SelectInput id="tm-branch" value={m.branch ?? ''} placeholder="Choose" invalid={!!show('branch')} onChange={(e) => setM((x) => ({ ...x, branch: e.target.value }))}>
+            <SelectInput id="tm-branch" value={m.branch ?? ''} placeholder="Choose" onBlur={c.blur('branch')} onChange={(e) => setM((x) => ({ ...x, branch: e.target.value }))}>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}

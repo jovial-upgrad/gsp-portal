@@ -1,4 +1,5 @@
 /** The Add a student form: the basics, what's checked, duplicates, and how a new student is made. */
+import { phoneError } from '../../components/validate';
 import { countryByName } from '../../data/partners';
 import { OTHER_AGENCY_PASSPORTS, emptyEdu, type Gender, type Level, type Student } from '../../data/students';
 
@@ -88,7 +89,7 @@ export function validate(f: AddForm, list: Student[]) {
   else if (!isEmail(f.email)) e.email = 'Enter a full email address, like name@gmail.com.';
   else if (byEmail) e.email = 'This email is already on one of your students.';
   if (!f.phone.trim()) e.phone = 'Enter the student’s mobile number.';
-  else if (f.phone.replace(/\D/g, '').length < 7) e.phone = 'Enter the full mobile number.';
+  else if (phoneError(f.dial, f.phone)) e.phone = phoneError(f.dial, f.phone, { what: 'student’s mobile number' })!;
   if (!f.highest) e.highest = 'Choose the highest education the student has finished.';
   return e;
 }

@@ -33,7 +33,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
   const [newList, setNewList] = useState('');
   const [newRegion, setNewRegion] = useState(false);
   const saved: Draft = { rules: cfg.rules, lists: cfg.lists, regionBdm: cfg.regionBdm, regionQueue: cfg.regionQueue, regions: cfg.regions };
-  const d = useDraft(saved);
+  const d = useDraft(saved, 'the routing');
   const v = d.value;
   const ed = d.editing;
   const r = route(v.rules, v.lists, t, v.regionBdm);
@@ -57,7 +57,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
     if (JSON.stringify(v.regionBdm) !== JSON.stringify(cfg.regionBdm) || JSON.stringify(v.regionQueue) !== JSON.stringify(cfg.regionQueue)) what.push('region defaults');
     if (v.regions.length !== cfg.regions.length) what.push(`new sales region ${v.regions.filter((x) => !cfg.regions.some((y) => y.name === x.name)).map((x) => x.name).join(', ')}`);
     change('Application routing', `Saved ${what.join(', ') || 'no changes'}`, (c) => ({ ...c, ...v }));
-    say('Saved. Applies to applications submitted from now. Submitted applications keep their values.');
+    say('Routing saved. It applies to applications submitted from now; submitted ones keep their values.');
     d.stop();
   };
   return (
@@ -66,7 +66,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
         title="Application routing"
         lead="When an application is submitted it gets four values: its region (which Admissions queue works it and where it is reported), its BDM, its source region (the RP’s region) and the rule that set them. The rules run from the top; the first one that matches wins. A change applies to applications submitted after it; submitted applications never change."
       >
-        <EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={d.stop} onSave={save} />
+        <EditBar name="routing" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={d.stop} onSave={save} />
       </PageHead>
       {ed && <p className="cfg__warnbox cfg__editing">You’re editing. Nothing is kept until you click Save.</p>}
       <div className="cfg__routing">

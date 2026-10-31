@@ -11,11 +11,13 @@
  * Three panes on a wide screen (views, conversations, the conversation); one at a time on a phone.
  * Keys: j / k next and previous, e done, r reply.
  */
+import { fmtWhen } from '../data/format';
 import { regionQueueId } from './seed';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, update, recordById, nameOf, queueById } from './store';
 import { can, inScope } from '../finance/access';
 import { Button, Select, Pill, Empty, toast, fmtAge } from '../finance/kit';
+import { askDiscard } from '../components/unsaved';
 import { PersonaBar, usePersona, HostContext } from './persona';
 import { Icon } from '../components/Icon';
 import '../finance/finance.css';
@@ -118,9 +120,13 @@ function MailBody({ s, user, role }) {
   });
 
   const markDone = (ids, outcome) => {
+    // reversible (QC, 1 Nov): no question first; Undo in the notification puts each back as it was
+    const was = M.threads.filter((t) => ids.includes(t.id)).map((t) => ({ id: t.id, state: t.state, doneBy: t.doneBy, doneAt: t.doneAt, outcome: t.outcome }));
     update((d) => d.mail.threads.forEach((t) => { if (ids.includes(t.id)) { t.state = 'done'; t.doneBy = user.id; t.doneAt = Date.now(); t.outcome = t.outcome || outcome; } }), `${user.name} marked ${ids.length} conversation${ids.length === 1 ? '' : 's'} done`);
     setPicked([]);
-    toast(ids.length === 1 ? 'Done.' : `${ids.length} conversations done.`);
+    toast(ids.length === 1 ? 'Conversation done' : `${ids.length} conversations done`, {
+      undo: () => update((d) => was.forEach((w) => { const t = d.mail.threads.find((x) => x.id === w.id); if (t) Object.assign(t, w); }), `${user.name} undid marking ${ids.length} conversation${ids.length === 1 ? '' : 's'} done`),
+    });
   };
   const counts = { needs: byView.needs.length, match: byView.match.length, waiting: byView.waiting.length, done: byView.done.length, filed: filed.length };
   const late = byView.needs.filter((t) => clock(t)[1] === 'bad').length;
@@ -381,10 +387,10 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
       {reply != null && (
         <section className="mx__compose" aria-label="Reply">
           <p className="mx__k">{rule.act === 'chat' ? 'Answer in the application’s chat with the RP' : `To ${to.name} <${to.addr}> · from ${mb.addresses?.[0]}, in this thread`}</p>
-          <textarea id="mx-reply" className="gspx-textarea" rows={8} value={reply} onChange={(e) => setReply(e.target.value)} />
+          <textarea id="mx-reply" aria-label="Reply" className="gspx-textarea" rows={8} value={reply} onChange={(e) => setReply(e.target.value)} />
           <div className="mx__nextacts">
             <Button kind="primary" disabled={!reply.trim()} onClick={send}>Send</Button>
-            <button type="button" className="btn btn--link gspx-link" onClick={() => setReply(null)}>Discard</button>
+            <button type="button" className="btn btn--link gspx-link" onClick={() => (reply.trim() ? askDiscard('the reply').then((ok) => ok && setReply(null)) : setReply(null))}>Discard</button>
             <span className="muted">{t.draft ? 'Drafted from the conversation and the application. Check it before sending.' : 'A starting point. Edit it before sending.'}</span>
           </div>
         </section>
@@ -401,7 +407,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
           <div key={m.id} className={`mx__msg ${m.dir === 'out' ? 'is-out' : ''}`}>
             <p className="mx__msghead">
               <b>{m.dir === 'out' ? `GSP · ${m.from[0]}` : m.from[0]}</b> <span className="muted">&lt;{m.from[1]}&gt;{m.via === 'chat' ? ' · in the RP chat' : ''}</span>
-              <span className="muted mx__when">{new Date(m.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="muted mx__when">{fmtWhen(m.at)}</span>
             </p>
             <pre className="gspx-pre">{m.body}</pre>
             {m.attachments?.length > 0 && <p className="mx__att">{m.attachments.map((a) => <span key={a} className="cfg__chip cfg__chip--plain"><Icon name="attach" size={12} /> {a}</span>)}</p>}

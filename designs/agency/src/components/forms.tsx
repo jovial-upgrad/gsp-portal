@@ -1,5 +1,7 @@
-import { forwardRef, type FormHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { createContext, forwardRef, useContext, useEffect, useState, type FormHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { Icon } from './Icon';
+import { dmyToIso, isoToDmy } from '../data/format';
+import { typeDate } from '../data/dates';
 import './forms.css';
 
 /**
@@ -29,11 +31,19 @@ export function Form({ onSubmit, children, ...rest }: Omit<FormHTMLAttributes<HT
   );
 }
 
-/** Label → control → hint / error / success line. Ids wire the control to its messages for screen readers. */
+/** The field a control sits in: its id, and whether it shows an error or a hint, so the control can point at them. */
+const FieldCtx = createContext<{ id: string; error: boolean; hint: boolean } | null>(null);
+
+/**
+ * Label → control → hint / error / success line. Ids wire the control to its messages for screen readers: a
+ * TextInput, SelectInput or DateInput with the field's id is marked invalid and described by its message on its own.
+ * Required fields have a red asterisk, explained once by "* Required" (RequiredNote; a Sheet adds it by itself).
+ * `optional` is kept for old callers and shows nothing: nothing is ever labelled "(optional)" (QC, 1 Nov).
+ */
 export function Field({
   id,
   label,
-  optional,
+  optional: _optional,
   required,
   hint,
   error,
@@ -64,9 +74,8 @@ export function Field({
             <span className="vh"> (required)</span>
           </>
         )}
-        {optional && <span className="field__optional"> (optional)</span>}
       </label>
-      {children}
+      <FieldCtx.Provider value={{ id, error: !!error, hint: !error && !!(success || hint) }}>{children}</FieldCtx.Provider>
       {error ? (
         <p className="field__msg field__msg--error" id={`${id}-error`} role="alert">
           <Icon name="alert" size={16} />
@@ -86,6 +95,25 @@ export function Field({
   );
 }
 
+/** "* Required", once per form, where its required fields are explained. */
+export const RequiredNote = ({ className = '' }: { className?: string }) => (
+  <p className={`req-note ${className}`}>
+    <span className="field__req" aria-hidden="true">
+      *
+    </span>{' '}
+    Required
+  </p>
+);
+
+/** What the control in a Field gets by itself: aria-invalid and aria-describedby, unless it says otherwise. */
+function useFieldAria(id: string | undefined, invalid: boolean | undefined, describedByProp: string | undefined) {
+  const f = useContext(FieldCtx);
+  const mine = !!f && !!id && f.id === id;
+  const bad = invalid || (mine && f!.error);
+  const desc = describedByProp ?? (mine ? (f!.error ? `${id}-error` : f!.hint ? `${id}-hint` : undefined) : undefined);
+  return { bad, desc };
+}
+
 export const describedBy = (id: string, error?: string | null, hint?: unknown) =>
   error ? `${id}-error` : hint ? `${id}-hint` : undefined;
 
@@ -97,13 +125,14 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
 };
 
 export const TextInput = forwardRef<HTMLInputElement, InputProps>(function TextInput(
-  { invalid, valid, trailing, leading, className = '', ...rest },
+  { invalid: inv, valid, trailing, leading, className = '', ...rest },
   ref,
 ) {
+  const { bad: invalid, desc } = useFieldAria(rest.id, inv, rest['aria-describedby']);
   return (
     <div className={`control ${invalid ? 'is-invalid' : ''} ${valid ? 'is-valid' : ''} ${rest.disabled ? 'is-disabled' : ''} ${rest.readOnly ? 'is-readonly' : ''} ${className}`}>
       {leading && <span className="control__leading">{leading}</span>}
-      <input ref={ref} className="control__input" aria-invalid={invalid || undefined} {...rest} />
+      <input ref={ref} className="control__input" aria-invalid={invalid || undefined} {...rest} aria-describedby={desc} />
       {trailing && <span className="control__trailing">{trailing}</span>}
     </div>
   );
@@ -113,12 +142,13 @@ export const TextInput = forwardRef<HTMLInputElement, InputProps>(function TextI
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean; placeholder?: string; allowEmpty?: boolean };
 
 export const SelectInput = forwardRef<HTMLSelectElement, SelectProps>(function SelectInput(
-  { invalid, placeholder, allowEmpty = false, children, className = '', value, ...rest },
+  { invalid: inv, placeholder, allowEmpty = false, children, className = '', value, ...rest },
   ref,
 ) {
+  const { bad: invalid, desc } = useFieldAria(rest.id, inv, rest['aria-describedby']);
   return (
     <div className={`control control--select ${invalid ? 'is-invalid' : ''} ${rest.disabled ? 'is-disabled' : ''} ${!value ? 'is-empty' : ''} ${className}`}>
-      <select ref={ref} className="control__input" aria-invalid={invalid || undefined} value={value} {...rest}>
+      <select ref={ref} className="control__input" aria-invalid={invalid || undefined} value={value} {...rest} aria-describedby={desc}>
         {placeholder && (
           <option value="" disabled={!allowEmpty}>
             {placeholder}
@@ -132,6 +162,50 @@ export const SelectInput = forwardRef<HTMLSelectElement, SelectProps>(function S
     </div>
   );
 });
+
+/**
+ * One date field (QC, 1 Nov): typed DD/MM/YYYY, the slashes put in as you type. The value is an ISO day
+ * ("2026-11-05"), '' when empty, or the text typed while it isn't a real day yet, so `dateError` can say so.
+ */
+export const DateInput = forwardRef<HTMLInputElement, Omit<InputProps, 'value' | 'onChange' | 'type'> & { value: string; onChange: (v: string) => void }>(function DateInput(
+  { value, onChange, onBlur, placeholder = 'DD/MM/YYYY', ...rest },
+  ref,
+) {
+  const [text, setText] = useState(() => isoToDmy(value));
+  // a value set from outside (a reset, a prefill) shows as typed
+  useEffect(() => {
+    if (value !== (dmyToIso(text) ?? text) && !(value === '' && text === '')) setText(isoToDmy(value));
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <TextInput
+      ref={ref}
+      inputMode="numeric"
+      autoComplete="off"
+      placeholder={placeholder}
+      maxLength={10}
+      value={text}
+      leading={<Icon name="calendar" size={18} />}
+      onChange={(e) => {
+        const t = typeDate(e.target.value);
+        setText(t);
+        onChange(!t ? '' : dmyToIso(t) ?? t);
+      }}
+      onBlur={onBlur}
+      {...rest}
+    />
+  );
+});
+
+/** A search box with its magnifier, as on every list (Students, Applications, Create roles). */
+export function SearchInput({ id, label, value, onChange, placeholder, className = '' }: { id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
+  return (
+    <label className={`ssearch ${className}`}>
+      <Icon name="search" size={18} />
+      <span className="vh">{label}</span>
+      <input id={id} type="search" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
+}
 
 /**
  * On/off switch for settings that apply straight away. While pressed, the knob stretches and turns

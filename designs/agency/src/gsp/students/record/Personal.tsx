@@ -1,8 +1,8 @@
+import { phoneError } from '../../../components/validate';
 import { useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Checkbox, Field, describedBy } from '../../../components/forms';
+import { Checkbox, Field } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
-import { PhoneInput } from '../../../components/PhoneInput';
 import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
 import { CITIES, fullName, type Student } from '../../../data/students';
@@ -10,7 +10,7 @@ import { fillFromPassport, savePassport } from './read';
 import { parseDate, typeDate, yearsSince } from '../../../data/dates';
 import { atOtherAgency, isEmail, passportOk, sameStudent } from '../form';
 import { ReadBox, ReadNote, readMs } from '../ReadBox';
-import { Choice, Sel, Txt, type Update } from './fields';
+import { Choice, Phone, Sel, Txt, type Update } from './fields';
 
 const PASSPORT = 'passport';
 
@@ -128,11 +128,9 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
             value={s.email}
             onChange={(v) => set({ email: v })}
             hint="Used on university applications."
-            error={!isEmail(s.email) ? 'Enter a full email address, like name@gmail.com.' : dup.byEmail ? `This email is already on ${fullName(dup.byEmail)}.` : null}
+            error={!s.email.trim() ? 'Enter the student’s email.' : !isEmail(s.email) ? 'Enter a full email address, like name@gmail.com.' : dup.byEmail ? `This email is already on ${fullName(dup.byEmail)}.` : null}
           />
-          <Field id="rp-phone" label="Phone number" required>
-            <PhoneInput id="rp-phone" dial={s.dial} number={s.phone} describedBy={describedBy('rp-phone', null)} onDial={(v) => set({ dial: v })} onNumber={(v) => set({ phone: v })} />
-          </Field>
+          <Phone id="rp-phone" required dial={s.dial} number={s.phone} error={phoneError(s.dial, s.phone, { required: true, what: 'student’s mobile number' })} onDial={(v) => set({ dial: v })} onNumber={(v) => set({ phone: v })} />
         </div>
       </fieldset>
 

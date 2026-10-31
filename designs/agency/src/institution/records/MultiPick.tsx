@@ -8,9 +8,14 @@ import { Icon } from '../../components/Icon';
  * opens in the overlay layer, so a table or a dialog never clips it. With `all` (29 Oct, 7th round), the list starts
  * with that option ("All countries"), ticked while nothing else is; ticking it clears the rest.
  */
-export function MultiPick({ id, label, value, options, onChange, empty = 'Any (empty = all)', search, all }: { id: string; label: string; value: string[]; options: string[]; onChange: (v: string[]) => void; empty?: string; search?: boolean; all?: string }) {
+export function MultiPick({ id, label, value, options, onChange, empty = 'Any (empty = all)', search, all, invalid, describedBy, onClose }: { id: string; label: string; value: string[]; options: string[]; onChange: (v: string[]) => void; empty?: string; search?: boolean; all?: string; /** QC, 1 Nov: marked invalid and pointed at its error, like any other field. */ invalid?: boolean; describedBy?: string; /** When the list closes: the field has been left. */ onClose?: () => void }) {
   const listId = useId();
   const [open, setOpen] = useState(false);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) onClose?.();
+    wasOpen.current = open;
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const [q, setQ] = useState('');
   const box = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -56,7 +61,7 @@ export function MultiPick({ id, label, value, options, onChange, empty = 'Any (e
         }
       }}
     >
-      <button id={id} type="button" className="control imp__btn" aria-expanded={open} aria-controls={listId} aria-label={`${label}: ${summary}`} onClick={() => setOpen((v) => !v)}>
+      <button id={id} type="button" className={`control imp__btn ${invalid ? 'is-invalid' : ''}`} aria-expanded={open} aria-controls={listId} aria-label={`${label}: ${summary}`} aria-invalid={invalid || undefined} aria-describedby={describedBy ?? (invalid ? `${id}-error` : undefined)} onClick={() => setOpen((v) => !v)}>
         <span className={`imp__v ${value.length || all ? '' : 'is-empty'}`}>{summary}</span>
         <Icon name="chevronDown" size={18} />
       </button>

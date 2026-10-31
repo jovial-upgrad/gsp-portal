@@ -1,3 +1,4 @@
+import { fmtDate } from '../../data/format';
 import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -8,7 +9,7 @@ import { campusLabel, duration } from './parts';
 /** Up to this many courses are compared or downloaded together (as in the PM prototype). */
 export const MAX_PICK = 5;
 
-const shortDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const shortDate = (iso: string) => fmtDate(iso);
 const nextOpen = (c: Course) => c.intakes.find((i) => intakeState(i) !== 'closed');
 
 /**
@@ -308,7 +309,7 @@ function save(blob: Blob, name: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 const csvCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
-const today = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const today = () => fmtDate(new Date());
 const stamp = () => new Date().toISOString().slice(0, 10);
 
 /** Who the PDF is from: the agency and the person sharing it. Never GSP's pricing or commission. */

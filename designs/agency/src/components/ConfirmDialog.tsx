@@ -17,6 +17,7 @@ export function ConfirmDialog({
   cancel = 'Cancel',
   onConfirm,
   onCancel,
+  danger = false,
 }: {
   open: boolean;
   title: string;
@@ -25,6 +26,8 @@ export function ConfirmDialog({
   cancel?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Deletes, discards or takes something away: the confirm button is red and names the action ("Delete queue"). */
+  danger?: boolean;
 }) {
   const reduce = useReducedMotion();
   const box = useRef<HTMLDivElement>(null);
@@ -92,7 +95,9 @@ export function ConfirmDialog({
               <Button variant="secondary" ref={cancelRef} onClick={onCancel}>
                 {cancel}
               </Button>
-              <Button onClick={onConfirm}>{confirm}</Button>
+              <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
+                {confirm}
+              </Button>
             </div>
           </motion.div>
         </div>

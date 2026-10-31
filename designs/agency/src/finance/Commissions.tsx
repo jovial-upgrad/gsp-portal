@@ -8,7 +8,8 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { update, nameOf, getState } from './store';
 import { can, inScope } from './access';
-import { Page, Card, Tiles, Segmented, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, toast } from './kit';
+import { Page, Card, Tiles, Segmented, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, toast } from './kit';
+import { useCheck, numError } from '../components/validate';
 import { PersonaBar, usePersona, HostContext } from './persona';
 import { addDays, addMonths, nice, money, r2, LEVELS, thursdayOf } from './engine';
 import { useComm, liveRun, TONE, aud, sum, opsOf, nav, downloadCsv } from './shared';
@@ -67,7 +68,7 @@ export default function Commissions({ view }) {
     <Page title={head[0]} top={<PersonaBar />} lead={head[1]}
       actions={<DemoClock c={c} canMove={finance} />}>
       {!finance && <Notice>{role.name} can read commissions{role.scope === 'regions' ? ` for ${(user.regions || []).join(', ')}` : ''} but not change them.</Notice>}
-      {!view && <Segmented label="Commission views" options={tabs} value={tab} onChange={v => go(v)} />}
+      {!view && <Tabs label="Commission views" options={tabs} value={tab} onChange={v => go(v)} />}
       {view && !allow[view] && <Card><Empty title={`${role.name} can’t see this`}>Access is set in Roles and access.</Empty></Card>}
       {tab === 'overview' && <Overview c={c} res={res} rpLines={rpLines} ipLines={ipLines} run={run} checks={pendingChecks} go={go} allow={allow} />}
       {tab === 'uni' && <UniSide res={res} c={c} lines={ipLines} filter={filter} setFilter={setFilter} canEdit={can(m, r, 'invoices', 'U')} user={user} />}
@@ -262,23 +263,26 @@ function RpSide({ c, lines, filter, setFilter, canEdit, user }) {
 function WhySheet({ x, canEdit, user, onClose }) {
   const [ov, setOv] = useState(x.ov ? x.ov.amt : '');
   const why = x.why || [...(x.r.rpWhy || []), ...(x.annuity ? [x.r.annWhy] : [])];
+  const was = x.ov ? x.ov.amt : '';
+  const v = useCheck({ ov: numError(ov, { what: 'RP’s amount', min: 0, required: true }) });
   const save = clear => {
+    if (!clear && !v.submit()) return;
     update(d => { const a = d.comm.apps[x.app]; a.override = { ...(a.override || {}) }; if (clear) delete a.override[x.key]; else a.override[x.key] = { amt: Number(ov), by: user.id, at: Date.now() }; },
       clear ? `${user.name} removed the override on ${x.a.student} (${x.label})` : `${user.name} overrode ${x.a.student} (${x.label}) to ${money(Number(ov), x.cur)}`);
-    toast(clear ? 'Override removed.' : 'Override saved and logged with your name.'); onClose();
+    toast(clear ? 'Override removed' : 'Override saved', { text: 'Logged with your name.' }); onClose();
   };
   return (
-    <Sheet title={`${x.a.student} · ${x.label}`} sub={`${x.r.u.name} · ${(x.r.payee || x.r.rp).name}`} onClose={onClose} wide
+    <Sheet title={`${x.a.student} · ${x.label}`} sub={`${x.r.u.name} · ${(x.r.payee || x.r.rp).name}`} onClose={onClose} wide dirty={String(ov) !== String(was)} what="the override"
       footer={<Button onClick={onClose}>Close</Button>}>
       {x.ip && <div className="gspx-sentence">GSP’s commission on this line: <b>{money(x.ip.ent, x.r.u.cur)}</b> ({x.ip.st[0].toLowerCase()}). {x.r.trigWhy}.</div>}
       <ol className="gspx-why">{why.map((w, i) => <li key={i}>{w}</li>)}</ol>
       <div className="gspx-sentence">RP’s amount: <b>{money(x.ent, x.cur)}</b>. Paid so far {money(x.paid || 0, x.cur)}. {x.due < 0 ? `To recover: ${money(-x.due, x.cur)}, taken from the RP’s next payouts.` : `Due: ${money(x.due, x.cur)}.`}</div>
       {canEdit && x.kind === 'pct' && (
         <div className="gspx-inline">
-          <Field id="ov" label={`Override the RP’s amount (${x.cur})`} hint="No reason needed; the change is logged with your name.">
-            <Input id="ov" type="number" value={ov} onChange={setOv} />
+          <Field id="ov" label={`Override the RP’s amount (${x.cur})`} hint="No reason needed; the change is logged with your name." error={v.err('ov')}>
+            <Input id="ov" type="number" value={ov} onBlur={v.blur('ov')} onChange={setOv} />
           </Field>
-          <Button kind="primary" disabled={ov === ''} onClick={() => save(false)}>Save override</Button>
+          <Button kind="primary" disabled={String(ov) === String(was)} onClick={() => save(false)}>Save override</Button>
           {x.ov && <LinkButton onClick={() => save(true)}>Remove override</LinkButton>}
         </div>)}
     </Sheet>

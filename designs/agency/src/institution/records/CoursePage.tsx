@@ -1,3 +1,5 @@
+import { useUnsaved } from '../../components/unsaved';
+import { notify } from '../../components/Toast';
 import { useState, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -39,6 +41,16 @@ export function CoursePage({ c, tab: start, backLabel, onBack, set, say, db, ope
     set((d) => ({ ...d, courses: patch(d.courses, c.id, (x) => withSearchFields({ ...fn(x), stamps: { ...x.stamps, [part]: stampBy(me) } })) }));
     say(what);
   };
+  /** QC, 1 Nov (H34): hiding is reversible, so it happens straight away and the notification offers Undo. */
+  const hide = () => {
+    const was = { status: c.status, stamp: c.stamps.status };
+    set((d) => ({ ...d, courses: patch(d.courses, c.id, (x) => withSearchFields({ ...x, status: 'Hidden', stamps: { ...x.stamps, status: stampBy(me) } })) }));
+    notify({
+      title: `${c.name} hidden`,
+      text: 'It’s out of Course search. Applications already made carry on.',
+      undo: () => set((d) => ({ ...d, courses: patch(d.courses, c.id, (x) => withSearchFields({ ...x, status: was.status, stamps: { ...x.stamps, status: was.stamp } })) })),
+    });
+  };
   const missing = missingOf(c);
 
   const act =
@@ -56,7 +68,7 @@ export function CoursePage({ c, tab: start, backLabel, onBack, set, say, db, ope
         Show again
       </Button>
     ) : (
-      <Button size="sm" variant="secondary" onClick={() => save((x) => ({ ...x, status: 'Hidden' }), `${c.name} is hidden from Course search.`, 'status')}>
+      <Button size="sm" variant="secondary" onClick={hide}>
         Hide
       </Button>
     );
@@ -121,6 +133,7 @@ export function CoursePage({ c, tab: start, backLabel, onBack, set, say, db, ope
         open={deleting}
         title={`Delete ${c.name}?`}
         confirm="Delete draft"
+        danger
         onConfirm={() => {
           setDeleting(false);
           set((d) => ({ ...d, courses: d.courses.filter((x) => x.id !== c.id) }));
@@ -149,6 +162,8 @@ const CellSelect = ({ className = '', children, ...p }: SelectHTMLAttributes<HTM
 
 /** Unsaved changes on a tab: Discard (or Cancel, when editing what was saved) or Save. */
 function SaveBar({ show, onDiscard, onSave, error, cancel = false, note }: { show: boolean; onDiscard: () => void; onSave: () => void; error?: string | null; cancel?: boolean; note?: string }) {
+  // QC, 1 Nov (H2): leaving the course, or another of its tabs, with these changes asks first
+  useUnsaved(show, show, { onDiscard, what: 'this tab', esc: false });
   if (!show) return null;
   return (
     <div className="isave" role="region" aria-label="Unsaved changes">
@@ -157,7 +172,7 @@ function SaveBar({ show, onDiscard, onSave, error, cancel = false, note }: { sho
         {cancel ? 'Cancel' : 'Discard'}
       </Button>
       <Button size="sm" onClick={onSave}>
-        Save changes
+        Save
       </Button>
     </div>
   );

@@ -1,10 +1,11 @@
+import { dateError, focusFirstError } from '../../components/validate';
 import { useRef, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { SelectMenu } from '../../components/SelectMenu';
-import { Field, SelectInput, TextInput } from '../../components/forms';
+import { Field, SelectInput, TextInput, DateInput } from '../../components/forms';
 import { CopyButton } from '../students/parts';
 import { UniMark } from '../courses/parts';
 import { DESTINATIONS, type Destination } from '../../data/courses';
@@ -264,6 +265,7 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
         open={!!ending}
         title={`End the partnership with ${p.name}?`}
         confirm="End partnership"
+        danger
         onConfirm={() => ending && endWith(ending)}
         onCancel={() => {
           setEnding(null);
@@ -304,8 +306,8 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
   const err = {
     type: !v.type ? 'Pick the type.' : null,
     file: !v.file ? 'Choose the file.' : null,
-    start: dated && !v.start ? 'Enter when it starts.' : null,
-    end: dated && !v.end ? 'Enter when it ends.' : v.start && v.end && v.end <= v.start ? 'It has to end after it starts.' : null,
+    start: dateError(v.start, { what: 'start date', required: dated }),
+    end: dateError(v.end, { what: 'end date', required: dated }) || (v.start && v.end && v.end <= v.start ? 'The end date has to be after the start date.' : null),
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const close = () => {
@@ -340,10 +342,10 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
               </button>
             </Field>
             <Field id="ipd-start" label="Starts" optional={!dated} required={dated} error={show('start')}>
-              <TextInput id="ipd-start" type="date" value={v.start} invalid={!!show('start')} onChange={(e) => setV({ ...v, start: e.target.value })} />
+              <DateInput id="ipd-start" value={v.start} onChange={(start) => setV({ ...v, start })} />
             </Field>
             <Field id="ipd-end" label="Ends" optional={!dated} required={dated} error={show('end')}>
-              <TextInput id="ipd-end" type="date" value={v.end} invalid={!!show('end')} onChange={(e) => setV({ ...v, end: e.target.value })} />
+              <DateInput id="ipd-end" value={v.end} onChange={(end) => setV({ ...v, end })} />
             </Field>
           </div>
           <input
@@ -368,7 +370,7 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
               size="sm"
               onClick={() => {
                 setTried(true);
-                if (Object.values(err).some(Boolean)) return;
+                if (Object.values(err).some(Boolean)) return focusFirstError();
                 const d = { id: `doc-${Date.now().toString(36)}`, type: v.type as DocType, file: v.file, start: v.start, end: v.end, added: inDays(0), by: me };
                 upd((x) => ({ ...x, docs: [d, ...x.docs] }));
                 say(DATED.includes(d.type) ? `${d.type} added. The agreement’s dates are updated.` : `${d.type} added.`);

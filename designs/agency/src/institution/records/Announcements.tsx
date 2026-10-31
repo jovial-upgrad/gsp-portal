@@ -1,9 +1,11 @@
+import { useUnsaved } from '../../components/unsaved';
+import { afterError, dateError, focusFirstError } from '../../components/validate';
 import { useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
+import { Checkbox, Field, SelectInput, TextInput, DateInput } from '../../components/forms';
 import { AREAS, LEVELS, type Area, type Level } from '../../data/courses';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
 import { ANN_CATEGORIES, ANN_STATUSES, PERMISSION_ROLES, SALES_REGIONS, SUBCATEGORIES, USER_TYPES, statusOf, type AnnCategory, type AnnStatus, type Announcement } from '../data/announcements';
@@ -173,6 +175,10 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
       : { title: '', category: '', subcategory: '', unis: [], levels: [], areas: [], publishDay: inDays(0), expires: inDays(30), body: '', files: [], email: false, userTypes: ['RP'], roles: [], countries: [], regions: [] },
   );
   const [tried, setTried] = useState(false);
+  // QC, 1 Nov: leaving with changes nobody saved asks first
+  const [first, setFirst] = useState(v);
+  const dirty = JSON.stringify(v) !== JSON.stringify(first);
+  useUnsaved(dirty, dirty, { onDiscard: () => setV(first), what: a ? `“${a.title}”` : 'the new announcement', esc: false });
   const [preview, setPreview] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const set = (f: Partial<Draft>) => setV((x) => ({ ...x, ...f }));
@@ -182,8 +188,8 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
     title: !v.title.trim() ? 'Write a title.' : null,
     category: !v.category ? 'Pick a category.' : null,
     unis: needsUnis && !v.unis.length ? 'Pick the universities it’s about.' : null,
-    publishDay: !v.publishDay ? 'Pick when it publishes.' : null,
-    expires: !v.expires ? 'Pick when it expires.' : v.expires < v.publishDay ? 'It has to expire after it publishes.' : null,
+    publishDay: dateError(v.publishDay, { what: 'publish date', required: true }),
+    expires: dateError(v.expires, { what: 'expiry date', required: true }) || afterError(v.publishDay, v.expires, 'expiry date', 'publish date'),
     body: !textOf(v.body) ? 'Write the description.' : null,
     userTypes: !v.userTypes.length ? 'Pick who gets it.' : null,
   };
@@ -217,11 +223,12 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
   const future = v.publishDay > todayIso();
   const go = () => {
     setTried(true);
-    if (Object.values(err).some(Boolean)) return;
+    if (Object.values(err).some(Boolean)) return focusFirstError();
+    setFirst(v);
     onSave(build(false), s === 'Live' ? 'Saved.' : future ? `Scheduled for ${dateText(v.publishDay)}.` : 'Published: partners see it now.');
   };
-  const pickById = (label: string, idx: string, value: string[], onChange: (x: string[]) => void) => (
-    <MultiPick id={idx} label={label} value={value.map(uniName)} options={unis.map((u) => u.name)} onChange={(names) => onChange(names.map((n) => unis.find((u) => u.name === n)?.id ?? n))} empty="Choose" search />
+  const pickById = (label: string, idx: string, value: string[], onChange: (x: string[]) => void, invalid = false) => (
+    <MultiPick id={idx} label={label} invalid={invalid} value={value.map(uniName)} options={unis.map((u) => u.name)} onChange={(names) => onChange(names.map((n) => unis.find((u) => u.name === n)?.id ?? n))} empty="Choose" search />
   );
 
   return (
@@ -266,7 +273,7 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
                 </SelectInput>
               </Field>
               <Field id="ian-unis" label="Universities" required={needsUnis} optional={!needsUnis} error={show('unis')} className="iform__wide">
-                {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }))}
+                {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }), !!show('unis'))}
               </Field>
               <Field id="ian-levels" label="Program level" optional>
                 <MultiPick id="ian-levels" label="Program level" value={v.levels} options={[...LEVELS]} onChange={(x) => set({ levels: x as Level[] })} empty="All levels" all="All levels" />
@@ -275,10 +282,10 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
                 <MultiPick id="ian-areas" label="Study area" value={v.areas} options={[...AREAS]} onChange={(x) => set({ areas: x as Area[] })} empty="All areas" all="All areas" search />
               </Field>
               <Field id="ian-pub" label="Publish on" required error={show('publishDay')}>
-                <TextInput id="ian-pub" type="date" value={v.publishDay} invalid={!!show('publishDay')} onChange={(e) => set({ publishDay: e.target.value })} />
+                <DateInput id="ian-pub" value={v.publishDay} onChange={(publishDay) => set({ publishDay })} />
               </Field>
               <Field id="ian-exp" label="Expires on" required error={show('expires')}>
-                <TextInput id="ian-exp" type="date" value={v.expires} invalid={!!show('expires')} onChange={(e) => set({ expires: e.target.value })} />
+                <DateInput id="ian-exp" value={v.expires} onChange={(expires) => set({ expires })} />
               </Field>
               <Field id="ian-body" label="Description" required error={show('body')} className="iform__wide">
                 <RichText id="ian-body" value={v.body} onChange={(body) => set({ body })} files={v.files} onFiles={(files) => set({ files })} invalid={!!show('body')} disabled={locked} />
@@ -314,7 +321,11 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    if (!v.title.trim()) return setTried(true);
+                    if (!v.title.trim()) {
+                      setTried(true);
+                      return focusFirstError();
+                    }
+                    setFirst(v);
                     onSave(build(true), 'Draft saved.');
                   }}
                 >
@@ -377,7 +388,8 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
       <ConfirmDialog
         open={withdrawing}
         title="Withdraw this announcement?"
-        confirm="Withdraw"
+        confirm="Withdraw announcement"
+        danger
         onConfirm={() => {
           setWithdrawing(false);
           if (a) onSave({ ...build(false), withdrawn: true }, 'Withdrawn: partners no longer see it.');

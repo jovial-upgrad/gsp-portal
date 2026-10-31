@@ -3,6 +3,7 @@
  * compute(cfg, apps, today) -> { ip: university lines, rp: RP lines, exc: exceptions, apps: per-application workings }
  * buildRun(cfg, result, date) -> the Thursday payout run for that week.
  * In production this runs on the server; the pages only read its output. */
+import { fmtMoney } from '../data/format';
 const DEFYEARS={UG:3,PG:2,RES:3,DIP:1,FDN:1,VET:2,ELICOS:1,SA:1};
 const LEVELS={UG:'Undergraduate',PG:'Postgraduate coursework',RES:'Research degree',DIP:'Diploma',FDN:'Foundation',VET:'Vocational (VET/TAFE)',ELICOS:'English (ELICOS)',SA:'Study Abroad'};
 const TRIG={census:'Census date',fees:'Fees paid (start of study)',withdrawal:'Withdrawal deadline (start + weeks)',enrol:'Enrolment confirmed (start of study)'};
@@ -14,7 +15,8 @@ const addMonths=(s,n)=>{const d=pd(s);d.setUTCMonth(d.getUTCMonth()+n);return fd
 const nice=s=>{if(!s)return '—';const d=pd(s);return d.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]+' '+d.getUTCFullYear();};
 const thursdayOf=s=>{const d=pd(s);const k=(4-d.getUTCDay()+7)%7;d.setUTCDate(d.getUTCDate()+k);return fd(d);};
 const r2=x=>Math.round(x*100)/100;
-const money=(x,c)=>(x==null||isNaN(x))?'—':(x<0?'−':'')+(c?c+' ':'')+Math.abs(x).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
+// one money format everywhere (QC, 1 Nov): data/format.ts
+const money=(x,c)=>fmtMoney(x,c||'');
 function fxRate(cfg,cur,date){if(!cur||cur==='AUD')return 1;const rows=(cfg.settings.fx||[]).slice().sort((a,b)=>a.week<b.week?-1:1);let r=null;for(const w of rows){if(w.week<=date)r=w;else break;}if(!r||addDays(r.week,7)<=date)return null;return r[cur]==null||r[cur]===''?null:+r[cur];}
 function bandOf(bands,n){let i=bands.findIndex(b=>n>=b[0]&&(b[1]==null||n<=b[1]));if(i<0)i=n<bands[0][0]?0:bands.length-1;return {i,from:bands[i][0],to:bands[i][1],pct:+bands[i][2]};}
 const bandTxt=b=>b.map(x=>x[0]+(x[1]==null?'+':'–'+x[1])+': '+x[2]+'%').join(', ');

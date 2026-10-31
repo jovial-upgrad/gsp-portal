@@ -9,6 +9,9 @@ import React, { useState } from 'react';
 import { update } from './store';
 import { can } from './access';
 import { Page, Card, Tiles, Segmented, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, toast } from './kit';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useCheck } from '../components/validate';
+import { fmtAmount } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
 import { nice, money, bandTxt, winName, windowKey, thursdayOf } from './engine';
 import { useComm, liveRun, convert, sum } from './shared';
@@ -50,7 +53,8 @@ export default function Earnings() {
     tier = { wk, n, pct: sch.bands[Math.max(0, band)][2], next: nextB, need: nextB ? nextB[0] - n : 0 };
   }
 
-  const n0 = v => Math.round(v).toLocaleString(cur === 'INR' ? 'en-IN' : 'en-AU');
+  // never "-0" (QC, 1 Nov): rounded first, in the currency's grouping
+  const n0 = v => fmtAmount(v, cur, 0);
   const tiles = [
     { id: 'paid', n: n0(sum(by('paid'), r => r.paid)), label: `Paid to you (${cur})`, sub: `${by('paid').length} payments`, tone: 'gsp' },
     { id: 'next', n: n0(sum(by('next'), r => r.due)), label: `In the payout on ${nice(thu)} (${cur})`, sub: `${by('next').length} payments, before recoveries and withholding`, tone: 'you' },
@@ -109,23 +113,54 @@ export default function Earnings() {
   );
 }
 
+/* QC, 1 Nov: what the bank code looks like for the account's country, and the account number. */
+const CODE = {
+  AU: { label: 'BSB', hint: '6 digits, like 062-000', ok: v => /^\d{3}-?\d{3}$/.test(v), msg: 'Enter the BSB: 6 digits, like 062-000.' },
+  IN: { label: 'IFSC', hint: '11 characters, like HDFC0001234', ok: v => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v.toUpperCase()), msg: 'Enter the IFSC: 4 letters, a 0, then 6 letters or digits, like HDFC0001234.' },
+  SWIFT: { label: 'SWIFT code', hint: '8 or 11 characters, like NABLNPKA', ok: v => /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(v.toUpperCase()), msg: 'Enter the SWIFT code: 8 or 11 letters and digits, like NABLNPKA.' },
+};
+const ACCT = {
+  AU: { ok: v => /^\d{6,10}$/.test(v), msg: 'Enter the account number: 6 to 10 digits.' },
+  IN: { ok: v => /^\d{9,18}$/.test(v), msg: 'Enter the account number: 9 to 18 digits.' },
+  SWIFT: { ok: v => /^[A-Z0-9]{6,34}$/i.test(v), msg: 'Enter the account number: 6 to 34 letters and digits.' },
+};
+
 function BankSheet({ rp, user, onClose }) {
-  const [d, setD] = useState({ name: '', no: '', code: '' });
-  const ok = d.name && d.no && d.code;
-  const save = () => {
+  const kind = rp.bank === 'AU' ? 'AU' : rp.cur === 'INR' || rp.region === 'India' ? 'IN' : 'SWIFT';
+  const code = CODE[kind];
+  const [d, setD] = useState({ name: '', no: '', no2: '', code: '' });
+  const [sure, setSure] = useState(false);
+  const no = d.no.replace(/\s/g, '');
+  const errors = {
+    name: !d.name.trim() ? 'Enter the account name, as the bank has it.' : null,
+    no: !no ? 'Enter the account number.' : ACCT[kind].ok(no) ? null : ACCT[kind].msg,
+    no2: !d.no2 ? 'Type the account number again.' : d.no2.replace(/\s/g, '') !== no ? 'The account numbers don’t match. Check both.' : null,
+    code: !d.code.trim() ? `Enter the ${code.label}.` : code.ok(d.code.trim()) ? null : code.msg,
+  };
+  const v = useCheck(errors);
+  const empty = !d.name.trim() || !no || !d.no2 || !d.code.trim();
+  const dirty = !!(d.name || d.no || d.no2 || d.code);
+  const send = () => {
     update(x => {
       x.comm.cfg.rps.find(r => r.id === rp.id).bankVerified = false;
       x.tasks.unshift({ id: 'T-BANK-' + Date.now(), record: 'cm-payout', kind: 'k-exception', queue: 'q-finance', title: `Verify new bank details for ${rp.name}`, created: Date.now(), status: 'open' });
     }, `${user.name} changed ${rp.name}’s bank details (waiting for Finance to verify)`);
-    toast('Sent to GSP Finance. Payouts are held until they verify the new account.'); onClose();
+    toast('Bank details sent', { text: 'GSP Finance verifies the new account. Payouts are held until then.' }); onClose();
   };
+  const set = (k, x) => setD({ ...d, [k]: x });
   return (
-    <Sheet title="Change bank details" sub="GSP Finance verifies new details before the next payout" onClose={onClose}
-      footer={<><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!ok} onClick={save}>Send to GSP</Button></>}>
-      <Field id="b-n" label="Account name" required><Input id="b-n" value={d.name} onChange={v => setD({ ...d, name: v })} /></Field>
-      <Field id="b-no" label="Account number" required><Input id="b-no" value={d.no} onChange={v => setD({ ...d, no: v })} /></Field>
-      <Field id="b-c" label={rp.bank === 'AU' ? 'BSB' : 'Bank code (IFSC, SWIFT or routing)'} required><Input id="b-c" value={d.code} onChange={v => setD({ ...d, code: v })} /></Field>
-      <Notice>Upload a bank letter or cancelled cheque in Profile › Documents so Finance can verify it.</Notice>
-    </Sheet>
+    <>
+      <Sheet title="Change bank details" sub="GSP Finance verifies new details before the next payout" onClose={onClose} dirty={dirty} what="the bank details"
+        footer={<>{empty && <span className="muted gspx-grow" id="b-why">Fill in every field to send.</span>}<Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={empty} aria-describedby={empty ? 'b-why' : undefined} onClick={() => v.submit() && setSure(true)}>Send to GSP</Button></>}>
+        <Field id="b-n" label="Account name" required error={v.err('name')}><Input id="b-n" value={d.name} onBlur={v.blur('name')} onChange={x => set('name', x)} /></Field>
+        <Field id="b-no" label="Account number" required error={v.err('no')}><Input id="b-no" inputMode={kind === 'SWIFT' ? 'text' : 'numeric'} autoComplete="off" value={d.no} onBlur={v.blur('no')} onChange={x => set('no', x)} /></Field>
+        <Field id="b-no2" label="Account number again" required error={v.err('no2')} hint="Type it again, so a slip doesn’t send your commission to the wrong account."><Input id="b-no2" inputMode={kind === 'SWIFT' ? 'text' : 'numeric'} autoComplete="off" onPaste={e => e.preventDefault()} value={d.no2} onBlur={v.blur('no2')} onChange={x => set('no2', x)} /></Field>
+        <Field id="b-c" label={code.label} required error={v.err('code')} hint={code.hint}><Input id="b-c" autoComplete="off" value={d.code} onBlur={v.blur('code')} onChange={x => set('code', kind === 'AU' ? x : x.toUpperCase())} /></Field>
+        <Notice>Upload a bank letter or cancelled cheque in Profile › Documents so Finance can verify it.</Notice>
+      </Sheet>
+      <ConfirmDialog open={sure} title="Hold payouts until GSP verifies?" confirm="Send and hold payouts" onCancel={() => setSure(false)} onConfirm={() => { setSure(false); send(); }}>
+        <p>Your payouts stop until GSP Finance verifies the new account. Anything due before then waits for the next payout after it.</p>
+      </ConfirmDialog>
+    </>
   );
 }

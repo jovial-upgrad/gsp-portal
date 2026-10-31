@@ -1,3 +1,5 @@
+import { ToastHost } from './components/Toast';
+import { UnsavedHost } from './components/unsaved';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { SignupBar, SignupPanel, accountMade } from './screens/signup/SignupFlow';
@@ -338,14 +340,22 @@ export default function App() {
         <div className="stage">
           <div className="device-wrap">
             <div className="device" ref={frameRef}>
-              <div className="app">{view}</div>
+              <div className="app">
+                {view}
+                <ToastHost />
+                <UnsavedHost />
+              </div>
             </div>
             <div id="layer" className="layer" />
           </div>
         </div>
       ) : (
         <>
-          <div className="app">{view}</div>
+          <div className="app">
+            {view}
+            <ToastHost />
+            <UnsavedHost />
+          </div>
           <div id="layer" className="layer" />
         </>
       )}

@@ -186,3 +186,19 @@
 .cfg__permsave { display: flex; align-items: center; }
 .cfg__tab tr.is-picked td { background: var(--surface-2); }
 .cfg__lv--N { color: var(--text-3); }
+
+/* QC, 1 Nov: a cell's error and warning sit under its input */
+.cfg__cellerr { margin-top: 4px; }
+.cfg__cellwarn { display: flex; gap: 4px; margin-top: 4px; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--you); }
+@container app (max-width: 600px) {
+  /* currency exchange on a phone: no sideways scroll; "Used for" waits for a wider screen */
+  .cfg__fx .cfg__usedfor, .cfg__fx .cfg__changed { display: none; }
+  .cfg__fx { min-width: 0; }
+  .cfg__fx td, .cfg__fx th { padding-left: 8px; padding-right: 8px; }
+  .cfg__fx .cfg__cellinput { min-width: 0; width: 96px; }
+  .cfg__fx .cfg__cellinput.cfg__code { width: 64px; }
+  .cfg__fx .cfg__num { width: 84px; }
+  .cfg__fx .cfg__pair { flex-wrap: wrap; }
+  .cfg__fx th:first-child, .cfg__fx td:first-child { min-width: 0; width: auto; white-space: normal; }
+  .cfg__fx .cfg__acts { width: 40px; padding-left: 0; }
+}

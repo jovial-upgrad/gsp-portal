@@ -6,7 +6,10 @@
 import React, { useState } from 'react';
 import { useStore, update, nameOf, kindById, ASSIGN, COVER } from './store';
 import { can } from '../finance/access';
-import { Page, Card, Segmented, Select, Table, Pill, Button, LinkButton, Sheet, Field, Input, Chip, Notice, toast } from '../finance/kit';
+import { Page, Card, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Field, Input, Num, Chip, Notice, toast } from '../finance/kit';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useCheck, numError, dupError, dateError } from '../components/validate';
+import { fmtDate, fmtWhen } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
 
 const STAGES = ['New', 'Pre-screening', 'Application', 'Offer', 'Verification', 'Acceptance', 'Visa', 'Enrolment'];
@@ -21,7 +24,7 @@ export default function Queues() {
       lead="A queue is a team’s inbox. Set who is in it, how work is shared, what lands in it and how fast it must be done."
       actions={tab === 'queues' && may('C') ? <QueueButton by={user} /> : tab === 'kinds' && may('C') ? <KindButton by={user} /> : null}>
       {!may('U') && <Notice>{role.name} can see this page but not change it.</Notice>}
-      <Segmented label="Section" value={tab} onChange={setTab}
+      <Tabs label="Section" value={tab} onChange={setTab}
         options={[['queues', `Queues (${s.queues.length})`], ['kinds', `Kinds of work (${s.kinds.length})`], ['sla', 'SLA by status'], ['calendars', 'Working days'], ['escalation', 'Reminders and escalation']]} />
       {tab === 'queues' && <QueueList may={may} by={user} />}
       {tab === 'kinds' && <KindList may={may} by={user} />}
@@ -61,7 +64,7 @@ function QueueList({ may, by }) {
               <td>{ASSIGN[q.assign]}{q.handover && <span className="cfg__sub">Handover: {q.handover.map(h => `${h.from}–${h.to}`).join(' → ')}</span>}{q.makerChecker && <span className="cfg__sub">Maker-checker on</span>}</td>
               <td className="num">{q.sla} working day{q.sla === 1 ? '' : 's'}</td>
               <td>{(() => { const names = (q.kinds || []).map(k => (kindById(s, k) || {}).name).filter(Boolean); return names.length ? <span className="gspx-wrap" title={names.join(', ')}>{names.slice(0, 2).join(', ')}{names.length > 2 ? <span className="muted"> +{names.length - 2} more</span> : null}</span> : <span className="cfg__muted">Nothing yet</span>; })()}</td>
-              <td className="cfg__acts">{may('U') && <LinkButton onClick={() => setEdit(q)}>Edit</LinkButton>}</td>
+              <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${q.name}`} onClick={() => setEdit(q)}>Edit</LinkButton>}</td>
             </tr>
           ))}
         </Table>
@@ -74,28 +77,38 @@ function QueueList({ may, by }) {
 function QueueSheet({ queue, onClose, by, canDelete }) {
   const s = useStore();
   const isNew = !queue;
-  const [v, setV] = useState(() => queue ? structuredClone(queue) : { id: 'q-' + Date.now(), name: '', kind: 'team', region: '', leader: '', members: [], assign: 'round-robin', cover: 'leader', sla: 2, kinds: [], handover: null });
+  const init = React.useRef(queue ? structuredClone(queue) : { id: 'q-' + Date.now(), name: '', kind: 'team', region: '', leader: '', members: [], assign: 'round-robin', cover: 'leader', sla: 2, kinds: [], handover: null });
+  const [v, setV] = useState(() => structuredClone(init.current));
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
   const gsp = s.users.filter(u => !['rp-admin', 'branch-admin', 'counsellor'].includes(u.role));
-  const save = () => {
-    if (!v.name.trim()) { toast('Give the queue a name.'); return; }
-    if (v.kind === 'region' && !v.region) { toast('Choose the sales region.'); return; }
-    update(d => { const i = d.queues.findIndex(q => q.id === v.id); if (i >= 0) d.queues[i] = v; else d.queues.push(v); }, `${by.name} ${isNew ? 'created' : 'edited'} queue ${v.name}`);
-    toast(isNew ? 'Queue created.' : 'Saved. Applies to new work from now.'); onClose();
+  const [sure, setSure] = useState(false);
+  const errors = {
+    name: !v.name.trim() ? 'Enter the queue name, like India Admissions.' : dupError(v.name, s.queues.filter(q => q.id !== v.id).map(q => q.name), 'There’s already a queue with this name.'),
+    region: v.kind === 'region' && !v.region ? 'Choose the sales region.' : null,
+    sla: numError(v.sla, { what: 'default SLA', min: 1, max: 60, int: true, required: true }),
   };
-  const remove = () => { update(d => { d.queues = d.queues.filter(q => q.id !== v.id); d.tasks.forEach(t => { if (t.queue === v.id) t.queue = 'q-fallback'; }); }, `${by.name} deleted queue ${v.name}`); toast('Queue deleted. Its open tasks moved to Fallback.'); onClose(); };
+  const c = useCheck(errors);
+  const dirty = JSON.stringify(v) !== JSON.stringify(queue || init.current);
+  const open = s.tasks.filter(t => t.queue === v.id && t.status !== 'done').length;
+  const save = () => {
+    if (!c.submit()) return;
+    update(d => { const i = d.queues.findIndex(q => q.id === v.id); if (i >= 0) d.queues[i] = v; else d.queues.push(v); }, `${by.name} ${isNew ? 'created' : 'edited'} queue ${v.name}`);
+    toast(isNew ? 'Queue created' : 'Queue saved', { text: isNew ? undefined : 'Applies to new work from now.' }); onClose();
+  };
+  const remove = () => { update(d => { d.queues = d.queues.filter(q => q.id !== v.id); d.tasks.forEach(t => { if (t.queue === v.id) t.queue = 'q-fallback'; }); }, `${by.name} deleted queue ${v.name}`); toast('Queue deleted', { text: 'Its open tasks moved to Fallback.' }); onClose(); };
   const toggle = (k, id) => set(k, (v[k] || []).includes(id) ? v[k].filter(x => x !== id) : [...(v[k] || []), id]);
   return (
-    <Sheet wide title={isNew ? 'Create queue' : `Edit ${queue.name}`} onClose={onClose}
-      footer={<>{!isNew && canDelete && <Button onClick={remove}>Delete queue</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={save}>{isNew ? 'Create queue' : 'Save'}</Button></>}>
+    <>
+    <Sheet wide title={isNew ? 'Create queue' : `Edit ${queue.name}`} onClose={onClose} dirty={dirty} what={isNew ? 'the new queue' : queue.name}
+      footer={<>{!isNew && canDelete && <Button kind="danger-quiet" onClick={() => setSure(true)}>Delete queue</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!isNew && !dirty} onClick={save}>{isNew ? 'Create queue' : 'Save'}</Button></>}>
       <div className="cfg__form gspx-form2">
-        <Field id="q-name" label="Queue name" required><Input id="q-name" value={v.name} onChange={x => set('name', x)} placeholder="Like: India Admissions" /></Field>
-        <Select id="q-kind" label="Type" value={v.kind} onChange={x => set('kind', x)} options={[['team', 'Team queue (every region)'], ['region', 'Regional queue (one sales region)']]} />
-        {v.kind === 'region' && <Select id="q-region" label="Sales region" value={v.region} onChange={x => set('region', x)} placeholder="Choose" options={s.regions} />}
+        <Field id="q-name" label="Queue name" required error={c.err('name')}><Input id="q-name" value={v.name} onBlur={c.blur('name')} onChange={x => set('name', x)} placeholder="Like: India Admissions" /></Field>
+        <Select id="q-kind" label="Type" required value={v.kind} onChange={x => set('kind', x)} options={[['team', 'Team queue (every region)'], ['region', 'Regional queue (one sales region)']]} />
+        {v.kind === 'region' && <Select id="q-region" label="Sales region" required error={c.err('region')} onBlur={c.blur('region')} value={v.region} onChange={x => set('region', x)} placeholder="Choose" options={s.regions} />}
         <Select id="q-lead" label="Leader (gets escalations, can assign)" value={v.leader || ''} onChange={x => set('leader', x)} placeholder="Choose one person" options={gsp.map(u => [u.id, `${u.name} · ${s.roles.find(r => r.id === u.role).name}`])} />
-        <Select id="q-assign" label="How work is shared" value={v.assign} onChange={x => set('assign', x)} options={Object.entries(ASSIGN).filter(([k]) => !['owner', 'not-maker'].includes(k))} />
-        <Select id="q-cover" label="When someone is away" value={v.cover} onChange={x => set('cover', x)} options={Object.entries(COVER)} />
-        <Field id="q-sla" label="Default SLA (working days)" hint="Used when the kind of work has no SLA of its own."><Input id="q-sla" type="number" min="0" value={v.sla} onChange={x => set('sla', x)} /></Field>
+        <Select id="q-assign" label="How work is shared" required value={v.assign} onChange={x => set('assign', x)} options={Object.entries(ASSIGN).filter(([k]) => !['owner', 'not-maker'].includes(k))} />
+        <Select id="q-cover" label="When someone is away" required value={v.cover} onChange={x => set('cover', x)} options={Object.entries(COVER)} />
+        <Field id="q-sla" label="Default SLA (working days)" required error={c.err('sla')} hint="Used when the kind of work has no SLA of its own."><Input id="q-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
         <label className="gspx-check"><input type="checkbox" checked={!!v.makerChecker} onChange={e => set('makerChecker', e.target.checked)} /> Maker-checker: never give a checking task to the person who made the change</label>
       </div>
       <Field id="q-members" label="Members" hint="The leader is in the queue anyway.">
@@ -117,13 +130,17 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
               <span className="muted">to</span>
               <Select id={`h-to-${i}`} label="To" hideLabel value={h.to} onChange={x => set('handover', v.handover.map((y, j) => j === i ? { ...y, to: x } : y))} options={STAGES} />
               <Select id={`h-p-${i}`} label="Officer" hideLabel value={(h.people || [])[0] || ''} placeholder="Anyone in the queue" onChange={x => set('handover', v.handover.map((y, j) => j === i ? { ...y, people: x ? [x] : [] } : y))} options={[v.leader, ...(v.members || [])].filter(Boolean).map(id => [id, nameOf(s, id)])} />
-              {v.handover.length > 1 && <LinkButton onClick={() => set('handover', v.handover.filter((_, j) => j !== i))}>Remove</LinkButton>}
+              {v.handover.length > 1 && <LinkButton aria-label={`Remove step ${i + 1}`} onClick={() => set('handover', v.handover.filter((_, j) => j !== i))}>Remove</LinkButton>}
             </div>
           ))}
-          {v.handover && <LinkButton onClick={() => set('handover', [...v.handover, { from: 'Visa', to: 'Enrolment', people: [] }])}>+ Add a step</LinkButton>}
+          {v.handover && <LinkButton onClick={() => set('handover', [...v.handover, { from: 'Visa', to: 'Enrolment', people: [] }])}>Add a step</LinkButton>}
         </Field>
       )}
     </Sheet>
+    <ConfirmDialog open={sure} danger title={`Delete ${v.name || 'this queue'}?`} confirm="Delete queue" onCancel={() => setSure(false)} onConfirm={() => { setSure(false); remove(); }}>
+      <p>{open ? `Its ${open} open ${open === 1 ? 'task moves' : 'tasks move'} to Fallback, and` : 'Nothing is open in it.'} {open ? 'new' : 'New'} work stops landing in it. This can’t be undone.</p>
+    </ConfirmDialog>
+    </>
   );
 }
 
@@ -142,7 +159,7 @@ function KindList({ may, by }) {
             <td className="cfg__strong">{k.name}</td><td>{k.record}</td>
             <td className="num">{k.sla} working day{k.sla === 1 ? '' : 's'}</td>
             <td>{qs.length ? (qs.every(q => q.kind === 'region') && qs.length > 3 ? `Every regional Admissions queue (${qs.length})` : qs.map(q => q.name).join(', ')) : <Pill tone="dpill--bad">No queue</Pill>}</td>
-            <td className="cfg__acts">{may('U') && <LinkButton onClick={() => setEdit(k)}>Edit</LinkButton>}</td>
+            <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${k.name}`} onClick={() => setEdit(k)}>Edit</LinkButton>}</td>
           </tr>); })}
       </Table>
       {edit && <KindSheet kind={edit} onClose={() => setEdit(null)} by={by} canDelete={may('D')} />}
@@ -151,19 +168,38 @@ function KindList({ may, by }) {
 }
 function KindSheet({ kind, onClose, by, canDelete }) {
   const s = useStore();
-  const [v, setV] = useState(kind ? { ...kind } : { id: 'k-' + Date.now(), name: '', record: 'Application', sla: 2 });
+  const init = React.useRef(kind ? { ...kind } : { id: 'k-' + Date.now(), name: '', record: 'Application', sla: 2 });
+  const [v, setV] = useState(() => ({ ...init.current }));
+  const [sure, setSure] = useState(false);
   const used = kind && (s.queues.some(q => (q.kinds || []).includes(kind.id)) || s.rules.some(r => r.kind === kind.id));
+  const errors = {
+    name: !v.name.trim() ? 'Enter the name of the kind of work.' : dupError(v.name, s.kinds.filter(k => k.id !== v.id).map(k => k.name), 'There’s already a kind of work with this name.'),
+    sla: numError(v.sla, { what: 'SLA', min: 1, max: 60, int: true, required: true }),
+  };
+  const c = useCheck(errors);
+  const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
+  const save = () => {
+    if (!c.submit()) return;
+    update(d => { const i = d.kinds.findIndex(k => k.id === v.id); if (i >= 0) d.kinds[i] = v; else d.kinds.push(v); }, `${by.name} saved kind ${v.name}`);
+    toast(kind ? 'Kind of work saved' : 'Kind of work added'); onClose();
+  };
   return (
-    <Sheet title={kind ? `Edit ${kind.name}` : 'Add kind of work'} onClose={onClose}
-      footer={<>{kind && canDelete && <Button disabled={used} title={used ? 'Used by a queue or task rule' : ''} onClick={() => { update(d => { d.kinds = d.kinds.filter(k => k.id !== v.id); }, `${by.name} deleted kind ${v.name}`); onClose(); }}>Delete</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button>
-        <Button kind="primary" onClick={() => { if (!v.name.trim()) { toast('Give it a name.'); return; } update(d => { const i = d.kinds.findIndex(k => k.id === v.id); if (i >= 0) d.kinds[i] = v; else d.kinds.push(v); }, `${by.name} saved kind ${v.name}`); toast('Saved.'); onClose(); }}>Save</Button></>}>
+    <>
+    <Sheet title={kind ? `Edit ${kind.name}` : 'Add kind of work'} onClose={onClose} dirty={dirty} what={kind ? kind.name : 'the new kind of work'}
+      footer={<>{kind && canDelete && <Button kind="danger-quiet" disabled={used} aria-describedby={used ? 'k-used' : undefined} onClick={() => setSure(true)}>Delete kind of work</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button>
+        <Button kind="primary" disabled={!!kind && !dirty} onClick={save}>{kind ? 'Save' : 'Add kind of work'}</Button></>}>
       <div className="cfg__form">
-        <Field id="k-name" label="Name" required><Input id="k-name" value={v.name} onChange={x => setV({ ...v, name: x })} /></Field>
-        <Select id="k-rec" label="Record it is about" value={v.record} onChange={x => setV({ ...v, record: x })} options={['Application', 'RP', 'Institution partner', 'University', 'Course', 'Announcement', 'Commission', 'Email', 'Any']} />
-        <Field id="k-sla" label="SLA (working days)"><Input id="k-sla" type="number" min="0" value={v.sla} onChange={x => setV({ ...v, sla: x })} /></Field>
-        {used && <p className="field__msg">It is used by a queue or task rule, so it can’t be deleted.</p>}
+        <Field id="k-name" label="Name" required error={c.err('name')}><Input id="k-name" value={v.name} onBlur={c.blur('name')} onChange={x => setV({ ...v, name: x })} /></Field>
+        <Select id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV({ ...v, record: x })} options={['Application', 'RP', 'Institution partner', 'University', 'Course', 'Announcement', 'Commission', 'Email', 'Any']} />
+        <Field id="k-sla" label="SLA (working days)" required error={c.err('sla')}><Input id="k-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
+        {used && <p className="field__msg" id="k-used">It is used by a queue or task rule, so it can’t be deleted.</p>}
       </div>
     </Sheet>
+    <ConfirmDialog open={sure} danger title={`Delete ${v.name}?`} confirm="Delete kind of work" onCancel={() => setSure(false)}
+      onConfirm={() => { setSure(false); update(d => { d.kinds = d.kinds.filter(k => k.id !== v.id); }, `${by.name} deleted kind ${v.name}`); toast('Kind of work deleted'); onClose(); }}>
+      <p>No queue or task rule uses it. This can’t be undone.</p>
+    </ConfirmDialog>
+    </>
   );
 }
 
@@ -177,8 +213,7 @@ function StatusSla({ may, by }) {
         {s.statusSla.map((r, i) => (
           <tr key={i}>
             <td>{r.stage}</td><td className="cfg__strong">{r.status}</td><td><Pill tone={tone[r.owner]}>{r.owner}</Pill></td>
-            <td>{may('U') ? <input className="control__input gspx-num" aria-label={`SLA for ${r.status}`} type="number" min="0" value={r.days}
-              onChange={e => update(d => { d.statusSla[i].days = Number(e.target.value); }, `${by.name} set SLA for “${r.status}” to ${e.target.value} days`)} /> : <span className="num">{r.days}</span>}</td>
+            <td>{may('U') ? <SlaCell r={r} i={i} by={by} /> : <span className="num">{r.days}</span>}</td>
           </tr>
         ))}
       </Table>
@@ -186,10 +221,24 @@ function StatusSla({ may, by }) {
   );
 }
 
+/** One status's SLA: saved as it's typed when it's a whole number of days from 0 to 60; otherwise it says so. */
+function SlaCell({ r, i, by }) {
+  const [t, setT] = useState(r.days);
+  const err = numError(t, { what: `SLA for ${r.status}`, min: 0, max: 60, int: true, required: true });
+  return (
+    <span className="gspx-errs">
+      <Num label={`SLA for ${r.status} (working days)`} value={t} error={err} onChange={x => { setT(x); if (!numError(x, { what: '', min: 0, max: 60, int: true, required: true })) update(d => { d.statusSla[i].days = x; }, `${by.name} set SLA for “${r.status}” to ${x} days`); }} />
+      {err && <span className="field__msg field__msg--error" role="alert">{err}</span>}
+    </span>
+  );
+}
+
 const DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']];
 function Calendars({ may, by }) {
   const s = useStore();
   const [hol, setHol] = useState({});
+  const [tried, setTried] = useState({});
+  const holErr = i => { const h = hol[i] || {}; return { d: dateError(h.d || '', { what: 'holiday date', required: true }), n: !(h.n || '').trim() ? 'Enter the holiday name.' : null }; };
   return (
     <div className="gspx-grid2">
       {s.calendars.map((c, i) => (
@@ -201,12 +250,16 @@ function Calendars({ may, by }) {
               onClick={() => update(x => { const cal = x.calendars[i]; cal.days = cal.days.includes(d) ? cal.days.filter(y => y !== d) : [...cal.days, d]; }, `${by.name} changed working days for ${c.name}`)}>{t}</button>)}
           </div>
           <h4 className="gspx-h4">Holidays</h4>
-          <ul className="gspx-list">{c.holidays.map(([d, n], j) => <li key={j}><span className="num">{d}</span> {n} {may('U') && <LinkButton onClick={() => update(x => { x.calendars[i].holidays.splice(j, 1); }, `${by.name} removed holiday ${n}`)}>Remove</LinkButton>}</li>)}</ul>
-          {may('U') && <div className="gspx-inline">
-            <Input id={`hd-${i}`} type="date" value={(hol[i] || {}).d || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), d: x } })} aria-label="Holiday date" />
-            <Input id={`hn-${i}`} value={(hol[i] || {}).n || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), n: x } })} placeholder="Holiday name" aria-label="Holiday name" />
-            <Button size="sm" onClick={() => { const h = hol[i] || {}; if (!h.d || !h.n) { toast('Add a date and a name.'); return; } update(x => { x.calendars[i].holidays.push([h.d, h.n]); }, `${by.name} added holiday ${h.n}`); setHol({ ...hol, [i]: {} }); }}>Add</Button>
-          </div>}
+          <ul className="gspx-list">{c.holidays.map(([d, n], j) => <li key={j}><span className="num">{fmtDate(d)}</span> {n} {may('U') && <LinkButton aria-label={`Remove ${n}`} onClick={() => {
+            // reversible: no question, Undo in the notification (QC, 1 Nov)
+            update(x => { x.calendars[i].holidays.splice(j, 1); }, `${by.name} removed holiday ${n}`);
+            toast('Holiday removed', { text: `${n}, ${fmtDate(d)}`, undo: () => update(x => { x.calendars[i].holidays.splice(j, 0, [d, n]); }, `${by.name} put back holiday ${n}`) });
+          }}>Remove</LinkButton>}</li>)}</ul>
+          {may('U') && <><div className="gspx-inline">
+            <Field id={`hd-${i}`} label="Holiday date" required error={tried[i] ? holErr(i).d : null}><Input id={`hd-${i}`} type="date" value={(hol[i] || {}).d || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), d: x } })} /></Field>
+            <Field id={`hn-${i}`} label="Holiday name" required error={tried[i] ? holErr(i).n : null}><Input id={`hn-${i}`} value={(hol[i] || {}).n || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), n: x } })} placeholder="Like: Diwali" /></Field>
+          </div>
+          <div><Button size="sm" onClick={() => { const h = hol[i] || {}; const e = holErr(i); if (e.d || e.n) { setTried({ ...tried, [i]: true }); window.setTimeout(() => document.getElementById(e.d ? `hd-${i}` : `hn-${i}`)?.focus(), 30); return; } update(x => { x.calendars[i].holidays.push([h.d, h.n.trim()]); }, `${by.name} added holiday ${h.n}`); setHol({ ...hol, [i]: {} }); setTried({ ...tried, [i]: false }); toast('Holiday added', { text: `${h.n.trim()}, ${fmtDate(h.d)}` }); }}>Add holiday</Button></div></>}
         </Card>
       ))}
     </div>
@@ -216,7 +269,7 @@ function Calendars({ may, by }) {
 function Escalation({ may, by }) {
   const s = useStore(); const e = s.escalation;
   const set = (k, x) => update(d => { d.escalation[k] = x; }, `${by.name} changed escalation: ${k}`);
-  const num = (k, label) => may('U') ? <input className="control__input gspx-num" type="number" min="0" aria-label={label} value={e[k]} onChange={x => set(k, Number(x.target.value))} /> : <b>{e[k]}</b>;
+  const num = (k, label) => may('U') ? <Num label={`${label} (working days)`} value={e[k]} onChange={x => { if (!numError(x, { what: '', min: 0, max: 60, int: true, required: true })) set(k, x); }} /> : <b>{e[k]}</b>;
   return (
     <Card flush>
       <Table head={['When', 'Who is told', 'How']} className="cfg__tab">
@@ -236,7 +289,7 @@ export function ChangeLog() {
   if (!s.log.length) return null;
   return (
     <details className="gspx-log"><summary>Change history ({s.log.length})</summary>
-      <ul>{s.log.slice(0, 20).map((l, i) => <li key={i}><span className="num muted">{new Date(l.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span> {l.text}</li>)}</ul>
+      <ul>{s.log.slice(0, 20).map((l, i) => <li key={i}><span className="num muted">{fmtWhen(l.at)}</span> {l.text}</li>)}</ul>
     </details>
   );
 }

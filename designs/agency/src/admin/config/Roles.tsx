@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useCheck, dupError } from '../../components/validate';
+import { leave, useUnsaved } from '../../components/unsaved';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -81,7 +83,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
               const at = c.regions.findIndex((x) => x.name === 'Global');
               return { ...c, regions: [...c.regions.slice(0, at), r, ...c.regions.slice(at)] };
             });
-            say(`${r.name} added.`);
+            say(`Sales region added: ${r.name}.`);
           } else {
             const renamed = was.name !== r.name;
             change('Sales regions', renamed ? `Renamed ${was.name} to ${r.name}` : `${r.name}: Admissions contact → ${r.contact || 'Not set'}`, (c) => ({
@@ -89,7 +91,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
               regions: c.regions.map((x) => (x.name === was.name ? r : x)),
               users: renamed ? c.users.map((u) => (u.region === was.name ? { ...u, region: r.name } : u)) : c.users,
             }));
-            say(`${r.name} saved.${renamed ? ' Its users moved with it.' : ''}`);
+            say(`Sales region saved.${renamed ? ' Its users moved with it.' : ''}`);
           }
           setEdit(null);
         }}
@@ -97,8 +99,8 @@ export function Regions({ cfg, change, say }: ConfigProps) {
       <ConfirmDialog
         open={!!removing}
         title={`Delete ${removing?.name}?`}
-        confirm="Delete"
-        cancel="Keep"
+        confirm="Delete sales region"
+        danger
         onCancel={() => setRemoving(null)}
         onConfirm={() => {
           const r = removing!;
@@ -117,24 +119,28 @@ export function Regions({ cfg, change, say }: ConfigProps) {
 function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { open: boolean; region: Region | null; regions: Region[]; contacts: string[]; onClose: () => void; onSave: (r: Region) => void }) {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
-  const [tried, setTried] = useState(false);
+  const v = name.trim();
+  const c = useCheck({
+    name: v.length < 2 ? 'Enter the sales region’s name, like Middle East.' : dupError(v, regions.filter((r) => r.name !== region?.name).map((r) => r.name), 'There’s already a sales region with this name.'),
+    contact: !contact ? 'Choose its Admissions contact.' : null,
+  });
   useEffect(() => {
     if (!open) return;
     setName(region?.name ?? '');
     setContact(region?.contact ?? '');
-    setTried(false);
+    c.reset();
   }, [open, region?.name]); // eslint-disable-line react-hooks/exhaustive-deps
-  const v = name.trim();
-  const err = v.length < 2 ? 'Name the region, like Middle East.' : regions.some((r) => r.name !== region?.name && r.name.toLowerCase() === v.toLowerCase()) ? 'There’s already a region with this name.' : null;
-  const cerr = !contact ? 'Choose its Admissions contact.' : null;
+  // QC, 1 Nov: Save waits for a change; closing with one asks first
+  const dirty = name !== (region?.name ?? '') || contact !== (region?.contact ?? '');
   const save = () => {
-    setTried(true);
-    if (!err && !cerr) onSave({ name: v, contact });
+    if (c.submit()) onSave({ name: v, contact });
   };
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      dirty={dirty}
+      what={region ? region.name : 'the new sales region'}
       center
       className="iform cfg__sheet"
       title={region ? `Edit ${region.name}` : 'Add sales region'}
@@ -144,17 +150,19 @@ function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { op
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={save}>{region ? 'Save' : 'Add sales region'}</Button>
+            <Button onClick={save} disabled={!!region && !dirty}>
+              {region ? 'Save' : 'Add sales region'}
+            </Button>
           </div>
         </div>
       }
     >
       <div className="cfg__form">
-        <Field id="rg-name" label="Sales region" required error={tried ? err : null}>
-          <TextInput id="rg-name" value={name} invalid={tried && !!err} placeholder="Like: Middle East" onChange={(e) => setName(e.target.value)} />
+        <Field id="rg-name" label="Sales region" required error={c.err('name')}>
+          <TextInput id="rg-name" value={name} placeholder="Like: Middle East" onBlur={c.blur('name')} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field id="rg-contact" label="Admissions contact" required error={tried ? cerr : null} hint="Its recruitment partners see this person on every page.">
-          <SelectInput id="rg-contact" value={contact} placeholder="Choose" invalid={tried && !!cerr} onChange={(e) => setContact(e.target.value)}>
+        <Field id="rg-contact" label="Admissions contact" required error={c.err('contact')} hint="Its recruitment partners see this person on every page.">
+          <SelectInput id="rg-contact" value={contact} placeholder="Choose" onBlur={c.blur('contact')} onChange={(e) => setContact(e.target.value)}>
             {[...new Set([...contacts, contact].filter(Boolean))].map((n) => (
               <option key={n}>{n}</option>
             ))}
@@ -185,16 +193,21 @@ export function Permissions({ cfg, change, say }: ConfigProps) {
   const [lvl, setLvl] = useState<Level>(cfg.perms[OBJECTS[0]]?.['Admission'] ?? 'N');
   const fixed = role === 'Admin';
   const current = cfg.perms[obj]?.[role] ?? 'N';
-  const pick = (r: string, o: string) => {
-    setRole(r);
-    setObj(o);
-    setLvl(cfg.perms[o]?.[r] ?? 'N');
-  };
+  // QC, 1 Nov: an access level picked but not saved is a change; leaving it, or picking another line, asks first
+  const dirty = !fixed && lvl !== current;
+  const form = useRef<HTMLDivElement>(null);
+  useUnsaved(dirty, dirty, { onDiscard: () => setLvl(current), region: form, what: `${role}’s access to ${obj}`, esc: false });
+  const pick = (r: string, o: string) =>
+    leave(() => {
+      setRole(r);
+      setObj(o);
+      setLvl(cfg.perms[o]?.[r] ?? 'N');
+    });
   return (
     <>
       <PageHead title="Permission roles" lead="What each role can see and change. A role sees only what it has access to; View means it can’t change anything. Admin can do everything." />
       <Panel title="Change access">
-        <div className="cfg__permform">
+        <div className="cfg__permform" ref={form}>
           <Field id="pm-role" label="Role" required>
             <SelectInput id="pm-role" value={role} onChange={(e) => pick(e.target.value, obj)}>
               {ROLES.map((r) => (
@@ -230,7 +243,7 @@ export function Permissions({ cfg, change, say }: ConfigProps) {
                 disabled={lvl === current}
                 onClick={() => {
                   change('Permission roles', `${role}: ${obj} → ${LEVEL_NAME[lvl]}`, (c) => ({ ...c, perms: { ...c.perms, [obj]: { ...c.perms[obj], [role]: lvl } } }));
-                  say(`${role}: ${obj} → ${LEVEL_NAME[lvl]}. Applies on their next page load.`);
+                  say(`Access saved: ${role}, ${obj} → ${LEVEL_NAME[lvl]}. It applies on their next page load.`);
                 }}
               >
                 Save
@@ -370,8 +383,8 @@ export function Queues({ cfg, change, say }: ConfigProps) {
       <ConfirmDialog
         open={!!removing}
         title={`Delete ${removing?.name}?`}
-        confirm="Delete"
-        cancel="Keep"
+        confirm="Delete queue"
+        danger
         onCancel={() => setRemoving(null)}
         onConfirm={() => {
           const q = removing!;
