@@ -5,7 +5,8 @@ import { Sheet } from '../../components/Sheet';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
 import { PhoneInput } from '../../components/PhoneInput';
-import { Field, SelectInput, TextInput, describedBy } from '../../components/forms';
+import { Field, SelectInput, TextInput } from '../../components/forms';
+import { useCheck, emailError, phoneError, dupError } from '../../components/validate';
 import { NoMatch, PageHead, downloadCsv } from '../../institution/records/parts';
 import { GSP_ROLES, type GspRole, type User, type UserStatus } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
@@ -13,7 +14,6 @@ import { History } from './parts';
 import { MultiPick } from '../../institution/records/MultiPick';
 
 const STATUSES: UserStatus[] = ['Link sent', 'Active', 'Deactivated'];
-const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 const ago = (at?: number) => {
   if (!at) return '';
   const d = Math.floor((Date.now() - at) / 86_400_000);
@@ -33,6 +33,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
   const [status, setStatus] = useState('');
   const [edit, setEdit] = useState<User | 'new' | null>(null);
   const [removing, setRemoving] = useState<User | null>(null);
+  const [deactivating, setDeactivating] = useState<User | null>(null);
   const t = q.trim().toLowerCase();
   const rows = cfg.users.filter(
     (u) => (!t || [u.name, u.email, u.title, u.phone].some((x) => x.toLowerCase().includes(t))) && (!role || u.role === role) && (!region || u.regions.includes(region)) && (!status || u.status === status),
@@ -50,7 +51,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
   /* Jovial, 31 Oct: deactivate (they can't sign in; they stay on record) or activate again. */
   const setActive = (u: User, on: boolean) => {
     change('Create roles', `${on ? 'Activated' : 'Deactivated'} ${u.name}`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: on ? 'Link sent' : 'Deactivated', sentAt: on ? Date.now() : x.sentAt } : x)) }));
-    say(on ? `${u.name} is active again. A new login email went to ${u.email}.` : `${u.name} is deactivated and can’t sign in. They stay in queues and email groups until you change them.`);
+    say(on ? `${u.name} is active again. A new login email went to ${u.email}.` : `${u.name} deactivated. Their open work went to their queue leader.`);
   };
   return (
     <>
@@ -158,7 +159,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
                               ? [{ id: 'activate', label: 'Activate', icon: 'check' as const, onPick: () => setActive(u, true) }]
                               : u.role === 'Admin' && cfg.users.filter((x) => x.role === 'Admin' && x.status !== 'Deactivated').length === 1
                                 ? []
-                                : [{ id: 'deactivate', label: 'Deactivate', icon: 'lock' as const, onPick: () => setActive(u, false) }]),
+                                : [{ id: 'deactivate', label: 'Deactivate', icon: 'lock' as const, danger: true, onPick: () => setDeactivating(u) }]),
                             ...(u.role === 'Admin' && cfg.users.filter((x) => x.role === 'Admin').length === 1 ? [] : [{ id: 'remove', label: 'Delete role', icon: 'close' as const, danger: true, onPick: () => setRemoving(u) }]),
                           ]}
                         />
@@ -183,15 +184,15 @@ export function Users({ cfg, change, say }: ConfigProps) {
           const isNew = !cfg.users.some((x) => x.id === u.id);
           const next: User = isNew ? { ...u, status: 'Link sent', sentAt: Date.now() } : u;
           change('Create roles', `${isNew ? 'Created' : 'Edited'} ${u.name}: ${u.role}, ${u.region}${isNew ? ', and sent a login email' : ''}`, (c) => ({ ...c, users: isNew ? [next, ...c.users] : c.users.map((x) => (x.id === u.id ? next : x)) }));
-          say(isNew ? `${u.name} created. A login email went to ${u.email}; the link works for 7 days.` : `${u.name} saved.`);
+          say(isNew ? `${u.name} created. A login email went to ${u.email}; the link works for 7 days.` : `${u.name}’s role saved.`);
           setEdit(null);
         }}
       />
       <ConfirmDialog
         open={!!removing}
         title={`Delete ${removing?.name}’s role?`}
-        confirm="Delete"
-        cancel="Keep"
+        confirm="Delete role"
+        danger
         onCancel={() => setRemoving(null)}
         onConfirm={() => {
           const u = removing!;
@@ -205,7 +206,34 @@ export function Users({ cfg, change, say }: ConfigProps) {
           setRemoving(null);
         }}
       >
-        <p>They can no longer sign in, and come off every queue and email group they’re in. What they did stays in the log.</p>
+        <p>They can no longer sign in, and come off every queue and email group they’re in. What they did stays in the log. This can’t be undone.</p>
+      </ConfirmDialog>
+      {/* H30 (QC, 1 Nov): deactivating asks first, and says where their work goes */}
+      <ConfirmDialog
+        open={!!deactivating}
+        title={`Deactivate ${deactivating?.name}?`}
+        confirm="Deactivate"
+        danger
+        onCancel={() => setDeactivating(null)}
+        onConfirm={() => {
+          setActive(deactivating!, false);
+          setDeactivating(null);
+        }}
+      >
+        {(() => {
+          const u = deactivating;
+          const leads = u ? cfg.queues.filter((q) => q.members.includes(u.id) && q.lead && q.lead !== u.id).map((q) => cfg.users.find((x) => x.id === q.lead)?.name).filter(Boolean) : [];
+          const leading = u ? cfg.queues.filter((q) => q.lead === u.id).map((q) => q.name) : [];
+          return (
+            <>
+              <p>They can’t sign in until you activate them again. They stay on record, and what they did stays in the log.</p>
+              <p>
+                Their open work goes to their queue leader{leads.length ? <>: <strong>{[...new Set(leads)].join(', ')}</strong></> : ''}.
+                {leading.length ? <> They lead <strong>{leading.join(', ')}</strong>: give {leading.length === 1 ? 'it' : 'them'} a new leader in Queues.</> : null}
+              </p>
+            </>
+          );
+        })()}
       </ConfirmDialog>
     </>
   );
@@ -215,33 +243,37 @@ export function Users({ cfg, change, say }: ConfigProps) {
 function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boolean; user: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User) => void }) {
   const blank = (): User => ({ id: `u${Date.now()}`, name: '', email: '', dial: '+91', phone: '', role: 'Admission', title: '', region: '', regions: [], area: '', status: 'Not sent' });
   const [v, setV] = useState<User>(blank);
-  const [tried, setTried] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    setV(user ?? blank());
-    setTried(false);
-  }, [open, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [start, setStart] = useState<User>(blank);
   const set = (p: Partial<User>) => setV((x) => ({ ...x, ...p }));
   const email = v.email.trim().toLowerCase();
-  const err = {
+  // QC, 1 Nov: checked when left and on Save; the phone's length follows its country code; the first error is focused
+  const c = useCheck({
     name: v.name.trim().length < 2 ? 'Enter their full name.' : null,
-    email: !isEmail(email) ? 'Enter their email, like name@gsp.upgrad.com.' : users.some((x) => x.id !== v.id && x.email.toLowerCase() === email) ? 'Someone already has this email.' : null,
-    phone: v.phone && v.phone.replace(/\D/g, '').length < 7 ? 'Enter the whole number, or leave it empty.' : null,
+    email: emailError(email, { what: 'email', example: 'name@gsp.upgrad.com' }) || dupError(email, users.filter((x) => x.id !== v.id).map((x) => x.email), 'Someone already has this email.'),
+    phone: phoneError(v.dial, v.phone),
     region: !v.regions.length ? 'Pick their sales region.' : null,
-  };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  });
+  useEffect(() => {
+    if (!open) return;
+    const x = user ?? blank();
+    setV(x);
+    setStart(x);
+    c.reset();
+  }, [open, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dirty = JSON.stringify(v) !== JSON.stringify(start);
   const save = () => {
-    setTried(true);
-    if (Object.values(err).some(Boolean)) return;
+    if (!c.submit()) return;
     onSave({ ...v, name: v.name.trim(), email, title: v.title.trim() });
   };
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      dirty={dirty}
+      what={user ? `${user.name}’s role` : 'the new user'}
       center
       className="iform cfg__sheet"
-      title={user ? `Edit ${user.name}’s role` : 'Create a user'}
+      title={user ? `Edit ${user.name}’s role` : 'Create user'}
       sub={user ? undefined : 'They get a login email straight away, to set their password and sign in.'}
       footer={
         <div className="asf">
@@ -249,22 +281,24 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={save}>{user ? 'Save' : 'Create user'}</Button>
+            <Button onClick={save} disabled={!!user && !dirty}>
+              {user ? 'Save' : 'Create user'}
+            </Button>
           </div>
         </div>
       }
     >
       <div className="iform__grid">
-        <Field id="us-name" label="Name" required error={show('name')}>
-          <TextInput id="us-name" value={v.name} invalid={!!show('name')} aria-describedby={describedBy('us-name', show('name'))} onChange={(e) => set({ name: e.target.value })} />
+        <Field id="us-name" label="Name" required error={c.err('name')}>
+          <TextInput id="us-name" value={v.name} autoComplete="off" onBlur={c.blur('name')} onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field id="us-email" label="Email" required error={show('email')}>
-          <TextInput id="us-email" type="email" value={v.email} invalid={!!show('email')} aria-describedby={describedBy('us-email', show('email'))} onChange={(e) => set({ email: e.target.value })} />
+        <Field id="us-email" label="Email" required error={c.err('email')}>
+          <TextInput id="us-email" type="email" value={v.email} autoComplete="off" onBlur={c.blur('email')} onChange={(e) => set({ email: e.target.value })} />
         </Field>
-        <Field id="us-phone" label="Phone number" optional error={show('phone')}>
-          <PhoneInput id="us-phone" dial={v.dial} number={v.phone} invalid={!!show('phone')} describedBy={describedBy('us-phone', show('phone'))} onDial={(d) => set({ dial: d })} onNumber={(n) => set({ phone: n })} />
+        <Field id="us-phone" label="Phone number" error={c.err('phone')}>
+          <PhoneInput id="us-phone" dial={v.dial} number={v.phone} invalid={!!c.err('phone')} describedBy={c.err('phone') ? 'us-phone-error' : undefined} onBlur={c.blur('phone')} onDial={(d) => set({ dial: d })} onNumber={(n) => set({ phone: n })} />
         </Field>
-        <Field id="us-title" label="Title" optional>
+        <Field id="us-title" label="Title">
           <TextInput id="us-title" value={v.title} placeholder="Like: Admissions Officer" onChange={(e) => set({ title: e.target.value })} />
         </Field>
         <Field id="us-role" label="Role" required>
@@ -274,8 +308,8 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
             ))}
           </SelectInput>
         </Field>
-        <Field id="us-region" label="Sales region" required error={show('region')}>
-          <MultiPick id="us-region" label="Sales region" value={v.regions} options={regions} onChange={(rs: string[]) => set({ regions: rs, region: rs.join(', ') })} empty="Pick one or more" />
+        <Field id="us-region" label="Sales region" required error={c.err('region')}>
+          <MultiPick id="us-region" label="Sales region" value={v.regions} options={regions} invalid={!!c.err('region')} onClose={c.blur('region')} onChange={(rs: string[]) => set({ regions: rs, region: rs.join(', ') })} empty="Pick one or more" />
         </Field>
       </div>
     </Sheet>

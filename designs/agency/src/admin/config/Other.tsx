@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { SelectInput, TextInput } from '../../components/forms';
+import { DateInput, SelectInput } from '../../components/forms';
+import { fmtDate } from '../../data/format';
+import { afterError, dateError } from '../../components/validate';
 import { PageHead, downloadCsv } from '../../institution/records/parts';
 import type { ConfigProps } from './ConfigPage';
 
@@ -17,8 +19,11 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
   const [to, setTo] = useState('');
   const day = (at: number) => new Date(at - new Date(at).getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   const all = cfg.log.filter((l) => l.kind === 'download');
-  const rows = all.filter((l) => (!role || l.role === role) && (!who || l.who === who) && (!from || day(l.at) >= from) && (!to || day(l.at) <= to)).sort((a, b) => b.at - a.at);
-  const date = (at: number) => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  // a date filter only applies once it's a whole date (typed DD/MM/YYYY)
+  const iso = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+  const rows = all.filter((l) => (!role || l.role === role) && (!who || l.who === who) && (!iso(from) || day(l.at) >= from) && (!iso(to) || day(l.at) <= to)).sort((a, b) => b.at - a.at);
+  const date = (at: number) => fmtDate(at);
+  const rangeErr = dateError(from, { what: 'From date' }) || dateError(to, { what: 'To date' }) || afterError(from, to, 'To date', 'From date');
   const time = (at: number) => new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const filtered = Boolean(role || who || from || to);
   return (
@@ -52,11 +57,11 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
             </SelectInput>
             <label className="cfg__date">
               <span>From</span>
-              <TextInput id="lg-from" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+              <DateInput id="lg-from" value={from} invalid={!!rangeErr && !!from} aria-describedby={rangeErr ? 'lg-range' : undefined} onChange={setFrom} />
             </label>
             <label className="cfg__date">
               <span>To</span>
-              <TextInput id="lg-to" type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+              <DateInput id="lg-to" value={to} invalid={!!rangeErr && !!to} aria-describedby={rangeErr ? 'lg-range' : undefined} onChange={setTo} />
             </label>
             {filtered && (
               <Button variant="link" onClick={() => { setRole(''); setWho(''); setFrom(''); setTo(''); }}>
@@ -64,6 +69,11 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
               </Button>
             )}
           </div>
+          {rangeErr && (from.length >= 10 || to.length >= 10) && (
+            <p className="field__msg field__msg--error" id="lg-range" role="alert">
+              {rangeErr}
+            </p>
+          )}
           <p className="stools__count" id="lg-count" role="status">
             <span className="num">{rows.length}</span> entries
           </p>

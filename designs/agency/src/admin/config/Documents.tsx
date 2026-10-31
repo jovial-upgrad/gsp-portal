@@ -20,7 +20,7 @@ type Draft = { docRules: DocRule[]; rpDocs: RpDocRule[] };
  * until Save.
  */
 export function Documents({ cfg, change, say }: ConfigProps) {
-  const d = useDraft<Draft>({ docRules: cfg.docRules, rpDocs: cfg.rpDocs });
+  const d = useDraft<Draft>({ docRules: cfg.docRules, rpDocs: cfg.rpDocs }, 'the document rules');
   const [rule, setRule] = useState<DocRule | 'new' | null>(null);
   const ed = d.editing;
   const v = d.value;
@@ -29,13 +29,13 @@ export function Documents({ cfg, change, say }: ConfigProps) {
     const n = v.docRules.filter((r) => JSON.stringify(r) !== JSON.stringify(cfg.docRules.find((x) => x.id === r.id))).length + Math.abs(v.docRules.length - cfg.docRules.length);
     const rp = JSON.stringify(v.rpDocs) !== JSON.stringify(cfg.rpDocs);
     change('Document configuration', `Saved ${n} application document rule${n === 1 ? '' : 's'}${rp ? ' and the recruitment partner documents' : ''}`, (c) => ({ ...c, ...v }));
-    say('Saved. Applies to stages an open application hasn’t reached yet.');
+    say('Document rules saved. They apply to stages an open application hasn’t reached yet.');
     d.stop();
   };
   return (
     <>
       <PageHead title="Document configuration" lead="Which documents an application asks for, and which a recruitment partner sends to be verified. Every change is logged.">
-        <EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={d.stop} onSave={save} />
+        <EditBar name="document rules" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={d.stop} onSave={save} />
       </PageHead>
       {ed && <p className="cfg__warnbox cfg__editing">You’re editing. Nothing is kept until you click Save.</p>}
       <Panel

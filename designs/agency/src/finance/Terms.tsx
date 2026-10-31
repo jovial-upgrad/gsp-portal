@@ -226,8 +226,8 @@ function Bands({ bands, onChange, unit = '%', show = false, label = 'Band' }) {
   );
 }
 
-function Foot({ onClose, onSave, ro }) {
-  return <>{!ro && <span className="muted gspx-grow">A second Finance person approves before it applies.</span>}<Button onClick={onClose}>{ro ? 'Close' : 'Cancel'}</Button>{!ro && <Button kind="primary" onClick={onSave}>Send for checking</Button>}</>;
+function Foot({ onClose, onSave, ro, dirty = true }) {
+  return <>{!ro && <span className="muted gspx-grow">A second Finance person approves before it applies.</span>}<Button onClick={onClose}>{ro ? 'Close' : 'Cancel'}</Button>{!ro && <Button kind="primary" disabled={!dirty} onClick={onSave}>Send for checking</Button>}</>;
 }
 
 function UniSheet({ ro, c, u, onClose, propose }) {
@@ -245,7 +245,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
   const v = useCheck(errors);
   const save = () => v.submit() && propose('unis', u.id, u, d, `${u.name} terms`);
   return (
-    <Sheet title={u.name} sub="University terms. What the contract says is at the end." onClose={onClose} wide dirty={!ro && dirty} what={`${u.name}’s terms`} footer={<Foot ro={ro} onClose={onClose} onSave={save} />}>
+    <Sheet title={u.name} sub="University terms. What the contract says is at the end." onClose={onClose} wide dirty={!ro && dirty} what={`${u.name}’s terms`} footer={<Foot ro={ro} dirty={dirty} onClose={onClose} onSave={save} />}>
       <div className="gspx-grid2">
         <div className="gspx-form2">
           <Select id="u-trig" label="Commission is earned at" required value={d.trigger} onChange={x => set('trigger', x)} options={Object.entries(TRIG)} />
@@ -301,7 +301,7 @@ function RpSheet({ ro, c, r, onClose, propose }) {
     propose('rps', r ? r.id : d.id.trim(), r || null, { ...d, id: d.id.trim(), name: d.name.trim() }, `${d.name} RP terms${r ? '' : ' (new)'}`);
   };
   return (
-    <Sheet title={r ? r.name : 'Add RP terms'} sub="From the RP’s signed agreement" onClose={onClose} wide dirty={!ro && dirty} what={r ? `${r.name}’s terms` : 'the new RP terms'} footer={<Foot ro={ro} onClose={onClose} onSave={save} />}>
+    <Sheet title={r ? r.name : 'Add RP terms'} sub="From the RP’s signed agreement" onClose={onClose} wide dirty={!ro && dirty} what={r ? `${r.name}’s terms` : 'the new RP terms'} footer={<Foot ro={ro} dirty={!r || dirty} onClose={onClose} onSave={save} />}>
       <div className="gspx-form2">
         {!r && <><Field id="rp-id" label="RP ID" required error={v.err('id')}><Input id="rp-id" value={d.id} onBlur={v.blur('id')} onChange={x => set('id', x)} /></Field>
           <Field id="rp-n" label="RP name" required error={v.err('name')}><Input id="rp-n" value={d.name} onBlur={v.blur('name')} onChange={x => set('name', x)} /></Field>
@@ -334,7 +334,7 @@ function SchemeSheet({ ro, c, x, onClose, propose }) {
   const v = useCheck(errors);
   const save = () => v.submit() && propose('schemes', d.id, x || null, d, `scheme ${d.id} ${d.name}${x ? '' : ' (new)'}`);
   return (
-    <Sheet title={x ? `${x.id} ${x.name}` : 'Add scheme'} onClose={onClose} wide dirty={!ro && dirty} what={x ? `scheme ${x.id}` : 'the new scheme'} footer={<Foot ro={ro} onClose={onClose} onSave={save} />}>
+    <Sheet title={x ? `${x.id} ${x.name}` : 'Add scheme'} onClose={onClose} wide dirty={!ro && dirty} what={x ? `scheme ${x.id}` : 'the new scheme'} footer={<Foot ro={ro} dirty={!x || dirty} onClose={onClose} onSave={save} />}>
       <div className="gspx-form2">
         <Field id="s-n" label="Name" required error={v.err('name')}><Input id="s-n" value={d.name} onBlur={v.blur('name')} onChange={y => set('name', y)} /></Field>
         <Field id="s-r" label="Region"><Input id="s-r" value={d.region} onChange={y => set('region', y)} /></Field>
@@ -364,7 +364,7 @@ function NoticeSheet({ ro, c, x, onClose, propose }) {
   const save = () => v.submit() && propose('notices', d.id, x || null, d, `notice ${d.id} ${d.name}${x ? '' : ' (new)'}`);
   const rpName = id => (c.cfg.rps.find(r => r.id === id) || {}).name || id;
   return (
-    <Sheet title={x ? `${x.id} ${x.name}` : 'Add notice'} sub="From the notice, addendum, flyer or email approval" onClose={onClose} wide dirty={!ro && dirty} what={x ? `notice ${x.id}` : 'the new notice'} footer={<Foot ro={ro} onClose={onClose} onSave={save} />}>
+    <Sheet title={x ? `${x.id} ${x.name}` : 'Add notice'} sub="From the notice, addendum, flyer or email approval" onClose={onClose} wide dirty={!ro && dirty} what={x ? `notice ${x.id}` : 'the new notice'} footer={<Foot ro={ro} dirty={!x || dirty} onClose={onClose} onSave={save} />}>
       <div className="gspx-form2">
         <Field id="n-n" label="Name" required error={v.err('name')}><Input id="n-n" value={d.name} onBlur={v.blur('name')} onChange={y => set('name', y)} /></Field>
         <Select id="n-doc" label="Source document" required value={d.doc} onChange={y => set('doc', y)} options={['Notice', 'Addendum', 'Flyer', 'Email approval']} />

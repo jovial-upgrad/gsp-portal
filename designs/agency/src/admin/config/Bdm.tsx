@@ -5,6 +5,7 @@ import { Sheet } from '../../components/Sheet';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
 import { Field, SelectInput } from '../../components/forms';
+import { useCheck } from '../../components/validate';
 import { COUNTRIES, countryByName } from '../../data/partners';
 import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
@@ -93,15 +94,15 @@ export function Bdm({ cfg, change, say }: ConfigProps) {
             const at = c.bdm.findIndex((x) => x.fallback);
             return { ...c, bdm: [...c.bdm.slice(0, at), r, ...c.bdm.slice(at)] };
           });
-          say('Saved. Applies to new branches from now on.');
+          say('BDM row saved. It applies to new branches from now on.');
           setEdit(null);
         }}
       />
       <ConfirmDialog
         open={!!removing}
         title="Remove this row?"
-        confirm="Remove"
-        cancel="Keep"
+        confirm="Remove row"
+        danger
         onCancel={() => setRemoving(null)}
         onConfirm={() => {
           const r = removing!;
@@ -122,14 +123,15 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
   const [covers, setCovers] = useState<Covers>('whole');
   const [places, setPlaces] = useState<string[]>([]);
   const [bdm, setBdm] = useState('');
-  const [tried, setTried] = useState(false);
+  const [start, setStart] = useState('');
   useEffect(() => {
     if (!open) return;
     setCountry(row?.country ?? '');
     setCovers(row ? coversOf(row) : 'whole');
     setPlaces(row && coversOf(row) === 'some' ? row.area.split(',').map((x) => x.trim()) : []);
     setBdm(row?.bdm ?? '');
-    setTried(false);
+    setStart(JSON.stringify([row?.country ?? '', row ? coversOf(row) : 'whole', row && coversOf(row) === 'some' ? row.area.split(',').map((x) => x.trim()) : [], row?.bdm ?? '']));
+    c.reset();
   }, [open, row?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const fallback = !!row?.fallback;
   const isRegion = REGION_ROWS.includes(country);
@@ -142,18 +144,21 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
     places: covers === 'some' && !places.length ? 'Pick at least one state or city.' : null,
     bdm: !bdm.trim() ? 'Choose a BDM.' : null,
   };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const c = useCheck(fallback ? { country: null, places: null, bdm: err.bdm } : err);
+  const show = (k: keyof typeof err) => c.err(k);
+  const dirty = JSON.stringify([country, covers, places, bdm]) !== start;
   // states, then each state's main cities (Jovial, 31 Oct: one searchable list to tick)
   const placeOptions = [...new Set([...states, ...states.flatMap((st) => CITIES[st] ?? []), ...places])];
   const save = () => {
-    setTried(true);
-    if (fallback ? err.bdm : Object.values(err).some(Boolean)) return;
+    if (!c.submit()) return;
     onSave(fallback ? { ...row!, bdm: bdm.trim() } : { id: row?.id ?? `b${Date.now()}`, country, area, bdm: bdm.trim() }, !row);
   };
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      dirty={dirty}
+      what={row ? 'this BDM row' : 'the new BDM row'}
       center
       className="iform cfg__sheet"
       title={row ? 'Edit BDM row' : 'Add BDM row'}
@@ -164,7 +169,9 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={save}>{row ? 'Save' : 'Add row'}</Button>
+            <Button onClick={save} disabled={!!row && !dirty}>
+              {row ? 'Save' : 'Add row'}
+            </Button>
           </div>
         </div>
       }
@@ -173,7 +180,7 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
         {!fallback && (
           <>
             <Field id="bd-country" label="Country or region" required error={show('country')}>
-              <SelectInput id="bd-country" value={country} placeholder="Choose" invalid={!!show('country')} onChange={(e) => (setCountry(e.target.value), setPlaces([]), setCovers('whole'))}>
+              <SelectInput id="bd-country" value={country} placeholder="Choose" onBlur={c.blur('country')} onChange={(e) => (setCountry(e.target.value), setPlaces([]), setCovers('whole'))}>
                 {[...REGION_ROWS, ...COUNTRIES.map((c) => c.name)].map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -200,13 +207,13 @@ function BdmDialog({ open, row, rows, bdms, onClose, onSave }: { open: boolean; 
             )}
             {covers === 'some' && (
               <Field id="bd-places" label="States or cities" required error={show('places')} hint="Search and tick as many as this BDM covers. Ones already in another row aren’t offered.">
-                <MultiPick id="bd-places" label="States or cities" value={places} options={placeOptions.filter((x) => !taken.has(x) || places.includes(x))} empty="Choose states or cities" search onChange={setPlaces} />
+                <MultiPick id="bd-places" label="States or cities" invalid={!!show('places')} onClose={c.blur('places')} value={places} options={placeOptions.filter((x) => !taken.has(x) || places.includes(x))} empty="Choose states or cities" search onChange={setPlaces} />
               </Field>
             )}
           </>
         )}
         <Field id="bd-bdm" label="BDM" required error={show('bdm')}>
-          <SelectInput id="bd-bdm" value={bdm} placeholder="Choose a BDM" invalid={!!show('bdm')} onChange={(e) => setBdm(e.target.value)}>
+          <SelectInput id="bd-bdm" value={bdm} placeholder="Choose a BDM" onBlur={c.blur('bdm')} onChange={(e) => setBdm(e.target.value)}>
             {[...new Set([...bdms, bdm].filter(Boolean))].map((b) => (
               <option key={b}>{b}</option>
             ))}

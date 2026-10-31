@@ -6,9 +6,13 @@ import { FLAG } from '../../data/courses';
 import { PageHead } from '../../institution/records/parts';
 import { inrPerFrom, type FxWeek, type Living, type Rate, type VisaFee } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
-import { EditBar, History, Panel, useDraft, when } from './parts';
+import { CellError, EditBar, History, Panel, useDraft, when } from './parts';
+import { useCheck } from '../../components/validate';
+import { fmtAmount } from '../../data/format';
 
 const num = (v: string) => Number(v.replace(/[^\d.]/g, ''));
+/** A rate as typed: digits and one point, so "0.0" can be typed on the way to "0.05". */
+const rateText = (v: string) => v.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
 const fmt = (n: number) => (!n ? '' : n < 0.01 ? String(Number(n.toPrecision(3))) : n.toLocaleString('en-GB', { maximumFractionDigits: 4 }));
 const nudge4 = (v: number, pct: number) => Number((v * (1 + (Math.random() * 2 - 1) * pct)).toPrecision(4));
 
@@ -25,9 +29,25 @@ const weekStart = (t = Date.now()) => {
   return d.toISOString().slice(0, 10);
 };
 export function Currency({ cfg, change, say }: ConfigProps) {
-  const d = useDraft<Rate[]>(cfg.rates);
+  const d = useDraft<Rate[]>(cfg.rates, 'the exchange rates');
   const [fetched, setFetched] = useState<number | null>(null);
+  // what's typed in each rate box while it isn't a number yet ("0.0")
+  const [typed, setTyped] = useState<Record<number, string>>({});
   const ed = d.editing;
+  // QC, 1 Nov: a code and a rate for each, no code twice; a rate that moves more than 20% is flagged, not refused
+  const errors: Record<string, string | null> = {};
+  d.value.forEach((r, i) => {
+    const code = r.code.trim().toUpperCase();
+    errors[`fxc-${i}`] = !code ? 'Enter the currency code, like EUR.' : !/^[A-Z]{3}$/.test(code) ? 'A currency code is 3 letters, like EUR.' : d.value.some((x, j) => j < i && x.code.trim().toUpperCase() === code) ? `There’s already a currency with the code ${code}.` : null;
+    errors[`fx-${i}`] = r.code === 'AUD' ? null : !r.aud ? `Enter 1 ${code || 'unit'} in Australian dollars, more than 0.` : null;
+  });
+  const v = useCheck(errors);
+  const moved = (r: Rate) => {
+    const was = cfg.rates.find((x) => x.code === r.code)?.aud;
+    if (!was || !r.aud || r.code === 'AUD') return null;
+    const pct = Math.round(((r.aud - was) / was) * 100);
+    return Math.abs(pct) > 20 ? `${Math.abs(pct)}% ${pct > 0 ? 'more' : 'less'} than the saved rate (${fmt(was)}). Check it before you Save.` : null;
+  };
   const upd = (i: number, p: Partial<Rate>) => d.set((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
   const inr = (code: string, rates: Rate[]) => inrPerFrom(rates, code);
   const fetchRates = () => {
@@ -37,8 +57,7 @@ export function Currency({ cfg, change, say }: ConfigProps) {
     say('Today’s rates are filled in. Check them, then Save.');
   };
   const save = () => {
-    const bad = d.value.find((x) => !x.code.trim() || !x.aud);
-    if (bad) return say('Every currency needs a code and a rate.');
+    if (!v.submit()) return;
     const rates = d.value.map((x) => ({ ...x, code: x.code.trim().toUpperCase() }));
     const changed = rates.filter((x) => JSON.stringify(x) !== JSON.stringify(cfg.rates.find((y) => y.code === x.code))).map((x) => `${x.code} AUD ${x.aud}`);
     const week = weekStart();
@@ -48,8 +67,10 @@ export function Currency({ cfg, change, say }: ConfigProps) {
       rates,
       fxWeeks: [...c.fxWeeks.filter((w) => w.week < week), row, ...c.fxWeeks.filter((w) => w.week > week).map((w) => ({ ...w, ...row, week: w.week }))],
     }));
-    say('Saved and logged. Course search and Finance use the new rates from now.');
+    say('Exchange rates saved. Course search and Finance use them from now.');
     setFetched(null);
+    setTyped({});
+    v.reset();
     d.stop();
   };
   return (
@@ -58,16 +79,16 @@ export function Currency({ cfg, change, say }: ConfigProps) {
         <Button variant="secondary" iconLeft={<Icon name="refresh" size={18} />} onClick={fetchRates}>
           Get today’s rates
         </Button>
-        <EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => { setFetched(null); d.stop(); }} onSave={save} />
+        <EditBar name="exchange rates" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => { setFetched(null); setTyped({}); v.reset(); d.stop(); }} onSave={save} />
       </PageHead>
       {fetched && <p className="cfg__warnbox cfg__editing">Rates fetched {when(fetched)}. Nothing changes until you Save.</p>}
       <Panel flush>
         <div className="stab-wrap">
-          <table className="itab cfg__tab">
+          <table className="itab cfg__tab cfg__fx">
             <thead>
               <tr>
                 <th scope="col">Currency</th>
-                <th scope="col">Used for</th>
+                <th scope="col" className="cfg__usedfor">Used for</th>
                 <th scope="col">1 unit in AUD</th>
                 <th scope="col">1 unit in INR</th>
                 <th scope="col">Last changed</th>
@@ -80,8 +101,8 @@ export function Currency({ cfg, change, say }: ConfigProps) {
                   <td>
                     {ed && !cfg.rates.some((x) => x.code === r.code && x.name === r.name) ? (
                       <span className="cfg__pair">
-                        <TextInput id={`fxc-${i}`} aria-label="Currency code" className="cfg__cellinput cfg__code" placeholder="Code" maxLength={3} value={r.code} onChange={(e) => upd(i, { code: e.target.value.toUpperCase() })} />
-                        <TextInput id={`fxn-${i}`} aria-label="Currency name" className="cfg__cellinput" placeholder="Name" value={r.name} onChange={(e) => upd(i, { name: e.target.value })} />
+                        <TextInput id={`fxc-${i}`} aria-label={`Row ${i + 1}: currency code`} className="cfg__cellinput cfg__code" placeholder="Code" maxLength={3} value={r.code} invalid={!!v.err(`fxc-${i}`)} aria-describedby={v.err(`fxc-${i}`) ? `fxc-${i}-error` : undefined} onBlur={v.blur(`fxc-${i}`)} onChange={(e) => upd(i, { code: e.target.value.toUpperCase() })} />
+                        <TextInput id={`fxn-${i}`} aria-label={`Row ${i + 1}: currency name`} className="cfg__cellinput" placeholder="Name" value={r.name} onChange={(e) => upd(i, { name: e.target.value })} />
                       </span>
                     ) : (
                       <>
@@ -89,13 +110,36 @@ export function Currency({ cfg, change, say }: ConfigProps) {
                         <span className="cfg__sub">{r.name}</span>
                       </>
                     )}
+                    <CellError id={`fxc-${i}`}>{v.err(`fxc-${i}`)}</CellError>
                   </td>
-                  <td className="cfg__muted">
+                  <td className="cfg__muted cfg__usedfor">
                     {ed ? <TextInput id={`fxu-${i}`} aria-label={`${r.code}: used for`} className="cfg__cellinput" placeholder="Where it’s used" value={r.usedFor} onChange={(e) => upd(i, { usedFor: e.target.value })} /> : r.usedFor || '–'}
                   </td>
                   <td>
                     {ed && r.code !== 'AUD' ? (
-                      <TextInput id={`fx-${i}`} aria-label={`1 ${r.code} in Australian dollars`} inputMode="decimal" className="cfg__cellinput cfg__num" value={String(r.aud || '')} onChange={(e) => upd(i, { aud: num(e.target.value), updated: Date.now() })} />
+                      <>
+                        <TextInput
+                          id={`fx-${i}`}
+                          aria-label={`1 ${r.code || 'unit'} in Australian dollars`}
+                          inputMode="decimal"
+                          className="cfg__cellinput cfg__num"
+                          value={typed[i] ?? String(r.aud || '')}
+                          invalid={!!v.err(`fx-${i}`)}
+                          aria-describedby={v.err(`fx-${i}`) ? `fx-${i}-error` : moved(r) ? `fx-${i}-warn` : undefined}
+                          onBlur={() => (v.blur(`fx-${i}`)(), setTyped((t) => { const n = { ...t }; delete n[i]; return n; }))}
+                          onChange={(e) => {
+                            const t = rateText(e.target.value);
+                            setTyped((x) => ({ ...x, [i]: t }));
+                            upd(i, { aud: num(t), updated: Date.now() });
+                          }}
+                        />
+                        <CellError id={`fx-${i}`}>{v.err(`fx-${i}`)}</CellError>
+                        {!v.err(`fx-${i}`) && moved(r) && (
+                          <span className="cfg__cellwarn" id={`fx-${i}-warn`}>
+                            <Icon name="alert" size={14} /> {moved(r)}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span className="num">{r.code === 'AUD' ? '1' : fmt(r.aud)}</span>
                     )}
@@ -118,7 +162,15 @@ export function Currency({ cfg, change, say }: ConfigProps) {
         </div>
         {ed && (
           <div className="cfg__addrow">
-            <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => d.set((l) => [...l, { code: '', name: '', aud: 0, usedFor: '', updated: Date.now() }])}>
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<Icon name="plus" size={16} />}
+              onClick={() => {
+                d.set((l) => [...l, { code: '', name: '', aud: 0, usedFor: '', updated: Date.now() }]);
+                window.setTimeout(() => document.getElementById(`fxc-${d.value.length}`)?.focus(), 40);
+              }}
+            >
               Add currency
             </Button>
           </div>
@@ -137,9 +189,16 @@ export function Currency({ cfg, change, say }: ConfigProps) {
  * added.
  */
 export function LivingCosts({ cfg, change, say }: ConfigProps) {
-  const d = useDraft<Living[]>(cfg.living);
+  const d = useDraft<Living[]>(cfg.living, 'the living costs');
   const [fetched, setFetched] = useState<number | null>(null);
   const ed = d.editing;
+  const errors: Record<string, string | null> = {};
+  d.value.forEach((l, i) => {
+    errors[`lvn-${i}`] = !l.country.trim() ? 'Enter the destination.' : d.value.some((x, j) => j < i && x.country.trim().toLowerCase() === l.country.trim().toLowerCase()) ? `${l.country.trim()} is already on the list.` : null;
+    errors[`lvc-${i}`] = !/^[A-Z]{3}$/.test(l.currency.trim()) ? 'Enter the currency code: 3 letters, like AUD.' : null;
+    errors[`lv-${i}`] = !l.perYear ? 'Enter a year’s living costs, more than 0.' : null;
+  });
+  const v = useCheck(errors);
   const upd = (i: number, p: Partial<Living>) => d.set((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
   const fetchFigures = () => {
     if (!ed) d.start();
@@ -148,11 +207,12 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
     say('Checked against each country’s visa rules. Nothing has moved since the last change; Save to record the check.');
   };
   const save = () => {
-    if (d.value.some((x) => !x.country.trim() || !x.currency.trim() || !x.perYear)) return say('Every destination needs a name, a currency and a yearly figure.');
+    if (!v.submit()) return;
     const changed = d.value.filter((x) => JSON.stringify(x) !== JSON.stringify(cfg.living.find((y) => y.country === x.country))).map((x) => `${x.country} ${x.currency} ${x.perYear.toLocaleString('en-GB')}`);
     change('Living costs', `Saved ${changed.join(', ') || 'no changes'}${fetched ? ' (figures checked)' : ''}`, (c) => ({ ...c, living: d.value }));
-    say('Saved and logged.');
+    say('Living costs saved.');
     setFetched(null);
+    v.reset();
     d.stop();
   };
   return (
@@ -161,7 +221,7 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
         <Button variant="secondary" iconLeft={<Icon name="refresh" size={18} />} onClick={fetchFigures}>
           Get current figures
         </Button>
-        <EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => { setFetched(null); d.stop(); }} onSave={save} />
+        <EditBar name="living costs" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => { setFetched(null); v.reset(); d.stop(); }} onSave={save} />
       </PageHead>
       {fetched && <p className="cfg__warnbox cfg__editing">Figures checked {when(fetched)}. Nothing changes until you Save.</p>}
       <Panel flush>
@@ -181,22 +241,27 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
                 <tr key={i}>
                   <td className="cfg__strong">
                     {ed && !cfg.living.some((x) => x.country === l.country) ? (
-                      <TextInput id={`lvn-${i}`} aria-label="Destination" className="cfg__cellinput" placeholder="Destination" value={l.country} onChange={(e) => upd(i, { country: e.target.value })} />
+                      <TextInput id={`lvn-${i}`} aria-label={`Row ${i + 1}: destination`} className="cfg__cellinput" placeholder="Destination" value={l.country} invalid={!!v.err(`lvn-${i}`)} aria-describedby={v.err(`lvn-${i}`) ? `lvn-${i}-error` : undefined} onBlur={v.blur(`lvn-${i}`)} onChange={(e) => upd(i, { country: e.target.value })} />
                     ) : (
                       <>
                         <span aria-hidden="true">{FLAG[l.country as keyof typeof FLAG] ?? ''}</span> {l.country}
                       </>
                     )}
+                    <CellError id={`lvn-${i}`}>{v.err(`lvn-${i}`)}</CellError>
                   </td>
                   <td>
                     {ed ? (
+                      <>
                       <span className="cfg__money">
-                        <TextInput id={`lvc-${i}`} aria-label={`${l.country}: currency`} className="cfg__cellinput cfg__code" maxLength={3} value={l.currency} onChange={(e) => upd(i, { currency: e.target.value.toUpperCase() })} />
-                        <TextInput id={`lv-${i}`} aria-label={`${l.country}: a year’s living costs`} inputMode="numeric" className="cfg__cellinput cfg__num" value={fmt(l.perYear)} onChange={(e) => upd(i, { perYear: num(e.target.value), updated: Date.now() })} />
+                        <TextInput id={`lvc-${i}`} aria-label={`${l.country || `Row ${i + 1}`}: currency`} className="cfg__cellinput cfg__code" maxLength={3} value={l.currency} invalid={!!v.err(`lvc-${i}`)} aria-describedby={v.err(`lvc-${i}`) ? `lvc-${i}-error` : undefined} onBlur={v.blur(`lvc-${i}`)} onChange={(e) => upd(i, { currency: e.target.value.toUpperCase() })} />
+                        <TextInput id={`lv-${i}`} aria-label={`${l.country || `Row ${i + 1}`}: a year’s living costs`} inputMode="numeric" className="cfg__cellinput cfg__num" value={fmt(l.perYear)} invalid={!!v.err(`lv-${i}`)} aria-describedby={v.err(`lv-${i}`) ? `lv-${i}-error` : undefined} onBlur={v.blur(`lv-${i}`)} onChange={(e) => upd(i, { perYear: num(e.target.value), updated: Date.now() })} />
                       </span>
+                      <CellError id={`lvc-${i}`}>{v.err(`lvc-${i}`)}</CellError>
+                      <CellError id={`lv-${i}`}>{v.err(`lv-${i}`)}</CellError>
+                      </>
                     ) : (
                       <span className="num">
-                        {l.currency} {l.perYear.toLocaleString('en-GB')}
+                        {l.currency} {fmtAmount(l.perYear, l.currency)}
                       </span>
                     )}
                   </td>
@@ -233,20 +298,29 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
  * Other costs and its first year, all in, read them.
  */
 export function VisaFees({ cfg, change, say }: ConfigProps) {
-  const d = useDraft<VisaFee[]>(cfg.visaFees);
+  const d = useDraft<VisaFee[]>(cfg.visaFees, 'the visa and health fees');
   const ed = d.editing;
   const upd = (i: number, p: Partial<VisaFee>) => d.set((l) => l.map((x, j) => (j === i ? { ...x, ...p, updated: Date.now() } : x)));
+  const errors: Record<string, string | null> = {};
+  d.value.forEach((f, i) => {
+    errors[`vfd-${i}`] = !f.country.trim() ? 'Enter the destination.' : null;
+    errors[`vfl-${i}`] = !f.label.trim() ? 'Enter the fee’s name, like Student visa.' : null;
+    errors[`vfc-${i}`] = !/^[A-Z]{3}$/.test(f.currency.trim()) ? 'Enter the currency code: 3 letters, like AUD.' : null;
+    errors[`vfa-${i}`] = !f.amount ? 'Enter the amount, more than 0.' : null;
+  });
+  const v = useCheck(errors);
   const save = () => {
-    if (d.value.some((x) => !x.country.trim() || !x.currency.trim() || !x.label.trim() || !x.amount)) return say('Every fee needs a destination, a currency, a name and an amount.');
+    if (!v.submit()) return;
     const changed = d.value.filter((x) => JSON.stringify(x) !== JSON.stringify(cfg.visaFees.find((y) => y.id === x.id))).map((x) => `${x.country} · ${x.label} ${x.currency} ${x.amount.toLocaleString('en-GB')}`);
     change('Visa and health fees', `Saved ${changed.join(', ') || 'no changes'}`, (c) => ({ ...c, visaFees: d.value }));
-    say('Saved and logged. Course pages show the new fees from now.');
+    say('Visa and health fees saved. Course pages show them from now.');
+    v.reset();
     d.stop();
   };
   return (
     <>
       <PageHead title="Visa and health fees" lead="What a student pays to study in each destination besides tuition and living costs. The course page lists them under Other costs and adds them to the first year, all in.">
-        <EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={d.stop} onSave={save} />
+        <EditBar name="visa and health fees" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (v.reset(), d.stop())} onSave={save} />
       </PageHead>
       <Panel flush>
         <div className="stab-wrap">
@@ -267,23 +341,39 @@ export function VisaFees({ cfg, change, say }: ConfigProps) {
                 <tr key={f.id}>
                   <td className="cfg__strong">
                     {ed ? (
-                      <TextInput id={`vfd-${i}`} aria-label="Destination" className="cfg__cellinput" value={f.country} onChange={(e) => upd(i, { country: e.target.value })} />
+                      <>
+                        <TextInput id={`vfd-${i}`} aria-label={`Row ${i + 1}: destination`} className="cfg__cellinput" value={f.country} invalid={!!v.err(`vfd-${i}`)} aria-describedby={v.err(`vfd-${i}`) ? `vfd-${i}-error` : undefined} onBlur={v.blur(`vfd-${i}`)} onChange={(e) => upd(i, { country: e.target.value })} />
+                        <CellError id={`vfd-${i}`}>{v.err(`vfd-${i}`)}</CellError>
+                      </>
                     ) : (
                       <>
                         <span aria-hidden="true">{FLAG[f.country as keyof typeof FLAG] ?? ''}</span> {f.country}
                       </>
                     )}
                   </td>
-                  <td>{ed ? <TextInput id={`vfl-${i}`} aria-label={`${f.country}: fee`} className="cfg__cellinput" value={f.label} onChange={(e) => upd(i, { label: e.target.value })} /> : f.label}</td>
                   <td>
                     {ed ? (
+                      <>
+                        <TextInput id={`vfl-${i}`} aria-label={`${f.country || `Row ${i + 1}`}: fee`} className="cfg__cellinput" value={f.label} invalid={!!v.err(`vfl-${i}`)} aria-describedby={v.err(`vfl-${i}`) ? `vfl-${i}-error` : undefined} onBlur={v.blur(`vfl-${i}`)} onChange={(e) => upd(i, { label: e.target.value })} />
+                        <CellError id={`vfl-${i}`}>{v.err(`vfl-${i}`)}</CellError>
+                      </>
+                    ) : (
+                      f.label
+                    )}
+                  </td>
+                  <td>
+                    {ed ? (
+                      <>
                       <span className="cfg__money">
-                        <TextInput id={`vfc-${i}`} aria-label={`${f.label}: currency`} className="cfg__cellinput cfg__code" maxLength={3} value={f.currency} onChange={(e) => upd(i, { currency: e.target.value.toUpperCase() })} />
-                        <TextInput id={`vfa-${i}`} aria-label={`${f.label}: amount`} inputMode="numeric" className="cfg__cellinput cfg__num" value={fmt(f.amount)} onChange={(e) => upd(i, { amount: num(e.target.value) })} />
+                        <TextInput id={`vfc-${i}`} aria-label={`${f.label || `Row ${i + 1}`}: currency`} className="cfg__cellinput cfg__code" maxLength={3} value={f.currency} invalid={!!v.err(`vfc-${i}`)} aria-describedby={v.err(`vfc-${i}`) ? `vfc-${i}-error` : undefined} onBlur={v.blur(`vfc-${i}`)} onChange={(e) => upd(i, { currency: e.target.value.toUpperCase() })} />
+                        <TextInput id={`vfa-${i}`} aria-label={`${f.label || `Row ${i + 1}`}: amount`} inputMode="numeric" className="cfg__cellinput cfg__num" value={fmt(f.amount)} invalid={!!v.err(`vfa-${i}`)} aria-describedby={v.err(`vfa-${i}`) ? `vfa-${i}-error` : undefined} onBlur={v.blur(`vfa-${i}`)} onChange={(e) => upd(i, { amount: num(e.target.value) })} />
                       </span>
+                      <CellError id={`vfc-${i}`}>{v.err(`vfc-${i}`)}</CellError>
+                      <CellError id={`vfa-${i}`}>{v.err(`vfa-${i}`)}</CellError>
+                      </>
                     ) : (
                       <span className="num">
-                        {f.currency} {f.amount.toLocaleString('en-GB')}
+                        {f.currency} {fmtAmount(f.amount, f.currency)}
                       </span>
                     )}
                   </td>

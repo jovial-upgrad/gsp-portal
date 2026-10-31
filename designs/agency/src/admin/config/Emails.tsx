@@ -4,15 +4,16 @@ import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
-import { Checkbox, Field, SelectInput, TextInput, describedBy } from '../../components/forms';
+import { Checkbox, DateInput, Field, SelectInput, TextInput } from '../../components/forms';
+import { useCheck, emailError, dupError, dateError } from '../../components/validate';
+import { fmtDate } from '../../data/format';
 import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
 import type { EmailGroup, EmailPerm } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft } from './parts';
 
-const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
-const dateText = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const dateText = (iso: string) => fmtDate(iso);
 const PERM: Record<EmailPerm, string> = { view: 'Only view', send: 'Can send' };
 
 /**
@@ -75,7 +76,7 @@ export function Emails({ cfg, change, say }: ConfigProps) {
         onSave={(x) => {
           const isNew = !cfg.emails.some((y) => y.id === x.id);
           change('Emails', `${isNew ? 'Added' : 'Edited'} ${x.email}: ${x.sync ? `syncs from ${dateText(x.since)}` : 'no sync'}`, (c) => ({ ...c, emails: isNew ? [...c.emails, x] : c.emails.map((y) => (y.id === x.id ? x : y)) }));
-          say(isNew ? `${x.email} added. Now add who can see it.` : `${x.email} saved.`);
+          say(isNew ? `Email group added: ${x.email}. Now add who can see it.` : 'Email group saved.');
           if (isNew) setCur(x.id);
           setEdit(null);
         }}
@@ -83,8 +84,8 @@ export function Emails({ cfg, change, say }: ConfigProps) {
       <ConfirmDialog
         open={!!removing}
         title={`Delete ${removing?.email}?`}
-        confirm="Delete"
-        cancel="Keep"
+        confirm="Delete email group"
+        danger
         onCancel={() => setRemoving(null)}
         onConfirm={() => {
           const x = removing!;
@@ -104,22 +105,26 @@ export function Emails({ cfg, change, say }: ConfigProps) {
 function GroupDialog({ open, group, groups, onClose, onSave }: { open: boolean; group: EmailGroup | null; groups: EmailGroup[]; onClose: () => void; onSave: (g: EmailGroup) => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const [v, setV] = useState<EmailGroup>({ id: '', email: '', sync: true, since: today, users: [] });
-  const [tried, setTried] = useState(false);
+  const [start, setStart] = useState<EmailGroup>(v);
+  const email = v.email.trim().toLowerCase();
+  const c = useCheck({
+    email: emailError(email, { what: 'group’s email', example: 'admissions@gsp.upgrad.com' }) || dupError(email, groups.filter((x) => x.id !== v.id).map((x) => x.email), 'There’s already a group with this email.'),
+    since: v.sync ? dateError(v.since, { what: 'sync start date', required: true }) || (v.since > today ? 'The sync start date can’t be in the future.' : null) : null,
+  });
   useEffect(() => {
     if (!open) return;
-    setV(group ?? { id: `e${Date.now()}`, email: '', sync: true, since: today, users: [] });
-    setTried(false);
+    const x = group ?? { id: `e${Date.now()}`, email: '', sync: true, since: today, users: [] };
+    setV(x);
+    setStart(x);
+    c.reset();
   }, [open, group?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const email = v.email.trim().toLowerCase();
-  const err = {
-    email: !isEmail(email) ? 'Enter the group’s email, like admissions@gsp.upgrad.com.' : groups.some((x) => x.id !== v.id && x.email === email) ? 'There’s already a group with this email.' : null,
-    since: v.sync && !v.since ? 'Pick the date the sync starts from.' : null,
-  };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const dirty = JSON.stringify(v) !== JSON.stringify(start);
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      dirty={dirty}
+      what={group ? group.email : 'the new email group'}
       center
       className="iform cfg__sheet"
       title={group ? 'Edit email group' : 'Add email group'}
@@ -130,9 +135,9 @@ function GroupDialog({ open, group, groups, onClose, onSave }: { open: boolean; 
               Cancel
             </Button>
             <Button
+              disabled={!!group && !dirty}
               onClick={() => {
-                setTried(true);
-                if (!Object.values(err).some(Boolean)) onSave({ ...v, email });
+                if (c.submit()) onSave({ ...v, email });
               }}
             >
               {group ? 'Save' : 'Add email group'}
@@ -142,15 +147,15 @@ function GroupDialog({ open, group, groups, onClose, onSave }: { open: boolean; 
       }
     >
       <div className="cfg__form">
-        <Field id="eg-email" label="Email" required error={show('email')}>
-          <TextInput id="eg-email" type="email" value={v.email} invalid={!!show('email')} placeholder="name@gsp.upgrad.com" aria-describedby={describedBy('eg-email', show('email'))} onChange={(e) => setV((x) => ({ ...x, email: e.target.value }))} />
+        <Field id="eg-email" label="Email" required error={c.err('email')}>
+          <TextInput id="eg-email" type="email" value={v.email} placeholder="name@gsp.upgrad.com" onBlur={c.blur('email')} onChange={(e) => setV((x) => ({ ...x, email: e.target.value }))} />
         </Field>
         <Checkbox id="eg-sync" checked={v.sync} onChange={(sync) => setV((x) => ({ ...x, sync }))} hint="Brings this inbox’s emails into the portal, from the start date on.">
           Email sync
         </Checkbox>
         {v.sync && (
-          <Field id="eg-since" label="Sync email start date" required error={show('since')}>
-            <TextInput id="eg-since" type="date" value={v.since} max={today} invalid={!!show('since')} onChange={(e) => setV((x) => ({ ...x, since: e.target.value }))} />
+          <Field id="eg-since" label="Sync email start date" required error={c.err('since')}>
+            <DateInput id="eg-since" value={v.since} onBlur={c.blur('since')} onChange={(since) => setV((x) => ({ ...x, since }))} />
           </Field>
         )}
       </div>
@@ -163,7 +168,7 @@ function GroupDialog({ open, group, groups, onClose, onSave }: { open: boolean; 
  * Save. Cancel throws the changes away.
  */
 function GroupUsers({ g, cfg, upd, say }: { g: EmailGroup; cfg: ConfigProps['cfg']; upd: (what: string, fn: (x: EmailGroup) => EmailGroup) => void; say: (m: string) => void }) {
-  const d = useDraft(g.users);
+  const d = useDraft(g.users, `who can see ${g.email}`);
   const [adding, setAdding] = useState<string[]>([]);
   const ed = d.editing;
   const list = d.value;
@@ -174,7 +179,7 @@ function GroupUsers({ g, cfg, upd, say }: { g: EmailGroup; cfg: ConfigProps['cfg
     const gone = g.users.filter((x) => !list.some((y) => y.id === x.id)).map((x) => nameOf(x.id)?.name);
     const moved = list.filter((x) => g.users.some((y) => y.id === x.id && y.perm !== x.perm)).map((x) => `${nameOf(x.id)?.name} → ${PERM[x.perm]}`);
     upd([added.length && `added ${added.join(', ')}`, gone.length && `took off ${gone.join(', ')}`, ...moved].filter(Boolean).join('; ') || 'no changes', (x) => ({ ...x, users: list }));
-    say(`${g.email}: saved.`);
+    say(`Email group users saved for ${g.email}.`);
     setAdding([]);
     d.stop();
   };
@@ -186,7 +191,7 @@ function GroupUsers({ g, cfg, upd, say }: { g: EmailGroup; cfg: ConfigProps['cfg
           Who can see <b>{g.email}</b>, and who can send from it. New users can only view.
         </>
       }
-      action={<EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => { setAdding([]); d.stop(); }} onSave={save} />}
+      action={<EditBar name={`users of ${g.email}`} editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => { setAdding([]); d.stop(); }} onSave={save} />}
       flush
     >
       {ed && (
