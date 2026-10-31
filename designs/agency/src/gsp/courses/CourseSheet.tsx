@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
-import { COURSES, FLAG, FLAG_COLOURS, blockedFor, earnOf, intakeState, money, scholarshipsOf, type Campus, type Course, type University, intakeDates } from '../../data/courses';
+import { COURSES, FLAG, FLAG_COLOURS, blockedFor, intakeState, money, scholarshipsOf, type Campus, type Course, type University, intakeDates } from '../../data/courses';
 import { RP_COUNTRY } from '../../data/entry';
 import { EntryTab } from '../../screens/courses/EntryTab';
 import type { CourseSearch } from './search';
@@ -251,15 +251,7 @@ function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canAppl
           </dd>
           <dd className="cs-stat__sub">{c.scholarship ? `Scholarship up to ${money(c.scholarship, c.currency)}` : 'No scholarship listed'}</dd>
         </div>
-        {!s.studentView && (
-          <div className="cs-stat is-earn">
-            <dt>Base commission</dt>
-            <dd className="cs-stat__v">
-              <Money v={earnOf(c)} cur={c.currency} approx />
-            </dd>
-            <dd className="cs-stat__sub">Once the student enrols</dd>
-          </div>
-        )}
+        {/* no Base commission for GSP's people (W26): only the RP sees its commission */}
       </dl>
       {!canApply && (
         <p className="csheet__lock">

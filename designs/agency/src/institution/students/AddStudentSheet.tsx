@@ -14,6 +14,7 @@ import { addedLabel } from './parts';
 import { AddDocs, fileError, type BulkFile, type Failed } from './AddDocs';
 import { classify, fileInto } from './record/sort';
 import { RPS, rpLabel } from '../rps';
+import { rpTeam } from '../../data/rpteam';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -339,9 +340,9 @@ export function AddStudentSheet({
               ))}
             </SelectInput>
           </Field>
-          {/* not a choice here: whoever adds the student is their counsellor */}
-          <Field id="as-counsellor" label="Counsellor" hint="Students start with whoever adds them. An admin can reassign them later.">
-            <TextInput id="as-counsellor" value={`${team.find((m) => m.id === f.counsellor)?.name ?? me} (you)`} readOnly aria-describedby="as-counsellor-hint" />
+          {/* GSP adds for an RP (W12): the student goes to the RP's counsellor, whom the RP can change */}
+          <Field id="as-counsellor" label="Counsellor" hint="The RP’s counsellor. The RP can reassign the student.">
+            <TextInput id="as-counsellor" value={f.rp ? (rpTeam(f.rp).find((m) => m.role === 'Counsellor') ?? rpTeam(f.rp)[0])?.name ?? f.rp : 'Choose the recruitment partner first'} readOnly aria-describedby="as-counsellor-hint" />
           </Field>
         </div>
 

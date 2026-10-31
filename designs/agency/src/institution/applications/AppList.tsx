@@ -12,14 +12,18 @@ import { shortDate } from '../../data/dates';
 import { STAGES, courseOf, destOf, isOpen, ownerOf, stageOf, statusText, type AppOwner, type Application } from '../../data/applications';
 import { OWNER_WORD, pendingFromGsp } from './owners';
 import { StageMeter } from './parts';
+import { byRegion, gspIsMine, useScope } from '../../data/scope';
+import { RegionBar } from '../../components/RegionBar';
+import { HOME_RP } from '../rps';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 export type OwnerView = '' | 'you' | 'gsp' | 'uni';
 export type Progress = '' | 'new' | 'applied' | 'offer' | 'deposit' | 'enrolled';
 /** The list's filters. stage, from and to are the advanced ones: a stage, and when the application started (yyyy-mm-dd). */
-export type ListState = { owner: OwnerView; progress: Progress; q: string; dest: string; who: string; intake: string; stage: string; from: string; to: string };
-export const NEW_LIST: ListState = { owner: '', progress: '', q: '', dest: '', who: '', intake: '', stage: '', from: '', to: '' };
+/** `rp` and `region`: GSP's filters by recruitment partner and sales region (W12); `who` is kept for older links. */
+export type ListState = { owner: OwnerView; progress: Progress; q: string; dest: string; who: string; rp?: string; region?: string; intake: string; stage: string; from: string; to: string };
+export const NEW_LIST: ListState = { owner: '', progress: '', q: '', dest: '', who: '', rp: '', region: '', intake: '', stage: '', from: '', to: '' };
 
 /**
  * The primary filters: how far an application has got, read from the status it's at (and so its stage).
@@ -42,7 +46,7 @@ const isoDay = (t: number) => {
 };
 
 export function AppList({
-  apps,
+  apps: all,
   students,
   team,
   st,
@@ -63,8 +67,14 @@ export function AppList({
   say: (m: string) => void;
 }) {
   const reduce = useReducedMotion();
+  let apps = all;
   const stu = (a: Application) => students.find((s) => s.id === a.studentId);
   const counsellorOf = (a: Application) => team.find((m) => m.id === stu(a)?.counsellor);
+  // GSP sees every RP's applications (W12): each with its own RP and sales region, cut to the person's regions
+  const rpOf = (a: Application) => a.rp ?? stu(a)?.rp ?? HOME_RP;
+  const regionOf = (a: Application) => a.region ?? 'India';
+  useScope(); // re-render when the person switches to every region
+  apps = byRegion(apps, regionOf);
   const owners = { '': apps.length, you: 0, gsp: 0, uni: 0 } as Record<OwnerView, number>;
   for (const a of apps) {
     const o = ownerOf(a);
@@ -79,21 +89,25 @@ export function AppList({
       if (st.progress && !PROGRESS.find((m) => m[0] === st.progress)![3](a)) return false;
       if (st.dest && destOf(a) !== st.dest) return false;
       if (st.who && s?.counsellor !== st.who) return false;
+      if (st.rp && rpOf(a) !== st.rp) return false;
+      if (st.region && regionOf(a) !== st.region) return false;
       if (st.intake && a.intake !== st.intake) return false;
       if (st.stage && stageOf(a) !== Number(st.stage)) return false;
       // a typed date only filters once it's a whole date (DD/MM/YYYY)
       if (isIso(st.from) && a.created < dayStart(st.from)) return false;
       if (isIso(st.to) && a.created > dayEnd(st.to)) return false;
-      if (ql && !`${a.id}${a.uniRef ?? ''}${s ? fullName(s) + s.passport : ''}${c.name}${c.uni.name}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
+      if (ql && !`${a.id}${a.uniRef ?? ''}${s ? fullName(s) + s.passport : ''}${c.name}${c.uni.name}${rpOf(a)}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
       return true;
     })
     // what's pending on GSP first, then the rest by the latest change
     .sort((a, b) => Number(pendingFromGsp(b)) - Number(pendingFromGsp(a)) || Number(isOpen(b)) - Number(isOpen(a)) || b.since - a.since);
   const advanced = (st.stage ? 1 : 0) + (st.from || st.to ? 1 : 0);
-  const filtered = !!(ql || st.dest || st.who || st.intake || st.progress || advanced);
+  const filtered = !!(ql || st.dest || st.who || st.rp || st.region || st.intake || st.progress || advanced);
   const narrowed = filtered || !!st.owner;
-  const clear = () => set((p) => ({ ...p, q: '', dest: '', who: '', intake: '', progress: '', stage: '', from: '', to: '' }));
+  const clear = () => set((p) => ({ ...p, q: '', dest: '', who: '', rp: '', region: '', intake: '', progress: '', stage: '', from: '', to: '' }));
   const dests = [...new Set(apps.map(destOf))].sort();
+  const rpNames = [...new Set(apps.map(rpOf))].sort((x, y) => x.localeCompare(y));
+  const regions = [...new Set(apps.map(regionOf))].sort();
   const intakes = [...new Set(apps.map((a) => a.intake))];
   // the advanced filters open when one is set, and stay where the agency left them
   const [advOpen, setAdvOpen] = useState(advanced > 0);
@@ -102,12 +116,12 @@ export function AppList({
 
   // the table as it stands (its filters and order) as a CSV file, one row per application, the same columns
   const exportCsv = () => {
-    const head = ['Application', 'Started', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Who has it', 'Status'];
+    const head = ['Application', 'Applied', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Recruitment partner', 'Counsellor', 'Sales region', 'Stage', 'Who has it', 'Status'];
     const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = rows.map((a) => {
       const c = courseOf(a);
       const s = stu(a);
-      return [a.id, isoDay(a.created), s ? fullName(s) : '', c.name, c.uni.name, a.intake, destOf(a), counsellorOf(a)?.name ?? '', STAGES[stageOf(a)], OWNER_WORD[ownerOf(a)], statusText(a)]
+      return [a.id, isoDay(a.created), s ? fullName(s) : '', c.name, c.uni.name, a.intake, destOf(a), rpOf(a), counsellorOf(a)?.name ?? '', regionOf(a), STAGES[stageOf(a)], OWNER_WORD[ownerOf(a)], statusText(a)]
         .map(cell)
         .join(',');
     });
@@ -138,7 +152,7 @@ export function AppList({
       <header className="stu__head">
         <div className="stu__titles">
           <h1 className="page__title">Applications</h1>
-          <p className="stu__lead">Who has each application, and what’s pending on you.</p>
+          <p className="stu__lead">{gspIsMine() ? 'Every RP’s applications: who has each one, and what’s pending on you.' : 'Every RP’s applications, and who has each one.'}</p>
         </div>
         <div className="apps__acts">
           <Button variant="secondary" iconLeft={<Icon name="download" size={16} />} onClick={exportCsv} disabled={!rows.length}>
@@ -151,6 +165,7 @@ export function AppList({
       </header>
 
       {/* who has them */}
+      <RegionBar page="Applications" />
       <div className="atiles" role="group" aria-label="Who has it">
         {(
           [
@@ -190,10 +205,17 @@ export function AppList({
                 </option>
               ))}
             </SelectInput>
-            <SelectInput id="ap-who" aria-label="Counsellor" value={st.who} placeholder="All counsellors" allowEmpty onChange={(e) => set((p) => ({ ...p, who: e.target.value }))}>
-              {team.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
+            <SelectInput id="ap-rp" aria-label="Recruitment partner" value={st.rp ?? ''} placeholder="All recruitment partners" allowEmpty onChange={(e) => set((p) => ({ ...p, rp: e.target.value }))}>
+              {rpNames.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </SelectInput>
+            <SelectInput id="ap-region" aria-label="Sales region" value={st.region ?? ''} placeholder="All sales regions" allowEmpty onChange={(e) => set((p) => ({ ...p, region: e.target.value }))}>
+              {regions.map((r) => (
+                <option key={r} value={r}>
+                  {r}
                 </option>
               ))}
             </SelectInput>
@@ -237,7 +259,7 @@ export function AppList({
                   </label>
                   <div className="aadv__field aadv__dates" role="group" aria-labelledby="ap-dates-label" aria-describedby={badRange ? 'ap-dates-err' : undefined}>
                     <span className="aadv__label" id="ap-dates-label">
-                      Started between
+                      Applied between
                     </span>
                     <div className="aadv__range">
                       <DateInput id="ap-from" aria-label="Start date" value={st.from} invalid={badRange || (st.from.length >= 10 && !isIso(st.from))} aria-describedby={badRange || badDate ? 'ap-dates-err' : undefined} onChange={(from) => set((p) => ({ ...p, from }))} />
@@ -285,17 +307,17 @@ export function AppList({
               </>
             ) : (
               <>
-                <p className="snone__title">{st.owner === 'gsp' ? 'Nothing pending on you' : st.owner === 'you' ? 'Nothing with an RP right now' : 'Nothing with a university right now'}</p>
+                <p className="snone__title">{st.owner === 'gsp' ? (gspIsMine() ? 'Nothing pending on you' : 'Nothing with GSP right now') : st.owner === 'you' ? 'Nothing with an RP right now' : 'Nothing with a university right now'}</p>
                 <p className="snone__text">{st.owner === 'gsp' ? 'When something is, it shows here first.' : 'Applications move here as they progress.'}</p>
               </>
             )}
           </div>
         ) : (
           <div className="stab-wrap">
-            <table className="atab" role="table" aria-label="Applications">
+            <table className="atab atab--gsp" role="table" aria-label="Applications">
               <thead role="rowgroup">
                 <tr role="row">
-                  {['Application', 'Student', 'Course', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Status'].map((h) => (
+                  {['Application', 'Student', 'Course', 'Intake', 'Destination', 'Recruitment partner', 'Sales region', 'Stage', 'Status'].map((h) => (
                     <th key={h} role="columnheader" scope="col">
                       {h}
                     </th>
@@ -323,7 +345,7 @@ export function AppList({
                           {a.id}
                         </button>
                         <span className="arow__sub">
-                          {`Started ${shortDate(new Date(a.created))}`}
+                          {`Applied ${shortDate(new Date(a.created), true)}`}
                         </span>
                       </td>
                       <td role="cell" className="arow__stu">
@@ -346,7 +368,11 @@ export function AppList({
                         {c.uni.country}
                       </td>
                       <td role="cell" className="arow__who">
-                        <span>{who ? who.name : '—'}</span>
+                        <span>{rpOf(a)}</span>
+                        {who && <span className="arow__sub">{who.name}</span>}
+                      </td>
+                      <td role="cell" className="arow__region">
+                        {regionOf(a)}
                       </td>
                       <td role="cell" className="arow__stage">
                         <StageMeter stage={stageOf(a)} owner={o} />
@@ -382,7 +408,7 @@ function Empty({ hasStudents, onAdd, onFindCourses }: { hasStudents: boolean; on
       <header className="stu__head">
         <div className="stu__titles">
           <h1 className="page__title">Applications</h1>
-          <p className="stu__lead">Who has each application, and what’s pending on you.</p>
+          <p className="stu__lead">{gspIsMine() ? 'Every RP’s applications: who has each one, and what’s pending on you.' : 'Every RP’s applications, and who has each one.'}</p>
         </div>
       </header>
       <section className="card aempty" aria-labelledby="aempty-title">
@@ -420,13 +446,13 @@ function Empty({ hasStudents, onAdd, onFindCourses }: { hasStudents: boolean; on
           <li>
             <span className="aempty__ic aempty__ic--you" aria-hidden="true" />
             <span>
-              <strong>Amber means it’s pending on you.</strong> Every application says who has it and what happens next.
+              <strong>Amber is the RP.</strong> Every application says who has it and what happens next.
             </span>
           </li>
           <li>
             <span className="aempty__ic aempty__ic--gsp" aria-hidden="true" />
             <span>
-              <strong>Violet is GSP.</strong> GSP checks the documents and submits to the university, usually the same day.
+              <strong>Violet is GSP.</strong> Admissions checks the documents and submits to the university, usually the same day.
             </span>
           </li>
           <li>

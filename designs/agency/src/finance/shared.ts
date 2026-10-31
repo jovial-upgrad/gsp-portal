@@ -102,8 +102,9 @@ export const DEFAULT_OPS = {
   ],
   jobs: [
     { id: 'j-fx', name: 'Confirm this week’s FX rates', freq: 'weekly', day: 1, who: '', page: 'gspx-fin-setup', metric: 'fx' },
-    { id: 'j-prep', name: 'Prepare the payout run', freq: 'payday', day: 0, who: 'u-suman1-verma', page: 'gspx-fin-run', metric: 'run' },
-    { id: 'j-appr', name: 'Approve the payout run', freq: 'payday', day: 0, who: 'u-lav-likhi', page: 'gspx-fin-run', metric: 'run' },
+    // W13: the run is prepared on Monday, then approved and paid on pay day (Thursday)
+    { id: 'j-prep', name: 'Prepare the payout run', freq: 'weekly', day: 1, who: 'u-suman1-verma', page: 'gspx-fin-run', metric: 'run' },
+    { id: 'j-appr', name: 'Approve and pay the payout run', freq: 'payday', day: 0, who: 'u-lav-likhi', page: 'gspx-fin-run', metric: 'run' },
     { id: 'j-inv', name: 'Raise university invoices', freq: 'daily', day: 0, who: '', page: 'gspx-fin-uni', metric: 'invoices' },
     { id: 'j-pay', name: 'Record university payments and chase overdue ones', freq: 'daily', day: 0, who: '', page: 'gspx-fin-uni', metric: 'overdue' },
     { id: 'j-exc', name: 'Work the exceptions', freq: 'daily', day: 0, who: '', page: 'gspx-fin-exc', metric: 'exceptions' },

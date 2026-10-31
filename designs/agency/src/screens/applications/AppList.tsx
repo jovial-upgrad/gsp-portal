@@ -112,7 +112,7 @@ export function AppList({
 
   // the table as it stands (its filters and order) as a CSV file, one row per application, the same columns
   const exportCsv = () => {
-    const head = ['Application', 'Started', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Who has it', 'Status'];
+    const head = ['Application', 'Applied', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Who has it', 'Status'];
     const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = rows.map((a) => {
       const c = courseOf(a);
@@ -247,7 +247,7 @@ export function AppList({
                   </label>
                   <div className="aadv__field aadv__dates" role="group" aria-labelledby="ap-dates-label" aria-describedby={badRange ? 'ap-dates-err' : undefined}>
                     <span className="aadv__label" id="ap-dates-label">
-                      Started between
+                      Applied between
                     </span>
                     <div className="aadv__range">
                       <DateInput id="ap-from" aria-label="Start date" value={st.from} invalid={badRange || (st.from.length >= 10 && !isIso(st.from))} aria-describedby={badRange || badDate ? 'ap-dates-err' : undefined} onChange={(from) => set((p) => ({ ...p, from }))} />
@@ -333,7 +333,7 @@ export function AppList({
                           {a.id}
                         </button>
                         <span className="arow__sub">
-                          {`Started ${shortDate(new Date(a.created))}`}
+                          {`Applied ${shortDate(new Date(a.created), true)}`}
                         </span>
                       </td>
                       <td role="cell" className="arow__stu">

@@ -1,6 +1,9 @@
 /** The Add a student form: the basics, what's checked, duplicates, and how a new student is made. */
 import { phoneError } from '../../components/validate';
 import { countryByName } from '../../data/partners';
+import { rpTeam } from '../../data/rpteam';
+
+const rpCounsellor = (rp?: string) => (rp ? (rpTeam(rp).find((m) => m.role === 'Counsellor') ?? rpTeam(rp)[0])?.id : undefined);
 import { OTHER_AGENCY_PASSPORTS, emptyEdu, type Gender, type Level, type Student } from '../../data/students';
 
 export type AddForm = {
@@ -133,7 +136,8 @@ export function makeStudent(a: AddState, me: string): Student {
     disabilityNote: '',
     docs: a.file ? { passport: { name: 'Passport', file: a.file.name, status: 'uploaded' } } : {},
     read: x ? ['gender', 'dob'] : [],
-    counsellor: f.counsellor,
+    // the RP's own counsellor (W12, W21: one team record per RP)
+    counsellor: rpCounsellor(f.rp) ?? f.counsellor,
     added: Date.now(),
     addedBy: me,
     apps: [],

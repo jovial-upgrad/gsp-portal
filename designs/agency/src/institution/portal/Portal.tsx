@@ -1,3 +1,4 @@
+import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
@@ -11,7 +12,7 @@ import { NAV, TABS, type Focus, type PageProps, type Section, type Target } from
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, setCatalogue, type CourseSearch } from '../courses/search';
 import { Students } from '../students/Students';
-import { fullName, sampleStudents, teamFor, type Student } from '../../data/students';
+import { fullName, sampleStudents, type Student } from '../../data/students';
 import type { AddState } from '../students/form';
 import type { RecordTab } from '../students/StudentRecord';
 import { Applications, type AppsStart } from '../applications/Applications';
@@ -29,13 +30,14 @@ import { Catalogue } from '../records/Catalogue';
 import { InstitutionPartners } from '../records/InstitutionPartners';
 import { RecruitmentPartners } from '../records/RecruitmentPartners';
 import { Announcements } from '../records/Announcements';
-import { AccountPage } from '../records/Account';
+import { StaffProfile } from '../../gsp/portal/StaffPages';
 import { Toast } from '../records/parts';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 import '../institution.css';
 import { useLiveApps } from '../../data/live';
 import { setSession } from '../../data/downloads';
+import { setScope } from '../../data/scope';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -90,9 +92,11 @@ export function Portal({
   useLiveApps(setApps);
   // who's signed in, for the download log (data/downloads.ts)
   setSession(GSP_USER.name, GSP_USER.role);
+  setScope('gsp-institution', GSP_USER.email);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
-  const team = teamFor(acc.name);
+  // every RP's team (data/rpteam.ts, W21): a student's counsellor is on their RP's
+  const team = useMemo(allRpMembers, []);
 
   // the records the team keeps; its changes stay in this portal
   // the catalogue and records: one copy for every role (institution/data/store.ts)
@@ -225,7 +229,7 @@ export function Portal({
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
     ) : section === 'profile' ? (
-      <AccountPage name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />
+      <StaffProfile email={GSP_USER.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (
       <Students
         list={studentsView}

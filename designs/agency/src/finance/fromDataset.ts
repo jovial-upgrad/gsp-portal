@@ -13,6 +13,34 @@ import { sampleStudents } from '../data/students';
 import { UNI_TERMS, rpByName, dataApp } from '../data/dataset';
 import { compute } from './engine';
 import { withLive } from '../data/live';
+import { getDb } from '../institution/data/store';
+import { agreementOf, statusNow } from '../institution/data/records';
+
+/**
+ * One source for each university's agreement and territory (W8, 1 Nov): the Institution Team's records. Finance's
+ * terms take the agreement's end date from the university's Institution partner (the New agreement or Renewal that
+ * ends last) and its territory from the university's record, so Finance and Institution never disagree (CQU,
+ * Adelaide, Deakin). Finance's own rates and payment terms stay Finance's.
+ */
+export function withInstitution(cfg) {
+  const db = getDb();
+  const ips = new Map(db.ips.map((p) => [p.id, p]));
+  for (const u of db.unis) {
+    const fid = UNI_TERMS[u.id];
+    const fu = fid && cfg.unis.find((x) => x.id === fid);
+    if (!fu) continue;
+    const p = ips.get(u.ip);
+    const a = p ? agreementOf(p) : null;
+    const t = u.territory;
+    const terr = t.mode === 'only' ? `${t.countries.join(', ')} only` : t.mode === 'except' ? `All countries but ${t.countries.join(', ')}` : t.blocked.length ? 'All countries' : 'All countries';
+    fu.ends = a?.end ?? '';
+    fu.agreement = { partner: p?.name ?? '', status: p ? statusNow(p) : '', start: a?.start ?? '', end: a?.end ?? '' };
+    fu.territory = terr + (t.blocked.length ? `, not ${t.blocked.map((b) => `${b.state} (${b.country})`).join(', ')}` : '');
+    // the open points that came from the terms sheet's own dates and territory are the records' now
+    if (/^Territory:|Contract end date has passed/.test(fu.flag || '')) fu.flag = a && a.end < new Date().toISOString().slice(0, 10) ? 'Agreement ended: renewal needed (Institution partner record)' : '';
+  }
+  return cfg;
+}
 
 const LEVEL = { 'Master’s degree': 'PG', 'Postgraduate diploma': 'PG', 'PhD or research': 'RES', 'Bachelor’s degree': 'UG', Diploma: 'DIP', Foundation: 'FDN' };
 const CUR = { India: 'INR', Bangladesh: 'BDT', Nepal: 'NPR', 'Sri Lanka': 'LKR' };
@@ -23,6 +51,7 @@ const addDays = (d, n) => iso(Date.parse(d + 'T00:00:00Z') + n * 864e5);
 export function withDatasetTerms(cfg0) {
   const cfg = structuredClone(cfg0);
   for (const t of DATASET.sampleTerms) if (!cfg.unis.some((u) => u.id === t.id)) cfg.unis.push(t);
+  withInstitution(cfg);
   for (const r of DATASET.rps) {
     const have = cfg.rps.find((x) => x.id === r.id);
     if (have) { have.name = r.name; continue; } // one name per RP, everywhere
@@ -80,10 +109,23 @@ export function datasetFinanceApps(cfg, today) {
       x.paidIP[l.key] = { date: paidOn, amt: mode === 'short' && i === 0 ? Math.round(l.ent * 0.8 * 100) / 100 : l.ent };
     });
   }
-  // the RP is paid on the first payout day a week after the university pays
+  // the RP is paid on the first payout day (Thursday) a week after the university pays, once that day has come (W13)
   res = compute(cfg, apps, today);
+  const thursdayAfter = (d) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + ((4 - t.getUTCDay() + 7) % 7)); return iso(t.getTime()); };
   res.rp.forEach((l) => {
-    if (l.ip && l.ip.paid && addDays(l.ip.paid.date, 14) <= today) apps[l.app].paidRP[l.key] = l.ent;
+    if (l.ip && l.ip.paid && thursdayAfter(addDays(l.ip.paid.date, 7)) <= today) apps[l.app].paidRP[l.key] = l.ent;
   });
+  // W27: a student who withdrew after enrolling, with a refund: the RP had been paid on the payout day before the
+  // withdrawal, so that commission is now recovered (the clawback line on the RP's Earnings)
+  const gone = Object.values(apps).filter((a) => a.withdrawn && a.withdrawn.refund);
+  if (gone.length) {
+    const before = compute(cfg, Object.fromEntries(Object.entries(apps).map(([k, a]) => [k, a.withdrawn && a.withdrawn.refund ? { ...a, withdrawn: undefined } : a])), today);
+    before.rp.forEach((l) => {
+      const a = apps[l.app];
+      if (!a.withdrawn || !a.withdrawn.refund || !l.ip || !l.ip.paid) return;
+      const paidDay = thursdayAfter(addDays(l.ip.paid.date, 7));
+      if (paidDay < a.withdrawn.date && l.ent) a.paidRP[l.key] = l.ent;
+    });
+  }
   return apps;
 }

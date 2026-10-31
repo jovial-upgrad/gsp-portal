@@ -1,3 +1,4 @@
+import { gspWord } from '../../data/scope';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { initialsOf, type Owner, type Student } from '../../data/students';
@@ -37,9 +38,10 @@ export function Ring({ pct, size = 28 }: { pct: number; size?: number }) {
   );
 }
 
+// GSP's view (W12): the agency's part is the RP's; GSP's is "Pending on you" only in Admissions
 export const OWNER: Record<Owner | 'done' | 'end', [string, string]> = {
-  you: ['Pending on you', 'who--you'],
-  gsp: ['With GSP', 'who--gsp'],
+  you: ['With RP', 'who--you'],
+  get gsp(): [string, string] { return [gspWord(), 'who--gsp']; },
   uni: ['With university', 'who--uni'],
   done: ['Enrolled', 'who--ok'],
   end: ['Closed', 'who--end'],

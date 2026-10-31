@@ -1,3 +1,4 @@
+import { IpCommission } from '../../components/CommissionSummary';
 import { dateError, focusFirstError } from '../../components/validate';
 import { useRef, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
@@ -240,21 +241,10 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
           <Section
             title="Commission"
             id="ip-commission"
-            note="Set up from the agreement and applied to every university under this partner. Commissions and Finance set it up, and a second person activates it: the Institution Team can’t change it."
+            note="Each university’s terms, as Finance keeps them in Commissions (read only here)."
             action={p.commission ? <span className={`dpill ${p.commission.state === 'Active' ? 'dpill--verified' : 'dpill--checking'}`}>{p.commission.state}</span> : undefined}
           >
-            {p.commission ? (
-              <Facts
-                items={[
-                  ['Rate', `${p.commission.rate}% of first-year tuition, net of scholarship`],
-                  ['Bonus', p.commission.bonus],
-                  ['Invoicing', p.commission.invoicing],
-                  ['Universities covered', unis.length ? unis.map((u) => u.name).join(', ') : null],
-                ]}
-              />
-            ) : (
-              <p className="iempty">No commission yet. Commissions and Finance set it up from the signed agreement.</p>
-            )}
+            <IpCommission unis={unis} />
           </Section>
         )}
 

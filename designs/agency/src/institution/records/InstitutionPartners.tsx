@@ -4,7 +4,7 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Field, SelectInput, TextInput } from '../../components/forms';
 import { DESTINATIONS, FLAG, type Destination } from '../../data/courses';
-import { PARTNER_STATUSES, PARTNER_TYPES, TEAM, agreementOf, dateText, endsText, inDays, stagesOf, type InstitutionPartner, type PartnerStatus, type PartnerType, type Stage } from '../data/records';
+import { PARTNER_STATUSES, PARTNER_TYPES, TEAM, agreementOf, dateText, endsText, inDays, stagesOf, statusNow, type InstitutionPartner, type PartnerStatus, type PartnerType, type Stage } from '../data/records';
 import { NoMatch, PageHead, Tiles, useRecord, type Tone } from './parts';
 import { PartnerPill, statusGroup } from './pills';
 import { PartnerPage } from './PartnerPage';
@@ -41,7 +41,7 @@ export function InstitutionPartners(props: PageProps & { appsByUni: Record<strin
     const t = q.trim().toLowerCase();
     if (t && ![p.name, ...p.contacts.map((c) => c.name), ...unisOf(p).map((u) => u.name)].some((x) => x.toLowerCase().includes(t))) return false;
     if (type && p.type !== type) return false;
-    if (status && p.status !== status) return false;
+    if (status && statusNow(p) !== status) return false;
     if (rm && p.rm !== rm) return false;
     if (stage && !stagesOf(p).includes(stage)) return false;
     return true;

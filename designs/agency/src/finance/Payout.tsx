@@ -12,7 +12,9 @@ import { Card, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, toast } fr
 import { nice, money, r2 } from './engine';
 import { aud, sum, opsOf, DAYS } from './shared';
 
-const INV = { sent: ['Waiting for the RP', 'dpill--checking'], approved: ['Approved by the RP', 'dpill--verified'], queried: ['Queried by the RP', 'dpill--bad'] };
+const INV = { sent: ['Waiting for the RP', 'dpill--checking'], approved: ['Approved by the RP', 'dpill--verified'], queried: ['Queried by the RP', 'dpill--bad'], paying: ['Approved: paid on pay day', 'dpill--verified'] };
+const iso = t => new Date(t).toISOString().slice(0, 10);
+const addD = (d, n) => iso(Date.parse(d + 'T00:00:00Z') + n * 864e5);
 
 export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
   const s = getState();
@@ -40,23 +42,28 @@ export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
     const ok = payees.filter(p => run.invoices[p.id]?.status === 'approved');
     if (!ok.length) { toast('No RP has approved its invoice yet.'); return; }
     const lines = run.lines.filter(L => ok.some(p => p.id === L.payee) && L.pay != null);
+    // W13 (1 Nov): approved now, paid on pay day. Until then the lines are Approved, not Paid, here and in the RP's
+    // Earnings; settleRuns (store.ts) pays them on the day.
     update(d => {
-      lines.forEach(L => { const a = d.comm.apps[L.app]; a.paidRP = { ...(a.paidRP || {}), [L.key]: r2(((a.paidRP || {})[L.key] || 0) + L.src) }; });
-      d.comm.runs.unshift({ id: 'RUN-' + run.date, date: run.date, status: 'paid', preparedBy: run.preparedBy, checkedBy: user.id, payees: ok.length, totalAud: sum(lines, L => L.aud) });
-      const left = Object.fromEntries(Object.entries(d.comm.run.invoices).filter(([k]) => !ok.some(p => p.id === k)));
-      d.comm.run = Object.keys(left).length ? { ...d.comm.run, invoices: left } : null;
+      ok.forEach(p => { d.comm.run.invoices[p.id].status = 'paying'; });
+      d.comm.runs.unshift({ id: 'RUN-' + run.date + '-' + d.comm.runs.length, date: run.date, status: 'approved', preparedBy: run.preparedBy, checkedBy: user.id, approvedAt: Date.now(), payees: ok.length, totalAud: sum(lines, L => L.aud), lines: lines.map(L => ({ app: L.app, key: L.key, src: L.src, payee: L.payee })) });
+      if (Object.values(d.comm.run.invoices).every(i => i.status === 'paying')) d.comm.run.status = 'approved';
       const t = d.tasks.find(x => x.id === 'T-RUN-' + run.date); if (t) { t.status = 'done'; t.doneBy = user.id; t.doneAt = Date.now(); }
-    }, `${user.name} approved the payout run for ${nice(run.date)}: ${ok.length} RPs, ${aud(sum(lines, L => L.aud))}`);
-    toast(`Approved. Bills go to Xero for ${ok.length} RP${ok.length === 1 ? '' : 's'}; pay batch 1 (Australian accounts) and batch 2 (local).`);
+    }, `${user.name} approved the payout run for ${nice(run.date)}: ${ok.length} RPs, ${aud(sum(lines, L => L.aud))}, paid on ${nice(run.date)}`);
+    toast(`Approved. ${ok.length} RP${ok.length === 1 ? ' is' : 's are'} paid on ${DAYS[new Date(run.date + 'T00:00:00Z').getUTCDay()]} ${nice(run.date)}: bills go to Xero, batch 1 (Australian accounts) and batch 2 (local).`);
   };
 
   const batch = b => payees.filter(p => (p.bank || 'AU') === b);
   const batches = ops.batches;
   const totals = p => Object.entries(p.total).map(([cur, v]) => money(v, cur)).join(' + ');
+  // W13: prepared on the Monday before pay day, approved and paid on pay day (Thursday by default)
+  const prepDay = addD(run.date, -((new Date(run.date + 'T00:00:00Z').getUTCDay() + 6) % 7));
+  const day = d => `${DAYS[new Date(d + 'T00:00:00Z').getUTCDay()].slice(0, 3)} ${nice(d)}`;
+  const paying = Object.values(run.invoices).filter(i => i.status === 'paying').length;
   const steps = [
-    ['Prepare', run.status === 'draft' ? 'Not yet' : `Done by ${nameOf(s, run.preparedBy)}`],
-    ['RPs approve their invoices', !ops.rpApproves ? 'Not needed (Finance setup)' : run.status === 'draft' ? `Within ${ops.rpApproveDays} working days of preparing` : `${Object.values(run.invoices).filter(i => i.status === 'approved').length} of ${Object.keys(run.invoices).length} approved`],
-    [ops.makerChecker.run ? 'Second person approves payment' : 'Approve payment', needsAdmin ? `Over ${aud(ops.adminAbove)}: an Admin approves` : run.status === 'draft' ? 'After preparing' : 'Waiting'],
+    [`Prepare · ${day(prepDay)}`, run.status === 'draft' ? (c.today < prepDay ? `Opens ${day(prepDay)}` : 'Not yet') : `Done by ${nameOf(s, run.preparedBy)}`],
+    ['RPs approve their invoices', !ops.rpApproves ? 'Not needed (Finance setup)' : run.status === 'draft' ? `Within ${ops.rpApproveDays} working days of preparing` : `${Object.values(run.invoices).filter(i => i.status === 'approved' || i.status === 'paying').length} of ${Object.keys(run.invoices).length} approved`],
+    [`${ops.makerChecker.run ? 'Second person approves payment' : 'Approve payment'} · paid ${day(run.date)}`, needsAdmin ? `Over ${aud(ops.adminAbove)}: an Admin approves` : run.status === 'draft' ? 'After preparing' : paying ? `${paying} approved: shown as Approved until ${day(run.date)}, then Paid` : 'Waiting'],
   ];
 
   return (
@@ -69,12 +76,13 @@ export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
           </div>
           <div className="gspx-acts">
             {canPrepare && run.status === 'draft' && <Button kind="primary" disabled={!payees.length} onClick={prepare}>Prepare run</Button>}
-            {canApprove && run.status === 'prepared' && <Button kind="primary" onClick={approve}>Approve payment</Button>}
+            {canApprove && run.status === 'prepared' && Object.values(run.invoices).some(i => i.status === 'approved') && <Button kind="primary" onClick={approve}>Approve payment</Button>}
+            {run.status === 'approved' && <Pill tone="dpill--verified">Approved: paid {day(run.date)}</Pill>}
           </div>
         </div>
         <ol className="gspx-steps">{steps.map(([t, d], i) => <li key={t}><b>{i + 1}. {t}</b><span className="muted">{d}</span></li>)}</ol>
-        {run.hold.length > 0 && <Notice tone="warn">Lines in {run.hold.join(', ')} are held: this week has no rate for {run.hold.length > 1 ? 'these currencies' : 'this currency'}. Enter it in Terms › Settings and FX.</Notice>}
-        {run.bankHold.length > 0 && <Notice tone="warn">Held until new bank details are verified (Terms › RP terms): {run.bankHold.join(', ')}.</Notice>}
+        {run.hold.length > 0 && <Notice tone="warn">Lines in {run.hold.join(', ')} are held: this week has no rate for {run.hold.length > 1 ? 'these currencies' : 'this currency'}. Enter it in GSP · Admin › Course configuration › Currency exchange.</Notice>}
+        {run.bankHold.length > 0 && <Notice tone="warn">Held until new bank details are verified (Setup › Commission terms, RP terms): {run.bankHold.join(', ')}.</Notice>}
         {isMaker && run.status === 'prepared' && !selfCheck && <Notice>You prepared this run. {nameOf(s, s.users.find(u => u.role === 'finance' && u.id !== user.id)?.id)} or another Finance person approves it.</Notice>}
       </Card>
       {batches.map(bt => { const b = bt.bank; return batch(b).length > 0 && (
@@ -92,7 +100,7 @@ export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
                 <td>{inv ? <><Pill tone={INV[inv.status][1]}>{INV[inv.status][0]}</Pill><span className="irow__sub">{inv.no}</span></> : <span className="muted">{run.status === 'draft' ? 'Raised when prepared' : neg ? 'None: nothing to pay' : '—'}</span>}</td>
                 <td><div className="gspx-acts">
                   <LinkButton onClick={() => setView(p)}>Lines</LinkButton>
-                  {inv && inv.status !== 'approved' && canApprove && <LinkButton onClick={() => rpApprove(p)}>Mark approved by RP</LinkButton>}
+                  {inv && inv.status !== 'approved' && inv.status !== 'paying' && canApprove && <LinkButton onClick={() => rpApprove(p)}>Mark approved by RP</LinkButton>}
                 </div></td>
               </tr>); })}
           </Table>
@@ -103,7 +111,7 @@ export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
         <Table head={['Thursday', 'RPs', 'Total', 'Prepared by', 'Approved by', 'Status']}>
           {c.runs.map(r => (
             <tr key={r.id} className="irow"><td className="num">{nice(r.date)}</td><td className="num">{r.payees}</td><td className="num">{aud(r.totalAud)}</td>
-              <td>{nameOf(s, r.preparedBy)}</td><td>{nameOf(s, r.checkedBy)}</td><td><Pill tone="dpill--verified">Paid</Pill></td></tr>))}
+              <td>{nameOf(s, r.preparedBy)}</td><td>{nameOf(s, r.checkedBy)}</td><td>{r.status === 'approved' ? <Pill tone="dpill--checking">Approved: paid {nice(r.date)}</Pill> : <Pill tone="dpill--verified">Paid</Pill>}</td></tr>))}
         </Table>
       </Card>
       {view && (

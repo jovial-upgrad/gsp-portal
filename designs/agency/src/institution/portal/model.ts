@@ -13,7 +13,7 @@ export const NAV: { key: Section; label: string; short: string; icon: IconName }
   { key: 'home', label: 'Home', short: 'Home', icon: 'home' },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
-  { key: 'courses', label: 'Course search', short: 'Search', icon: 'search' },
+  { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search' },
   { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner' },
   { key: 'ips', label: 'Institution partners', short: 'Partners', icon: 'briefcase' },
   { key: 'universities', label: 'Universities', short: 'Universities', icon: 'building' },
@@ -44,4 +44,6 @@ export type PageProps = {
   scrollTop: () => void;
   /** Who's signed in. */
   me: string;
+  /** GSP · BAP (and Admin) verify new recruitment partners' documents on Recruitment partners (W4). */
+  canVerify?: boolean;
 };

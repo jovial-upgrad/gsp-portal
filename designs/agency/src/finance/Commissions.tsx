@@ -46,7 +46,7 @@ export default function Commissions({ view }) {
     const fin = s.users.find(u => u.role === 'finance');
     return (
       <Page title="Commissions" top={<PersonaBar />} lead="Commission terms, university invoices, RP payouts.">
-        <Card><Empty title={`${role.name} has no access to commissions`}>Access is set in Roles and access. To see this page as Finance, act as {fin.name}.</Empty>
+        <Card><Empty title={`${role.name} has no access to commissions`}>Access is set in GSP · Admin › User roles › Permission roles. To see this page as Finance, act as {fin.name}.</Empty>
           <div><Button kind="primary" onClick={() => update(d => { d.persona = fin.id; })}>Act as {fin.name} (Finance)</Button></div></Card>
       </Page>
     );
@@ -69,7 +69,7 @@ export default function Commissions({ view }) {
       actions={<DemoClock c={c} canMove={finance} />}>
       {!finance && <Notice>{role.name} can read commissions{role.scope === 'regions' ? ` for ${(user.regions || []).join(', ')}` : ''} but not change them.</Notice>}
       {!view && <Tabs label="Commission views" options={tabs} value={tab} onChange={v => go(v)} />}
-      {view && !allow[view] && <Card><Empty title={`${role.name} can’t see this`}>Access is set in Roles and access.</Empty></Card>}
+      {view && !allow[view] && <Card><Empty title={`${role.name} can’t see this`}>Access is set in GSP · Admin › User roles › Permission roles.</Empty></Card>}
       {tab === 'overview' && <Overview c={c} res={res} rpLines={rpLines} ipLines={ipLines} run={run} checks={pendingChecks} go={go} allow={allow} />}
       {tab === 'uni' && <UniSide res={res} c={c} lines={ipLines} filter={filter} setFilter={setFilter} canEdit={can(m, r, 'invoices', 'U')} user={user} />}
       {tab === 'rp' && <RpSide c={c} lines={rpLines} filter={filter} setFilter={setFilter} canEdit={can(m, r, 'comm-lines', 'U')} user={user} />}

@@ -8,7 +8,8 @@ import { useSyncExternalStore } from 'react';
 import COMM from './comm.json';
 import { ROLES, DEFAULT_MATRIX } from './access';
 import { STAFF, label } from '../data/staff';
-import { withDatasetTerms, datasetFinanceApps } from './fromDataset';
+import { withDatasetTerms, datasetFinanceApps, withInstitution } from './fromDataset';
+import { onDbChange } from '../institution/data/store';
 import { adminCfg, onAdminChange } from '../admin/data/store';
 import { onLiveChange } from '../data/live';
 
@@ -83,6 +84,40 @@ function takeAdminFx() {
 }
 onAdminChange(takeAdminFx);
 takeAdminFx();
+/** The Institution Team's agreement dates and territory reach Finance's terms as they change (W8). */
+function takeInstitution() {
+  if (!state) return;
+  const cfg = withInstitution(structuredClone(state.comm.cfg));
+  if (JSON.stringify(cfg.unis) === JSON.stringify(state.comm.cfg.unis)) return;
+  state = { ...state, comm: { ...state.comm, cfg } };
+  save();
+  listeners.forEach((f) => f());
+}
+onDbChange(takeInstitution);
+takeInstitution();
+/**
+ * Pay day (W13, 1 Nov): a run Finance approved is paid on its pay day, not when it's approved. Until then its lines
+ * stay Approved; on the day (or the first time the portal opens after it) the RP's lines are marked paid.
+ */
+export function settleRuns() {
+  if (!state) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const due = (state.comm.runs || []).filter((r) => r.status === 'approved' && r.date <= today);
+  if (!due.length) return;
+  const next = structuredClone(state);
+  for (const r of next.comm.runs.filter((x) => x.status === 'approved' && x.date <= today)) {
+    for (const L of r.lines || []) { const a = next.comm.apps[L.app]; if (a) a.paidRP = { ...(a.paidRP || {}), [L.key]: Math.round((((a.paidRP || {})[L.key] || 0) + L.src) * 100) / 100 }; }
+    r.status = 'paid';
+    if (next.comm.run && next.comm.run.date === r.date) {
+      const left = Object.fromEntries(Object.entries(next.comm.run.invoices).filter(([, i]) => i.status !== 'paying'));
+      next.comm.run = Object.keys(left).length ? { ...next.comm.run, status: 'prepared', invoices: left } : null;
+    }
+  }
+  state = next;
+  save();
+  listeners.forEach((f) => f());
+}
+settleRuns();
 export function useStore(select = (s) => s) { return select(useSyncExternalStore(subscribe, getState)); }
 export function update(fn, logText) {
   const next = structuredClone(state);

@@ -1,10 +1,14 @@
+import { studentRegion } from '../../data/regions';
+import { RegionBar } from '../../components/RegionBar';
+import { useScope } from '../../data/scope';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { SelectInput } from '../../components/forms';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { CounsellorPicker } from '../../components/CounsellorPicker';
+import { byRegion } from '../../data/scope';
+import { HOME_RP } from '../rps';
 import { MoreMenu } from '../../components/MoreMenu';
 import { fullName, readiness, type Member, type Student } from '../../data/students';
 import { AddStudentSheet } from './AddStudentSheet';
@@ -34,7 +38,7 @@ export type StudentsStart = { key: string; add?: AddState | true; open?: string;
  * "Add student" opens a short form; the rest of the profile is filled later.
  */
 export function Students({
-  list,
+  list: listIn,
   set,
   team,
   me,
@@ -67,9 +71,13 @@ export function Students({
   onCreateApp?: (a: Application) => void;
 }) {
   const reduce = useReducedMotion();
+  let list = listIn;
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<Status>('');
   const [who, setWho] = useState('');
+  // GSP's filters (W12): by recruitment partner and by sales region
+  const [rpF, setRpF] = useState('');
+  const [regionF, setRegionF] = useState('');
   const [apps, setApps] = useState<Apps>('');
   const [sort, setSort] = useState<Sort>('recent');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -104,11 +112,20 @@ export function Students({
   }, [navKey]);
 
   const say = (m: string) => setMsg(m);
-  const open = list.find((s) => s.id === openId) ?? null;
+  // every RP's students (W12): each with its RP and sales region (its application's, or its RP's), cut to the person's regions
+  const rpOf = (s: Student) => s.rp ?? HOME_RP;
+  // a student's sales region is the RP branch's that added them (Jovial, 1 Nov, SR5)
+  const regionOf = (s: Student) => studentRegion(s);
+  useScope();
+  const all = list;
+  list = byRegion(all, regionOf);
+  const rpNames = [...new Set(list.map(rpOf))].sort((x, y) => x.localeCompare(y));
+  const regionNames = [...new Set(list.map(regionOf))].sort();
+  const open = all.find((s) => s.id === openId) ?? null;
   const memberName = (id: string) => team.find((m) => m.id === id)?.name ?? '';
   const ready = useMemo(() => new Map(list.map((s) => [s.id, readiness(s)])), [list]);
   // how many students each counsellor has, shown when picking a new one
-  const load = useMemo(() => list.reduce<Record<string, number>>((m, s) => ({ ...m, [s.counsellor]: (m[s.counsellor] ?? 0) + 1 }), {}), [list]);
+
   const counts = { '': list.length, inc: list.filter((s) => !ready.get(s.id)!.complete).length, com: list.filter((s) => ready.get(s.id)!.complete).length };
 
   const ql = q.trim().toLowerCase().replace(/\s+/g, '');
@@ -118,19 +135,23 @@ export function Students({
       if (status === 'inc' && r.complete) return false;
       if (status === 'com' && !r.complete) return false;
       if (who && s.counsellor !== who) return false;
+      if (rpF && rpOf(s) !== rpF) return false;
+      if (regionF && regionOf(s) !== regionF) return false;
       if (apps === 'none' && s.apps.length) return false;
       if (apps === 'some' && !s.apps.length) return false;
       if (apps === 'you' && !s.apps.some((a) => a.owner === 'you')) return false;
-      if (ql && !`${fullName(s)}${s.email}${s.dial}${s.phone}${s.passport}${s.id}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
+      if (ql && !`${fullName(s)}${s.email}${s.dial}${s.phone}${s.passport}${s.id}${rpOf(s)}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
       return true;
     })
     .sort((a, b) => (sort === 'name' ? fullName(a).localeCompare(fullName(b)) : sort === 'ready' ? ready.get(a.id)!.pct - ready.get(b.id)!.pct : b.added - a.added));
   // the Incomplete and Complete tabs are views, not filters: "Clear filters" leaves them as they are
-  const filtered = !!(ql || who || apps);
+  const filtered = !!(ql || who || rpF || regionF || apps);
   const narrowed = filtered || !!status;
   const clear = () => {
     setQ('');
     setWho('');
+    setRpF('');
+    setRegionF('');
     setApps('');
   };
 
@@ -139,7 +160,7 @@ export function Students({
   };
   const assign = (s: Student, id: string) => {
     set((l) => l.map((x) => (x.id === s.id ? { ...x, counsellor: id } : x)));
-    say(`${fullName(s)} is now with ${memberName(id)}${id === 'me' ? ' (you)' : ''}. ${id === 'me' ? '' : 'They’ve been told.'}`.trim());
+    say(`${fullName(s)} is now with ${memberName(id)}. They’ve been told.`);
   };
   const openStudent = (id: string, t: RecordTab = 'personal') => {
     setOpenId(id);
@@ -159,10 +180,10 @@ export function Students({
     say(`${fullName(s)} added. Complete the profile next.`);
   };
   const exportCsv = () => {
-    const head = ['Student ID', 'Name', 'Email', 'Phone', 'Nationality', 'Lives in', 'Counsellor', 'Profile', 'Applications'];
+    const head = ['Student ID', 'Name', 'Email', 'Phone', 'Nationality', 'Lives in', 'Recruitment partner', 'Counsellor', 'Sales region', 'Profile', 'Applications'];
     const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = rows.map((s) =>
-      [s.id, fullName(s), s.email, s.phone ? `${s.dial} ${s.phone}` : '', s.nationality, [s.state, s.country].filter(Boolean).join(', '), memberName(s.counsellor), `${ready.get(s.id)!.pct}%`, s.apps.length].map(cell).join(','),
+      [s.id, fullName(s), s.email, s.phone ? `${s.dial} ${s.phone}` : '', s.nationality, [s.state, s.country].filter(Boolean).join(', '), rpOf(s), memberName(s.counsellor), regionOf(s), `${ready.get(s.id)!.pct}%`, s.apps.length].map(cell).join(','),
     );
     try {
       const url = URL.createObjectURL(new Blob([[head.map(cell).join(','), ...lines].join('\n')], { type: 'text/csv' }));
@@ -182,7 +203,7 @@ export function Students({
       {open ? (
         <StudentRecord
           s={open}
-          list={list}
+          list={all}
           update={(fn) => set((l) => l.map((x) => (x.id === open.id ? fn(x) : x)))}
           team={team}
           tab={tab}
@@ -205,7 +226,7 @@ export function Students({
       <header className="stu__head">
         <div className="stu__titles">
           <h1 className="page__title">Students</h1>
-          <p className="stu__lead">Add a student once and reuse their details and documents on every application.</p>
+          <p className="stu__lead">Every RP’s students, with their profiles and applications.</p>
         </div>
         {list.length > 0 && (
           <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdd({ key: Date.now() })}>
@@ -251,6 +272,7 @@ export function Students({
         </section>
       ) : (
         <section className="card stable" aria-labelledby="stable-count">
+          <RegionBar page="Students" />
           <div className="stools">
             <div className="sseg" role="group" aria-label="Profile">
               {(
@@ -274,18 +296,22 @@ export function Students({
                 <span className="vh">Search students</span>
                 <input id="st-q" type="search" placeholder="Name, email, phone or passport" value={q} onChange={(e) => setQ(e.target.value)} />
               </label>
-              <SelectInput id="st-who" aria-label="Counsellor" value={who} placeholder="All counsellors" allowEmpty onChange={(e) => setWho(e.target.value)}>
-                <option value="me">My students</option>
-                {team
-                  .filter((m) => m.id !== 'me')
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+              <SelectInput id="st-rp" aria-label="Recruitment partner" value={rpF} placeholder="All recruitment partners" allowEmpty onChange={(e) => setRpF(e.target.value)}>
+                {rpNames.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </SelectInput>
+              <SelectInput id="st-region" aria-label="Sales region" value={regionF} placeholder="All sales regions" allowEmpty onChange={(e) => setRegionF(e.target.value)}>
+                {regionNames.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
               </SelectInput>
               <SelectInput id="st-apps" aria-label="Applications" value={apps} placeholder="Any applications" allowEmpty onChange={(e) => setApps(e.target.value as Apps)}>
-                <option value="you">Has a pending application</option>
+                <option value="you">Has an application with the RP</option>
                 <option value="some">Has applications</option>
                 <option value="none">No application yet</option>
               </SelectInput>
@@ -335,12 +361,13 @@ export function Students({
             <div className="stab-wrap">
             {/* a grid under the table roles: each column is as wide as its content and the space left over
                 is shared equally between columns, so the gaps match */}
-            <table className="stab" role="table" aria-label="Students">
+            <table className="stab stab--gsp" role="table" aria-label="Students">
               <thead role="rowgroup">
                 <tr role="row">
                   <th role="columnheader" scope="col">Student</th>
                   <th role="columnheader" scope="col">Contact</th>
-                  <th role="columnheader" scope="col">Counsellor</th>
+                  <th role="columnheader" scope="col">Recruitment partner</th>
+                  <th role="columnheader" scope="col">Sales region</th>
                   <th role="columnheader" scope="col">Profile</th>
                   <th role="columnheader" scope="col">Applications</th>
                 </tr>
@@ -389,8 +416,15 @@ export function Students({
                           )}
                         </span>
                       </td>
-                      <td role="cell" className="srow__counsellor" data-label="Counsellor">
-                        <CounsellorPicker id={`st-c-${s.id}`} value={s.counsellor} team={team} counts={load} label={`Change counsellor for ${fullName(s)}`} onPick={(id) => requestAssign(s, id)} />
+                      {/* GSP sees whose student it is; the RP's counsellor is the RP's to change (W12) */}
+                      <td role="cell" className="srow__counsellor" data-label="Recruitment partner">
+                        <span className="srow__names">
+                          <span>{rpOf(s)}</span>
+                          {memberName(s.counsellor) && <span className="srow__sub">{memberName(s.counsellor)}</span>}
+                        </span>
+                      </td>
+                      <td role="cell" className="srow__region" data-label="Sales region">
+                        {regionOf(s)}
                       </td>
                       <td role="cell" className="srow__profile" data-label="Profile">
                         <span className="sprof" title={r.complete ? 'Complete' : `To add: ${r.sections.flatMap((x) => x.missing).join(', ')}`}>

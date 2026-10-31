@@ -455,3 +455,17 @@ input[type='date'].icell { min-width: 150px; }
 @container app (max-width: 900px) {
   .isave { bottom: calc(56px + var(--sp-4) * 2 + var(--sp-12) * 2); }
 }
+/* ---------- BAP verifies a new recruitment partner (W4, 1 Nov) ---------- */
+.irp-verify { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-16); flex-wrap: wrap; padding: var(--sp-14, 14px) var(--sp-20); margin-bottom: var(--sp-16); border-left: 3px solid var(--gsp-dot, var(--primary)); }
+.irp-doc__acts { display: inline-flex; gap: var(--sp-8); margin-left: var(--sp-8); }
+.ilist__note { flex-basis: 100%; padding-left: 30px; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
+.irp-note { display: grid; gap: var(--sp-6); margin-top: var(--sp-12); font-size: var(--t-label); text-align: left; }
+.irp-note textarea { width: 100%; padding: var(--sp-10); border: 1px solid var(--line-strong); border-radius: var(--r-md, 10px); background: var(--surface); color: var(--text); font: inherit; resize: vertical; }
+.irp-note__hint { margin-top: var(--sp-6); font-size: var(--t-caption); color: var(--text-3); text-align: left; }
+.irecord .ilist__item { flex-wrap: wrap; }
+/* Commission summaries on the IP and RP records (Jovial, 1 Nov) */
+.csum { display: grid; gap: var(--sp-12); }
+.csum__note { font-size: var(--t-caption); color: var(--text-3); }
+.csum__item { padding-top: var(--sp-12); border-top: 1px solid var(--line); }
+.csum__name { font-weight: 600; margin-bottom: var(--sp-6); }
+.csum .cdl__row { display: grid; grid-template-columns: 180px 1fr; gap: var(--sp-12); }

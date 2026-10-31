@@ -71,7 +71,7 @@ export type Contact = { name: string; role: string; phone: string; email: string
 const SAME_CITY: Record<string, string> = { calicut: 'kozhikode', trichy: 'tiruchirappalli', vijaywada: 'vijayawada', 'new delhi': 'delhi', 'ho chi minh': 'ho chi minh city', gurugram: 'gurgaon' };
 const norm = (x: string) => { const v = x.trim().toLowerCase(); return SAME_CITY[v] ?? v; };
 const stateOf = (city: string) => Object.keys(CITIES).find((st) => CITIES[st].some((c) => norm(c) === norm(city)));
-const contactOf = (s: Staff, role: string): Contact => ({ name: label(s), initials: initialsOf(fullName(s)), role, phone: '', email: s.email });
+const contactOf = (s: Staff, role: string): Contact => ({ name: label(s), initials: initialsOf(fullName(s)), role, phone: s.phone ? `${s.dial} ${s.phone}` : '', email: s.email });
 const byLabel = (n: string) => STAFF.find((x) => label(x) === n);
 
 const initialsOf = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('');

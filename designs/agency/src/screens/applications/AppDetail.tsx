@@ -563,7 +563,7 @@ export function AppDetail({
                 }
               />
               <Row k="Base commission" v={<span className="num">{earn.text}</span>} />
-              <Row k="Started" v={shortDate(new Date(a.created))} />
+              <Row k="Applied" v={shortDate(new Date(a.created), true)} />
             </dl>
           </section>
         </aside>

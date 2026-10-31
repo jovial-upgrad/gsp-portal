@@ -345,7 +345,7 @@ export function results(s: CourseSearch): Results {
     rank: (a, b) => (a.uni.qs ?? 9999) - (b.uni.qs ?? 9999),
     earn: (a, b) => earnOf(b) - earnOf(a),
   };
-  list = [...list].sort(by[s.studentView && s.sort === 'earn' ? 'match' : s.sort]);
+  list = [...list].sort(by[s.sort === 'earn' ? 'match' : s.sort]);
   return { list, hidden: blocked.length, hiddenBy: [...new Set(blocked.map((c) => c.uni.name))], uni: named?.uni ?? null, alias: named?.alias, before };
 }
 

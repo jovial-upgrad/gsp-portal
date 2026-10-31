@@ -151,15 +151,62 @@ def rp_of(rid, name, region):
         rps[rid] = {'id': rid, 'name': name.strip(), 'region': region, 'terms': False}
     return rps[rid]
 
+# W31/W21 (1 Nov): each RP's city, the date it joined, and its team (an admin and a counsellor, invented names),
+# so the RP's Profile, GSP's RP contact and the Recruitment partners page show the same people
+RP_CITY = {'India': ['Bengaluru', 'Hyderabad', 'Chennai', 'Pune', 'Ahmedabad', 'Kochi', 'Chandigarh', 'Jaipur'], 'Australia': ['Melbourne', 'Sydney', 'Brisbane', 'Adelaide', 'Perth'],
+           'Vietnam': ['Ho Chi Minh City', 'Hanoi', 'Da Nang'], 'Nepal': ['Kathmandu', 'Pokhara'], 'Bangladesh': ['Dhaka', 'Chattogram'], 'Sri Lanka': ['Colombo', 'Kandy'],
+           'Pakistan': ['Lahore', 'Karachi', 'Islamabad'], 'Philippines': ['Manila', 'Cebu City'], 'Indonesia, Malaysia and Thailand': ['Jakarta', 'Kuala Lumpur', 'Bangkok'],
+           'Africa': ['Lagos', 'Accra', 'Nairobi'], 'Latin America and Europe': ['Bogotá', 'Lima'], 'Myanmar': ['Yangon'], 'Bhutan': ['Thimphu'], 'China': ['Shanghai', 'Beijing'], 'Direct': ['Melbourne']}
+RP_PEOPLE = {'India': (['Anil', 'Deepa', 'Suresh', 'Lata', 'Manoj', 'Rekha', 'Prakash', 'Geeta'], ['Iyer', 'Kulkarni', 'Bhat', 'Pillai', 'Rao', 'Hegde', 'Menon', 'Joshi']),
+             'Australia': (['Tom', 'Sarah', 'Liam', 'Grace', 'Nathan', 'Chloe'], ['Walsh', 'Bennett', 'Hughes', 'Fraser', 'Doyle', 'Carter']),
+             'Vietnam': (['Minh', 'Hoa', 'Tuan', 'Linh'], ['Tran', 'Le', 'Pham', 'Vo']), 'Nepal': (['Sagar', 'Pooja', 'Rabin'], ['Shrestha', 'Adhikari', 'Karki']),
+             'Bangladesh': (['Farhan', 'Nadia', 'Imran'], ['Rahman', 'Akter', 'Chowdhury']), 'Sri Lanka': (['Kasun', 'Dilani', 'Nuwan'], ['Fernando', 'Wickrama', 'Dias']),
+             'Pakistan': (['Bilal', 'Sana', 'Usman'], ['Qureshi', 'Butt', 'Siddiqui']), 'Philippines': (['Miguel', 'Ana', 'Jose'], ['Santos', 'Cruz', 'Garcia']),
+             'China': (['Wei', 'Jing'], ['Zhang', 'Liu'])}
+RP_DIAL = {'India': '+91', 'Australia': '+61', 'Vietnam': '+84', 'Nepal': '+977', 'Bangladesh': '+880', 'Sri Lanka': '+94', 'Pakistan': '+92', 'Philippines': '+63', 'China': '+86',
+           'Indonesia, Malaysia and Thailand': '+62', 'Africa': '+234', 'Latin America and Europe': '+57', 'Myanmar': '+95', 'Bhutan': '+975', 'Direct': '+61'}
+def rp_details(r):
+    key = r['id']
+    if key == 'R-TEST':
+        # the designer's agency, signed in as RP Admin: its Profile is the source (data/rpteam.ts keeps the same people)
+        r.update({'city': 'Bengaluru', 'state': 'Karnataka', 'since': '2024-06-10'})
+        return
+    cities = RP_CITY.get(r['region'], ['Melbourne'])
+    r['city'] = cities[h(key + 'c', len(cities))]
+    y, m, d = 2023 + h(key + 'y', 3), 1 + h(key + 'm', 12), 1 + h(key + 'd', 28)
+    r['since'] = f'{y}-{m:02d}-{d:02d}'
+    firsts, lasts = RP_PEOPLE.get(r['region'], RP_PEOPLE['Australia'])
+    dom = re.sub(r'[^a-z]', '', re.sub(r'\b(pty|ltd|pvt|private|limited|consultancy|consultants|services)\b', '', r['name'].lower()))[:18] or 'agency'
+    dial = RP_DIAL.get(r['region'], '+61')
+    def who(i):
+        f, l = firsts[h(key + str(i) + 'f', len(firsts))], lasts[h(key + str(i) + 'l', len(lasts))]
+        return {'name': f'{f} {l}', 'email': f'{f.lower()}@{dom}.com', 'dial': dial, 'phone': f'{h(key + str(i) + "p", 90000) + 10000} {h(key + str(i) + "q", 90000) + 10000}'}
+    a, c = who(0), who(1)
+    if c['name'] == a['name']:
+        c = who(2)
+    r['team'] = [{**a, 'role': 'RP Admin'}, {**c, 'role': 'Counsellor'}]
+
 # ---------- students and applications ----------
 students, apps, idmap = [], [], {}
 # a student never shares a name with a GSP person or an RP's team member
 TAKEN = {(x['first'] + ' ' + x['last']).lower() for x in STAFF} | {'rahul verma', 'sneha kulkarni', 'karthik nair', 'divya shetty', 'nesil noble', 'anita desai', 'ananya rao', 'vikram desai', 'lan tran', 'asha menon', 'priya raman', 'kavya menon'}
 RENAME = {'Rahul Verma': 'Rahul Varghese', 'Sneha Kulkarni': 'Sneha Kale', 'Ananya Rao': 'Ananya Rajan'}
+# W29 (1 Nov): two students never share a name, nor share one with the sample agency's own students (two Rohan Guptas
+# read as one person): a repeat takes another surname from its nationality's list
+SAMPLE_STUDENTS = {'mohammed irfan', 'priya raman', 'sneha patil', 'rohan gupta', 'fatima sheikh'}
+SURNAMES = {'India': ['Bhatia', 'Chopra', 'Desai', 'Gill', 'Kapoor', 'Mehta', 'Saxena', 'Thakur', 'Verghese', 'Sethi'], 'Bangladesh': ['Sarker', 'Hasan', 'Mia', 'Karim'],
+            'Pakistan': ['Raza', 'Javed', 'Anwar'], 'Sri Lanka': ['Perera', 'Silva', 'Gunawardena', 'Rajapaksha'], 'Vietnam': ['Hoang', 'Dang', 'Bui', 'Do'], 'Nepal': ['Gurung', 'Rai', 'Magar'],
+            'Philippines': ['Reyes', 'Bautista', 'Mendoza'], 'Indonesia': ['Wijaya', 'Santoso'], 'Nigeria': ['Okeke', 'Adeyemi'], 'Colombia': ['Rojas', 'Herrera'], 'Myanmar': ['Aung', 'Htun']}
+USED = set(SAMPLE_STUDENTS)
 def student(first_last, nat, rp, key):
     first_last = RENAME.get(first_last, first_last)
     if first_last.lower() in TAKEN:
         sys.exit(f'student name {first_last} is also a person on the team')
+    if first_last.lower() in USED:
+        first = first_last.split(' ')[0]
+        pool = SURNAMES.get(nat, SURNAMES['India'])
+        first_last = next(f'{first} {x}' for x in pool[h(key, len(pool)):] + pool if f'{first} {x}'.lower() not in USED | TAKEN)
+    USED.add(first_last.lower())
     parts = first_last.split(' ')
     first, last = parts[0], ' '.join(parts[1:]) or parts[0]
     sid = f'S-3{len(students) + 1:04d}'
@@ -228,6 +275,9 @@ allterms = {f['id']: f for f in FUNIS + sample_terms}
 for cid, fid in link.items():
     lv = allterms[fid].get('levels') or {}
     rates[cid] = {k: v for k, v in lv.items() if v not in (None, '')}
+
+for r in rps.values():
+    rp_details(r)
 
 out = {
     'about': 'One application data set (Jovial, 31 Oct). Built by scripts/gen_dataset.py from the CRM-shaped work sample and Finance’s demo enrolments. Do not edit by hand.',

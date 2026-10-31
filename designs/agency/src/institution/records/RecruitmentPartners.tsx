@@ -1,3 +1,5 @@
+import { RpCommission } from '../../components/CommissionSummary';
+import { getScope } from '../../data/scope';
 import { useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -5,7 +7,9 @@ import { Icon } from '../../components/Icon';
 import { SelectInput } from '../../components/forms';
 import { Paper } from '../../components/DocView';
 import { CopyButton } from '../students/parts';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { RP_STATUSES, dateText, type RecruitmentPartner, type RpDoc, type RpStatus } from '../data/records';
+import { approveRp, canApprove, sendBackRpDoc, verifyRpDoc } from '../data/rpverify';
 import { Facts, NoMatch, PageHead, Pill, RecordHead, RecordTabs, Section, TabPanel, Tiles, downloadCsv, useRecord, type Tone } from './parts';
 import type { PageProps } from '../portal/model';
 
@@ -28,7 +32,7 @@ const sinceText = (iso: string) => (iso.slice(0, 4) === String(new Date().getFul
  * ones. The Institution Team can look and export, and changes nothing. No automated checks.
  */
 export function RecruitmentPartners(props: PageProps) {
-  const { db, focus, navKey, open, scrollTop, say } = props;
+  const { db, focus, navKey, open, scrollTop, say, me, canVerify } = props;
   const { cur, show, back } = useRecord(focus, navKey, scrollTop, open);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<RpStatus | ''>('');
@@ -51,14 +55,16 @@ export function RecruitmentPartners(props: PageProps) {
   };
 
   const shown = cur ? rps.find((r) => r.id === cur.id) : undefined;
-  if (cur && shown) return <RpPage key={shown.id} r={shown} tab={cur.tab} onBack={back} say={say} />;
+  if (cur && shown) return <RpPage key={shown.id} r={shown} tab={cur.tab} onBack={back} say={say} me={me} canVerify={!!canVerify} />;
 
   return (
     <div className="ipage">
-      <p className="iviewonly">
-        <Icon name="eye" size={16} /> View only: the Institution Team can see recruitment partners and export them, but not change them.
-      </p>
-      <PageHead title="Recruitment partners" lead="Every recruitment partner and where it is in onboarding. BAP works the Verifying ones.">
+      {!canVerify && (
+        <p className="iviewonly">
+          <Icon name="eye" size={16} /> View only: you can see recruitment partners and export them; BAP verifies new ones.
+        </p>
+      )}
+      <PageHead title="Recruitment partners" lead={canVerify ? 'Every recruitment partner and where it is in onboarding. Open a Verifying one to check its documents.' : 'Every recruitment partner and where it is in onboarding. BAP works the Verifying ones.'}>
         <Button
           variant="secondary"
           iconLeft={<Icon name="download" size={18} />}
@@ -133,7 +139,7 @@ export function RecruitmentPartners(props: PageProps) {
                           {r.name}
                         </button>
                         <span className="irow__sub">
-                          {r.city}, {r.country} · {r.code}
+                          {[r.city, r.country].filter(Boolean).join(', ')} · {r.code}
                         </span>
                       </td>
                       <td>{r.bdm}</td>
@@ -154,18 +160,44 @@ export function RecruitmentPartners(props: PageProps) {
   );
 }
 
-type Tab = 'overview' | 'documents' | 'activity';
+type Tab = 'overview' | 'documents' | 'commission' | 'activity';
 
 /** A recruitment partner, to look at: its details and who looks after it, its documents, and what's happened. */
-function RpPage({ r, tab: start, onBack, say }: { r: RecruitmentPartner; tab?: string; onBack: () => void; say: (m: string) => void }) {
-  const [tab, setTab] = useState<Tab>(start === 'documents' || start === 'activity' ? start : 'overview');
+function RpPage({ r, tab: start, onBack, say, me, canVerify }: { r: RecruitmentPartner; tab?: string; onBack: () => void; say: (m: string) => void; me: string; canVerify: boolean }) {
+  const [tab, setTab] = useState<Tab>(start === 'documents' || start === 'activity' ? start : canVerify && r.docs.some((d) => d.state === 'With BAP') ? 'documents' : 'overview');
   const [doc, setDoc] = useState<RpDoc | null>(null);
+  // BAP's checks (W4): Verify, or Send back with a note; Approve partner once every required document is verified
+  const [back, setBack] = useState<RpDoc | null>(null);
+  const [note, setNote] = useState('');
+  const [approving, setApproving] = useState(false);
+  const toCheck = r.docs.filter((d) => d.state === 'With BAP').length;
+  const ready = canApprove(r);
   return (
     <div className="ipage irecord">
-      <p className="iviewonly">
-        <Icon name="eye" size={16} /> View only: the Institution Team can see this but not change it.
-      </p>
-      <RecordHead back="Recruitment partners" onBack={onBack} title={r.name} sub={`${r.city}, ${r.country} · ${r.code}`} status={<RpPill s={r.status} />} />
+      {!canVerify && (
+        <p className="iviewonly">
+          <Icon name="eye" size={16} /> View only: you can see this; BAP verifies new partners.
+        </p>
+      )}
+      <RecordHead back="Recruitment partners" onBack={onBack} title={r.name} sub={[r.city, r.country].filter(Boolean).join(', ') + ` · ${r.code}`} status={<RpPill s={r.status} />} />
+      {canVerify && (toCheck > 0 || ready) && (
+        <div className="irp-verify card" role="status">
+          <span>
+            {ready ? 'Every required document is verified. Approve the partner to activate it and send the agreement to sign.' : `${toCheck === 1 ? '1 document' : `${toCheck} documents`} to check. Verify each one, or send it back with a note.`}
+          </span>
+          {ready ? (
+            <Button onClick={() => setApproving(true)} iconLeft={<Icon name="check" size={18} />}>
+              Approve partner
+            </Button>
+          ) : (
+            tab !== 'documents' && (
+              <Button variant="secondary" onClick={() => setTab('documents')}>
+                Check documents
+              </Button>
+            )
+          )}
+        </div>
+      )}
       <RecordTabs
         id="irptab"
         label="Recruitment partner"
@@ -173,6 +205,7 @@ function RpPage({ r, tab: start, onBack, say }: { r: RecruitmentPartner; tab?: s
         setTab={setTab}
         tabs={[
           { key: 'overview', label: 'Overview' },
+          { key: 'commission', label: 'Commission' },
           { key: 'documents', label: 'Documents', n: r.docs.length },
           { key: 'activity', label: 'Activity', n: r.activity.length },
         ]}
@@ -209,6 +242,12 @@ function RpPage({ r, tab: start, onBack, say }: { r: RecruitmentPartner; tab?: s
             </Section>
           </>
         )}
+        {tab === 'commission' && (
+          <Section title="Commission" id="irp-commission">
+            {/* Jovial, 1 Nov: read-only terms; Recruitment Ops and Finance can change the bank details */}
+            <RpCommission name={r.name} canBank={['gsp-bap', 'gsp-finance', 'gsp-admin'].includes(getScope().viewer)} />
+          </Section>
+        )}
         {tab === 'documents' && (
           <Section title="Documents" id="irp-docs">
             <ul className="ilist">
@@ -222,6 +261,17 @@ function RpPage({ r, tab: start, onBack, say }: { r: RecruitmentPartner; tab?: s
                     </button>
                   )}
                   <Pill tone={DOC_TONE[d.state]}>{d.state}</Pill>
+                  {canVerify && d.state === 'With BAP' && (
+                    <span className="irp-doc__acts">
+                      <Button size="sm" variant="secondary" onClick={() => (verifyRpDoc(r.id, d.name, me), say(`${d.name} verified.`))}>
+                        Verify<span className="vh"> {d.name}</span>
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => (setNote(''), setBack(d))}>
+                        Send back<span className="vh"> {d.name}</span>
+                      </Button>
+                    </span>
+                  )}
+                  {d.state === 'Sent back' && d.note && <span className="ilist__note">{d.note}</span>}
                 </li>
               ))}
             </ul>
@@ -240,6 +290,39 @@ function RpPage({ r, tab: start, onBack, say }: { r: RecruitmentPartner; tab?: s
           </Section>
         )}
       </TabPanel>
+      <ConfirmDialog
+        open={!!back}
+        title={`Send back the ${back?.name.toLowerCase() ?? 'document'}?`}
+        confirm="Send back"
+        onCancel={() => setBack(null)}
+        onConfirm={() => {
+          if (!back) return;
+          if (!note.trim()) return;
+          sendBackRpDoc(r.id, back.name, note.trim(), me);
+          say(`${back.name} sent back to ${r.name}.`);
+          setBack(null);
+        }}
+      >
+        <p>{r.name} sees your note in its portal and uploads a new file.</p>
+        <label className="irp-note" htmlFor="irp-note">
+          <span>What’s wrong, and what to upload instead</span>
+          <textarea id="irp-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="The photo is blurred, so the number can’t be read. Upload a sharp scan of the whole page." />
+        </label>
+        {!note.trim() && <p className="irp-note__hint">A note is needed to send it back.</p>}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={approving}
+        title={`Approve ${r.name}?`}
+        confirm="Approve partner"
+        onCancel={() => setApproving(false)}
+        onConfirm={() => {
+          approveRp(r.id, me);
+          setApproving(false);
+          say(`${r.name} approved: activated, and the agreement goes to sign.`);
+        }}
+      >
+        <p>Every required document is verified. The partner is activated, sees it in its portal, and gets the agreement to sign.</p>
+      </ConfirmDialog>
       <Sheet open={!!doc} onClose={() => setDoc(null)} center className="iform" title={doc?.name ?? ''} sub={doc?.file}>
         {doc && <Paper d={{ name: doc.name, file: doc.file }} />}
       </Sheet>

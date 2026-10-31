@@ -1,3 +1,4 @@
+import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { WorkPage } from '../../work/WorkPage';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -12,8 +13,7 @@ import type { SignupState } from '../../screens/signup/model';
 import { NAV, accessOf, expectedBy, phaseOf, sentDocs, type Section } from './model';
 import { docsFor, missingRequired } from '../../screens/signup/docs';
 import { returnedDocs, stillToReplace } from '../../screens/signup/docs';
-import { Home } from './Home';
-import { LaterSection, LockedSection, ProfileSection } from './Sections';
+import { LaterSection, LockedSection } from './Sections';
 import { DocumentsSheet } from './DocumentsSheet';
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, type CourseSearch } from '../courses/search';
@@ -21,7 +21,7 @@ import type { NoteTarget } from '../../data/inbox';
 import { sampleAnnouncements } from '../../institution/data/announcements';
 import { useInbox } from '../../screens/portal/Inbox';
 import { Students } from '../students/Students';
-import { fullName, sampleStudents, teamFor, type Student } from '../../data/students';
+import { fullName, sampleStudents, type Student } from '../../data/students';
 import type { AddState } from '../students/form';
 import type { RecordTab } from '../students/StudentRecord';
 import { Applications, type AppsStart } from '../applications/Applications';
@@ -33,6 +33,8 @@ import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 import { useLiveApps } from '../../data/live';
 import { setSession } from '../../data/downloads';
+import { setScope } from '../../data/scope';
+import { AdmissionsHome, StaffProfile } from './StaffPages';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -118,6 +120,8 @@ export function Portal({
   useLiveApps(setApps);
   // who's signed in, for the download log (data/downloads.ts)
   setSession(GSP_USER.name, 'Admission');
+  // who's looking, for the shared lists' wording and region hook (data/scope.ts)
+  setScope('gsp-admissions', GSP_USER.email);
   // connected to the other role for testing (Role, beside Prototype): see proto/link.ts
   // the bell and the megaphone: this portal's notifications (real ones from the other role while connected), and
   // announcements as the Institution Team's model has them (this role's own copy: nothing that team changes reaches here)
@@ -141,7 +145,8 @@ export function Portal({
   // what only GSP keeps for each application (its mail, the submission, census date and fee), by application
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
-  const team = teamFor(acc.name);
+  // every RP's team (data/rpteam.ts, W21): a student's counsellor is on their RP's
+  const team = useMemo(allRpMembers, []);
   // moving between sections with something open: a student's record, an application, the new application sheet
   const [jump, setJump] = useState<PortalStart | undefined>();
   const begin = jump ?? start;
@@ -317,11 +322,12 @@ export function Portal({
     section === 'mywork' || section === 'mail' ? (
       <WorkPage section={section} role="gsp-team" go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'home' ? (
-      <Home acc={{ ...acc, first: GSP_USER.first }} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} />
+      // Admissions' own Home (W6): the person's applications by who has them, and their tasks
+      <AdmissionsHome email={GSP_USER.email} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} onMyWork={() => go('mywork')} />
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />
     ) : section === 'profile' ? (
-      <ProfileSection acc={acc} join={join} access={access} onDocs={openDocs} onSignOut={onSignOut} />
+      <StaffProfile email={GSP_USER.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (
       <Students
         list={studentsView}

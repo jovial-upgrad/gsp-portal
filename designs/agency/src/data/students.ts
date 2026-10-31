@@ -233,11 +233,13 @@ export type Student = {
 /** What a team member can do: an RP Admin runs the whole agency, a Branch Admin one branch, a Counsellor their own students. */
 export type TeamRole = 'RP Admin' | 'Branch Admin' | 'Counsellor';
 /** Someone on the agency's team: their contact, role and branch; `invited` until they accept the invitation. */
-export type Member = { id: string; name: string; role: TeamRole; email?: string; dial?: string; phone?: string; branch?: string; invited?: boolean };
+export type Member = { id: string; name: string; role: TeamRole; email?: string; dial?: string; phone?: string; branch?: string; invited?: boolean; /** The RP whose team they're on (GSP's lists hold every RP's). */ rp?: string };
 
 /** The agency's team (sample): the person signed in, its RP Admin, and two counsellors, at the head office and a branch. */
 export const teamFor = (me: string, email = 'asha@brightpathoverseas.in'): Member[] => {
-  const domain = email.split('@')[1] ?? 'brightpathoverseas.in';
+  // the colleagues' addresses are the agency's own domain; the test account signs in with an upGrad address (W21)
+  const own = email.split('@')[1] ?? 'brightpathoverseas.in';
+  const domain = /^up(grad|gard)\.com$/.test(own) ? 'gsptestagency.in' : own;
   return [
     { id: 'me', name: me, role: 'RP Admin', email, dial: '+91', phone: '98450 12345', branch: 'hq' },
     { id: 'karthik', name: 'Karthik Nair', role: 'Counsellor', email: `karthik.nair@${domain}`, dial: '+91', phone: '98450 22113', branch: 'hq' },

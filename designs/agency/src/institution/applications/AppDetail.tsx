@@ -1,3 +1,4 @@
+import { gspWord } from '../../data/scope';
 import { PriorityChip } from '../../components/PriorityChip';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
@@ -37,6 +38,7 @@ import { SubmissionTab, isSubmitted } from './Submission';
 import { StatusDialog, type StatusPick } from './StatusDialog';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
+import { rpTeam } from '../../data/rpteam';
 import { longDate, mailDocs, rpContact, statusMail, type Desk, type MailDoc } from './desk';
 import { DocButtons, downloadDoc } from '../../components/DocView';
 import { Celebrate } from '../../components/Celebrate';
@@ -84,7 +86,7 @@ export function AppDetail({
   a,
   s,
   team,
-  agency,
+  agency: agencyFor,
   desk,
   setDesk,
   tab,
@@ -115,8 +117,11 @@ export function AppDetail({
   const o = ownerOf(a);
   // GSP's actions are the signed-in person's
   const gsp = GSP_USER;
-  const counsellor = team.find((m) => m.id === s.counsellor);
-  const rp = rpContact(counsellor?.name ?? team[0].name, counsellor?.role ?? 'Admin', agency);
+  // the application's own RP (W1, 1 Nov), not the signed-in sample agency; its people from its one team record (W21)
+  const agency = a.rp ?? s.rp ?? agencyFor;
+  const rpPeople = rpTeam(agency);
+  const counsellor = rpPeople.find((m) => m.id === s.counsellor) ?? team.find((m) => m.id === s.counsellor && (m.rp ?? agency) === agency) ?? rpPeople.find((m) => m.role === 'Counsellor') ?? rpPeople[0];
+  const rp = rpContact(counsellor ?? { name: agency, role: 'RP Admin' }, agency);
   const earn = earnFor(a);
   const [withdraw, setWithdraw] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -433,7 +438,7 @@ export function AppDetail({
               <Icon name="doc" size={20} />
             </span>
             <div className="aneed__t">
-              <p className="aneed__title">Pending on you: {pending.length === 1 ? '1 document to review' : `${pending.length} documents to review`}</p>
+              <p className="aneed__title">{gspWord()}: {pending.length === 1 ? '1 document to review' : `${pending.length} documents to review`}</p>
               <p className="aneed__text">{pending.map((r) => r.name).join(' · ')}</p>
             </div>
             <Button onClick={goReview} iconRight={<Icon name="arrowRight" size={18} />}>
@@ -640,7 +645,7 @@ export function AppDetail({
               )}
               <Row k="Counsellor" v={counsellor?.name} />
               <Row k="Base commission" v={<span className="num">{earn.text}</span>} />
-              <Row k="Started" v={shortDate(new Date(a.created))} />
+              <Row k="Applied" v={shortDate(new Date(a.created), true)} />
             </dl>
           </section>
         </aside>

@@ -3,11 +3,11 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { Checkbox, Field, Form, SelectInput, Switch } from '../../components/forms';
+import { Checkbox, Field, Form, SelectInput } from '../../components/forms';
 import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
-import { FLAG, FLAG_COLOURS, earnOf, money, type Course } from '../../data/courses';
+import { FLAG, FLAG_COLOURS, money, type Course } from '../../data/courses';
 import {
   AREAS,
   DESTINATIONS,
@@ -135,15 +135,10 @@ export function FindCourses({
     <div className="find">
       <header className="find__head">
         <div className="find__titles">
-          <h1 className="page__title">Course search</h1>
+          <h1 className="page__title">Find courses</h1>
           <p className="find__lead">Search courses your student can be offered.</p>
         </div>
-        <div className="find__view">
-          <Switch id="fc-view" checked={s.studentView} onChange={(v) => set((p) => ({ ...p, studentView: v }))}>
-            Student view
-          </Switch>
-          <p className="find__view-note">Hides earnings while you share your screen.</p>
-        </div>
+        {/* no Student view in GSP's roles: there's no commission here to hide (W26) */}
       </header>
 
       <Form className="card fsearch" onSubmit={search} aria-label="Search courses">
@@ -285,7 +280,7 @@ export function FindCourses({
                 <span>Sort</span>
                 <span className="fbar__pick">
                   <select className="fbar__select" value={s.sort} onChange={(e) => set((p) => ({ ...p, sort: e.target.value as CourseSearch['sort'] }))}>
-                    {SORTS.filter(([k]) => !(s.studentView && k === 'earn')).map(([k, t]) => (
+                    {SORTS.filter(([k]) => k !== 'earn').map(([k, t]) => (
                       <option key={k} value={k}>
                         {t}
                       </option>
@@ -415,7 +410,8 @@ export function FindCourses({
       <CompareSheet
         open={comparing}
         list={pickedCourses}
-        agent={!s.studentView}
+        // GSP's people never see commission in Find courses: only the RP sees its own (W26)
+        agent={false}
         canApply={canApply}
         isShort={isShort}
         onApply={onApply}
@@ -434,7 +430,8 @@ export function FindCourses({
       <DownloadSheet
         open={!!downloading}
         list={pickedCourses}
-        agent={!s.studentView}
+        // GSP's people never see commission in Find courses: only the RP sees its own (W26)
+        agent={false}
         compare={!!downloading?.compare}
         from={from ?? { org: agency, name: '', email: '' }}
         onClose={() => {
@@ -646,7 +643,7 @@ function FilterPanel({
 function CourseCard({
   c,
   i,
-  s,
+  s: _s,
   shortlisted,
   shortFor,
   onShort,
@@ -681,7 +678,7 @@ function CourseCard({
     ['Application fee', c.appFee ? money(c.appFee, c.currency) : 'Free'],
     ['Duration', duration(c.months)],
   ];
-  if (!s.studentView) facts.push(['Base commission', `≈ ${money(earnOf(c), c.currency)}`, 'earn']);
+
   const tags = [
     c.scholarship > 0 && `Scholarship up to ${money(c.scholarship, c.currency)}`,
     c.englishFlex && 'English test can wait',
@@ -748,7 +745,7 @@ function CourseCard({
         </div>
       </div>
 
-      <dl className={`course__facts ${s.studentView ? 'is-4' : ''}`}>
+      <dl className="course__facts is-4">
         {facts.map(([k, v, cls, sub]) => (
           <div key={k} className={cls ? `is-${cls}` : undefined}>
             <dt>{k}</dt>
