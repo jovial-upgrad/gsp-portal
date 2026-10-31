@@ -25,7 +25,7 @@ export const FILTERS = [
   { id: 'f-ack', name: 'Application received or submitted', example: 'Application Submitted – (SCU-…)', does: 'Filed on the application, with the university’s reference recorded.', share: 3.8, on: true },
   { id: 'f-bounce', name: 'Bounces and out-of-office', example: 'Undeliverable: … · Automatic reply: …', does: 'Bounces flag the address on the contact; out-of-office replies are filed.', share: 4.2, on: true },
   { id: 'f-code', name: 'Sign-in and verification codes', example: 'Your verification code', does: 'Sent only to the person who asked for it; never shared.', share: 0.4, on: true },
-  { id: 'f-marketing', name: 'Newsletters and marketing', example: 'October at OEG: was anything …', does: 'Sent to Institution Ops as possible announcements.', share: 1.7, on: true },
+  { id: 'f-marketing', name: 'Newsletters and marketing', example: 'October at OEG: was anything …', does: 'Sent to Admission Ops to review for an announcement (6 working hours).', share: 1.7, on: true },
 ];
 
 /* What each kind of conversation does once matched. Editable on Mail › Settings. */
