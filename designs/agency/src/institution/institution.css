@@ -450,3 +450,8 @@ input[type='date'].icell { min-width: 150px; }
 /* a tab's saved values, read-only until Edit */
 .itab--view tbody th[scope='row'] { padding-top: var(--sp-14, 14px); padding-bottom: var(--sp-14, 14px); border-bottom: 1px solid var(--line); background: none; color: var(--text); font-size: var(--t-label); font-weight: var(--fw-medium); text-align: left; white-space: nowrap; text-transform: none; letter-spacing: 0; }
 .itab--view td, .itab--view th { vertical-align: middle; }
+
+/* QC, 1 Nov (H37): on a phone the save bar sits above the floating tab bar (56px tabs + padding + its 12px gap) */
+@container app (max-width: 900px) {
+  .isave { bottom: calc(56px + var(--sp-4) * 2 + var(--sp-12) * 2); }
+}

@@ -1148,7 +1148,7 @@ function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boo
   const [reason, setReason] = useState(REASONS[0]);
   const c = courseOf(a);
   return (
-    <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw" cancel="Keep it" onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
+    <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
       <p>Tell {c.uni.name} by mail; the application closes here and for {agency}, with the reason. {s.first}’s documents stay on the profile for other applications.</p>
       <fieldset className="wreasons">
         <legend className="wreasons__legend">Why?</legend>

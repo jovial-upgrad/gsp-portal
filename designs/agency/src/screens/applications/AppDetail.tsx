@@ -985,7 +985,7 @@ function WithdrawDialog({ open, a, s, onCancel, onConfirm }: { open: boolean; a:
   const [reason, setReason] = useState(REASONS[0]);
   const c = courseOf(a);
   return (
-    <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw" cancel="Keep it" onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
+    <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
       <p>GSP tells {c.uni.name}, and the application closes. {s.first}’s documents stay on the profile for other applications.</p>
       <fieldset className="wreasons">
         <legend className="wreasons__legend">Why?</legend>

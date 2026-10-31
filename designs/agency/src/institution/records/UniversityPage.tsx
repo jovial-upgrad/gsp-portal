@@ -1,8 +1,8 @@
+import { notify } from '../../components/Toast';
 import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { money } from '../../data/courses';
 import { UniMark, campusLabel } from '../courses/parts';
@@ -37,7 +37,6 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
   useEffect(() => {
     if (start && TABS.includes(start as Tab)) setTab(start as Tab);
   }, [start]);
-  const [pausing, setPausing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState<CourseDraft | null>(null);
   // the partner shows by name; its edit button opens the list to pick another
@@ -65,6 +64,16 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
   const setStatus = (status: UniRec['status'], what: string) => {
     part('status')((x) => ({ ...x, status }));
     say(`${u.name}: ${what}.`);
+  };
+  /** QC, 1 Nov (H34): pausing is reversible, so it happens straight away and the notification offers Undo. */
+  const pause = () => {
+    const was = { status: u.status, stamp: u.stamps.status };
+    part('status')((x) => ({ ...x, status: 'Paused' }));
+    notify({
+      title: `${u.name} paused`,
+      text: 'Its courses are out of Course search. Applications already made carry on.',
+      undo: () => upd((x) => ({ ...x, status: was.status, stamps: { ...x.stamps, status: was.stamp } })),
+    });
   };
 
   return (
@@ -100,7 +109,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
         ) : u.status === 'Live' ? (
           <div className="istatus">
             <p className="istatus__note">In Course search: partners can find and apply to its live courses.</p>
-            <Button variant="secondary" size="sm" onClick={() => setPausing(true)}>
+            <Button variant="secondary" size="sm" onClick={pause}>
               Pause
             </Button>
           </div>
@@ -254,9 +263,6 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
         {tab === 'submission' && <Submission u={u} p={p} part={part} say={say} me={me} />}
       </TabPanel>
 
-      <ConfirmDialog open={pausing} title={`Pause ${u.name}?`} confirm="Pause" onConfirm={() => (setPausing(false), setStatus('Paused', 'Paused'))} onCancel={() => setPausing(false)}>
-        <p>Its courses leave Course search until it’s resumed. Applications already made carry on.</p>
-      </ConfirmDialog>
       <CourseForm
         f={adding}
         unis={db.unis}

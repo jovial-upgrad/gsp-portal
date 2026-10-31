@@ -146,7 +146,11 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
     // someone with access who hasn't set a password: no password to check, so offer to set one up
     const m = memberFor(a.id);
     if (m && !hasPassword(m)) return set((p) => ({ ...p, submitted: true, unset: true, error: null, notice: null, pw: '' }));
-    if (!a.id.trim() || !a.pw) return set((p) => ({ ...p, submitted: true, error: null, notice: null, unset: false }));
+    if (!a.id.trim() || !a.pw) {
+      // the first field with an error takes focus (QC, 1 Nov)
+      window.setTimeout(() => (!a.id.trim() ? document.getElementById('si-id') : pwRef.current)?.focus(), 40);
+      return set((p) => ({ ...p, submitted: true, error: null, notice: null, unset: false }));
+    }
     set((p) => ({ ...p, submitted: true, status: 'checking', error: null, notice: null, unset: false }));
     timer.current = window.setTimeout(() => {
       const ok = verify(a.id, a.pw);
@@ -157,7 +161,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
         set((p) => ({
           ...p,
           status: 'idle',
-          pw: '',
+          // QC, 1 Nov (H20): the password stays; only the banner says what's wrong
           attempts,
           lockedUntil,
           error: lockedUntil
@@ -166,7 +170,10 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
               ? `That email and password don’t match. ${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses for ${LOCK_MINUTES} minutes.`
               : 'That email and password don’t match. Check both, or reset your password.',
         }));
-        window.setTimeout(() => pwRef.current?.focus(), 40);
+        window.setTimeout(() => {
+          pwRef.current?.focus();
+          pwRef.current?.select();
+        }, 40);
       } else {
         set((p) => ({ ...p, status: 'success' }));
         timer.current = window.setTimeout(() => onSignedIn(ok), 1500);
@@ -235,7 +242,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             spellCheck={false}
             placeholder="name@gsp.upgrad.com"
             value={a.id}
-            invalid={!!idErr || !!a.error}
+            invalid={!!idErr}
             aria-describedby={describedBy('si-id', idErr)}
             onChange={(e) => set((p) => ({ ...p, id: e.target.value, error: null, unset: false }))}
           />
@@ -256,7 +263,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             name="password"
             autoComplete="current-password"
             value={a.pw}
-            invalid={!!pwErr || !!a.error}
+            invalid={!!pwErr}
             aria-describedby={pwErr ? 'si-pw-error' : caps ? 'si-pw-caps' : undefined}
             onCaps={setCaps}
             onChange={(e) => set((p) => ({ ...p, pw: e.target.value, error: null }))}
@@ -476,7 +483,10 @@ function NewStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }
   const hintState = ok ? 'ok' : f.submitted || usesName ? 'error' : 'idle';
   const pw2Err = f.submitted && ok && !match ? 'The two passwords don’t match yet.' : null;
   const save = () => {
-    if (!ok || !match) return patch({ submitted: true });
+    if (!ok || !match) {
+      window.setTimeout(() => document.getElementById(!ok ? 'fp-pw' : 'fp-pw2')?.focus(), 40);
+      return patch({ submitted: true });
+    }
     patch({ busy: true });
     window.setTimeout(() => {
       const m = memberFor(f.id);

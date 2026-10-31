@@ -74,7 +74,10 @@ function RequestStep({ a, patch, go }: StepProps) {
   const id = f.id || a.id;
   const err = f.submitted && !id.trim() ? 'Enter the username or email you sign in with.' : null;
   const send = () => {
-    if (!id.trim()) return patch({ submitted: true });
+    if (!id.trim()) {
+      window.setTimeout(() => document.getElementById('fp-id')?.focus(), 40);
+      return patch({ submitted: true });
+    }
     patch({ busy: true, id });
     window.setTimeout(() => go('code', 1, { id, code: '', codeError: null, resendAt: Date.now() + 30_000 }), 800);
   };
@@ -208,7 +211,10 @@ function NewStep({ a, patch, go }: StepProps) {
   const pw2Err = f.submitted && ok && !match ? 'The two passwords don’t match yet.' : null;
 
   const save = () => {
-    if (!ok || !match) return patch({ submitted: true });
+    if (!ok || !match) {
+      window.setTimeout(() => document.getElementById(!ok ? 'fp-pw' : 'fp-pw2')?.focus(), 40);
+      return patch({ submitted: true });
+    }
     patch({ busy: true });
     window.setTimeout(() => {
       const acc = accountFor(f.id);

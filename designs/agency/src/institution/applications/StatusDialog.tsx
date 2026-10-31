@@ -100,6 +100,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
         open={!!closing}
         title={`Close ${a.id}?`}
         confirm="Close application"
+        danger
         onCancel={() => setClosing(null)}
         onConfirm={() => {
           if (closing) onConfirm(closing);

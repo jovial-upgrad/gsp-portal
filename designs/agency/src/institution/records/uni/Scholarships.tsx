@@ -78,7 +78,8 @@ export function Scholarships({ u, upd, say, updated }: { u: UniRec; upd: UniUpd;
       <ConfirmDialog
         open={!!removing}
         title={`Remove ${removing?.name ?? 'this scholarship'}?`}
-        confirm="Remove"
+        confirm="Remove scholarship"
+        danger
         onConfirm={() => {
           if (removing) upd((x) => ({ ...x, scholarships: x.scholarships.filter((y) => y.id !== removing.id) }));
           say(`${removing?.name} removed.`);

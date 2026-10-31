@@ -5,6 +5,9 @@ import { Icon, type IconName } from '../../components/Icon';
 import { CounsellorPicker } from '../../components/CounsellorPicker';
 import { Toast } from '../../components/Toast';
 import { MoreMenu } from '../../components/MoreMenu';
+import { RequiredNote } from '../../components/forms';
+import { RevealErrors } from '../../components/validate';
+import { useUnsaved } from '../../components/unsaved';
 import { LEVELS, LEVEL_NAME, TESTS, TEST_ORDER, eduDocKey, eduDocName, fullName, levelsFor, readiness, type Member, type Student } from '../../data/students';
 import { COURSES, FLAG, UNIVERSITIES, money } from '../../data/courses';
 import { UniMark, campusLabel } from '../courses/parts';
@@ -270,13 +273,49 @@ export function StudentRecord({
   const close = (k: Editable) => {
     setDrafts((d) => without(d, k));
     setEditing((e) => without(e, k));
+    setReveal(0);
   };
+  /** A part's draft differs from what's saved (QC, 1 Nov: Save waits for a change). */
+  const isDirty = (k: Editable) => !!drafts[k] && JSON.stringify(drafts[k]) !== JSON.stringify(s);
+  // QC, 1 Nov (H1): Save shows every field's error first and saves nothing while one shows; the first is focused
+  const [reveal, setReveal] = useState(0);
+  const [attempt, setAttempt] = useState<{ k: Editable; n: number } | null>(null);
   const saveSection = (k: Editable) => {
-    const d = drafts[k];
-    if (d) save((p) => merge(k, p, d));
-    close(k);
-    say(`${LABEL[k]} saved.`);
+    setReveal((n) => n + 1);
+    setAttempt({ k, n: Date.now() });
   };
+  useEffect(() => {
+    if (!attempt) return;
+    const t = window.setTimeout(() => {
+      const bad = panel.current?.querySelector<HTMLElement>('.rform [aria-invalid="true"]');
+      if (bad) {
+        bad.focus();
+        bad.scrollIntoView?.({ block: 'center' });
+        return;
+      }
+      const k = attempt.k;
+      const d = drafts[k];
+      if (d) save((p) => merge(k, p, d));
+      close(k);
+      say(`${LABEL[k]} saved.`);
+      // back to the part's Edit button
+      window.setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-edit]')?.focus(), 80);
+    }, 40);
+    return () => window.clearTimeout(t);
+  }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
+  // QC, 1 Nov (H2): leaving the profile, or Esc in a part being edited, with changes nobody saved asks first
+  const record = useRef<HTMLDivElement>(null);
+  const anyDirty = DETAIL_TABS.some(([k]) => isDirty(k as Editable));
+  useUnsaved(Object.keys(drafts).length > 0 || Object.keys(editing).length > 0, anyDirty, {
+    region: record,
+    what: `${fullName(s)}’s profile`,
+    onDiscard: () => {
+      setDrafts({});
+      setEditing({});
+      setReveal(0);
+      window.setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-edit]')?.focus(), 80);
+    },
+  });
 
   // the documents the profile needs are counted in Documents, not in the part they belong to
   const docMissing = ['passport copy', eduDocName(s.highest).toLowerCase()];
@@ -285,7 +324,7 @@ export function StudentRecord({
   const shortlist = (s.shortlist ?? []).map((id) => COURSES.find((c) => c.id === id)).filter((c): c is (typeof COURSES)[number] => !!c);
   /** A part of Personal details: unsaved, incomplete, done, or optional. */
   const tabStatus = (k: Editable) => {
-    if (drafts[k]) return { text: 'Unsaved', cls: 'is-unsaved' };
+    if (isDirty(k)) return { text: 'Unsaved', cls: 'is-unsaved' };
     const sec = r.sections.find((x) => x.key === k)!;
     if (sec.optional) return sec.filled ? { text: 'Completed', cls: 'is-done' } : { text: 'Optional', cls: 'is-opt' };
     return missingIn(k).length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
@@ -293,13 +332,13 @@ export function StudentRecord({
   const status = (g: Group) => {
     if (g === 'apps') return { text: String(s.apps.length), cls: 'is-count' };
     if (g === 'documents') return needDocs ? { text: `${needDocs} missing`, cls: 'is-todo' } : { text: String(Object.keys(s.docs).length), cls: 'is-count' };
-    if (DETAIL_TABS.some(([k]) => drafts[k])) return { text: 'Unsaved', cls: 'is-unsaved' };
+    if (anyDirty) return { text: 'Unsaved', cls: 'is-unsaved' };
     return missingIn('personal').length || missingIn('education').length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
   };
   const counts: Partial<Record<RecordTab, number>> = { applications: s.apps.length, shortlist: shortlist.length };
 
   return (
-    <div className="record">
+    <div className="record" ref={record}>
       <div className="rtop">
         <button type="button" className="rback" onClick={onBack}>
           <Icon name="arrowLeft" size={18} />
@@ -360,7 +399,7 @@ export function StudentRecord({
           </span>
         </p>
         <div className="rhead__acts">
-          <Button variant="secondary" size="sm" iconRight={<Icon name="arrowRight" size={16} />} onClick={() => onFindCourses(s)}>
+          <Button data-leave variant="secondary" size="sm" iconRight={<Icon name="arrowRight" size={16} />} onClick={() => onFindCourses(s)}>
             Find courses for {s.first}
           </Button>
           {onNewApp && (
@@ -448,7 +487,7 @@ export function StudentRecord({
                     <div className="rpanel__acts">
                       {adder(sec)}
                       {mode === 'view' && (
-                        <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => startEdit(sec)} aria-label={`Edit ${LABEL[sec].toLowerCase()}`}>
+                        <Button data-edit variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => startEdit(sec)} aria-label={`Edit ${LABEL[sec].toLowerCase()}`}>
                           Edit
                         </Button>
                       )}
@@ -458,6 +497,7 @@ export function StudentRecord({
                 )}
                 {sec ? (
                   // saved: the same fields, read-only and shown as text; editing: the draft
+                  <RevealErrors.Provider value={mode === 'edit' ? reveal : 0}>
                   <fieldset className={`rform ${mode === 'view' ? 'is-view' : ''}`} disabled={mode === 'view'} aria-label={LABEL[sec]}>
                     {sec === 'personal' && <Personal s={shown} list={list} update={sectionUpdate} />}
                     {sec === 'education' && <Education s={shown} update={sectionUpdate} />}
@@ -465,6 +505,7 @@ export function StudentRecord({
                     {sec === 'tests' && <Tests s={shown} update={sectionUpdate} />}
                     {sec === 'background' && <Background s={shown} update={sectionUpdate} />}
                   </fieldset>
+                  </RevealErrors.Provider>
                 ) : tab === 'documents' ? (
                   <Documents s={s} update={save} />
                 ) : tab === 'shortlist' ? (
@@ -474,15 +515,22 @@ export function StudentRecord({
                 )}
                 {sec && mode === 'edit' ? (
                   <div className="redit">
+                    <RequiredNote className="redit__req" />
                     <p className="redit__note" aria-live="polite">
-                      {drafts[sec] ? 'Unsaved changes' : hasData(sec, s) ? 'No changes yet' : ''}
+                      {isDirty(sec) ? 'Unsaved changes' : hasData(sec, s) ? 'No changes yet' : ''}
                     </p>
                     {(editing[sec] || drafts[sec]) && (
-                      <Button variant="secondary" onClick={() => close(sec)}>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          close(sec);
+                          window.setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-edit]')?.focus(), 80);
+                        }}
+                      >
                         Cancel
                       </Button>
                     )}
-                    <Button onClick={() => saveSection(sec)} disabled={!drafts[sec] && !editing[sec]}>
+                    <Button onClick={() => saveSection(sec)} disabled={!isDirty(sec)}>
                       Save
                     </Button>
                   </div>

@@ -59,8 +59,8 @@ export function useUnsaved(active: boolean, dirty: boolean, o: { onDiscard: () =
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/** What counts as leaving the page: the main menu (not a group that only opens its submenu), its flyout, back links. */
-const LEAVE = 'nav[aria-label="Main"] button:not([aria-haspopup]), nav[aria-label="Main"] a, .pfly__item, .rback, [data-leave]';
+/** What counts as leaving the page: the main menu (not a group that only opens its submenu), its flyout, back links, a record's other tabs. */
+const LEAVE = 'nav[aria-label="Main"] button:not([aria-haspopup]), nav[aria-label="Main"] a, .pfly__item, .rback, [data-leave], .itabs [role=tab]:not([aria-selected="true"])';
 
 /** Shows the question, and catches leaving while a guard has changes. Mounted once, beside the app. */
 export function UnsavedHost() {
