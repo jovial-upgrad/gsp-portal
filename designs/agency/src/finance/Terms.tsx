@@ -84,10 +84,10 @@ function Unis({ c, canEdit, onEdit }) {
     <Card flush>
       <div className="stools"><div className="stools__row"><Input id="u-q" value={q} onChange={setQ} placeholder="Search universities" aria-label="Search universities" /></div>
         <p className="stools__count"><span><span className="num">{rows.length}</span> universities · terms drafted from the contracts, checked by Finance</span></p></div>
-      <Table head={['University', 'Rates', 'Paid when', 'Instalments', 'Tier', 'Annuity', 'Contract ends', '']}>
+      <Table head={['University', 'Rates', 'Paid when', 'Instalments', 'Tier', 'Annuity', 'Agreement ends', '']}>
         {rows.map(u => (
           <tr key={u.id} className="irow">
-            <td className="cfg__strong">{u.name}<span className="irow__sub">{u.country} · {u.cur}{u.flag ? ` · ${u.flag}` : ''}</span></td>
+            <td className="cfg__strong">{u.name}<span className="irow__sub">{u.country} · {u.cur}{u.territory && u.territory !== 'All countries' ? ` · Territory: ${u.territory}` : ''}{u.flag ? ` · ${u.flag}` : ''}</span></td>
             <td><span className="gspx-wrap">{Object.entries(u.levels || {}).map(([k, v]) => `${k} ${v}%`).join(', ') || '—'}</span></td>
             <td>{TRIG[u.trigger] || u.trigger}<span className="irow__sub">pays in {u.payDays} days</span></td>
             <td className="num">{u.inst}</td>
@@ -206,7 +206,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
           <Select id="u-inst" label="First-year instalments" value={String(d.inst)} onChange={v => set('inst', Number(v))} options={[['1', '1 (once a year)'], ['2', '2 (per semester)'], ['3', '3 (per trimester)']]} />
           <Field id="u-days" label="Days to pay an invoice"><Input id="u-days" type="number" value={d.payDays} onChange={v => set('payDays', v)} /></Field>
           <Field id="u-cap" label="Cap per student (first year)" hint="Leave blank for no cap"><Input id="u-cap" type="number" value={d.cap ?? ''} onChange={v => set('cap', num(v))} /></Field>
-          <Field id="u-end" label="Contract ends"><Input id="u-end" type="date" value={d.ends || ''} onChange={v => set('ends', v)} /></Field>
+          <Field id="u-end" label="Agreement ends" hint={u.agreement ? `From the Institution partner record${u.agreement.partner ? ` (${u.agreement.partner}, ${u.agreement.status})` : ''}: the Institution Team changes it there.` : 'No Institution partner record yet.'}><Input id="u-end" type="date" value={d.ends || ''} onChange={() => undefined} readOnly /></Field>
           <Select id="u-cur" label="Currency" value={d.cur} onChange={v => set('cur', v)} options={CURS} />
           <div className="field"><span className="field__label">Rates by level (% of tuition)</span>
             <div className="gspx-rates">{lv.map(k => (
@@ -226,6 +226,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
           <dt>Clawback</dt><dd>{u.contract?.claw || '—'}</dd>
           <dt>After the contract ends</dt><dd>{u.contract?.after || '—'}</dd>
           <dt>Source</dt><dd>{u.contract?.src || '—'}</dd>
+          <dt>Territory</dt><dd>{u.territory ? `${u.territory} (the university’s record)` : '—'}</dd>
           {u.flag && <><dt>Open point</dt><dd>{u.flag}</dd></>}
         </dl>
       </div>

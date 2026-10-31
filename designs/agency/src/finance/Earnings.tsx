@@ -13,7 +13,17 @@ import { PersonaBar, usePersona } from './persona';
 import { nice, money, bandTxt, winName, windowKey, thursdayOf } from './engine';
 import { useComm, liveRun, convert, sum } from './shared';
 
-const SHOW = [['', 'All'], ['next', 'In the next payout'], ['wait', 'Waiting for the university'], ['paid', 'Paid'], ['recover', 'To be recovered']];
+const SHOW = [['', 'All'], ['next', 'In the next payout'], ['approved', 'Approved'], ['wait', 'Waiting for the university'], ['paid', 'Paid'], ['recover', 'To be recovered']];
+
+/** Why a payment is at its rate (W27): which enrolment it is in the counting window, from Finance's own working. */
+function rateWhy(x) {
+  const t = x.r && x.r.rpTier;
+  if (x.a.gspLead) return 'GSP lead: flat rate';
+  if (x.annuity) return 'Annuity rate';
+  if (x.r && x.r.rpSrc && x.r.rpSrc !== 'scheme') return x.r.rpSrc.replace(/^scheme\+/, 'Scheme plus notice ');
+  if (!t) return 'Your flat rate';
+  return t.est ? `Estimate: enrolment ${t.rank} in ${t.wk}` : `Enrolment ${t.rank} of ${t.total} in ${t.wk}`;
+}
 
 export default function Earnings() {
   const { s, c, cfg, res } = useComm();
@@ -30,9 +40,13 @@ export default function Earnings() {
   const today = c.today; const thu = thursdayOf(today);
   const mine = res.rp.filter(x => (x.r.payee || x.r.rp).id === rp.id);
   const inCur = (amt, from) => convert(cfg, amt, from, cur, today);
+  // W13: a line in a run Finance has approved is Approved until pay day, then Paid
+  const approvedRuns = (c.runs || []).filter(r => r.status === 'approved');
+  const inApproved = x => approvedRuns.find(r => (r.lines || []).some(L => L.app === x.app && L.key === x.key));
   const rows = mine.map(x => {
-    const state = x.due < 0 ? 'recover' : x.payable && x.due > 0 ? 'next' : x.st[0] === 'Paid' ? 'paid' : x.st[0] === 'Waiting for university payment' ? 'wait' : 'other';
-    return { x, state, amt: inCur(x.ent, x.cur), paid: inCur(x.paid, x.cur), due: inCur(x.due, x.cur) };
+    const ar = inApproved(x);
+    const state = ar ? 'approved' : x.due < 0 ? 'recover' : x.payable && x.due > 0 ? 'next' : x.st[0] === 'Paid' ? 'paid' : x.st[0] === 'Waiting for university payment' ? 'wait' : 'other';
+    return { x, state, ar, amt: inCur(x.ent, x.cur), paid: inCur(x.paid, x.cur), due: inCur(x.due, x.cur) };
   });
   const by = k => rows.filter(r => r.state === k);
   const run = liveRun(c, res); const inv = run.invoices[rp.id]; const myRun = run.payees[rp.id];
@@ -53,12 +67,12 @@ export default function Earnings() {
   const n0 = v => Math.round(v).toLocaleString(cur === 'INR' ? 'en-IN' : 'en-AU');
   const tiles = [
     { id: 'paid', n: n0(sum(by('paid'), r => r.paid)), label: `Paid to you (${cur})`, sub: `${by('paid').length} payments`, tone: 'gsp' },
-    { id: 'next', n: n0(sum(by('next'), r => r.due)), label: `In the payout on ${nice(thu)} (${cur})`, sub: `${by('next').length} payments, before recoveries and withholding`, tone: 'you' },
+    { id: 'next', n: n0(sum([...by('next'), ...by('approved')], r => r.due)), label: `In the payout on ${nice(thu)} (${cur})`, sub: by('approved').length ? `${by('approved').length} approved by GSP, paid on ${nice(thu)}` : `${by('next').length} payments, before recoveries and withholding`, tone: 'you' },
     { id: 'wait', n: n0(sum(by('wait'), r => r.amt)), label: `Waiting for the university (${cur})`, sub: 'Paid after the university pays GSP', tone: 'gsp' },
-    { id: 'recover', n: n0(-sum(by('recover'), r => r.due)), label: `To be recovered (${cur})`, sub: 'Student withdrew with a refund', tone: 'bad' },
+    { id: 'recover', n: n0(-sum(by('recover'), r => r.due) || 0), label: `To be recovered (${cur})`, sub: 'Student withdrew with a refund', tone: 'bad' },
   ];
   const list = rows.filter(r => r.state !== 'other' && (!f || r.state === f));
-  const LABEL = { next: ['In next payout', 'dpill--checking'], wait: ['Waiting for the university', ''], paid: ['Paid', 'dpill--verified'], recover: ['To be recovered', 'dpill--bad'] };
+  const LABEL = { next: ['In next payout', 'dpill--checking'], approved: ['Approved', 'dpill--checking'], wait: ['Waiting for the university', ''], paid: ['Paid', 'dpill--verified'], recover: ['To be recovered', 'dpill--bad'] };
 
   return (
     <Page title="Earnings" top={<PersonaBar />} lead={`Commission for ${rp.name}, paid every Thursday in ${cur} once the university has paid GSP.`}>
@@ -70,14 +84,14 @@ export default function Earnings() {
           {inv.status === 'sent' && canAct ? <div className="gspx-inline">
             <Button kind="primary" onClick={() => update(d => { d.comm.run.invoices[rp.id].status = 'approved'; }, `${user.name} (${rp.name}) approved invoice ${inv.no}`) || toast('Approved. It will be paid on Thursday.')}>Approve invoice</Button>
             <Button onClick={() => update(d => { d.comm.run.invoices[rp.id].status = 'queried'; d.tasks.unshift({ id: 'T-Q-' + inv.no, record: 'cm-payout', kind: 'k-exception', queue: 'q-finance', title: `${rp.name} queried invoice ${inv.no}`, created: Date.now(), status: 'open' }); }, `${user.name} (${rp.name}) queried invoice ${inv.no}`) || toast('Sent to GSP Finance. They’ll reply in the portal.')}>Something’s wrong</Button>
-          </div> : <Pill tone={inv.status === 'approved' ? 'dpill--verified' : 'dpill--bad'}>{inv.status === 'approved' ? 'You approved it' : 'You queried it: Finance will reply'}</Pill>}
+          </div> : <Pill tone={inv.status === 'approved' || inv.status === 'paying' ? 'dpill--verified' : 'dpill--bad'}>{inv.status === 'paying' ? `Approved by GSP: paid on ${nice(run.date)}` : inv.status === 'approved' ? 'You approved it' : 'You queried it: Finance will reply'}</Pill>}
         </Card>)}
       <div className="gspx-grid2">
         <Card>
           <h2 className="gspx-h3">Your commission terms</h2>
           {sch ? <>
             <p>{sch.type === 'flat' ? `${sch.flat}% flat.` : `${bandTxt(sch.bands)}, counted per ${winName[sch.window] || sch.window}, ${sch.retro === 'yes' ? 'and the higher rate applies to every enrolment in the period' : sch.retro === 'top' ? 'and the top rate applies to every enrolment once reached' : 'and the higher rate applies from the next enrolment'}.`}</p>
-            {tier && <p className="gspx-sentence">{tier.wk}: <b className="num">{tier.n}</b> paid enrolments so far, so your rate is <b>{tier.pct}%</b>.{tier.next ? ` ${tier.need} more to reach ${tier.next[2]}%.` : ' You’re in the top band.'} An enrolment counts once the university has paid GSP.</p>}
+            {tier && <p className="gspx-sentence">{tier.wk}: <b className="num">{tier.n}</b> enrolments GSP has been paid for{tier.n ? <>, at up to <b>{tier.pct}%</b></> : ''}. {tier.next ? (tier.need === 1 ? <>Your next enrolment is number {tier.n + 1}, at <b>{tier.next[2]}%</b>: payments still waiting for the university show that rate as an estimate.</> : `${tier.need} more to reach ${tier.next[2]}%.`) : 'You’re in the top band.'} An enrolment counts once the university has paid GSP; each payment below says which one it is.</p>}
           </> : <p>{rp.flat}% flat.</p>}
           <p className="muted">Rates are a percentage of the commission GSP receives. Notices and promotions may pay more for some enrolments; those show on each payment.</p>
         </Card>
@@ -93,14 +107,14 @@ export default function Earnings() {
           <p className="stools__count"><span><span className="num">{list.length}</span> payments</span></p></div>
         <Table head={['Student', 'University', 'Payment', 'Your rate', `Amount (${cur})`, 'Status']}
           empty={!list.length && <Empty title="Nothing here yet">Commission appears once a student enrols.</Empty>}>
-          {list.map(({ x, state, amt, due }) => (
+          {list.map(({ x, state, ar, amt, due }) => (
             <tr key={x.app + x.key} className="irow">
               <td>{x.a.student}<span className="irow__sub">{x.app}</span></td>
               <td>{x.r.u.name}<span className="irow__sub">Course start {nice(x.a.intake)}</span></td>
               <td>{x.label.replace('Commission, instalment', 'Instalment')}{x.r.notice?.pct && x.kind === 'pct' && !x.a.gspLead ? <span className="irow__sub">{x.r.notice.pct.name}</span> : x.a.gspLead ? <span className="irow__sub">GSP lead</span> : null}</td>
-              <td className="num">{x.kind === 'pct' ? `${x.lp}%` : 'Bonus'}</td>
+              <td className="num">{x.a.withdrawn && state === 'recover' ? <>—<span className="irow__sub">Paid earlier, recovered in full</span></> : <>{x.kind === 'pct' ? `${x.lp}%` : 'Bonus'}{x.kind === 'pct' && <span className="irow__sub">{rateWhy(x)}</span>}</>}</td>
               <td className="num">{state === 'recover' ? money(due, cur) : money(amt, cur)}</td>
-              <td><Pill tone={LABEL[state][1]}>{LABEL[state][0]}</Pill>{state === 'wait' && <span className="irow__sub">{x.ip?.st[0] === 'Not yet due' ? `University pays after ${nice(x.ip.date)}` : 'University invoiced'}</span>}</td>
+              <td><Pill tone={LABEL[state][1]}>{state === 'recover' && x.a.withdrawn ? 'Clawback' : LABEL[state][0]}</Pill>{state === 'recover' && x.a.withdrawn && <span className="irow__sub">Withdrew {nice(x.a.withdrawn.date)} after enrolling{x.a.withdrawn.refund ? ', with a refund' : ''}: taken from your next payout</span>}{state === 'approved' && <span className="irow__sub">Paid on {nice(ar.date)}</span>}{state === 'wait' && <span className="irow__sub">{x.ip?.st[0] === 'Not yet due' ? `University pays after ${nice(x.ip.date)}` : 'University invoiced'}</span>}</td>
             </tr>))}
         </Table>
       </Card>

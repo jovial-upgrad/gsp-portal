@@ -78,7 +78,7 @@ export default function Setup() {
         <div className="gspx-form2">
           <Field id="o-adm" label="Runs above this also need an Admin (AUD)" hint="Leave blank for no limit"><Input id="o-adm" type="number" value={d.adminAbove ?? ''} onChange={v => set('adminAbove', v === '' ? null : v)} disabled={!canEdit} /></Field>
         </div>
-        <p className="muted">Who can do what in Finance (create, read, change, delete) is set in Admin › Work and access › Roles and access.</p>
+        <p className="muted">Who can do what in Finance (create, read, change, delete) is set in GSP · Admin › User roles › Permission roles.</p>
       </Card>
 
       <Card flush>

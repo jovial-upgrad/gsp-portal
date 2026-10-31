@@ -34,6 +34,8 @@ const subscribe = (f: () => void) => {
   subs.add(f);
   return () => subs.delete(f);
 };
+/** For stores outside React (Finance's agreement dates and territory, W8): called on every change. */
+export const onDbChange = (f: () => void) => subscribe(f);
 /** For a portal: the same as useState(sampleDb), but one copy for every role. */
 export const useSharedDb = () => [useSyncExternalStore(subscribe, getDb), setSharedDb] as const;
 
