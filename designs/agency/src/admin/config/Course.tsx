@@ -91,7 +91,7 @@ export function Currency({ cfg, change, say }: ConfigProps) {
                 <th scope="col" className="cfg__usedfor">Used for</th>
                 <th scope="col">1 unit in AUD</th>
                 <th scope="col">1 unit in INR</th>
-                <th scope="col">Last changed</th>
+                <th scope="col" className="cfg__changed">Last changed</th>
                 {ed && <th scope="col"><span className="vh">Remove</span></th>}
               </tr>
             </thead>
@@ -145,7 +145,7 @@ export function Currency({ cfg, change, say }: ConfigProps) {
                     )}
                   </td>
                   <td className="cfg__muted num">{r.code === 'INR' ? '1' : inr(r.code, d.value) ? `₹${fmt(Math.round(inr(r.code, d.value)! * 100) / 100)}` : '–'}</td>
-                  <td className="cfg__muted num">{when(r.updated)}</td>
+                  <td className="cfg__muted num cfg__changed">{when(r.updated)}</td>
                   {ed && (
                     <td className="cfg__acts">
                       {r.code !== 'AUD' && r.code !== 'INR' && (

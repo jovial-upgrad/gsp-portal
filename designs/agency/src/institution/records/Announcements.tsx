@@ -227,8 +227,8 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
     setFirst(v);
     onSave(build(false), s === 'Live' ? 'Saved.' : future ? `Scheduled for ${dateText(v.publishDay)}.` : 'Published: partners see it now.');
   };
-  const pickById = (label: string, idx: string, value: string[], onChange: (x: string[]) => void) => (
-    <MultiPick id={idx} label={label} value={value.map(uniName)} options={unis.map((u) => u.name)} onChange={(names) => onChange(names.map((n) => unis.find((u) => u.name === n)?.id ?? n))} empty="Choose" search />
+  const pickById = (label: string, idx: string, value: string[], onChange: (x: string[]) => void, invalid = false) => (
+    <MultiPick id={idx} label={label} invalid={invalid} value={value.map(uniName)} options={unis.map((u) => u.name)} onChange={(names) => onChange(names.map((n) => unis.find((u) => u.name === n)?.id ?? n))} empty="Choose" search />
   );
 
   return (
@@ -273,7 +273,7 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
                 </SelectInput>
               </Field>
               <Field id="ian-unis" label="Universities" required={needsUnis} optional={!needsUnis} error={show('unis')} className="iform__wide">
-                {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }))}
+                {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }), !!show('unis'))}
               </Field>
               <Field id="ian-levels" label="Program level" optional>
                 <MultiPick id="ian-levels" label="Program level" value={v.levels} options={[...LEVELS]} onChange={(x) => set({ levels: x as Level[] })} empty="All levels" all="All levels" />

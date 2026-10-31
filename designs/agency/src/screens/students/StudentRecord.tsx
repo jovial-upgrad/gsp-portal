@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
 import { CounsellorPicker } from '../../components/CounsellorPicker';
-import { Toast } from '../../components/Toast';
+import { Toast, notify } from '../../components/Toast';
 import { MoreMenu } from '../../components/MoreMenu';
 import { RequiredNote } from '../../components/forms';
 import { RevealErrors } from '../../components/validate';
@@ -297,7 +297,7 @@ export function StudentRecord({
       const d = drafts[k];
       if (d) save((p) => merge(k, p, d));
       close(k);
-      say(`${LABEL[k]} saved.`);
+      notify(`${LABEL[k]} saved`);
       // back to the part's Edit button
       window.setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-edit]')?.focus(), 80);
     }, 40);

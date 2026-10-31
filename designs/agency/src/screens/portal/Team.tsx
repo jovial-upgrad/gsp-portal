@@ -67,7 +67,15 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
       tell(`${b.name} removed`, moved ? `${moved === 1 ? 'Its team member is' : `Its ${moved} team members are`} now at ${main?.name}.` : undefined, undo);
     }
   };
-  const setRemoving = (r: { m: Member } | { b: Branch }) => removeNow(r);
+  const setRemoving = (r: { m: Member } | { b: Branch }) => {
+    removeNow(r);
+    // the row's menu has gone: focus goes to its section's heading (QC, 1 Nov, H8)
+    window.setTimeout(() => {
+      const h = document.getElementById('m' in r ? 'team-title' : 'br-title');
+      h?.setAttribute('tabindex', '-1');
+      h?.focus();
+    }, 60);
+  };
 
   return (
     <>
