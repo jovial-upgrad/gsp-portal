@@ -450,7 +450,7 @@ export function AppDetail({
               <Icon name="doc" size={20} />
             </span>
             <div className="aneed__t">
-              <p className="aneed__title">Pending on you: {pending.length === 1 ? '1 document to review' : `${pending.length} documents to review`}</p>
+              <p className="aneed__title">On GSP: {pending.length === 1 ? '1 document to review' : `${pending.length} documents to review`}</p>
               <p className="aneed__text">{pending.map((r) => r.name).join(' · ')}</p>
             </div>
             <Button onClick={goReview} iconRight={<Icon name="arrowRight" size={18} />}>

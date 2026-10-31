@@ -151,9 +151,9 @@ export function AppList({
         {(
           [
             ['', 'All applications'],
-            ['gsp', 'Pending on you'],
-            ['you', 'With RP'],
-            ['uni', 'With university'],
+            ['gsp', 'On GSP'],
+            ['you', 'On RP'],
+            ['uni', 'On university'],
           ] as [OwnerView, string][]
         ).map(([k, label]) => (
           <button key={k || 'all'} type="button" className={`atile atile--${k || 'all'}`} aria-pressed={st.owner === k} onClick={() => set((p) => ({ ...p, owner: k }))}>

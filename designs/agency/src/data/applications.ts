@@ -258,6 +258,8 @@ export type Application = {
   unread?: number;
   /** Who lodges the visa: the agency (the default) or GSP, when the agency asks. */
   visaBy?: 'you' | 'gsp';
+  /** Document requests from a later stage, paused while the status is back before it (Jovial, 1 Nov, O1). */
+  parked?: Need[];
 };
 
 export const courseOf = (a: Pick<Application, 'courseId'>) => COURSES.find((c) => c.id === a.courseId)!;
@@ -640,7 +642,13 @@ export function askRp(x: Application, n: Omit<Need, 'request'>, by: string, at: 
  * the deposit is the agency's to confirm.
  */
 export function arriveAt(x: Application, k: StatusKey, at: number, by = gspContact(destOf(x)).name): Application {
-  const kept = { ...x, needs: x.needs.filter((n) => n.request && (!n.step || n.step === k)) };
+  // requests made at a later stage pause when the status moves back before it, and come back when it returns
+  // there; anything already uploaded stays (Jovial, 1 Nov: Status triggers, O1)
+  const stageAt = STATUS[k].stage;
+  const later = (n: Need) => !!n.step && STATUS[n.step as StatusKey] && STATUS[n.step as StatusKey].stage > stageAt;
+  const back = (x.parked ?? []).filter((n) => n.step === k || (n.step && STATUS[n.step as StatusKey]?.stage === stageAt));
+  const parked = [...(x.parked ?? []).filter((n) => !back.includes(n)), ...x.needs.filter((n) => n.request && later(n))];
+  const kept = { ...x, parked, needs: [...x.needs.filter((n) => n.request && !later(n) && (!n.step || n.step === k || STATUS[n.step as StatusKey]?.stage === stageAt)), ...back] };
   return needsAt(k, x).reduce<Application>((y, n) => (n.action ? { ...y, needs: [...y.needs, n] } : askRp(y, { ...n, step: k }, by, at)), kept);
 }
 
