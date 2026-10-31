@@ -59,6 +59,8 @@ export type PortalStart = {
   apps?: Application[];
   app?: Omit<AppsStart, 'key'>;
 };
+/** GSP · Institution's own signed-in person, before any of these roles stood in for it. */
+let INSTITUTION_OWN: typeof INSTITUTION_USER | null = null;
 const lensSpring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
 const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'queues', 'emails', 'bdm', 'currency', 'living', 'routing', 'documents', 'logs'];
 const sectionOf = (s?: PortalStart['section']): Section => (!s || s === 'earnings' ? 'home' : s);
@@ -96,14 +98,16 @@ export function Portal({
   const ME = variant === 'admin' ? GSP_USER : { ...GSP_USER, ...V.user, org: 'GSP' };
   // the application pages are GSP · Institution's and act as its signed-in person: while GSP Admin is open, that's
   // Jovial (set before anything draws), and whoever it was comes back when GSP Admin closes
-  const [handBack] = useState(() => {
-    const was = { ...INSTITUTION_USER };
+  // QC 31 Oct: remember GSP · Institution's own person once, so switching between these roles can't hand one
+  // role's person to the next (Institution showed Saurabh after GSP · Recruitment)
+  useState(() => {
+    if (!INSTITUTION_OWN) INSTITUTION_OWN = { ...INSTITUTION_USER };
     actAsInInstitution({ ...ME, set: true });
-    return was;
+    return null;
   });
   useEffect(
     () => () => {
-      actAsInInstitution({ ...handBack, set: true });
+      if (INSTITUTION_OWN) actAsInInstitution({ ...INSTITUTION_OWN, set: true });
     },
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
