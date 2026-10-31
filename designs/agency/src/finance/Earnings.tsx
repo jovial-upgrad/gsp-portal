@@ -96,7 +96,7 @@ export default function Earnings() {
           {list.map(({ x, state, amt, due }) => (
             <tr key={x.app + x.key} className="irow">
               <td>{x.a.student}<span className="irow__sub">{x.app}</span></td>
-              <td>{x.r.u.name}<span className="irow__sub">Started {nice(x.a.intake)}</span></td>
+              <td>{x.r.u.name}<span className="irow__sub">Course start {nice(x.a.intake)}</span></td>
               <td>{x.label.replace('Commission, instalment', 'Instalment')}{x.r.notice?.pct && x.kind === 'pct' && !x.a.gspLead ? <span className="irow__sub">{x.r.notice.pct.name}</span> : x.a.gspLead ? <span className="irow__sub">GSP lead</span> : null}</td>
               <td className="num">{x.kind === 'pct' ? `${x.lp}%` : 'Bonus'}</td>
               <td className="num">{state === 'recover' ? money(due, cur) : money(amt, cur)}</td>

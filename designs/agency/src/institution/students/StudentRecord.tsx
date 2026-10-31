@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
-import { CounsellorPicker } from '../../components/CounsellorPicker';
 import { Toast } from '../../components/Toast';
 import { MoreMenu } from '../../components/MoreMenu';
 import { LEVELS, LEVEL_NAME, TESTS, TEST_ORDER, eduDocKey, eduDocName, fullName, levelsFor, readiness, type Member, type Student } from '../../data/students';
@@ -114,7 +113,7 @@ export function StudentRecord({
   onDismissFresh,
   onBack,
   onFindCourses,
-  onCounsellor,
+  onCounsellor: _onCounsellor,
   onOpenApp,
   onNewApp,
   say,
@@ -355,8 +354,9 @@ export function StudentRecord({
             </span>
           )}
           <span className="rhead__line rhead__c">
-            <span className="rhead__k">Counsellor</span>
-            <CounsellorPicker id="rh-counsellor" value={s.counsellor} team={team} label={`Change counsellor for ${fullName(s)}`} onPick={(id) => onCounsellor(s, id)} />
+            {/* GSP sees whose student it is; the counsellor is the RP's to change (W12) */}
+            <span className="rhead__k">{s.rp ?? 'GSP test agency'}</span>
+            <span>{team.find((m) => m.id === s.counsellor)?.name ?? 'No counsellor'}</span>
           </span>
         </p>
         <div className="rhead__acts">
