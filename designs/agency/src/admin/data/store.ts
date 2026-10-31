@@ -19,6 +19,7 @@ import {
   samplePerms,
   sampleRates,
   sampleFxWeeks,
+  fillFx,
   inrPerFrom,
   sampleRegions,
   sampleRpDocs,
@@ -103,6 +104,8 @@ function load(): Cfg {
   } catch {
     state = sampleCfg();
   }
+  // every week carries every currency (W14): older saved settings may have weeks without one
+  state = { ...state!, fxWeeks: fillFx(state!.fxWeeks, state!.rates) };
   applyCourseCosts(state!);
   return state!;
 }

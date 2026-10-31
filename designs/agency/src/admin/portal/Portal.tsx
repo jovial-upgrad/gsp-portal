@@ -1,3 +1,4 @@
+import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
@@ -14,7 +15,7 @@ import { WorkPage, WORK_SECTIONS, type WorkSection } from '../../work/WorkPage';
 import { FindCourses } from '../../institution/courses/FindCourses';
 import { newSearch, runSearch, setCatalogue, type CourseSearch } from '../../institution/courses/search';
 import { Students } from '../../institution/students/Students';
-import { fullName, sampleStudents, teamFor, type Student } from '../../data/students';
+import { fullName, sampleStudents, type Student } from '../../data/students';
 import type { AddState } from '../../institution/students/form';
 import type { RecordTab } from '../../institution/students/StudentRecord';
 import { Applications, type AppsStart } from '../../institution/applications/Applications';
@@ -27,13 +28,13 @@ import { GSP_USER } from '../user';
 import { GSP_USER as INSTITUTION_USER, signInAs as actAsInInstitution } from '../../institution/user';
 import { useSharedDb } from '../../institution/data/store';
 import { forSearch, searchable } from '../../institution/data/catalogue';
-import { TeamHome } from '../../institution/records/Home';
 import { Universities } from '../../institution/records/Universities';
 import { Catalogue } from '../../institution/records/Catalogue';
 import { InstitutionPartners } from '../../institution/records/InstitutionPartners';
 import { RecruitmentPartners } from '../../institution/records/RecruitmentPartners';
 import { Announcements } from '../../institution/records/Announcements';
-import { AccountPage } from '../../institution/records/Account';
+import { StaffProfile } from '../../gsp/portal/StaffPages';
+import { RoleHome } from './RoleHome';
 import { Toast } from '../../institution/records/parts';
 import { ConfigPage, useCfg } from '../config/ConfigPage';
 import { Flyout } from './Flyout';
@@ -44,6 +45,7 @@ import '../../institution/institution.css';
 import '../admin.css';
 import { useLiveApps } from '../../data/live';
 import { setSession } from '../../data/downloads';
+import { setScope } from '../../data/scope';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -124,9 +126,11 @@ export function Portal({
   useLiveApps(setApps);
   // who's signed in, for the download log (data/downloads.ts)
   setSession(ME.name, ME.role);
+  setScope(`gsp-${variant}`, ME.email);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
-  const team = teamFor(acc.name);
+  // every RP's team (data/rpteam.ts, W21): a student's counsellor is on their RP's
+  const team = useMemo(allRpMembers, []);
 
   // the records the team keeps; its changes stay in this portal
   // the catalogue and records: one copy for every role (institution/data/store.ts)
@@ -295,16 +299,17 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin' };
   const content =
     WORK_SECTIONS.includes(section as WorkSection) ? (
       <WorkPage section={section as WorkSection} role={`gsp-${variant}`} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : variant === 'finance' && (section === 'home' || FIN_SECTIONS.includes(section as FinSection)) ? (
       <FinancePage section={section as FinSection | 'home'} go={(k) => go(k as Section)} />
     ) : section === 'home' ? (
-      <TeamHome first={ME.first} db={db} open={openRecord} me={ME.name} />
+      // each role's own Home (W7): Recruitment its RPs, BAP the RPs to verify, Admin the settings to look at
+      <RoleHome variant={variant === 'finance' ? 'admin' : variant} first={ME.first} me={ME.name} db={db} apps={apps} open={openRecord} go={go} />
     ) : section === 'profile' ? (
-      <AccountPage name={ME.name} org={org} email={ME.email} onSignOut={onSignOut} />
+      <StaffProfile email={ME.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (
       <Students
         list={studentsView}

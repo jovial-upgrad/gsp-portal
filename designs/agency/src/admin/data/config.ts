@@ -190,7 +190,8 @@ export const sampleBdm = (): BdmRow[] => {
   for (const reg of regions) {
     const ppl = rec.filter((x) => x.regions.includes(reg));
     const countries = BDM_COUNTRIES[reg] ?? [reg];
-    const whole = ppl.find((x) => !x.area || x.area === reg) ?? ppl[0];
+    // the person whose area is the whole region (Saurabh Chaudhary: India) owns the rest of it, before anyone with no area (W7)
+    const whole = ppl.find((x) => x.area === reg) ?? ppl.find((x) => !x.area) ?? ppl[0];
     for (const country of countries) {
       for (const x of ppl) {
         if (!x.area || x.area === reg) continue;
@@ -231,8 +232,27 @@ export const sampleFxWeeks = (): FxWeek[] => {
     last = { ...last, week: isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) };
     rows.push(last);
   }
-  return rows;
+  return fillFx(rows);
 };
+/**
+ * Every week has every currency (W14, 1 Nov): a week the sheet left a currency out of (VND from 26 Oct) carries the
+ * week before's rate, so Finance never counts a rate Admin shows as missing. With Admin's rates, the week in force
+ * also takes any currency only the rates table has.
+ */
+export function fillFx(weeks: FxWeek[], rates?: Pick<Rate, 'code' | 'aud'>[]): FxWeek[] {
+  const out: FxWeek[] = [];
+  let prev: FxWeek | undefined;
+  for (const w of [...weeks].sort((a, b) => (a.week < b.week ? -1 : 1))) {
+    const row: FxWeek = { ...w };
+    if (prev) for (const [k, v] of Object.entries(prev)) if (k !== 'week' && (row[k] === undefined || row[k] === '' || row[k] === null)) row[k] = v;
+    out.push(row);
+    prev = row;
+  }
+  const now = isoDay(Date.now());
+  const cur = [...out].filter((w) => w.week <= now).pop();
+  if (cur && rates) for (const r of rates) if (r.aud && (cur[r.code] === undefined || cur[r.code] === '')) cur[r.code] = r.aud;
+  return out;
+}
 /** The week's row in force on a day. */
 export const fxWeekOn = (weeks: FxWeek[], day = isoDay(Date.now())) => [...weeks].sort((a, b) => (a.week < b.week ? -1 : 1)).filter((w) => w.week <= day).pop();
 export const sampleRates = (): Rate[] => {
