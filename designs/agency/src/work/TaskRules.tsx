@@ -7,6 +7,8 @@ import React, { useState } from 'react';
 import { useStore, update, queueById, kindById, ASSIGN } from './store';
 import { can } from '../finance/access';
 import { Page, Card, Segmented, Select, Table, Pill, Button, LinkButton, Sheet, Field, Input, Notice, toast } from '../finance/kit';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useCheck, numError, dupError } from '../components/validate';
 import { PersonaBar, usePersona } from './persona';
 import { ChangeLog } from './Queues';
 
@@ -52,7 +54,7 @@ export default function TaskRules() {
                 <td><span className="cfg__sub gspx-wrap">{r.closes}</span></td>
                 <td><button type="button" role="switch" aria-checked={String(r.on)} aria-label={`${r.name} on`} className="switch__track" disabled={!may('U')}
                   onClick={() => update(d => { const x = d.rules.find(y => y.id === r.id); x.on = !x.on; }, `${user.name} switched “${r.name}” ${r.on ? 'off' : 'on'}`)}><span className="switch__knob" aria-hidden="true" /></button></td>
-                <td className="cfg__acts">{may('U') && <LinkButton onClick={() => setEdit(r)}>Edit</LinkButton>}</td>
+                <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${r.name}`} onClick={() => setEdit(r)}>Edit</LinkButton>}</td>
               </tr>);
           })}
         </Table>
@@ -65,30 +67,45 @@ export default function TaskRules() {
 
 function RuleSheet({ rule, onClose, by, canDelete }) {
   const s = useStore();
-  const [v, setV] = useState(() => rule ? { ...rule } : { id: 'r' + Date.now(), on: true, name: '', record: 'Application', when: TRIGGERS.Application[0], task: '', to: 'region', who: 'owner', kind: s.kinds[0].id, sla: 1, closes: '' });
+  const init = React.useRef(rule ? { ...rule } : { id: 'r' + Date.now(), on: true, name: '', record: 'Application', when: TRIGGERS.Application[0], task: '', to: 'region', who: 'owner', kind: s.kinds[0].id, sla: 1, closes: '' });
+  const [v, setV] = useState(() => ({ ...init.current }));
+  const [sure, setSure] = useState(false);
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
+  const errors = {
+    name: !v.name.trim() ? 'Enter the rule name.' : dupError(v.name, s.rules.filter(r => r.id !== v.id).map(r => r.name), 'There’s already a rule with this name.'),
+    task: !v.task.trim() ? 'Enter the task people see.' : null,
+    sla: numError(v.sla, { what: 'SLA', min: 1, max: 60, int: true, required: true }),
+  };
+  const c = useCheck(errors);
+  const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
   const save = () => {
-    if (!v.name.trim() || !v.task.trim()) { toast('Give the rule a name and the task text.'); return; }
+    if (!c.submit()) return;
     update(d => { const i = d.rules.findIndex(r => r.id === v.id); if (i >= 0) d.rules[i] = v; else d.rules.push(v); }, `${by.name} ${rule ? 'edited' : 'created'} rule “${v.name}”`);
-    toast(rule ? 'Saved. Applies to new tasks from now.' : 'Rule created. It starts checking records now.'); onClose();
+    toast(rule ? 'Rule saved' : 'Rule created', { text: rule ? 'Applies to new tasks from now.' : 'It starts checking records now.' }); onClose();
   };
   const dup = s.rules.find(r => r.id !== v.id && r.on && r.record === v.record && r.when === v.when);
   return (
-    <Sheet wide title={rule ? `Edit “${rule.name}”` : 'New task rule'} onClose={onClose}
-      footer={<>{rule && canDelete && <Button onClick={() => { update(d => { d.rules = d.rules.filter(r => r.id !== v.id); }, `${by.name} deleted rule “${v.name}”`); toast('Rule deleted. Open tasks it created stay until done.'); onClose(); }}>Delete rule</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={save}>{rule ? 'Save' : 'Create rule'}</Button></>}>
+    <>
+    <Sheet wide title={rule ? `Edit “${rule.name}”` : 'New task rule'} onClose={onClose} dirty={dirty} what={rule ? `“${rule.name}”` : 'the new rule'}
+      footer={<>{rule && canDelete && <Button kind="danger-quiet" onClick={() => setSure(true)}>Delete rule</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!!rule && !dirty} onClick={save}>{rule ? 'Save' : 'Create rule'}</Button></>}>
       <div className="cfg__form gspx-form2">
-        <Field id="r-name" label="Rule name" required><Input id="r-name" value={v.name} onChange={x => set('name', x)} placeholder="Like: Branch has no BDM" /></Field>
-        <Select id="r-rec" label="Record it watches" value={v.record} onChange={x => setV(o => ({ ...o, record: x, when: TRIGGERS[x][0] }))} options={Object.keys(TRIGGERS)} />
-        <Select id="r-when" label="When" value={v.when} onChange={x => set('when', x)} options={TRIGGERS[v.record]} />
-        <Field id="r-task" label="Task people see" required hint="Write [record] where the record’s name goes."><Input id="r-task" value={v.task} onChange={x => set('task', x)} placeholder="Like: Chase the university for [record]" /></Field>
-        <Select id="r-to" label="Goes to" value={v.to} onChange={x => set('to', x)} options={DEST(s)} />
-        <Select id="r-who" label="Assigned by" value={v.who} onChange={x => set('who', x)} options={Object.entries(ASSIGN).filter(([k]) => k !== 'owner')} />
-        <Select id="r-kind" label="Kind of work" value={v.kind} onChange={x => setV(o => ({ ...o, kind: x, sla: (kindById(s, x) || {}).sla ?? o.sla }))} options={s.kinds.map(k => [k.id, k.name])} />
-        <Field id="r-sla" label="SLA (working days)"><Input id="r-sla" type="number" min="0" value={v.sla} onChange={x => set('sla', x)} /></Field>
+        <Field id="r-name" label="Rule name" required error={c.err('name')}><Input id="r-name" value={v.name} onBlur={c.blur('name')} onChange={x => set('name', x)} placeholder="Like: Branch has no BDM" /></Field>
+        <Select id="r-rec" label="Record it watches" required value={v.record} onChange={x => setV(o => ({ ...o, record: x, when: TRIGGERS[x][0] }))} options={Object.keys(TRIGGERS)} />
+        <Select id="r-when" label="When" required value={v.when} onChange={x => set('when', x)} options={TRIGGERS[v.record]} />
+        <Field id="r-task" label="Task people see" required error={c.err('task')} hint="Write [record] where the record’s name goes."><Input id="r-task" value={v.task} onBlur={c.blur('task')} onChange={x => set('task', x)} placeholder="Like: Chase the university for [record]" /></Field>
+        <Select id="r-to" label="Goes to" required value={v.to} onChange={x => set('to', x)} options={DEST(s)} />
+        <Select id="r-who" label="Assigned by" required value={v.who} onChange={x => set('who', x)} options={Object.entries(ASSIGN).filter(([k]) => k !== 'owner')} />
+        <Select id="r-kind" label="Kind of work" required value={v.kind} onChange={x => setV(o => ({ ...o, kind: x, sla: (kindById(s, x) || {}).sla ?? o.sla }))} options={s.kinds.map(k => [k.id, k.name])} />
+        <Field id="r-sla" label="SLA (working days)" required error={c.err('sla')}><Input id="r-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
         <Field id="r-close" label="Closes itself when" hint="Leave empty if a person closes it with an outcome."><Input id="r-close" value={v.closes} onChange={x => set('closes', x)} placeholder="Like: A decision is recorded" /></Field>
       </div>
       <p className="gspx-sentence"><b>In words: </b>when “{v.when.toLowerCase()}” on {v.record === 'Any' ? 'any record' : `a${/^[AEIOU]/.test(v.record) ? 'n' : ''} ${v.record.toLowerCase()}`}, create “{v.task || '…'}” in {destName(s, v.to)}, due in {v.sla} working day{v.sla === 1 ? '' : 's'}. {v.closes ? `It closes itself when ${v.closes.charAt(0).toLowerCase() + v.closes.slice(1)}.` : 'Someone closes it with an outcome.'}</p>
       {dup && <Notice tone="warn">“{dup.name}” already watches the same thing. Both would create a task.</Notice>}
     </Sheet>
+    <ConfirmDialog open={sure} danger title={`Delete “${v.name}”?`} confirm="Delete rule" onCancel={() => setSure(false)}
+      onConfirm={() => { setSure(false); update(d => { d.rules = d.rules.filter(r => r.id !== v.id); }, `${by.name} deleted rule “${v.name}”`); toast('Rule deleted', { text: 'Open tasks it created stay until they’re done.' }); onClose(); }}>
+      <p>It stops creating tasks. Open tasks it created stay until they’re done. This can’t be undone.</p>
+    </ConfirmDialog>
+    </>
   );
 }

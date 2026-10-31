@@ -53,15 +53,12 @@
 .gspx-crud button:disabled { cursor: default; }
 .gspx-crud button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
 
-/* Toast */
-.gspx-toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 90; padding: 10px 16px; border-radius: var(--r-sm); background: var(--text); color: var(--surface); font-size: var(--t-caption); transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); }
-.gspx-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
 @media (max-width: 700px) {
   .gspx-persona .gspx-select { min-width: 0; flex: 1 1 100%; }
   .gspx-wrap { max-width: 28ch; }
 }
-@media (prefers-reduced-motion: reduce) { .gspx-toast { transition: none; } }
+
 
 /* Layout safety: long content scrolls inside its own box, never the page */
 .gspx-page .ipage, .gspx-page .ipage > * { min-width: 0; }
@@ -116,3 +113,11 @@
 .gspx-appcomm .cfg__panel { margin: 0; }
 .gspx-working td { background: var(--surface-2); }
 .gspx-working .gspx-why { margin: var(--sp-4) 0; font-size: var(--t-caption); color: var(--text-2); }
+
+/* QC, 1 Nov: one form kit */
+.gspx-num.is-invalid { border-color: var(--bad-dot); }
+.gspx-num:focus-visible { outline: none; border-color: var(--focus); box-shadow: var(--input-glow); }
+.gspx-errs { display: grid; gap: 4px; }
+.sheet__foot .asf__acts > .btn--danger-quiet:first-child { margin-right: auto; }
+.gspx-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.gspx-stack { display: grid; gap: var(--sp-16); }
