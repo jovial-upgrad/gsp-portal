@@ -20,7 +20,9 @@ import { PersonaBar, usePersona, HostContext } from './persona';
 import { Icon } from '../components/Icon';
 import '../finance/finance.css';
 import './mail.css';
-import { setLiveStatus } from '../data/live';
+import { setLiveStatus, setLiveFlags, flagsOf, useLiveAll } from '../data/live';
+import { STATUS, STATUS_ORDER, destOf } from '../data/applications';
+import { liveApps } from './engine';
 
 const OVERSIGHT = ['admission-ops', 'admin', 'view-only'];
 const regionQueue = regionQueueId;
@@ -242,6 +244,14 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
   const to = { name: toMsg?.from[0] ?? '', addr: toMsg?.from[1] ?? '', side: rule.act === 'reply' ? 'University' : t.sender === 'RP' ? 'RP' : 'University' };
   const draft = t.draft || `Dear ${(lastIn?.from[0] || '').split(' (')[0]},\n\nThank you. ${rule.id === 'info' ? 'We’ll send what you asked for shortly.' : 'We’ve noted this on the application.'}\n\nKind regards,\n${user.name}\nGSP Admissions`;
 
+  // W3 (Jovial, 1 Nov): check where the application is before suggesting a move; say what it would skip
+  const liveNow = useLiveAll();
+  const app = r ? liveApps(liveNow.state).find((x) => x.id === r.id) : null;
+  const main = STATUS_ORDER.filter((k) => !STATUS[k].branch);
+  const skips = app && rule.act === 'status' && rule.key && rule.key !== 'closed' && main.includes(rule.key)
+    ? main.slice(main.indexOf(app.status) + 1, main.indexOf(rule.key)).filter(() => main.indexOf(app.status) >= 0) : [];
+  const back = app && rule.act === 'status' && rule.key && main.includes(app.status) && main.includes(rule.key) && main.indexOf(rule.key) < main.indexOf(app.status);
+  const same = app && rule.key === app.status;
   const set = (fn, log) => update((d) => fn(d.mail.threads.find((x) => x.id === t.id), d), log);
   const finish = (outcome, extra) => {
     set((x, d) => {
@@ -255,9 +265,13 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
     if (!r && ['status', 'task', 'chat', 'reply'].includes(rule.act)) { toast('Link the conversation to an application first.'); return; }
     const name = r ? r.student || r.label : '';
     if (rule.act === 'status') {
-      finish(`Status moved to “${rule.status}”${rule.attach && t.attachments ? `; ${rule.attach} added to Documents` : ''}.`, (d) => { const x = d.records.find((y) => y.id === r.id); x.status = rule.status; x.since = Date.now(); });
-      // the application itself, in every role (data/live.ts)
-      if (rule.key) setLiveStatus(r.id, { status: rule.key, at: Date.now(), by: user.name, end: rule.end, note: rule.status });
+      const now = Date.now();
+      const files = (t.messages.flatMap((m) => m.attachments || [])).filter(Boolean);
+      finish(`Status moved to “${rule.status}”${rule.attach && files.length ? `; ${rule.attach} added to Documents` : ''}.`);
+      // the application itself, in every role (data/live.ts); the attachment is filed on it, in Documents
+      if (rule.key && !same) setLiveStatus(r.id, { status: rule.key, at: now, by: user.name, end: rule.end, note: rule.status, via: 'mail' });
+      if (rule.attach && files.length) setLiveFlags(r.id, { filed: [...(flagsOf(r.id).filed || []), ...files.map((f) => ({ name: rule.attach, file: f, at: now, by: user.name }))] });
+      if (rule.key === 'conditions') setLiveFlags(r.id, { condsSent: false });
       toast(`${name}: status moved to “${rule.status}”.`);
     } else if (rule.act === 'task' || rule.act === 'finance') {
       const qid = rule.act === 'finance' ? 'q-finance' : queueById(s, regionQueue(r.region)) ? regionQueue(r.region) : 'q-adm-ops';
@@ -343,6 +357,11 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
           {canAct && (
             <div className="mx__next">
               <p><span className="mx__k">Next step</span> {rule.text}</p>
+              {app && rule.act === 'status' && (skips.length > 0 || back || same) && (
+                <p className="mx__warn" role="note">
+                  {same ? `It’s already at “${STATUS[app.status].text(destOf(app))}”: confirming only files the email.` : back ? `It’s at “${STATUS[app.status].text(destOf(app))}”, later than this email suggests. Check before you move it back.` : `It’s at “${STATUS[app.status].text(destOf(app))}”. Moving to “${rule.status}” skips ${skips.map((k) => `“${STATUS[k].text(destOf(app))}”`).join(', ')}. Check before you confirm.`}
+                </p>
+              )}
               <div className="mx__nextacts">
                 {link !== (t.record || '') ? (
                   <Button kind="primary" disabled={!link} onClick={relink}>Save the link</Button>

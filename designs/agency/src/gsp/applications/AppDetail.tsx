@@ -34,6 +34,7 @@ import { AssistMark, StageTrack } from './parts';
 import { Chat, type AskSeed } from './Chat';
 import { MailTab } from './Mail';
 import { SubmissionTab, isSubmitted } from './Submission';
+import { setLiveStatus, setLiveFlags } from '../../data/live';
 import { StatusDialog, type StatusPick } from './StatusDialog';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
@@ -189,12 +190,19 @@ export function AppDetail({
     const now = Date.now();
     const from = statusText(a);
     const to = STATUS[k].text(d);
+    const conds = 'conds' in pick ? pick.conds : undefined;
+    const visaBy = 'visaBy' in pick ? pick.visaBy : undefined;
     update((x) => ({
-      ...arriveAt({ ...x, history: [...x.history, { at: now, who: 'gsp', text: `Changed the status from “${from}” to “${to}”`, by: gsp.name }] }, k, now, gsp.name),
+      ...arriveAt({ ...x, ...(visaBy ? { visaBy } : {}), history: [...x.history, { at: now, who: 'gsp', text: `Changed the status from “${from}” to “${to}”`, by: gsp.name }, ...(visaBy ? [{ at: now, who: 'gsp' as const, text: visaBy === 'gsp' ? 'GSP lodges the visa for this application' : 'The RP lodges the visa', by: gsp.name }] : [])] }, k, now, gsp.name),
       status: k,
       since: now,
       end: undefined,
+      ...(conds ? { chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp' as const, name: gsp.name, text: `The university has made a conditional offer. Its conditions:\n${conds}\n\nPlease send what meets them here.` }] } : {}),
     }));
+    // every module sees it: My work's tasks follow the status, and who has it (Jovial, 1 Nov)
+    setLiveStatus(a.id, { status: k, at: now, by: gsp.name, note: to, via: 'portal' });
+    if (visaBy) setLiveFlags(a.id, { visaBy });
+    if (k === 'conditions') setLiveFlags(a.id, { condsSent: conds ? now : false });
     const mail = statusMail({ ...a, status: k }, s, k, now - 15 * 60_000);
     if (mail) setDesk((x) => (x.mails.some((m) => m.id === mail.id) ? x : { ...x, mails: [mail, ...x.mails] }));
     say(`Status changed to ${to}.`);
@@ -275,6 +283,7 @@ export function AppDetail({
       ],
     }));
     afterDecision(r);
+    if (back && back !== a.status) setLiveStatus(a.id, { status: back, at: now, by: gsp.name, note: STATUS[back].text(d), via: 'portal' });
     say(`${r.name} sent back to the RP.`);
   };
 
@@ -305,7 +314,8 @@ export function AppDetail({
   const close = (kind: EndKind, reason: string, stage = stageOf(a)) => {
     const now = Date.now();
     update((x) => ({ ...x, status: 'closed', since: now, needs: [], end: { kind, reason, stage, at: now }, history: [...x.history, { at: now, who: 'gsp', text: `Closed, ${kind.toLowerCase()}${reason ? `: ${reason}` : ''}`, by: gsp.name }] }));
-    say(`${a.id} closed: ${kind.toLowerCase()}.`);
+    setLiveStatus(a.id, { status: 'closed', at: now, by: gsp.name, end: kind, note: reason || kind, via: 'portal' });
+    say(`${a.id} closed: ${kind.toLowerCase()}. Its open tasks closed too.`);
   };
 
   // the offer's facts sit in Key details until the deposit is paid; its conditions are needs, in Documents

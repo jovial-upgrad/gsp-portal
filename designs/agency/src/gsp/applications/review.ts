@@ -15,7 +15,7 @@ export type Review = {
   /** Where the decision is kept: on the student's profile, shared by their applications, or on this application. */
   on: 'profile' | 'application';
   at?: number;
-  via?: 'chat' | 'request' | 'profile';
+  via?: 'chat' | 'request' | 'profile' | 'mail';
   need?: 'required' | 'optional' | 'later';
   /** GSP sent it back, and the RP has yet to send a new one. */
   back?: Need;

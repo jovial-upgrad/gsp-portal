@@ -53,7 +53,7 @@ export const GROUPS: NavGroup[] = [
       { key: 'users', label: 'Create roles', short: 'Users', icon: 'user' },
       { key: 'regions', label: 'Sales regions', short: 'Regions', icon: 'globe' },
       { key: 'permissions', label: 'Permission roles', short: 'Roles', icon: 'key' },
-      { key: 'queues', label: 'Queues', short: 'Queues', icon: 'sliders' },
+      // Jovial, 1 Nov (O8): one queue editor, Work › Queues, SLA and escalation
       { key: 'emails', label: 'Emails', short: 'Emails', icon: 'mail' },
     ],
   },

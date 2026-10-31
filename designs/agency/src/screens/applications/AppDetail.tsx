@@ -1,3 +1,4 @@
+import { setLiveStatus } from '../../data/live';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -238,6 +239,8 @@ export function AppDetail({
         ],
       };
     });
+    // New to Pre-screening: the one move the RP makes, seen by every module (Jovial, 1 Nov)
+    setLiveStatus(a.id, { status: next, at: now, by: me, note: STATUS[next].text(d), via: 'rp' });
     say(`Sent. ${STATUS[next].text(d)}.`);
   };
 

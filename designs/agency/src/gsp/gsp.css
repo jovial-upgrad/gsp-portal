@@ -277,3 +277,9 @@
 .gdocs__k2 { margin: var(--sp-10) 0 0; font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); }
 
 .nanone__hint { margin: 0; padding: var(--sp-12) var(--sp-14, 14px); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); font-size: var(--t-label); color: var(--text-2); }
+/* Change status: who lodges the visa (Jovial, 1 Nov) */
+.gstat__who { border: 0; margin: 0; padding: 0; display: grid; gap: var(--sp-8); }
+.gstat__who legend { font-weight: 600; margin-bottom: var(--sp-8); }
+.gstat__radio { display: flex; gap: var(--sp-8); align-items: flex-start; cursor: pointer; }
+.gstat__radio input { margin-top: 4px; }
+.gstat__radio small { display: block; color: var(--text-2, #666); }

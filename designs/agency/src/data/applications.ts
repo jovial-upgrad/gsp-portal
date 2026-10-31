@@ -11,6 +11,7 @@
  * checking a document before GSP sees it, checking eligibility, forecasting dates and drafting messages.
  * They answer only from the application's own data, and they never change it.
  */
+import { flagsOf } from './live';
 import { adminCfg } from '../admin/data/store';
 import { condOf, whenText } from '../admin/data/config';
 import { person, label, idOf, staffById } from './staff';
@@ -117,7 +118,7 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   rever: { stage: 4, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   deposit: { stage: 5, owner: 'you', text: () => 'Tuition or deposit pending', asks: true },
   payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', usual: 1, doc: { by: 'you', name: () => 'Payment proof' } },
-  waitad: { stage: 5, owner: 'gsp', text: () => 'Awaiting acceptance letter from university', usual: 5, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', usual: 5, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
   reacc: { stage: 5, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   // the visa is lodged by the agency or by GSP, never both: these two follow whoever lodges it (see ownerAt)
   visa: { stage: 6, owner: 'you', text: () => 'Visa lodgement pending', asks: true },
@@ -185,7 +186,7 @@ export type CondSet = { id: string; title: string; by: string; at: number; sent:
 
 /** A document on the application itself (not the student's profile): from the agency, GSP or the university. */
 /** `via: 'profile'`: a copy of the student's profile document, added to the application for GSP to verify for this application. */
-export type AppFile = { name: string; file: string; from: 'you' | 'gsp' | 'uni'; at: number; status: 'uploaded' | 'checking' | 'verified'; via?: 'chat' | 'request' | 'profile'; /** The request it answered. */ req?: string };
+export type AppFile = { name: string; file: string; from: 'you' | 'gsp' | 'uni'; at: number; status: 'uploaded' | 'checking' | 'verified'; via?: 'chat' | 'request' | 'profile' | 'mail'; /** The request it answered. */ req?: string };
 
 export type Who = 'you' | 'gsp' | 'uni' | 'ai' | 'system';
 export type Event = { at: number; who: Who; text: string; by?: string };
@@ -264,7 +265,17 @@ export const destOf = (a: Pick<Application, 'courseId'>) => courseOf(a).uni.coun
 export const stageOf = (a: Application) => (a.status === 'closed' ? a.end?.stage ?? 0 : STATUS[a.status].stage);
 export const openRequests = (a: Application) => a.needs.filter((n) => n.request);
 /** Who has a status on this application: the visa steps belong to whoever lodges the visa. */
-export const ownerAt = (k: StatusKey, a: Pick<Application, 'visaBy'>): AppOwner => (k === 'visa' || k === 'visasub' ? a.visaBy ?? 'you' : STATUS[k].owner);
+/**
+ * Who has a status (Jovial, 1 Nov, Who has it): the visa steps belong to whoever lodges the visa (GSP sets it when it
+ * moves the application to Visa lodgement pending); a conditional offer is GSP's until GSP has sent the conditions to
+ * the RP, then the RP's.
+ */
+export const ownerAt = (k: StatusKey, a: Pick<Application, 'visaBy'> & { id?: string }): AppOwner => {
+  const f = a.id ? flagsOf(a.id) : {};
+  if (k === 'visa' || k === 'visasub') return f.visaBy ?? a.visaBy ?? 'you';
+  if (k === 'conditions' && f.condsSent === false) return 'gsp';
+  return STATUS[k].owner;
+};
 /** The agency's documents GSP hasn't checked yet: the latest copy of each, sent and not verified. */
 export function toCheck(a: Application) {
   if (a.status === 'docs') return [];

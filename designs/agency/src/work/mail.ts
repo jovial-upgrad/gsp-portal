@@ -13,7 +13,7 @@ const at = (h) => Date.now() - h * H;
 export const MAILBOXES = [
   // Jovial's Inbox tab (31 Oct): five mailboxes, each feeding its queues; everyone in them can see and send for now; Admin sees all
   { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-ops', see: ['admission', 'admission-ops', 'admin', 'view-only'], sendAs: ['admission', 'admission-ops'], ytd: 164952 },
-  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-adm-ops', see: ['recruitment-ops', 'admission-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops', 'admission-ops'], ytd: 1190 },
+  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 1190 }, // Jovial, 1 Nov (O6): Recruitment Ops only
   { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 4847 },
   { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
   { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['institution-ops', 'admin', 'view-only'], sendAs: ['institution-ops'], ytd: 28 },

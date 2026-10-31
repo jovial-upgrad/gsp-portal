@@ -141,7 +141,7 @@ const iso = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY).toISOStrin
  * can see and send from it by default (to be made configurable). Admin sees them all.
  */
 export const MAILBOX_QUEUES: Record<string, string[]> = {
-  'admin.gsp@upgrad.com': ['Recruitment Ops', 'Admission Ops'],
+  'admin.gsp@upgrad.com': ['Recruitment Ops'], // Jovial, 1 Nov (O6)
   'bap.gsp@upgrad.com': ['Recruitment Ops'],
   'commissions.gsp@upgrad.com': ['Finance'],
   'data-team.gsp@upgrad.com': ['Institution Ops'],

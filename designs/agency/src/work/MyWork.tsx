@@ -5,7 +5,7 @@
  * Every row shows its SLA. Visibility follows role access and the user's regions.
  */
 import React, { useContext, useMemo, useState } from 'react';
-import { useStore, update, recordById, queueById, kindById, nameOf, slaOf, waitOf, SLA_PILL } from './store';
+import { useStore, update, closeTask, assignTask, recordById, queueById, kindById, nameOf, slaOf, waitOf, SLA_PILL } from './store';
 import { can, inScope } from '../finance/access';
 import { Page, Card, Tiles, Segmented, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, toast, fmtDate, fmtAge } from '../finance/kit';
 import { PersonaBar, usePersona, HostContext } from './persona';
@@ -30,7 +30,8 @@ export function visibleTasks(s, user, role) {
     if (OVERSIGHT.includes(role.id)) return true;
     if (t.assignee === user.id) return true;
     const q = queueById(s, t.queue);
-    return q && (q.leader === user.id || (q.members || []).includes(user.id));
+    const esc = t.esc && t.esc.level >= 2 ? queueById(s, t.esc.to) : null;
+    return [q, esc].some(x => x && (x.leader === user.id || (x.members || []).includes(user.id)));
   });
 }
 
@@ -77,11 +78,11 @@ export default function MyWork() {
     { id: 'unassigned', n: sets.queues.length, label: 'Unassigned in my queues', sub: myQueues.length ? myQueues.map(q => q.name).slice(0, 2).join(', ') + (myQueues.length > 2 ? '…' : '') : 'Not in a queue', tone: 'gsp' },
   ];
 
-  const pick = t => update(d => { d.tasks.find(x => x.id === t.id).assignee = user.id; }, `${user.name} picked up ${t.id}`) || toast('It’s yours now.');
+  const pick = t => { assignTask(t.id, user.id, user.id); toast('It’s yours now.'); };
   const done = t => {
     if (t.maker && t.maker === user.id) { toast('You made this change, so someone else must check it.'); return; }
-    update(d => { const x = d.tasks.find(y => y.id === t.id); x.status = 'done'; x.doneAt = Date.now(); x.doneBy = user.id; }, `${user.name} completed ${t.id}`);
-    toast('Done. In the live system, rule tasks close themselves when the record changes.');
+    closeTask(t.id, user.id);
+    toast(t.auto ? 'Done. It would also have closed itself when the status changed.' : 'Done.');
   };
   const open = id => {
     const rec = recordById(s, id);
@@ -94,7 +95,7 @@ export default function MyWork() {
   const head = ['Task', 'Record', 'Queue', 'Assigned to', 'Waiting', 'SLA', ''];
   return (
     <Page title="My work" top={<PersonaBar />}
-      lead="Every task waiting on you and your queues, oldest SLA first. Tasks come from the records and close themselves when the work is done.">
+      lead="Every task waiting on you and your queues, soonest due first. Tasks come from the task rules: an application’s tasks close themselves when its status changes, and you can close one with Done.">
       {!canAct && <Notice>{role.name} can see tasks but not change them.</Notice>}
       <Tiles items={tiles.map(t => ({ ...t, id: t.id ?? 'mine' }))} value={tile} onChange={v => { if (v === 'mine') { setTab('mine'); setTile(null); } else if (v === 'unassigned') { setTab('queues'); setTile(null); } else setTile(v); }} />
       <Card flush>
@@ -128,15 +129,15 @@ export default function MyWork() {
               return (
                 <tr key={t.id} className="irow">
                   <td><button type="button" className="irow__open" onClick={() => open(t.record)}>{taskTitle(s, t)}</button>
-                    <span className="irow__sub">{t.note || (kindById(s, t.kind) || {}).name}{t.maker ? ` · changed by ${nameOf(s, t.maker)}` : ''}</span></td>
+                    <span className="irow__sub">{t.note || (kindById(s, t.kind) || {}).name}{t.maker ? ` · changed by ${nameOf(s, t.maker)}` : ''}{t.esc ? ` · ${t.esc.text}` : ''}</span></td>
                   <td>{rec.type === 'Application' ? <>{rec.id}<span className="irow__sub">{rec.uni} · {rec.region}</span></> : <>{rec.type}<span className="irow__sub">{rec.region || 'Global'}</span></>}</td>
                   <td>{q ? q.name : <span className="muted">Record owner</span>}</td>
                   <td>{t.assignee ? nameOf(s, t.assignee) : <span className="muted">Unassigned</span>}</td>
                   <td className="num">{fmtAge(t.created)}</td>
-                  <td><Pill tone={SLA_PILL[st.state][1]}>{SLA_PILL[st.state][0]}</Pill><span className="irow__sub">{st.text} · {fmtDate(st.due)}</span></td>
+                  <td><Pill tone={SLA_PILL[st.state][1]}>{SLA_PILL[st.state][0]}</Pill><span className="irow__sub">{st.text}</span></td>
                   <td><div className="gspx-acts">
                     {canAct && !t.assignee && <Button size="sm" onClick={() => pick(t)}>Pick up</Button>}
-                    {canAct && (isLeader || role.id === 'admin' || role.id === 'admission-ops') && <LinkButton onClick={() => setAssigning(t)}>Assign</LinkButton>}
+                    {canAct && (isLeader || role.id === 'admin' || role.id === 'admission-ops' || (q && (q.members || []).includes(user.id))) && <LinkButton onClick={() => setAssigning(t)}>{t.assignee ? 'Reassign' : 'Assign'}</LinkButton>}
                     {canAct && t.assignee === user.id && <LinkButton onClick={() => done(t)}>Done</LinkButton>}
                   </div></td>
                 </tr>);
@@ -156,7 +157,7 @@ function AssignSheet({ task, onClose, by }) {
   const [who, setWho] = useState(task.assignee || '');
   return (
     <Sheet title="Assign task" sub={taskTitle(s, task)} onClose={onClose}
-      footer={<><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!who} onClick={() => { update(d => { d.tasks.find(x => x.id === task.id).assignee = who; }, `${by.name} assigned ${task.id} to ${nameOf(s, who)}`); toast(`Assigned to ${nameOf(s, who)}.`); onClose(); }}>Assign</Button></>}>
+      footer={<><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!who || who === task.assignee} onClick={() => { assignTask(task.id, who, by.id); toast(`Assigned to ${nameOf(s, who)}.`); onClose(); }}>Assign</Button></>}>
       <Select id="as-who" label={q ? `People in ${q.name}` : 'Person'} value={who} onChange={setWho} placeholder="Choose a person" options={[...new Set(people)].map(id => [id, nameOf(s, id)])} />
     </Sheet>
   );
