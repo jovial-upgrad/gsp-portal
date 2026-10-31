@@ -43,7 +43,7 @@ export function PersonaBar() {
       <span className="gspx-persona__k">Acting as</span>
       <Select id="gspx-persona" label="Acting as" hideLabel value={user.id} onChange={v => update(d => { d.persona = v; })} options={options} />
       <span className="gspx-persona__scope"><b>{role.name}</b> · sees {scope}</span>
-      {hostRole === 'gsp-finance' && <span className="gspx-persona__tag">For testing: act as Lav to check Suman’s changes</span>}
+      {hostRole === 'gsp-finance' && <span className="gspx-persona__tag">For testing: act as Lav Likhi to check Suman Verma’s changes</span>}
     </div>
   );
 }

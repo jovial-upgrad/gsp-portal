@@ -1,3 +1,4 @@
+import { person, label } from '../../data/staff';
 import type { IconName } from '../../components/Icon';
 import type { Section as InstitutionSection } from '../../institution/portal/model';
 
@@ -107,20 +108,22 @@ export type { Focus, PageProps, RecordSection, Target } from '../../institution/
 export type Variant = 'admin' | 'recruitment' | 'bap' | 'finance';
 export type VariantSpec = { brand: string; home: NavItem; flat: NavItem[]; groups: NavGroup[]; tabs: Section[]; user: { name: string; first: string; role: string; email: string } };
 const it = (key: Section, label: string, short: string, icon: IconName): NavItem => ({ key, label, short, icon });
+/** The person each role signs in as, from the staff list. */
+const me = (local: string) => { const s = person(`${local}@upgrad.com`); return { name: label(s), first: s.first, role: s.role, email: s.email }; };
 export const VARIANTS: Record<Variant, VariantSpec> = {
   admin: {
     brand: 'Admin',
     home: HOME,
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail')],
     groups: [...GROUPS, { key: 'work', label: 'Work', icon: 'clock', items: [it('work-sla', 'Queues, SLA and escalation', 'SLA', 'clock'), it('work-rules', 'Task rules', 'Rules', 'sliders')] }],
-    tabs: TABS, user: { name: 'Jovial', first: 'Jovial', role: 'Admin', email: 'jovial@gsp.upgrad.com' } },
+    tabs: TABS, user: me('jovial.lejo') },
   recruitment: {
     brand: 'Recruitment',
     home: HOME,
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'students', 'courses'],
-    user: { name: 'Saurabh', first: 'Saurabh', role: 'Recruitment', email: 'saurabh@gsp.upgrad.com' },
+    user: me('saurabh.chaudhary'),
   },
   bap: {
     brand: 'BAP',
@@ -128,7 +131,7 @@ export const VARIANTS: Record<Variant, VariantSpec> = {
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Course search', 'Search', 'search')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'courses'],
-    user: { name: 'Garima', first: 'Garima', role: 'BAP', email: 'garima@gsp.upgrad.com' },
+    user: me('garima.bhardwaj'),
   },
   finance: {
     brand: 'Finance',
@@ -140,6 +143,6 @@ export const VARIANTS: Record<Variant, VariantSpec> = {
       { key: 'fin-records', label: 'Records', icon: 'building', items: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('universities', 'Universities', 'Universities', 'building')] },
     ],
     tabs: ['home', 'fin-run', 'fin-uni', 'applications', 'fin-terms'],
-    user: { name: 'Suman', first: 'Suman', role: 'Finance', email: 'suman@gsp.upgrad.com' },
+    user: me('suman1.verma'),
   },
 };

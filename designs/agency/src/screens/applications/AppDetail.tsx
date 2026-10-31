@@ -498,16 +498,18 @@ export function AppDetail({
               </span>
             </div>
             <dl className="aperson__ways">
-              <div className="aperson__line">
-                <dt>
-                  <Icon name="phone" size={16} />
-                  <span className="vh">Phone</span>
-                </dt>
-                <dd>
-                  <span>{gsp.phone}</span>
-                  <CopyButton text={gsp.phone} what={`${gsp.first}’s number`} onDone={say} />
-                </dd>
-              </div>
+              {gsp.phone && (
+                <div className="aperson__line">
+                  <dt>
+                    <Icon name="phone" size={16} />
+                    <span className="vh">Phone</span>
+                  </dt>
+                  <dd>
+                    <span>{gsp.phone}</span>
+                    <CopyButton text={gsp.phone} what={`${gsp.first}’s number`} onDone={say} />
+                  </dd>
+                </div>
+              )}
               <div className="aperson__line">
                 <dt>
                   <Icon name="mail" size={16} />

@@ -38,14 +38,18 @@ export type TeamAuth = {
   };
 };
 
+import { STAFF, label } from '../../data/staff';
+
 /** A GSP person with access to GSP Admin. `set`: they've set up their password. */
 export type Member = { name: string; first: string; email: string; org: string; role: string; set: boolean };
 
+/** Everyone on GSP's staff list can sign in (data/staff.ts). One of them hasn't set a password yet, for the first-time flow. */
+const INVITED = 'prakriti.nanda@upgrad.com';
 const MEMBERS: Member[] = [
-  { name: 'Jovial', first: 'Jovial', email: 'jovial@gsp.upgrad.com', org: 'GSP', role: 'Admin', set: true },
-  // given access by a GSP admin, and yet to set up a password
-  { name: 'Sara Thomas', first: 'Sara', email: 'sara.thomas@gsp.upgrad.com', org: 'GSP', role: 'Admin', set: false },
-];
+  ...STAFF.filter((s) => s.email === 'jovial.lejo@upgrad.com'),
+  ...STAFF.filter((s) => s.email === INVITED),
+  ...STAFF.filter((s) => s.email !== 'jovial.lejo@upgrad.com' && s.email !== INVITED),
+].map((s) => ({ name: label(s), first: s.first, email: s.email.toLowerCase(), org: 'GSP', role: s.role, set: s.email !== INVITED }));
 
 /** Who the portal is signed in as. */
 export const TEAM_MEMBER = MEMBERS[0];

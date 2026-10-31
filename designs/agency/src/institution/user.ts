@@ -1,6 +1,6 @@
 /**
- * Who's signed in to the Institution Team (GSP · Institution, 29 Oct): Raj Shamani by default, on GSP's Institution
- * Team; whoever signs in, after that (Kavya Menon, once she's set up her password). A GSP admin gives team members
+ * Who's signed in to the Institution Team (GSP · Institution, 29 Oct): Kevin Mcewan by default, on GSP's Institution
+ * Team; whoever signs in, after that (Ally Kingsmill, once she's set up her password). A GSP admin gives team members
  * access; they sign in with their GSP email (see signin/model.ts). The agency's own data in the copied Students and
  * Applications (its name, admin and counsellors) stays the RP's.
  */

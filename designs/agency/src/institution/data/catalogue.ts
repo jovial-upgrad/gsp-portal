@@ -12,6 +12,10 @@
 import { COURSES, UNIVERSITIES, type Area, type Campus, type Course, type Level, type University } from '../../data/courses';
 import { COUNTRIES } from '../../data/partners';
 import { inDays, partnerIdOf, today, type Contact, type InstitutionPartner, type Stamps } from './records';
+import { nameOf } from '../../data/staff';
+/** An Institution person's name from the staff list, by the start of their email. */
+const IN = (local: string) => nameOf(`${local}@upgrad.com`);
+
 
 /* ---------- universities ---------- */
 
@@ -158,7 +162,7 @@ function record(u: University, i: number): UniRec {
     link: channel === 'StudyLink' ? 'studylink.com' : channel === 'Email' ? `${part}@${domain}` : `${part}.${domain}`,
     forms: [],
     contacts: [{ id: nid('ct'), name: 'International admissions', title: 'Admissions team', for: 'Admissions', email: `international@${domain}` }],
-    logins: channel === 'Email' ? [] : [{ id: nid('lg'), region: 'All regions', username: `gsp.${u.id}`, secret: 'Kq7#mT2v!pL9', added: '2025-09-01', by: 'Kavya Menon' }],
+    logins: channel === 'Email' ? [] : [{ id: nid('lg'), region: 'All regions', username: `gsp.${u.id}`, secret: 'Kq7#mT2v!pL9', added: '2025-09-01', by: IN('catherine.wilson') }],
     added: '2025-01-01',
     stamps: {},
   };
@@ -189,8 +193,8 @@ export function sampleUniRecs(): UniRec[] {
   const f = get('flinders');
   f.territory = { mode: 'only', countries: ['India', 'Nepal', 'Sri Lanka', 'Bangladesh', 'Vietnam'], priority: ['India'], blocked: [{ country: 'India', state: 'Punjab' }], hiddenFrom: ['rp-delhi'] };
   f.forms = [{ id: nid('fm'), name: 'Flinders postgraduate international application form', file: 'Flinders_PG_international_application_form.pdf', for: 'Postgraduate' }];
-  f.stamps = { territory: { by: 'Raj Shamani', at: inDays(-5) }, profile: { by: 'Kavya Menon', at: inDays(-20) }, forms: { by: 'Kavya Menon', at: inDays(-20) } };
-  get('massey').stamps = { status: { by: 'Leena Thomas', at: inDays(-243) } };
+  f.stamps = { territory: { by: IN('kevin.mcewan'), at: inDays(-5) }, profile: { by: IN('catherine.wilson'), at: inDays(-20) }, forms: { by: IN('catherine.wilson'), at: inDays(-20) } };
+  get('massey').stamps = { status: { by: IN('lalaine.dizon'), at: inDays(-243) } };
   return list;
 }
 
@@ -340,8 +344,8 @@ export function sampleCourseRecs(): CourseRec[] {
     ],
     source: i % 10 === 3 ? 'Added by hand' : i % 5 === 1 ? 'StudyLink' : 'University website',
     tags: tagsOf(c),
-    // the 2027 fees Kavya entered for Flinders
-    stamps: c.uni.id === 'flinders' ? { fees: { by: 'Kavya Menon', at: inDays(-8) } } : {},
+    // the 2027 fees Catherine Wilson entered for Flinders
+    stamps: c.uni.id === 'flinders' ? { fees: { by: IN('catherine.wilson'), at: inDays(-8) } } : {},
   }));
 }
 

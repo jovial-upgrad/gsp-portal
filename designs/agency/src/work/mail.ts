@@ -191,7 +191,7 @@ export const THREADS = [
   }),
   /* done */
   T({
-    id: 'C-1019', mailbox: 'mb-adm', subject: 'Offer of admission – Imran Islam', sender: 'University', org: 'Griffith University', record: 'A00391015', conf: 96, intent: 'offer', state: 'done', doneBy: 'u-kamrun', doneAt: at(25), outcome: 'Offer added to Documents; status moved to Unconditional offer letter received.',
+    id: 'C-1019', mailbox: 'mb-adm', subject: 'Offer of admission – Imran Islam', sender: 'University', org: 'Griffith University', record: 'A00391015', conf: 96, intent: 'offer', state: 'done', doneBy: 'u-kamrun-nahar', doneAt: at(25), outcome: 'Offer added to Documents; status moved to Unconditional offer letter received.',
     summary: 'Unconditional offer.', reasons: ['Student name and university match'],
     messages: [m('m1', ['Griffith University', 'intl@griffith.example'], 26, 'Offer attached.', { attachments: ['Offer.pdf'] })],
   }),
@@ -202,7 +202,7 @@ export const FILED = [
   { id: 'F-1', filter: 'f-system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Enrolment Course update', at: at(0.3), outcome: 'GSP’s own notification. To be stopped at source.' },
   { id: 'F-2', filter: 'f-system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Student update', at: at(0.9), outcome: 'GSP’s own notification. To be stopped at source.' },
   { id: 'F-3', filter: 'f-marketing', from: 'Opulence Education Group', subject: 'October at OEG: was anything missed?', at: at(1.1), outcome: 'Newsletter. Sent to Institution Ops as a possible announcement.' },
-  { id: 'F-4', filter: 'f-code', from: 'UWA Accounts', subject: 'Your verification code', at: at(1.4), outcome: 'A sign-in code. Sent only to Tasha, who asked for it from the UWA portal.' },
+  { id: 'F-4', filter: 'f-code', from: 'UWA Accounts', subject: 'Your verification code', at: at(1.4), outcome: 'A sign-in code. Sent only to Tasha Tandon, who asked for it from the UWA portal.' },
   { id: 'F-5', filter: 'f-ack', from: 'AUT (ArionSystem)', subject: 'Partners Online Application Received – AUT-26-55190', at: at(1.8), record: 'A00391014', outcome: 'Filed on A00391014. University reference AUT-26-55190 recorded.' },
   { id: 'F-6', filter: 'f-ack', from: 'University of Tasmania', subject: 'Application submitted', at: at(3.3), record: 'A00391021', outcome: 'Filed on A00391021. University reference 5523019 recorded.' },
   { id: 'F-7', filter: 'f-bounce', from: 'Mail Delivery Subsystem', subject: 'Undeliverable: Document request', at: at(4), outcome: 'Bounce. Address flagged on Lead Ahead Consultancy’s contact.' },
@@ -213,5 +213,5 @@ export const FILED = [
 /* Conversations no record was found for raise a task in the Unmatched mail queue. */
 export const MAIL_RECORDS = THREADS.filter((t) => !t.record && t.state === 'match').map((t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}` }));
 export const MAIL_TASKS = THREADS.filter((t) => !t.record && t.state === 'match').map((t, i) => ({
-  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-mail', rule: null, title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu' : null,
+  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-mail', rule: null, title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
 }));

@@ -11,6 +11,7 @@
  * checking a document before GSP sees it, checking eligibility, forecasting dates and drafting messages.
  * They answer only from the application's own data, and they never change it.
  */
+import { person, label } from './staff';
 import { COURSES, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
 import { LEVELS as EDU_LEVELS, TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
@@ -283,11 +284,15 @@ export const needsYou = (a: Application) => isOpen(a) && ownerOf(a) === 'you';
 export const statusText = (a: Application) => (a.status === 'closed' ? `${a.end?.kind ?? 'Closed'}: ${a.end?.reason ?? ''}`.replace(/: $/, '') : STATUS[a.status].text(destOf(a)));
 export const isOpen = (a: Application) => a.status !== 'closed' && a.status !== 'enrolled';
 
-/** The GSP admissions contact for a destination. The role doesn't name the destinations they cover. */
+/**
+ * The GSP admissions contact on an application, from the staff list (data/staff.ts). The sample agency is in India,
+ * so it's India's Admissions contact, Ramish Jafery; UK and Ireland applications go to Prachi Pilani, on the same
+ * India team. The staff list has no phone numbers, so none shows.
+ */
+const CONTACT_OF = { main: person('ramish.jafery@upgrad.com'), ukie: person('prachi.pilani@upgrad.com') };
 export function gspContact(d: Destination) {
-  return d === 'UK' || d === 'Ireland'
-    ? { name: 'Rahul Verma', role: 'GSP admissions', phone: '+91 80 4718 2264', email: 'rahul.verma@gsp.upgrad.com', first: 'Rahul' }
-    : { name: 'Meera Pillai', role: 'GSP admissions', phone: '+91 80 4718 2210', email: 'meera.pillai@gsp.upgrad.com', first: 'Meera' };
+  const s = d === 'UK' || d === 'Ireland' ? CONTACT_OF.ukie : CONTACT_OF.main;
+  return { name: label(s), role: 'GSP admissions', phone: '', email: s.email, first: s.first };
 }
 
 const usualOf = (k: StatusKey, c: Course) => (k === 'lodged' ? c.offerDays : STATUS[k].usual);
@@ -698,7 +703,7 @@ export function sampleApplications(): Application[] {
           why: 'Deakin’s conditional offer has 3 conditions. Answer them all, then send them to GSP.',
           source: 'Conditional offer letter, page 2',
           due: now + 19 * DAY,
-          request: { by: 'Meera Pillai', at: offerAt + 60_000 },
+          request: { by: gspContact('Australia').name, at: offerAt + 60_000 },
           step: 'conditions',
           form: [
             { id: 'c1', kind: 'question', text: 'Will Priya accept the offer and start in February 2027?', source: 'Condition 1' },
@@ -711,16 +716,16 @@ export function sampleApplications(): Application[] {
       history: [
         { at: ago(16), who: 'you', text: 'Application started for Priya Raman', by: 'Karthik Nair' },
         { at: ago(16), who: 'ai', text: 'GSP Assist reused 4 documents from Priya’s profile and read 1 new one' },
-        { at: ago(16, -1), who: 'gsp', text: 'GSP checked the documents: all clear', by: 'Meera Pillai' },
-        { at: ago(15), who: 'gsp', text: 'Submitted to Deakin University. Reference DKN-2611407', by: 'Meera Pillai' },
-        { at: offerAt, who: 'gsp', text: 'GSP uploaded the conditional offer letter, in the chat', by: 'Meera Pillai' },
+        { at: ago(16, -1), who: 'gsp', text: 'GSP checked the documents: all clear', by: gspContact('Australia').name },
+        { at: ago(15), who: 'gsp', text: 'Submitted to Deakin University. Reference DKN-2611407', by: gspContact('Australia').name },
+        { at: offerAt, who: 'gsp', text: 'GSP uploaded the conditional offer letter, in the chat', by: gspContact('Australia').name },
         { at: offerAt, who: 'ai', text: `GSP Assist found the offer letter in the chat and read it: 2 conditions, accept by ${shortDate(new Date(now + 19 * DAY))}` },
-        { at: offerAt + 60_000, who: 'gsp', text: 'Sent the offer’s 3 conditions to answer', by: 'Meera Pillai' },
+        { at: offerAt + 60_000, who: 'gsp', text: 'Sent the offer’s 3 conditions to answer', by: gspContact('Australia').name },
       ],
       chat: [
-        m('m1', ago(15), 'gsp', 'Meera Pillai', 'Submitted to Deakin today. Their reference is DKN-2611407. Offers for this course usually take about 6 days.'),
-        m('m2', offerAt, 'gsp', 'Meera Pillai', 'Good news: Deakin has made Priya a conditional offer. The letter is attached.', { files: ['Deakin_conditional_offer_Priya_Raman.pdf'] }),
-        m('m3', offerAt + 60_000, 'gsp', 'Meera Pillai', 'The offer has 3 conditions. Answer them in the form by the date and send it; I’ll pass them to Deakin.', { request: 'conds', requestName: 'Offer conditions' }),
+        m('m1', ago(15), 'gsp', gspContact('Australia').name, 'Submitted to Deakin today. Their reference is DKN-2611407. Offers for this course usually take about 6 days.'),
+        m('m2', offerAt, 'gsp', gspContact('Australia').name, 'Good news: Deakin has made Priya a conditional offer. The letter is attached.', { files: ['Deakin_conditional_offer_Priya_Raman.pdf'] }),
+        m('m3', offerAt + 60_000, 'gsp', gspContact('Australia').name, 'The offer has 3 conditions. Answer them in the form by the date and send it; I’ll pass them to Deakin.', { request: 'conds', requestName: 'Offer conditions' }),
       ],
       unread: 2,
     },
@@ -739,11 +744,11 @@ export function sampleApplications(): Application[] {
       history: [
         { at: ago(14), who: 'you', text: 'Application started for Priya Raman', by: 'Karthik Nair' },
         { at: ago(14), who: 'ai', text: 'GSP Assist reused 4 documents from Priya’s profile and read 1 new one' },
-        { at: ago(13), who: 'gsp', text: 'GSP checked the documents: all clear', by: 'Meera Pillai' },
-        { at: ago(9, 2), who: 'gsp', text: 'Submitted to University of Wollongong. Reference UOW-5508812', by: 'Meera Pillai' },
-        { at: ago(0, 4), who: 'gsp', text: 'Reminded Wollongong about the decision', by: 'Meera Pillai' },
+        { at: ago(13), who: 'gsp', text: 'GSP checked the documents: all clear', by: gspContact('Australia').name },
+        { at: ago(9, 2), who: 'gsp', text: 'Submitted to University of Wollongong. Reference UOW-5508812', by: gspContact('Australia').name },
+        { at: ago(0, 4), who: 'gsp', text: 'Reminded Wollongong about the decision', by: gspContact('Australia').name },
       ],
-      chat: [m('m1', ago(0, 4), 'gsp', 'Meera Pillai', 'Wollongong is taking a little longer than usual this month. I reminded them today and will again on Wednesday.')],
+      chat: [m('m1', ago(0, 4), 'gsp', gspContact('Australia').name, 'Wollongong is taking a little longer than usual this month. I reminded them today and will again on Wednesday.')],
     },
     {
       id: 'GSP-24055',
@@ -758,7 +763,7 @@ export function sampleApplications(): Application[] {
           id: 'req-gap',
           title: 'Gap explanation document',
           why: 'Sneha finished her B.Com in 2022. Flinders asks for a short signed letter on what she has done since.',
-          request: { by: 'Meera Pillai', at: ago(0, 0.3) },
+          request: { by: gspContact('Australia').name, at: ago(0, 0.3) },
           due: now + 3 * DAY,
         },
       ],
@@ -775,9 +780,9 @@ export function sampleApplications(): Application[] {
         { at: ago(0, 1), who: 'you', text: 'Application started for Sneha Patil', by: 'You' },
         { at: ago(0, 1), who: 'ai', text: 'GSP Assist reused 3 documents from Sneha’s profile and read 2 new ones' },
         { at: ago(0, 0.6), who: 'system', text: 'Sent to GSP: checking documents' },
-        { at: ago(0, 0.3), who: 'gsp', text: 'GSP asked for a gap explanation', by: 'Meera Pillai' },
+        { at: ago(0, 0.3), who: 'gsp', text: 'GSP asked for a gap explanation', by: gspContact('Australia').name },
       ],
-      chat: [m('m1', ago(0, 0.3), 'gsp', 'Meera Pillai', 'Before I submit to Flinders, could you upload a short gap explanation from Sneha? Everything else looks good.', { request: 'req-gap', requestName: 'Gap explanation document' })],
+      chat: [m('m1', ago(0, 0.3), 'gsp', gspContact('Australia').name, 'Before I submit to Flinders, could you upload a short gap explanation from Sneha? Everything else looks good.', { request: 'req-gap', requestName: 'Gap explanation document' })],
       unread: 1,
     },
     {
@@ -794,7 +799,7 @@ export function sampleApplications(): Application[] {
           title: 'Undergraduate transcript and degree certificate',
           why: 'GSP: pages 3 and 4 of the transcript are missing. Upload all 4 pages as one file.',
           source: 'GSP check, ' + shortDate(new Date(ago(1, 5))),
-          request: { by: 'Meera Pillai', at: ago(1, 5) },
+          request: { by: gspContact('Australia').name, at: ago(1, 5) },
           step: 'reupload',
         },
       ],
@@ -802,9 +807,9 @@ export function sampleApplications(): Application[] {
       history: [
         { at: ago(5), who: 'you', text: 'Application started for Sneha Patil', by: 'You' },
         { at: ago(5), who: 'ai', text: 'GSP Assist reused 3 documents from Sneha’s profile and read 2 new ones' },
-        { at: ago(1, 5), who: 'gsp', text: 'Sent back the undergraduate transcript: pages 3 and 4 missing', by: 'Meera Pillai' },
+        { at: ago(1, 5), who: 'gsp', text: 'Sent back the undergraduate transcript: pages 3 and 4 missing', by: gspContact('Australia').name },
       ],
-      chat: [m('m1', ago(1, 5), 'gsp', 'Meera Pillai', 'The transcript only has pages 1 and 2. Could you upload all four pages in one file? Everything else is fine.', { request: 'edu-ug', requestName: 'Undergraduate transcript and degree certificate' })],
+      chat: [m('m1', ago(1, 5), 'gsp', gspContact('Australia').name, 'The transcript only has pages 1 and 2. Could you upload all four pages in one file? Everything else is fine.', { request: 'edu-ug', requestName: 'Undergraduate transcript and degree certificate' })],
       unread: 1,
     },
     {
@@ -826,13 +831,13 @@ export function sampleApplications(): Application[] {
       ],
       history: [
         { at: ago(31), who: 'you', text: 'Application started for Sneha Patil', by: 'You' },
-        { at: ago(30), who: 'gsp', text: 'Submitted to Coventry University. Reference COV-1189034', by: 'Rahul Verma' },
-        { at: ago(27), who: 'gsp', text: 'Verified the financial documents: GBP 31,800', by: 'Rahul Verma' },
-        { at: ago(22), who: 'gsp', text: 'GSP uploaded the unconditional offer letter', by: 'Rahul Verma' },
+        { at: ago(30), who: 'gsp', text: 'Submitted to Coventry University. Reference COV-1189034', by: gspContact('UK').name },
+        { at: ago(27), who: 'gsp', text: 'Verified the financial documents: GBP 31,800', by: gspContact('UK').name },
+        { at: ago(22), who: 'gsp', text: 'GSP uploaded the unconditional offer letter', by: gspContact('UK').name },
         { at: ago(4), who: 'you', text: 'Deposit proof uploaded: GBP 3,000', by: 'You' },
-        { at: ago(3, 2), who: 'gsp', text: 'Deposit confirmed with Coventry', by: 'Rahul Verma' },
+        { at: ago(3, 2), who: 'gsp', text: 'Deposit confirmed with Coventry', by: gspContact('UK').name },
       ],
-      chat: [m('m1', ago(3, 2), 'gsp', 'Rahul Verma', 'Coventry confirmed the deposit. The CAS usually follows within 5 working days.')],
+      chat: [m('m1', ago(3, 2), 'gsp', gspContact('UK').name, 'Coventry confirmed the deposit. The CAS usually follows within 5 working days.')],
     },
     {
       id: 'GSP-23941',
@@ -847,8 +852,8 @@ export function sampleApplications(): Application[] {
       files: [f('10th marksheet', 'rohan_10th_marksheet.pdf', 'you', ago(12), 'verified'), f('12th marksheet', 'rohan_12th_marksheet.pdf', 'you', ago(12), 'verified'), f('Statement of purpose', 'rohan_sop_coventry.pdf', 'you', ago(12)), f('CV', 'rohan_gupta_cv.pdf', 'you', ago(12))],
       history: [
         { at: ago(12), who: 'you', text: 'Application started for Rohan Gupta', by: 'Divya Shetty' },
-        { at: ago(11), who: 'gsp', text: 'GSP checked the documents: all clear', by: 'Rahul Verma' },
-        { at: ago(4, 3), who: 'gsp', text: 'Submitted to Coventry University. Reference COV-1201877', by: 'Rahul Verma' },
+        { at: ago(11), who: 'gsp', text: 'GSP checked the documents: all clear', by: gspContact('UK').name },
+        { at: ago(4, 3), who: 'gsp', text: 'Submitted to Coventry University. Reference COV-1201877', by: gspContact('UK').name },
         { at: ago(4), who: 'uni', text: 'Coventry acknowledged the application, by email. Placed in the chat automatically' },
       ],
       chat: [m('m1', ago(4), 'uni', 'Coventry University Admissions', 'Thank you for your application to MSc Cyber Security (January 2027). Your reference is COV-1201877. We aim to make a decision within 10 working days.', { via: 'email' })],
@@ -887,7 +892,7 @@ export function sampleApplications(): Application[] {
       since: ago(2, 6),
       uniRef: 'RMIT-77120554',
       funds: 92400,
-      needs: [{ id: 'visa', title: 'Visa lodgement proof', why: 'Lodge the student visa (subclass 500) in ImmiAccount, then upload the lodgement receipt here.', due: now + 12 * DAY, request: { by: 'Meera Pillai', at: ago(2, 5) }, step: 'visa' }],
+      needs: [{ id: 'visa', title: 'Visa lodgement proof', why: 'Lodge the student visa (subclass 500) in ImmiAccount, then upload the lodgement receipt here.', due: now + 12 * DAY, request: { by: gspContact('Australia').name, at: ago(2, 5) }, step: 'visa' }],
       files: [f('10th marksheet', 'fatima_10th_marksheet.pdf', 'you', ago(46), 'verified'), f('12th marksheet', 'fatima_12th_marksheet.pdf', 'you', ago(46), 'verified'), f('UG marksheet', 'fatima_btech_marksheets.pdf', 'you', ago(46), 'verified'), 
         f('Statement of purpose', 'fatima_sop_rmit.pdf', 'you', ago(46)),
         f('CV', 'fatima_sheikh_cv.pdf', 'you', ago(46)),
@@ -898,16 +903,16 @@ export function sampleApplications(): Application[] {
       ],
       history: [
         { at: ago(46), who: 'you', text: 'Application started for Fatima Sheikh', by: 'Divya Shetty' },
-        { at: ago(44), who: 'gsp', text: 'Submitted to RMIT University. Reference RMIT-77120554', by: 'Meera Pillai' },
-        { at: ago(33), who: 'gsp', text: 'GSP uploaded the conditional offer letter', by: 'Meera Pillai' },
-        { at: ago(27), who: 'gsp', text: 'Verified the financial documents: AUD 92,400', by: 'Meera Pillai' },
-        { at: ago(20), who: 'gsp', text: 'GSP uploaded the unconditional offer letter', by: 'Meera Pillai' },
+        { at: ago(44), who: 'gsp', text: 'Submitted to RMIT University. Reference RMIT-77120554', by: gspContact('Australia').name },
+        { at: ago(33), who: 'gsp', text: 'GSP uploaded the conditional offer letter', by: gspContact('Australia').name },
+        { at: ago(27), who: 'gsp', text: 'Verified the financial documents: AUD 92,400', by: gspContact('Australia').name },
+        { at: ago(20), who: 'gsp', text: 'GSP uploaded the unconditional offer letter', by: gspContact('Australia').name },
         { at: ago(9), who: 'you', text: 'Deposit proof uploaded: AUD 11,000', by: 'Divya Shetty' },
-        { at: ago(2, 6), who: 'gsp', text: 'GSP uploaded the CoE', by: 'Meera Pillai' },
-        { at: ago(2, 5), who: 'gsp', text: 'Asked for the visa lodgement proof', by: 'Meera Pillai' },
+        { at: ago(2, 6), who: 'gsp', text: 'GSP uploaded the CoE', by: gspContact('Australia').name },
+        { at: ago(2, 5), who: 'gsp', text: 'Asked for the visa lodgement proof', by: gspContact('Australia').name },
       ],
-      chat: [m('m1', ago(2, 6), 'gsp', 'Meera Pillai', 'Fatima’s CoE is here (in Documents). She can lodge the visa now; lodging in the next 2 weeks keeps her well ahead of February. I can lodge it with you if you’d like.', { files: ['CoE_Fatima_Sheikh.pdf'] }),
-        m('m2', ago(2, 5), 'gsp', 'Meera Pillai', '', { request: 'visa', requestName: 'Visa lodgement proof' }),
+      chat: [m('m1', ago(2, 6), 'gsp', gspContact('Australia').name, 'Fatima’s CoE is here (in Documents). She can lodge the visa now; lodging in the next 2 weeks keeps her well ahead of February. I can lodge it with you if you’d like.', { files: ['CoE_Fatima_Sheikh.pdf'] }),
+        m('m2', ago(2, 5), 'gsp', gspContact('Australia').name, '', { request: 'visa', requestName: 'Visa lodgement proof' }),
       ],
       unread: 1,
     },
@@ -925,7 +930,7 @@ export function sampleApplications(): Application[] {
       end: { kind: 'Student withdrawn', reason: 'Fatima chose RMIT', stage: 2, at: ago(20) },
       history: [
         { at: ago(58), who: 'you', text: 'Application started for Fatima Sheikh', by: 'Divya Shetty' },
-        { at: ago(55), who: 'gsp', text: 'Submitted to Deakin University. Reference DKN-2580031', by: 'Meera Pillai' },
+        { at: ago(55), who: 'gsp', text: 'Submitted to Deakin University. Reference DKN-2580031', by: gspContact('Australia').name },
         { at: ago(20), who: 'you', text: 'Withdrawn: Fatima chose RMIT', by: 'Divya Shetty' },
       ],
       chat: [],

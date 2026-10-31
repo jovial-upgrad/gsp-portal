@@ -7,17 +7,16 @@
 import { useSyncExternalStore } from 'react';
 import COMM from './comm.json';
 import { ROLES, DEFAULT_MATRIX } from './access';
+import { STAFF, label } from '../data/staff';
 
-const KEY = 'gsp-finance-v1';
+const KEY = 'gsp-finance-v2'; // v2: users from the staff list (31 Oct)
 
+/* Every GSP person comes from the staff list (data/staff.ts); the RP person is the sample agency's admin. */
 export const USERS = [
-  { id: 'u-suman', name: 'Suman', role: 'finance', title: 'Finance', regions: ['Global'] },
-  { id: 'u-lav', name: 'Lav', role: 'finance', title: 'Finance', regions: ['Global'] },
-  { id: 'u-jovial', name: 'Jovial', role: 'admin', title: 'Admin', regions: ['Global'] },
-  { id: 'u-myleeta', name: 'Myleeta', role: 'view-only', title: 'View Only', regions: ['Global'] },
+  ...STAFF.map((p) => ({ id: p.id, name: label(p), email: p.email, role: p.role.toLowerCase().replace(/ /g, '-'), title: p.role, regions: p.regions })).sort((a, b) => a.name.localeCompare(b.name)),
   { id: 'u-nesil', name: 'Nesil Noble', role: 'rp-admin', title: 'RP Admin', agency: 'GSP test agency', branch: 'Bengaluru head office' },
 ];
-export const DEFAULT_PERSONA = { 'gsp-finance': 'u-suman', 'gsp-admin': 'u-jovial', 'rp-admin': 'u-nesil', 'gsp-team': 'u-suman' };
+export const DEFAULT_PERSONA = { 'gsp-finance': 'u-suman1-verma', 'gsp-admin': 'u-jovial-lejo', 'rp-admin': 'u-nesil', 'gsp-team': 'u-suman1-verma' };
 const QUEUES = [
   { id: 'q-finance', name: 'Finance' },
   { id: 'q-institution', name: 'Institution' },

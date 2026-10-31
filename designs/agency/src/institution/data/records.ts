@@ -11,6 +11,12 @@
  * each part of a record says who last changed it, and when.
  */
 import { UNIVERSITIES, type Destination } from '../../data/courses';
+import { nameOf, staffIn, label } from '../../data/staff';
+import { partnerManagerFor } from '../../data/partners';
+import { sampleRegions, NATIONALITY } from '../../admin/data/config';
+/** An Institution person's name from the staff list, by the start of their email. */
+const IN = (local: string) => nameOf(`${local}@upgrad.com`);
+
 
 const DAY = 86_400_000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -79,7 +85,8 @@ export const stampBy = (by: string): Stamp => ({ by, at: todayIso() });
 /* ---------- the team ---------- */
 
 /** The Institution Team's members, who look after partners as relationship managers. */
-export const TEAM = ['Raj Shamani', 'Kavya Menon', 'Arjun Mehta', 'Leena Thomas'] as const;
+/** The Institution team: everyone on the staff list with the Institution role. */
+export const TEAM: string[] = staffIn('Institution').map(label);
 
 /* ---------- institution partners: who GSP has an agreement with ---------- */
 
@@ -148,7 +155,7 @@ export const canGoLive = (p: InstitutionPartner | undefined) => !!p && p.status 
 
 let n = 0;
 const nid = (p: string) => `${p}-${(++n).toString(36)}`;
-const doc = (type: DocType, file: string, start: string, end: string, added: string, by = 'Raj Shamani'): PartnerDoc => ({ id: nid('doc'), type, file, start, end, added, by });
+const doc = (type: DocType, file: string, start: string, end: string, added: string, by = IN('kevin.mcewan')): PartnerDoc => ({ id: nid('doc'), type, file, start, end, added, by });
 const contact = (name: string, title: string, f: ContactFor, email: string): Contact => ({ id: nid('ct'), name, title, for: f, email });
 const uni = (id: string) => UNIVERSITIES.find((x) => x.id === id)!;
 const fileName = (name: string) => name.replace(/^University of /, '').replace(/ University$/, '').replace(/[^A-Za-z]+/g, '_');
@@ -180,42 +187,42 @@ function direct(id: string, rm: string, start: string, end: string, contacts: Co
  * agreement ending soon, one that ended) are set from today.
  */
 export const samplePartners = (): InstitutionPartner[] => [
-  direct('flinders', 'Raj Shamani', '2025-01-01', '2027-12-31', [contact('Sarah Lim', 'International partnerships', 'Agreement and renewal', 'partnerships@flinders.edu.au')], {
-    docs: [doc('New agreement', 'Flinders_GSP_agreement_2025.pdf', '2025-01-01', '2027-12-31', '2025-01-01'), doc('Commission change', 'Flinders_rate_variation_2027.pdf', '2027-01-01', '', inDays(-12), 'Kavya Menon')],
-    stamps: { documents: { by: 'Kavya Menon', at: inDays(-12) }, contacts: { by: 'Raj Shamani', at: inDays(-30) } },
+  direct('flinders', IN('kevin.mcewan'), '2025-01-01', '2027-12-31', [contact('Sarah Lim', 'International partnerships', 'Agreement and renewal', 'partnerships@flinders.edu.au')], {
+    docs: [doc('New agreement', 'Flinders_GSP_agreement_2025.pdf', '2025-01-01', '2027-12-31', '2025-01-01'), doc('Commission change', 'Flinders_rate_variation_2027.pdf', '2027-01-01', '', inDays(-12), IN('catherine.wilson'))],
+    stamps: { documents: { by: IN('catherine.wilson'), at: inDays(-12) }, contacts: { by: IN('kevin.mcewan'), at: inDays(-30) } },
   }),
-  direct('adelaide', 'Raj Shamani', '2026-01-01', '2028-12-31', [contact('Tom Nguyen', 'Agent relations', 'Agreement and renewal', 'partnerships@adelaideuni.edu.au'), contact('Accounts team', 'Finance', 'Finance and invoices', 'accounts@adelaideuni.edu.au')]),
-  direct('deakin', 'Kavya Menon', '2025-07-01', '2027-06-30', [contact('Hannah Clarke', 'International partnerships manager', 'Agreement and renewal', 'partnerships@deakin.edu.au')]),
-  direct('newcastle', 'Arjun Mehta', '2025-03-01', '2028-02-29', [contact('Priya Raman', 'Agent manager, South Asia', 'Agreement and renewal', 'partnerships@newcastle.edu.au')]),
-  direct('uow', 'Kavya Menon', '2025-01-01', '2027-12-31', [contact('Liam Foster', 'Partnerships officer', 'Agreement and renewal', 'partnerships@uow.edu.au')]),
-  direct('cqu', 'Arjun Mehta', '2025-01-01', '2027-12-31', [contact('Grace Wu', 'International recruitment', 'Agreement and renewal', 'partnerships@cqu.edu.au')]),
-  direct('vu', 'Raj Shamani', '2025-01-01', '2027-12-31', [contact('Daniel Ross', 'Agent relations', 'Agreement and renewal', 'partnerships@vu.edu.au')]),
-  direct('rmit', 'Leena Thomas', '2025-05-01', '2028-04-30', [contact('Emily Hart', 'Agent partnerships', 'Agreement and renewal', 'partnerships@rmit.edu.au')]),
-  direct('feduni', 'Leena Thomas', '2025-01-01', '2027-12-31', [contact('Mark Elliot', 'International office', 'Agreement and renewal', 'partnerships@federation.edu.au')]),
+  direct('adelaide', IN('kevin.mcewan'), '2026-01-01', '2028-12-31', [contact('Tom Nguyen', 'Agent relations', 'Agreement and renewal', 'partnerships@adelaideuni.edu.au'), contact('Accounts team', 'Finance', 'Finance and invoices', 'accounts@adelaideuni.edu.au')]),
+  direct('deakin', IN('catherine.wilson'), '2025-07-01', '2027-06-30', [contact('Hannah Clarke', 'International partnerships manager', 'Agreement and renewal', 'partnerships@deakin.edu.au')]),
+  direct('newcastle', IN('namita.nath'), '2025-03-01', '2028-02-29', [contact('Priya Raman', 'Agent manager, South Asia', 'Agreement and renewal', 'partnerships@newcastle.edu.au')]),
+  direct('uow', IN('catherine.wilson'), '2025-01-01', '2027-12-31', [contact('Liam Foster', 'Partnerships officer', 'Agreement and renewal', 'partnerships@uow.edu.au')]),
+  direct('cqu', IN('namita.nath'), '2025-01-01', '2027-12-31', [contact('Grace Wu', 'International recruitment', 'Agreement and renewal', 'partnerships@cqu.edu.au')]),
+  direct('vu', IN('kevin.mcewan'), '2025-01-01', '2027-12-31', [contact('Daniel Ross', 'Agent relations', 'Agreement and renewal', 'partnerships@vu.edu.au')]),
+  direct('rmit', IN('lalaine.dizon'), '2025-05-01', '2028-04-30', [contact('Emily Hart', 'Agent partnerships', 'Agreement and renewal', 'partnerships@rmit.edu.au')]),
+  direct('feduni', IN('lalaine.dizon'), '2025-01-01', '2027-12-31', [contact('Mark Elliot', 'International office', 'Agreement and renewal', 'partnerships@federation.edu.au')]),
   // ending inside 60 days: the reminder has gone to the relationship manager
-  direct('coventry', 'Raj Shamani', '2023-12-01', inDays(32), [contact('Priyanka Shah', 'Regional manager, South Asia', 'Agreement and renewal', 'partnerships@coventry.ac.uk')]),
-  direct('herts', 'Kavya Menon', '2024-01-15', inDays(47), [contact('Olivia Grant', 'Agent manager', 'Agreement and renewal', 'partnerships@herts.ac.uk')]),
-  direct('northumbria', 'Arjun Mehta', '2025-09-01', '2027-08-31', [contact('James Holt', 'Partnerships officer', 'Agreement and renewal', 'partnerships@northumbria.ac.uk')]),
-  direct('leeds', 'Leena Thomas', '2025-09-01', '2028-08-31', [contact('Rachel Moore', 'International partnerships', 'Agreement and renewal', 'partnerships@leeds.ac.uk')]),
-  direct('birmingham', 'Leena Thomas', '2025-09-01', '2028-08-31', [contact('Oliver Bennett', 'Agent relations', 'Agreement and renewal', 'partnerships@bham.ac.uk')]),
-  direct('windsor', 'Arjun Mehta', '2025-05-01', '2027-04-30', [contact('Marc Tremblay', 'International recruitment', 'Agreement and renewal', 'partnerships@uwindsor.ca')]),
-  direct('fanshawe', 'Arjun Mehta', '2026-01-01', '2028-12-31', [contact('Sarah Kim', 'Agent relations', 'Agreement and renewal', 'partnerships@fanshawec.ca')]),
+  direct('coventry', IN('kevin.mcewan'), '2023-12-01', inDays(32), [contact('Priyanka Shah', 'Regional manager, South Asia', 'Agreement and renewal', 'partnerships@coventry.ac.uk')]),
+  direct('herts', IN('catherine.wilson'), '2024-01-15', inDays(47), [contact('Olivia Grant', 'Agent manager', 'Agreement and renewal', 'partnerships@herts.ac.uk')]),
+  direct('northumbria', IN('namita.nath'), '2025-09-01', '2027-08-31', [contact('James Holt', 'Partnerships officer', 'Agreement and renewal', 'partnerships@northumbria.ac.uk')]),
+  direct('leeds', IN('lalaine.dizon'), '2025-09-01', '2028-08-31', [contact('Rachel Moore', 'International partnerships', 'Agreement and renewal', 'partnerships@leeds.ac.uk')]),
+  direct('birmingham', IN('lalaine.dizon'), '2025-09-01', '2028-08-31', [contact('Oliver Bennett', 'Agent relations', 'Agreement and renewal', 'partnerships@bham.ac.uk')]),
+  direct('windsor', IN('namita.nath'), '2025-05-01', '2027-04-30', [contact('Marc Tremblay', 'International recruitment', 'Agreement and renewal', 'partnerships@uwindsor.ca')]),
+  direct('fanshawe', IN('namita.nath'), '2026-01-01', '2028-12-31', [contact('Sarah Kim', 'Agent relations', 'Agreement and renewal', 'partnerships@fanshawec.ca')]),
   // ended, not renewed: its university is paused
-  direct('massey', 'Leena Thomas', '2023-03-01', inDays(-243), [contact('Aroha Ngata', 'International office', 'Agreement and renewal', 'partnerships@massey.ac.nz')]),
-  direct('waikato', 'Leena Thomas', '2025-02-01', '2028-01-31', [contact('Ben Walker', 'International partnerships', 'Agreement and renewal', 'partnerships@waikato.ac.nz')]),
-  direct('lincoln', 'Leena Thomas', '2025-02-01', '2028-01-31', [contact('Hana Sato', 'Agent relations', 'Agreement and renewal', 'partnerships@lincoln.ac.nz')]),
-  direct('griffith', 'Kavya Menon', '2025-09-01', '2027-08-31', [contact('Ciaran Doyle', 'International office', 'Agreement and renewal', 'partnerships@griffith.ie')]),
-  direct('dbs', 'Kavya Menon', '2025-09-01', '2027-08-31', [contact('Aoife Kelly', 'Agent relations', 'Agreement and renewal', 'partnerships@dbs.ie')]),
-  direct('ul', 'Kavya Menon', '2025-09-01', '2027-08-31', [contact('Ciara Byrne', 'International partnerships', 'Agreement and renewal', 'partnerships@ul.ie')]),
+  direct('massey', IN('lalaine.dizon'), '2023-03-01', inDays(-243), [contact('Aroha Ngata', 'International office', 'Agreement and renewal', 'partnerships@massey.ac.nz')]),
+  direct('waikato', IN('lalaine.dizon'), '2025-02-01', '2028-01-31', [contact('Ben Walker', 'International partnerships', 'Agreement and renewal', 'partnerships@waikato.ac.nz')]),
+  direct('lincoln', IN('lalaine.dizon'), '2025-02-01', '2028-01-31', [contact('Hana Sato', 'Agent relations', 'Agreement and renewal', 'partnerships@lincoln.ac.nz')]),
+  direct('griffith', IN('catherine.wilson'), '2025-09-01', '2027-08-31', [contact('Ciaran Doyle', 'International office', 'Agreement and renewal', 'partnerships@griffith.ie')]),
+  direct('dbs', IN('catherine.wilson'), '2025-09-01', '2027-08-31', [contact('Aoife Kelly', 'Agent relations', 'Agreement and renewal', 'partnerships@dbs.ie')]),
+  direct('ul', IN('catherine.wilson'), '2025-09-01', '2027-08-31', [contact('Ciara Byrne', 'International partnerships', 'Agreement and renewal', 'partnerships@ul.ie')]),
   {
     id: 'ip-southbridge',
     name: 'Southbridge Pathways',
     type: 'Third-party',
     country: 'Australia',
     website: 'southbridgepathways.com.au',
-    rm: 'Raj Shamani',
+    rm: IN('kevin.mcewan'),
     status: EXECUTED,
-    docs: [doc('New agreement', 'Southbridge_GSP_agreement_2025.pdf', '2025-02-01', '2027-01-31', '2025-02-01'), doc('Campus expansion', 'Southbridge_UniSC_Moreton_Bay.pdf', '2026-02-01', '2027-01-31', '2026-01-20', 'Kavya Menon')],
+    docs: [doc('New agreement', 'Southbridge_GSP_agreement_2025.pdf', '2025-02-01', '2027-01-31', '2025-02-01'), doc('Campus expansion', 'Southbridge_UniSC_Moreton_Bay.pdf', '2026-02-01', '2027-01-31', '2026-01-20', IN('catherine.wilson'))],
     commission: { rate: 15, bonus: '+1% above 60 enrolments a year', invoicing: 'After census; claim within 6 months', state: 'Active' },
     contacts: [contact('Mia Collins', 'Partner manager', 'Agreement and renewal', 'mia.collins@southbridgepathways.com.au'), contact('Jack Turner', 'Accounts', 'Finance and invoices', 'accounts@southbridgepathways.com.au')],
     added: '2025-02-01',
@@ -227,9 +234,9 @@ export const samplePartners = (): InstitutionPartner[] => [
     type: 'Third-party',
     country: 'UK',
     website: 'northgategroup.ac.uk',
-    rm: 'Arjun Mehta',
+    rm: IN('namita.nath'),
     status: EXECUTED,
-    docs: [doc('New agreement', 'Northgate_GSP_agreement_2024.pdf', '2024-10-01', '2026-09-30', '2024-10-01', 'Arjun Mehta'), doc('Renewal', 'Northgate_GSP_renewal_2026.pdf', '2026-10-01', '2028-09-30', '2026-09-12', 'Arjun Mehta')],
+    docs: [doc('New agreement', 'Northgate_GSP_agreement_2024.pdf', '2024-10-01', '2026-09-30', '2024-10-01', IN('namita.nath')), doc('Renewal', 'Northgate_GSP_renewal_2026.pdf', '2026-10-01', '2028-09-30', '2026-09-12', IN('namita.nath'))],
     commission: { rate: 13, bonus: 'None', invoicing: 'After the first term’s fee is paid', state: 'Waiting for Finance' },
     contacts: [contact('Daniel Price', 'Head of agent partnerships', 'Agreement and renewal', 'd.price@northgategroup.ac.uk')],
     added: '2024-10-01',
@@ -241,9 +248,9 @@ export const samplePartners = (): InstitutionPartner[] => [
     type: 'Third-party',
     country: 'Canada',
     website: 'campusconnectglobal.com',
-    rm: 'Leena Thomas',
+    rm: IN('lalaine.dizon'),
     status: EXECUTED,
-    docs: [doc('New agreement', 'CampusConnect_GSP_agreement_2025.pdf', '2025-06-01', '2028-05-31', '2025-06-01', 'Leena Thomas'), doc('Territory expansion', 'CampusConnect_Nepal_Bangladesh.pdf', '2026-03-01', '2028-05-31', '2026-02-18', 'Leena Thomas')],
+    docs: [doc('New agreement', 'CampusConnect_GSP_agreement_2025.pdf', '2025-06-01', '2028-05-31', '2025-06-01', IN('lalaine.dizon')), doc('Territory expansion', 'CampusConnect_Nepal_Bangladesh.pdf', '2026-03-01', '2028-05-31', '2026-02-18', IN('lalaine.dizon'))],
     commission: { rate: 12, bonus: 'Tiered: 14% above 100 enrolments a year', invoicing: 'Monthly, after census', state: 'Active' },
     contacts: [contact('Noah Gill', 'Partner success', 'Agreement and renewal', 'partners@campusconnectglobal.com'), contact('Billing', 'Finance', 'Finance and invoices', 'billing@campusconnectglobal.com')],
     added: '2025-06-01',
@@ -256,7 +263,7 @@ export const samplePartners = (): InstitutionPartner[] => [
     type: 'Direct',
     country: 'Australia',
     website: 'utas.edu.au',
-    rm: 'Raj Shamani',
+    rm: IN('kevin.mcewan'),
     status: 'Verbal approval',
     docs: [],
     commission: null,
@@ -264,9 +271,9 @@ export const samplePartners = (): InstitutionPartner[] => [
     added: inDays(-40),
     stamps: {},
   },
-  { id: 'ip-kingsway', name: 'Kingsway Pathway Colleges', type: 'Third-party', country: 'UK', website: 'kingswaypathways.co.uk', rm: 'Arjun Mehta', status: 'Proposal sent', docs: [], commission: null, contacts: [], added: inDays(-21), stamps: {} },
-  { id: 'ip-edvance', name: 'Edvance Network', type: 'Third-party', country: 'Australia', website: 'edvancenetwork.com', rm: 'Kavya Menon', status: 'Met with', docs: [], commission: null, contacts: [], added: inDays(-9), stamps: {} },
-  { id: 'ip-harbour', name: 'Pacific Harbour Group', type: 'Third-party', country: 'New Zealand', website: 'pacificharbour.ac.nz', rm: 'Leena Thomas', status: 'Did not proceed', docs: [], commission: null, contacts: [], added: '2025-11-03', closedNote: 'Wanted exclusivity in India.', stamps: {} },
+  { id: 'ip-kingsway', name: 'Kingsway Pathway Colleges', type: 'Third-party', country: 'UK', website: 'kingswaypathways.co.uk', rm: IN('namita.nath'), status: 'Proposal sent', docs: [], commission: null, contacts: [], added: inDays(-21), stamps: {} },
+  { id: 'ip-edvance', name: 'Edvance Network', type: 'Third-party', country: 'Australia', website: 'edvancenetwork.com', rm: IN('catherine.wilson'), status: 'Met with', docs: [], commission: null, contacts: [], added: inDays(-9), stamps: {} },
+  { id: 'ip-harbour', name: 'Pacific Harbour Group', type: 'Third-party', country: 'New Zealand', website: 'pacificharbour.ac.nz', rm: IN('lalaine.dizon'), status: 'Did not proceed', docs: [], commission: null, contacts: [], added: '2025-11-03', closedNote: 'Wanted exclusivity in India.', stamps: {} },
 ];
 
 /** Which partner each university sits under. */
@@ -315,22 +322,29 @@ const DOCS = ['Business registration certificate', 'Company profile', 'Owner’s
 const docs = (state: RpDoc['state'], missing = 0): RpDoc[] => DOCS.map((name, i) => ({ name, state: i >= DOCS.length - missing ? 'Missing' : state, file: `${name.replace(/[^A-Za-z]+/g, '_')}.pdf` }));
 const rp = (id: string, code: number, name: string, city: string, country: string, status: RpStatus, since: string, contact: RecruitmentPartner['contact'], foundUs: string, bdm: string, admissions: string, d: RpDoc[], activity: RecruitmentPartner['activity'], masterPartner = 'None'): RecruitmentPartner => ({ id, code: `AG-${code}`, name, city, country, status, since, contact, foundUs, bdm, admissions, masterPartner, docs: d, activity });
 
-export const sampleRps = (): RecruitmentPartner[] => [
-  rp('rp-dhaka', 1042, 'Dhaka Global Education', 'Dhaka', 'Bangladesh', 'Verifying', inDays(-8), { name: 'Nusrat Jahan', email: 'nusrat@dhakaglobaledu.com', phone: '+880 1711 552 019' }, 'Event or fair', 'Rafiq Ahmed', 'Sania Akter', docs('With BAP'), [{ at: inDays(-7), what: 'All documents uploaded' }, { at: inDays(-8), what: 'Signed up' }]),
-  rp('rp-eduvista', 1043, 'EduVista Consultants', 'Hyderabad', 'India', 'Verifying', inDays(-9), { name: 'Kiran Reddy', email: 'kiran@eduvista.in', phone: '+91 98490 11220' }, 'Google search', 'Aditya Rao', 'Megha Malhotra', docs('With BAP'), [{ at: inDays(-8), what: 'All documents uploaded' }, { at: inDays(-9), what: 'Signed up' }]),
-  rp('rp-lanka', 1044, 'Lanka Study Hub', 'Colombo', 'Sri Lanka', 'Not activated', inDays(-12), { name: 'Ruwan Silva', email: 'ruwan@lankastudyhub.lk', phone: '+94 77 220 5531' }, 'Another agency', 'Dilini Perera', 'Nimali Fernando', docs('With BAP', 3), [{ at: inDays(-12), what: 'Signed up' }]),
-  rp('rp-colombo', 1045, 'Colombo EduConnect', 'Colombo', 'Sri Lanka', 'Documents sent back', inDays(-20), { name: 'Shanika Perera', email: 'shanika@colomboeduconnect.lk', phone: '+94 77 410 8821' }, 'Social media', 'Dilini Perera', 'Nimali Fernando', [...docs('Verified').slice(0, 2), { name: 'Owner’s ID', state: 'Sent back', file: 'Owners_ID.pdf' }, { name: 'Business reference', state: 'Verified', file: 'Business_reference.pdf' }], [{ at: inDays(-15), what: 'Owner’s ID sent back: the photo page is cut off' }, { at: inDays(-18), what: 'All documents uploaded' }, { at: inDays(-20), what: 'Signed up' }]),
-  rp('rp-kathmandu', 1031, 'Kathmandu Study Link', 'Kathmandu', 'Nepal', 'Activated', inDays(-26), { name: 'Bikash Thapa', email: 'bikash@kathmandustudylink.com.np', phone: '+977 980 221 4410' }, 'GSP team member', 'Sujan Shrestha', 'Supriya Shrestha', docs('Verified'), [{ at: inDays(-20), what: 'Activated: agreement sent to sign' }, { at: inDays(-24), what: 'All documents verified' }, { at: inDays(-26), what: 'Signed up' }]),
-  rp('rp-brightpath', 1029, 'BrightPath Overseas', 'Bengaluru', 'India', 'Activated', inDays(-31), { name: 'Asha Menon', email: 'asha.menon@brightpathoverseas.com', phone: '+91 98872 44114' }, 'A university', 'Aditya Rao', 'Megha Malhotra', docs('Verified'), [{ at: inDays(-27), what: 'Activated: agreement sent to sign' }, { at: inDays(-29), what: 'All documents verified' }, { at: inDays(-31), what: 'Signed up' }]),
-  rp('rp-horizon', 1003, 'Horizon Overseas', 'Mumbai', 'India', 'Agreement signed', '2024-08-04', { name: 'Ananya Rao', email: 'ananya@horizonoverseas.in', phone: '+91 98200 11873' }, 'GSP team member', 'Sneha Kulkarni', 'Megha Malhotra', docs('Verified'), [{ at: '2024-08-19', what: 'Agreement signed' }, { at: '2024-08-12', what: 'Activated' }, { at: '2024-08-04', what: 'Signed up' }]),
-  rp('rp-saigon', 1011, 'Saigon Bridge Education', 'Ho Chi Minh City', 'Vietnam', 'Agreement signed', '2025-01-19', { name: 'Lan Tran', email: 'lan@saigonbridge.vn', phone: '+84 90 811 2044' }, 'Event or fair', 'Tina Huynh', 'Thi Tuyet Hoa Nguyen', docs('Verified'), [{ at: '2025-02-02', what: 'Agreement signed' }, { at: '2025-01-19', what: 'Signed up' }]),
-  rp('rp-delhi', 1007, 'Capital Career Abroad', 'Delhi', 'India', 'Agreement signed', '2024-11-10', { name: 'Manish Gupta', email: 'manish@capitalcareerabroad.in', phone: '+91 98110 77310' }, 'Another agency', 'Rohit Malhotra', 'Megha Malhotra', docs('Verified'), [{ at: '2024-11-25', what: 'Agreement signed' }, { at: '2024-11-10', what: 'Signed up' }]),
-  rp('rp-hanoi', 1015, 'Lotus Study Abroad', 'Hanoi', 'Vietnam', 'Agreement signed', '2025-04-08', { name: 'Mai Pham', email: 'mai@lotusstudy.vn', phone: '+84 90 812 7731' }, 'Social media', 'Tina Huynh', 'Thi Tuyet Hoa Nguyen', docs('Verified'), [{ at: '2025-04-20', what: 'Agreement signed' }, { at: '2025-04-08', what: 'Signed up' }], 'Saigon Bridge Education'),
-  rp('rp-pokhara', 1019, 'Himalayan Study Centre', 'Pokhara', 'Nepal', 'Agreement signed', '2025-03-12', { name: 'Anjali Gurung', email: 'anjali@himalayanstudy.com.np', phone: '+977 985 612 3301' }, 'GSP team member', 'Sujan Shrestha', 'Supriya Shrestha', docs('Verified'), [{ at: '2025-03-28', what: 'Agreement signed' }, { at: '2025-03-12', what: 'Signed up' }]),
-  rp('rp-manila', 1021, 'Manila Study Link', 'Manila', 'Philippines', 'Agreement signed', '2025-03-12', { name: 'Paolo Reyes', email: 'paolo@manilastudylink.ph', phone: '+63 917 555 0142' }, 'Google search', 'Arielle Santos', 'Joy Castillo', docs('Verified'), [{ at: '2025-03-30', what: 'Agreement signed' }, { at: '2025-03-12', what: 'Signed up' }]),
-  rp('rp-pune', 1009, 'Global Reach Education', 'Pune', 'India', 'Dormant', '2025-08-04', { name: 'Sameer Joshi', email: 'sameer@globalreachedu.in', phone: '+91 98220 44190' }, 'Another agency', 'Sneha Kulkarni', 'Megha Malhotra', docs('Verified'), [{ at: inDays(-60), what: 'Dormant: no applications for six months' }, { at: '2025-08-20', what: 'Agreement signed' }, { at: '2025-08-04', what: 'Signed up' }]),
-  rp('rp-lagos', 1024, 'Lagos Edu Partners', 'Lagos', 'Nigeria', 'Suspended', '2025-05-06', { name: 'Chidi Okafor', email: 'chidi@lagosedupartners.ng', phone: '+234 803 555 0199' }, 'Event or fair', 'Faisal Ahmed', 'Ifeoma Nwosu', docs('Verified'), [{ at: inDays(-40), what: 'Suspended while GSP looks into two applications' }, { at: '2025-05-20', what: 'Agreement signed' }, { at: '2025-05-06', what: 'Signed up' }]),
-  rp('rp-chittagong', 1046, 'Chittagong Edu Point', 'Chittagong', 'Bangladesh', 'Rejected', inDays(-45), { name: 'Tanvir Hasan', email: 'tanvir@ctgedupoint.com', phone: '+880 1819 220 433' }, 'Social media', 'Rafiq Ahmed', 'Sania Akter', docs('Sent back'), [{ at: inDays(-38), what: 'Rejected: the registration couldn’t be confirmed' }, { at: inDays(-45), what: 'Signed up' }]),
+/** Each RP's BDM and Admissions contact come from the staff list: the BDM by the RP's city (data/partners.ts), the contact as its sales region's (Admin › Sales regions). */
+const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
+  ...r,
+  bdm: partnerManagerFor(r.country, r.city, '')?.name ?? '',
+  admissions: sampleRegions().find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
+});
+export const sampleRps = (): RecruitmentPartner[] => rpRows().map(staffed);
+const rpRows = (): RecruitmentPartner[] => [
+  rp('rp-dhaka', 1042, 'Dhaka Global Education', 'Dhaka', 'Bangladesh', 'Verifying', inDays(-8), { name: 'Nusrat Jahan', email: 'nusrat@dhakaglobaledu.com', phone: '+880 1711 552 019' }, 'Event or fair', '', '', docs('With BAP'), [{ at: inDays(-7), what: 'All documents uploaded' }, { at: inDays(-8), what: 'Signed up' }]),
+  rp('rp-eduvista', 1043, 'EduVista Consultants', 'Hyderabad', 'India', 'Verifying', inDays(-9), { name: 'Kiran Reddy', email: 'kiran@eduvista.in', phone: '+91 98490 11220' }, 'Google search', '', '', docs('With BAP'), [{ at: inDays(-8), what: 'All documents uploaded' }, { at: inDays(-9), what: 'Signed up' }]),
+  rp('rp-lanka', 1044, 'Lanka Study Hub', 'Colombo', 'Sri Lanka', 'Not activated', inDays(-12), { name: 'Ruwan Silva', email: 'ruwan@lankastudyhub.lk', phone: '+94 77 220 5531' }, 'Another agency', '', '', docs('With BAP', 3), [{ at: inDays(-12), what: 'Signed up' }]),
+  rp('rp-colombo', 1045, 'Colombo EduConnect', 'Colombo', 'Sri Lanka', 'Documents sent back', inDays(-20), { name: 'Shanika Perera', email: 'shanika@colomboeduconnect.lk', phone: '+94 77 410 8821' }, 'Social media', '', '', [...docs('Verified').slice(0, 2), { name: 'Owner’s ID', state: 'Sent back', file: 'Owners_ID.pdf' }, { name: 'Business reference', state: 'Verified', file: 'Business_reference.pdf' }], [{ at: inDays(-15), what: 'Owner’s ID sent back: the photo page is cut off' }, { at: inDays(-18), what: 'All documents uploaded' }, { at: inDays(-20), what: 'Signed up' }]),
+  rp('rp-kathmandu', 1031, 'Kathmandu Study Link', 'Kathmandu', 'Nepal', 'Activated', inDays(-26), { name: 'Bikash Thapa', email: 'bikash@kathmandustudylink.com.np', phone: '+977 980 221 4410' }, 'GSP team member', '', '', docs('Verified'), [{ at: inDays(-20), what: 'Activated: agreement sent to sign' }, { at: inDays(-24), what: 'All documents verified' }, { at: inDays(-26), what: 'Signed up' }]),
+  rp('rp-brightpath', 1029, 'BrightPath Overseas', 'Bengaluru', 'India', 'Activated', inDays(-31), { name: 'Asha Menon', email: 'asha.menon@brightpathoverseas.com', phone: '+91 98872 44114' }, 'A university', '', '', docs('Verified'), [{ at: inDays(-27), what: 'Activated: agreement sent to sign' }, { at: inDays(-29), what: 'All documents verified' }, { at: inDays(-31), what: 'Signed up' }]),
+  rp('rp-horizon', 1003, 'Horizon Overseas', 'Mumbai', 'India', 'Agreement signed', '2024-08-04', { name: 'Ananya Rao', email: 'ananya@horizonoverseas.in', phone: '+91 98200 11873' }, 'GSP team member', '', '', docs('Verified'), [{ at: '2024-08-19', what: 'Agreement signed' }, { at: '2024-08-12', what: 'Activated' }, { at: '2024-08-04', what: 'Signed up' }]),
+  rp('rp-saigon', 1011, 'Saigon Bridge Education', 'Ho Chi Minh City', 'Vietnam', 'Agreement signed', '2025-01-19', { name: 'Lan Tran', email: 'lan@saigonbridge.vn', phone: '+84 90 811 2044' }, 'Event or fair', '', '', docs('Verified'), [{ at: '2025-02-02', what: 'Agreement signed' }, { at: '2025-01-19', what: 'Signed up' }]),
+  rp('rp-delhi', 1007, 'Capital Career Abroad', 'Delhi', 'India', 'Agreement signed', '2024-11-10', { name: 'Manish Gupta', email: 'manish@capitalcareerabroad.in', phone: '+91 98110 77310' }, 'Another agency', '', '', docs('Verified'), [{ at: '2024-11-25', what: 'Agreement signed' }, { at: '2024-11-10', what: 'Signed up' }]),
+  rp('rp-hanoi', 1015, 'Lotus Study Abroad', 'Hanoi', 'Vietnam', 'Agreement signed', '2025-04-08', { name: 'Mai Pham', email: 'mai@lotusstudy.vn', phone: '+84 90 812 7731' }, 'Social media', '', '', docs('Verified'), [{ at: '2025-04-20', what: 'Agreement signed' }, { at: '2025-04-08', what: 'Signed up' }], 'Saigon Bridge Education'),
+  rp('rp-pokhara', 1019, 'Himalayan Study Centre', 'Pokhara', 'Nepal', 'Agreement signed', '2025-03-12', { name: 'Anjali Gurung', email: 'anjali@himalayanstudy.com.np', phone: '+977 985 612 3301' }, 'GSP team member', '', '', docs('Verified'), [{ at: '2025-03-28', what: 'Agreement signed' }, { at: '2025-03-12', what: 'Signed up' }]),
+  rp('rp-manila', 1021, 'Manila Study Link', 'Manila', 'Philippines', 'Agreement signed', '2025-03-12', { name: 'Paolo Reyes', email: 'paolo@manilastudylink.ph', phone: '+63 917 555 0142' }, 'Google search', '', '', docs('Verified'), [{ at: '2025-03-30', what: 'Agreement signed' }, { at: '2025-03-12', what: 'Signed up' }]),
+  rp('rp-pune', 1009, 'Global Reach Education', 'Pune', 'India', 'Dormant', '2025-08-04', { name: 'Sameer Joshi', email: 'sameer@globalreachedu.in', phone: '+91 98220 44190' }, 'Another agency', '', '', docs('Verified'), [{ at: inDays(-60), what: 'Dormant: no applications for six months' }, { at: '2025-08-20', what: 'Agreement signed' }, { at: '2025-08-04', what: 'Signed up' }]),
+  rp('rp-lagos', 1024, 'Lagos Edu Partners', 'Lagos', 'Nigeria', 'Suspended', '2025-05-06', { name: 'Chidi Okafor', email: 'chidi@lagosedupartners.ng', phone: '+234 803 555 0199' }, 'Event or fair', '', '', docs('Verified'), [{ at: inDays(-40), what: 'Suspended while GSP looks into two applications' }, { at: '2025-05-20', what: 'Agreement signed' }, { at: '2025-05-06', what: 'Signed up' }]),
+  rp('rp-chittagong', 1046, 'Chittagong Edu Point', 'Chittagong', 'Bangladesh', 'Rejected', inDays(-45), { name: 'Tanvir Hasan', email: 'tanvir@ctgedupoint.com', phone: '+880 1819 220 433' }, 'Social media', '', '', docs('Sent back'), [{ at: inDays(-38), what: 'Rejected: the registration couldn’t be confirmed' }, { at: inDays(-45), what: 'Signed up' }]),
 ];
 
 export type { Destination };

@@ -8,6 +8,10 @@
  */
 import type { Area, Level } from '../../data/courses';
 import { inDays, type Stamp } from './records';
+import { nameOf } from '../../data/staff';
+/** An Institution person's name from the staff list, by the start of their email. */
+const IN = (local: string) => nameOf(`${local}@upgrad.com`);
+
 
 export const ANN_CATEGORIES = ['Promotion', 'Scholarship', 'Key Dates', 'Admission', 'Fees & Commission', 'Student Service', 'System Updates'] as const;
 /** Only some categories have subcategories. */
@@ -84,13 +88,13 @@ export const sampleAnnouncements = (): Announcement[] => [
     body: 'Flinders University has moved its last date for February applications to 15 December. Offers already made are not affected.',
     files: [],
     email: true,
-    author: 'Raj Shamani',
+    author: IN('kevin.mcewan'),
     draft: false,
     withdrawn: false,
     reached: 214,
     sent: 186,
     opened: 121,
-    updated: { by: 'Raj Shamani', at: inDays(-3) },
+    updated: { by: IN('kevin.mcewan'), at: inDays(-3) },
   },
   {
     id: 'AN-110',
@@ -109,7 +113,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     body: 'Deakin University has added a Master of Cyber Security at its Burwood campus, for the March and July intakes.',
     files: [],
     email: false,
-    author: 'Kavya Menon',
+    author: IN('catherine.wilson'),
     draft: false,
     withdrawn: false,
     reached: 162,
@@ -132,7 +136,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     body: 'The Flinders International Excellence Scholarship now covers Nursing: 15% to 25% off tuition each year for students with 70% or more in their last qualification.',
     files: [],
     email: true,
-    author: 'Raj Shamani',
+    author: IN('kevin.mcewan'),
     draft: false,
     withdrawn: false,
     reached: 301,
@@ -155,7 +159,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     body: 'Join the University of Canberra’s international team for a 45-minute webinar on courses, scholarships and dates for February.',
     files: [],
     email: true,
-    author: 'Raj Shamani',
+    author: IN('kevin.mcewan'),
     draft: false,
     withdrawn: false,
     reached: 0,
@@ -178,7 +182,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     body: '',
     files: [],
     email: false,
-    author: 'Arjun Mehta',
+    author: IN('namita.nath'),
     draft: true,
     withdrawn: false,
     reached: 0,
@@ -202,7 +206,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     body: 'GSP isn’t taking new applications for Massey University for now. Applications already made carry on.',
     files: [],
     email: true,
-    author: 'Leena Thomas',
+    author: IN('lalaine.dizon'),
     draft: false,
     withdrawn: false,
     reached: 288,
@@ -225,7 +229,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     body: 'Griffith College has extended its September intake for late arrivals.',
     files: [],
     email: false,
-    author: 'Kavya Menon',
+    author: IN('catherine.wilson'),
     draft: false,
     withdrawn: true,
     reached: 95,

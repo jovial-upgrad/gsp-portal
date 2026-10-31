@@ -1,9 +1,10 @@
 /**
  * The Institution Team's sign-in (29 Oct): GSP people a GSP admin gave access to, by their GSP email. There's no
  * registering. The first time, they set up a password with a code sent to that email; later, they sign in, or reset
- * a forgotten password the same way. Prototype values: the code 000000, Raj Shamani's password upGrad1234.
+ * a forgotten password the same way. Prototype values: the code 000000, Kevin Mcewan's password upGrad1234.
  */
 import { TEST_PASSWORD } from '../../data/testing';
+import { STAFF, label } from '../../data/staff';
 
 export type PwStep = 'request' | 'code' | 'new' | 'done';
 /** Resetting a forgotten password, or setting one up the first time. */
@@ -41,11 +42,18 @@ export type TeamAuth = {
 /** A GSP person with access to the Institution Team. `set`: they've set up their password. */
 export type Member = { name: string; first: string; email: string; org: string; role: string; set: boolean };
 
+/**
+ * The Institution team on GSP's staff list (data/staff.ts): Institution and Institution Ops. Kevin Mcewan signs in
+ * by default; Ally Kingsmill hasn't set a password yet, for the first-time flow.
+ */
+const INVITED = 'ally.kingsmill@upgrad.com';
+const DEFAULT = 'kevin.mcewan@upgrad.com';
+const TEAM_STAFF = STAFF.filter((s) => s.role === 'Institution' || s.role === 'Institution Ops');
 const MEMBERS: Member[] = [
-  { name: 'Raj Shamani', first: 'Raj', email: 'raj.shamani@gsp.upgrad.com', org: 'GSP', role: 'Institution', set: true },
-  // given access by a GSP admin, and yet to set up a password
-  { name: 'Kavya Menon', first: 'Kavya', email: 'kavya.menon@gsp.upgrad.com', org: 'GSP', role: 'Institution', set: false },
-];
+  ...TEAM_STAFF.filter((s) => s.email === DEFAULT),
+  ...TEAM_STAFF.filter((s) => s.email === INVITED),
+  ...TEAM_STAFF.filter((s) => s.email !== DEFAULT && s.email !== INVITED),
+].map((s) => ({ name: label(s), first: s.first, email: s.email.toLowerCase(), org: 'GSP', role: s.role, set: s.email !== INVITED }));
 
 /** Who the portal is signed in as. */
 export const TEAM_MEMBER = MEMBERS[0];
@@ -58,7 +66,7 @@ export function memberFor(id: string): Member | null {
   return MEMBERS.find((m) => m.email === v || m.email.split('@')[0] === v) ?? null;
 }
 
-/** Passwords set or changed on this visit; a reload goes back to the test password (and to Kavya's not being set). */
+/** Passwords set or changed on this visit; a reload goes back to the test password (and to Ally Kingsmill's not being set). */
 const passwords = new Map<string, string>();
 export const hasPassword = (m: Member) => m.set || passwords.has(m.email);
 export const setPassword = (m: Member, pw: string) => passwords.set(m.email, pw);

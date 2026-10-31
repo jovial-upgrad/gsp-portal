@@ -94,7 +94,7 @@ export function DocumentsSheet({
   const contactLine = manager && (
     <>
       {' '}
-      Questions? Call {who} on <span className="num">{manager.phone}</span>.
+      Questions? {manager.phone ? <>Call {who} on <span className="num">{manager.phone}</span>.</> : <>Email {who} at {manager.email}.</>}
     </>
   );
 

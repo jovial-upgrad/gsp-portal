@@ -1,3 +1,4 @@
+import { gspContact } from './applications';
 import { UNIVERSITIES } from './courses';
 import type { Application } from './applications';
 import { statusOf, type Announcement } from '../institution/data/announcements';
@@ -42,11 +43,11 @@ function onboardingNotes(access: 'setup' | 'verifying'): Note[] {
 /** RP Admin's notifications: GSP's messages and requests, statuses, and the emails the system sent. */
 function rpNotes(agency: string): Note[] {
   return [
-    { id: 'n-rp-1', kind: 'chat', title: 'Meera Pillai sent a message', text: 'Priya Raman · Deakin: “The offer has 3 conditions. Answer them in the form by the date and send it.”', at: ago(0, 0.4), to: { app: 'GSP-24102' } },
+    { id: 'n-rp-1', kind: 'chat', title: `${gspContact('Australia').name} sent a message`, text: 'Priya Raman · Deakin: “The offer has 3 conditions. Answer them in the form by the date and send it.”', at: ago(0, 0.4), to: { app: 'GSP-24102' } },
     { id: 'n-rp-2', kind: 'system', title: 'GSP asked for a document', text: 'Sneha Patil · Flinders: Gap explanation document, due in 3 days.', at: ago(0, 0.3), to: { app: 'GSP-24055' } },
     { id: 'n-rp-3', kind: 'system', title: 'Document sent back', text: 'Sneha Patil · Newcastle: GSP couldn’t read the passport scan. Upload it again.', at: ago(0, 3), to: { app: 'GSP-24061' } },
     { id: 'n-rp-4', kind: 'mail', title: 'Email sent to Priya Raman', text: 'Her conditional offer from Deakin, with what happens next. You were copied in.', at: ago(1, 2), to: { app: 'GSP-24102' } },
-    { id: 'n-rp-5', kind: 'chat', title: 'Meera Pillai sent a message', text: 'Priya Raman · Wollongong: “Wollongong is taking a little longer than usual this month. I reminded them today.”', at: ago(0, 4), read: true, to: { app: 'GSP-24097' } },
+    { id: 'n-rp-5', kind: 'chat', title: `${gspContact('Australia').name} sent a message`, text: 'Priya Raman · Wollongong: “Wollongong is taking a little longer than usual this month. I reminded them today.”', at: ago(0, 4), read: true, to: { app: 'GSP-24097' } },
     { id: 'n-rp-6', kind: 'system', title: 'Conditional offer from Deakin', text: 'Priya Raman · Deakin University: accept within 19 days.', at: ago(1, 3), read: true, to: { app: 'GSP-24102' } },
     { id: 'n-rp-7', kind: 'system', title: 'Visa application lodged', text: 'Fatima Sheikh · RMIT: GSP lodged it with the Department of Home Affairs.', at: ago(2), read: true, to: { app: 'GSP-23710' } },
     { id: 'n-rp-8', kind: 'mail', title: 'October commission statement', text: `Sent to ${agency}’s accounts email.`, at: ago(3), read: true, to: { page: 'earnings' } },
@@ -57,7 +58,7 @@ function rpNotes(agency: string): Note[] {
 /** GSP Team's notifications: the agencies' uploads and replies, and universities' emails. */
 function gspNotes(agency: string): Note[] {
   return [
-    { id: 'n-g-1', kind: 'chat', title: 'Karthik Nair replied', text: `${agency} · Priya Raman · Deakin: “Thanks Meera, Priya will answer the conditions today.”`, at: ago(0, 0.3), to: { app: 'GSP-24102' } },
+    { id: 'n-g-1', kind: 'chat', title: 'Karthik Nair replied', text: `${agency} · Priya Raman · Deakin: “Thanks ${gspContact('Australia').first}, Priya will answer the conditions today.”`, at: ago(0, 0.3), to: { app: 'GSP-24102' } },
     { id: 'n-g-2', kind: 'mail', title: 'Email from Deakin University', text: 'Conditional offer for Priya Raman (DKN-2611407). Filed in the application.', at: ago(0, 1), to: { app: 'GSP-24102' } },
     { id: 'n-g-3', kind: 'system', title: 'New application to check', text: `${agency} · Sneha Patil · Flinders University.`, at: ago(0, 1), to: { app: 'GSP-24055' } },
     { id: 'n-g-4', kind: 'system', title: 'Documents ready to check', text: `${agency} uploaded 2 documents for Rohan Gupta · Northumbria.`, at: ago(0, 2), to: { app: 'GSP-23944' } },

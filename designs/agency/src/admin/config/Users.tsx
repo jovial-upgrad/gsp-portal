@@ -10,6 +10,7 @@ import { NoMatch, PageHead, downloadCsv } from '../../institution/records/parts'
 import { GSP_ROLES, type GspRole, type User, type UserStatus } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { History } from './parts';
+import { MultiPick } from '../../institution/records/MultiPick';
 
 const STATUSES: UserStatus[] = ['Link sent', 'Active', 'Deactivated'];
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
@@ -34,7 +35,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
   const [removing, setRemoving] = useState<User | null>(null);
   const t = q.trim().toLowerCase();
   const rows = cfg.users.filter(
-    (u) => (!t || [u.name, u.email, u.title, u.phone].some((x) => x.toLowerCase().includes(t))) && (!role || u.role === role) && (!region || u.region === region) && (!status || u.status === status),
+    (u) => (!t || [u.name, u.email, u.title, u.phone].some((x) => x.toLowerCase().includes(t))) && (!role || u.role === role) && (!region || u.regions.includes(region)) && (!status || u.status === status),
   );
   const clear = () => {
     setQ('');
@@ -130,12 +131,13 @@ export function Users({ cfg, change, say }: ConfigProps) {
                       <span className="cfg__strong">{u.name}</span>
                       <span className="cfg__sub">{u.email}</span>
                     </td>
-                    <td className="cfg__muted num cfg__nowrap">
-                      {u.dial} {u.phone}
-                    </td>
+                    <td className="cfg__muted num cfg__nowrap">{u.phone ? `${u.dial} ${u.phone}` : '–'}</td>
                     <td>{u.role}</td>
                     <td className="cfg__muted">{u.title || '–'}</td>
-                    <td className="cfg__muted">{u.region || 'Not set'}</td>
+                    <td className="cfg__muted">
+                      {u.region || 'Not set'}
+                      {u.area && <span className="cfg__sub">Covers {u.area}</span>}
+                    </td>
                     <td>
                       <span className={`cfg__login cfg__login--${u.status.replace(' ', '-').toLowerCase()}`}>{u.status}</span>
                       {u.status === 'Link sent' && <span className="cfg__sub">Sent {ago(u.sentAt)}</span>}
@@ -211,7 +213,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
 
 /** Create or edit a role: name, email, phone with the country code, role, title and sales region. */
 function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boolean; user: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User) => void }) {
-  const blank = (): User => ({ id: `u${Date.now()}`, name: '', email: '', dial: '+91', phone: '', role: 'Admission', title: '', region: '', status: 'Not sent' });
+  const blank = (): User => ({ id: `u${Date.now()}`, name: '', email: '', dial: '+91', phone: '', role: 'Admission', title: '', region: '', regions: [], area: '', status: 'Not sent' });
   const [v, setV] = useState<User>(blank);
   const [tried, setTried] = useState(false);
   useEffect(() => {
@@ -224,8 +226,8 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
   const err = {
     name: v.name.trim().length < 2 ? 'Enter their full name.' : null,
     email: !isEmail(email) ? 'Enter their email, like name@gsp.upgrad.com.' : users.some((x) => x.id !== v.id && x.email.toLowerCase() === email) ? 'Someone already has this email.' : null,
-    phone: v.phone.replace(/\D/g, '').length < 7 ? 'Enter their phone number.' : null,
-    region: !v.region ? 'Pick their sales region.' : null,
+    phone: v.phone && v.phone.replace(/\D/g, '').length < 7 ? 'Enter the whole number, or leave it empty.' : null,
+    region: !v.regions.length ? 'Pick their sales region.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const save = () => {
@@ -259,7 +261,7 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
         <Field id="us-email" label="Email" required error={show('email')}>
           <TextInput id="us-email" type="email" value={v.email} invalid={!!show('email')} aria-describedby={describedBy('us-email', show('email'))} onChange={(e) => set({ email: e.target.value })} />
         </Field>
-        <Field id="us-phone" label="Phone number" required error={show('phone')}>
+        <Field id="us-phone" label="Phone number" optional error={show('phone')}>
           <PhoneInput id="us-phone" dial={v.dial} number={v.phone} invalid={!!show('phone')} describedBy={describedBy('us-phone', show('phone'))} onDial={(d) => set({ dial: d })} onNumber={(n) => set({ phone: n })} />
         </Field>
         <Field id="us-title" label="Title" optional>
@@ -273,11 +275,7 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
           </SelectInput>
         </Field>
         <Field id="us-region" label="Sales region" required error={show('region')}>
-          <SelectInput id="us-region" value={v.region} placeholder="Choose" invalid={!!show('region')} onChange={(e) => set({ region: e.target.value })}>
-            {regions.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </SelectInput>
+          <MultiPick id="us-region" label="Sales region" value={v.regions} options={regions} onChange={(rs: string[]) => set({ regions: rs, region: rs.join(', ') })} empty="Pick one or more" />
         </Field>
       </div>
     </Sheet>

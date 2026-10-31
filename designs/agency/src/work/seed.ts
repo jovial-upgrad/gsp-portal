@@ -6,6 +6,8 @@
  * In the real build all of this comes from the server.
  */
 
+import { STAFF, label } from '../data/staff';
+
 const DAY = 864e5;
 export const ago = (d, h = 0) => Date.now() - d * DAY - h * 36e5;
 
@@ -24,49 +26,10 @@ export const CALENDARS = [
     holidays: [['2026-12-25', 'Christmas'], ['2027-01-01', 'New Year’s Day']] },
 ];
 
+/* GSP's people: every one comes from the staff list (data/staff.ts, Jovial's export of 31 Oct). */
+const ROLE_KEY = (r) => r.toLowerCase().replace(/ /g, '-');
 export const USERS = [
-  // GSP (Jovial's list, 30 Oct 2026)
-  { id: 'u-jovial', name: 'Jovial', role: 'admin', title: 'Admin', regions: ['Global'] },
-  { id: 'u-suman', name: 'Suman', role: 'finance', title: 'Finance', regions: ['Global'] },
-  { id: 'u-lav', name: 'Lav', role: 'finance', title: 'Finance', regions: ['Global'] },
-  { id: 'u-myleeta', name: 'Myleeta', role: 'view-only', title: 'View Only', regions: ['Global'] },
-  { id: 'u-kamrun', name: 'Kamrun', role: 'admission', title: 'Admissions Head, Bangladesh', regions: ['Bangladesh', 'Africa'] },
-  { id: 'u-ramish', name: 'Ramish', role: 'admission', title: 'Admissions Head, India', regions: ['India'] },
-  { id: 'u-sabrina', name: 'Sabrina', role: 'admission', title: 'Admissions Officer', regions: ['Pakistan'] },
-  { id: 'u-satinder', name: 'Satinder', role: 'admission', title: 'Admissions Officer', regions: ['India'] },
-  { id: 'u-supriya', name: 'Supriya', role: 'admission', title: 'Admissions Lead, Nepal', regions: ['Nepal'] },
-  { id: 'u-subodhya', name: 'Subodhya', role: 'admission', title: 'Admissions Lead, Sri Lanka', regions: ['Sri Lanka'] },
-  { id: 'u-truc', name: 'Truc', role: 'admission', title: 'Admissions Lead, South-East Asia', regions: ['Vietnam', 'Philippines', 'Myanmar and Bhutan', 'Indonesia, Malaysia and Thailand'] },
-  { id: 'u-jo', name: 'Jo', role: 'admission', title: 'Admissions Lead, Australia and China', regions: ['Australia', 'China'] },
-  { id: 'u-valentina', name: 'Valentina', role: 'admission', title: 'Admissions Lead, Latin America and Europe', regions: ['Latin America and Europe'] },
-  { id: 'u-tasha', name: 'Tasha', role: 'admission-ops', title: 'Admission Ops Head', regions: ['Global'] },
-  { id: 'u-rajinder', name: 'Rajinder', role: 'admission-ops', title: 'Admission Ops', regions: ['Global'] },
-  { id: 'u-ashu', name: 'Ashu', role: 'admission-ops', title: 'Admission Ops', regions: ['Global'] },
-  { id: 'u-ali', name: 'Ali', role: 'recruitment', title: 'Recruitment Head, Rest of world', regions: ['Rest of world', 'Pakistan', 'Africa', 'Latin America and Europe'] },
-  { id: 'u-saurabh', name: 'Saurabh', role: 'recruitment', title: 'Recruitment Head, India', regions: ['India'] },
-  { id: 'u-faisal', name: 'Faisal', role: 'recruitment', title: 'Recruitment Head, Bangladesh', regions: ['Bangladesh'] },
-  { id: 'u-quan', name: 'Quan', role: 'recruitment', title: 'Recruitment Head, Vietnam', regions: ['Vietnam'] },
-  { id: 'u-harsh', name: 'Harsh', role: 'recruitment', title: 'BDM', regions: ['India'] },
-  { id: 'u-ramandeep', name: 'Ramandeep', role: 'recruitment', title: 'BDM', regions: ['India'] },
-  { id: 'u-mayank', name: 'Mayank', role: 'recruitment', title: 'BDM', regions: ['India'] },
-  { id: 'u-sania', name: 'Sania', role: 'recruitment', title: 'BDM', regions: ['Bangladesh'] },
-  { id: 'u-arielle', name: 'Arielle', role: 'recruitment', title: 'BDM', regions: ['Philippines'] },
-  { id: 'u-kanchani', name: 'Kanchani', role: 'recruitment', title: 'BDM', regions: ['Sri Lanka'] },
-  { id: 'u-rifaldo', name: 'Rifaldo', role: 'recruitment', title: 'BDM', regions: ['Indonesia, Malaysia and Thailand'] },
-  { id: 'u-nilar', name: 'Nilar', role: 'recruitment', title: 'BDM', regions: ['Myanmar and Bhutan'] },
-  { id: 'u-garima', name: 'Garima', role: 'recruitment-ops', title: 'Recruitment Ops Head', regions: ['Global'] },
-  { id: 'u-kartik', name: 'Kartik', role: 'recruitment-ops', title: 'Recruitment Ops', regions: ['Global'] },
-  { id: 'u-rishabh', name: 'Rishabh', role: 'recruitment-ops', title: 'Recruitment Ops', regions: ['Global'] },
-  { id: 'u-shara', name: 'Shara', role: 'recruitment-ops', title: 'Recruitment Ops', regions: ['Global'] },
-  { id: 'u-matt', name: 'Matt', role: 'institution', title: 'Institution Head', regions: ['Global'] },
-  { id: 'u-catherine', name: 'Catherine', role: 'institution', title: 'Account Manager', regions: ['Global'] },
-  { id: 'u-kevin', name: 'Kevin', role: 'institution', title: 'Account Manager', regions: ['Global'] },
-  { id: 'u-namita', name: 'Namita', role: 'institution', title: 'Account Manager', regions: ['Global'] },
-  { id: 'u-lalaine', name: 'Lalaine', role: 'institution', title: 'Account Manager', regions: ['Global'] },
-  { id: 'u-gauri', name: 'Gauri', role: 'institution-ops', title: 'Institution Ops Head', regions: ['Global'] },
-  { id: 'u-munmun', name: 'Munmun', role: 'institution-ops', title: 'Institution Ops', regions: ['Global'] },
-  { id: 'u-neelam', name: 'Neelam', role: 'institution-ops', title: 'Institution Ops', regions: ['Global'] },
-  { id: 'u-vishakha', name: 'Vishakha', role: 'institution-ops', title: 'Institution Ops', regions: ['Global'] },
+  ...STAFF.map((s) => ({ id: s.id, name: label(s), email: s.email, role: ROLE_KEY(s.role), title: s.role, regions: s.regions })).sort((a, b) => a.name.localeCompare(b.name)),
   // RP (the designer's GSP test agency)
   { id: 'u-nesil', name: 'Nesil Noble', role: 'rp-admin', title: 'RP Admin', agency: 'GSP test agency', branch: 'Bengaluru head office' },
   { id: 'u-anita', name: 'Anita Desai', role: 'branch-admin', title: 'Branch Admin', agency: 'GSP test agency', branch: 'Mumbai', addon: true },
@@ -76,13 +39,13 @@ export const USERS = [
 
 /* Who each of the designer's switcher roles acts as by default. */
 export const DEFAULT_PERSONA = {
-  'gsp-team': 'u-ramish',
-  'institution-partner': 'u-matt',
-  'gsp-admin': 'u-jovial',
+  'gsp-team': 'u-ramish-jafery',
+  'institution-partner': 'u-matt-beazley',
+  'gsp-admin': 'u-jovial-lejo',
   'rp-admin': 'u-nesil',
-  'gsp-finance': 'u-suman',
-  'gsp-recruitment': 'u-saurabh',
-  'gsp-bap': 'u-garima',
+  'gsp-finance': 'u-suman1-verma',
+  'gsp-recruitment': 'u-saurabh-chaudhary',
+  'gsp-bap': 'u-garima-bhardwaj',
 };
 
 /* Kinds of work: what can land in a queue, with its default SLA in working days. */
@@ -109,7 +72,9 @@ export const KINDS = [
   { id: 'k-escalation', name: 'SLA escalation', record: 'Any', sla: 1 },
 ];
 
-const regionalQueue = (region, leader, members = [], extra = {}) => ({
+const inRegion = (region) => STAFF.filter((s) => s.role === 'Admission' && s.regions.includes(region)).map((s) => s.id);
+const withRole = (role) => STAFF.filter((s) => s.role === role).map((s) => s.id);
+const regionalQueue = (region, leader, members = inRegion(region).filter((id) => id !== leader), extra = {}) => ({
   id: 'q-adm-' + region.toLowerCase().replace(/\W+/g, '-'),
   name: region + ' Admissions', kind: 'region', region, leader, members,
   assign: 'round-robin', cover: 'leader', sla: 1, handover: null,
@@ -118,30 +83,30 @@ const regionalQueue = (region, leader, members = [], extra = {}) => ({
 });
 
 export const QUEUES = [
-  regionalQueue('India', 'u-ramish', ['u-satinder'], {
-    handover: [{ from: 'New', to: 'Offer', people: ['u-satinder'] }, { from: 'Verification', to: 'Enrolment', people: ['u-ramish'] }],
+  regionalQueue('India', 'u-ramish-jafery', undefined, {
+    handover: [{ from: 'New', to: 'Offer', people: ['u-alfiya1-khan'] }, { from: 'Verification', to: 'Enrolment', people: ['u-ramish-jafery'] }],
   }),
-  regionalQueue('Bangladesh', 'u-kamrun'),
-  regionalQueue('Pakistan', 'u-sabrina'),
-  regionalQueue('Africa', 'u-kamrun'),
-  regionalQueue('Nepal', 'u-supriya'),
-  regionalQueue('Sri Lanka', 'u-subodhya'),
-  regionalQueue('Vietnam', 'u-truc'),
-  regionalQueue('Philippines', 'u-truc'),
-  regionalQueue('Myanmar and Bhutan', 'u-truc'),
-  regionalQueue('Indonesia, Malaysia and Thailand', 'u-truc'),
-  regionalQueue('Australia', 'u-jo'),
-  regionalQueue('China', 'u-jo'),
-  regionalQueue('Latin America and Europe', 'u-valentina'),
-  regionalQueue('Rest of world', 'u-tasha'),
-  regionalQueue('Direct', 'u-tasha'),
-  { id: 'q-rp-ops', name: 'Recruitment Ops', kind: 'team', leader: 'u-garima', members: ['u-kartik', 'u-rishabh', 'u-shara'], assign: 'round-robin', cover: 'leader', sla: 2, kinds: ['k-rp-verify', 'k-rp-change'] },
-  { id: 'q-institution', name: 'Institution', kind: 'team', leader: 'u-matt', members: ['u-catherine', 'u-kevin', 'u-namita', 'u-lalaine'], assign: 'record-owner', cover: 'leader', sla: 5, kinds: ['k-renew', 'k-golive'] },
-  { id: 'q-inst-ops', name: 'Institution Ops', kind: 'team', leader: 'u-gauri', members: ['u-munmun', 'u-neelam', 'u-vishakha'], assign: 'round-robin', cover: 'queue', sla: 5, kinds: ['k-course'] },
-  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha', members: ['u-rajinder', 'u-ashu'], assign: 'leader-assigns', cover: 'leader', sla: 1, kinds: ['k-qc', 'k-announce', 'k-escalation'] },
-  { id: 'q-finance', name: 'Finance', kind: 'team', leader: 'u-suman', members: ['u-lav'], assign: 'members-pick', cover: 'queue', sla: 2, makerChecker: true, kinds: ['k-terms', 'k-check', 'k-exception', 'k-payout'] },
-  { id: 'q-mail', name: 'Unmatched mail', kind: 'team', leader: 'u-tasha', members: ['u-ashu'], assign: 'members-pick', cover: 'leader', sla: 1, kinds: ['k-mail'] },
-  { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial', members: [], assign: 'leader-assigns', cover: 'leader', sla: 1, kinds: [] },
+  regionalQueue('Bangladesh', 'u-kamrun-nahar'),
+  regionalQueue('Pakistan', 'u-sabrina-hyder'),
+  regionalQueue('Africa', 'u-kamrun-nahar'),
+  regionalQueue('Nepal', 'u-supriya-shrestha'),
+  regionalQueue('Sri Lanka', 'u-subodya-suraweera'),
+  regionalQueue('Vietnam', 'u-truc-nguyen'),
+  regionalQueue('Philippines', 'u-truc-nguyen'),
+  regionalQueue('Myanmar and Bhutan', 'u-truc-nguyen'),
+  regionalQueue('Indonesia, Malaysia and Thailand', 'u-truc-nguyen'),
+  regionalQueue('Australia', 'u-jo-qiu'),
+  regionalQueue('China', 'u-jo-qiu'),
+  regionalQueue('Latin America and Europe', 'u-valentina-castillo'),
+  regionalQueue('Rest of world', 'u-tasha-tandon'),
+  regionalQueue('Direct', 'u-tasha-tandon'),
+  { id: 'q-rp-ops', name: 'Recruitment Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('Recruitment Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'round-robin', cover: 'leader', sla: 2, kinds: ['k-rp-verify', 'k-rp-change'] },
+  { id: 'q-institution', name: 'Institution', kind: 'team', leader: 'u-matt-beazley', members: withRole('Institution').filter((id) => id !== 'u-matt-beazley'), assign: 'record-owner', cover: 'leader', sla: 5, kinds: ['k-renew', 'k-golive'] },
+  { id: 'q-inst-ops', name: 'Institution Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('Institution Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'round-robin', cover: 'queue', sla: 5, kinds: ['k-course'] },
+  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'leader-assigns', cover: 'leader', sla: 1, kinds: ['k-qc', 'k-announce', 'k-escalation'] },
+  { id: 'q-finance', name: 'Finance', kind: 'team', leader: 'u-suman1-verma', members: withRole('Finance').filter((id) => id !== 'u-suman1-verma'), assign: 'members-pick', cover: 'queue', sla: 2, makerChecker: true, kinds: ['k-terms', 'k-check', 'k-exception', 'k-payout'] },
+  { id: 'q-mail', name: 'Unmatched mail', kind: 'team', leader: 'u-tasha-tandon', members: ['u-ashu-rajpal'], assign: 'members-pick', cover: 'leader', sla: 1, kinds: ['k-mail'] },
+  { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial-lejo', members: [], assign: 'leader-assigns', cover: 'leader', sla: 1, kinds: [] },
 ];
 
 /* SLA per application status (working days). Taken from the designer's "usual" days. */
@@ -191,14 +156,14 @@ export const RULES = [
    (real RPs, universities, courses, stages; student names and numbers invented). */
 import SAMPLE from './sample.json';
 const DESIGNER_APPS = [
-  { id: 'GSP-23944', student: 'Rohan Gupta', uni: 'Northumbria University', status: 'Pending verification', stage: 'Pre-screening', branch: 'Mumbai', owner: 'u-divya', officer: 'u-satinder', since: ago(0, 20) },
-  { id: 'GSP-24063', student: 'Sneha Patil', uni: 'Coventry University', status: 'Awaiting acceptance letter from university', stage: 'Acceptance', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-ramish', since: ago(3) },
-  { id: 'GSP-24055', student: 'Sneha Patil', uni: 'Flinders University', status: 'Pending verification', stage: 'Pre-screening', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-satinder', since: ago(0, 14), waitingOn: 'RP', waitingFor: 'Gap explanation document', due: ago(-3) },
-  { id: 'GSP-24102', student: 'Priya Raman', uni: 'Deakin University', status: 'Conditional offer received, conditions pending', stage: 'Offer', branch: 'Bengaluru head office', owner: 'u-karthik', officer: 'u-satinder', since: ago(5), waitingOn: 'RP', waitingFor: 'Offer conditions', due: ago(-2) },
-  { id: 'GSP-24061', student: 'Sneha Patil', uni: 'University of Newcastle', status: 'Document re-upload pending', stage: 'Pre-screening', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-satinder', since: ago(4), waitingOn: 'RP', waitingFor: 'Re-uploaded 12th marksheet', due: ago(1) },
-  { id: 'GSP-23710', student: 'Fatima Sheikh', uni: 'RMIT University', status: 'Visa lodgement pending', stage: 'Visa', branch: 'Mumbai', owner: 'u-divya', officer: 'u-ramish', since: ago(2), waitingOn: 'RP', waitingFor: 'Visa lodgement proof', due: ago(-12) },
-  { id: 'GSP-23941', student: 'Rohan Gupta', uni: 'Coventry University', status: 'Submitted to university', stage: 'Application', branch: 'Mumbai', owner: 'u-divya', officer: 'u-satinder', since: ago(12), waitingOn: 'University', waitingFor: 'Decision from Coventry', due: ago(-2) },
-  { id: 'GSP-24097', student: 'Priya Raman', uni: 'University of Wollongong', status: 'Submitted to university', stage: 'Application', branch: 'Bengaluru head office', owner: 'u-karthik', officer: 'u-satinder', since: ago(13), waitingOn: 'University', waitingFor: 'Decision from Wollongong', due: ago(1) },
+  { id: 'GSP-23944', student: 'Rohan Gupta', uni: 'Northumbria University', status: 'Pending verification', stage: 'Pre-screening', branch: 'Mumbai', owner: 'u-divya', officer: 'u-alfiya1-khan', since: ago(0, 20) },
+  { id: 'GSP-24063', student: 'Sneha Patil', uni: 'Coventry University', status: 'Awaiting acceptance letter from university', stage: 'Acceptance', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-ramish-jafery', since: ago(3) },
+  { id: 'GSP-24055', student: 'Sneha Patil', uni: 'Flinders University', status: 'Pending verification', stage: 'Pre-screening', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-alfiya1-khan', since: ago(0, 14), waitingOn: 'RP', waitingFor: 'Gap explanation document', due: ago(-3) },
+  { id: 'GSP-24102', student: 'Priya Raman', uni: 'Deakin University', status: 'Conditional offer received, conditions pending', stage: 'Offer', branch: 'Bengaluru head office', owner: 'u-karthik', officer: 'u-alfiya1-khan', since: ago(5), waitingOn: 'RP', waitingFor: 'Offer conditions', due: ago(-2) },
+  { id: 'GSP-24061', student: 'Sneha Patil', uni: 'University of Newcastle', status: 'Document re-upload pending', stage: 'Pre-screening', branch: 'Bengaluru head office', owner: 'u-nesil', officer: 'u-alfiya1-khan', since: ago(4), waitingOn: 'RP', waitingFor: 'Re-uploaded 12th marksheet', due: ago(1) },
+  { id: 'GSP-23710', student: 'Fatima Sheikh', uni: 'RMIT University', status: 'Visa lodgement pending', stage: 'Visa', branch: 'Mumbai', owner: 'u-divya', officer: 'u-ramish-jafery', since: ago(2), waitingOn: 'RP', waitingFor: 'Visa lodgement proof', due: ago(-12) },
+  { id: 'GSP-23941', student: 'Rohan Gupta', uni: 'Coventry University', status: 'Submitted to university', stage: 'Application', branch: 'Mumbai', owner: 'u-divya', officer: 'u-alfiya1-khan', since: ago(12), waitingOn: 'University', waitingFor: 'Decision from Coventry', due: ago(-2) },
+  { id: 'GSP-24097', student: 'Priya Raman', uni: 'University of Wollongong', status: 'Submitted to university', stage: 'Application', branch: 'Bengaluru head office', owner: 'u-karthik', officer: 'u-alfiya1-khan', since: ago(13), waitingOn: 'University', waitingFor: 'Decision from Wollongong', due: ago(1) },
 ].map(a => ({ ...a, type: 'Application', label: `${a.id} · ${a.student}, ${a.uni.replace(/^University of |University /, '').trim()}`, region: 'India', agency: 'GSP test agency' }));
 
 const SAMPLE_APPS = SAMPLE.records.map(r => ({ ...r, since: ago(r.sinceDays), due: r.dueDays != null ? ago(-r.dueDays) : undefined }));
@@ -206,16 +171,16 @@ const SAMPLE_APPS = SAMPLE.records.map(r => ({ ...r, since: ago(r.sinceDays), du
 export const RECORDS = [
   ...DESIGNER_APPS,
   ...SAMPLE_APPS,
-  { id: 'rp-legal', type: 'RP', label: 'The Legal Immigration (18060)', region: 'India', agency: 'The Legal Immigration', owner: 'u-ramandeep' },
-  { id: 'rp-tutee', type: 'RP', label: 'Tutee Connect', region: 'Bangladesh', agency: 'Tutee Connect', owner: 'u-sania' },
-  { id: 'rp-visaterminal', type: 'RP', label: 'The Visa Terminal', region: 'Nepal', agency: 'The Visa Terminal', owner: 'u-ali', waitingOn: 'RP', waitingFor: 'Owner’s ID, sent back', due: ago(5) },
-  { id: 'rp-isv', type: 'RP', label: 'ISV Overseas', region: 'India', agency: 'ISV Overseas', owner: 'u-mayank' },
-  { id: 'ip-griffith', type: 'Institution partner', label: 'Griffith University (agreement ended 30 Jun 2026)', owner: 'u-catherine' },
-  { id: 'ip-cqu', type: 'Institution partner', label: 'CQUniversity (agreement ended 30 Sep 2026)', owner: 'u-kevin' },
-  { id: 'ip-vu', type: 'Institution partner', label: 'Victoria University (ends 31 Dec 2026)', owner: 'u-namita' },
-  { id: 'ip-newcastle', type: 'Institution partner', label: 'University of Newcastle (ends 31 Dec 2026)', owner: 'u-lalaine' },
-  { id: 'ip-une', type: 'Institution partner', label: 'University of New England (ends 3 Dec 2026)', owner: 'u-matt' },
-  { id: 'uni-jcub', type: 'University', label: 'James Cook University Brisbane', owner: 'u-catherine' },
+  { id: 'rp-legal', type: 'RP', label: 'The Legal Immigration (18060)', region: 'India', agency: 'The Legal Immigration', owner: 'u-ramandeep-kaur' },
+  { id: 'rp-tutee', type: 'RP', label: 'Tutee Connect', region: 'Bangladesh', agency: 'Tutee Connect', owner: 'u-sania-shanta' },
+  { id: 'rp-visaterminal', type: 'RP', label: 'The Visa Terminal', region: 'Nepal', agency: 'The Visa Terminal', owner: 'u-ali-butt', waitingOn: 'RP', waitingFor: 'Owner’s ID, sent back', due: ago(5) },
+  { id: 'rp-isv', type: 'RP', label: 'ISV Overseas', region: 'India', agency: 'ISV Overseas', owner: 'u-mayank-kansal' },
+  { id: 'ip-griffith', type: 'Institution partner', label: 'Griffith University (agreement ended 30 Jun 2026)', owner: 'u-catherine-wilson' },
+  { id: 'ip-cqu', type: 'Institution partner', label: 'CQUniversity (agreement ended 30 Sep 2026)', owner: 'u-kevin-mcewan' },
+  { id: 'ip-vu', type: 'Institution partner', label: 'Victoria University (ends 31 Dec 2026)', owner: 'u-namita-nath' },
+  { id: 'ip-newcastle', type: 'Institution partner', label: 'University of Newcastle (ends 31 Dec 2026)', owner: 'u-lalaine-dizon' },
+  { id: 'ip-une', type: 'Institution partner', label: 'University of New England (ends 3 Dec 2026)', owner: 'u-matt-beazley' },
+  { id: 'uni-jcub', type: 'University', label: 'James Cook University Brisbane', owner: 'u-catherine-wilson' },
   { id: 'c-murdoch-it', type: 'Course', label: 'Bachelor of Information Technology · Murdoch University (2027 fees)' },
   { id: 'c-flinders-nursing', type: 'Course', label: 'Bachelor of Nursing · Flinders University (draft)' },
   { id: 'c-torrens-mba', type: 'Course', label: 'Master of Business Administration · Torrens University (intakes)' },
@@ -231,32 +196,32 @@ export const RECORDS = [
 /* Open tasks, as task rules would have created them. */
 const t = (id, rule, kind, record, queue, assignee, created, extra = {}) => ({ id, rule, kind, record, queue, assignee, created, status: 'open', ...extra });
 export const TASKS = [
-  t('T-1001', 'r1', 'k-verify', 'GSP-23944', 'q-adm-india', 'u-satinder', ago(0, 20)),
-  t('T-1002', 'r4', 'k-uni-mail', 'GSP-24063', 'q-adm-india', 'u-ramish', ago(0, 3), { note: 'CAS arrived from Coventry by mail. Add it to Documents and move to Visa.' }),
-  t('T-1003', 'r3', 'k-chase-uni', 'GSP-24097', 'q-adm-india', 'u-satinder', ago(3)),
+  t('T-1001', 'r1', 'k-verify', 'GSP-23944', 'q-adm-india', 'u-alfiya1-khan', ago(0, 20)),
+  t('T-1002', 'r4', 'k-uni-mail', 'GSP-24063', 'q-adm-india', 'u-ramish-jafery', ago(0, 3), { note: 'CAS arrived from Coventry by mail. Add it to Documents and move to Visa.' }),
+  t('T-1003', 'r3', 'k-chase-uni', 'GSP-24097', 'q-adm-india', 'u-alfiya1-khan', ago(3)),
   t('T-1004', 'r7', 'k-qc', 'GSP-23944', 'q-adm-ops', null, ago(0, 5)),
   ...SAMPLE.tasks.map(x => ({ ...x, created: ago(x.createdDays) })),
-  t('T-1009', 'r8', 'k-rp-verify', 'rp-legal', 'q-rp-ops', 'u-kartik', ago(3)),
+  t('T-1009', 'r8', 'k-rp-verify', 'rp-legal', 'q-rp-ops', 'u-kartik-sharma', ago(3)),
   t('T-1010', 'r8', 'k-rp-verify', 'rp-tutee', 'q-rp-ops', null, ago(2)),
-  t('T-1011', 'r9', 'k-rp-change', 'rp-isv', null, 'u-mayank', ago(5)),
-  t('T-1012', 'r10', 'k-renew', 'ip-griffith', 'q-institution', 'u-catherine', ago(122)),
-  t('T-1013', 'r10', 'k-renew', 'ip-cqu', 'q-institution', 'u-kevin', ago(91)),
-  t('T-1014', 'r10', 'k-renew', 'ip-vu', 'q-institution', 'u-namita', ago(1)),
-  t('T-1026', 'r10', 'k-renew', 'ip-newcastle', 'q-institution', 'u-lalaine', ago(1)),
-  t('T-1027', 'r10', 'k-renew', 'ip-une', 'q-institution', 'u-matt', ago(30)),
-  t('T-1015', null, 'k-golive', 'uni-jcub', 'q-institution', 'u-catherine', ago(6)),
+  t('T-1011', 'r9', 'k-rp-change', 'rp-isv', null, 'u-mayank-kansal', ago(5)),
+  t('T-1012', 'r10', 'k-renew', 'ip-griffith', 'q-institution', 'u-catherine-wilson', ago(122)),
+  t('T-1013', 'r10', 'k-renew', 'ip-cqu', 'q-institution', 'u-kevin-mcewan', ago(91)),
+  t('T-1014', 'r10', 'k-renew', 'ip-vu', 'q-institution', 'u-namita-nath', ago(1)),
+  t('T-1026', 'r10', 'k-renew', 'ip-newcastle', 'q-institution', 'u-lalaine-dizon', ago(1)),
+  t('T-1027', 'r10', 'k-renew', 'ip-une', 'q-institution', 'u-matt-beazley', ago(30)),
+  t('T-1015', null, 'k-golive', 'uni-jcub', 'q-institution', 'u-catherine-wilson', ago(6)),
   t('T-1016', 'r11', 'k-course', 'c-flinders-nursing', 'q-inst-ops', null, ago(9)),
-  t('T-1017', null, 'k-course', 'c-murdoch-it', 'q-inst-ops', 'u-munmun', ago(4)),
-  t('T-1018', null, 'k-course', 'c-torrens-mba', 'q-inst-ops', 'u-neelam', ago(2)),
-  t('T-1019', null, 'k-announce', 'an-113', 'q-adm-ops', 'u-rajinder', ago(0, 8)),
+  t('T-1017', null, 'k-course', 'c-murdoch-it', 'q-inst-ops', 'u-munmun-kapil', ago(4)),
+  t('T-1018', null, 'k-course', 'c-torrens-mba', 'q-inst-ops', 'u-neelam-sharma', ago(2)),
+  t('T-1019', null, 'k-announce', 'an-113', 'q-adm-ops', 'u-rajinder-kaur', ago(0, 8)),
   t('T-1020', 'r12', 'k-terms', 'cm-legal', 'q-finance', null, ago(3)),
-  t('T-1021', 'r13', 'k-check', 'cm-uk-promo', 'q-finance', null, ago(0, 7), { maker: 'u-suman' }),
-  t('T-1028', null, 'k-exception', 'cm-jcub', 'q-finance', 'u-suman', ago(1)),
-  t('T-1022', null, 'k-payout', 'cm-payout', 'q-finance', 'u-suman', ago(0, 2)),
+  t('T-1021', 'r13', 'k-check', 'cm-uk-promo', 'q-finance', null, ago(0, 7), { maker: 'u-suman1-verma' }),
+  t('T-1028', null, 'k-exception', 'cm-jcub', 'q-finance', 'u-suman1-verma', ago(1)),
+  t('T-1022', null, 'k-payout', 'cm-payout', 'q-finance', 'u-suman1-verma', ago(0, 2)),
   t('T-1023', 'r14', 'k-mail', 'mail-1', 'q-mail', null, ago(0, 9)),
-  t('T-1024', 'r14', 'k-mail', 'mail-2', 'q-mail', 'u-ashu', ago(1, 2)),
-  t('T-1025', 'r15', 'k-escalation', 'GSP-24097', 'q-adm-ops', 'u-tasha', ago(1), { note: 'Chase on Wollongong is overdue.' }),
+  t('T-1024', 'r14', 'k-mail', 'mail-2', 'q-mail', 'u-ashu-rajpal', ago(1, 2)),
+  t('T-1025', 'r15', 'k-escalation', 'GSP-24097', 'q-adm-ops', 'u-tasha-tandon', ago(1), { note: 'Chase on Wollongong is overdue.' }),
 ];
 
 /* Who is "watching" what, for the Watching tab. */
-export const WATCHING = { 'u-jovial': ['T-1012', 'T-1021', 'T-1022'], 'u-tasha': ['T-1003'], 'u-myleeta': ['T-1012', 'T-1022', 'T-1003'] };
+export const WATCHING = { 'u-jovial-lejo': ['T-1012', 'T-1021', 'T-1022'], 'u-tasha-tandon': ['T-1003'], 'u-myleeta-williams': ['T-1012', 'T-1022', 'T-1003'] };

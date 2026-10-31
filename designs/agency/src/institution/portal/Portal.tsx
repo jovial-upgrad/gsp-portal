@@ -61,7 +61,7 @@ export type { Focus };
  * and keep the records of the institutions GSP works with: universities, their courses, the institution partners
  * GSP has agreements with, and the recruitment partners who send students. It began as a copy of GSP Team (whose
  * Students, Applications and Course search it keeps as they are) and changes here never touch GSP Team or RP
- * Admin. Signed in as Raj Shamani, GSP · Institution; there's no registering or verification here.
+ * Admin. Signed in as Kevin Mcewan, GSP · Institution; there's no registering or verification here.
  */
 export function Portal({
   acc,
@@ -283,7 +283,7 @@ export function Portal({
 
   return (
     <AppShell
-      brand={['Institution', 'Team']}
+      brand={['GSP', 'Institution']}
       sidebar={sidebar}
       footer={<AccountMenu name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />}
       tools={<ThemeToggle />}

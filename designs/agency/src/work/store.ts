@@ -10,7 +10,7 @@ import * as seed from './seed';
 import { ROLES, DEFAULT_MATRIX } from '../finance/access';
 import * as mail from './mail';
 
-const KEY = 'gsp-work-v1';
+const KEY = 'gsp-work-v2'; // v2: users from the staff list (31 Oct)
 
 function fresh() {
   return {

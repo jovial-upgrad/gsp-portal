@@ -48,43 +48,42 @@ export function businessDocsFor(country: string): DocNeed[] {
   ];
 }
 
+import { STAFF, fullName, label, type Staff } from './staff';
+import { CITIES } from './students';
+
 export type Contact = { name: string; role: string; phone: string; email: string; initials: string };
 
-/** Who looks after a new agency, by country and city (PM prototype `BDM_RULE`). Phones are sample data. */
-const BDM_RULE: Record<string, Record<string, string>> = {
-  India: { Bengaluru: 'Aditya Rao', Hyderabad: 'Aditya Rao', Mumbai: 'Sneha Kulkarni', Delhi: 'Rohit Malhotra', Lucknow: 'Rohit Malhotra' },
-  Nepal: { Kathmandu: 'Sujan Shrestha' },
-  Bangladesh: { Dhaka: 'Rafiq Ahmed' },
-  'Sri Lanka': { Colombo: 'Dilini Perera' },
-  Vietnam: { 'Ho Chi Minh City': 'Tran Minh', Hanoi: 'Tina Huynh' },
-};
-const PEOPLE: Record<string, Omit<Contact, 'name' | 'initials' | 'role'>> = {
-  'Aditya Rao': { phone: '+91 98110 40217', email: 'aditya.rao@gsp.upgrad.com' },
-  'Sneha Kulkarni': { phone: '+91 98200 31876', email: 'sneha.kulkarni@gsp.upgrad.com' },
-  'Rohit Malhotra': { phone: '+91 98110 40021', email: 'rohit.malhotra@gsp.upgrad.com' },
-  'Sujan Shrestha': { phone: '+977 980 114 2271', email: 'sujan.shrestha@gsp.upgrad.com' },
-  'Rafiq Ahmed': { phone: '+880 1711 409 552', email: 'rafiq.ahmed@gsp.upgrad.com' },
-  'Dilini Perera': { phone: '+94 77 341 8820', email: 'dilini.perera@gsp.upgrad.com' },
-  'Tran Minh': { phone: '+84 90 812 4471', email: 'tran.minh@gsp.upgrad.com' },
-  'Tina Huynh': { phone: '+84 90 812 4410', email: 'tina.huynh@gsp.upgrad.com' },
-};
-const REFERRAL_OWNERS: Record<string, string> = { ADI: 'Aditya Rao', SNE: 'Sneha Kulkarni', ROH: 'Rohit Malhotra' };
+/**
+ * Who looks after a new agency: the Recruitment person on GSP's staff list (data/staff.ts) whose area covers the
+ * agency's city or its state; otherwise the one who covers the whole country (Saurabh Chaudhary's area is "India");
+ * otherwise the first Recruitment person for that sales region. A referral code (the first three letters of a
+ * Recruitment person's first name, like ADI-204) wins over all of these. The staff list has no phone numbers.
+ */
+const SAME_CITY: Record<string, string> = { calicut: 'kozhikode', trichy: 'tiruchirappalli', vijaywada: 'vijayawada', 'new delhi': 'delhi', 'ho chi minh': 'ho chi minh city', gurugram: 'gurgaon' };
+const norm = (x: string) => { const v = x.trim().toLowerCase(); return SAME_CITY[v] ?? v; };
+const areasOf = (s: Staff) => s.area.split(',').map(norm).filter(Boolean);
+const stateOf = (city: string) => Object.keys(CITIES).find((st) => CITIES[st].some((c) => norm(c) === norm(city)));
+const BDMS = STAFF.filter((s) => s.role === 'Recruitment');
+const contactOf = (s: Staff, role: string): Contact => ({ name: label(s), initials: initialsOf(fullName(s)), role, phone: '', email: s.email });
 
 const initialsOf = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('');
 
-/** The GSP partner manager (BDM) a new sign-up is given. A referral code wins over the city rule. */
+/** The GSP partner manager (BDM) a new sign-up is given. A referral code wins over the area rule. */
 export function partnerManagerFor(country: string, city: string, referral: string): Contact | null {
   const code = referral.trim().toUpperCase();
-  const byRef = REFERRAL_OWNERS[code.slice(0, 3)];
-  const cityKey = Object.keys(BDM_RULE[country] || {}).find((c) => c.toLowerCase() === city.trim().toLowerCase());
-  const name = byRef || (cityKey ? BDM_RULE[country][cityKey] : undefined);
-  if (!name) return null;
-  return {
-    name,
-    initials: initialsOf(name),
-    role: byRef ? `Partner manager · from referral code ${code}` : `Partner manager · ${cityKey}, ${country}`,
-    ...PEOPLE[name],
-  };
+  const pre = code.slice(0, 3);
+  const byRef = pre.length === 3 ? BDMS.filter((s) => s.first.toUpperCase().startsWith(pre)) : [];
+  if (byRef.length === 1) return contactOf(byRef[0], `Partner manager · from referral code ${code}`);
+  const inCountry = BDMS.filter((s) => s.regions.includes(country));
+  const st = stateOf(city);
+  const cityHit = city.trim() && inCountry.find((s) => areasOf(s).includes(norm(city)));
+  const stateHit = st && inCountry.find((s) => areasOf(s).includes(norm(st)));
+  const whole = inCountry.find((s) => areasOf(s).includes(norm(country)));
+  const any = inCountry.find((s) => !s.area) ?? inCountry[0];
+  const hit = cityHit || stateHit || whole || any;
+  if (!hit) return null;
+  const where = cityHit ? `${city.trim()}, ${country}` : stateHit ? `${st}, ${country}` : country;
+  return contactOf(hit, `Partner manager · ${where}`);
 }
 
 /** Emails that already have a GSP account (sample data from the PM prototype). */
