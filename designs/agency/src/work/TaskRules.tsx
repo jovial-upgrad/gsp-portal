@@ -20,7 +20,7 @@ export const TRIGGERS = {
   University: ['Set up for 14 days and not live', 'Paused for 30 days'],
   Course: ['A course is in draft for 7 days', 'Fees valid until date is 30 days away', 'Intake has no census date 60 days before start'],
   Commission: ['An agreement is signed and no terms are entered', 'Terms, a notice or a scheme changed', 'An enrolment cannot be priced', 'Thursday payout run is due', 'Weekly FX rate is missing'],
-  Email: ['An email is matched to an application', 'AI confidence below 80%', 'An RP email is not answered in 1 working day'],
+  Email: ['An email is matched to an application', 'AI confidence below 60%', 'An RP email is not answered in 1 working day'],
   Any: ['A task is overdue by 2 working days'],
 };
 
@@ -50,7 +50,7 @@ export default function TaskRules() {
                 <td>{r.when}</td>
                 <td>{r.task}<span className="cfg__sub">{(kindById(s, r.kind) || {}).name}</span></td>
                 <td>{missing ? <Pill tone="dpill--bad">Queue deleted</Pill> : destName(s, r.to)}<span className="cfg__sub">{ASSIGN[r.who] || ''}</span></td>
-                <td className="num">{r.sla}d</td>
+                <td className="num">{r.sla}h</td>
                 <td><span className="cfg__sub gspx-wrap">{r.closes}</span></td>
                 <td><button type="button" role="switch" aria-checked={String(r.on)} aria-label={`${r.name} on`} className="switch__track" disabled={!may('U')}
                   onClick={() => update(d => { const x = d.rules.find(y => y.id === r.id); x.on = !x.on; }, `${user.name} switched “${r.name}” ${r.on ? 'off' : 'on'}`)}><span className="switch__knob" aria-hidden="true" /></button></td>
@@ -67,14 +67,14 @@ export default function TaskRules() {
 
 function RuleSheet({ rule, onClose, by, canDelete }) {
   const s = useStore();
-  const init = React.useRef(rule ? { ...rule } : { id: 'r' + Date.now(), on: true, name: '', record: 'Application', when: TRIGGERS.Application[0], task: '', to: 'region', who: 'owner', kind: s.kinds[0].id, sla: 1, closes: '' });
+  const init = React.useRef(rule ? { ...rule } : { id: 'r' + Date.now(), on: true, name: '', record: 'Application', when: TRIGGERS.Application[0], task: '', to: 'region', who: 'owner', kind: s.kinds[0].id, sla: 9, closes: '' });
   const [v, setV] = useState(() => ({ ...init.current }));
   const [sure, setSure] = useState(false);
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
   const errors = {
     name: !v.name.trim() ? 'Enter the rule name.' : dupError(v.name, s.rules.filter(r => r.id !== v.id).map(r => r.name), 'There’s already a rule with this name.'),
     task: !v.task.trim() ? 'Enter the task people see.' : null,
-    sla: numError(v.sla, { what: 'SLA', min: 1, max: 60, int: true, required: true }),
+    sla: numError(v.sla, { what: 'SLA', min: 1, max: 540, int: true, required: true }),
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
@@ -96,10 +96,10 @@ function RuleSheet({ rule, onClose, by, canDelete }) {
         <Select id="r-to" label="Goes to" required value={v.to} onChange={x => set('to', x)} options={DEST(s)} />
         <Select id="r-who" label="Assigned by" required value={v.who} onChange={x => set('who', x)} options={Object.entries(ASSIGN).filter(([k]) => k !== 'owner')} />
         <Select id="r-kind" label="Kind of work" required value={v.kind} onChange={x => setV(o => ({ ...o, kind: x, sla: (kindById(s, x) || {}).sla ?? o.sla }))} options={s.kinds.map(k => [k.id, k.name])} />
-        <Field id="r-sla" label="SLA (working days)" required error={c.err('sla')}><Input id="r-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
+        <Field id="r-sla" label="SLA (working hours)" hint="A working day is 9 hours, 9:30 to 18:30." required error={c.err('sla')}><Input id="r-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
         <Field id="r-close" label="Closes itself when" hint="Leave empty if a person closes it with an outcome."><Input id="r-close" value={v.closes} onChange={x => set('closes', x)} placeholder="Like: A decision is recorded" /></Field>
       </div>
-      <p className="gspx-sentence"><b>In words: </b>when “{v.when.toLowerCase()}” on {v.record === 'Any' ? 'any record' : `a${/^[AEIOU]/.test(v.record) ? 'n' : ''} ${v.record.toLowerCase()}`}, create “{v.task || '…'}” in {destName(s, v.to)}, due in {v.sla} working day{v.sla === 1 ? '' : 's'}. {v.closes ? `It closes itself when ${v.closes.charAt(0).toLowerCase() + v.closes.slice(1)}.` : 'Someone closes it with an outcome.'}</p>
+      <p className="gspx-sentence"><b>In words: </b>when “{v.when.toLowerCase()}” on {v.record === 'Any' ? 'any record' : `a${/^[AEIOU]/.test(v.record) ? 'n' : ''} ${v.record.toLowerCase()}`}, create “{v.task || '…'}” in {destName(s, v.to)}, due in {v.sla} working hour{v.sla === 1 ? '' : 's'}. {v.closes ? `It closes itself when ${v.closes.charAt(0).toLowerCase() + v.closes.slice(1)}.` : 'Someone closes it with an outcome.'}</p>
       {dup && <Notice tone="warn">“{dup.name}” already watches the same thing. Both would create a task.</Notice>}
     </Sheet>
     <ConfirmDialog open={sure} danger title={`Delete “${v.name}”?`} confirm="Delete rule" onCancel={() => setSure(false)}

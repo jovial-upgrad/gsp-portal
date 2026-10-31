@@ -62,7 +62,7 @@ function QueueList({ may, by }) {
               <td>{q.leader ? <span className="cfg__strong">{nameOf(s, q.leader)}</span> : <Pill tone="dpill--bad">Not set</Pill>}</td>
               <td>{(q.members || []).length ? <div className="cfg__chips">{q.members.map(m => <Chip key={m}>{nameOf(s, m)}</Chip>)}</div> : <span className="cfg__muted">Just the leader</span>}</td>
               <td>{ASSIGN[q.assign]}{q.handover && <span className="cfg__sub">Handover: {q.handover.map(h => `${h.from}–${h.to}`).join(' → ')}</span>}{q.makerChecker && <span className="cfg__sub">Maker-checker on</span>}</td>
-              <td className="num">{q.sla} working day{q.sla === 1 ? '' : 's'}</td>
+              <td className="num">{q.sla} working hour{q.sla === 1 ? '' : 's'}</td>
               <td>{(() => { const names = (q.kinds || []).map(k => (kindById(s, k) || {}).name).filter(Boolean); return names.length ? <span className="gspx-wrap" title={names.join(', ')}>{names.slice(0, 2).join(', ')}{names.length > 2 ? <span className="muted"> +{names.length - 2} more</span> : null}</span> : <span className="cfg__muted">Nothing yet</span>; })()}</td>
               <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${q.name}`} onClick={() => setEdit(q)}>Edit</LinkButton>}</td>
             </tr>
@@ -77,7 +77,7 @@ function QueueList({ may, by }) {
 function QueueSheet({ queue, onClose, by, canDelete }) {
   const s = useStore();
   const isNew = !queue;
-  const init = React.useRef(queue ? structuredClone(queue) : { id: 'q-' + Date.now(), name: '', kind: 'team', region: '', leader: '', members: [], assign: 'round-robin', cover: 'leader', sla: 2, kinds: [], handover: null });
+  const init = React.useRef(queue ? structuredClone(queue) : { id: 'q-' + Date.now(), name: '', kind: 'team', region: '', leader: '', members: [], assign: 'fewest-open', cover: 'leader', sla: 9, kinds: [], handover: null });
   const [v, setV] = useState(() => structuredClone(init.current));
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
   const gsp = s.users.filter(u => !['rp-admin', 'branch-admin', 'counsellor'].includes(u.role));
@@ -85,7 +85,7 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
   const errors = {
     name: !v.name.trim() ? 'Enter the queue name, like India Admissions.' : dupError(v.name, s.queues.filter(q => q.id !== v.id).map(q => q.name), 'There’s already a queue with this name.'),
     region: v.kind === 'region' && !v.region ? 'Choose the sales region.' : null,
-    sla: numError(v.sla, { what: 'default SLA', min: 1, max: 60, int: true, required: true }),
+    sla: numError(v.sla, { what: 'default SLA', min: 1, max: 540, int: true, required: true }),
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(queue || init.current);
@@ -108,7 +108,7 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
         <Select id="q-lead" label="Leader (gets escalations, can assign)" value={v.leader || ''} onChange={x => set('leader', x)} placeholder="Choose one person" options={gsp.map(u => [u.id, `${u.name} · ${s.roles.find(r => r.id === u.role).name}`])} />
         <Select id="q-assign" label="How work is shared" required value={v.assign} onChange={x => set('assign', x)} options={Object.entries(ASSIGN).filter(([k]) => !['owner', 'not-maker'].includes(k))} />
         <Select id="q-cover" label="When someone is away" required value={v.cover} onChange={x => set('cover', x)} options={Object.entries(COVER)} />
-        <Field id="q-sla" label="Default SLA (working days)" required error={c.err('sla')} hint="Used when the kind of work has no SLA of its own."><Input id="q-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
+        <Field id="q-sla" label="Default SLA (working hours)" required error={c.err('sla')} hint="Used when the kind of work has no SLA of its own."><Input id="q-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
         <label className="gspx-check"><input type="checkbox" checked={!!v.makerChecker} onChange={e => set('makerChecker', e.target.checked)} /> Maker-checker: never give a checking task to the person who made the change</label>
       </div>
       <Field id="q-members" label="Members" hint="The leader is in the queue anyway.">
@@ -157,7 +157,7 @@ function KindList({ may, by }) {
         {s.kinds.map(k => { const qs = s.queues.filter(q => (q.kinds || []).includes(k.id)); return (
           <tr key={k.id}>
             <td className="cfg__strong">{k.name}</td><td>{k.record}</td>
-            <td className="num">{k.sla} working day{k.sla === 1 ? '' : 's'}</td>
+            <td className="num">{k.sla} working hour{k.sla === 1 ? '' : 's'}</td>
             <td>{qs.length ? (qs.every(q => q.kind === 'region') && qs.length > 3 ? `Every regional Admissions queue (${qs.length})` : qs.map(q => q.name).join(', ')) : <Pill tone="dpill--bad">No queue</Pill>}</td>
             <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${k.name}`} onClick={() => setEdit(k)}>Edit</LinkButton>}</td>
           </tr>); })}
@@ -168,13 +168,13 @@ function KindList({ may, by }) {
 }
 function KindSheet({ kind, onClose, by, canDelete }) {
   const s = useStore();
-  const init = React.useRef(kind ? { ...kind } : { id: 'k-' + Date.now(), name: '', record: 'Application', sla: 2 });
+  const init = React.useRef(kind ? { ...kind } : { id: 'k-' + Date.now(), name: '', record: 'Application', sla: 9 });
   const [v, setV] = useState(() => ({ ...init.current }));
   const [sure, setSure] = useState(false);
   const used = kind && (s.queues.some(q => (q.kinds || []).includes(kind.id)) || s.rules.some(r => r.kind === kind.id));
   const errors = {
     name: !v.name.trim() ? 'Enter the name of the kind of work.' : dupError(v.name, s.kinds.filter(k => k.id !== v.id).map(k => k.name), 'There’s already a kind of work with this name.'),
-    sla: numError(v.sla, { what: 'SLA', min: 1, max: 60, int: true, required: true }),
+    sla: numError(v.sla, { what: 'SLA', min: 1, max: 540, int: true, required: true }),
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
@@ -191,7 +191,7 @@ function KindSheet({ kind, onClose, by, canDelete }) {
       <div className="cfg__form">
         <Field id="k-name" label="Name" required error={c.err('name')}><Input id="k-name" value={v.name} onBlur={c.blur('name')} onChange={x => setV({ ...v, name: x })} /></Field>
         <Select id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV({ ...v, record: x })} options={['Application', 'RP', 'Institution partner', 'University', 'Course', 'Announcement', 'Commission', 'Email', 'Any']} />
-        <Field id="k-sla" label="SLA (working days)" required error={c.err('sla')}><Input id="k-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
+        <Field id="k-sla" label="SLA (working hours)" required error={c.err('sla')}><Input id="k-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
         {used && <p className="field__msg" id="k-used">It is used by a queue or task rule, so it can’t be deleted.</p>}
       </div>
     </Sheet>
@@ -209,7 +209,7 @@ function StatusSla({ may, by }) {
   return (
     <Card flush>
       <p className="gspx-pad muted">How long each application status may last. When GSP owes the action, the SLA runs on the officer’s task. When the RP, student or university owes it, it is a timer: when it runs out, a chase task is raised. Starting values come from the designer’s “usual days”.</p>
-      <Table head={['Stage', 'Status', 'Who owes the action', 'SLA (working days)']} className="cfg__tab">
+      <Table head={['Stage', 'Status', 'Who owes the action', 'SLA (working hours)']} className="cfg__tab">
         {s.statusSla.map((r, i) => (
           <tr key={i}>
             <td>{r.stage}</td><td className="cfg__strong">{r.status}</td><td><Pill tone={tone[r.owner]}>{r.owner}</Pill></td>
@@ -224,10 +224,10 @@ function StatusSla({ may, by }) {
 /** One status's SLA: saved as it's typed when it's a whole number of days from 0 to 60; otherwise it says so. */
 function SlaCell({ r, i, by }) {
   const [t, setT] = useState(r.days);
-  const err = numError(t, { what: `SLA for ${r.status}`, min: 0, max: 60, int: true, required: true });
+  const err = numError(t, { what: `SLA for ${r.status}`, min: 0, max: 540, int: true, required: true });
   return (
     <span className="gspx-errs">
-      <Num label={`SLA for ${r.status} (working days)`} value={t} error={err} onChange={x => { setT(x); if (!numError(x, { what: '', min: 0, max: 60, int: true, required: true })) update(d => { d.statusSla[i].days = x; }, `${by.name} set SLA for “${r.status}” to ${x} days`); }} />
+      <Num label={`SLA for ${r.status} (working hours)`} value={t} error={err} onChange={x => { setT(x); if (!numError(x, { what: '', min: 0, max: 540, int: true, required: true })) update(d => { d.statusSla[i].days = x; }, `${by.name} set SLA for “${r.status}” to ${x} working hours`); }} />
       {err && <span className="field__msg field__msg--error" role="alert">{err}</span>}
     </span>
   );

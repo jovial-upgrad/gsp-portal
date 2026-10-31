@@ -110,26 +110,26 @@ export const QUEUES = [
   { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial-lejo', members: [], assign: 'leader-assigns', cover: 'leader', sla: 9, kinds: [] },
 ];
 
-/* SLA per application status (working days). Taken from the designer's "usual" days. */
+/* SLA per application status, in working hours (Jovial's Task triggers sheet, 1 Nov; a working day is 9 hours). */
 export const STATUS_SLA = [
   { stage: 'Pre-screening', status: 'Pending verification', owner: 'GSP', days: 1 },
-  { stage: 'Pre-screening', status: 'Document re-upload pending', owner: 'RP', days: 3 },
+  { stage: 'Pre-screening', status: 'Document re-upload pending', owner: 'RP', days: 6 },
   { stage: 'Application', status: 'Ready to submit', owner: 'GSP', days: 1 },
-  { stage: 'Application', status: 'Submitted to university', owner: 'University', days: 14 },
-  { stage: 'Application', status: 'Additional documents requested', owner: 'RP', days: 3 },
-  { stage: 'Application', status: 'Verifying additional documents', owner: 'GSP', days: 1 },
-  { stage: 'Offer', status: 'Conditional offer received, conditions pending', owner: 'RP', days: 7 },
-  { stage: 'Offer', status: 'Conditions submitted to university', owner: 'University', days: 5 },
-  { stage: 'Verification', status: 'Finance and background check', owner: 'GSP', days: 2 },
-  { stage: 'Verification', status: 'University assessment or interview', owner: 'Student', days: 7 },
-  { stage: 'Verification', status: 'Unconditional offer letter received', owner: 'GSP', days: 1 },
-  { stage: 'Acceptance', status: 'Tuition or deposit pending', owner: 'RP', days: 7 },
-  { stage: 'Acceptance', status: 'Payment proof under review', owner: 'GSP', days: 1 },
-  { stage: 'Acceptance', status: 'Awaiting acceptance letter from university', owner: 'University', days: 5 },
-  { stage: 'Visa', status: 'Visa lodgement pending', owner: 'RP', days: 14 },
-  { stage: 'Visa', status: 'Visa decision pending', owner: 'Government', days: 28 },
-  { stage: 'Visa', status: 'Visa granted: waiting for start date', owner: 'GSP', days: 5 },
-  { stage: 'Enrolment', status: 'Enrolment confirmation pending', owner: 'GSP', days: 7 },
+  { stage: 'Application', status: 'Submitted to university', owner: 'University', days: 18 },
+  { stage: 'Application', status: 'Additional documents requested', owner: 'RP', days: 12 },
+  { stage: 'Application', status: 'Verifying additional documents', owner: 'GSP', days: 9 },
+  { stage: 'Offer', status: 'Conditional offer received, conditions pending', owner: 'RP', days: 12 },
+  { stage: 'Offer', status: 'Conditions submitted to university', owner: 'University', days: 18 },
+  { stage: 'Verification', status: 'Finance and background check', owner: 'GSP', days: 12 },
+  { stage: 'Verification', status: 'University assessment or interview', owner: 'Student', days: 9 },
+  { stage: 'Verification', status: 'Unconditional offer letter received', owner: 'GSP', days: 4 },
+  { stage: 'Acceptance', status: 'Tuition or deposit pending', owner: 'RP', days: 18 },
+  { stage: 'Acceptance', status: 'Payment proof under review', owner: 'GSP', days: 4 },
+  { stage: 'Acceptance', status: 'Awaiting acceptance letter from university', owner: 'University', days: 27 },
+  { stage: 'Visa', status: 'Visa lodgement pending', owner: 'RP', days: 63 },
+  { stage: 'Visa', status: 'Visa decision pending', owner: 'Government', days: 252 },
+  { stage: 'Visa', status: 'Visa granted: waiting for start date', owner: 'GSP', days: 45 },
+  { stage: 'Enrolment', status: 'Enrolment confirmation pending', owner: 'GSP', days: 27 },
 ];
 
 export const ESCALATION = { remindBefore: 1, leaderAtDue: true, opsAfter: 2, adminAfter: 5, digestTime: '08:30' };
