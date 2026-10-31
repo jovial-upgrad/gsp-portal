@@ -1,3 +1,5 @@
+import type { Member } from '../../data/students';
+import { phoneOf } from '../../data/rpteam';
 import { money, submission, type Destination } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { fullName, type Student } from '../../data/students';
@@ -222,18 +224,10 @@ export function summaryOf(m: Mail): string[] {
   return sentences.slice(0, 3).map((x) => x.trim());
 }
 
-/** The RP's person on an application, as GSP reaches them: the student's counsellor at the agency. */
-export function rpContact(name: string, role: string, agency: string) {
-  const [first, ...rest] = name.split(' ');
-  const domain = `${agency.toLowerCase().replace(/[^a-z]/g, '')}.com`;
-  const n = [...name].reduce((t, ch) => t + ch.charCodeAt(0), 0);
-  return {
-    name,
-    first,
-    role: `${role}, ${agency}`,
-    email: `${[first, ...rest.slice(-1)].join('.').toLowerCase()}@${domain}`,
-    phone: `+91 98${String(450 + (n % 500)).padStart(3, '0')} ${String(10000 + ((n * 37) % 89999)).slice(0, 5)}`,
-  };
+/** The RP's person on an application, as GSP reaches them: the student's counsellor at the agency, from the RP's one team record (data/rpteam.ts, W21). */
+export function rpContact(m: Pick<Member, 'name' | 'role' | 'email' | 'dial' | 'phone'>, agency: string) {
+  const [first] = m.name.split(' ');
+  return { name: m.name, first, role: `${m.role}, ${agency}`, email: m.email ?? '', phone: phoneOf(m) };
 }
 
 /** A university document that came in GSP's mail and isn't in Documents yet: GSP Assist offers to add it for the RP. `org`: who sent it. */

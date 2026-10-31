@@ -14,6 +14,7 @@ import { UNIVERSITIES, type Destination } from '../../data/courses';
 import { nameOf, staffIn, label } from '../../data/staff';
 import { partnerManagerFor, businessDocsFor } from '../../data/partners';
 import { RPS } from '../../data/dataset';
+import { phoneOf, rpAdmin } from '../../data/rpteam';
 import { sampleRegions, NATIONALITY } from '../../admin/data/config';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
@@ -300,7 +301,8 @@ export const partnerIdOf = (uniId: string) => PARTNER_OF[uniId] ?? `ip-${uniId}`
  */
 export const RP_STATUSES = ['Not activated', 'Verifying', 'Documents sent back', 'Activated', 'Agreement signed', 'Rejected', 'Suspended', 'Dormant'] as const;
 export type RpStatus = (typeof RP_STATUSES)[number];
-export type RpDoc = { name: string; state: 'With BAP' | 'Verified' | 'Sent back' | 'Missing'; file: string };
+/** `note`: BAP's reason when it sent the document back; `at` and `by`: when and who decided (W4). */
+export type RpDoc = { name: string; state: 'With BAP' | 'Verified' | 'Sent back' | 'Missing'; file: string; note?: string; at?: number; by?: string; optional?: boolean };
 export type RecruitmentPartner = {
   id: string;
   /** "AG-1042". */
@@ -317,6 +319,10 @@ export type RecruitmentPartner = {
   masterPartner: string;
   docs: RpDoc[];
   activity: { at: string; what: string }[];
+  /** A sign-up made in the RP portal (W5): kept in step with the agency's registration (data/rpverify.ts). */
+  signup?: true;
+  /** When BAP approved the partner, and who (W4). */
+  approved?: { at: number; by: string };
 };
 
 /** An RP's documents: the ones GSP · Admin's rules ask an agency in its country for (data/partners.ts). */
@@ -345,30 +351,39 @@ const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
 /** Every other RP GSP's applications are with (data/dataset.ts), by Finance's id: signed partners, so their applications link here. */
 const COUNTRY_OF: Record<string, string> = { 'Indonesia, Malaysia and Thailand': 'Indonesia', Africa: 'Nigeria', 'Latin America and Europe': 'Colombia', Direct: 'Australia' };
 const datasetRps = (): RecruitmentPartner[] =>
-  RPS.filter((r) => r.id !== 'R-TEST').map((r) => ({
-    id: `rp-${r.id.toLowerCase()}`,
-    code: /^\d+$/.test(r.id) ? `AG-${r.id}` : r.id,
-    name: r.name.replace(/^Sample: /, ''),
-    city: '',
-    country: COUNTRY_OF[r.region] ?? r.region,
-    status: 'Agreement signed',
-    since: '2025-01-01',
-    contact: { name: '', email: '', phone: '' },
-    foundUs: '',
-    bdm: '',
-    admissions: '',
-    masterPartner: 'None',
-    docs: docs('Verified'),
-    activity: [{ at: '2025-01-01', what: r.terms ? 'Agreement signed; RP terms with Finance' : 'Agreement signed; no RP terms with Finance yet' }],
-  }));
+  RPS.map((r) => {
+    // W31: its own city and the date it joined; W21: its contact is its RP Admin, from its one team record
+    const admin = rpAdmin(r.name);
+    const since = r.since ?? '2025-01-01';
+    const test = r.id === 'R-TEST';
+    return {
+      id: test ? 'rp-test' : `rp-${r.id.toLowerCase()}`,
+      code: test ? 'AG-1001' : /^\d+$/.test(r.id) ? `AG-${r.id}` : r.id,
+      name: r.name.replace(/^Sample: /, ''),
+      city: r.city ?? '',
+      country: COUNTRY_OF[r.region] ?? r.region,
+      status: 'Agreement signed' as const,
+      since,
+      contact: { name: admin?.name ?? '', email: admin?.email ?? '', phone: phoneOf(admin) },
+      foundUs: test ? 'GSP team member' : '',
+      bdm: '',
+      admissions: '',
+      masterPartner: 'None',
+      docs: docs('Verified'),
+      activity: [
+        { at: since, what: test ? 'Agreement signed; the RP signed in as RP Admin (the prototype’s own agency)' : r.terms ? 'Agreement signed; RP terms with Finance' : 'Agreement signed; no RP terms with Finance yet' },
+        { at: since, what: 'Signed up' },
+      ],
+    };
+  });
 export const sampleRps = (): RecruitmentPartner[] => [...rpRows(), ...datasetRps()].map(staffed);
 const rpRows = (): RecruitmentPartner[] => [
   rp('rp-dhaka', 1042, 'Dhaka Global Education', 'Dhaka', 'Bangladesh', 'Verifying', inDays(-8), { name: 'Nusrat Jahan', email: 'nusrat@dhakaglobaledu.com', phone: '+880 1711 552 019' }, 'Event or fair', '', '', docs('With BAP'), [{ at: inDays(-7), what: 'All documents uploaded' }, { at: inDays(-8), what: 'Signed up' }]),
   rp('rp-eduvista', 1043, 'EduVista Consultants', 'Hyderabad', 'India', 'Verifying', inDays(-9), { name: 'Kiran Reddy', email: 'kiran@eduvista.in', phone: '+91 98490 11220' }, 'Google search', '', '', docs('With BAP'), [{ at: inDays(-8), what: 'All documents uploaded' }, { at: inDays(-9), what: 'Signed up' }]),
-  rp('rp-lanka', 1044, 'Lanka Study Hub', 'Colombo', 'Sri Lanka', 'Not activated', inDays(-12), { name: 'Ruwan Silva', email: 'ruwan@lankastudyhub.lk', phone: '+94 77 220 5531' }, 'Another agency', '', '', docs('With BAP', 3), [{ at: inDays(-12), what: 'Signed up' }]),
+  rp('rp-lanka', 1044, 'Lanka Study Hub', 'Colombo', 'Sri Lanka', 'Not activated', inDays(-12), { name: 'Ruwan Silva', email: 'ruwan@lankastudyhub.lk', phone: '+94 77 220 5531' }, 'Another agency', '', '', docs('Missing'), [{ at: inDays(-12), what: 'Signed up' }]),
   rp('rp-colombo', 1045, 'Colombo EduConnect', 'Colombo', 'Sri Lanka', 'Documents sent back', inDays(-20), { name: 'Shanika Perera', email: 'shanika@colomboeduconnect.lk', phone: '+94 77 410 8821' }, 'Social media', '', '', [...docs('Verified').slice(0, 2), { name: 'Owner’s ID', state: 'Sent back', file: 'Owners_ID.pdf' }, { name: 'Business reference', state: 'Verified', file: 'Business_reference.pdf' }], [{ at: inDays(-15), what: 'Owner’s ID sent back: the photo page is cut off' }, { at: inDays(-18), what: 'All documents uploaded' }, { at: inDays(-20), what: 'Signed up' }]),
   rp('rp-kathmandu', 1031, 'Kathmandu Study Link', 'Kathmandu', 'Nepal', 'Activated', inDays(-26), { name: 'Bikash Thapa', email: 'bikash@kathmandustudylink.com.np', phone: '+977 980 221 4410' }, 'GSP team member', '', '', docs('Verified'), [{ at: inDays(-20), what: 'Activated: agreement sent to sign' }, { at: inDays(-24), what: 'All documents verified' }, { at: inDays(-26), what: 'Signed up' }]),
-  rp('rp-brightpath', 1029, 'BrightPath Overseas', 'Bengaluru', 'India', 'Activated', inDays(-31), { name: 'Asha Menon', email: 'asha.menon@brightpathoverseas.com', phone: '+91 98872 44114' }, 'A university', '', '', docs('Verified'), [{ at: inDays(-27), what: 'Activated: agreement sent to sign' }, { at: inDays(-29), what: 'All documents verified' }, { at: inDays(-31), what: 'Signed up' }]),
+  rp('rp-brightfuture', 1029, 'Bright Future Overseas', 'Bengaluru', 'India', 'Activated', inDays(-31), { name: 'Meena Pillai', email: 'meena@brightfutureoverseas.com', phone: '+91 98872 44114' }, 'A university', '', '', docs('Verified'), [{ at: inDays(-27), what: 'Activated: agreement sent to sign' }, { at: inDays(-29), what: 'All documents verified' }, { at: inDays(-31), what: 'Signed up' }]),
   rp('rp-horizon', 1003, 'Horizon Overseas', 'Mumbai', 'India', 'Agreement signed', '2024-08-04', { name: 'Ananya Rao', email: 'ananya@horizonoverseas.in', phone: '+91 98200 11873' }, 'GSP team member', '', '', docs('Verified'), [{ at: '2024-08-19', what: 'Agreement signed' }, { at: '2024-08-12', what: 'Activated' }, { at: '2024-08-04', what: 'Signed up' }]),
   rp('rp-saigon', 1011, 'Saigon Bridge Education', 'Ho Chi Minh City', 'Vietnam', 'Agreement signed', '2025-01-19', { name: 'Lan Tran', email: 'lan@saigonbridge.vn', phone: '+84 90 811 2044' }, 'Event or fair', '', '', docs('Verified'), [{ at: '2025-02-02', what: 'Agreement signed' }, { at: '2025-01-19', what: 'Signed up' }]),
   rp('rp-delhi', 1007, 'Capital Career Abroad', 'Delhi', 'India', 'Agreement signed', '2024-11-10', { name: 'Manish Gupta', email: 'manish@capitalcareerabroad.in', phone: '+91 98110 77310' }, 'Another agency', '', '', docs('Verified'), [{ at: '2024-11-25', what: 'Agreement signed' }, { at: '2024-11-10', what: 'Signed up' }]),

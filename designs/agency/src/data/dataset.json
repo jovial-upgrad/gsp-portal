@@ -1132,427 +1132,1690 @@
    "id": "16018",
    "name": "Visafast Migration Consultancy",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Sydney",
+   "since": "2023-08-15",
+   "team": [
+    {
+     "name": "Chloe Carter",
+     "email": "chloe@visafastmigration.com",
+     "dial": "+61",
+     "phone": "79294 32921",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tom Bennett",
+     "email": "tom@visafastmigration.com",
+     "dial": "+61",
+     "phone": "35701 42648",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10434",
    "name": "Edunetwork Australia",
    "region": "Vietnam",
-   "terms": true
+   "terms": true,
+   "city": "Ho Chi Minh City",
+   "since": "2024-10-26",
+   "team": [
+    {
+     "name": "Tuan Le",
+     "email": "tuan@edunetworkaustrali.com",
+     "dial": "+84",
+     "phone": "74360 84743",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Hoa Le",
+     "email": "hoa@edunetworkaustrali.com",
+     "dial": "+84",
+     "phone": "21624 44204",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10467",
    "name": "IEMC Global Pty Ltd",
    "region": "Vietnam",
-   "terms": true
+   "terms": true,
+   "city": "Ho Chi Minh City",
+   "since": "2023-08-05",
+   "team": [
+    {
+     "name": "Linh Vo",
+     "email": "linh@iemcglobal.com",
+     "dial": "+84",
+     "phone": "13322 91835",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Minh Pham",
+     "email": "minh@iemcglobal.com",
+     "dial": "+84",
+     "phone": "88944 56267",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10231",
    "name": "Future Journey Visa Services",
    "region": "Vietnam",
-   "terms": true
+   "terms": true,
+   "city": "Hanoi",
+   "since": "2025-05-24",
+   "team": [
+    {
+     "name": "Linh Vo",
+     "email": "linh@futurejourneyvisa.com",
+     "dial": "+84",
+     "phone": "51115 41576",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Minh Tran",
+     "email": "minh@futurejourneyvisa.com",
+     "dial": "+84",
+     "phone": "17880 92553",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "13828",
    "name": "Affinity Global Experts",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Melbourne",
+   "since": "2024-12-16",
+   "team": [
+    {
+     "name": "Grace Hughes",
+     "email": "grace@affinityglobalexpe.com",
+     "dial": "+61",
+     "phone": "39722 38799",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Grace Doyle",
+     "email": "grace@affinityglobalexpe.com",
+     "dial": "+61",
+     "phone": "69361 50393",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10310",
    "name": "AGS - Advance Global Study Pty Ltd",
    "region": "Vietnam",
-   "terms": true
+   "terms": true,
+   "city": "Da Nang",
+   "since": "2024-05-12",
+   "team": [
+    {
+     "name": "Tuan Vo",
+     "email": "tuan@agsadvanceglobalst.com",
+     "dial": "+84",
+     "phone": "13761 47965",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Minh Le",
+     "email": "minh@agsadvanceglobalst.com",
+     "dial": "+84",
+     "phone": "68290 24215",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12547",
    "name": "Education Connect",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Sydney",
+   "since": "2023-08-09",
+   "team": [
+    {
+     "name": "Nathan Doyle",
+     "email": "nathan@educationconnect.com",
+     "dial": "+61",
+     "phone": "23526 44300",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tom Bennett",
+     "email": "tom@educationconnect.com",
+     "dial": "+61",
+     "phone": "44773 78348",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12321",
    "name": "Headstart Education and Visa Pty Ltd",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Perth",
+   "since": "2025-05-13",
+   "team": [
+    {
+     "name": "Grace Doyle",
+     "email": "grace@headstarteducation.com",
+     "dial": "+61",
+     "phone": "81075 49774",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Sarah Bennett",
+     "email": "sarah@headstarteducation.com",
+     "dial": "+61",
+     "phone": "54039 56050",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12341",
    "name": "MA Education Consultants Pty Ltd",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Sydney",
+   "since": "2023-08-04",
+   "team": [
+    {
+     "name": "Liam Doyle",
+     "email": "liam@maeducation.com",
+     "dial": "+61",
+     "phone": "84268 32232",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tom Walsh",
+     "email": "tom@maeducation.com",
+     "dial": "+61",
+     "phone": "37068 65979",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "11033",
    "name": "Nikee Business Group",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Melbourne",
+   "since": "2023-08-24",
+   "team": [
+    {
+     "name": "Grace Fraser",
+     "email": "grace@nikeebusinessgroup.com",
+     "dial": "+61",
+     "phone": "80515 81660",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Grace Doyle",
+     "email": "grace@nikeebusinessgroup.com",
+     "dial": "+61",
+     "phone": "58771 12418",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12337",
    "name": "Pathway To Aus",
    "region": "Philippines",
-   "terms": true
+   "terms": true,
+   "city": "Cebu City",
+   "since": "2023-06-28",
+   "team": [
+    {
+     "name": "Miguel Garcia",
+     "email": "miguel@pathwaytoaus.com",
+     "dial": "+63",
+     "phone": "74829 46175",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Jose Cruz",
+     "email": "jose@pathwaytoaus.com",
+     "dial": "+63",
+     "phone": "10168 79431",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10097",
    "name": "Pro Info & Edu Consultant",
    "region": "Bangladesh",
-   "terms": true
+   "terms": true,
+   "city": "Chattogram",
+   "since": "2024-08-02",
+   "team": [
+    {
+     "name": "Farhan Chowdhury",
+     "email": "farhan@proinfoeduconsulta.com",
+     "dial": "+880",
+     "phone": "78934 42372",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nadia Chowdhury",
+     "email": "nadia@proinfoeduconsulta.com",
+     "dial": "+880",
+     "phone": "61720 69089",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "16048",
    "name": "Pro Info & Edu Consultant Australia Pty Ltd",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Sydney",
+   "since": "2025-01-09",
+   "team": [
+    {
+     "name": "Sarah Hughes",
+     "email": "sarah@proinfoeduconsulta.com",
+     "dial": "+61",
+     "phone": "57528 16537",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Chloe Walsh",
+     "email": "chloe@proinfoeduconsulta.com",
+     "dial": "+61",
+     "phone": "67597 49462",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10721",
    "name": "Rightway Education and Services Pty Ltd",
    "region": "Vietnam",
-   "terms": true
+   "terms": true,
+   "city": "Hanoi",
+   "since": "2025-09-22",
+   "team": [
+    {
+     "name": "Tuan Le",
+     "email": "tuan@rightwayeducationa.com",
+     "dial": "+84",
+     "phone": "42744 38353",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tuan Vo",
+     "email": "tuan@rightwayeducationa.com",
+     "dial": "+84",
+     "phone": "93929 18585",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12582",
    "name": "The Iconic Education and Migration",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Perth",
+   "since": "2025-12-28",
+   "team": [
+    {
+     "name": "Sarah Bennett",
+     "email": "sarah@theiconiceducation.com",
+     "dial": "+61",
+     "phone": "43645 15751",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tom Hughes",
+     "email": "tom@theiconiceducation.com",
+     "dial": "+61",
+     "phone": "20559 15463",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12197",
    "name": "Unikey Global Pty Ltd",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Melbourne",
+   "since": "2024-06-12",
+   "team": [
+    {
+     "name": "Tom Carter",
+     "email": "tom@unikeyglobal.com",
+     "dial": "+61",
+     "phone": "36140 78089",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Liam Fraser",
+     "email": "liam@unikeyglobal.com",
+     "dial": "+61",
+     "phone": "63522 22308",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "11986",
    "name": "upGrad Abroad - India",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Pune",
+   "since": "2025-04-01",
+   "team": [
+    {
+     "name": "Deepa Menon",
+     "email": "deepa@upgradabroadindia.com",
+     "dial": "+91",
+     "phone": "82857 41286",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Manoj Kulkarni",
+     "email": "manoj@upgradabroadindia.com",
+     "dial": "+91",
+     "phone": "19265 96201",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15857",
    "name": "Grace International",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Brisbane",
+   "since": "2023-11-19",
+   "team": [
+    {
+     "name": "Grace Carter",
+     "email": "grace@graceinternational.com",
+     "dial": "+61",
+     "phone": "22566 75306",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nathan Fraser",
+     "email": "nathan@graceinternational.com",
+     "dial": "+61",
+     "phone": "36388 95061",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "11408",
    "name": "Wisdom Education",
    "region": "Bangladesh",
-   "terms": true
+   "terms": true,
+   "city": "Dhaka",
+   "since": "2025-02-15",
+   "team": [
+    {
+     "name": "Nadia Akter",
+     "email": "nadia@wisdomeducation.com",
+     "dial": "+880",
+     "phone": "81086 19994",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Farhan Rahman",
+     "email": "farhan@wisdomeducation.com",
+     "dial": "+880",
+     "phone": "54873 27677",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "16806",
    "name": "Silver Fern Education",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Hyderabad",
+   "since": "2024-09-15",
+   "team": [
+    {
+     "name": "Prakash Menon",
+     "email": "prakash@silverferneducatio.com",
+     "dial": "+91",
+     "phone": "19154 33838",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Prakash Iyer",
+     "email": "prakash@silverferneducatio.com",
+     "dial": "+91",
+     "phone": "74918 59833",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "11641",
    "name": "MWT Education",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Bengaluru",
+   "since": "2025-02-08",
+   "team": [
+    {
+     "name": "Deepa Joshi",
+     "email": "deepa@mwteducation.com",
+     "dial": "+91",
+     "phone": "58603 37495",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Suresh Hegde",
+     "email": "suresh@mwteducation.com",
+     "dial": "+91",
+     "phone": "17157 34872",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "16909",
    "name": "Jubeerich",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Bengaluru",
+   "since": "2025-07-21",
+   "team": [
+    {
+     "name": "Deepa Pillai",
+     "email": "deepa@jubeerich.com",
+     "dial": "+91",
+     "phone": "97539 21472",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Suresh Menon",
+     "email": "suresh@jubeerich.com",
+     "dial": "+91",
+     "phone": "38517 95366",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12826",
    "name": "Educareer Services",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Chennai",
+   "since": "2023-07-06",
+   "team": [
+    {
+     "name": "Rekha Hegde",
+     "email": "rekha@educareer.com",
+     "dial": "+91",
+     "phone": "35003 74925",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Deepa Joshi",
+     "email": "deepa@educareer.com",
+     "dial": "+91",
+     "phone": "90454 14044",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17358",
    "name": "Study Square Global",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Chennai",
+   "since": "2025-11-17",
+   "team": [
+    {
+     "name": "Suresh Pillai",
+     "email": "suresh@studysquareglobal.com",
+     "dial": "+91",
+     "phone": "73529 47311",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Manoj Bhat",
+     "email": "manoj@studysquareglobal.com",
+     "dial": "+91",
+     "phone": "53643 12354",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "S-IN1",
    "name": "Horizon India Partners",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Chandigarh",
+   "since": "2025-11-24",
+   "team": [
+    {
+     "name": "Manoj Pillai",
+     "email": "manoj@horizonindiapartne.com",
+     "dial": "+91",
+     "phone": "18463 43779",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Geeta Bhat",
+     "email": "geeta@horizonindiapartne.com",
+     "dial": "+91",
+     "phone": "88807 72176",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "S-NP1",
    "name": "Kathmandu Pathways",
    "region": "Nepal",
-   "terms": true
+   "terms": true,
+   "city": "Pokhara",
+   "since": "2025-03-26",
+   "team": [
+    {
+     "name": "Rabin Shrestha",
+     "email": "rabin@kathmandupathways.com",
+     "dial": "+977",
+     "phone": "17966 99604",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Rabin Karki",
+     "email": "rabin@kathmandupathways.com",
+     "dial": "+977",
+     "phone": "56013 35617",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "S-VN1",
    "name": "Hanoi Study Hub",
    "region": "Vietnam",
-   "terms": true
+   "terms": true,
+   "city": "Da Nang",
+   "since": "2024-04-04",
+   "team": [
+    {
+     "name": "Hoa Vo",
+     "email": "hoa@hanoistudyhub.com",
+     "dial": "+84",
+     "phone": "79166 38320",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Minh Tran",
+     "email": "minh@hanoistudyhub.com",
+     "dial": "+84",
+     "phone": "99353 79653",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "S-AU1",
    "name": "Harbour Onshore Agency",
    "region": "Australia",
-   "terms": true
+   "terms": true,
+   "city": "Adelaide",
+   "since": "2024-07-21",
+   "team": [
+    {
+     "name": "Nathan Walsh",
+     "email": "nathan@harbouronshoreagen.com",
+     "dial": "+61",
+     "phone": "27718 11772",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Liam Bennett",
+     "email": "liam@harbouronshoreagen.com",
+     "dial": "+61",
+     "phone": "11254 27642",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "S-MP1",
    "name": "Lanka Partner Group",
    "region": "Sri Lanka",
-   "terms": true
+   "terms": true,
+   "city": "Kandy",
+   "since": "2025-12-08",
+   "team": [
+    {
+     "name": "Nuwan Wickrama",
+     "email": "nuwan@lankapartnergroup.com",
+     "dial": "+94",
+     "phone": "42750 34423",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Kasun Dias",
+     "email": "kasun@lankapartnergroup.com",
+     "dial": "+94",
+     "phone": "56546 14093",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "S-LK1",
    "name": "Colombo Edu Link",
    "region": "Sri Lanka",
-   "terms": true
+   "terms": true,
+   "city": "Colombo",
+   "since": "2023-02-06",
+   "team": [
+    {
+     "name": "Nuwan Fernando",
+     "email": "nuwan@colomboedulink.com",
+     "dial": "+94",
+     "phone": "28317 55218",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nuwan Fernando",
+     "email": "nuwan@colomboedulink.com",
+     "dial": "+94",
+     "phone": "25421 17987",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "S-NEW",
    "name": "New contract, no terms yet",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Kochi",
+   "since": "2024-09-24",
+   "team": [
+    {
+     "name": "Suresh Hegde",
+     "email": "suresh@newcontractnoterms.com",
+     "dial": "+91",
+     "phone": "54813 49157",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Suresh Rao",
+     "email": "suresh@newcontractnoterms.com",
+     "dial": "+91",
+     "phone": "67824 63703",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "R-TEST",
    "name": "GSP test agency",
    "region": "India",
-   "terms": true
+   "terms": true,
+   "city": "Bengaluru",
+   "state": "Karnataka",
+   "since": "2024-06-10"
   },
   {
    "id": "13885",
    "name": "Tutee Connect",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Jaipur",
+   "since": "2025-03-10",
+   "team": [
+    {
+     "name": "Prakash Joshi",
+     "email": "prakash@tuteeconnect.com",
+     "dial": "+91",
+     "phone": "61962 78967",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Prakash Hegde",
+     "email": "prakash@tuteeconnect.com",
+     "dial": "+91",
+     "phone": "64070 31230",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10883",
    "name": "Chetanya Career Consultants Pvt Ltd",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Jaipur",
+   "since": "2023-03-15",
+   "team": [
+    {
+     "name": "Prakash Menon",
+     "email": "prakash@chetanyacareer.com",
+     "dial": "+91",
+     "phone": "97946 44957",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Suresh Rao",
+     "email": "suresh@chetanyacareer.com",
+     "dial": "+91",
+     "phone": "63182 62904",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17340",
    "name": "Trade Australia Journal",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Pune",
+   "since": "2024-08-15",
+   "team": [
+    {
+     "name": "Suresh Joshi",
+     "email": "suresh@tradeaustraliajour.com",
+     "dial": "+91",
+     "phone": "89353 40570",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Manoj Kulkarni",
+     "email": "manoj@tradeaustraliajour.com",
+     "dial": "+91",
+     "phone": "55547 44057",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17292",
    "name": "Study Inspire Pty Ltd",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Chennai",
+   "since": "2023-05-16",
+   "team": [
+    {
+     "name": "Deepa Iyer",
+     "email": "deepa@studyinspire.com",
+     "dial": "+91",
+     "phone": "66535 36461",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Suresh Iyer",
+     "email": "suresh@studyinspire.com",
+     "dial": "+91",
+     "phone": "24025 97422",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17266",
    "name": "The Visa Terminal",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Bengaluru",
+   "since": "2023-03-02",
+   "team": [
+    {
+     "name": "Deepa Joshi",
+     "email": "deepa@thevisaterminal.com",
+     "dial": "+91",
+     "phone": "89308 38270",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Anil Rao",
+     "email": "anil@thevisaterminal.com",
+     "dial": "+91",
+     "phone": "56261 31838",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "11091",
    "name": "Micro Info Tech Trg & Solutions",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Hyderabad",
+   "since": "2023-02-27",
+   "team": [
+    {
+     "name": "Rekha Menon",
+     "email": "rekha@microinfotechtrgso.com",
+     "dial": "+91",
+     "phone": "55410 10760",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Lata Kulkarni",
+     "email": "lata@microinfotechtrgso.com",
+     "dial": "+91",
+     "phone": "32393 48431",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15837",
    "name": "Buttar Immigration Consultants",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Chennai",
+   "since": "2024-01-17",
+   "team": [
+    {
+     "name": "Deepa Menon",
+     "email": "deepa@buttarimmigration.com",
+     "dial": "+91",
+     "phone": "11584 41398",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Lata Bhat",
+     "email": "lata@buttarimmigration.com",
+     "dial": "+91",
+     "phone": "48327 85065",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "18134",
    "name": "ISV Overseas",
    "region": "India",
-   "terms": false
+   "terms": false,
+   "city": "Kochi",
+   "since": "2024-12-08",
+   "team": [
+    {
+     "name": "Manoj Joshi",
+     "email": "manoj@isvoverseas.com",
+     "dial": "+91",
+     "phone": "36595 24569",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Prakash Kulkarni",
+     "email": "prakash@isvoverseas.com",
+     "dial": "+91",
+     "phone": "16855 80017",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17805",
    "name": "Aussie Bengal Shield SAS PVT LTD",
    "region": "Bangladesh",
-   "terms": false
+   "terms": false,
+   "city": "Chattogram",
+   "since": "2023-08-08",
+   "team": [
+    {
+     "name": "Farhan Chowdhury",
+     "email": "farhan@aussiebengalshield.com",
+     "dial": "+880",
+     "phone": "14435 41801",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Farhan Chowdhury",
+     "email": "farhan@aussiebengalshield.com",
+     "dial": "+880",
+     "phone": "64996 25206",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "16177",
    "name": "Advance Visa Consultancy",
    "region": "Bangladesh",
-   "terms": false
+   "terms": false,
+   "city": "Chattogram",
+   "since": "2024-08-17",
+   "team": [
+    {
+     "name": "Nadia Rahman",
+     "email": "nadia@advancevisa.com",
+     "dial": "+880",
+     "phone": "88851 10937",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Imran Akter",
+     "email": "imran@advancevisa.com",
+     "dial": "+880",
+     "phone": "21370 54224",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15176",
    "name": "Unicampus Global",
    "region": "Bangladesh",
-   "terms": false
+   "terms": false,
+   "city": "Chattogram",
+   "since": "2023-12-12",
+   "team": [
+    {
+     "name": "Nadia Chowdhury",
+     "email": "nadia@unicampusglobal.com",
+     "dial": "+880",
+     "phone": "29940 96488",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nadia Akter",
+     "email": "nadia@unicampusglobal.com",
+     "dial": "+880",
+     "phone": "17490 97015",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17783",
    "name": "Global Edu Bangladesh",
    "region": "Bangladesh",
-   "terms": false
+   "terms": false,
+   "city": "Chattogram",
+   "since": "2024-02-02",
+   "team": [
+    {
+     "name": "Farhan Chowdhury",
+     "email": "farhan@globaledubanglades.com",
+     "dial": "+880",
+     "phone": "74089 71859",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nadia Chowdhury",
+     "email": "nadia@globaledubanglades.com",
+     "dial": "+880",
+     "phone": "46742 48564",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "13826",
    "name": "Eduwires",
    "region": "Bangladesh",
-   "terms": false
+   "terms": false,
+   "city": "Dhaka",
+   "since": "2023-07-23",
+   "team": [
+    {
+     "name": "Imran Akter",
+     "email": "imran@eduwires.com",
+     "dial": "+880",
+     "phone": "34104 52532",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Farhan Rahman",
+     "email": "farhan@eduwires.com",
+     "dial": "+880",
+     "phone": "51689 60295",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15077",
    "name": "Ra Global Solutions Bd",
    "region": "Bangladesh",
-   "terms": false
+   "terms": false,
+   "city": "Chattogram",
+   "since": "2025-06-17",
+   "team": [
+    {
+     "name": "Nadia Chowdhury",
+     "email": "nadia@raglobalsolutionsb.com",
+     "dial": "+880",
+     "phone": "65345 75342",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nadia Akter",
+     "email": "nadia@raglobalsolutionsb.com",
+     "dial": "+880",
+     "phone": "60653 42804",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "16390",
    "name": "ABN Overseas Education Pvt. Ltd.",
    "region": "Pakistan",
-   "terms": false
+   "terms": false,
+   "city": "Islamabad",
+   "since": "2023-05-08",
+   "team": [
+    {
+     "name": "Bilal Siddiqui",
+     "email": "bilal@abnoverseaseducati.com",
+     "dial": "+92",
+     "phone": "29976 19828",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Usman Siddiqui",
+     "email": "usman@abnoverseaseducati.com",
+     "dial": "+92",
+     "phone": "78208 94685",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17099",
    "name": "Nc Solicitors (Private) Limited",
    "region": "Pakistan",
-   "terms": false
+   "terms": false,
+   "city": "Islamabad",
+   "since": "2025-07-14",
+   "team": [
+    {
+     "name": "Bilal Qureshi",
+     "email": "bilal@ncsolicitors.com",
+     "dial": "+92",
+     "phone": "54691 33957",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Sana Siddiqui",
+     "email": "sana@ncsolicitors.com",
+     "dial": "+92",
+     "phone": "85302 81880",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12253",
    "name": "routes overseas consultants",
    "region": "Pakistan",
-   "terms": false
+   "terms": false,
+   "city": "Lahore",
+   "since": "2023-10-13",
+   "team": [
+    {
+     "name": "Bilal Butt",
+     "email": "bilal@routesoverseas.com",
+     "dial": "+92",
+     "phone": "15251 31663",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Usman Butt",
+     "email": "usman@routesoverseas.com",
+     "dial": "+92",
+     "phone": "97868 46781",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "14960",
    "name": "Lead Ahead Consultancy",
    "region": "Nepal",
-   "terms": false
+   "terms": false,
+   "city": "Pokhara",
+   "since": "2024-09-02",
+   "team": [
+    {
+     "name": "Pooja Shrestha",
+     "email": "pooja@leadahead.com",
+     "dial": "+977",
+     "phone": "63318 37638",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Sagar Adhikari",
+     "email": "sagar@leadahead.com",
+     "dial": "+977",
+     "phone": "46429 60285",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15802",
    "name": "Educraft Education Network",
    "region": "Nepal",
-   "terms": false
+   "terms": false,
+   "city": "Kathmandu",
+   "since": "2023-10-27",
+   "team": [
+    {
+     "name": "Pooja Shrestha",
+     "email": "pooja@educrafteducationn.com",
+     "dial": "+977",
+     "phone": "14506 31854",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Rabin Karki",
+     "email": "rabin@educrafteducationn.com",
+     "dial": "+977",
+     "phone": "84850 11119",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10745",
    "name": "Apply International Education Consultancy Pvt Ltd",
    "region": "Nepal",
-   "terms": false
+   "terms": false,
+   "city": "Pokhara",
+   "since": "2024-10-02",
+   "team": [
+    {
+     "name": "Pooja Karki",
+     "email": "pooja@applyinternational.com",
+     "dial": "+977",
+     "phone": "50170 18503",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Sagar Shrestha",
+     "email": "sagar@applyinternational.com",
+     "dial": "+977",
+     "phone": "19027 41589",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17797",
    "name": "Study Migration Hub",
    "region": "Nepal",
-   "terms": false
+   "terms": false,
+   "city": "Pokhara",
+   "since": "2025-01-27",
+   "team": [
+    {
+     "name": "Pooja Adhikari",
+     "email": "pooja@studymigrationhub.com",
+     "dial": "+977",
+     "phone": "15065 72786",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Rabin Karki",
+     "email": "rabin@studymigrationhub.com",
+     "dial": "+977",
+     "phone": "97891 91133",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "13602",
    "name": "AEMC Consultant PVT LTD",
    "region": "Sri Lanka",
-   "terms": false
+   "terms": false,
+   "city": "Colombo",
+   "since": "2024-01-13",
+   "team": [
+    {
+     "name": "Kasun Fernando",
+     "email": "kasun@aemcconsultant.com",
+     "dial": "+94",
+     "phone": "20419 53193",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nuwan Fernando",
+     "email": "nuwan@aemcconsultant.com",
+     "dial": "+94",
+     "phone": "85029 72524",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17348",
    "name": "Eureka Australian Education Consultants Private Limited",
    "region": "Sri Lanka",
-   "terms": false
+   "terms": false,
+   "city": "Colombo",
+   "since": "2023-04-06",
+   "team": [
+    {
+     "name": "Dilani Wickrama",
+     "email": "dilani@eurekaaustralianed.com",
+     "dial": "+94",
+     "phone": "97315 22085",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nuwan Wickrama",
+     "email": "nuwan@eurekaaustralianed.com",
+     "dial": "+94",
+     "phone": "18394 28752",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "13400",
    "name": "Emergence Education Consultants",
    "region": "Sri Lanka",
-   "terms": false
+   "terms": false,
+   "city": "Kandy",
+   "since": "2025-07-10",
+   "team": [
+    {
+     "name": "Dilani Wickrama",
+     "email": "dilani@emergenceeducation.com",
+     "dial": "+94",
+     "phone": "43290 48588",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Kasun Dias",
+     "email": "kasun@emergenceeducation.com",
+     "dial": "+94",
+     "phone": "19809 49890",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15876",
    "name": "Innovative Creation Services Pty Ltd Corp",
    "region": "Sri Lanka",
-   "terms": false
+   "terms": false,
+   "city": "Kandy",
+   "since": "2025-08-18",
+   "team": [
+    {
+     "name": "Nuwan Wickrama",
+     "email": "nuwan@innovativecreation.com",
+     "dial": "+94",
+     "phone": "32403 13693",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Kasun Wickrama",
+     "email": "kasun@innovativecreation.com",
+     "dial": "+94",
+     "phone": "44987 74863",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "11165",
    "name": "Kumardirect Pty Ltd",
    "region": "Australia",
-   "terms": false
+   "terms": false,
+   "city": "Sydney",
+   "since": "2024-05-13",
+   "team": [
+    {
+     "name": "Liam Carter",
+     "email": "liam@kumardirect.com",
+     "dial": "+61",
+     "phone": "10862 64481",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Sarah Carter",
+     "email": "sarah@kumardirect.com",
+     "dial": "+61",
+     "phone": "17498 33572",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10354",
    "name": "Hisa - Hanoi International Study Abroad Cooperation Company Limited",
    "region": "Vietnam",
-   "terms": false
+   "terms": false,
+   "city": "Ho Chi Minh City",
+   "since": "2023-05-28",
+   "team": [
+    {
+     "name": "Minh Pham",
+     "email": "minh@hisahanoiinternati.com",
+     "dial": "+84",
+     "phone": "68515 25959",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Linh Vo",
+     "email": "linh@hisahanoiinternati.com",
+     "dial": "+84",
+     "phone": "47662 23465",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10841",
    "name": "Golden Key Education Development Joint Stock Company",
    "region": "Vietnam",
-   "terms": false
+   "terms": false,
+   "city": "Ho Chi Minh City",
+   "since": "2024-08-23",
+   "team": [
+    {
+     "name": "Linh Pham",
+     "email": "linh@goldenkeyeducation.com",
+     "dial": "+84",
+     "phone": "46281 14935",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Hoa Pham",
+     "email": "hoa@goldenkeyeducation.com",
+     "dial": "+84",
+     "phone": "27590 79625",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "13858",
    "name": "Veritas Consulting Group Pty Ltd",
    "region": "Vietnam",
-   "terms": false
+   "terms": false,
+   "city": "Ho Chi Minh City",
+   "since": "2025-03-06",
+   "team": [
+    {
+     "name": "Tuan Pham",
+     "email": "tuan@veritasconsultingg.com",
+     "dial": "+84",
+     "phone": "12828 52019",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tuan Vo",
+     "email": "tuan@veritasconsultingg.com",
+     "dial": "+84",
+     "phone": "97625 75212",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17568",
    "name": "RRS International and Consultancy Services Inc",
    "region": "Philippines",
-   "terms": false
+   "terms": false,
+   "city": "Cebu City",
+   "since": "2023-07-09",
+   "team": [
+    {
+     "name": "Ana Santos",
+     "email": "ana@rrsinternationalan.com",
+     "dial": "+63",
+     "phone": "99011 29777",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Jose Santos",
+     "email": "jose@rrsinternationalan.com",
+     "dial": "+63",
+     "phone": "28766 24067",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12973",
    "name": "Best Partner Pty Ltd",
    "region": "Indonesia, Malaysia and Thailand",
-   "terms": false
+   "terms": false,
+   "city": "Jakarta",
+   "since": "2024-05-27",
+   "team": [
+    {
+     "name": "Chloe Walsh",
+     "email": "chloe@bestpartner.com",
+     "dial": "+62",
+     "phone": "29712 57935",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tom Bennett",
+     "email": "tom@bestpartner.com",
+     "dial": "+62",
+     "phone": "16977 93263",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12799",
    "name": "PT Satu Impian Bersama T/A education ONE",
    "region": "Indonesia, Malaysia and Thailand",
-   "terms": false
+   "terms": false,
+   "city": "Kuala Lumpur",
+   "since": "2024-03-06",
+   "team": [
+    {
+     "name": "Liam Carter",
+     "email": "liam@ptsatuimpianbersam.com",
+     "dial": "+62",
+     "phone": "97321 66434",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tom Walsh",
+     "email": "tom@ptsatuimpianbersam.com",
+     "dial": "+62",
+     "phone": "75739 48232",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "12066",
    "name": "Campus Abroad Mauritius Ltd.",
    "region": "Africa",
-   "terms": false
+   "terms": false,
+   "city": "Accra",
+   "since": "2024-07-10",
+   "team": [
+    {
+     "name": "Nathan Walsh",
+     "email": "nathan@campusabroadmaurit.com",
+     "dial": "+234",
+     "phone": "59769 24894",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nathan Hughes",
+     "email": "nathan@campusabroadmaurit.com",
+     "dial": "+234",
+     "phone": "22572 80088",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15046",
    "name": "Eduwin Ricardo Prieto Rojas / Study Lites",
    "region": "Africa",
-   "terms": false
+   "terms": false,
+   "city": "Lagos",
+   "since": "2024-09-06",
+   "team": [
+    {
+     "name": "Tom Doyle",
+     "email": "tom@eduwinricardopriet.com",
+     "dial": "+234",
+     "phone": "71512 41609",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Nathan Carter",
+     "email": "nathan@eduwinricardopriet.com",
+     "dial": "+234",
+     "phone": "16830 26430",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "11418",
    "name": "Your Aussie Life PTY LTD",
    "region": "Latin America and Europe",
-   "terms": false
+   "terms": false,
+   "city": "Bogotá",
+   "since": "2025-05-05",
+   "team": [
+    {
+     "name": "Nathan Hughes",
+     "email": "nathan@youraussielife.com",
+     "dial": "+57",
+     "phone": "95158 12562",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Sarah Walsh",
+     "email": "sarah@youraussielife.com",
+     "dial": "+57",
+     "phone": "64071 80744",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "18000",
    "name": "Latin Education and Migration",
    "region": "Latin America and Europe",
-   "terms": false
+   "terms": false,
+   "city": "Lima",
+   "since": "2025-08-21",
+   "team": [
+    {
+     "name": "Grace Carter",
+     "email": "grace@latineducationandm.com",
+     "dial": "+57",
+     "phone": "13824 44192",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Grace Fraser",
+     "email": "grace@latineducationandm.com",
+     "dial": "+57",
+     "phone": "58408 17036",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "15923",
    "name": "Ascenders Education Company Limited",
    "region": "Myanmar",
-   "terms": false
+   "terms": false,
+   "city": "Yangon",
+   "since": "2024-05-24",
+   "team": [
+    {
+     "name": "Chloe Carter",
+     "email": "chloe@ascenderseducation.com",
+     "dial": "+95",
+     "phone": "67538 99980",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Chloe Hughes",
+     "email": "chloe@ascenderseducation.com",
+     "dial": "+95",
+     "phone": "94268 94233",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "17472",
    "name": "Wangchuk Ecpf",
    "region": "Myanmar",
-   "terms": false
+   "terms": false,
+   "city": "Yangon",
+   "since": "2023-08-18",
+   "team": [
+    {
+     "name": "Liam Fraser",
+     "email": "liam@wangchukecpf.com",
+     "dial": "+95",
+     "phone": "14566 59770",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Chloe Bennett",
+     "email": "chloe@wangchukecpf.com",
+     "dial": "+95",
+     "phone": "62658 96412",
+     "role": "Counsellor"
+    }
+   ]
   },
   {
    "id": "10913",
    "name": "upGrad GSP Direct",
    "region": "Direct",
-   "terms": false
+   "terms": false,
+   "city": "Melbourne",
+   "since": "2023-10-22",
+   "team": [
+    {
+     "name": "Liam Fraser",
+     "email": "liam@upgradgspdirect.com",
+     "dial": "+61",
+     "phone": "34838 54676",
+     "role": "RP Admin"
+    },
+    {
+     "name": "Tom Walsh",
+     "email": "tom@upgradgspdirect.com",
+     "dial": "+61",
+     "phone": "38640 80827",
+     "role": "Counsellor"
+    }
+   ]
   }
  ],
  "students": [
@@ -1779,9 +3042,9 @@
   {
    "id": "S-30021",
    "first": "Zainab",
-   "last": "Malik",
+   "last": "Anwar",
    "nationality": "Pakistan",
-   "email": "zainab.malik36@gmail.com",
+   "email": "zainab.anwar36@gmail.com",
    "dial": "+92",
    "phone": "36496 65413",
    "passport": "E4617475",
@@ -1856,9 +3119,9 @@
   {
    "id": "S-30028",
    "first": "Nimesha",
-   "last": "Jayasinghe",
+   "last": "Rajapaksha",
    "nationality": "Sri Lanka",
-   "email": "nimesha.jayasinghe55@gmail.com",
+   "email": "nimesha.rajapaksha55@gmail.com",
    "dial": "+94",
    "phone": "76954 58006",
    "passport": "L6229152",
@@ -1889,9 +3152,9 @@
   {
    "id": "S-30031",
    "first": "Thanh",
-   "last": "Sharma",
+   "last": "Sethi",
    "nationality": "India",
-   "email": "thanh.sharma69@gmail.com",
+   "email": "thanh.sethi69@gmail.com",
    "dial": "+91",
    "phone": "64162 36867",
    "passport": "D2762691",
@@ -1944,9 +3207,9 @@
   {
    "id": "S-30036",
    "first": "Lan",
-   "last": "Nguyen",
+   "last": "Bui",
    "nationality": "Vietnam",
-   "email": "lan.nguyen50@gmail.com",
+   "email": "lan.bui50@gmail.com",
    "dial": "+84",
    "phone": "53733 54930",
    "passport": "Q2963840",
@@ -2098,9 +3361,9 @@
   {
    "id": "S-30050",
    "first": "Rohan",
-   "last": "Gupta",
+   "last": "Sethi",
    "nationality": "India",
-   "email": "rohan.gupta49@gmail.com",
+   "email": "rohan.sethi49@gmail.com",
    "dial": "+91",
    "phone": "15110 71210",
    "passport": "L1822813",

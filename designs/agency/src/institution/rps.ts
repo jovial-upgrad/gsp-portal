@@ -13,7 +13,7 @@ export const HOME_RP = 'GSP test agency';
 export const RPS: Rp[] = [
   { name: HOME_RP, city: 'Bengaluru', country: 'India' },
   ...sampleRps()
-    .filter((r) => r.status === 'Agreement signed')
+    .filter((r) => r.status === 'Agreement signed' && r.name !== HOME_RP)
     .map((r) => ({ name: r.name, city: r.city, country: r.country }))
     .sort((a, b) => a.name.localeCompare(b.name)),
 ];
