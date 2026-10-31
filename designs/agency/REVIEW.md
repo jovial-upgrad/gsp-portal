@@ -293,7 +293,7 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - **My work** and **Mail** link to the same applications; **confirming a status in Mail changes the application in every role**, and an application Mail marks enrolled joins Finance's ledgers at once (`src/data/live.ts`).
   - **RPs**: one list for the RP pickers and the Institution Team's Recruitment partners page (every RP an application is with); the sample agency is the GSP test agency everywhere.
 
-- [x] Jovial, 31 Oct (evening, in the QC doc's inventory): **Admin and the Institution catalogue are the sources** (31 Oct, commit “Admin and the catalogue are the sources”)
+- [x] Jovial, 31 Oct (evening, in the QC doc's inventory): **Admin and the Institution catalogue are the sources** (31 Oct, 5ab1700 and 1a7f2a7)
   - **Admin's settings are saved and shared:** one store every role reads (`src/admin/data/store.ts`).
   - **Currency exchange is the one source:** rates in AUD per unit, kept by week; course search's lakh budget and Finance's pricing both read it. Finance's FX card is read-only and points to Admin.
   - **Living costs** and a new **Visa and health fees** page (set up like Living costs) feed every course page's costs.
