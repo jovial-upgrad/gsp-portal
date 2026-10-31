@@ -6,8 +6,8 @@
  * Every change is logged (`log`), and Logs shows them with the download log. Sample data.
  */
 import { SALES_REGIONS } from '../../institution/data/announcements';
-import { CURRENCY, type Destination } from '../../data/courses';
-import { INR_PER } from '../../screens/courses/search';
+import { CURRENCY, OTHER_FEES, type Destination } from '../../data/courses';
+import COMM from '../../finance/comm.json';
 import { STAFF, label, nameOf } from '../../data/staff';
 /** A GSP person's name, by the start of their email: N('ramish.jafery'). Throws if they're not on the staff list. */
 const N = (local: string) => nameOf(`${local}@upgrad.com`);
@@ -191,12 +191,42 @@ export const sampleBdm = (): BdmRow[] => [
 ];
 export const REGION_ROWS = ['Latin America and Europe', 'Africa'];
 
-/* ---------- currency exchange (not in the PM prototype: course search's sample rates) ---------- */
-export type Rate = { code: string; name: string; perInr: number; usedFor: string; updated: number };
+/* ---------- currency exchange: the one source (Jovial, 31 Oct). Course search and Finance both read it ---------- */
+/** One unit of a currency in Australian dollars (Finance's base). Course search's rupee budget is worked out from these. */
+export type Rate = { code: string; name: string; aud: number; usedFor: string; updated: number };
+/** A week's rates, as Finance prices a line paid that week: { week: '2026-10-26', GBP: 1.95, … } */
+export type FxWeek = { week: string; [code: string]: number | string };
+const CUR_NAME: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound sterling', CAD: 'Canadian dollar', NZD: 'New Zealand dollar', EUR: 'Euro', USD: 'US dollar', INR: 'Indian rupee', NPR: 'Nepalese rupee', BDT: 'Bangladeshi taka', LKR: 'Sri Lankan rupee', VND: 'Vietnamese dong' };
+const PAYOUT: Record<string, string> = { INR: 'India', NPR: 'Nepal', BDT: 'Bangladesh', LKR: 'Sri Lanka', VND: 'Vietnam' };
+/** Course search's old rupee rates, for the currencies Finance's weekly table didn't have (CAD, EUR). */
+const SEED_INR: Record<string, number> = { CAD: 62, EUR: 95 };
+const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+/** Finance's weekly table from its sheet, with CAD and EUR added, carried a month past today (each new week a copy of the last). */
+export const sampleFxWeeks = (): FxWeek[] => {
+  const rows = (COMM.cfg.settings.fx as FxWeek[]).map((w) => ({ ...w, AUD: 1, ...Object.fromEntries(Object.entries(SEED_INR).map(([c, inr]) => [c, Math.round(inr * Number(w.INR) * 10000) / 10000])) }));
+  const end = isoDay(Date.now() + 28 * DAY);
+  let last = rows[rows.length - 1];
+  while (last.week < end) {
+    last = { ...last, week: isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) };
+    rows.push(last);
+  }
+  return rows;
+};
+/** The week's row in force on a day. */
+export const fxWeekOn = (weeks: FxWeek[], day = isoDay(Date.now())) => [...weeks].sort((a, b) => (a.week < b.week ? -1 : 1)).filter((w) => w.week <= day).pop();
 export const sampleRates = (): Rate[] => {
-  const name: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound sterling', CAD: 'Canadian dollar', NZD: 'New Zealand dollar', EUR: 'Euro', USD: 'US dollar' };
-  const dests = (code: string) => (Object.entries(CURRENCY) as [Destination, string][]).filter(([, c]) => c === code).map(([d]) => d).join(', ');
-  return Object.entries(INR_PER).map(([code, perInr], i) => ({ code, name: name[code] ?? code, perInr, usedFor: dests(code), updated: Date.now() - (i + 2) * DAY }));
+  const w = fxWeekOn(sampleFxWeeks())!;
+  const dests = (code: string) => (Object.entries(CURRENCY) as [Destination, string][]).filter(([, c]) => c === code).map(([d]) => d);
+  return Object.keys(CUR_NAME).map((code, i) => {
+    const used = [...dests(code).map((d) => `Course search: ${d}`), ...(PAYOUT[code] ? [`RP payouts: ${PAYOUT[code]}`] : []), ...(code === 'INR' ? ['Course search budgets in lakhs'] : [])];
+    return { code, name: CUR_NAME[code], aud: Number(w[code] ?? (code === 'VND' ? 0.0000585 : 0)), usedFor: used.join('; '), updated: Date.now() - (i % 4 + 1) * DAY };
+  });
+};
+/** Rupees for one unit of a currency, from the rates (for course search's budget in lakhs). */
+export const inrPerFrom = (rates: Rate[], code: string) => {
+  const a = rates.find((r) => r.code === code)?.aud;
+  const inr = rates.find((r) => r.code === 'INR')?.aud;
+  return a && inr ? a / inr : undefined;
 };
 
 /* ---------- living costs (not in the PM prototype: the visa figures the course dialog uses) ---------- */
@@ -209,6 +239,24 @@ export const sampleLiving = (): Living[] => [
   { country: 'Ireland', currency: 'EUR', perYear: 12000, basis: 'Irish Immigration Service', updated: Date.now() - 60 * DAY },
   { country: 'USA', currency: 'USD', perYear: 18000, basis: 'GSP estimate (each university sets its own)', updated: Date.now() - 70 * DAY },
 ];
+
+/* ---------- visa and health fees (Jovial, 31 Oct: set up like living costs) ---------- */
+/** One fee a student pays to study in a destination: the visa, health cover. `per`: once, or every year. */
+export type VisaFee = { id: string; country: string; currency: string; label: string; amount: number; per: 'once' | 'year'; basis: string; updated: number };
+const FEE_BASIS: Record<string, string> = { Australia: 'Department of Home Affairs; OSHC providers', UK: 'UKVI', Canada: 'IRCC; provincial health plans', 'New Zealand': 'Immigration New Zealand', Ireland: 'Irish Immigration Service', USA: 'US Department of State; university health plans' };
+export const sampleVisaFees = (): VisaFee[] =>
+  (Object.entries(OTHER_FEES) as [Destination, [string, number][]][]).flatMap(([country, fees], i) =>
+    fees.map(([label, amount], j) => ({
+      id: `vf${i}${j}`,
+      country,
+      currency: CURRENCY[country],
+      label: label.replace(/, (a year|once)$/, ''),
+      amount,
+      per: /a year$/.test(label) ? ('year' as const) : ('once' as const),
+      basis: FEE_BASIS[country] ?? '',
+      updated: Date.now() - (20 + i * 7) * DAY,
+    })),
+  );
 
 /* ---------- application routing (PM: Settings › Application routing) ---------- */
 export type RouteRule = { id: 'direct' | 'list' | 'keep' | 'onshore' | 'nat' | 'fb'; title: string; when: string; region: string; bdm: string; on: boolean };

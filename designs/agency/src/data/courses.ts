@@ -262,6 +262,7 @@ const TUITION: Record<Destination, Record<Level, number>> = {
   USA: { Foundation: 22000, Diploma: 21000, 'Bachelor’s degree': 32000, 'Postgraduate diploma': 28000, 'Master’s degree': 34000, 'PhD or research': 33000 },
 };
 
+/** The seed for Admin › Living costs, which is the source now (admin/data/store.ts applies it to every course). */
 const LIVING: Record<Destination, number> = { Australia: 29710, UK: 12006, Canada: 20635, 'New Zealand': 20000, Ireland: 12000, USA: 18000 };
 
 const MONTHS: Record<Destination, [string, string][]> = {
@@ -396,7 +397,8 @@ const NURSING: Partial<Record<Destination, string>> = { Australia: 'ANMAC: gradu
 const SCHOLARSHIPS = ['International Merit Scholarship', 'Global Excellence Scholarship', 'Vice-Chancellor’s International Scholarship', 'South Asia Achievers Scholarship'];
 
 /** Costs on top of tuition, by country (approximate, for a single student). */
-const OTHER_FEES: Record<Destination, [string, number][]> = {
+/** The visa and health fees each destination's courses started with: the seed for Admin › Visa and health fees, which is their source now. */
+export const OTHER_FEES: Record<Destination, [string, number][]> = {
   Australia: [['Overseas Student Health Cover, a year', 700], ['Student visa, once', 2000]],
   UK: [['Immigration Health Surcharge, a year', 776], ['Student visa, once', 524]],
   Canada: [['Health insurance, a year', 900], ['Study permit and biometrics, once', 235]],

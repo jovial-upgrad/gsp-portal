@@ -324,9 +324,7 @@ export function Settings({ c, canEdit, propose }) {
   const [d, set, setD] = useDraft(S);
   const weekOf = c.today; const rows = [...d.fx].sort((a, b) => a.week < b.week ? -1 : 1);
   const cur = rows.filter(w => w.week <= weekOf).pop();
-  const ccy = ['GBP', 'NZD', 'USD', 'INR', 'NPR', 'BDT', 'LKR', 'VND'];
-  const setRate = (k, v) => setD(x => ({ ...x, fx: x.fx.map(w => w.week === cur.week ? { ...w, [k]: num(v) } : w) }));
-  const addWeek = () => { const last = rows[rows.length - 1]; const wk = new Date(Date.parse(last.week) + 7 * 864e5).toISOString().slice(0, 10); setD(x => ({ ...x, fx: [...x.fx, { ...last, week: wk }] })); };
+  const ccy = ['GBP', 'NZD', 'USD', 'CAD', 'EUR', 'INR', 'NPR', 'BDT', 'LKR', 'VND'];
   const changed = JSON.stringify(d) !== JSON.stringify(S);
   return (
     <>
@@ -348,12 +346,11 @@ export function Settings({ c, canEdit, propose }) {
       </Card>
       <Card>
         <h2 className="gspx-h3">FX rates · week of {cur ? nice(cur.week) : '—'}</h2>
-        <p className="muted">AUD for 1 unit. Filled each Monday, confirmed by Finance. A payout run is held for a currency with no rate this week.</p>
+        <p className="muted">AUD for 1 unit. Set in GSP · Admin › Course configuration › Currency exchange, the one source for every part of GSP; each line is priced at the rate of the week it’s paid. A payout run is held for a currency with no rate this week.</p>
         {cur && <div className="gspx-rates">{ccy.map(k => (
-          <label key={k} className="gspx-rate"><span>{k}</span><input className="gspx-num" type="number" step="any" placeholder="Missing" value={cur[k] ?? ''} onChange={e => setRate(k, e.target.value)} disabled={!canEdit} /></label>))}</div>}
-        {canEdit && <div className="gspx-inline"><LinkButton onClick={addWeek}>Add next week (copy of the last)</LinkButton></div>}
+          <span key={k} className="gspx-rate"><span>{k}</span><b className="num">{cur[k] ?? 'Missing'}</b></span>))}</div>}
       </Card>
-      {canEdit && <div className="gspx-inline"><Button kind="primary" disabled={!changed} onClick={() => propose('settings', 'settings', S, d, 'commission settings and FX')}>Send for checking</Button>{changed && <LinkButton onClick={() => setD(structuredClone(S))}>Undo changes</LinkButton>}</div>}
+      {canEdit && <div className="gspx-inline"><Button kind="primary" disabled={!changed} onClick={() => propose('settings', 'settings', S, d, 'commission settings')}>Send for checking</Button>{changed && <LinkButton onClick={() => setD(structuredClone(S))}>Undo changes</LinkButton>}</div>}
     </>
   );
 }

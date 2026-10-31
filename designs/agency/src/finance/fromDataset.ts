@@ -85,17 +85,3 @@ export function datasetFinanceApps(cfg, today) {
   });
   return apps;
 }
-
-/** Finance's weekly FX rows reach a month past today (each new week copies the last confirmed one, as Finance does each Monday). */
-export function fxToToday(cfg, today) {
-  const fx = cfg.settings.fx || [];
-  if (!fx.length) return cfg;
-  const last = fx[fx.length - 1];
-  let w = last.week;
-  const end = addDays(today, 28);
-  while (w < end) {
-    w = addDays(w, 7);
-    fx.push({ ...last, week: w });
-  }
-  return cfg;
-}

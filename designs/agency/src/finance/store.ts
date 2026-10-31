@@ -8,10 +8,11 @@ import { useSyncExternalStore } from 'react';
 import COMM from './comm.json';
 import { ROLES, DEFAULT_MATRIX } from './access';
 import { STAFF, label } from '../data/staff';
-import { withDatasetTerms, datasetFinanceApps, fxToToday } from './fromDataset';
+import { withDatasetTerms, datasetFinanceApps } from './fromDataset';
+import { adminCfg, onAdminChange } from '../admin/data/store';
 import { onLiveChange } from '../data/live';
 
-const KEY = 'gsp-finance-v3'; // v3: the one data set's applications (31 Oct)
+const KEY = 'gsp-finance-v4'; // v4: exchange rates from Admin (31 Oct)
 
 /* Every GSP person comes from the staff list (data/staff.ts); the RP person is the sample agency's admin. */
 export const USERS = [
@@ -36,7 +37,9 @@ const KBS_REMITTANCE = {
  */
 function commFromDataset() {
   const today = new Date().toISOString().slice(0, 10);
-  const cfg = fxToToday(withDatasetTerms(COMM.cfg), today);
+  const cfg = withDatasetTerms(COMM.cfg);
+  // exchange rates: GSP · Admin › Currency exchange is the one source (Jovial, 31 Oct)
+  cfg.settings.fx = structuredClone(adminCfg().fxWeeks);
   cfg.settings.sandboxDate = today;
   return { today, cfg, apps: datasetFinanceApps(cfg, today), runs: COMM.runs, run: null, checks: [] };
 }
@@ -69,6 +72,17 @@ export function getState() { return state; }
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 onLiveChange(joinEnrolled);
 joinEnrolled();
+/** Admin's rates reach Finance as soon as they're saved. */
+function takeAdminFx() {
+  if (!state) return;
+  const fx = adminCfg().fxWeeks;
+  if (JSON.stringify(fx) === JSON.stringify(state.comm.cfg.settings.fx)) return;
+  state = { ...state, comm: { ...state.comm, cfg: { ...state.comm.cfg, settings: { ...state.comm.cfg.settings, fx: structuredClone(fx) } } } };
+  save();
+  listeners.forEach((f) => f());
+}
+onAdminChange(takeAdminFx);
+takeAdminFx();
 export function useStore(select = (s) => s) { return select(useSyncExternalStore(subscribe, getState)); }
 export function update(fn, logText) {
   const next = structuredClone(state);

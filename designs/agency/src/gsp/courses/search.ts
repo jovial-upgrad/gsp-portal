@@ -3,6 +3,7 @@
  * Results only show once five things are known (the brief): destination, the student's country and state,
  * program level and study area. Courses the student can't be offered are hidden, and the count says so.
  */
+import { inrPer as inrPerOf } from '../../admin/data/store';
 import {
   AREAS,
   COURSES,
@@ -174,7 +175,8 @@ const MONTH: Record<string, string> = { jan: 'Jan', january: 'Jan', feb: 'Feb', 
 export type Read = { dest?: Destination; level?: Level; area?: Area; month?: string; maxFee?: number; lakh?: number; flex?: boolean; schol?: boolean; noFee?: boolean; keyword: string; said: string[] };
 
 /** Rupees per unit, sample rates: Indian agencies often budget in lakhs (1 lakh = ₹100,000). */
-export const INR_PER: Record<string, number> = { AUD: 56, GBP: 112, CAD: 62, NZD: 51, EUR: 95, USD: 86 };
+/** Rupees for one unit of each currency: from GSP · Admin › Currency exchange, the one source (Jovial, 31 Oct). */
+export { inrPer } from '../../admin/data/store';
 const LAKH = /^(lakhs?|lacs?|l)$/;
 
 /** Reads "mba uk under 22k jan" as destination, level, area, intake and a tuition cap; anything else is a search word. */
@@ -273,7 +275,7 @@ export function runSearch(s: CourseSearch): CourseSearch {
   }
   // a budget in lakhs becomes a cap in the destination's currency (it needs the destination to know which)
   if (r.lakh && need.dest) {
-    f.maxFee = Math.round((r.lakh * 100_000) / INR_PER[CURRENCY[need.dest]] / 100) * 100;
+    f.maxFee = Math.round((r.lakh * 100_000) / (inrPerOf(CURRENCY[need.dest]) ?? 1) / 100) * 100;
     f.feeLakh = r.lakh;
   }
   if (r.flex) f.flex = true;

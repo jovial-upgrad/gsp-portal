@@ -4,43 +4,57 @@ import { Icon } from '../../components/Icon';
 import { TextInput } from '../../components/forms';
 import { FLAG } from '../../data/courses';
 import { PageHead } from '../../institution/records/parts';
-import type { Living, Rate } from '../data/config';
+import { inrPerFrom, type FxWeek, type Living, type Rate, type VisaFee } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft, when } from './parts';
 
 const num = (v: string) => Number(v.replace(/[^\d.]/g, ''));
-const fmt = (n: number) => (n ? n.toLocaleString('en-GB', { maximumFractionDigits: 4 }) : '');
-const nudge = (v: number, pct: number) => Math.round(v * (1 + (Math.random() * 2 - 1) * pct) * 100) / 100;
+const fmt = (n: number) => (!n ? '' : n < 0.01 ? String(Number(n.toPrecision(3))) : n.toLocaleString('en-GB', { maximumFractionDigits: 4 }));
+const nudge4 = (v: number, pct: number) => Number((v * (1 + (Math.random() * 2 - 1) * pct)).toPrecision(4));
 
 /**
- * Currency exchange: what one unit of each destination's currency is in Indian rupees; course search reads a budget
- * in lakhs with these rates. Jovial, 31 Oct: read-only until Edit, kept only on Save; **Get today's rates** fills
- * every rate from the rates service (in the prototype, a small move from the last rate) for you to check and save;
- * more currencies can be added for more destinations.
+ * Currency exchange: the one source for exchange rates (Jovial, 31 Oct). One unit of each currency in Australian
+ * dollars, Finance's base; course search works out its budget in lakhs from these (the rupee column), and Finance
+ * prices each line at the rate of the week it's paid. Read-only until Edit, kept only on Save, which also sets this
+ * week's row; **Get today's rates** fills every rate from the rates service (in the prototype, a small move from the
+ * last rate) for you to check and save. More currencies can be added.
  */
+const weekStart = (t = Date.now()) => {
+  const d = new Date(t);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+};
 export function Currency({ cfg, change, say }: ConfigProps) {
   const d = useDraft<Rate[]>(cfg.rates);
   const [fetched, setFetched] = useState<number | null>(null);
   const ed = d.editing;
   const upd = (i: number, p: Partial<Rate>) => d.set((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
+  const inr = (code: string, rates: Rate[]) => inrPerFrom(rates, code);
   const fetchRates = () => {
     if (!ed) d.start();
-    d.set((l) => l.map((x) => (x.perInr ? { ...x, perInr: nudge(x.perInr, 0.012), updated: Date.now() } : x)));
+    d.set((l) => l.map((x) => (x.aud && x.code !== 'AUD' ? { ...x, aud: nudge4(x.aud, 0.012), updated: Date.now() } : x)));
     setFetched(Date.now());
     say('Today’s rates are filled in. Check them, then Save.');
   };
   const save = () => {
-    const bad = d.value.find((x) => !x.code.trim() || !x.perInr);
+    const bad = d.value.find((x) => !x.code.trim() || !x.aud);
     if (bad) return say('Every currency needs a code and a rate.');
-    const changed = d.value.filter((x) => JSON.stringify(x) !== JSON.stringify(cfg.rates.find((y) => y.code === x.code))).map((x) => `${x.code} ₹${x.perInr}`);
-    change('Currency exchange', `Saved ${changed.join(', ') || 'no changes'}${fetched ? ' (rates fetched)' : ''}`, (c) => ({ ...c, rates: d.value.map((x) => ({ ...x, code: x.code.trim().toUpperCase() })) }));
-    say('Saved and logged. Course search uses the new rates from now.');
+    const rates = d.value.map((x) => ({ ...x, code: x.code.trim().toUpperCase() }));
+    const changed = rates.filter((x) => JSON.stringify(x) !== JSON.stringify(cfg.rates.find((y) => y.code === x.code))).map((x) => `${x.code} AUD ${x.aud}`);
+    const week = weekStart();
+    const row: FxWeek = { week, ...Object.fromEntries(rates.map((x) => [x.code, x.aud])) };
+    change('Currency exchange', `Saved ${changed.join(', ') || 'no changes'} for the week of ${week}${fetched ? ' (rates fetched)' : ''}`, (c) => ({
+      ...c,
+      rates,
+      fxWeeks: [...c.fxWeeks.filter((w) => w.week < week), row, ...c.fxWeeks.filter((w) => w.week > week).map((w) => ({ ...w, ...row, week: w.week }))],
+    }));
+    say('Saved and logged. Course search and Finance use the new rates from now.');
     setFetched(null);
     d.stop();
   };
   return (
     <>
-      <PageHead title="Currency exchange" lead="What one unit of each destination’s currency is in Indian rupees. Course search reads a budget in lakhs with these rates.">
+      <PageHead title="Currency exchange" lead="The exchange rates every part of GSP uses: one unit of each currency in Australian dollars. Course search works out its budget in lakhs from these, and Finance prices each commission line at the rate of the week it’s paid.">
         <Button variant="secondary" iconLeft={<Icon name="refresh" size={18} />} onClick={fetchRates}>
           Get today’s rates
         </Button>
@@ -54,6 +68,7 @@ export function Currency({ cfg, change, say }: ConfigProps) {
               <tr>
                 <th scope="col">Currency</th>
                 <th scope="col">Used for</th>
+                <th scope="col">1 unit in AUD</th>
                 <th scope="col">1 unit in INR</th>
                 <th scope="col">Last changed</th>
                 {ed && <th scope="col"><span className="vh">Remove</span></th>}
@@ -76,24 +91,24 @@ export function Currency({ cfg, change, say }: ConfigProps) {
                     )}
                   </td>
                   <td className="cfg__muted">
-                    {ed ? <TextInput id={`fxu-${i}`} aria-label={`${r.code}: used for`} className="cfg__cellinput" placeholder="Destinations" value={r.usedFor} onChange={(e) => upd(i, { usedFor: e.target.value })} /> : r.usedFor || '–'}
+                    {ed ? <TextInput id={`fxu-${i}`} aria-label={`${r.code}: used for`} className="cfg__cellinput" placeholder="Where it’s used" value={r.usedFor} onChange={(e) => upd(i, { usedFor: e.target.value })} /> : r.usedFor || '–'}
                   </td>
                   <td>
-                    {ed ? (
-                      <span className="cfg__money">
-                        <span aria-hidden="true">₹</span>
-                        <TextInput id={`fx-${i}`} aria-label={`1 ${r.code} in Indian rupees`} inputMode="decimal" className="cfg__cellinput cfg__num" value={fmt(r.perInr)} onChange={(e) => upd(i, { perInr: num(e.target.value), updated: Date.now() })} />
-                      </span>
+                    {ed && r.code !== 'AUD' ? (
+                      <TextInput id={`fx-${i}`} aria-label={`1 ${r.code} in Australian dollars`} inputMode="decimal" className="cfg__cellinput cfg__num" value={String(r.aud || '')} onChange={(e) => upd(i, { aud: num(e.target.value), updated: Date.now() })} />
                     ) : (
-                      <span className="num">₹{fmt(r.perInr)}</span>
+                      <span className="num">{r.code === 'AUD' ? '1' : fmt(r.aud)}</span>
                     )}
                   </td>
+                  <td className="cfg__muted num">{r.code === 'INR' ? '1' : inr(r.code, d.value) ? `₹${fmt(Math.round(inr(r.code, d.value)! * 100) / 100)}` : '–'}</td>
                   <td className="cfg__muted num">{when(r.updated)}</td>
                   {ed && (
                     <td className="cfg__acts">
-                      <button type="button" className="icon-btn" aria-label={`Remove ${r.code || 'this row'}`} onClick={() => d.set((l) => l.filter((_, j) => j !== i))}>
-                        <Icon name="close" size={16} />
-                      </button>
+                      {r.code !== 'AUD' && r.code !== 'INR' && (
+                        <button type="button" className="icon-btn" aria-label={`Remove ${r.code || 'this row'}`} onClick={() => d.set((l) => l.filter((_, j) => j !== i))}>
+                          <Icon name="close" size={16} />
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -103,12 +118,13 @@ export function Currency({ cfg, change, say }: ConfigProps) {
         </div>
         {ed && (
           <div className="cfg__addrow">
-            <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => d.set((l) => [...l, { code: '', name: '', perInr: 0, usedFor: '', updated: Date.now() }])}>
+            <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => d.set((l) => [...l, { code: '', name: '', aud: 0, usedFor: '', updated: Date.now() }])}>
               Add currency
             </Button>
           </div>
         )}
       </Panel>
+      <p className="cfg__muted">Saving sets this week’s rates (week of {weekStart()}). Earlier weeks stay as they were, so commission already paid keeps its rate. {cfg.fxWeeks.length} weeks on file.</p>
       <History log={cfg.log} area="Currency exchange" />
     </>
   );
@@ -141,7 +157,7 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
   };
   return (
     <>
-      <PageHead title="Living costs" lead="A year’s living costs in each destination, as its visa rules set them. The course dialog adds this to the first year, all in, for every course there.">
+      <PageHead title="Living costs" lead="A year’s living costs in each destination, as its visa rules set them. The course page shows it under Other costs and adds it to the first year, all in, for every course there.">
         <Button variant="secondary" iconLeft={<Icon name="refresh" size={18} />} onClick={fetchFigures}>
           Get current figures
         </Button>
@@ -207,6 +223,105 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
         )}
       </Panel>
       <History log={cfg.log} area="Living costs" />
+    </>
+  );
+}
+
+/**
+ * Visa and health fees (Jovial, 31 Oct): what a student pays to study in each destination, besides tuition and
+ * living costs: the visa, health cover. Set up like Living costs: Edit, then Save; rows can be added. The course page's
+ * Other costs and its first year, all in, read them.
+ */
+export function VisaFees({ cfg, change, say }: ConfigProps) {
+  const d = useDraft<VisaFee[]>(cfg.visaFees);
+  const ed = d.editing;
+  const upd = (i: number, p: Partial<VisaFee>) => d.set((l) => l.map((x, j) => (j === i ? { ...x, ...p, updated: Date.now() } : x)));
+  const save = () => {
+    if (d.value.some((x) => !x.country.trim() || !x.currency.trim() || !x.label.trim() || !x.amount)) return say('Every fee needs a destination, a currency, a name and an amount.');
+    const changed = d.value.filter((x) => JSON.stringify(x) !== JSON.stringify(cfg.visaFees.find((y) => y.id === x.id))).map((x) => `${x.country} · ${x.label} ${x.currency} ${x.amount.toLocaleString('en-GB')}`);
+    change('Visa and health fees', `Saved ${changed.join(', ') || 'no changes'}`, (c) => ({ ...c, visaFees: d.value }));
+    say('Saved and logged. Course pages show the new fees from now.');
+    d.stop();
+  };
+  return (
+    <>
+      <PageHead title="Visa and health fees" lead="What a student pays to study in each destination besides tuition and living costs. The course page lists them under Other costs and adds them to the first year, all in.">
+        <EditBar editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={d.stop} onSave={save} />
+      </PageHead>
+      <Panel flush>
+        <div className="stab-wrap">
+          <table className="itab cfg__tab">
+            <thead>
+              <tr>
+                <th scope="col">Destination</th>
+                <th scope="col">Fee</th>
+                <th scope="col">Amount</th>
+                <th scope="col">How often</th>
+                <th scope="col">Where it comes from</th>
+                <th scope="col">Last changed</th>
+                {ed && <th scope="col"><span className="vh">Remove</span></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {d.value.map((f, i) => (
+                <tr key={f.id}>
+                  <td className="cfg__strong">
+                    {ed ? (
+                      <TextInput id={`vfd-${i}`} aria-label="Destination" className="cfg__cellinput" value={f.country} onChange={(e) => upd(i, { country: e.target.value })} />
+                    ) : (
+                      <>
+                        <span aria-hidden="true">{FLAG[f.country as keyof typeof FLAG] ?? ''}</span> {f.country}
+                      </>
+                    )}
+                  </td>
+                  <td>{ed ? <TextInput id={`vfl-${i}`} aria-label={`${f.country}: fee`} className="cfg__cellinput" value={f.label} onChange={(e) => upd(i, { label: e.target.value })} /> : f.label}</td>
+                  <td>
+                    {ed ? (
+                      <span className="cfg__money">
+                        <TextInput id={`vfc-${i}`} aria-label={`${f.label}: currency`} className="cfg__cellinput cfg__code" maxLength={3} value={f.currency} onChange={(e) => upd(i, { currency: e.target.value.toUpperCase() })} />
+                        <TextInput id={`vfa-${i}`} aria-label={`${f.label}: amount`} inputMode="numeric" className="cfg__cellinput cfg__num" value={fmt(f.amount)} onChange={(e) => upd(i, { amount: num(e.target.value) })} />
+                      </span>
+                    ) : (
+                      <span className="num">
+                        {f.currency} {f.amount.toLocaleString('en-GB')}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {ed ? (
+                      <select id={`vfp-${i}`} aria-label={`${f.label}: how often`} className="cfg__cellinput" value={f.per} onChange={(e) => upd(i, { per: e.target.value as VisaFee['per'] })}>
+                        <option value="once">Once</option>
+                        <option value="year">Every year</option>
+                      </select>
+                    ) : f.per === 'year' ? (
+                      'Every year'
+                    ) : (
+                      'Once'
+                    )}
+                  </td>
+                  <td>{ed ? <TextInput id={`vfb-${i}`} aria-label={`${f.label}: where it comes from`} className="cfg__cellinput" value={f.basis} onChange={(e) => upd(i, { basis: e.target.value })} /> : <span className="cfg__muted">{f.basis}</span>}</td>
+                  <td className="cfg__muted num">{when(f.updated)}</td>
+                  {ed && (
+                    <td className="cfg__acts">
+                      <button type="button" className="icon-btn" aria-label={`Remove ${f.label || 'this row'}`} onClick={() => d.set((x) => x.filter((_, j) => j !== i))}>
+                        <Icon name="close" size={16} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {ed && (
+          <div className="cfg__addrow">
+            <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => d.set((l) => [...l, { id: `vf${Date.now()}`, country: '', currency: '', label: '', amount: 0, per: 'once', basis: '', updated: Date.now() }])}>
+              Add fee
+            </Button>
+          </div>
+        )}
+      </Panel>
+      <History log={cfg.log} area="Visa and health fees" />
     </>
   );
 }

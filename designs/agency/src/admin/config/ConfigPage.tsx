@@ -1,88 +1,16 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { ConfigSection } from '../portal/model';
-import {
-  sampleBdm,
-  sampleEmails,
-  sampleQueues,
-  sampleUsers,
-  sampleDocRules,
-  sampleFilters,
-  sampleLists,
-  sampleLiving,
-  sampleLog,
-  samplePerms,
-  sampleRates,
-  sampleRegions,
-  sampleRpDocs,
-  sampleRules,
-  REGION_BDM,
-  regionQueueName,
-  type BdmRow,
-  type DocRule,
-  type EmailGroup,
-  type FilterSet,
-  type Living,
-  type LogEntry,
-  type Perms,
-  type Queue,
-  type Rate,
-  type Region,
-  type RouteRule,
-  type RpDocRule,
-  type User,
-} from '../data/config';
+import { type Cfg } from '../data/store';
+export { sampleCfg, type Cfg } from '../data/store';
 import { Regions, Permissions, Queues } from './Roles';
 import { Users } from './Users';
 import { Emails } from './Emails';
 import { Bdm } from './Bdm';
-import { Currency, LivingCosts } from './Course';
+import { Currency, LivingCosts, VisaFees } from './Course';
 import { Routing } from './Routing';
 import { Documents } from './Documents';
 import { Logs } from './Other';
 import './config.css';
-
-/** Everything GSP Admin configures, held by its portal; each change is logged. */
-export type Cfg = {
-  users: User[];
-  regions: Region[];
-  perms: Perms;
-  queues: Queue[];
-  emails: EmailGroup[];
-  bdm: BdmRow[];
-  rates: Rate[];
-  living: Living[];
-  rules: RouteRule[];
-  lists: Record<string, string[]>;
-  regionBdm: Record<string, string>;
-  /** Each region's Admissions queue (a queue id). */
-  regionQueue: Record<string, string>;
-  docRules: DocRule[];
-  rpDocs: RpDocRule[];
-  filters: FilterSet[];
-  log: LogEntry[];
-};
-export const sampleCfg = (): Cfg => {
-  const users = sampleUsers();
-  const queues = sampleQueues(users);
-  return {
-    users,
-    regions: sampleRegions(),
-    perms: samplePerms(),
-    queues,
-    emails: sampleEmails(users),
-    bdm: sampleBdm(),
-    rates: sampleRates(),
-    living: sampleLiving(),
-    rules: sampleRules(),
-    lists: sampleLists(),
-    regionBdm: { ...REGION_BDM },
-    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === regionQueueName(r))?.id ?? ''])),
-    docRules: sampleDocRules(),
-    rpDocs: sampleRpDocs(),
-    filters: sampleFilters(),
-    log: sampleLog(),
-  };
-};
 
 /** What every configuration page gets. `change` saves and logs in one go; `say` confirms it. */
 export type ConfigProps = {
@@ -114,6 +42,7 @@ export function ConfigPage({ section, cfg, setCfg, me, say }: { section: ConfigS
     bdm: <Bdm {...p} />,
     currency: <Currency {...p} />,
     living: <LivingCosts {...p} />,
+    visa: <VisaFees {...p} />,
     routing: <Routing {...p} />,
     documents: <Documents {...p} />,
     logs: <Logs {...p} />,
@@ -121,5 +50,5 @@ export function ConfigPage({ section, cfg, setCfg, me, say }: { section: ConfigS
   return <div className="ipage cfg">{pages[section]}</div>;
 }
 
-/** The config state, for the portal. */
-export const useCfg = () => useState(sampleCfg);
+/** The config state, for the portal: Admin's saved settings, which every role reads (admin/data/store.ts). */
+export { useAdminCfg as useCfg } from '../data/store';
