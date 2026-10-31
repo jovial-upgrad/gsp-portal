@@ -30,6 +30,8 @@ import { useLinkedData } from '../../proto/link';
 import '../signup/signup.css';
 import './portal.css';
 import { useLiveApps } from '../../data/live';
+import { useSharedDb } from '../../institution/data/store';
+import { bapDecisions, signupId, syncSignup } from '../../institution/data/rpverify';
 import { setSession } from '../../data/downloads';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -161,6 +163,18 @@ export function Portal({
     scrollTop();
   };
   const [docsOpen, setDocsOpen] = useState(false);
+  // a new sign-up is on GSP's Recruitment partners list from the start (W5), and BAP's decisions on its documents
+  // come back here (W4): data/rpverify.ts
+  const [db] = useSharedDb();
+  useEffect(() => {
+    if (join) syncSignup(join);
+  }, [join]);
+  const rpRec = join ? db.rps.find((r) => r.id === signupId(join)) : undefined;
+  useEffect(() => {
+    if (!join || !rpRec || !set) return;
+    const next = bapDecisions(join, rpRec);
+    if (next) set(() => next);
+  }, [rpRec]); // eslint-disable-line react-hooks/exhaustive-deps
   const access = accessOf(join);
   const phase = phaseOf(join);
   const needs = join ? sentDocs(join).map((d) => d.need) : [];

@@ -44,4 +44,6 @@ export type PageProps = {
   scrollTop: () => void;
   /** Who's signed in. */
   me: string;
+  /** GSP · BAP (and Admin) verify new recruitment partners' documents on Recruitment partners (W4). */
+  canVerify?: boolean;
 };
