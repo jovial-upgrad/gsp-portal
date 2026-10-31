@@ -1,3 +1,4 @@
+import { DateInput } from '../../components/forms';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -345,7 +346,8 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
   useEffect(() => {
     window.setTimeout(() => ref.current?.focus(), 60);
   }, []);
-  const ok = title.trim().length > 1 && text.trim().length > 4;
+  const dueOk = !due || /^\d{4}-\d{2}-\d{2}$/.test(due);
+  const ok = title.trim().length > 1 && text.trim().length > 4 && dueOk;
   return (
     <motion.form
       className="greq"
@@ -388,16 +390,14 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
       </label>
       <label className="greq__field greq__field--due" htmlFor="greq-due">
         <span className="greq__label">
-          Due <span className="muted">(optional)</span>
+          Due
         </span>
-        <span className="control">
-          <input id="greq-due" className="control__input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-        </span>
+        <DateInput id="greq-due" value={due} invalid={(tried || due.length >= 10) && !dueOk} onChange={setDue} />
       </label>
       {tried && !ok && (
         <p className="gmail__err" role="alert">
           <Icon name="alert" size={14} />
-          {title.trim().length < 2 ? 'Add a title.' : 'Say what’s needed.'}
+          {title.trim().length < 2 ? 'Enter the title.' : text.trim().length < 5 ? 'Say what’s needed.' : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.'}
         </p>
       )}
       <div className="greq__acts">
@@ -477,7 +477,8 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
   useEffect(() => {
     window.setTimeout(() => first.current?.focus(), 60);
   }, []);
-  const ok = title.trim().length > 1 && items.every((x) => x.text.trim().length >= 5);
+  const dueOk = !due || /^\d{4}-\d{2}-\d{2}$/.test(due);
+  const ok = title.trim().length > 1 && items.every((x) => x.text.trim().length >= 5) && dueOk;
   const set = (i: number, patch: Partial<Pick<Cond, 'text'>>) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   return (
     <motion.form
@@ -538,16 +539,14 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
       </Button>
       <label className="greq__field greq__field--due" htmlFor="gcond-due">
         <span className="greq__label">
-          Due <span className="muted">(optional)</span>
+          Due
         </span>
-        <span className="control">
-          <input id="gcond-due" className="control__input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-        </span>
+        <DateInput id="gcond-due" value={due} invalid={(tried || due.length >= 10) && !dueOk} onChange={setDue} />
       </label>
       {tried && !ok && (
         <p className="gmail__err" role="alert">
           <Icon name="alert" size={14} />
-          {title.trim().length < 2 ? 'Add a title.' : 'Write each condition in a few words.'}
+          {title.trim().length < 2 ? 'Enter the title.' : !items.every((x) => x.text.trim().length >= 5) ? 'Write each condition in a few words.' : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.'}
         </p>
       )}
       <div className="greq__acts">

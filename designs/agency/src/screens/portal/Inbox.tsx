@@ -1,3 +1,4 @@
+import { fmtDate } from '../../data/format';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -26,7 +27,7 @@ function agoLabel(at: number) {
   const d = Math.floor(h / 24);
   if (d === 1) return 'Yesterday';
   if (d < 7) return `${d} days ago`;
-  return new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return fmtDate(at, { list: true });
 }
 const isToday = (at: number) => new Date(at).toDateString() === new Date().toDateString();
 /** "Deakin", "Wollongong", "RMIT": a university's name without "University (of)". */

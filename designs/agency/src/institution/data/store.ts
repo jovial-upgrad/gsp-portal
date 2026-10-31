@@ -4,6 +4,7 @@
  * universities with their live courses, territory and active campuses. Shared across roles in this window; a reload
  * starts from the sample again (the catalogue is too large to keep in the browser).
  */
+import { fmtDate } from '../../data/format';
 import { useSyncExternalStore } from 'react';
 import { setCatalogueReaders, setUniScholarships, type Course, type University } from '../../data/courses';
 import { sampleAnnouncements, type Announcement } from './announcements';
@@ -69,4 +70,4 @@ export function searchCatalogue() {
 export const patch = <T extends { id: string }>(list: T[], id: string, fn: (x: T) => T) => list.map((x) => (x.id === id ? fn(x) : x));
 
 /** "29 Oct, 14:02", for logs. */
-export const stamp = (d = new Date()) => `${d.getDate()} ${d.toLocaleString('en-GB', { month: 'short' })}, ${d.toTimeString().slice(0, 5)}`;
+export const stamp = (d = new Date()) => `${fmtDate(d, { year: false })}, ${d.toTimeString().slice(0, 5)}`;

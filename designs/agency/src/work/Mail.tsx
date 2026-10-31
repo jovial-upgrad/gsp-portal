@@ -11,6 +11,7 @@
  * Three panes on a wide screen (views, conversations, the conversation); one at a time on a phone.
  * Keys: j / k next and previous, e done, r reply.
  */
+import { fmtWhen } from '../data/format';
 import { regionQueueId } from './seed';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, update, recordById, nameOf, queueById } from './store';
@@ -387,7 +388,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
           <div key={m.id} className={`mx__msg ${m.dir === 'out' ? 'is-out' : ''}`}>
             <p className="mx__msghead">
               <b>{m.dir === 'out' ? `GSP · ${m.from[0]}` : m.from[0]}</b> <span className="muted">&lt;{m.from[1]}&gt;{m.via === 'chat' ? ' · in the RP chat' : ''}</span>
-              <span className="muted mx__when">{new Date(m.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="muted mx__when">{fmtWhen(m.at)}</span>
             </p>
             <pre className="gspx-pre">{m.body}</pre>
             {m.attachments?.length > 0 && <p className="mx__att">{m.attachments.map((a) => <span key={a} className="cfg__chip cfg__chip--plain"><Icon name="attach" size={12} /> {a}</span>)}</p>}

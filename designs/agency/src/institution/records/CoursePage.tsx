@@ -172,7 +172,7 @@ function SaveBar({ show, onDiscard, onSave, error, cancel = false, note }: { sho
         {cancel ? 'Cancel' : 'Discard'}
       </Button>
       <Button size="sm" onClick={onSave}>
-        Save changes
+        Save
       </Button>
     </div>
   );

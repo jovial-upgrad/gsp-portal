@@ -103,12 +103,7 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
           <Txt
             key={p.key}
             id={id(p.key)}
-            label={
-              <>
-                {p.label}
-                {p.optional && <span className="field__optional"> (optional)</span>}
-              </>
-            }
+            label={p.label}
             value={t.parts[p.key] ?? ''}
             read={read(p.key)}
             inputMode="decimal"

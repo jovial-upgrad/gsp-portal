@@ -1,3 +1,4 @@
+import { fmtDate } from '../../data/format';
 import { UniNews } from '../../components/UniNews';
 import { costsOf } from '../../admin/data/store';
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
@@ -12,7 +13,7 @@ import type { CourseSearch } from './search';
 import { Box, Tile, UniLogo, UniMark, campusLabel, duration } from './parts';
 import { CampusLife, photosOf } from './CampusLife';
 
-const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const day = (iso: string) => fmtDate(iso.length > 10 ? new Date(iso) : iso);
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 const TABS = [
@@ -337,7 +338,7 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
             return (
               <li key={i.month} className={`cm-intake ${st === 'closed' ? 'is-closed' : ''}`}>
                 <span className="cm-cal" aria-hidden="true">
-                  <span className="cm-cal__m">{by.toLocaleDateString('en-GB', { month: 'short' }).slice(0, 3)}</span>
+                  <span className="cm-cal__m">{fmtDate(by, { year: false }).split(' ')[1]}</span>
                   <span className="cm-cal__d">{by.getDate()}</span>
                 </span>
                 <span className="cm-intake__t">

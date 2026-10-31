@@ -23,6 +23,7 @@ export const AREAS = [
 ] as const;
 export type Area = (typeof AREAS)[number];
 
+import { fmtMoney } from './format';
 import canberraLogo from '../assets/unis/canberra.png';
 import canberraMark from '../assets/unis/canberra-mark.png';
 import uniscLogo from '../assets/unis/unisc.svg';
@@ -464,7 +465,8 @@ for (const a of DATASET.apps) {
 /** What the agency earns: 70% of GSP's commission on first-year tuition after any scholarship. */
 export const earnOf = (c: Course) => Math.round(((c.tuition - c.scholarship) * c.rate * 0.7) / 100 / 10) * 10;
 
-export const money = (n: number, cur: string) => `${cur} ${n.toLocaleString('en-GB')}`;
+/** One money format everywhere (QC, 1 Nov): "INR 6,69,598", "AUD 2,295.00". */
+export const money = (n: number, cur: string) => fmtMoney(n, cur);
 
 /** Days from today to a date (negative once it's passed). */
 export const daysTo = (iso: string) => Math.ceil((new Date(iso + 'T23:59:59').getTime() - Date.now()) / 86_400_000);

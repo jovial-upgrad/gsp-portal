@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { SelectInput, TextInput } from '../../components/forms';
+import { DateInput, SelectInput } from '../../components/forms';
+
+const isIso = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
 import { FLAG } from '../../data/courses';
 import { fullName, type Member, type Student } from '../../data/students';
 import { shortDate } from '../../data/dates';
@@ -79,8 +81,9 @@ export function AppList({
       if (st.who && s?.counsellor !== st.who) return false;
       if (st.intake && a.intake !== st.intake) return false;
       if (st.stage && stageOf(a) !== Number(st.stage)) return false;
-      if (st.from && a.created < dayStart(st.from)) return false;
-      if (st.to && a.created > dayEnd(st.to)) return false;
+      // a typed date only filters once it's a whole date (DD/MM/YYYY)
+      if (isIso(st.from) && a.created < dayStart(st.from)) return false;
+      if (isIso(st.to) && a.created > dayEnd(st.to)) return false;
       if (ql && !`${a.id}${a.uniRef ?? ''}${s ? fullName(s) + s.passport : ''}${c.name}${c.uni.name}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
       return true;
     })
@@ -94,7 +97,8 @@ export function AppList({
   const intakes = [...new Set(apps.map((a) => a.intake))];
   // the advanced filters open when one is set, and stay where the agency left them
   const [advOpen, setAdvOpen] = useState(advanced > 0);
-  const badRange = !!(st.from && st.to && st.from > st.to);
+  const badRange = !!(isIso(st.from) && isIso(st.to) && st.from > st.to);
+  const badDate = (st.from.length >= 10 && !isIso(st.from)) || (st.to.length >= 10 && !isIso(st.to));
 
   // the table as it stands (its filters and order) as a CSV file, one row per application, the same columns
   const exportCsv = () => {
@@ -236,15 +240,15 @@ export function AppList({
                       Started between
                     </span>
                     <div className="aadv__range">
-                      <TextInput id="ap-from" type="date" aria-label="Start date" value={st.from} max={st.to || undefined} invalid={badRange} onChange={(e) => set((p) => ({ ...p, from: e.target.value }))} />
+                      <DateInput id="ap-from" aria-label="Start date" value={st.from} invalid={badRange || (st.from.length >= 10 && !isIso(st.from))} aria-describedby={badRange || badDate ? 'ap-dates-err' : undefined} onChange={(from) => set((p) => ({ ...p, from }))} />
                       <span className="aadv__and" aria-hidden="true">
                         and
                       </span>
-                      <TextInput id="ap-to" type="date" aria-label="End date" value={st.to} min={st.from || undefined} invalid={badRange} onChange={(e) => set((p) => ({ ...p, to: e.target.value }))} />
+                      <DateInput id="ap-to" aria-label="End date" value={st.to} invalid={badRange || (st.to.length >= 10 && !isIso(st.to))} aria-describedby={badRange || badDate ? 'ap-dates-err' : undefined} onChange={(to) => set((p) => ({ ...p, to }))} />
                     </div>
-                    {badRange && (
+                    {(badRange || badDate) && (
                       <p className="aadv__err" id="ap-dates-err" role="alert">
-                        The end date is before the start date.
+                        {badDate ? 'Enter the dates as DD/MM/YYYY, like 05/11/2026.' : 'The end date has to be after the start date.'}
                       </p>
                     )}
                   </div>

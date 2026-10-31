@@ -1,3 +1,4 @@
+import { fmtMoney } from '../../data/format';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -149,8 +150,8 @@ export function FindCourses({
           {/* optionally, one of the agency's students: their country and state then fill the bar below */}
           <div className={`fsearch__who ${s.studentId ? '' : 'is-empty'}`}>
             <Icon name="user" size={20} />
-            <select id="fc-student" className="fsearch__who-select" aria-label="Student this search is for (optional)" value={s.studentId ?? ''} onChange={(e) => pickStudent(e.target.value)}>
-              <option value="">Select student (optional)</option>
+            <select id="fc-student" className="fsearch__who-select" aria-label="Student this search is for" value={s.studentId ?? ''} onChange={(e) => pickStudent(e.target.value)}>
+              <option value="">Select student</option>
               {/* with none to pick, the list still opens and says why */}
               {!students.length && (
                 <option value="none" disabled>
@@ -564,7 +565,7 @@ function activeFilters(s: CourseSearch) {
   if (f.maxFee)
     out.push({
       key: 'maxFee',
-      label: f.feeLakh ? `Tuition up to ₹${f.feeLakh} lakh (≈ ${cur} ${f.maxFee.toLocaleString('en-GB')})` : `Tuition up to ${cur} ${f.maxFee.toLocaleString('en-GB')}`,
+      label: f.feeLakh ? `Tuition up to ₹${f.feeLakh} lakh (≈ ${fmtMoney(f.maxFee, cur)})` : `Tuition up to ${fmtMoney(f.maxFee, cur)}`,
     });
   if (f.maxIelts) out.push({ key: 'maxIelts', label: `IELTS up to ${f.maxIelts.toFixed(1)}` });
   TOGGLES.forEach(([k, t]) => f[k] && out.push({ key: k, label: t }));

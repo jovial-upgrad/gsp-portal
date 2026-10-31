@@ -1,4 +1,5 @@
 /** The portal around a partner: which sections they can use, and the verification that opens the rest. */
+import { fmtDate } from '../../data/format';
 import type { IconName } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import { SAMPLE, accountCreated, type SignupState } from '../../screens/signup/model';
@@ -204,7 +205,7 @@ export function sentDocs(s: SignupState) {
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 const time = (d: Date) => d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
-const day = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+const day = (d: Date) => fmtDate(d, { year: false });
 
 /** "today, 10:42 am" or "24 Oct, 10:42 am" */
 export function whenLabel(ts?: number) {
