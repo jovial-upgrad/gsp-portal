@@ -306,6 +306,17 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - Open, in Jovial's sheet *GSP portal: inputs from Jovial*: permissions, sales regions, nationality map, routing rules, queues, mailboxes, and 23 questions.
   - Parked by Jovial: **grade conversion** (percentage to GPA, CGPA to percentage). Pick it up at the end.
 
+- [x] Jovial, 31 Oct (night, his *Pending Questions* sheet): **his answers built in** (31 Oct, COMMIT)
+  - **Held changes** removed (it was the queue of course edits waiting for Institution's approval; no longer a permission row or a screen idea).
+  - **Permissions** are his matrix (Admin, View Only, Finance, Institution, Institution Ops, Recruitment, Recruitment Ops, Admission, Admission Ops).
+  - **Sales regions:** Myanmar and Bhutan are separate; contacts and default BDMs as in his table; Rest of world and Direct kept. **Queues:** one **SEA Admissions** queue (Vietnam, Indonesia/Malaysia/Thailand, Myanmar, Bhutan) led by Truc; Philippines led by Kimberley; China led by Caixia; Admission Ops also takes unmatched mail. Nationality map: UAE, Canada and US go to Rest of world.
+  - **Mailboxes:** the five real ones (admin.gsp@, bap.gsp@, commissions.gsp@, data-team.gsp@, gsp.admissions@), each feeding its queues; everyone in those queues sees and sends; Admin sees all.
+  - **Staff:** sumit.singh only; Faryal Recruitment only; Kartik Recruitment Ops; Satinder Admission Ops; Riya Shah owns Ahmedabad; every person has a phone and title (sample).
+  - **Courses:** go live with just an intake and its deadline; an intake up to 2 weeks past its deadline shows as **Late: likelihood is low** (Admissions decides); accreditation, careers and the MBA work-experience field removed; study mode and tags come from the course record; optional **CRICOS course code** on Australian courses.
+  - **Acceptance documents by destination** in Document configuration (CoE, CAS, I-20, LOA and PAL, Offer of Place, Letter of acceptance).
+  - **Announcements** for a university show on its course pages in course search (RP: only those meant for RPs).
+  - **Priority market chip** on the Applications list and the application page, GSP roles only, when the student's nationality is a priority market for that university (from the university's territory).
+
 
 ## New pages
 

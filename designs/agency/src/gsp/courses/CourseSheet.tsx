@@ -1,3 +1,4 @@
+import { UniNews } from '../../components/UniNews';
 import { costsOf } from '../../admin/data/store';
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -215,7 +216,9 @@ export function CourseSheet({
 
 function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canApply: boolean; agency: string }) {
   const next = c.intakes.find((i) => intakeState(i) !== 'closed');
-  const tags = [c.level, c.area, c.uni.group, c.placement && 'Work placement', c.pathway && 'Pathway available'].filter(Boolean) as string[];
+  // the course's tags from the Institution Team's record, and its CRICOS code (Jovial, 31 Oct)
+  const rec = c as Course & { tags?: string[]; code?: string };
+  const tags = [...(rec.tags ?? []), c.uni.country === 'Australia' && c.cricos ? `CRICOS ${c.cricos}` : ''].filter(Boolean) as string[];
   return (
     <div className="cm-band">
       <div className="csheet__tags">
@@ -238,7 +241,7 @@ function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canAppl
         <div className="cs-stat">
           <dt>Duration</dt>
           <dd className="cs-stat__v">{duration(c.months)}</dd>
-          <dd className="cs-stat__sub">Full time, on campus</dd>
+          <dd className="cs-stat__sub">{c.mode}</dd>
         </div>
         <div className="cs-stat">
           <dt>Tuition a year</dt>
@@ -350,6 +353,9 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
   const similar = similarTo(c, s);
   // in pairs, row by row, so the cards beside each other start and end together
   return (
+    <>
+      {/* the university's announcements (Jovial, 31 Oct) */}
+      <UniNews c={c} audience="GSP" />
     <div className="cm-grid">
       <Box id="cs-intakes" icon="calendar" title="Intakes">
         <ol className="cm-intakes">
@@ -364,7 +370,7 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
                 </span>
                 <span className="cm-intake__t">
                   <span className="cm-intake__name">{i.month} intake</span>
-                  <span className="cm-intake__by">{st === 'closed' ? `Closed ${day(i.deadline)}` : `Apply by ${day(i.deadline)}`}</span>
+                  <span className="cm-intake__by">{st === 'closed' ? `Closed ${day(i.deadline)}` : st === 'late' ? `Closed ${day(i.deadline)}: likelihood is low` : `Apply by ${day(i.deadline)}`}</span>
                   {intakeDates(c.id, i.month)?.start && (
                     <span className="cm-intake__by">
                       Starts {day(intakeDates(c.id, i.month)!.start)} · Census {day(intakeDates(c.id, i.month)!.census)}
@@ -403,25 +409,9 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
 
       <Box id="cs-about" icon="cap" title="About the course">
         <dl className="cdl">
-          <Row k="Study mode" v={`Full time, on campus, ${duration(c.months)}`} />
-          {c.cricos && <Row k="CRICOS code" v={c.cricos} />}
-          <Row k="Work placement" v={c.placement ? 'Included' : 'Not included'} ok={c.placement} />
-          <Row k="Professional recognition" v={c.recognition ?? 'None listed'} />
+          <Row k="Study mode" v={`${c.mode}, ${duration(c.months)}`} />
           <Row k="Post-study work visa" v={c.psw ? 'Eligible' : 'Not eligible'} ok={c.psw} />
         </dl>
-        <div className="cs-careers">
-          <p className="cs-careers__k">
-            <Icon name="briefcase" size={16} />
-            Graduates often work as
-          </p>
-          <ul className="cs-chips">
-            {c.careers.map((x) => (
-              <li key={x} className="tag">
-                {x}
-              </li>
-            ))}
-          </ul>
-        </div>
       </Box>
 
       {similar.length > 0 && (
@@ -449,6 +439,7 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
         </Box>
       )}
     </div>
+    </>
   );
 }
 

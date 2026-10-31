@@ -13,7 +13,7 @@ export const ago = (d, h = 0) => Date.now() - d * DAY - h * 36e5;
 
 export const REGIONS = [
   'India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan',
-  'Indonesia, Malaysia and Thailand', 'Myanmar and Bhutan', 'Australia',
+  'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia',
   'Philippines', 'Africa', 'Latin America and Europe', 'China',
   'Rest of world', 'Direct',
 ];
@@ -22,7 +22,7 @@ export const REGIONS = [
 export const CALENDARS = [
   { id: 'cal-mon-sat', name: 'Monday to Saturday', days: [1, 2, 3, 4, 5, 6], regions: ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Pakistan'],
     holidays: [['2026-11-08', 'Diwali'], ['2026-12-25', 'Christmas']] },
-  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], regions: ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar and Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'],
+  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], regions: ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'],
     holidays: [['2026-12-25', 'Christmas'], ['2027-01-01', 'New Year’s Day']] },
 ];
 
@@ -74,6 +74,9 @@ export const KINDS = [
 
 const inRegion = (region) => STAFF.filter((s) => s.role === 'Admission' && s.regions.includes(region)).map((s) => s.id);
 const withRole = (role) => STAFF.filter((s) => s.role === role).map((s) => s.id);
+const SEA = ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan'];
+/** The Admissions queue an application's region goes to (Jovial's sheet, 31 Oct). */
+export const regionQueueId = (region) => (SEA.includes(region) ? 'q-adm-sea' : region === 'Rest of world' || region === 'Direct' ? 'q-adm-global' : 'q-adm-' + String(region || '').toLowerCase().replace(/\W+/g, '-'));
 const regionalQueue = (region, leader, members = inRegion(region).filter((id) => id !== leader), extra = {}) => ({
   id: 'q-adm-' + region.toLowerCase().replace(/\W+/g, '-'),
   name: region + ' Admissions', kind: 'region', region, leader, members,
@@ -91,21 +94,18 @@ export const QUEUES = [
   regionalQueue('Africa', 'u-kamrun-nahar'),
   regionalQueue('Nepal', 'u-supriya-shrestha'),
   regionalQueue('Sri Lanka', 'u-subodya-suraweera'),
-  regionalQueue('Vietnam', 'u-truc-nguyen'),
-  regionalQueue('Philippines', 'u-truc-nguyen'),
-  regionalQueue('Myanmar and Bhutan', 'u-truc-nguyen'),
-  regionalQueue('Indonesia, Malaysia and Thailand', 'u-truc-nguyen'),
+  // Jovial's Queues tab (31 Oct): South-East Asia is one queue; Rest of world and Direct share Global Admissions
+  { ...regionalQueue('SEA', 'u-truc-nguyen', [...new Set(SEA.flatMap(inRegion))].filter((id) => id !== 'u-truc-nguyen')), name: 'SEA Admissions', regions: SEA },
+  regionalQueue('Philippines', 'u-kimberly-olaes'),
   regionalQueue('Australia', 'u-jo-qiu'),
   regionalQueue('China', 'u-jo-qiu'),
   regionalQueue('Latin America and Europe', 'u-valentina-castillo'),
-  regionalQueue('Rest of world', 'u-tasha-tandon'),
-  regionalQueue('Direct', 'u-tasha-tandon'),
+  { ...regionalQueue('Global', 'u-tasha-tandon', withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon')), name: 'Global Admissions', regions: ['Rest of world', 'Direct'] },
   { id: 'q-rp-ops', name: 'Recruitment Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('Recruitment Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'round-robin', cover: 'leader', sla: 2, kinds: ['k-rp-verify', 'k-rp-change'] },
   { id: 'q-institution', name: 'Institution', kind: 'team', leader: 'u-matt-beazley', members: withRole('Institution').filter((id) => id !== 'u-matt-beazley'), assign: 'record-owner', cover: 'leader', sla: 5, kinds: ['k-renew', 'k-golive'] },
   { id: 'q-inst-ops', name: 'Institution Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('Institution Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'round-robin', cover: 'queue', sla: 5, kinds: ['k-course'] },
-  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'leader-assigns', cover: 'leader', sla: 1, kinds: ['k-qc', 'k-announce', 'k-escalation'] },
+  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'leader-assigns', cover: 'leader', sla: 1, kinds: ['k-qc', 'k-announce', 'k-escalation', 'k-mail'] },
   { id: 'q-finance', name: 'Finance', kind: 'team', leader: 'u-suman1-verma', members: withRole('Finance').filter((id) => id !== 'u-suman1-verma'), assign: 'members-pick', cover: 'queue', sla: 2, makerChecker: true, kinds: ['k-terms', 'k-check', 'k-exception', 'k-payout'] },
-  { id: 'q-mail', name: 'Unmatched mail', kind: 'team', leader: 'u-tasha-tandon', members: ['u-ashu-rajpal'], assign: 'members-pick', cover: 'leader', sla: 1, kinds: ['k-mail'] },
   { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial-lejo', members: [], assign: 'leader-assigns', cover: 'leader', sla: 1, kinds: [] },
 ];
 
@@ -148,7 +148,7 @@ export const RULES = [
   { id: 'r11', on: true, name: 'Draft courses', record: 'Course', when: 'A course is in draft for 7 days', task: 'Finish and publish [record]', to: 'q-inst-ops', who: 'round-robin', kind: 'k-course', sla: 5, closes: 'The course is published' },
   { id: 'r12', on: true, name: 'Commission terms missing', record: 'Commission', when: 'An agreement is signed and no terms are entered', task: 'Enter commission terms for [record]', to: 'q-finance', who: 'members-pick', kind: 'k-terms', sla: 2, closes: 'Terms entered and checked' },
   { id: 'r13', on: true, name: 'Change waiting for a checker', record: 'Commission', when: 'Terms, a notice or a scheme changed', task: 'Check the change to [record]', to: 'q-finance', who: 'not-maker', kind: 'k-check', sla: 1, closes: 'A different person approves or rejects it' },
-  { id: 'r14', on: true, name: 'Email not matched', record: 'Email', when: 'AI confidence below 80%', task: 'Match this email to a record', to: 'q-mail', who: 'members-pick', kind: 'k-mail', sla: 1, closes: 'Matched or marked not needed' },
+  { id: 'r14', on: true, name: 'Email not matched', record: 'Email', when: 'AI confidence below 80%', task: 'Match this email to a record', to: 'q-adm-ops', who: 'members-pick', kind: 'k-mail', sla: 1, closes: 'Matched or marked not needed' },
   { id: 'r15', on: true, name: 'SLA breached', record: 'Any', when: 'A task is overdue by 2 working days', task: 'Escalated: [record]', to: 'q-adm-ops', who: 'leader-assigns', kind: 'k-escalation', sla: 1, closes: 'The original task is done' },
 ];
 
@@ -229,8 +229,8 @@ export const TASKS = [
   t('T-1021', 'r13', 'k-check', 'cm-uk-promo', 'q-finance', null, ago(0, 7), { maker: 'u-suman1-verma' }),
   t('T-1028', null, 'k-exception', 'cm-jcub', 'q-finance', 'u-suman1-verma', ago(1)),
   t('T-1022', null, 'k-payout', 'cm-payout', 'q-finance', 'u-suman1-verma', ago(0, 2)),
-  t('T-1023', 'r14', 'k-mail', 'mail-1', 'q-mail', null, ago(0, 9)),
-  t('T-1024', 'r14', 'k-mail', 'mail-2', 'q-mail', 'u-ashu-rajpal', ago(1, 2)),
+  t('T-1023', 'r14', 'k-mail', 'mail-1', 'q-adm-ops', null, ago(0, 9)),
+  t('T-1024', 'r14', 'k-mail', 'mail-2', 'q-adm-ops', 'u-ashu-rajpal', ago(1, 2)),
   t('T-1025', 'r15', 'k-escalation', 'GSP-24097', 'q-adm-ops', 'u-tasha-tandon', ago(1), { note: 'Chase on Wollongong is overdue.' }),
 ];
 

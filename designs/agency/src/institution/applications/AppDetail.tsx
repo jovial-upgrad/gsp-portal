@@ -1,3 +1,4 @@
+import { PriorityChip } from '../../components/PriorityChip';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -336,6 +337,7 @@ export function AppDetail({
               <button type="button" className="ahead__stu" onClick={() => onOpenStudent(s.id)} title={`Open ${s.first}’s profile`}>
                 {fullName(s)}
               </button>
+              <PriorityChip a={a} s={s} />
             </h1>
             <p className="ahead__course">
               <UniMark u={c.uni} />

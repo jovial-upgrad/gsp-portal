@@ -1,3 +1,4 @@
+import { UniNews } from '../../components/UniNews';
 import { costsOf } from '../../admin/data/store';
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -217,9 +218,22 @@ export function CourseSheet({
 
 const MODE_NOTE: Record<Course['mode'], string> = { 'Full time': 'On campus', 'Part time': 'On campus', Blended: 'On campus and online', Online: 'Online only' };
 
+/** The course's tags and CRICOS code, from the Institution Team's course record (Jovial, 31 Oct). */
+const recordOf = (c: Course) => c as Course & { tags?: string[]; code?: string };
 function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canApply: boolean; agency: string }) {
+  const rec = recordOf(c);
   return (
     <div className="cm-band">
+      {(rec.tags?.length || (c.uni.country === 'Australia' && c.cricos)) && (
+        <div className="csheet__tags">
+          {rec.tags?.map((t) => (
+            <span key={t} className="tag">
+              {t}
+            </span>
+          ))}
+          {c.uni.country === 'Australia' && c.cricos && <span className="tag">CRICOS {c.cricos}</span>}
+        </div>
+      )}
       <dl className={`cs-stats ${s.studentView ? 'is-3' : ''}`}>
         <div className="cs-stat">
           <dt>Study mode</dt>
@@ -311,6 +325,9 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
   const similar = similarTo(c, s);
   // in pairs, row by row, so the cards beside each other start and end together
   return (
+    <>
+      {/* the university's announcements (Jovial, 31 Oct) */}
+      <UniNews c={c} audience="RP" />
     <div className="cm-grid">
       <Box id="cs-intakes" icon="calendar" title="Intakes">
         <ol className="cm-intakes">
@@ -325,7 +342,7 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
                 </span>
                 <span className="cm-intake__t">
                   <span className="cm-intake__name">{i.month} intake</span>
-                  <span className="cm-intake__by">{st === 'closed' ? `Closed ${day(i.deadline)}` : `Apply by ${day(i.deadline)}`}</span>
+                  <span className="cm-intake__by">{st === 'closed' ? `Closed ${day(i.deadline)}` : st === 'late' ? `Closed ${day(i.deadline)}: likelihood is low` : `Apply by ${day(i.deadline)}`}</span>
                   {intakeDates(c.id, i.month)?.start && (
                     <span className="cm-intake__by">
                       Starts {day(intakeDates(c.id, i.month)!.start)} · Census {day(intakeDates(c.id, i.month)!.census)}
@@ -387,6 +404,7 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
         </Box>
       )}
     </div>
+    </>
   );
 }
 

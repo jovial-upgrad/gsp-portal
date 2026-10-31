@@ -19,7 +19,7 @@ The agency portal prototype lives in `designs/agency/`. `README.md` there descri
 
 ## Asking Jovial for input
 
-- **Anything that needs Jovial's input goes in a Google Sheet** (Jovial, 31 Oct), not a doc or a chat list: [GSP portal: inputs from Jovial](https://docs.google.com/spreadsheets/d/1FssT6z-AQP6JNQdf64mcRtMt1sdZ3lkhpO_5gWhAHBQ/edit). Add a tab or rows there, prefilled with what the prototype uses today.
+- **Anything that needs Jovial's input goes in a Google Sheet** (Jovial, 31 Oct), not a doc or a chat list: his *Pending Questions* sheet (https://docs.google.com/spreadsheets/d/1juXEYGiEFImRorfnEksCvLn_H4XSGrsqjwWtJOUEzRk/edit). Add a tab or rows there, prefilled with what the prototype uses today. (The earlier sheet, *GSP portal: inputs from Jovial*, is answered.)
 
 ## Branches
 

@@ -21,7 +21,7 @@ export const SUBCATEGORIES: Partial<Record<(typeof ANN_CATEGORIES)[number], stri
 };
 export const USER_TYPES = ['GSP', 'RP', 'MP'] as const;
 export const PERMISSION_ROLES = ['Admissions', 'Admissions Head', 'BAP', 'Data', 'IP', 'Recruitment', 'Recruitment Head', 'Commissions & Finance', 'Super Admin', 'Leadership', 'Master Partner admin', 'RP admin', 'RP branch manager', 'RP counsellor'] as const;
-export const SALES_REGIONS = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Indonesia, Malaysia and Thailand', 'Myanmar and Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'] as const;
+export const SALES_REGIONS = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'] as const;
 export type AnnCategory = (typeof ANN_CATEGORIES)[number];
 export const ANN_STATUSES = ['Draft', 'Scheduled', 'Live', 'Expired', 'Withdrawn'] as const;
 export type AnnStatus = (typeof ANN_STATUSES)[number];

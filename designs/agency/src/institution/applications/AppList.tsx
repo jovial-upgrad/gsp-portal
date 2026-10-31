@@ -1,3 +1,4 @@
+import { PriorityChip } from '../../components/PriorityChip';
 import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -323,6 +324,7 @@ export function AppList({
                       </td>
                       <td role="cell" className="arow__stu">
                         <span className="arow__name">{s ? fullName(s) : 'Student removed'}</span>
+                        <PriorityChip a={a} s={s} />
                       </td>
                       <td role="cell" className="arow__course">
                         <span className="arow__cname" title={c.name}>

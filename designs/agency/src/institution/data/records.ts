@@ -343,7 +343,7 @@ const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
   admissions: sampleRegions().find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
 });
 /** Every other RP GSP's applications are with (data/dataset.ts), by Finance's id: signed partners, so their applications link here. */
-const COUNTRY_OF: Record<string, string> = { 'Indonesia, Malaysia and Thailand': 'Indonesia', 'Myanmar and Bhutan': 'Myanmar', Africa: 'Nigeria', 'Latin America and Europe': 'Colombia', Direct: 'Australia' };
+const COUNTRY_OF: Record<string, string> = { 'Indonesia, Malaysia and Thailand': 'Indonesia', Africa: 'Nigeria', 'Latin America and Europe': 'Colombia', Direct: 'Australia' };
 const datasetRps = (): RecruitmentPartner[] =>
   RPS.filter((r) => r.id !== 'R-TEST').map((r) => ({
     id: `rp-${r.id.toLowerCase()}`,

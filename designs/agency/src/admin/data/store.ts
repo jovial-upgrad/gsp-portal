@@ -92,7 +92,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v3'; // v3: visa and health fees (31 Oct)
+const KEY = 'gsp-admin-v4'; // v4: Jovial's sheet answers (31 Oct)
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {

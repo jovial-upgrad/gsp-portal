@@ -16,15 +16,12 @@ import { today } from '../data/records';
 export type CourseDraft = { uni: string; campus: string; name: string; code: string; level: Level | ''; area: Area | ''; mode: StudyMode };
 export const blankCourse: CourseDraft = { uni: '', campus: '', name: '', code: '', level: '', area: '', mode: 'Full time' };
 
-/** What a course still needs before it can be published. */
+/**
+ * What a course still needs before it can be published (Jovial, 31 Oct): only an intake with its application
+ * deadline. Everything else shows as "Not added" in Course search until the team enters it.
+ */
 export const missingOf = (c: CourseRec) =>
-  [
-    [c.durValue > 0, 'duration'],
-    [c.intakes.length > 0 && c.intakes.every((i) => i.deadline && c.dates[i.month]?.deposit), 'an intake with its deadlines'],
-    [c.fullFee > 0, 'full course fee'],
-    [c.academicRules.length > 0, 'an academic rule'],
-    [c.englishRules.length > 0, 'an English rule'],
-  ]
+  [[c.intakes.length > 0 && c.intakes.some((i) => !!i.deadline), 'an intake with its application deadline']]
     .filter(([ok]) => !ok)
     .map(([, k]) => k as string);
 

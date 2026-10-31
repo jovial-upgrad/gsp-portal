@@ -1112,3 +1112,11 @@
 @media (prefers-reduced-motion: reduce) {
   .star { transition: none; }
 }
+
+/* the university's announcements on a course's details (Jovial, 31 Oct) */
+.cs-news { margin-bottom: var(--sp-20); padding: var(--sp-14, 14px) var(--sp-16); border: 1px solid var(--line); border-left: 3px solid var(--brand, var(--line-strong)); border-radius: var(--r-sm); background: var(--surface); }
+.cs-news__h { margin: 0 0 var(--sp-8); font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
+.cs-news__list { display: grid; gap: var(--sp-12, 12px); margin: 0; padding: 0; list-style: none; }
+.cs-news__title { margin: 0; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
+.cs-news__body { margin: 2px 0 0; font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); overflow-wrap: anywhere; }
+.cs-news__meta { margin: 2px 0 0; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }

@@ -69,16 +69,15 @@ export type StatusKey =
   | 'enrolled'
   | 'closed';
 
-/** The acceptance document, by destination. */
-export const ENROL_DOC: Record<Destination, string> = { Australia: 'CoE', UK: 'CAS', USA: 'I-20', Canada: 'LOA', 'New Zealand': 'Offer of Place', Ireland: 'letter of acceptance' };
-export const ENROL_DOC_LONG: Record<Destination, string> = {
-  Australia: 'Confirmation of Enrolment (CoE)',
-  UK: 'Confirmation of Acceptance for Studies (CAS)',
-  USA: 'Form I-20',
-  Canada: 'Letter of Acceptance (LOA)',
-  'New Zealand': 'Offer of Place',
-  Ireland: 'Letter of acceptance',
-};
+/**
+ * The acceptance document, by destination (Jovial, 31 Oct): GSP · Admin › Document configuration's first Acceptance
+ * rule for the destination ("Confirmation of Enrolment (CoE)"). The short name is the part in brackets.
+ */
+const acceptRule = (d: string) =>
+  adminCfg().docRules.find((r) => r.on && r.stage === 'Acceptance' && r.by === 'GSP' && condOf(r).countries.includes(d))?.doc ?? 'Acceptance letter';
+const shortOf = (doc: string) => /\(([^)]+)\)\s*$/.exec(doc)?.[1] ?? doc;
+export const ENROL_DOC = new Proxy({} as Record<Destination, string>, { get: (_t, d: string) => shortOf(acceptRule(d)) });
+export const ENROL_DOC_LONG = new Proxy({} as Record<Destination, string>, { get: (_t, d: string) => acceptRule(d) });
 export const VISA_NAME: Record<Destination, string> = { Australia: 'student visa (subclass 500)', UK: 'Student visa', USA: 'F-1 visa', Canada: 'study permit', 'New Zealand': 'student visa', Ireland: 'study visa' };
 
 type StatusDef = {
@@ -360,7 +359,7 @@ const markDoc = (l: EduLevel, need: AppDoc['need']): AppDoc => ({ key: eduDocKey
 const OWN: [RegExp, string, string][] = [
   [/^Statement of purpose/, 'Statement of purpose', 'Why this course and this university, written for this application'],
   [/^CV/, 'CV', 'Education, work and achievements, up to date'],
-  [/^Work experience/, 'Work experience letters', 'Two years or more: a letter from each employer, with dates and role'],
+  [/^Work experience/, 'Work experience letters', 'A letter from each employer, with dates and role'],
   [/^Portfolio/, 'Portfolio', 'Recent work, as one PDF'],
   [/^Research proposal/, 'Research proposal', 'The question, the approach, and why this university'],
 ];
@@ -466,6 +465,7 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
     const st = intakeState(i);
     const d = daysTo(i.deadline);
     if (st === 'closed') reasons.push({ ok: 'no', title: 'Intake', text: `${intake} closed on ${shortDate(new Date(i.deadline))}.` });
+    else if (st === 'late') reasons.push({ ok: 'warn', title: 'Intake', text: `${intake} closed on ${shortDate(new Date(i.deadline))}, so the likelihood is low. GSP Admissions checks with the university and tells you whether to go ahead or close the application.` });
     else if (st === 'likely') reasons.push({ ok: 'warn', title: 'Intake', text: `${intake} usually opens; the university hasn’t confirmed it yet.` });
     else reasons.push({ ok: d <= 21 ? 'warn' : 'yes', title: 'Intake', text: `${intake} is open, closes ${shortDate(new Date(i.deadline))}${d <= 45 ? `: ${d} ${d === 1 ? 'day' : 'days'} left` : ''}.` });
   }

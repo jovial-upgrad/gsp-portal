@@ -11,6 +11,7 @@
  * Three panes on a wide screen (views, conversations, the conversation); one at a time on a phone.
  * Keys: j / k next and previous, e done, r reply.
  */
+import { regionQueueId } from './seed';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, update, recordById, nameOf, queueById } from './store';
 import { can, inScope } from '../finance/access';
@@ -22,7 +23,7 @@ import './mail.css';
 import { setLiveStatus } from '../data/live';
 
 const OVERSIGHT = ['admission-ops', 'admin', 'view-only'];
-const regionQueue = (r) => 'q-adm-' + String(r || '').toLowerCase().replace(/\W+/g, '-');
+const regionQueue = regionQueueId;
 const ACT = { status: 'Change the status', task: 'Raise a task', chat: 'Answer in the RP chat', finance: 'Send to Finance', reply: 'Reply to the university', file: 'Just file it' };
 const VIEWS = [
   ['needs', 'Needs you', 'bell'],
@@ -259,7 +260,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
       if (rule.key) setLiveStatus(r.id, { status: rule.key, at: Date.now(), by: user.name, end: rule.end, note: rule.status });
       toast(`${name}: status moved to “${rule.status}”.`);
     } else if (rule.act === 'task' || rule.act === 'finance') {
-      const qid = rule.act === 'finance' ? 'q-finance' : queueById(s, regionQueue(r.region)) ? regionQueue(r.region) : 'q-mail';
+      const qid = rule.act === 'finance' ? 'q-finance' : queueById(s, regionQueue(r.region)) ? regionQueue(r.region) : 'q-adm-ops';
       const what = t.fields['Asked for'] ? `Get from the RP: ${t.fields['Asked for']}` : rule.act === 'finance' ? `Match ${t.uni || 'the'} remittance${t.fields.Amount ? ` (${t.fields.Amount})` : ''}` : rule.name;
       const title = rule.act === 'finance' ? what : `${what} – ${name}`;
       finish(`Task raised in ${(queueById(s, qid) || {}).name}: ${title}.`, (d) => {

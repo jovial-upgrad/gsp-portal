@@ -187,7 +187,8 @@ for (const u of UNIVERSITIES) {
   });
 }
 
-export type IntakeStatus = 'open' | 'likely' | 'closed';
+/** `late`: the deadline passed less than two weeks ago; it still shows, with a low likelihood (Jovial, 31 Oct). */
+export type IntakeStatus = 'open' | 'likely' | 'late' | 'closed';
 export type Intake = { month: string; deadline: string; status: IntakeStatus };
 
 export type Course = {
@@ -429,7 +430,6 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
     ['Statement of purpose', pg ? 'Required' : 'Optional', 'With the application'],
     ['CV', pg ? 'Required' : 'Optional', 'With the application'],
   ];
-  if (/MBA/.test(c.name)) docs.push(['Work experience letters, 2 years or more', 'Required', 'With the application']);
   if (c.area === 'Arts and design') docs.push(['Portfolio', 'Required', 'With the application']);
   if (c.level === 'PhD or research') docs.push(['Research proposal', 'Required', 'With the application']);
   if (pg) docs.push(['Two references', 'Optional', 'GSP asks for them if the university wants them']);
@@ -470,7 +470,12 @@ export const money = (n: number, cur: string) => `${cur} ${n.toLocaleString('en-
 export const daysTo = (iso: string) => Math.ceil((new Date(iso + 'T23:59:59').getTime() - Date.now()) / 86_400_000);
 
 /** An intake is open until its deadline passes. */
-export const intakeState = (i: Intake): IntakeStatus => (daysTo(i.deadline) < 0 ? 'closed' : i.status);
+/** How many days after the deadline an intake still shows, as late (Jovial, 31 Oct). */
+export const LATE_DAYS = 14;
+export const intakeState = (i: Intake): IntakeStatus => {
+  const d = daysTo(i.deadline);
+  return d < -LATE_DAYS ? 'closed' : d < 0 ? 'late' : i.status;
+};
 
 /** Does the university take students from this country and state through GSP? */
 export function blockedFor(u: University, country: string, state: string) {

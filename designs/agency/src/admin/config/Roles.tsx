@@ -168,9 +168,9 @@ function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { op
 const GROUPS: [string, number, number][] = [
   ['Students and applications', 0, 6],
   ['Recruitment partners', 6, 11],
-  ['Institutions and courses', 11, 21],
-  ['Commissions', 21, 26],
-  ['GSP', 26, 30],
+  ['Institutions and courses', 11, 20],
+  ['Commissions', 20, 25],
+  ['GSP', 25, 29],
 ];
 const LEVEL_NAME = Object.fromEntries(LEVELS) as Record<Level, string>;
 

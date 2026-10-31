@@ -11,11 +11,12 @@ const H = 36e5;
 const at = (h) => Date.now() - h * H;
 
 export const MAILBOXES = [
-  { id: 'mb-adm', name: 'GSP Admission', addresses: ['admissions@globalstudypartners.com', 'gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-mail', see: ['admission', 'admission-ops', 'admin', 'view-only'], sendAs: ['admission', 'admission-ops'], ytd: 164952 },
-  { id: 'mb-ph', name: 'PH Admissions', addresses: ['admissionsph@globalstudypartners.com'], routing: 'record-region', queue: 'q-mail', see: ['admission', 'admission-ops', 'admin', 'view-only'], sendAs: ['admission', 'admission-ops'], ytd: 4847 },
-  { id: 'mb-vn', name: 'VN Admission', addresses: ['Vietnam admissions address (to confirm)'], routing: 'record-region', queue: 'q-mail', see: ['admission', 'admission-ops', 'admin', 'view-only'], sendAs: ['admission', 'admission-ops'], ytd: 1190 },
-  { id: 'mb-comm', name: 'Commission', addresses: ['commissions@gsp.upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
-  { id: 'mb-bap', name: 'Recruitment Ops (was BAP)', addresses: ['partners@gsp.upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 28 },
+  // Jovial's Inbox tab (31 Oct): five mailboxes, each feeding its queues; everyone in them can see and send for now; Admin sees all
+  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-ops', see: ['admission', 'admission-ops', 'admin', 'view-only'], sendAs: ['admission', 'admission-ops'], ytd: 164952 },
+  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-adm-ops', see: ['recruitment-ops', 'admission-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops', 'admission-ops'], ytd: 1190 },
+  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 4847 },
+  { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
+  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['institution-ops', 'admin', 'view-only'], sendAs: ['institution-ops'], ytd: 28 },
 ];
 
 /* Mail that never reaches a person. Share = of all mail, Jan–Oct 2026. */
@@ -48,7 +49,7 @@ export const INTENTS = [
 export const MAIL_SETTINGS = { autoFile: 90, suggest: 60, autoAct: false, nudgeRps: true, waitDays: 3 };
 
 const m = (id, from, h, body, o = {}) => ({ id, from, at: at(h), body, attachments: [], dir: 'in', ...o });
-const GSP = ['Gsp Admissions', 'gsp.admissions@upgrad.com'];
+const GSP = ['GSP Admissions', 'gsp.admissions@upgrad.com'];
 const T = (o) => ({ state: 'needs', attachments: 0, messages: [], fields: {}, reasons: [], ...o });
 
 export const THREADS = [
@@ -213,5 +214,5 @@ export const FILED = [
 /* Conversations no record was found for raise a task in the Unmatched mail queue. */
 export const MAIL_RECORDS = THREADS.filter((t) => !t.record && t.state === 'match').map((t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}` }));
 export const MAIL_TASKS = THREADS.filter((t) => !t.record && t.state === 'match').map((t, i) => ({
-  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-mail', rule: null, title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
+  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-adm-ops', rule: null, title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
 }));

@@ -20,7 +20,7 @@ type Tab = 'basics' | 'intakes' | 'fees' | 'academic' | 'english';
 const TABS: Tab[] = ['basics', 'intakes', 'fees', 'academic', 'english'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const YEARS = Array.from({ length: 4 }, (_, i) => String(new Date().getFullYear() + i));
-const STATUS: Record<IntakeStatus, string> = { open: 'Open', likely: 'Likely', closed: 'Closed' };
+const STATUS: Record<IntakeStatus, string> = { open: 'Open', likely: 'Likely', late: 'Late (low likelihood)', closed: 'Closed' };
 const COUNTRY_LIST = [...TOP_MARKETS, ...COUNTRIES.map((c) => c.name).filter((n) => !TOP_MARKETS.includes(n))];
 
 /**
@@ -188,7 +188,7 @@ const num = (s: string) => (s.trim() === '' ? 0 : Number(s));
 const str = (n: number) => (n > 0 ? String(n) : '');
 
 function Basics({ c, unis, courses, save }: { c: CourseRec; unis: UniRec[]; courses: CourseRec[]; save: Save }) {
-  const first = () => ({ code: c.code, name: c.name, uni: c.uni.id, campus: c.campus.name, level: c.level, area: c.area, mode: c.mode, durUnit: c.durUnit, durValue: str(c.durValue), url: c.url, tags: c.tags });
+  const first = () => ({ code: c.code, cricos: c.cricos ?? '', name: c.name, uni: c.uni.id, campus: c.campus.name, level: c.level, area: c.area, mode: c.mode, durUnit: c.durUnit, durValue: str(c.durValue), url: c.url, tags: c.tags });
   const [v, setV] = useState(first);
   const [tried, setTried] = useState(false);
   const set = (p: Partial<ReturnType<typeof first>>) => setV((x) => ({ ...x, ...p }));
@@ -211,6 +211,11 @@ function Basics({ c, unis, courses, save }: { c: CourseRec; unis: UniRec[]; cour
         <Field id="icb-code" label="Course code" optional error={show('code')}>
           <TextInput id="icb-code" value={v.code} invalid={!!show('code')} onChange={(e) => set({ code: e.target.value.toUpperCase() })} placeholder="Like: MBA-HAT-01" />
         </Field>
+        {(u?.country ?? c.uni.country) === 'Australia' && (
+          <Field id="icb-cricos" label="CRICOS course code" optional hint="Each course registered on CRICOS has its own code; the university's provider code is on the university.">
+            <TextInput id="icb-cricos" value={v.cricos} onChange={(e) => set({ cricos: e.target.value.toUpperCase() })} placeholder="Like: 012345A" />
+          </Field>
+        )}
         <Field id="icb-name" label="Course name" required error={show('name')}>
           <TextInput id="icb-name" value={v.name} invalid={!!show('name')} onChange={(e) => set({ name: e.target.value })} />
         </Field>
@@ -304,7 +309,7 @@ function Basics({ c, unis, courses, save }: { c: CourseRec; unis: UniRec[]; cour
           setTried(true);
           if (Object.values(err).some(Boolean)) return;
           const campus = campuses.find((x) => x.name === v.campus) ?? c.campus;
-          save((x) => ({ ...x, code: v.code.trim(), name: v.name.trim(), uni: u ?? x.uni, campus, level: v.level, area: v.area, mode: v.mode, durUnit: v.durUnit, durValue: num(v.durValue), url: v.url.trim(), tags: v.tags }), 'Basics saved.');
+          save((x) => ({ ...x, code: v.code.trim(), cricos: v.cricos.trim() || undefined, name: v.name.trim(), uni: u ?? x.uni, campus, level: v.level, area: v.area, mode: v.mode, durUnit: v.durUnit, durValue: num(v.durValue), url: v.url.trim(), tags: v.tags }), 'Basics saved.');
         }}
         error={tried && Object.values(err).some(Boolean) ? 'Fix what’s marked, then save.' : null}
       />

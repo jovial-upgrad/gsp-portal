@@ -90,7 +90,6 @@ function OneCountry({ c, country }: { c: Course; country: string }) {
           <Tile k="Eligibility" v={r.from} sub={before(c)} />
           <Tile k="Highest education" v={r.grade} sub={r.gradeSub} />
           {r.backlogs && <Tile k="Maximum backlogs" v={String(c.backlogs)} sub="in the bachelor’s degree" />}
-          {/MBA/.test(c.name) && <Tile k="Work experience" v="2 years+" sub="Full time, after the degree" />}
         </dl>
         {r.note && <p className="cnote">{r.note}</p>}
         <Pathway c={c} />
@@ -155,7 +154,7 @@ function AllCountries({ c }: { c: Course }) {
             ))}
           </tbody>
         </table>
-        <p className="cs-etable__foot">{before(c)}.{/MBA/.test(c.name) ? ' Every country: 2 years or more of full-time work after the degree.' : ''}</p>
+        <p className="cs-etable__foot">{before(c)}.</p>
         <Pathway c={c} />
       </Box>
 

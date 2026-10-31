@@ -201,6 +201,12 @@ export function sampleUniRecs(): UniRec[] {
   f.forms = [{ id: nid('fm'), name: 'Flinders postgraduate international application form', file: 'Flinders_PG_international_application_form.pdf', for: 'Postgraduate' }];
   f.stamps = { territory: { by: IN('kevin.mcewan'), at: inDays(-5) }, profile: { by: IN('catherine.wilson'), at: inDays(-20) }, forms: { by: IN('catherine.wilson'), at: inDays(-20) } };
   get('massey').stamps = { status: { by: IN('lalaine.dizon'), at: inDays(-243) } };
+  // priority source markets the Institution Team set (sample), which GSP's application lists flag (Jovial, 31 Oct)
+  const PRIORITY: Record<string, string[]> = { deakin: ['India'], uow: ['India', 'Nepal'], canberra: ['India'], scu: ['India'], wsu: ['Bangladesh'], vuw: ['Bangladesh'], uws: ['India'], ais: ['India'], utas: ['India'], latrobe: ['Bhutan', 'Myanmar'] };
+  for (const [id, markets] of Object.entries(PRIORITY)) {
+    const u = list.find((x) => x.id === id);
+    if (u) u.territory = { ...u.territory, priority: [...new Set([...u.territory.priority, ...markets])] };
+  }
   return list;
 }
 

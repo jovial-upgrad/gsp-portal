@@ -768,7 +768,7 @@
 "type": "Application",
 "label": "GSP-24245 · Thura Win, Asia Pacific University of Technology & Innovation (APU)",
 "student": "Thura Win",
-"region": "Myanmar and Bhutan",
+"region": "Myanmar",
 "agency": "Ascenders Education Company Limited",
 "rpId": "15923",
 "uni": "Asia Pacific University of Technology & Innovation (APU)",
@@ -785,7 +785,7 @@
 "type": "Application",
 "label": "GSP-24246 · Sonam Htet, La Trobe University",
 "student": "Sonam Htet",
-"region": "Myanmar and Bhutan",
+"region": "Myanmar",
 "agency": "Wangchuk Ecpf",
 "rpId": "17472",
 "uni": "La Trobe University",
@@ -1114,7 +1114,7 @@
 "rule": "r2",
 "kind": "k-submit",
 "record": "GSP-24234",
-"queue": "q-adm-vietnam",
+"queue": "q-adm-sea",
 "assignee": null,
 "createdDays": 0.9,
 "status": "open"
@@ -1124,7 +1124,7 @@
 "rule": "r4",
 "kind": "k-uni-mail",
 "record": "GSP-24235",
-"queue": "q-adm-vietnam",
+"queue": "q-adm-sea",
 "assignee": null,
 "createdDays": 3.1,
 "status": "open"
@@ -1134,7 +1134,7 @@
 "rule": null,
 "kind": "k-enrol",
 "record": "GSP-24236",
-"queue": "q-adm-vietnam",
+"queue": "q-adm-sea",
 "assignee": null,
 "createdDays": 2.4,
 "status": "open"
@@ -1164,7 +1164,7 @@
 "rule": null,
 "kind": "k-enrol",
 "record": "GSP-24239",
-"queue": "q-adm-indonesia-malaysia-and-thailand",
+"queue": "q-adm-sea",
 "assignee": null,
 "createdDays": 5.4,
 "status": "open"
@@ -1174,7 +1174,7 @@
 "rule": "r2",
 "kind": "k-submit",
 "record": "GSP-24240",
-"queue": "q-adm-indonesia-malaysia-and-thailand",
+"queue": "q-adm-sea",
 "assignee": null,
 "createdDays": 2.4,
 "status": "open"
@@ -1224,7 +1224,7 @@
 "rule": null,
 "kind": "k-enrol",
 "record": "GSP-24245",
-"queue": "q-adm-myanmar-and-bhutan",
+"queue": "q-adm-sea",
 "assignee": null,
 "createdDays": 0.5,
 "status": "open"
@@ -1234,7 +1234,7 @@
 "rule": "r5",
 "kind": "k-gsp-check",
 "record": "GSP-24246",
-"queue": "q-adm-myanmar-and-bhutan",
+"queue": "q-adm-sea",
 "assignee": null,
 "createdDays": 3.2,
 "status": "open"

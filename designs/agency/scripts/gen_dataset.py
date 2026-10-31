@@ -138,7 +138,7 @@ def officer_for(region, key):
     ppl = by_role_region('Admission', region) or by_role_region('Admission Ops', 'Global')
     return ppl[h(key, len(ppl))]['id']
 NAT = {'India': 'India', 'Bangladesh': 'Bangladesh', 'Nepal': 'Nepal', 'Sri Lanka': 'Sri Lanka', 'Pakistan': 'Pakistan', 'Vietnam': 'Vietnam', 'Philippines': 'Philippines',
-       'Australia': 'India', 'Indonesia, Malaysia and Thailand': 'Indonesia', 'Africa': 'Nigeria', 'Latin America and Europe': 'Colombia', 'Myanmar and Bhutan': 'Myanmar', 'Direct': 'India', 'China': 'China'}
+       'Australia': 'India', 'Indonesia, Malaysia and Thailand': 'Indonesia', 'Africa': 'Nigeria', 'Latin America and Europe': 'Colombia', 'Myanmar': 'Myanmar', 'Bhutan': 'Bhutan', 'Direct': 'India', 'China': 'China'}
 DIAL = {'India': '+91', 'Bangladesh': '+880', 'Nepal': '+977', 'Sri Lanka': '+94', 'Pakistan': '+92', 'Vietnam': '+84', 'Philippines': '+63', 'Indonesia': '+62', 'Nigeria': '+234', 'Colombia': '+57', 'Myanmar': '+95', 'Ghana': '+233', 'Kenya': '+254', 'China': '+86', 'Mauritius': '+230'}
 FIN_REGION = {'Australia Onshore': 'Australia'}
 

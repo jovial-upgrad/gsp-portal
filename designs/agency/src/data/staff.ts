@@ -7,8 +7,10 @@
  * and for Recruitment the area each BDM covers), as given. Only the sales regions are mapped to the portal's names
  * ("LatAM Europe" → "Latin America and Europe", "Indonesia-Malaysia-Thailand" → "Indonesia, Malaysia and Thailand",
  * "Myanmar" or "Bhutan" → "Myanmar and Bhutan"); `region` keeps the export's text.
- * To change who's on the team, replace staff.json with a new export. There are no phone numbers or job titles in
- * the export, so the portal shows none.
+ * Jovial's answers (31 Oct, Pending Questions sheet): one Sumit Singh (sumit.singh); Faryal Abbas in Recruitment only;
+ * Kartik Sharma in Recruitment Ops; Caixia Qiu also covers China; Myanmar and Bhutan are separate regions. Phone
+ * numbers and job titles aren't in the export: they're made up, as asked.
+ * To change who's on the team, replace staff.json with a new export.
  */
 import RAW from './staff.json';
 
@@ -26,6 +28,10 @@ export type Staff = {
   regions: string[];
   /** Recruitment: the cities or states the BDM covers, as in the export ('' when none) */
   area: string;
+  /** Not in the export (Jovial, 31 Oct: "show both, create random"): sample phone numbers and job titles. */
+  dial: string;
+  phone: string;
+  title: string;
 };
 
 export const STAFF: Staff[] = RAW as Staff[];
