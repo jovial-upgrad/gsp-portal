@@ -52,6 +52,7 @@ export type StatusKey =
   | 'lodged'
   | 'moreinfo'
   | 'addverify'
+  | 'addsent'
   | 'reapp'
   | 'conditions'
   | 'condsent'
@@ -95,7 +96,12 @@ type StatusDef = {
   doc?: { by: 'gsp' | 'you' | 'lodger'; name: (d: Destination) => string };
   /** The agency's part here is what GSP asks for: once it's all in, it's with GSP until GSP moves it on. */
   asks?: true;
+  /** Where it sits against the university submission, in the Application stage (engineering review, 1 Nov): lists by stage group them. */
+  phase?: Phase;
 };
+export type Phase = 'before' | 'after';
+/** The group names for `phase`, as the status lists show them. */
+export const PHASE_LABEL: Record<Phase, string> = { before: 'Before submission', after: 'After submission' };
 
 /**
  * The journey, stage by stage, as GSP runs it (Nesil's stage and status concept, 28 Oct 2026). Only New to
@@ -106,11 +112,14 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   docs: { stage: 0, owner: 'you', text: () => 'Waiting for documents' },
   checking: { stage: 1, owner: 'gsp', text: () => 'Pending verification' },
   reupload: { stage: 1, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit' },
-  lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university' },
-  moreinfo: { stage: 2, owner: 'you', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true },
-  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents' },
-  reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
+  ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit', phase: 'before' },
+  lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university', phase: 'after' },
+  moreinfo: { stage: 2, owner: 'you', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true, phase: 'after' },
+  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents', phase: 'after' },
+  // engineering review, 1 Nov: GSP sends the checked additional documents on to the university
+  addsent: { stage: 2, owner: 'uni', text: () => 'Additional documents submitted to university', branch: 'After additional documents', phase: 'after' },
+  // a document rejected at this stage is one of the additional documents, so it comes after submission
+  reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true, phase: 'after' },
   conditions: { stage: 3, owner: 'you', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
   condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university' },
   reoffer: { stage: 3, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
@@ -138,6 +147,8 @@ export const STATUS: Record<StatusKey, StatusDef> = {
 export const REUPLOAD_AT: (StatusKey | undefined)[] = [undefined, 'reupload', 'reapp', 'reoffer', 'rever', 'reacc', 'revisa', 'reenrol'];
 /** The statuses in journey order (GSP's status list follows it). */
 export const STATUS_ORDER = Object.keys(STATUS).filter((k) => k !== 'closed') as StatusKey[];
+/** A status's group in a list by stage ("Before submission"), for the stages that split; undefined elsewhere. */
+export const phaseOf = (k: StatusKey) => (STATUS[k].phase ? PHASE_LABEL[STATUS[k].phase!] : undefined);
 
 /** Who has it, in words: one table, data/owners.ts (HC24). */
 // the RP portal's wording (GSP roles use data/owners.ts OWNER_WORD: On RP, On GSP, On university)

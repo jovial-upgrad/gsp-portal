@@ -4,7 +4,7 @@
  * and the escalation ladder. Everything here can be created, edited and deleted.
  */
 import React, { useState } from 'react';
-import { useStore, update, nameOf, kindById, ASSIGN, COVER } from './store';
+import { useStore, update, nameOf, kindById, QUEUE_ASSIGN, QUEUE_ASSIGN_HELP } from './store';
 import { can } from '../finance/access';
 import { Page, Card, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Field, Input, Num, Chip, Notice, toast } from '../finance/kit';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -14,6 +14,10 @@ import { PersonaBar, usePersona } from './persona';
 import { useCalendars, getCalendars, setCalendars, daysText, clockText, DEFAULT_START, DEFAULT_END } from './calendars';
 import { salesRegionNames } from '../admin/data/config';
 import { MultiPick } from '../institution/records/MultiPick';
+import { STAGES as APP_STAGES, STATUS, STATUS_ORDER, phaseOf } from '../data/applications';
+
+/** The Before or After submission group of a status row (engineering review, 1 Nov), from the status data. */
+const phaseFor = (r) => { const k = STATUS_ORDER.find(x => APP_STAGES[STATUS[x].stage] === r.stage && STATUS[x].text('Australia') === r.status); return k ? phaseOf(k) : undefined; };
 
 const STAGES = ['New', 'Pre-screening', 'Application', 'Offer', 'Verification', 'Acceptance', 'Visa', 'Enrolment'];
 
@@ -64,7 +68,7 @@ function QueueList({ may, by }) {
               <td className="cfg__strong">{q.name}<span className="cfg__sub">{q.kind === 'region' ? `Sales region: ${q.region}` : 'Team queue, every region'}</span></td>
               <td>{q.leader ? <span className="cfg__strong">{nameOf(s, q.leader)}</span> : <Pill tone="dpill--bad">Not set</Pill>}</td>
               <td>{(q.members || []).length ? <div className="cfg__chips">{q.members.map(m => <Chip key={m}>{nameOf(s, m)}</Chip>)}</div> : <span className="cfg__muted">Just the leader</span>}</td>
-              <td>{ASSIGN[q.assign]}{q.handover && <span className="cfg__sub">Handover: {q.handover.map(h => `${h.from}–${h.to}`).join(' → ')}</span>}{q.makerChecker && <span className="cfg__sub">Maker-checker on</span>}</td>
+              <td>{QUEUE_ASSIGN[q.assign] || QUEUE_ASSIGN['fewest-open']}{q.handover && <span className="cfg__sub">Handover: {q.handover.map(h => `${h.from}–${h.to}`).join(' → ')}</span>}{q.makerChecker && <span className="cfg__sub">Maker-checker on</span>}</td>
               <td className="num">{q.sla} working hour{q.sla === 1 ? '' : 's'}</td>
               <td>{(() => { const names = (q.kinds || []).map(k => (kindById(s, k) || {}).name).filter(Boolean); return names.length ? <span className="gspx-wrap" title={names.join(', ')}>{names.slice(0, 2).join(', ')}{names.length > 2 ? <span className="muted"> +{names.length - 2} more</span> : null}</span> : <span className="cfg__muted">Nothing yet</span>; })()}</td>
               <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${q.name}`} onClick={() => setEdit(q)}>Edit</LinkButton>}</td>
@@ -109,8 +113,7 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
         <Select id="q-kind" label="Type" required value={v.kind} onChange={x => set('kind', x)} options={[['team', 'Team queue (every region)'], ['region', 'Regional queue (one sales region)']]} />
         {v.kind === 'region' && <Select id="q-region" label="Sales region" required error={c.err('region')} onBlur={c.blur('region')} value={v.region} onChange={x => set('region', x)} placeholder="Choose" options={s.regions} />}
         <Select id="q-lead" label="Leader (gets escalations, can assign)" value={v.leader || ''} onChange={x => set('leader', x)} placeholder="Choose one person" options={gsp.map(u => [u.id, `${u.name} · ${s.roles.find(r => r.id === u.role).name}`])} />
-        <Select id="q-assign" label="How work is shared" required value={v.assign} onChange={x => set('assign', x)} options={Object.entries(ASSIGN).filter(([k]) => !['owner', 'not-maker'].includes(k))} />
-        <Select id="q-cover" label="When someone is away" required value={v.cover} onChange={x => set('cover', x)} options={Object.entries(COVER)} />
+        <Select id="q-assign" label="How work is shared" required value={v.assign in QUEUE_ASSIGN ? v.assign : 'fewest-open'} onChange={x => set('assign', x)} options={Object.entries(QUEUE_ASSIGN)} hint={QUEUE_ASSIGN_HELP[v.assign] || QUEUE_ASSIGN_HELP['fewest-open']} />
         <Field id="q-sla" label="Default SLA (working hours)" required error={c.err('sla')} hint="Used when the kind of work has no SLA of its own."><Input id="q-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
         <label className="gspx-check"><input type="checkbox" checked={!!v.makerChecker} onChange={e => set('makerChecker', e.target.checked)} /> Maker-checker: never give a checking task to the person who made the change</label>
       </div>
@@ -215,7 +218,7 @@ function StatusSla({ may, by }) {
       <Table head={['Stage', 'Status', 'Who owes the action', 'SLA (working hours)']} className="cfg__tab">
         {s.statusSla.map((r, i) => (
           <tr key={i}>
-            <td>{r.stage}</td><td className="cfg__strong">{r.status}</td><td><Pill tone={tone[r.owner]}>{r.owner}</Pill></td>
+            <td>{r.stage}{phaseFor(r) && <span className="cfg__sub">{phaseFor(r)}</span>}</td><td className="cfg__strong">{r.status}</td><td><Pill tone={tone[r.owner]}>{r.owner}</Pill></td>
             <td>{may('U') ? <SlaCell r={r} i={i} by={by} /> : <span className="num">{r.days}</span>}</td>
           </tr>
         ))}
