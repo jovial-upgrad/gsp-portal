@@ -721,6 +721,9 @@ button.nachip { cursor: pointer; }
 button.nachip:hover { border-color: var(--line-strong); }
 .nachip > svg { color: var(--text-3); }
 .nacourse { display: flex; align-items: center; gap: var(--sp-12); padding: var(--sp-12) var(--sp-14, 14px); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); }
+/* the same student and course already open: an inline error with a link to it */
+.nadupe { display: grid; gap: var(--sp-4); justify-items: start; margin-top: var(--sp-8); }
+.nadupe .field__msg { margin: 0; }
 .nacourse .umark { width: 44px; height: 44px; background: var(--surface); box-shadow: 0 1px 2px rgba(9, 30, 66, 0.08); }
 .nacourse__t { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .nacourse__name { font-weight: var(--fw-semi); color: var(--text); }
@@ -763,6 +766,8 @@ button.nachip:hover { border-color: var(--line-strong); }
 
 .nacheck { display: grid; gap: var(--sp-14, 14px); padding: var(--sp-16) var(--sp-20) var(--sp-20); }
 .nacheck__what { margin-top: calc(-1 * var(--sp-6)); font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
+/* the check is a guide only (engineering review, 1 Nov) */
+.nacheck__soft { margin-top: calc(-1 * var(--sp-8)); font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
 .nacheck__run { display: grid; gap: var(--sp-12); }
 /* while it checks: the four parts as rows, as the verdict will show them; each waits, then is checked, then ticks */
 .nacheck__steps { list-style: none; display: grid; padding: var(--sp-4) var(--sp-14, 14px); border: 1px solid var(--ai-glass-line); border-radius: var(--r-sm); background: linear-gradient(170deg, var(--ai-glass-sheen), transparent 46%), var(--ai-glass); }

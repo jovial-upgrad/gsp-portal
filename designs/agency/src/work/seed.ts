@@ -97,6 +97,7 @@ const regionalQueue = (region, leader, members = inRegion(region).filter((id) =>
   ...extra,
 });
 
+// Engineering review, 1 Nov: work is shared one of two ways, Fewest open or Record owner (no round robin, nothing left unassigned in the queue)
 export const QUEUES = [
   // Jovial, 1 Nov (A2): no handover by stage for now; officers move applications between themselves
   regionalQueue('India', 'u-ramish-jafery'),
@@ -106,18 +107,18 @@ export const QUEUES = [
   regionalQueue('Nepal', 'u-supriya-shrestha'),
   regionalQueue('Sri Lanka', 'u-subodya-suraweera'),
   // Jovial's Queues tab (31 Oct): South-East Asia is one queue; Rest of world and Direct share Global Admissions
-  { ...regionalQueue('SEA', 'u-truc-nguyen', [...new Set(SEA.flatMap(inRegion))].filter((id) => id !== 'u-truc-nguyen')), name: 'SEA Admissions', regions: SEA, assign: 'round-robin' },
+  { ...regionalQueue('SEA', 'u-truc-nguyen', [...new Set(SEA.flatMap(inRegion))].filter((id) => id !== 'u-truc-nguyen')), name: 'SEA Admissions', regions: SEA },
   regionalQueue('Philippines', 'u-kimberly-olaes'),
   regionalQueue('Australia', 'u-jo-qiu'),
   regionalQueue('China', 'u-jo-qiu'),
   regionalQueue('Latin America and Europe', 'u-valentina-castillo'),
   { ...regionalQueue('Global', 'u-tasha-tandon', withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon')), name: 'Global Admissions', regions: ['Rest of world', 'Direct'] },
-  { id: 'q-rp-ops', name: 'Recruitment Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('Recruitment Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'round-robin', cover: 'leader', sla: 18, kinds: ['k-rp-verify', 'k-rp-change'] },
+  { id: 'q-rp-ops', name: 'Recruitment Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('Recruitment Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 18, kinds: ['k-rp-verify', 'k-rp-change'] },
   { id: 'q-institution', name: 'Institution', kind: 'team', leader: 'u-matt-beazley', members: withRole('Institution').filter((id) => id !== 'u-matt-beazley'), assign: 'record-owner', cover: 'leader', sla: 45, kinds: ['k-renew', 'k-golive'] },
-  { id: 'q-inst-ops', name: 'Institution Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('Institution Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'round-robin', cover: 'queue', sla: 45, kinds: ['k-course'] },
-  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'leader-assigns', cover: 'leader', sla: 9, kinds: ['k-qc', 'k-announce', 'k-escalation', 'k-mail'] },
-  { id: 'q-finance', name: 'Finance', kind: 'team', leader: 'u-suman1-verma', members: withRole('Finance').filter((id) => id !== 'u-suman1-verma'), assign: 'members-pick', cover: 'queue', sla: 18, makerChecker: true, kinds: ['k-terms', 'k-check', 'k-exception', 'k-payout'] },
-  { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial-lejo', members: [], assign: 'leader-assigns', cover: 'leader', sla: 9, kinds: [] },
+  { id: 'q-inst-ops', name: 'Institution Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('Institution Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 45, kinds: ['k-course'] },
+  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'fewest-open', cover: 'leader', sla: 9, kinds: ['k-qc', 'k-announce', 'k-escalation', 'k-mail'] },
+  { id: 'q-finance', name: 'Finance', kind: 'team', leader: 'u-suman1-verma', members: withRole('Finance').filter((id) => id !== 'u-suman1-verma'), assign: 'fewest-open', cover: 'leader', sla: 18, makerChecker: true, kinds: ['k-terms', 'k-check', 'k-exception', 'k-payout'] },
+  { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial-lejo', members: [], assign: 'fewest-open', cover: 'leader', sla: 9, kinds: [] },
 ];
 
 /* SLA per application status, in working hours (Jovial's Task triggers sheet, 1 Nov; a working day is 9 hours). */
@@ -128,6 +129,7 @@ export const STATUS_SLA = [
   { stage: 'Application', status: 'Submitted to university', owner: 'University', days: 18 },
   { stage: 'Application', status: 'Additional documents requested', owner: 'RP', days: 12 },
   { stage: 'Application', status: 'Verifying additional documents', owner: 'GSP', days: 9 },
+  { stage: 'Application', status: 'Additional documents submitted to university', owner: 'University', days: 18 }, // 1 Nov: as Submitted to university until the team says otherwise
   { stage: 'Offer', status: 'Conditional offer received, conditions pending', owner: 'RP', days: 12 },
   { stage: 'Offer', status: 'Conditions submitted to university', owner: 'University', days: 18 },
   { stage: 'Verification', status: 'Finance and background check', owner: 'GSP', days: 12 },
@@ -175,7 +177,7 @@ export const RULES = [
   { id: 'r24', row: 'T28', on: true, name: 'New application by email', record: 'Email', when: 'An RP sends a new application by email', task: 'Create the application, or send the RP to the portal', to: 'q-adm-ops', who: 'members-pick', kind: 'k-verify', sla: 3, closes: 'Closed by hand once done' },
   { id: 'r25', row: 'T29', on: true, name: 'Mail to admin.gsp@', record: 'Email', when: 'Any email to admin.gsp@', task: 'Handle this request', to: 'q-rp-ops', who: 'members-pick', kind: 'k-rp-change', sla: 24, closes: 'Closed by hand' },
   { id: 'r26', row: 'T30', on: true, name: 'Commission remittance', record: 'Email', when: 'A remittance or statement, or any mail to commissions.gsp@', task: 'Match the remittance against Commissions', to: 'q-finance', who: 'members-pick', kind: 'k-exception', sla: 24, closes: 'Matched to invoices' },
-  { id: 'r27', row: 'T31', on: true, name: 'University newsletter', record: 'Email', when: 'A university newsletter arrives', task: 'Review the newsletter for an announcement', to: 'q-adm-ops', who: 'round-robin', kind: 'k-announce', sla: 6, closes: 'Announcement published or dismissed' },
+  { id: 'r27', row: 'T31', on: true, name: 'University newsletter', record: 'Email', when: 'A university newsletter arrives', task: 'Review the newsletter for an announcement', to: 'q-adm-ops', who: 'fewest-open', kind: 'k-announce', sla: 6, closes: 'Announcement published or dismissed' },
   { id: 'r28', row: 'T32', on: true, name: 'New RP to verify', record: 'RP', when: 'All onboarding documents uploaded', task: 'Verify [record]', to: 'q-rp-ops', who: 'members-pick', kind: 'k-rp-verify', sla: 12, closes: 'RP verified or documents sent back' },
   { id: 'r29', row: 'T33', on: true, name: 'RP signed up, not activated', record: 'RP', when: 'Not activated for 2 working days', task: 'Help [record] finish sign-up', to: 'owner', who: 'owner', kind: 'k-rp-change', sla: 18, closes: 'RP activated' },
   { id: 'r30', row: 'T34', on: true, name: 'RP documents sent back', record: 'RP', when: 'Onboarding documents sent back 7 working days ago (the RP is reminded at 3)', task: 'Chase [record] for its documents', to: 'owner', who: 'owner', kind: 'k-rp-change', sla: 18, closes: 'Documents re-uploaded' },
@@ -186,9 +188,9 @@ export const RULES = [
   { id: 'r35', row: 'T38', on: true, name: 'Agreement ending', record: 'Institution partner', days: 60, when: '60 days before the agreement ends', task: 'Renew the agreement with [record]', to: 'q-institution', who: 'record-owner', kind: 'k-renew', sla: 270, closes: 'A new agreement is uploaded' },
   { id: 'r36', row: 'T39', on: true, name: 'Commission terms missing', record: 'Commission', when: 'An agreement is uploaded and no terms are entered', task: 'Enter commission terms for [record]', to: 'q-finance', who: 'members-pick', kind: 'k-terms', sla: 18, closes: 'Terms entered and checked' },
   { id: 'r37', row: 'T40', on: true, name: 'University not live', record: 'University', when: 'Go-live checks incomplete 14 days after it was created', task: 'Get [record] live', to: 'q-institution', who: 'record-owner', kind: 'k-golive', sla: 126, closes: 'University live' },
-  { id: 'r38', row: 'T41', on: true, name: 'Draft courses', record: 'Course', when: 'A course is in draft for 7 days', task: 'Finish and publish [record]', to: 'q-inst-ops', who: 'round-robin', kind: 'k-course', sla: 45, closes: 'The course is published' },
-  { id: 'r39', row: 'T42', on: true, name: 'No open intake', record: 'Course', when: 'Last intake’s deadline passed and no next intake', task: 'Add the next intake for [record]', to: 'q-inst-ops', who: 'round-robin', kind: 'k-course', sla: 45, closes: 'An intake is added' },
-  { id: 'r40', row: 'T43', on: true, name: 'Next year’s fees missing', record: 'Course', when: '1 September, for courses without next year’s fees', task: 'Add next year’s fees for [record]', to: 'q-inst-ops', who: 'round-robin', kind: 'k-course', sla: 90, closes: 'Fees added' },
+  { id: 'r38', row: 'T41', on: true, name: 'Draft courses', record: 'Course', when: 'A course is in draft for 7 days', task: 'Finish and publish [record]', to: 'q-inst-ops', who: 'fewest-open', kind: 'k-course', sla: 45, closes: 'The course is published' },
+  { id: 'r39', row: 'T42', on: true, name: 'No open intake', record: 'Course', when: 'Last intake’s deadline passed and no next intake', task: 'Add the next intake for [record]', to: 'q-inst-ops', who: 'fewest-open', kind: 'k-course', sla: 45, closes: 'An intake is added' },
+  { id: 'r40', row: 'T43', on: true, name: 'Next year’s fees missing', record: 'Course', when: '1 September, for courses without next year’s fees', task: 'Add next year’s fees for [record]', to: 'q-inst-ops', who: 'fewest-open', kind: 'k-course', sla: 90, closes: 'Fees added' },
   { id: 'r41', row: 'T45', on: true, name: 'Change waiting for a checker', record: 'Commission', when: 'Terms, a notice or a scheme changed', task: 'Check the change to [record]', to: 'q-finance', who: 'not-maker', kind: 'k-check', sla: 9, closes: 'A different person approves or rejects it' },
   { id: 'r42', row: 'T46', on: true, name: 'University invoice due', record: 'Commission', when: 'A commission line’s trigger date passes (census or enrolment)', task: 'Raise the invoice for [record]', to: 'q-finance', who: 'members-pick', kind: 'k-exception', sla: 18, closes: 'Invoice sent' },
   { id: 'r43', row: 'T47', on: true, name: 'University payment overdue', record: 'Commission', when: 'Invoice unpaid past the university’s payment days', task: 'Chase [record]’s payment', to: 'q-finance', who: 'members-pick', kind: 'k-exception', sla: 18, closes: 'Paid' },

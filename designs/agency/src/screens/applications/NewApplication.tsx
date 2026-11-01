@@ -49,8 +49,9 @@ const TYPES = /\.(pdf|jpe?g|png)$/i;
  * course (by destination, university, program level and study area, or by name) and the intake. GSP Assist then checks the student
  * can be offered a place, with the reason for each part, and suggests close courses when they can't.
  * Documents: what this application asks for (the course's list, read for the student), reused from the profile
- * or uploaded here, read by GSP Assist as it arrives. Anything needed later, GSP asks for in the chat. Only hard rules stop it: a university that doesn't take students from
- * where they live, a closed intake, or the same application twice.
+ * or uploaded here, read by GSP Assist as it arrives. Anything needed later, GSP asks for in the chat. GSP Assist's eligibility check is only
+ * a guide (engineering review, 1 Nov): it never stops the application. What stops it: the student already has an
+ * open application for the same course (any intake); one that's closed doesn't count, so they can apply again.
  */
 export function NewApplication({
   open,
@@ -137,8 +138,8 @@ export function NewApplication({
   }, [toCheck]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fit = s && c && intake ? checkFit(s, c, intake) : null;
-  const hard = fit?.reasons.some((r) => r.ok === 'no' && (r.title === 'Where they live' || r.title === 'Intake'));
-  const dupe = s && c ? apps.find((a) => a.studentId === s.id && a.courseId === c.id && a.intake === intake && a.status !== 'closed') : undefined;
+  // one open application per student and course, whatever the intake (engineering review, 1 Nov); a closed one doesn't block
+  const dupe = s && c ? apps.find((a) => a.studentId === s.id && a.courseId === c.id && a.status !== 'closed') : undefined;
   // what this application asks for: the course's documents, read for the student (required ones first)
   const docs = s && c ? docsFor(s, c).sort((x, y) => Number(y.need === 'required') - Number(x.need === 'required')) : [];
   const required = docs.filter((d) => d.need === 'required');
@@ -184,7 +185,7 @@ export function NewApplication({
   };
 
   const start = () => {
-    if (!s || !c || !intake || hard || dupe) return;
+    if (!s || !c || !intake || dupe) return;
     // only what reads as right goes with it; one to upload again stays on the application's to-do list
     const sent = docs.filter((d) => up[d.key]?.phase === 'ok');
     const uploads = sent.map((d) => ({ key: d.key, name: d.name, file: up[d.key]!.file }));
@@ -203,7 +204,7 @@ export function NewApplication({
   const ready = !!(s && c && intake && !checking);
   // where each step stands: done, the one to do now (the first not done), or still to come
   const docsDone = !!s && required.every((d) => (up[d.key] ? up[d.key]!.phase === 'ok' : !!s.docs[d.key]));
-  const done = [!!s, !!c, !!(c && intake), !!fit && !checking, docsDone];
+  const done = [!!s, !!c && !dupe, !!(c && intake), !!fit && !checking, docsDone];
   const now = done.indexOf(false);
   const stateOf = (i: number): StepState => (done[i] ? 'done' : i === now ? 'now' : 'next');
   const footer = made ? (
@@ -236,19 +237,17 @@ export function NewApplication({
           : !c
             ? 'Pick a course.'
             : dupe
-              ? `${s.first} already has this application.`
-              : hard
-                ? 'This one can’t go ahead: see why above.'
-                : fit?.verdict === 'Not eligible'
-                  ? 'You can still start it, but the university will likely say no.'
-                  : ''}
+              ? `${s.first} already has an open application for this course.`
+              : fit?.verdict === 'Not eligible'
+                ? 'You can still start it, but the university will likely say no.'
+                : ''}
       </p>
       <div className="asf__acts">
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={start} disabled={!ready || !!hard || !!dupe}>
-          {fit?.verdict === 'Not eligible' && !hard ? 'Start anyway' : 'Start application'}
+        <Button onClick={start} disabled={!ready || !!dupe}>
+          {fit?.verdict === 'Not eligible' ? 'Start anyway' : 'Start application'}
         </Button>
       </div>
     </div>
@@ -332,6 +331,7 @@ export function NewApplication({
             {/* 2. the course */}
             <Step id="na-s2" n={2} title="Course" state={stateOf(1)}>
               {c ? (
+                <>
                 <div className="nacourse">
                   <UniMark u={c.uni} />
                   <div className="nacourse__t">
@@ -355,6 +355,19 @@ export function NewApplication({
                     Change
                   </Button>
                 </div>
+                {dupe && (
+                  <div className="nadupe">
+                    <p className="field__msg field__msg--error" id="na-dupe" role="alert">
+                      <span>
+                        {s?.first} already has an open application for this course: <strong className="num">{dupe.id}</strong>, {STATUS[dupe.status].text(c.uni.country)}. Open it, or close it before applying again.
+                      </span>
+                    </p>
+                    <button type="button" className="btn btn--link" onClick={() => onOpenApp(dupe.id)}>
+                      Open {dupe.id}
+                    </button>
+                  </div>
+                )}
+                </>
               ) : (
                 <>
                   <div className="nafind">
@@ -489,16 +502,6 @@ export function NewApplication({
                       );
                     })}
                   </div>
-                  {dupe && (
-                    <div className="dupe">
-                      <p className="dupe__t">
-                        {s?.first} already has this application: <strong className="num">{dupe.id}</strong>, {STATUS[dupe.status].text(c.uni.country).toLowerCase()}.
-                      </p>
-                      <Button variant="secondary" size="sm" onClick={() => onOpenApp(dupe.id)}>
-                        Open {dupe.id}
-                      </Button>
-                    </div>
-                  )}
                 </>
               ) : (
                 <p className="nahint">The course’s open intakes show here once it’s picked.</p>
@@ -524,6 +527,7 @@ export function NewApplication({
                     ? `GSP Assist is checking ${s.first}’s profile details against ${c.uni.name}’s requirements for the ${c.name}, to see if ${s.first} is eligible.`
                     : `GSP Assist checked ${s.first}’s profile details against ${c.uni.name}’s requirements for the ${c.name}.`}
                 </p>
+                <p className="nacheck__soft">GSP Assist’s check. It doesn’t stop you applying.</p>
                 {checking ? (
                   <div className="nacheck__run" role="status">
                     <Thinking text={`Checking ${s.first}’s eligibility, one requirement at a time…`} />
