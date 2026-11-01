@@ -4,12 +4,13 @@ import { useState, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Field, SelectInput, TextInput } from '../../components/forms';
+import { DateInput, Field, SelectInput, TextInput } from '../../components/forms';
+import { dateError } from '../../components/validate';
 import { AREAS, LEVELS, type Area, type IntakeStatus, type Level, type StudyMode } from '../../data/courses';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
 import { UniMark, campusLabel } from '../courses/parts';
 import { CURRENCIES, DURATION_UNITS, QUALIFICATIONS, SCALES, TAGS, TESTS, TEST_MIN, newRuleId, withSearchFields, type AcademicRule, type CourseRec, type DurationUnit, type EnglishRule, type IntakeDates, type Qualification, type Scale, type Test, type UniRec } from '../data/catalogue';
-import { dateText, stampBy } from '../data/records';
+import { dateText, stampBy, todayIso } from '../data/records';
 import { patch } from '../data/store';
 import { Facts, RecordHead, RecordTabs, Section, TabPanel, toggle } from './parts';
 import { CoursePill } from './pills';
@@ -203,7 +204,7 @@ const num = (s: string) => (s.trim() === '' ? 0 : Number(s));
 const str = (n: number) => (n > 0 ? String(n) : '');
 
 function Basics({ c, unis, courses, save }: { c: CourseRec; unis: UniRec[]; courses: CourseRec[]; save: Save }) {
-  const first = () => ({ code: c.code, cricos: c.cricos ?? '', name: c.name, uni: c.uni.id, campus: c.campus.name, level: c.level, area: c.area, mode: c.mode, durUnit: c.durUnit, durValue: str(c.durValue), url: c.url, tags: c.tags });
+  const first = () => ({ code: c.code, cricos: c.cricos ?? '', name: c.name, uni: c.uni.id, campus: c.campus.name, level: c.level, area: c.area, mode: c.mode, durUnit: c.durUnit, durValue: str(c.durValue), url: c.url, checked: c.checked, tags: c.tags });
   const [v, setV] = useState(first);
   const [tried, setTried] = useState(false);
   const set = (p: Partial<ReturnType<typeof first>>) => setV((x) => ({ ...x, ...p }));
@@ -218,6 +219,7 @@ function Basics({ c, unis, courses, save }: { c: CourseRec; unis: UniRec[]; cour
     code: v.code.trim() && courses.some((x) => same(x) && x.code.toLowerCase() === v.code.trim().toLowerCase()) ? 'Another course at this campus has that code.' : null,
     campus: !campuses.some((k) => k.name === v.campus) ? 'Pick a campus. This university has no active campus yet.' : null,
     durValue: !v.durValue ? 'Enter the duration.' : !(Number(v.durValue) > 0 && Number(v.durValue) <= 500) ? 'A number, like 24.' : null,
+    checked: dateError(v.checked, { what: 'date it was last checked', required: true }) ?? (v.checked > todayIso() ? 'It can’t be after today.' : null),
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   return (
@@ -301,6 +303,10 @@ function Basics({ c, unis, courses, save }: { c: CourseRec; unis: UniRec[]; cour
         <Field id="icb-dur" label={`Duration (${v.durUnit.toLowerCase()})`} required error={show('durValue')}>
           <TextInput id="icb-dur" inputMode="numeric" value={v.durValue} invalid={!!show('durValue')} onChange={(e) => set({ durValue: e.target.value.replace(/[^\d.]/g, '') })} placeholder="Like: 24" />
         </Field>
+        {/* HC3 (Jovial, 1 Nov): course search shows it as "Last updated {date}" */}
+        <Field id="icb-checked" label="Last checked" required error={show('checked')} hint="When the team last checked this course against the university. Course search shows it as Last updated.">
+          <DateInput id="icb-checked" value={v.checked} invalid={!!show('checked')} onChange={(checked) => set({ checked })} />
+        </Field>
         <Field id="icb-url" label="Course page on the university website" optional className="iform__wide">
           <TextInput id="icb-url" type="url" value={v.url} onChange={(e) => set({ url: e.target.value })} placeholder="https://" />
         </Field>
@@ -324,7 +330,7 @@ function Basics({ c, unis, courses, save }: { c: CourseRec; unis: UniRec[]; cour
           setTried(true);
           if (Object.values(err).some(Boolean)) return;
           const campus = campuses.find((x) => x.name === v.campus) ?? c.campus;
-          save((x) => ({ ...x, code: v.code.trim(), cricos: v.cricos.trim() || undefined, name: v.name.trim(), uni: u ?? x.uni, campus, level: v.level, area: v.area, mode: v.mode, durUnit: v.durUnit, durValue: num(v.durValue), url: v.url.trim(), tags: v.tags }), 'Basics saved.');
+          save((x) => ({ ...x, code: v.code.trim(), cricos: v.cricos.trim() || undefined, name: v.name.trim(), uni: u ?? x.uni, campus, level: v.level, area: v.area, mode: v.mode, durUnit: v.durUnit, durValue: num(v.durValue), url: v.url.trim(), checked: v.checked, tags: v.tags }), 'Basics saved.');
         }}
         error={tried && Object.values(err).some(Boolean) ? 'Fix what’s marked, then save.' : null}
       />

@@ -1,4 +1,4 @@
-import { fmtMoney } from '../../data/format';
+import { fmtDate, fmtMoney } from '../../data/format';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -7,7 +7,7 @@ import { Checkbox, Field, Form, SelectInput } from '../../components/forms';
 import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
-import { FLAG, FLAG_COLOURS, money, type Course } from '../../data/courses';
+import { FLAG, FLAG_COLOURS, intakeTimes, money, type Course } from '../../data/courses';
 import {
   AREAS,
   DESTINATIONS,
@@ -548,13 +548,12 @@ function statesOf(country: string) {
 
 const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
-const TOGGLES: [keyof Filters, string][] = [
+/** The quick filters; "Deadline within" follows Admin's countdown days (HC8). No English-test or post-study work filter (HC2). */
+const toggles = (): [keyof Filters, string][] => [
   ['open', 'Intake open now'],
-  ['soon', 'Deadline within 45 days'],
+  ['soon', `Deadline within ${intakeTimes().countdownDays} days`],
   ['schol', 'Scholarship available'],
   ['noFee', 'No application fee'],
-  ['flex', 'English test can wait or be waived'],
-  ['psw', 'Post-study work visa'],
 ];
 
 /** The filters in use, as removable chips. */
@@ -569,7 +568,7 @@ function activeFilters(s: CourseSearch) {
       label: f.feeLakh ? `Tuition up to ₹${f.feeLakh} lakh (≈ ${fmtMoney(f.maxFee, cur)})` : `Tuition up to ${fmtMoney(f.maxFee, cur)}`,
     });
   if (f.maxIelts) out.push({ key: 'maxIelts', label: `IELTS up to ${f.maxIelts.toFixed(1)}` });
-  TOGGLES.forEach(([k, t]) => f[k] && out.push({ key: k, label: t }));
+  toggles().forEach(([k, t]) => f[k] && out.push({ key: k, label: t }));
   if (f.shortlisted) out.push({ key: 'shortlisted', label: 'Shortlisted' });
   return out;
 }
@@ -630,7 +629,7 @@ function FilterPanel({
         </SelectInput>
       </Field>
       <div className="fpanel__checks">
-        {TOGGLES.map(([k, t]) => (
+        {toggles().map(([k, t]) => (
           <Checkbox key={k} id={id(k)} checked={!!f[k]} onChange={(v) => setFilter(k, v as never)}>
             {t}
           </Checkbox>
@@ -683,14 +682,10 @@ function CourseCard({
     ['Tuition a year', money(c.tuition, c.currency)],
     ['Application fee', c.appFee ? money(c.appFee, c.currency) : 'Free'],
     ['Duration', duration(c.months)],
+    // the university record's QS rank (Jovial, 1 Nov, HC3)
+    ['QS world ranking', c.uni.qs ? `#${c.uni.qs}` : 'Not ranked'],
   ];
 
-  const tags = [
-    c.scholarship > 0 && `Scholarship up to ${money(c.scholarship, c.currency)}`,
-    c.englishFlex && 'English test can wait',
-    c.psw && 'Post-study work visa',
-    c.uni.group,
-  ].filter(Boolean) as string[];
 
   return (
     <motion.li
@@ -766,12 +761,8 @@ function CourseCard({
 
       <div className="course__foot">
         <div className="course__tags">
-          {tags.map((t) => (
-            <span key={t} className="tag">
-              {t}
-            </span>
-          ))}
-          <span className="course__checked">Last updated on {c.checked} 26</span>
+          {/* the course record's date it was last checked (HC3) */}
+          <span className="course__checked">Last updated {fmtDate(c.checked)}</span>
         </div>
         <div className="course__acts">
           <Button variant="secondary" size="sm" onClick={onOpen}>

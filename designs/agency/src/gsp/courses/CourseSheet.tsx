@@ -7,8 +7,9 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
-import { COURSES, FLAG, FLAG_COLOURS, blockedFor, intakeState, money, type Campus, type Course, type University, intakeDates } from '../../data/courses';
-import { RP_COUNTRY } from '../../data/entry';
+import { searchCatalogue } from '../../institution/data/store';
+import { FLAG, FLAG_COLOURS, blockedFor, intakeState, money, type Campus, type Course, type University, intakeDates } from '../../data/courses';
+import { RP_COUNTRY } from '../../screens/courses/EntryTab';
 import { EntryTab } from '../../screens/courses/EntryTab';
 import type { CourseSearch } from './search';
 import { UniLogo, UniMark, campusLabel, duration } from './parts';
@@ -24,12 +25,11 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-const mapsUrl = (u: University, k: Campus) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${u.name}, ${k.address || `${k.name}, ${k.city}`}`)}`;
 
 /** The same course for the same student at other universities in the destination, closest in price first. */
 function similarTo(c: Course, s: CourseSearch) {
   const seen = new Set<string>([c.uni.id]);
-  return COURSES.filter((x) => x.uni.country === c.uni.country && x.level === c.level && x.area === c.area && !blockedFor(x.uni, s.need.country, s.need.state))
+  return searchCatalogue().courses.filter((x) => x.uni.country === c.uni.country && x.level === c.level && x.area === c.area && !blockedFor(x.uni, s.need.country, s.need.state))
     .sort((a, b) => Math.abs(a.tuition - c.tuition) - Math.abs(b.tuition - c.tuition))
     .filter((x) => !seen.has(x.uni.id) && seen.add(x.uni.id))
     .slice(0, 3);
@@ -202,7 +202,7 @@ export function CourseSheet({
           <p className="csheet__src">
             <Icon name="refresh" size={14} />
             <span>
-              Last updated on {c.checked} 26, from {c.uni.website ?? 'the university’s website'}.
+              Last updated {fmtDate(c.checked)}.
             </span>
           </p>
         )
@@ -259,7 +259,6 @@ function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canAppl
           <dd className="cs-stat__v">
             <Money v={c.tuition} cur={c.currency} />
           </dd>
-          <dd className="cs-stat__sub">{c.scholarship ? `Scholarship up to ${money(c.scholarship, c.currency)}` : 'No scholarship listed'}</dd>
         </div>
         {/* no Base commission for GSP's people (W26): only the RP sees its commission */}
       </dl>
@@ -352,7 +351,7 @@ function Tile({ k, v, sub }: { k: string; v: ReactNode; sub?: string }) {
 /* ---------- overview: the course and its campus ---------- */
 
 function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Course) => void }) {
-  const elsewhere = COURSES.filter((x) => x.uni.id === c.uni.id && x.name === c.name && x.id !== c.id);
+  const elsewhere = searchCatalogue().courses.filter((x) => x.uni.id === c.uni.id && x.name === c.name && x.id !== c.id);
   const similar = similarTo(c, s);
   // in pairs, row by row, so the cards beside each other start and end together
   return (
@@ -413,7 +412,6 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
       <Box id="cs-about" icon="cap" title="About the course">
         <dl className="cdl">
           <Row k="Study mode" v={`${c.mode}, ${duration(c.months)}`} />
-          <Row k="Post-study work visa" v={c.psw ? 'Eligible' : 'Not eligible'} ok={c.psw} />
         </dl>
       </Box>
 
@@ -446,8 +444,8 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
   );
 }
 
-/** A campus with a map tile: its address, setting and a map link (30 Oct: nothing about regional visas). */
-function CampusCard({ u, k, current = false }: { u: University; k: Campus; current?: boolean }) {
+/** A campus with a map tile, from the campus record: its address, setting and its Google Maps link (30 Oct: nothing about regional visas). */
+function CampusCard({ k, current = false }: { u: University; k: Campus; current?: boolean }) {
   return (
     <div className={`cs-campus ${current ? 'is-current' : ''}`}>
       <span className="cs-campus__tile" aria-hidden="true">
@@ -463,11 +461,14 @@ function CampusCard({ u, k, current = false }: { u: University; k: Campus; curre
           {[k.name !== k.city && k.city, k.setting].filter(Boolean).join(' · ')}
         </p>
       </div>
-      <a className="cs-campus__map" href={mapsUrl(u, k)} target="_blank" rel="noreferrer">
-        Map
-        <Icon name="external" size={14} />
-        <span className="vh"> of {k.name}, opens in a new tab</span>
-      </a>
+      {/* the campus record's Google Maps link (HC3); none, no link */}
+      {k.map && (
+        <a className="cs-campus__map" href={k.map} target="_blank" rel="noreferrer">
+          View on map
+          <Icon name="external" size={14} />
+          <span className="vh"> of {k.name}, opens in a new tab</span>
+        </a>
+      )}
     </div>
   );
 }
@@ -477,10 +478,10 @@ function CampusCard({ u, k, current = false }: { u: University; k: Campus; curre
 function Uni({ c }: { c: Course }) {
   const u = c.uni;
   const facts: [string, string][] = [
-    ...(u.kind ? ([['Type', u.kind]] as [string, string][]) : []),
+    // from the university record (Jovial, 1 Nov, HC2, HC3): its type and sector, founding year and QS rank
+    ...(u.utype ? ([['Type', `${u.sector ?? ''} ${u.sector ? u.utype.toLowerCase() : u.utype}`.trim()]] as [string, string][]) : []),
     ...(u.founded ? ([['Founded', String(u.founded)]] as [string, string][]) : []),
     ['QS world ranking', u.qs ? `#${u.qs}` : 'Not ranked'],
-    ...(u.group ? ([['Group', u.group]] as [string, string][]) : []),
   ];
   return (
     <>

@@ -5,6 +5,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import { COURSES, type Course } from '../../data/courses';
+import { INTAKE_TIMES, setIntakeTimesReader, type IntakeTimes } from '../../data/courses'; // hc-courses (HC8), see the end
 import { fmtMoney } from '../../data/format';
 import {
   sampleBdm,
@@ -240,3 +241,17 @@ export const useAdminCfg = () => [useAdmin(), setAdminCfg] as const;
 
 // Admin's costs reach every course from the start
 load();
+
+/* ---------- appended (hc-courses, Jovial 1 Nov, HC8): intake timings, a course setting ---------- */
+
+/**
+ * How intakes are timed in course search, applications and the catalogue: the days an intake still shows as late
+ * after its deadline (14), how close a deadline is marked as soon (21) and how close it shows a countdown and counts
+ * for "Deadline within" (45). Edited in Admin › Living costs › Intake timings; kept with the other settings (a saved
+ * copy from before this setting gets the defaults). data/courses.ts reads it through `setIntakeTimesReader`.
+ */
+export type IntakeCfg = Cfg & { intakeTimes?: IntakeTimes };
+export const intakeTimesOf = (c: Cfg): IntakeTimes => ({ ...INTAKE_TIMES, ...(c as IntakeCfg).intakeTimes });
+/** Sets the intake timings (for `change`, which saves and logs it). */
+export const withIntakeTimes = (c: Cfg, t: IntakeTimes): Cfg => ({ ...c, intakeTimes: t }) as IntakeCfg;
+setIntakeTimesReader(() => intakeTimesOf(load()));

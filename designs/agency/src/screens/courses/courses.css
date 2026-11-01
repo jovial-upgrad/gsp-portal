@@ -826,6 +826,7 @@
 .cs-life__row::-webkit-scrollbar { display: none; }
 .cs-photo { display: grid; align-content: start; gap: 4px; min-width: 0; scroll-snap-align: start; }
 .cs-photo__img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r-sm); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.cs-photo__ph { display: grid; place-content: center; justify-items: center; gap: var(--sp-8); padding: var(--sp-12); color: var(--text-3); font-size: var(--t-caption); line-height: var(--lh-caption); text-align: center; overflow-wrap: anywhere; }
 .cs-photo__credit { margin-top: 2px; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); overflow-wrap: anywhere; }
 .cs-photo__credit a { color: inherit; text-decoration: none; }
 .cs-photo__credit a:hover { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
