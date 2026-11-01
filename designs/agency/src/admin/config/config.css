@@ -202,3 +202,4 @@
   .cfg__fx th:first-child, .cfg__fx td:first-child { min-width: 0; width: auto; white-space: normal; }
   .cfg__fx .cfg__acts { width: 40px; padding-left: 0; }
 }
+.cfg__scroll { max-height: 420px; overflow: auto; }

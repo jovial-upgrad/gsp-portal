@@ -27,7 +27,11 @@ import {
   sampleRules,
   condOf,
   REGION_BDM,
-  regionQueueName,
+  seedQueueName,
+  sampleNationality,
+  sampleSecurity,
+  live,
+  type Security,
   type BdmRow,
   type DocRule,
   type EmailGroup,
@@ -48,7 +52,12 @@ import {
 /** Everything GSP Admin configures; each change is logged. */
 export type Cfg = {
   users: User[];
+  /** Admin › Sales regions: the only list of sales regions, each with its countries (HC38). */
   regions: Region[];
+  /** Nationality to sales region (HC42), editable on Sales regions. */
+  nationality: Record<string, string>;
+  /** Sign-in rules for every GSP portal (HC52). */
+  security: Security;
   perms: Perms;
   queues: Queue[];
   emails: EmailGroup[];
@@ -75,6 +84,8 @@ export const sampleCfg = (): Cfg => {
   return {
     users,
     regions: sampleRegions(),
+    nationality: sampleNationality(),
+    security: sampleSecurity(),
     perms: samplePerms(),
     queues,
     emails: sampleEmails(users),
@@ -86,7 +97,7 @@ export const sampleCfg = (): Cfg => {
     rules: sampleRules(),
     lists: sampleLists(),
     regionBdm: { ...REGION_BDM },
-    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === regionQueueName(r))?.id ?? ''])),
+    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === seedQueueName(r))?.id ?? ''])),
     docRules: sampleDocRules(),
     rpDocs: sampleRpDocs(),
     filters: sampleFilters(),
@@ -95,7 +106,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v4'; // v4: Jovial's sheet answers (31 Oct)
+const KEY = 'gsp-admin-v5'; // v5: sales regions with their countries, nationality map, sign-in security, Work permissions (1 Nov)
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {
@@ -106,6 +117,9 @@ function load(): Cfg {
   } catch {
     state = sampleCfg();
   }
+  // permission objects added since the settings were saved start at their sample levels
+  const perms = samplePerms();
+  state = { ...state!, perms: { ...perms, ...state!.perms }, regions: state!.regions.map((r) => ({ ...r, countries: r.countries ?? [] })) };
   // every week carries every currency (W14): older saved settings may have weeks without one
   state = { ...state!, fxWeeks: fillFx(state!.fxWeeks, state!.rates) };
   applyCourseCosts(state!);
@@ -140,6 +154,8 @@ try {
 } catch {
   /* no window */
 }
+// the readers that can't wait for the store (a nationality, a region's queue) read it once it's loaded
+live.cfg = () => state;
 /** Admin's settings now. */
 export const adminCfg = (): Cfg => load();
 /** Change Admin's settings (Admin's pages do this through `change`, which also logs it). */

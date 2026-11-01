@@ -10,6 +10,8 @@ import { AuthScene, settle, useScene } from './AuthScene';
 import {
   LOCK_MINUTES,
   MAX_ATTEMPTS,
+  RESEND_SECONDS,
+  resendFrom,
   PASSWORD_HINT,
   TEAM_AUTH_PRESETS,
   TEAM_MEMBER,
@@ -365,7 +367,7 @@ function RequestStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: 
     const bad = !f.id.trim() || (setup && (!m || hasPassword(m)));
     if (bad) return patch({ submitted: true });
     patch({ busy: true });
-    window.setTimeout(() => go('code', 1, { code: '', codeError: null, resendAt: Date.now() + 30_000 }), 800);
+    window.setTimeout(() => go('code', 1, { code: '', codeError: null, resendAt: resendFrom() }), 800);
   };
   return (
     <>
@@ -409,7 +411,7 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
     window.setTimeout(() => codeRef.current?.focus(), 260);
     return () => window.clearInterval(t);
   }, []);
-  const wait = Math.min(30, Math.max(0, Math.ceil((f.resendAt - now) / 1000)));
+  const wait = Math.min(RESEND_SECONDS, Math.max(0, Math.ceil((f.resendAt - now) / 1000)));
   const dest = codeDestination(f.id);
   const check = (code: string) => {
     patch({ busy: true, codeError: null });
@@ -465,7 +467,7 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
               Send a new code in <span className="num">0:{String(wait).padStart(2, '0')}</span>
             </span>
           ) : (
-            <button type="button" className="btn btn--link" onClick={() => patch({ resendAt: Date.now() + 30_000, code: '', codeError: null })}>
+            <button type="button" className="btn btn--link" onClick={() => patch({ resendAt: resendFrom(), code: '', codeError: null })}>
               Send a new code
             </button>
           )}

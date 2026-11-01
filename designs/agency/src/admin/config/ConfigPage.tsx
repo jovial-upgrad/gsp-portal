@@ -9,7 +9,7 @@ import { Bdm } from './Bdm';
 import { Currency, LivingCosts, VisaFees } from './Course';
 import { Routing } from './Routing';
 import { Documents } from './Documents';
-import { Logs } from './Other';
+import { Logs, Security } from './Other';
 import './config.css';
 
 /** What every configuration page gets. `change` saves and logs in one go; `say` confirms it. */
@@ -46,6 +46,7 @@ export function ConfigPage({ section, cfg, setCfg, me, say }: { section: ConfigS
     routing: <Routing {...p} />,
     documents: <Documents {...p} />,
     logs: <Logs {...p} />,
+    security: <Security {...p} />,
   };
   return <div className="ipage cfg">{pages[section]}</div>;
 }

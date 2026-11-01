@@ -12,7 +12,7 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  * configuration** (Application routing, Document configuration) and **Other configurations** (Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
-export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'visa' | 'routing' | 'documents' | 'logs';
+export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'visa' | 'routing' | 'documents' | 'logs' | 'security';
 export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how';
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules';
 export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
@@ -88,6 +88,8 @@ export const GROUPS: NavGroup[] = [
     icon: 'sliders',
     items: [
       { key: 'logs', label: 'Logs', short: 'Logs', icon: 'clock' },
+      // Jovial, 1 Nov (HC52): the sign-in rules every GSP portal follows
+      { key: 'security', label: 'Sign-in security', short: 'Security', icon: 'key' },
     ],
   },
 ];

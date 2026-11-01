@@ -4,6 +4,7 @@
  * a forgotten password the same way. Prototype values: the code 000000, Kevin Mcewan's password upGrad1234.
  */
 import { TEST_PASSWORD } from '../../data/testing';
+import { adminCfg, onAdminChange } from '../../admin/data/store';
 import { STAFF, label } from '../../data/staff';
 
 export type PwStep = 'request' | 'code' | 'new' | 'done';
@@ -78,8 +79,19 @@ export function verify(id: string, pw: string): Member | null {
   return pw === (passwords.get(m.email) ?? TEST_PASSWORD) ? m : null;
 }
 
-export const MAX_ATTEMPTS = 5;
-export const LOCK_MINUTES = 15;
+/**
+ * Sign-in rules (Jovial, 1 Nov, HC52): GSP · Admin › Other configurations › Sign-in security. Live: they follow
+ * Admin's setting as soon as it's saved.
+ */
+export let MAX_ATTEMPTS = adminCfg().security.maxAttempts;
+export let LOCK_MINUTES = adminCfg().security.lockMinutes;
+/** Seconds before a code can be sent again. */
+export let RESEND_SECONDS = adminCfg().security.resendSeconds;
+onAdminChange(() => {
+  ({ maxAttempts: MAX_ATTEMPTS, lockMinutes: LOCK_MINUTES, resendSeconds: RESEND_SECONDS } = adminCfg().security);
+});
+/** When a code just sent can be sent again. */
+export const resendFrom = (now = Date.now()) => now + RESEND_SECONDS * 1000;
 
 export function maskEmail(email: string) {
   const [user, domain] = email.split('@');
@@ -109,7 +121,7 @@ const flowAt = (mode: PwMode, step: PwStep = 'request', id = ''): TeamAuth['flow
   busy: false,
   code: '',
   codeError: null,
-  resendAt: step === 'code' ? Date.now() + 30_000 : 0,
+  resendAt: step === 'code' ? resendFrom() : 0,
   pw: '',
   pw2: '',
   others: true,
@@ -143,7 +155,7 @@ export const TEAM_AUTH_PRESETS: Record<string, { label: string; make: () => Team
   signin: { label: 'Sign in', make: () => initialTeamAuth() },
   'signin-error': {
     label: 'Wrong password',
-    make: () => ({ ...initialTeamAuth(RAJ), attempts: 3, submitted: true, error: 'That email and password don’t match. 2 tries left before sign-in pauses for 15 minutes.' }),
+    make: () => ({ ...initialTeamAuth(RAJ), attempts: 3, submitted: true, error: `That email and password don’t match. ${MAX_ATTEMPTS - 3} tries left before sign-in pauses for ${LOCK_MINUTES} minutes.` }),
   },
   'signin-locked': { label: 'Sign-in paused', make: () => ({ ...initialTeamAuth(RAJ), attempts: MAX_ATTEMPTS, lockedUntil: Date.now() + LOCK_MINUTES * 60_000 }) },
   'signin-unset': { label: 'No password yet', make: () => ({ ...initialTeamAuth(KAVYA), submitted: true, unset: true }) },
