@@ -3,6 +3,8 @@
  * Results only show once five things are known (the brief): destination, the student's country and state,
  * program level and study area. Courses the student can't be offered are hidden, and the count says so.
  */
+import { getDb } from '../../institution/data/store';
+import { TEST_AGENCY } from '../../data/rpteam';
 import { inrPer as inrPerOf } from '../../admin/data/store';
 // what Course search reads: the Institution Team's catalogue, in every role (Jovial, 31 Oct)
 import { searchCatalogue } from '../../institution/data/store';
@@ -338,6 +340,9 @@ export function results(s: CourseSearch): Results {
   pool = pool.filter((c) => (named ? c.uni.id === named.uni.id : keywordMatch(c, q)));
   const blocked = n.country ? pool.filter((c) => blockedFor(c.uni, n.country, n.state)) : [];
   pool = pool.filter((c) => !blocked.includes(c));
+  // a university's territory can hide it from named RPs (slice 3 check, 1 Nov): the signed-in agency's record
+  const me = myRpId();
+  if (me) pool = pool.filter((c) => !c.uni.hiddenFrom?.includes(me));
   const before = pool.length;
   let list = pool.filter((c) => passes(c, f));
   const by: Record<Sort, (a: Course, b: Course) => number> = {
@@ -417,3 +422,12 @@ export const COURSE_PRESETS: Record<string, { label: string; make: () => CourseS
     },
   },
 };
+
+/** The signed-in agency's recruitment partner record id, if it has one (for a university's hidden-from list). */
+function myRpId(): string | undefined {
+  try {
+    return getDb().rps.find((r) => r.name === TEST_AGENCY)?.id;
+  } catch {
+    return undefined;
+  }
+}
