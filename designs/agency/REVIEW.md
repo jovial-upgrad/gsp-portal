@@ -333,6 +333,12 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - **Commission on the records:** read-only summary of Finance's terms on each institution partner and RP; Recruitment Ops and Finance can change an RP's bank details there. Changing bank details needs a bank letter, and Finance verifies it.
   - Open, in his sheet: which English test fields are required (Test fields tab).
 
+- [x] Jovial, 1 Nov (morning, in chat): **course search, application and RP onboarding fixes** (1 Nov, 9cedc2b)
+  - **Course page Costs:** tuition, living costs, visa and health cover for the course's length (1 year when it's in credits) and the application fee, with a total; living costs and visa and health cover from Admin; no "Other costs", no "after scholarship". Scholarships show only their record. Documents come from Admin › Document configuration. Shortlist is off until the RP has a student.
+  - **Application:** the university's own form (Institution › Submission and contacts) shows on Add an application with its template to download; the RP can upload any other document and name it; a calendar on date fields; What's needed is optional in a document request; Change status asks only stage and status (and who lodges the visa); the payment proof is asked for by hand; new status **Acceptance letter received** (Mail's CoE/CAS email suggests it, not the visa step); the final tuition fee is empty until Admissions adds it.
+  - **RP onboarding:** a nudge to add state and city, showing the partner manager they decide.
+  - **UI:** list names on the role Homes start at the left; one "* Required" note on Add a student.
+
 ## New pages
 
 - [x] Jovial, 31 Oct: **My work** and **Mail** in the code (`src/work/`). My work (tasks from the task rules, by queue, with working-day SLAs) is in every GSP role; Admin's new **Work** group has **Queues, SLA and escalation** and **Task rules**. (31 Oct, 3970d0a)
