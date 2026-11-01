@@ -115,7 +115,7 @@ function scholarshipsOf(u: University): Scholarship[] {
       from: [],
       levels: [...new Set(list.map((c) => c.level))],
       areas: [],
-      conditions: list[0].scholarshipAuto ? '' : 'Students apply for it once they hold an offer.',
+      conditions: '', // no source for when to apply (Jovial, 1 Nov)
     };
   });
 }
