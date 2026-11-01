@@ -122,6 +122,7 @@ export function CompareSheet({
   isShort,
   onApply,
   onShort,
+  shortOff,
   onClose,
   onRemove,
   onDownload,
@@ -135,6 +136,8 @@ export function CompareSheet({
   onApply: (c: Course) => void;
   /** Shortlist, as the star on a card does: for the student picked, or a list of students under the button. */
   onShort: (c: Course, anchor: HTMLElement) => void;
+  /** Why Shortlist is off (no students yet), when it is. */
+  shortOff?: string;
   onClose: () => void;
   onRemove: (id: string) => void;
   onDownload: () => void;
@@ -220,7 +223,9 @@ export function CompareSheet({
                       size="sm"
                       variant="secondary"
                       aria-pressed={on}
-                      aria-label={`${on ? 'Shortlisted' : 'Shortlist'}: ${c.name}, ${c.uni.name}`}
+                      disabled={!!shortOff}
+                      title={shortOff}
+                      aria-label={`${on ? 'Shortlisted' : 'Shortlist'}: ${c.name}, ${c.uni.name}${shortOff ? ` (${shortOff.toLowerCase()})` : ''}`}
                       iconLeft={<Icon name="star" size={16} className={on ? 'is-on' : undefined} />}
                       onClick={(e) => onShort(c, e.currentTarget)}
                     >

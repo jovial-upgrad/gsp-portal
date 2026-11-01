@@ -4,7 +4,8 @@
  * Kept in this browser (in the real build, the settings service), so a reload keeps them and other tabs see them.
  */
 import { useSyncExternalStore } from 'react';
-import { COURSES } from '../../data/courses';
+import { COURSES, type Course } from '../../data/courses';
+import { fmtMoney } from '../../data/format';
 import {
   sampleBdm,
   sampleEmails,
@@ -24,6 +25,7 @@ import {
   sampleRegions,
   sampleRpDocs,
   sampleRules,
+  condOf,
   REGION_BDM,
   regionQueueName,
   type BdmRow,
@@ -55,7 +57,7 @@ export type Cfg = {
   /** Each week's rates (Finance prices a line at the rate of the week it's paid). */
   fxWeeks: FxWeek[];
   living: Living[];
-  /** Visa and health fees by destination (the course page's Other costs). */
+  /** Visa and health fees by destination (the course page's Costs). */
   visaFees: VisaFee[];
   rules: RouteRule[];
   lists: Record<string, string[]>;
@@ -157,15 +159,77 @@ const subscribe = (f: () => void) => {
 };
 /** For stores outside React (Finance's): called on every change. */
 export const onAdminChange = (f: () => void) => subscribe(f);
-/** A course's living costs and visa and health fees, from Admin's tables as they are now. */
-export function costsOf(c: { uni: { country: string }; living: number; otherFees: [string, number][] }) {
+/** One part of what a course costs a student: what it is, how much, and what the amount is made of. */
+export type CostPart = { key: 'tuition' | 'living' | 'visa' | 'app'; label: string; v: number; basis: string };
+/**
+ * What a course costs one student (Jovial, 1 Nov), from its record and GSP · Admin's settings as they are now:
+ * tuition for the course's duration, living costs (Admin › Living costs) and visa and health cover (Admin › Visa and
+ * health fees: a yearly fee for each year, a one-off once) for the same duration, and the application fee, once.
+ * A course whose length is in credits has no length in time, so it's one year of each. Admin figures in another
+ * currency are converted at Admin's Currency exchange.
+ */
+export function courseCosts(c: Course & { durUnit?: string; durValue?: number; fullFee?: number; firstYearFee?: number }) {
   const cfg = load();
-  const l = cfg.living.find((y) => y.country === c.uni.country);
-  const fees = (cfg.visaFees ?? []).filter((f) => f.country === c.uni.country);
-  return {
-    living: l ? l.perYear : c.living,
-    otherFees: fees.length ? fees.map((f) => [`${f.label}, ${f.per === 'year' ? 'a year' : 'once'}`, f.amount] as [string, number]) : c.otherFees,
+  const cur = c.currency;
+  const fmt = (n: number, code = cur) => fmtMoney(Math.round(n), code);
+  const conv = (v: number, from: string) => {
+    if (from === cur) return v;
+    const a = inrPerFrom(cfg.rates, from);
+    const b = inrPerFrom(cfg.rates, cur);
+    return a && b ? (v * a) / b : v;
   };
+  const credits = c.durUnit === 'Credits';
+  const years = credits ? 1 : Math.max(1, c.months) / 12;
+  const span = credits ? '1 year' : durationText(c.months);
+  const times = years === 1 ? '' : ` × ${+years.toFixed(2)} years`;
+  // tuition: the full course fee as entered (or tuition a year over the course's length); for credits, one year's
+  const tuition = credits ? (c.firstYearFee || c.tuition) : c.fullFee && c.fullFee > 0 ? c.fullFee : (c.tuition * c.months) / 12;
+  const tuitionBasis = credits ? `${fmt(tuition)} a year` : c.fullFee && c.fullFee > 0 ? 'The full course fee, from the course record' : `${fmt(c.tuition)} a year${times}`;
+  const l = cfg.living.find((y) => y.country === c.uni.country);
+  const living = l ? conv(l.perYear, l.currency) * years : 0;
+  const fees = (cfg.visaFees ?? []).filter((f) => f.country === c.uni.country);
+  const visa = fees.reduce((n, f) => n + conv(f.amount, f.currency) * (f.per === 'year' ? years : 1), 0);
+  const parts: CostPart[] = [
+    { key: 'tuition', label: `Tuition fee, for ${span}`, v: Math.round(tuition), basis: tuitionBasis },
+    { key: 'living', label: `Living costs, for ${span}`, v: Math.round(living), basis: l ? `${fmt(l.perYear, l.currency)} a year${times}` : `Not set for ${c.uni.country} in GSP · Admin` },
+    {
+      key: 'visa',
+      label: `Visa and health cover, for ${span}`,
+      v: Math.round(visa),
+      basis: fees.length ? fees.map((f) => `${f.label}: ${fmt(f.amount, f.currency)} ${f.per === 'year' ? `a year${times}` : 'once'}`).join(' · ') : `Not set for ${c.uni.country} in GSP · Admin`,
+    },
+    { key: 'app', label: 'Application fee, one time', v: Math.round(c.appFee), basis: c.appFee ? 'Paid once, with the application' : 'No application fee' },
+  ];
+  return { parts, total: parts.reduce((n, p) => n + p.v, 0), span, credits, credit: credits ? c.durValue : undefined };
+}
+const durationText = (m: number) => (m % 12 === 0 ? `${m / 12} ${m === 12 ? 'year' : 'years'}` : `${m} months`);
+/** A document a course asks for: its name, whether it's needed, and when (or for whom). */
+export type CourseDoc = [string, 'Required' | 'Optional', string];
+/** The study level as Admin's document rules name it (as data/applications.ts reads them). */
+const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 'Diploma', 'Bachelor’s degree': 'Undergraduate', 'Postgraduate diploma': 'Postgraduate', 'Master’s degree': 'Postgraduate', 'PhD or research': 'Doctorate' };
+/**
+ * The documents a course asks for (Jovial, 1 Nov), from GSP · Admin › Document configuration, read the way Add an
+ * application reads them (data/applications.ts docsFor): the rules switched on for the New stage that the RP uploads,
+ * where the rule's study levels and university countries take this course. A rule for students already in (or
+ * outside) the destination, or with a condition of its own, says so and is optional unless it's mandatory and
+ * plain. Then the English test, from the course's English rule.
+ */
+export function courseDocs(c: Pick<Course, 'level' | 'englishFlex'> & { uni: { country: string; name: string } }): CourseDoc[] {
+  const level = RULE_LEVEL[c.level] ?? 'Postgraduate';
+  const out: CourseDoc[] = [];
+  const dest = c.uni.country === 'UK' || c.uni.country === 'USA' ? `the ${c.uni.country}` : c.uni.country;
+  for (const r of load().docRules) {
+    if (!r.on || r.stage !== 'New' || r.by !== 'RP') continue;
+    const k = condOf(r);
+    if (k.levels.length && !k.levels.includes(level)) continue;
+    if (k.countries.length && !k.countries.includes(c.uni.country)) continue;
+    if (out.some(([n]) => n === r.doc)) continue;
+    const where = k.where === 'Already in the destination' ? `For students already in ${dest}` : k.where === 'Outside the destination' ? `For students outside ${dest}` : '';
+    const other = k.other.trim() ? `When ${k.other.trim().charAt(0).toLowerCase()}${k.other.trim().slice(1)}` : '';
+    out.push([r.doc, r.setting === 'Mandatory' && !k.other.trim() ? 'Required' : 'Optional', [where, other].filter(Boolean).join('; ') || 'With the application']);
+  }
+  out.push(['English test score report', c.englishFlex ? 'Optional' : 'Required', c.englishFlex ? `${c.uni.name} can take it later` : 'With the application']);
+  return out;
 }
 /** Rupees for one unit of a currency, from Admin's Currency exchange (course search's budget in lakhs). */
 export const inrPer = (code: string) => inrPerFrom(load().rates, code);

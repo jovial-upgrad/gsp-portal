@@ -234,8 +234,6 @@ export type Course = {
   scholarshipName?: string;
   /** The scholarship comes with the offer, or needs its own application. */
   scholarshipAuto?: boolean;
-  /** What the application needs: document, needed or optional, and when. */
-  docs: [string, 'Required' | 'Optional' | 'Can come later', string][];
   /** Costs on top of tuition, approximate. */
   otherFees: [string, number][];
   /** Postgraduate courses: the most backlogs (subjects failed and cleared later) accepted in the student's degree. */
@@ -372,7 +370,7 @@ function modeOf(id: string): StudyMode {
   return n < 72 ? 'Full time' : n < 84 ? 'Blended' : n < 94 ? 'Part time' : 'Online';
 }
 
-type Extras = Pick<Course, 'mode' | 'cricos' | 'placement' | 'pathway' | 'recognition' | 'careers' | 'scholarshipName' | 'scholarshipAuto' | 'docs' | 'otherFees' | 'backlogs'>;
+type Extras = Pick<Course, 'mode' | 'cricos' | 'placement' | 'pathway' | 'recognition' | 'careers' | 'scholarshipName' | 'scholarshipAuto' | 'otherFees' | 'backlogs'>;
 
 /** How many backlogs universities in each destination usually accept from Indian students on postgraduate courses. */
 const BACKLOGS: Record<Destination, number[]> = { UK: [10, 12, 15], Australia: [5, 8, 10], Canada: [5, 6, 8], 'New Zealand': [5, 8], Ireland: [8, 10, 12], USA: [5, 8, 10] };
@@ -424,18 +422,6 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
   const nursing = /Nursing/.test(c.name);
   const body = nursing ? NURSING[dest] : BODIES[c.area]?.[dest];
   const careers = [...CAREERS[c.area]].sort(() => rnd() - 0.5).slice(0, 3);
-  const docs: Extras['docs'] = [
-    ['Passport', 'Required', 'With the application'],
-    [pg ? 'Bachelor’s transcripts and degree certificate' : c.level === 'Foundation' ? 'Class 10 and 11 mark sheets' : 'Class 10 and 12 mark sheets', 'Required', 'With the application'],
-    ['English test score', c.englishFlex ? 'Can come later' : 'Required', c.englishFlex ? 'GSP asks for it before the offer is final' : 'With the application'],
-    ['Statement of purpose', pg ? 'Required' : 'Optional', 'With the application'],
-    ['CV', pg ? 'Required' : 'Optional', 'With the application'],
-  ];
-  if (c.area === 'Arts and design') docs.push(['Portfolio', 'Required', 'With the application']);
-  if (c.level === 'PhD or research') docs.push(['Research proposal', 'Required', 'With the application']);
-  if (pg) docs.push(['Two references', 'Optional', 'GSP asks for them if the university wants them']);
-  docs.push(['Gap explanation document', 'Optional', 'GSP asks for it if there’s a gap in study']);
-  docs.push(['Financial documents', 'Required', dest === 'UK' ? 'GSP asks for them after the offer, before the CAS' : 'GSP asks for them after the offer, for the visa']);
   return {
     mode: modeOf(c.id),
     cricos: dest === 'Australia' ? `0${String(10000 + Math.floor(rnd() * 89999))}${'ABCDEFGHJKM'[Math.floor(rnd() * 11)]}` : undefined,
@@ -445,7 +431,6 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
     careers,
     scholarshipName: c.scholarship ? SCHOLARSHIPS[Math.floor(rnd() * SCHOLARSHIPS.length)] : undefined,
     scholarshipAuto: c.scholarship ? rnd() < 0.6 : undefined,
-    docs,
     otherFees: OTHER_FEES[dest],
     // drawn last, so the values above stay as they were
     backlogs: pg ? (c.level === 'PhD or research' ? 3 : BACKLOGS[dest][Math.floor(rnd() * BACKLOGS[dest].length)]) : undefined,
@@ -484,12 +469,15 @@ export function blockedFor(u: University, country: string, state: string) {
   return (u.blocked ?? []).some((b) => b.country === country && (!b.states || b.states.includes(state)));
 }
 
-/* ---------- scholarships: the course's own, then what the university offers every international student ---------- */
+/* ---------- scholarships: the course's own, then the university's ---------- */
 
-/** A scholarship as the course page lists it: how much, who it's for, and whether it comes with the offer or needs its own application. */
-export type Scholarship = { name: string; amount: string; per: string; who: string; auto: boolean; from: 'course' | 'university' };
+/**
+ * A scholarship as its record keeps it (Jovial, 1 Nov: only what the record has): the course's own (its name and
+ * amount), or the university's from the Institution Team's catalogue (its name, amount, the countries it's for and
+ * its conditions).
+ */
+export type Scholarship = { name: string; amount: string; from: 'course' | 'university'; forCountries?: string[]; conditions?: string };
 
-/** The university's own awards, from its id, so no other data moves (sample data until GSP's scholarship feed is in). */
 /** An intake's dates and a university's submission channel as the Institution Team keeps them (set by institution/data/store.ts). */
 export type IntakeDates = { deposit: string; accept: string; start: string; census: string };
 export type Submission = { channel: string; link: string; username?: string; secret?: string };
@@ -522,38 +510,15 @@ export const setUniScholarships = (f: typeof uniScholarshipsOf) => {
   uniScholarshipsOf = f;
 };
 export function scholarshipsOf(c: Course): Scholarship[] {
-  let h = 0;
-  for (const ch of `${c.uni.id}:schol`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const round = (v: number) => Math.max(500, Math.round(v / 500) * 500);
   const list: Scholarship[] = [];
-  if (c.scholarship)
-    list.push({
-      name: c.scholarshipName ?? 'Course scholarship',
-      amount: `Up to ${money(c.scholarship, c.currency)}`,
-      per: 'off the first year',
-      who: 'Students who meet entry for this course',
-      auto: !!c.scholarshipAuto,
-      from: 'course',
-    });
-  // the university's scholarships from the Institution Team's catalogue (Jovial, 31 Oct), where it has them
-  const kept = uniScholarshipsOf(c.uni.id);
-  if (kept) {
-    for (const x of kept) {
-      if (x.levels.length && !x.levels.includes(c.level)) continue;
-      if (x.areas.length && !x.areas.includes(c.area)) continue;
-      if (list.some((y) => y.name === x.name)) continue;
-      const amount = x.amountType === 'Percentage' ? (x.low === x.high ? `${x.high}% off tuition` : `${x.low}–${x.high}% off tuition`) : x.low === x.high ? money(x.high, x.currency) : `Up to ${money(x.high, x.currency)}`;
-      list.push({ name: x.name, amount, per: 'off the first year', who: x.conditions || (x.from.length ? `Students from ${x.from.join(', ')}` : 'Students who meet entry'), auto: false, from: 'university' });
-    }
-    return list;
+  if (c.scholarship) list.push({ name: c.scholarshipName ?? 'Course scholarship', amount: `Up to ${money(c.scholarship, c.currency)}`, from: 'course' });
+  // the university's scholarships from the Institution Team's catalogue (Jovial, 31 Oct)
+  for (const x of uniScholarshipsOf(c.uni.id) ?? []) {
+    if (x.levels.length && !x.levels.includes(c.level)) continue;
+    if (x.areas.length && !x.areas.includes(c.area)) continue;
+    if (list.some((y) => y.name === x.name)) continue;
+    const amount = x.amountType === 'Percentage' ? (x.low === x.high ? `${x.high}% off tuition` : `${x.low}–${x.high}% off tuition`) : x.low === x.high ? money(x.high, x.currency) : `Up to ${money(x.high, x.currency)}`;
+    list.push({ name: x.name, amount, from: 'university', forCountries: x.from.length ? x.from : undefined, conditions: x.conditions.trim() || undefined });
   }
-  const uni: Scholarship[] = [
-    { name: 'Early acceptance bursary', amount: money(round(c.tuition * 0.06), c.currency), per: 'off the first year', who: 'Pay the deposit within 30 days of the offer', auto: true, from: 'university' },
-    { name: 'High achiever award', amount: `Up to ${money(round(c.tuition * 0.25), c.currency)}`, per: 'off the first year', who: `${Math.min(c.academic + 15, 90)}% or more in the last qualification`, auto: false, from: 'university' },
-    { name: 'Family discount', amount: '10% off tuition', per: 'every year of the course', who: 'A brother, sister, parent or partner studied here', auto: false, from: 'university' },
-  ];
-  // one or two of them, the same for every course at the university
-  const n = 1 + (h % 2);
-  for (let i = 0; i < n; i++) list.push(uni[(h + i) % uni.length]);
   return list;
 }

@@ -1,12 +1,13 @@
 import { fmtDate } from '../../data/format';
 import { UniNews } from '../../components/UniNews';
-import { costsOf } from '../../admin/data/store';
+import { courseCosts } from '../../admin/data/store';
+import { CostsTab } from '../../screens/courses/CostsTab';
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
-import { FLAG, FLAG_COLOURS, blockedFor, intakeState, money, scholarshipsOf, type Campus, type Course, type University, intakeDates } from '../../data/courses';
+import { FLAG, FLAG_COLOURS, blockedFor, intakeState, money, type Campus, type Course, type University, intakeDates } from '../../data/courses';
 import { RP_COUNTRY } from '../../data/entry';
 import { EntryTab } from '../../screens/courses/EntryTab';
 import { catalogue, type CourseSearch } from './search';
@@ -62,6 +63,7 @@ export function CourseSheet({
   onClose,
   shortlisted,
   onShort,
+  shortOff,
   compared = false,
   comparable = true,
   onCompare,
@@ -76,6 +78,8 @@ export function CourseSheet({
   shortlisted: boolean;
   /** Shortlist: for the student picked in the search, or a list of students to pick from (shown under the button). */
   onShort: (anchor: HTMLElement) => void;
+  /** Why Shortlist is off (no students yet), when it is. */
+  shortOff?: string;
   /** Ticked to compare (up to five), beside Shortlist. */
   compared?: boolean;
   comparable?: boolean;
@@ -178,7 +182,12 @@ export function CourseSheet({
                   </span>
                 </label>
               )}
-              <Button variant="secondary" onClick={(e) => onShort(e.currentTarget)} aria-pressed={shortlisted} aria-label={shortlisted ? 'Shortlisted' : 'Shortlist'} iconLeft={<Icon name="star" size={18} className={shortlisted ? 'is-on' : undefined} />}>
+              {shortOff && (
+                <span id="cs-short-off" className="cm-acts__why">
+                  {shortOff}
+                </span>
+              )}
+              <Button variant="secondary" onClick={(e) => onShort(e.currentTarget)} disabled={!!shortOff} aria-describedby={shortOff ? 'cs-short-off' : undefined} aria-pressed={shortlisted} aria-label={shortlisted ? 'Shortlisted' : 'Shortlist'} iconLeft={<Icon name="star" size={18} className={shortlisted ? 'is-on' : undefined} />}>
                 <span className="cm-acts__label">{shortlisted ? 'Shortlisted' : 'Shortlist'}</span>
               </Button>
               <Button onClick={onApply} disabled={!canApply} iconRight={canApply ? <Icon name="arrowRight" size={18} /> : undefined}>
@@ -203,7 +212,7 @@ export function CourseSheet({
         <div className="csheet" ref={body}>
           <Panel tab={tab} id={c.id}>
             {tab === 'overview' && <Overview c={c} s={s} onPick={pick} />}
-            {tab === 'costs' && <Costs c={c} />}
+            {tab === 'costs' && <CostsTab c={c} />}
             {tab === 'entry' && <EntryTab c={c} country={from} onCountry={setFrom} />}
             {tab === 'uni' && <Uni c={c} />}
           </Panel>
@@ -216,6 +225,7 @@ export function CourseSheet({
 /* ---------- the header's tags and fact strip ---------- */
 
 function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canApply: boolean; agency: string }) {
+  const costs = courseCosts(c);
   const next = c.intakes.find((i) => intakeState(i) !== 'closed');
   // the course's tags from the Institution Team's record, and its CRICOS code (Jovial, 31 Oct)
   const rec = c as Course & { tags?: string[]; code?: string };
@@ -241,7 +251,7 @@ function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canAppl
         </div>
         <div className="cs-stat">
           <dt>Duration</dt>
-          <dd className="cs-stat__v">{duration(c.months)}</dd>
+          <dd className="cs-stat__v">{costs.credits ? `${costs.credit ?? ''} credits`.trim() : duration(c.months)}</dd>
           <dd className="cs-stat__sub">{c.mode}</dd>
         </div>
         <div className="cs-stat">
@@ -458,120 +468,6 @@ function CampusCard({ u, k, current = false }: { u: University; k: Campus; curre
         <Icon name="external" size={14} />
         <span className="vh"> of {k.name}, opens in a new tab</span>
       </a>
-    </div>
-  );
-}
-
-/* ---------- costs ---------- */
-
-function Costs({ c }: { c: Course }) {
-  const schols = scholarshipsOf(c);
-  // living costs and visa and health fees: GSP · Admin's tables (Jovial, 31 Oct)
-  const { living, otherFees } = costsOf(c);
-  const others = otherFees.reduce((n, [, v]) => n + v, 0);
-  const firstYear = c.tuition - c.scholarship + c.appFee + living + others;
-  // the first year, part by part, in a fixed order: each part keeps its colour whatever the course
-  const parts = [
-    { key: 'tuition', label: c.scholarship ? 'Tuition, after the scholarship' : 'Tuition', v: c.tuition - c.scholarship },
-    { key: 'living', label: 'Living costs', v: living },
-    { key: 'visa', label: 'Visa and health cover', v: others },
-    { key: 'app', label: 'Application fee', v: c.appFee },
-  ].filter((x) => x.v > 0);
-  return (
-    <>
-      <section className="cm-total" aria-labelledby="cs-total">
-        <div className="cm-total__head">
-          <h3 id="cs-total" className="cm-total__k">
-            First year, all in
-          </h3>
-          <p className="cm-total__v">
-            <Money v={firstYear} cur={c.currency} approx />
-          </p>
-          <p className="cm-total__note">For one student: tuition{c.scholarship ? ' after the scholarship' : ''}, living costs, visa and health cover{c.appFee ? ' and the application fee' : ''}.</p>
-        </div>
-        <CostBar parts={parts} total={firstYear} cur={c.currency} />
-      </section>
-
-      <div className="cm-grid">
-        <Box id="cs-fees" icon="wallet" title="Fees">
-          <dl className="cdl">
-            <Row k="Total tuition" v={money(Math.round((c.tuition * c.months) / 12), c.currency)} />
-            <Row k="Application fee" v={c.appFee ? money(c.appFee, c.currency) : 'Free'} />
-          </dl>
-        </Box>
-        <Box id="cs-other" icon="globe" title="Other costs">
-          <dl className="cdl">
-            <Row k="Living costs a year (visa figure)" v={money(living, c.currency)} />
-            {otherFees.map(([k, v]) => (
-              <Row key={k} k={k} v={`≈ ${money(v, c.currency)}`} />
-            ))}
-          </dl>
-          <p className="cs-fine">Visa and health cover are approximate, for one student. Check the official sites before quoting them.</p>
-        </Box>
-        <Box id="cs-schol" icon="award" title="Scholarships" meta={schols.length === 1 ? '1 listed' : `${schols.length} listed`}>
-          {schols.length ? (
-            <ul className="cs-schols">
-              {schols.map((x) => (
-                <li key={x.name} className="cs-schol">
-                  <p className="cs-schol__from">{x.from === 'course' ? 'For this course' : `From ${c.uni.name}`}</p>
-                  <p className="cs-schol__name">{x.name}</p>
-                  <p className="cs-schol__amt">{x.amount}</p>
-                  <p className="cs-schol__off">{x.per}</p>
-                  <p className="cs-schol__who">{x.who}</p>
-                  <p className={`cs-schol__how ${x.auto ? 'is-auto' : ''}`}>
-                    <Icon name={x.auto ? 'check' : 'edit'} size={14} />
-                    {x.auto ? 'Comes with the offer' : 'Apply once the offer arrives; GSP can help'}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="cnote">No scholarships listed for this course.</p>
-          )}
-        </Box>
-      </div>
-    </>
-  );
-}
-
-/**
- * The first year as one bar split into its parts, with the parts listed under it in aligned columns (amount,
- * share), so no part relies on its colour alone. Pointing at a part shows its amount and share.
- */
-function CostBar({ parts, total, cur }: { parts: { key: string; label: string; v: number }[]; total: number; cur: string }) {
-  const [hover, setHover] = useState<string | null>(null);
-  const pct = (v: number) => Math.round((v / total) * 100);
-  // where each part's middle falls along the bar, for the tip over it (kept inside the bar's ends)
-  let at = 0;
-  const mid = Object.fromEntries(parts.map((p) => [p.key, (at += p.v) - p.v / 2]));
-  const on = parts.find((p) => p.key === hover);
-  return (
-    <div className="cbar">
-      <div className="cbar__track" aria-hidden="true" onMouseLeave={() => setHover(null)}>
-        {parts.map((p) => (
-          <span key={p.key} className={`cbar__seg cbar__seg--${p.key} ${hover && hover !== p.key ? 'is-dim' : ''}`} style={{ flexGrow: p.v }} onMouseEnter={() => setHover(p.key)} />
-        ))}
-        {on && (
-          <div className="cbar__tip" style={{ left: `clamp(110px, ${(mid[on.key] / total) * 100}%, calc(100% - 110px))` }}>
-            <strong>{on.label}</strong>
-            <span>
-              {money(on.v, cur)} · {pct(on.v)}%
-            </span>
-          </div>
-        )}
-      </div>
-      <dl className="cbar__legend">
-        {parts.map((p) => (
-          <div key={p.key} className={`cbar__item ${hover === p.key ? 'is-on' : ''}`} onMouseEnter={() => setHover(p.key)} onMouseLeave={() => setHover(null)}>
-            <dt>
-              <span className={`cbar__key cbar__seg--${p.key}`} aria-hidden="true" />
-              {p.label}
-            </dt>
-            <dd className="cbar__amt">{money(p.v, cur)}</dd>
-            <dd className="cbar__pct">{pct(p.v)}%</dd>
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }
