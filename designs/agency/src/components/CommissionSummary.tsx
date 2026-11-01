@@ -56,7 +56,7 @@ export function RpCommission({ name, canBank }: { name: string; canBank: boolean
       <dl className="cdl">
         <div className="cdl__row"><dt>Share</dt><dd>{share}</dd></div>
         <div className="cdl__row"><dt>Paid in</dt><dd>{rp.cur}{rp.gst ? ', plus GST' : ''}</dd></div>
-        <div className="cdl__row"><dt>Bank account</dt><dd>{rp.bank === 'AU' ? 'Australian account' : 'Local account'} ending ••4821 · {rp.bankVerified === false ? 'new details waiting for Finance to verify; payouts held' : 'verified'}</dd></div>
+        <div className="cdl__row"><dt>Bank account</dt><dd>{rp.bank === 'AU' ? 'Australian account' : 'Local account'}{rp.bankLast4 ? ` ending ••${rp.bankLast4}` : ' on file'} · {rp.bankVerified === false ? 'new details waiting for Finance to verify; payouts held' : 'verified'}</dd></div>
       </dl>
       {canBank && <Button variant="secondary" onClick={() => setBank(true)}>Change bank details</Button>}
       {bank && <BankSheet rp={rp} user={{ id: 'gsp', name: 'GSP' }} onClose={() => setBank(false)} />}

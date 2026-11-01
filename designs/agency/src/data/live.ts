@@ -10,7 +10,7 @@ import type { Application, EndKind, StatusKey } from './applications';
 export type LiveStatus = { status: StatusKey; at: number; by: string; end?: EndKind; note?: string; via?: 'mail' | 'portal' | 'rp' };
 /** What GSP set on an application besides its status (Jovial, 1 Nov): when the offer's conditions went to the RP, and who lodges the visa. */
 /** condsSent: false while GSP still has to send the conditions, the time it sent them after. No flag: sent (the sample data). */
-export type LiveFlags = { condsSent?: number | false; visaBy?: 'you' | 'gsp'; filed?: { name: string; file: string; at: number; by: string }[]; rpNews?: number; rpWhat?: string; rpSeen?: number };
+export type LiveFlags = { condsSent?: number | false; visaBy?: 'you' | 'gsp'; filed?: { name: string; file: string; at: number; by: string }[]; rpNews?: number; rpWhat?: string; rpSeen?: number; fee?: number; feeBy?: string; feeAt?: number };
 const KEY = 'gsp-live-v1';
 const FKEY = 'gsp-live-flags-v1';
 let state: Record<string, LiveStatus> = read();
@@ -67,6 +67,11 @@ export function setLiveFlags(id: string, f: LiveFlags) {
 }
 export const liveFlags = () => flags;
 export const flagsOf = (id: string): LiveFlags => flags[id] ?? {};
+/**
+ * The application's final tuition fee (Jovial, 1 Nov): the course's tuition fee until Admissions changes it from the
+ * offer letter. The only tuition fee commission is worked out on, in every role and in Finance.
+ */
+export const finalFeeOf = (id: string, courseFee: number) => flags[id]?.fee ?? courseFee;
 const subscribe = (f: () => void) => {
   subs.add(f);
   return () => subs.delete(f);

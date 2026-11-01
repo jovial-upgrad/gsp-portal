@@ -9,9 +9,10 @@ import { MoreMenu } from '../../components/MoreMenu';
 import { Field, SelectInput, TextInput } from '../../components/forms';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { PageHead } from '../../institution/records/parts';
-import { LEVELS, OBJECTS, ROLES, type Level, type Queue, type Region, type User } from '../data/config';
+import { LEVELS, OBJECTS, REGION_MEANS, ROLES, type Level, type Queue, type Region, type User } from '../data/config';
+import { COUNTRIES } from '../../data/partners';
 import type { ConfigProps } from './ConfigPage';
-import { History, Panel } from './parts';
+import { EditBar, History, Panel, useDraft } from './parts';
 
 /**
  * Sales regions (PM: Settings › Sales regions, with Admissions contacts; Nesil, 30 Oct: add, edit and delete): GSP's
@@ -47,7 +48,10 @@ export function Regions({ cfg, change, say }: ConfigProps) {
                 const fixed = r.name === 'Global';
                 return (
                   <tr key={r.name}>
-                    <td className="cfg__strong">{r.name}</td>
+                    <td className="cfg__strong">
+                      {r.name}
+                      <span className="cfg__sub">{r.countries?.length ? (r.countries.length === 1 && r.countries[0] === r.name ? 'The country itself' : `${r.countries.length} countries: ${r.countries.slice(0, 4).join(', ')}${r.countries.length > 4 ? '…' : ''}`) : REGION_MEANS[r.name] ?? 'No countries yet'}</span>
+                    </td>
                     <td>{fixed ? <span className="cfg__muted">–</span> : r.contact || <span className="cfg__muted">Not set</span>}</td>
                     <td className="num">{usersIn(r.name)}</td>
                     <td className="cfg__acts">
@@ -69,6 +73,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
           </table>
         </div>
       </Panel>
+      <NationalityMap cfg={cfg} change={change} say={say} />
       <History log={cfg.log} area="Sales regions" />
       <RegionDialog
         open={!!edit}
@@ -86,10 +91,18 @@ export function Regions({ cfg, change, say }: ConfigProps) {
             say(`Sales region added: ${r.name}.`);
           } else {
             const renamed = was.name !== r.name;
-            change('Sales regions', renamed ? `Renamed ${was.name} to ${r.name}` : `${r.name}: Admissions contact → ${r.contact || 'Not set'}`, (c) => ({
+            const re = (x: string) => (x === was.name ? r.name : x);
+            const rekey = <T,>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).map(([k, x]) => [re(k), x]));
+            const what = renamed ? `Renamed ${was.name} to ${r.name}` : JSON.stringify(was.countries) !== JSON.stringify(r.countries) ? `${r.name}: countries → ${r.countries.join(', ') || 'none'}` : `${r.name}: Admissions contact → ${r.contact || 'Not set'}`;
+            change('Sales regions', what, (c) => ({
               ...c,
               regions: c.regions.map((x) => (x.name === was.name ? r : x)),
-              users: renamed ? c.users.map((u) => (u.region === was.name ? { ...u, region: r.name } : u)) : c.users,
+              users: renamed ? c.users.map((u) => (u.region === was.name ? { ...u, region: r.name, regions: u.regions.map(re) } : u)) : c.users,
+              // a renamed region keeps its nationalities, lists, BDM and queue
+              nationality: renamed ? Object.fromEntries(Object.entries(c.nationality).map(([k, x]) => [k, re(x)])) : c.nationality,
+              lists: renamed ? rekey(c.lists) : c.lists,
+              regionBdm: renamed ? rekey(c.regionBdm) : c.regionBdm,
+              regionQueue: renamed ? rekey(c.regionQueue) : c.regionQueue,
             }));
             say(`Sales region saved.${renamed ? ' Its users moved with it.' : ''}`);
           }
@@ -119,6 +132,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
 function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { open: boolean; region: Region | null; regions: Region[]; contacts: string[]; onClose: () => void; onSave: (r: Region) => void }) {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
+  const [countries, setCountries] = useState<string[]>([]);
   const v = name.trim();
   const c = useCheck({
     name: v.length < 2 ? 'Enter the sales region’s name, like Middle East.' : dupError(v, regions.filter((r) => r.name !== region?.name).map((r) => r.name), 'There’s already a sales region with this name.'),
@@ -128,12 +142,13 @@ function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { op
     if (!open) return;
     setName(region?.name ?? '');
     setContact(region?.contact ?? '');
+    setCountries(region?.countries ?? []);
     c.reset();
   }, [open, region?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   // QC, 1 Nov: Save waits for a change; closing with one asks first
-  const dirty = name !== (region?.name ?? '') || contact !== (region?.contact ?? '');
+  const dirty = name !== (region?.name ?? '') || contact !== (region?.contact ?? '') || JSON.stringify(countries) !== JSON.stringify(region?.countries ?? []);
   const save = () => {
-    if (c.submit()) onSave({ name: v, contact });
+    if (c.submit()) onSave({ name: v, contact, countries });
   };
   return (
     <Sheet
@@ -168,8 +183,130 @@ function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { op
             ))}
           </SelectInput>
         </Field>
+        <MultiPick id="rg-countries" label="Countries in it" value={countries} options={COUNTRIES.map((x) => x.name)} empty={REGION_MEANS[v] ?? 'No countries'} search onChange={setCountries} />
+        <p className="cfg__note">Every list of countries by sales region reads these: country pickers, BDM assignment and the RP records. A student’s nationality is mapped below, on its own.</p>
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * Nationality to sales region (Jovial, 1 Nov, HC42): which sales region a student's nationality routes to
+ * (Application routing's nationality rule, and every country's region in data/regions.ts). Edit, then Save.
+ */
+function NationalityMap({ cfg, change, say }: Pick<ConfigProps, 'cfg' | 'change' | 'say'>) {
+  const d = useDraft(cfg.nationality, 'the nationality map');
+  const [q, setQ] = useState('');
+  const [add, setAdd] = useState({ country: '', region: '' });
+  const map = d.value;
+  const names = cfg.regions.filter((r) => r.name !== 'Global').map((r) => r.name);
+  const t = q.trim().toLowerCase();
+  const rows = Object.entries(map).filter(([k, x]) => !t || k.toLowerCase().includes(t) || x.toLowerCase().includes(t)).sort(([a], [b]) => a.localeCompare(b));
+  const free = COUNTRIES.map((x) => x.name).filter((x) => !(x in map));
+  return (
+    <Panel
+      flush
+      title="Nationality to sales region"
+      note={`${Object.keys(map).length} nationalities mapped. Application routing’s nationality rule reads this; a nationality not in it goes to Rest of world.`}
+      action={
+        <EditBar
+          editing={d.editing}
+          dirty={d.dirty}
+          name="nationality map"
+          onEdit={d.start}
+          onCancel={d.stop}
+          onSave={() => {
+            const n = Object.keys(map).length;
+            change('Sales regions', `Saved the nationality map (${n} nationalities)`, (c) => ({ ...c, nationality: map }));
+            say('Nationality map saved. New applications route by it.');
+            d.stop();
+          }}
+        />
+      }
+    >
+      <div className="stools">
+        <div className="stools__row">
+          <TextInput id="nm-q" aria-label="Search nationalities" placeholder="Search a nationality or region" value={q} onChange={(e) => setQ(e.target.value)} />
+          {d.editing && (
+            <>
+              <SelectInput id="nm-add-c" aria-label="Nationality to add" value={add.country} placeholder="Nationality to add" onChange={(e) => setAdd({ ...add, country: e.target.value })}>
+                {free.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </SelectInput>
+              <SelectInput id="nm-add-r" aria-label="Its sales region" value={add.region} placeholder="Sales region" onChange={(e) => setAdd({ ...add, region: e.target.value })}>
+                {names.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </SelectInput>
+              <Button
+                variant="secondary"
+                disabled={!add.country || !add.region}
+                onClick={() => {
+                  d.set((m) => ({ ...m, [add.country]: add.region }));
+                  setAdd({ country: '', region: '' });
+                }}
+              >
+                Add
+              </Button>
+            </>
+          )}
+        </div>
+        <p className="stools__count" role="status">
+          <span className="num">{rows.length}</span> shown
+        </p>
+      </div>
+      <div className="stab-wrap cfg__scroll">
+        <table className="itab cfg__tab">
+          <thead>
+            <tr>
+              <th scope="col">Nationality</th>
+              <th scope="col">Sales region</th>
+              {d.editing && (
+                <th scope="col">
+                  <span className="vh">Remove</span>
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([k, x]) => (
+              <tr key={k}>
+                <td className="cfg__strong">{k}</td>
+                <td>
+                  {d.editing ? (
+                    <SelectInput id={`nm-${k}`} aria-label={`${k}: sales region`} value={x} onChange={(e) => d.set((m) => ({ ...m, [k]: e.target.value }))}>
+                      {[...new Set([...names, x])].map((n) => (
+                        <option key={n}>{n}</option>
+                      ))}
+                    </SelectInput>
+                  ) : (
+                    x
+                  )}
+                </td>
+                {d.editing && (
+                  <td className="cfg__acts">
+                    <Button
+                      variant="link"
+                      aria-label={`Remove ${k}`}
+                      onClick={() =>
+                        d.set((m) => {
+                          const next = { ...m };
+                          delete next[k];
+                          return next;
+                        })
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   );
 }
 
@@ -179,6 +316,7 @@ const GROUPS: [string, number, number][] = [
   ['Institutions and courses', 11, 20],
   ['Commissions', 20, 25],
   ['GSP', 25, 29],
+  ['Work', 29, 33],
 ];
 const LEVEL_NAME = Object.fromEntries(LEVELS) as Record<Level, string>;
 

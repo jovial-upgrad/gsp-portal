@@ -15,6 +15,8 @@ import {
   daysTo,
   earnOf,
   intakeState,
+  intakeTimes,
+  scholarshipsOf,
   type Area,
   type Course,
   type Destination,
@@ -42,8 +44,6 @@ export type Filters = {
   soon: boolean;
   schol: boolean;
   noFee: boolean;
-  flex: boolean;
-  psw: boolean;
   shortlisted: boolean;
   /** The tuition cap as it was typed in rupees ("under 25 lakhs"), to say it back the same way. */
   feeLakh?: number;
@@ -70,7 +70,7 @@ export type CourseSearch = {
   studentId?: string;
 };
 
-export const NO_FILTERS: Filters = { uni: '', intake: '', maxFee: 0, maxIelts: 0, open: false, soon: false, schol: false, noFee: false, flex: false, psw: false, shortlisted: false };
+export const NO_FILTERS: Filters = { uni: '', intake: '', maxFee: 0, maxIelts: 0, open: false, soon: false, schol: false, noFee: false, shortlisted: false };
 
 /** The student's country and state start as the agency's own (it says so, and they can be changed). */
 export const newSearch = (country = 'India', state = ''): CourseSearch => ({
@@ -182,7 +182,7 @@ const AREA_WORDS: [RegExp, Area, boolean][] = [
 ];
 const MONTH: Record<string, string> = { jan: 'Jan', january: 'Jan', feb: 'Feb', february: 'Feb', mar: 'Mar', march: 'Mar', may: 'May', jul: 'Jul', july: 'Jul', aug: 'Aug', august: 'Aug', sep: 'Sep', sept: 'Sep', september: 'Sep', nov: 'Nov', november: 'Nov' };
 
-export type Read = { dest?: Destination; level?: Level; area?: Area; month?: string; maxFee?: number; lakh?: number; flex?: boolean; schol?: boolean; noFee?: boolean; keyword: string; said: string[] };
+export type Read = { dest?: Destination; level?: Level; area?: Area; month?: string; maxFee?: number; lakh?: number; schol?: boolean; noFee?: boolean; keyword: string; said: string[] };
 
 /** Rupees per unit, sample rates: Indian agencies often budget in lakhs (1 lakh = ₹100,000). */
 /** Rupees for one unit of each currency: from GSP · Admin › Currency exchange, the one source (Jovial, 31 Oct). */
@@ -210,15 +210,12 @@ export function readBox(text: string): Read {
       i += unit && !next.endsWith(unit) ? 2 : 1;
       continue;
     }
+    // "no ielts", "waiver", "moi": no English-test filter any more (Jovial, 1 Nov, HC2), so they're not search words either
     if ((x === 'no' || x === 'without') && /^(ielts|english|test)$/.test(next)) {
-      out.flex = true;
       i++;
       continue;
     }
-    if (x === 'waiver' || x === 'moi') {
-      out.flex = true;
-      continue;
-    }
+    if (x === 'waiver' || x === 'moi') continue;
     if (/^scholarships?$/.test(x)) {
       out.schol = true;
       continue;
@@ -261,7 +258,6 @@ export function readBox(text: string): Read {
   if (out.month) out.said.push(`${out.month} intake`);
   if (out.maxFee) out.said.push(`Tuition up to ${out.maxFee.toLocaleString('en-GB')}`);
   if (out.lakh) out.said.push(`Tuition up to ₹${out.lakh} lakh`);
-  if (out.flex) out.said.push('English test can wait or be waived');
   if (out.schol) out.said.push('Scholarship');
   if (out.noFee) out.said.push('No application fee');
   return out;
@@ -288,7 +284,6 @@ export function runSearch(s: CourseSearch): CourseSearch {
     f.maxFee = Math.round((r.lakh * 100_000) / (inrPerOf(CURRENCY[need.dest]) ?? 1) / 100) * 100;
     f.feeLakh = r.lakh;
   }
-  if (r.flex) f.flex = true;
   if (r.schol) f.schol = true;
   if (r.noFee) f.noFee = true;
   const said = [...r.said];
@@ -341,15 +336,14 @@ export function results(s: CourseSearch): Results {
       (!f.maxFee || c.tuition <= f.maxFee) &&
       (!f.maxIelts || c.ielts[0] <= f.maxIelts) &&
       (!f.open || !!nextOpen(c)) &&
-      (!f.soon || (nextDeadline(c) >= 0 && nextDeadline(c) <= 45)) &&
-      (!f.schol || c.scholarship > 0) &&
+      (!f.soon || (nextDeadline(c) >= 0 && nextDeadline(c) <= intakeTimes().countdownDays)) &&
+      // the university record's scholarships that fit the course (HC9)
+      (!f.schol || scholarshipsOf(c).length > 0) &&
       (!f.noFee || c.appFee === 0) &&
-      (!f.flex || c.englishFlex) &&
-      (!f.psw || c.psw) &&
       (!f.shortlisted || s.shortlist.includes(c.id)),
   );
   const by: Record<Sort, (a: Course, b: Course) => number> = {
-    match: (a, b) => Number(isPriority(b, n.country)) - Number(isPriority(a, n.country)) || Number(!!nextOpen(b)) - Number(!!nextOpen(a)) || nextDeadline(a) - nextDeadline(b) || a.offerDays - b.offerDays,
+    match: (a, b) => Number(isPriority(b, n.country)) - Number(isPriority(a, n.country)) || Number(!!nextOpen(b)) - Number(!!nextOpen(a)) || nextDeadline(a) - nextDeadline(b),
     deadline: (a, b) => nextDeadline(a) - nextDeadline(b),
     fee: (a, b) => a.tuition - b.tuition,
     rank: (a, b) => (a.uni.qs ?? 9999) - (b.uni.qs ?? 9999),

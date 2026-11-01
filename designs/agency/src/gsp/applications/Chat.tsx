@@ -1,3 +1,4 @@
+import { UPLOAD } from '../../data/uploads';
 import { setLiveFlags } from '../../data/live';
 import { DateInput } from '../../components/forms';
 import { useEffect, useRef, useState } from 'react';
@@ -304,7 +305,7 @@ export function Chat({
               id="achat-file"
               className="vh"
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              accept={UPLOAD.accept}
               onChange={(e) => {
                 attach(e.target.files?.[0] ?? null);
                 e.target.value = '';

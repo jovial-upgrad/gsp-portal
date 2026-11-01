@@ -15,7 +15,7 @@ import { fmtWhen } from '../data/format';
 import { regionQueueId } from './seed';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, update, recordById, nameOf, queueById } from './store';
-import { can, inScope } from '../finance/access';
+import { can, inScope, oversees } from '../finance/access';
 import { Button, Select, Pill, Empty, toast, fmtAge } from '../finance/kit';
 import { askDiscard } from '../components/unsaved';
 import { PersonaBar, usePersona, HostContext } from './persona';
@@ -26,7 +26,6 @@ import { setLiveStatus, setLiveFlags, flagsOf, useLiveAll } from '../data/live';
 import { STATUS, STATUS_ORDER, destOf } from '../data/applications';
 import { liveApps } from './engine';
 
-const OVERSIGHT = ['admission-ops', 'admin', 'view-only'];
 const regionQueue = regionQueueId;
 const ACT = { status: 'Change the status', task: 'Raise a task', chat: 'Answer in the RP chat', finance: 'Send to Finance', reply: 'Reply to the university', file: 'Just file it' };
 const VIEWS = [
@@ -82,7 +81,7 @@ function MailBody({ s, user, role }) {
   const [picked, setPicked] = useState([]);
   const listRef = useRef(null);
   const M = s.mail;
-  const boxes = M.mailboxes.filter((b) => OVERSIGHT.includes(role.id) || b.see.includes(role.id));
+  const boxes = M.mailboxes.filter((b) => oversees(role.id) || b.see.includes(role.id));
   const recOf = (t) => (t.record ? recordById(s, t.record) : null);
   // the mailbox's queue: Unmatched mail for admissions mailboxes, Finance for Commission, and so on
   const boxQueue = (t) => queueById(s, t.record ? regionQueue(recOf(t)?.region) : (M.mailboxes.find((b) => b.id === t.mailbox) || {}).queue);

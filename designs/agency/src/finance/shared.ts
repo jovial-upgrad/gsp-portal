@@ -6,6 +6,8 @@
 import { useMemo } from 'react';
 import { useStore, update } from './store';
 import { compute, buildRun, thursdayOf, fxRate, r2, money } from './engine';
+import { FIN_DEFAULTS, settingsOf, payoutCurOf } from './defaults';
+export { FIN_DEFAULTS, settingsOf, payoutCurOf };
 
 export function useComm() {
   const s = useStore();
@@ -58,7 +60,12 @@ export function proposeChange({ area, id, before, after, summary, impact, user }
 
 export function applyChange(d, chk) {
   const cfg = d.comm.cfg;
-  if (chk.area === 'settings') { cfg.settings = chk.after; return; }
+  if (chk.area === 'settings') {
+    cfg.settings = chk.after;
+    // RPs paid by the region's table (no signed terms) follow it (HC44)
+    (cfg.rps || []).forEach(r => { if (r.curFromTable) { const cur = (chk.after.payoutCur || FIN_DEFAULTS.payoutCur)[r.region]; r.cur = cur || 'AUD'; r.bank = cur ? 'Local' : 'AU'; } });
+    return;
+  }
   const list = cfg[chk.area];
   const i = list.findIndex(x => x.id === chk.target);
   if (chk.after == null) { if (i >= 0) list.splice(i, 1); } else if (i >= 0) list[i] = chk.after; else list.push(chk.after);
@@ -91,6 +98,8 @@ export const DEFAULT_OPS = {
   batches: [{ id: 'AU', name: 'Batch 1 · Australian bank accounts', bank: 'AU' }, { id: 'Local', name: 'Batch 2 · Local bank accounts', bank: 'Local' }],
   makerChecker: { terms: true, settings: true, run: true },
   adminAbove: 150000,
+  // how far ahead Finance home and Commission terms look (HC45): annuity lines and notices ending, contracts ending
+  lookAhead: { annuity: 31, notices: 31, contracts: 90 },
   exceptions: [
     { type: 'No university terms', blocks: true, sla: 2, to: 'q-finance' },
     { type: 'Rate missing', blocks: true, sla: 2, to: 'q-finance' },
@@ -115,8 +124,15 @@ export const DEFAULT_OPS = {
     { id: 'j-rec', name: 'Month-end reconciliation with Xero', freq: 'monthly', day: 28, who: 'u-suman1-verma', page: 'gspx-fin-reports', metric: '' },
   ],
 };
-export const opsOf = cfg => ({ ...DEFAULT_OPS, ...(cfg.settings.ops || {}) });
+export const opsOf = cfg => ({ ...DEFAULT_OPS, ...(cfg.settings.ops || {}), lookAhead: { ...DEFAULT_OPS.lookAhead, ...((cfg.settings.ops || {}).lookAhead || {}) } });
+/** The exception types the engine raises itself: they can't be removed from Finance setup, only routed. */
+export const ENGINE_EXCEPTIONS = DEFAULT_OPS.exceptions.map(x => x.type);
+
+
 export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** The pay day's name, from Finance setup (HC34): every "paid every …" reads it. */
+export const payDayName = cfg => DAYS[opsOf(cfg).payDay] || 'Thursday';
 
 /* The next pay day on or after a date. */
 export function payDayOf(cfg, date) {

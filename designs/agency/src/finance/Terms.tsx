@@ -11,8 +11,8 @@ import { NoMatch } from '../institution/records/parts';
 import { useCheck, numError, pctError, dateError, afterError, dupError } from '../components/validate';
 import { useUnsaved } from '../components/unsaved';
 import { nice, money, LEVELS, TRIG, DEST, bandTxt, winName } from './engine';
-import { SALES_REGIONS } from '../institution/data/announcements';
-import { proposeChange, applyChange, impactOf, aud, opsOf } from './shared';
+import { salesRegionNames } from '../admin/data/config';
+import { proposeChange, applyChange, impactOf, aud, opsOf, payoutCurOf, settingsOf } from './shared';
 
 const AREAS = [['unis', 'Universities'], ['rps', 'RP terms'], ['schemes', 'Schemes'], ['notices', 'Notices'], ['settings', 'Settings and FX']];
 const CURS = ['AUD', 'GBP', 'NZD', 'USD', 'INR', 'NPR', 'BDT', 'LKR', 'VND'];
@@ -89,7 +89,8 @@ function Unis({ c, canEdit, onEdit }) {
   const [q, setQ] = useState('');
   const rows = c.cfg.unis.filter(u => !q || u.name.toLowerCase().includes(q.toLowerCase()));
   const none = q && !rows.length && <NoMatch what="universities" onClear={() => setQ('')} />;
-  const soon = d => d && d < new Date(Date.parse(c.today) + 90 * 864e5).toISOString().slice(0, 10);
+  const ahead = opsOf(c.cfg).lookAhead.contracts;
+  const soon = d => d && d < new Date(Date.parse(c.today) + ahead * 864e5).toISOString().slice(0, 10);
   return (
     <Card flush>
       <div className="stools"><div className="stools__row"><Input id="u-q" value={q} onChange={setQ} placeholder="Search universities" aria-label="Search universities" /></div>
@@ -103,7 +104,7 @@ function Unis({ c, canEdit, onEdit }) {
             <td className="num">{u.inst}</td>
             <td>{u.tier ? <span className="gspx-wrap">{bandTxt(u.tier.bands)}</span> : '—'}</td>
             <td>{u.annuity && u.annuity.on ? 'Yes' : '—'}</td>
-            <td className="num">{u.ends ? nice(u.ends) : '—'}{u.ends && u.ends < c.today ? <span className="irow__sub">Ended</span> : soon(u.ends) ? <span className="irow__sub">Within 90 days</span> : null}</td>
+            <td className="num">{u.ends ? nice(u.ends) : '—'}{u.ends && u.ends < c.today ? <span className="irow__sub">Ended</span> : soon(u.ends) ? <span className="irow__sub">Within {ahead} days</span> : null}</td>
             <td><LinkButton aria-label={`${canEdit ? 'Edit' : 'View'} ${u.name}`} onClick={() => onEdit(u)}>{canEdit ? 'Edit' : 'View'}</LinkButton></td>
           </tr>))}
       </Table>}
@@ -286,8 +287,10 @@ function RpSheet({ ro, c, r, onClose, propose }) {
   const blank = { id: '', name: '', region: 'India', scheme: 'S05', flat: null, gst: false, cur: 'AUD', bank: 'AU', payee: '', mp: false, annuityPct: null, note: '', bankVerified: true };
   const [d, set, , dirty] = useDraft(r || blank);
   const own = d.flat != null && d.flat !== '';
+  // a new RP's payout currency starts from Finance setup's table for its region (HC44)
+  const setRegion = x => { set('region', x); if (!r) set('cur', payoutCurOf(c.cfg, x)); };
   // the sales regions Admin keeps, plus the regions already on RP terms (Australia Onshore is Finance's own)
-  const regions = [...new Set([...SALES_REGIONS, ...c.cfg.rps.map(x => x.region).filter(Boolean), 'Australia Onshore'])];
+  const regions = [...new Set([...salesRegionNames(), ...c.cfg.rps.map(x => x.region).filter(Boolean), 'Australia Onshore'])];
   const mps = c.cfg.rps.filter(x => x.mp && x.id !== d.id);
   const errors = {
     id: r ? null : !d.id.trim() ? 'Enter the RP ID, like RP-1042.' : dupError(d.id, c.cfg.rps.map(x => x.id), `There are already terms for ${d.id.trim()}.`),
@@ -306,7 +309,7 @@ function RpSheet({ ro, c, r, onClose, propose }) {
       <div className="gspx-form2">
         {!r && <><Field id="rp-id" label="RP ID" required error={v.err('id')}><Input id="rp-id" value={d.id} onBlur={v.blur('id')} onChange={x => set('id', x)} /></Field>
           <Field id="rp-n" label="RP name" required error={v.err('name')}><Input id="rp-n" value={d.name} onBlur={v.blur('name')} onChange={x => set('name', x)} /></Field>
-          <Select id="rp-reg" label="Sales region" required error={v.err('region')} onBlur={v.blur('region')} value={d.region} onChange={x => set('region', x)} options={regions} /></>}
+          <Select id="rp-reg" label="Sales region" required error={v.err('region')} onBlur={v.blur('region')} value={d.region} onChange={setRegion} options={regions} /></>}
         <Select id="rp-terms" label="Terms" required value={own ? 'own' : d.scheme} onChange={x => x === 'own' ? set('flat', 80) : (set('flat', null), set('scheme', x))}
           options={[['own', 'Own flat rate'], ...c.cfg.schemes.map(x => [x.id, `${x.id} ${x.name}`])]} />
         {own && <Field id="rp-flat" label="Own flat rate (% of GSP’s commission)" required error={v.err('flat')}><Input id="rp-flat" type="number" value={d.flat} onBlur={v.blur('flat')} onChange={x => set('flat', x)} /></Field>}
@@ -392,7 +395,8 @@ function NoticeSheet({ ro, c, x, onClose, propose }) {
 }
 
 export function Settings({ c, canEdit, propose }) {
-  const S = c.cfg.settings;
+  // with Finance setup's defaults filled in (HC43–HC45), so every one shows and can be changed
+  const S = settingsOf(c.cfg);
   const [d, set, setD, changed] = useDraft(S);
   const weekOf = c.today; const rows = [...d.fx].sort((a, b) => a.week < b.week ? -1 : 1);
   const cur = rows.filter(w => w.week <= weekOf).pop();
@@ -404,7 +408,9 @@ export function Settings({ c, canEdit, propose }) {
     ap: d.annuityRp === 'flat' ? pctError(d.annuityPct, 'annuity share', true) : null,
     ag: pctError(d.auGst, 'GST on university invoices', true),
     rg: pctError(d.rpGst, 'GST on RP payouts', true),
-    wh: pctError(d.wht?.India, 'withholding'),
+    wh: Object.entries(d.wht || {}).map(([k, x]) => pctError(x, `withholding for ${k}`)).find(Boolean) || null,
+    est: numError(d.estimate.payDays, { what: 'days to pay for an estimate', min: 0, max: 365, int: true, required: true }) || numError(d.estimate.inst, { what: 'instalments for an estimate', min: 1, max: 6, int: true, required: true }),
+    yrs: Object.entries(d.courseYears).map(([k, x]) => numError(x, { what: `default years for ${LEVELS[k] || k}`, min: 1, max: 8, required: true })).find(Boolean) || null,
     lg: numError(d.legalDays, { what: 'days before Legal', min: 1, max: 365, int: true, required: true }),
     fb: numError(d.fallbackWeeks, { what: 'weeks after the start', min: 0, max: 52, int: true, required: true }),
   };
@@ -426,11 +432,40 @@ export function Settings({ c, canEdit, propose }) {
           {d.annuityRp === 'flat' && f('st-ap', 'ap', 'Annuity share (%)', d.annuityPct ?? '', x => set('annuityPct', num(x)))}
           {f('st-ag', 'ag', 'GST on Australian university invoices (%)', d.auGst, x => set('auGst', x))}
           {f('st-rg', 'rg', 'GST on RP payouts, if registered (%)', d.rpGst, x => set('rpGst', x))}
-          {f('st-wh', 'wh', 'Withholding for India RPs (%)', d.wht?.India ?? '', x => set('wht', { ...d.wht, India: num(x) }), 'Decided: none. GSP pays from the Australian entity.')}
           {f('st-lg', 'lg', 'Send unrecovered clawbacks to Legal after (days)', d.legalDays, x => set('legalDays', x))}
           {f('st-fb', 'fb', 'No census date: use start + (weeks)', d.fallbackWeeks, x => set('fallbackWeeks', x))}
           <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={!!d.selfCheck} onChange={e => set('selfCheck', e.target.checked)} /> Allow the maker to check their own change (not recommended)</label>
         </div>
+      </Card>
+      <Card>
+        <h2 className="gspx-h3">Estimates for a university with no terms yet</h2>
+        <p className="muted">Until Finance enters a university’s terms, an application’s Commission tab estimates with the course record’s rate and these.</p>
+        <div className="gspx-form2">
+          <Field id="st-ei" label="Instalments a year" required error={v.err('est')}><Input id="st-ei" type="number" value={d.estimate.inst} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, inst: num(x) })} /></Field>
+          <Field id="st-ep" label="University pays within (days)" required><Input id="st-ep" type="number" value={d.estimate.payDays} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, payDays: num(x) })} /></Field>
+          <Select id="st-et" label="Commission is earned at" required disabled={!canEdit} value={d.estimate.trigger} onChange={x => set('estimate', { ...d.estimate, trigger: x })} options={Object.entries(TRIG)} />
+          <Select id="st-es" label="Student type" required disabled={!canEdit} value={d.estimate.studentType} onChange={x => set('estimate', { ...d.estimate, studentType: x })} options={['New', 'Continuing', 'Transfer']} />
+        </div>
+      </Card>
+      <Card flush>
+        <div className="gspx-pad"><h2 className="gspx-h3">Default course length</h2><p className="muted">Years of annuity commission when an application has no course length of its own.</p></div>
+        <Table head={['Level', 'Years']}>
+          {Object.entries(d.courseYears).map(([k, x]) => (
+            <tr key={k} className="irow"><td className="cfg__strong">{LEVELS[k] || k}</td>
+              <td><Num label={`${LEVELS[k] || k}: default years`} disabled={!canEdit} value={x} onBlur={v.blur('yrs')} onChange={y => set('courseYears', { ...d.courseYears, [k]: y })} /></td></tr>))}
+        </Table>
+        {v.err('yrs') && <p className="field__msg field__msg--error gspx-pad" role="alert">{v.err('yrs')}</p>}
+      </Card>
+      <Card flush>
+        <div className="gspx-pad"><h2 className="gspx-h3">Payout currency and withholding, by sales region</h2>
+          <p className="muted">The one table of payout currencies: an RP with no signed terms is paid in its region’s currency (AUD where none is set), and a new RP’s terms start from it. Withholding is taken off RP payouts in that region (none decided so far: GSP pays from the Australian entity). Sales regions come from GSP · Admin.</p></div>
+        <Table head={['Sales region', 'Payout currency', 'Withholding (%)']}>
+          {salesRegionNames().filter(r => r !== 'Global').map(r => (
+            <tr key={r} className="irow"><td className="cfg__strong">{r}</td>
+              <td><Select id={`st-pc-${r}`} label={`${r}: payout currency`} hideLabel disabled={!canEdit} value={d.payoutCur[r] || 'AUD'} onChange={x => set('payoutCur', { ...d.payoutCur, [r]: x === 'AUD' ? undefined : x })} options={CURS} /></td>
+              <td><Num label={`${r}: withholding (%)`} disabled={!canEdit} value={(d.wht || {})[r] ?? ''} onBlur={v.blur('wh')} onChange={y => set('wht', { ...(d.wht || {}), [r]: y === '' ? undefined : y })} /></td></tr>))}
+        </Table>
+        {v.err('wh') && <p className="field__msg field__msg--error gspx-pad" role="alert">{v.err('wh')}</p>}
       </Card>
       <Card>
         <h2 className="gspx-h3">FX rates · week of {cur ? nice(cur.week) : '—'}</h2>

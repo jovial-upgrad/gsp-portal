@@ -5,7 +5,6 @@
  * prototype already uses (course search's rates, the course dialog's visa figures, course search's filters).
  * Every change is logged (`log`), and Logs shows them with the download log. Sample data.
  */
-import { SALES_REGIONS } from '../../institution/data/announcements';
 import { CURRENCY, OTHER_FEES, type Destination } from '../../data/courses';
 import COMM from '../../finance/comm.json';
 import { STAFF, label, nameOf } from '../../data/staff';
@@ -15,15 +14,23 @@ const N = (local: string) => nameOf(`${local}@upgrad.com`);
 export type LogEntry = { id: string; at: number; who: string; area: string; text: string; kind: 'change' | 'download'; role?: string; filters?: string; size?: string; format?: string };
 
 /* ---------- sales regions (PM: Settings › Sales regions and Admissions contacts) ---------- */
-export type Region = { name: string; contact: string };
-/** Countries that make up a region, where it isn't the country itself (PM: salesRegionOf). */
-export const REGION_COUNTRIES: Record<string, string[]> = {
+/**
+ * A sales region (Jovial, 1 Nov, HC38/HC42/HC48/HC50): Admin › Sales regions is the only list of sales regions
+ * anywhere, and each region keeps the countries it's made of (editable there). Every country list by region in the
+ * prototype reads this one.
+ */
+export type Region = { name: string; contact: string; countries: string[] };
+/** The sales regions as Jovial's sheet named them (31 Oct), in order: the seed for Admin › Sales regions. */
+const SEED_REGION_NAMES = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'];
+/** Countries that make up a region, where it isn't the country itself (named as the country list names them). */
+const SEED_COUNTRIES: Record<string, string[]> = {
   'Indonesia, Malaysia and Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
-  Africa: ['Nigeria', 'Kenya', 'Ghana', 'Egypt', 'South Africa', 'Uganda', 'Ethiopia', 'Tanzania', 'and 46 more'],
-  'Latin America and Europe': ['Brazil', 'Colombia', 'Mexico', 'Peru', 'United Kingdom', 'Germany', 'France', 'Spain', 'and 46 more'],
-  'Rest of world': ['Every country not in another region'],
-  Direct: ['Students who apply to GSP without a recruitment partner'],
-  Global: ['Every region: for GSP people who cover them all'],
+  Africa: ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cameroon', 'Cape Verde', 'Central African Republic', 'Chad', 'Comoros', 'Congo', 'Democratic Republic of the Congo', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Swaziland', 'Ethiopia', 'Gabon', 'The Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', "Cote D'Ivoire (Ivory Coast)", 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'],
+  'Latin America and Europe': ['Brazil', 'Colombia', 'Mexico', 'Peru', 'Chile', 'Argentina', 'Ecuador', 'United Kingdom', 'Ireland', 'Germany', 'France', 'Spain', 'Italy', 'Netherlands', 'Portugal', 'Poland'],
+  // every country not in another region; students who apply without an RP; GSP people who cover every region
+  'Rest of world': [],
+  Direct: [],
+  Global: [],
 };
 /** Each region's Admissions contact (Jovial's sheet, 31 Oct). */
 const CONTACT: Record<string, string> = {
@@ -31,7 +38,38 @@ const CONTACT: Record<string, string> = {
   'Indonesia, Malaysia and Thailand': N('truc.nguyen'), Myanmar: N('truc.nguyen'), Bhutan: N('truc.nguyen'), Australia: N('jo.qiu'), Philippines: N('kimberly.olaes'), Africa: N('kamrun.nahar'),
   'Latin America and Europe': N('valentina.castillo'), China: N('jo.qiu'), 'Rest of world': N('tasha.tandon'), Direct: N('tasha.tandon'),
 };
-export const sampleRegions = (): Region[] => SALES_REGIONS.map((name) => ({ name, contact: CONTACT[name] ?? '' }));
+export const sampleRegions = (): Region[] => SEED_REGION_NAMES.map((name) => ({ name, contact: CONTACT[name] ?? '', countries: SEED_COUNTRIES[name] ?? [name] }));
+/** Regions with no countries of their own: what they stand for, said where the countries would be. */
+export const REGION_MEANS: Record<string, string> = { 'Rest of world': 'Every country not in another region', Direct: 'Students who apply to GSP without a recruitment partner', Global: 'Every region: for GSP people who cover them all' };
+/** Nationality to sales region (Jovial, 1 Nov, HC42): editable on Admin › Sales regions. Seeded from the regions' countries; UAE, Canada and the US go to Rest of world (31 Oct). */
+export const sampleNationality = (): Record<string, string> => ({
+  ...Object.fromEntries(sampleRegions().flatMap((r) => r.countries.map((c) => [c, r.name]))),
+  'United Arab Emirates': 'Rest of world', Canada: 'Rest of world', 'United States': 'Rest of world',
+});
+
+/**
+ * Admin's settings as they are now, for the few readers that can't wait for the store (admin/data/store.ts sets
+ * `live.cfg` as it loads). Before then, the seeds.
+ */
+export const live: { cfg?: () => { regions: Region[]; nationality: Record<string, string>; regionQueue: Record<string, string>; queues: Queue[]; lists: Record<string, string[]> } | null } = {};
+/** A record that always reads the current value (a nationality map that follows Admin's edits). */
+function liveRecord<T>(get: () => Record<string, T>): Record<string, T> {
+  return new Proxy({} as Record<string, T>, {
+    get: (_, k) => (typeof k === 'string' ? get()[k] : undefined),
+    has: (_, k) => typeof k === 'string' && k in get(),
+    ownKeys: () => Reflect.ownKeys(get()),
+    getOwnPropertyDescriptor: (_, k) => {
+      const o = get();
+      return typeof k === 'string' && k in o ? { value: o[k], enumerable: true, configurable: true, writable: false } : undefined;
+    },
+  });
+}
+/** Nationality to sales region, as Admin › Sales regions has it now. */
+export const NATIONALITY: Record<string, string> = liveRecord(() => live.cfg?.()?.nationality ?? sampleNationality());
+/** Countries that make up each sales region, as Admin › Sales regions has them now (one map for every country list by region). */
+export const REGION_COUNTRIES: Record<string, string[]> = liveRecord(() => Object.fromEntries((live.cfg?.()?.regions ?? sampleRegions()).map((r) => [r.name, r.countries ?? []])));
+/** The sales region names, as Admin › Sales regions has them now. */
+export const salesRegionNames = () => (live.cfg?.()?.regions ?? sampleRegions()).map((r) => r.name);
 /** The regions a queue or a routing can point to (not Global, which only GSP people cover). */
 export const workRegions = (rs: Region[]) => rs.filter((r) => r.name !== 'Global' && r.name !== 'Direct');
 
@@ -90,11 +128,22 @@ const P: [string, string][] = [
   ['GSP users and roles', 'E V N N N N N N N'],
   ['Settings', 'E V N N N N N N N'],
   ['Download log and audit logs', 'E V N N N N N N N'],
+  // Work (Jovial, 1 Nov, HC30 and HC46): My work, the shared mailboxes, the queue settings, and who oversees them all
+  ['My work and tasks', 'E V E E E E E E E'],
+  ['Shared mailboxes', 'E V E E E V E E E'],
+  ['Queues, task rules and SLA', 'E V V V V V V V E'],
+  ['Every queue and mailbox (oversight)', 'E V N N N N N N E'],
 ];
 export const OBJECTS = P.map(([o]) => o);
+/** The object that decides who sees every mailbox and every queue's tasks, not only their own (HC30). */
+export const OVERSIGHT_OBJECT = 'Every queue and mailbox (oversight)';
 export type Perms = Record<string, Record<string, Level>>;
 export const samplePerms = (): Perms =>
   Object.fromEntries(P.map(([o, ls]) => [o, Object.fromEntries(ls.split(' ').map((l, i) => [COLS[i], l]))])) as Perms;
+
+/* ---------- sign-in security (Jovial, 1 Nov, HC52): every GSP sign-in reads it ---------- */
+export type Security = { maxAttempts: number; lockMinutes: number; resendSeconds: number };
+export const sampleSecurity = (): Security => ({ maxAttempts: 5, lockMinutes: 15, resendSeconds: 30 });
 
 /* ---------- queues (Nesil, 30 Oct: a name, a leader and members, from the PM's queues) ---------- */
 export type Queue = { id: string; name: string; lead: string; members: string[] };
@@ -179,7 +228,8 @@ const row = (country: string, area: string, bdm: string, fallback = false): BdmR
  * their country; whoever covers a whole country (an area naming the country, or no area) takes "Rest of" it. A
  * region of several countries gets a row per country. Anything else goes to Ali Butt (Global).
  */
-const BDM_COUNTRIES: Record<string, string[]> = { 'Indonesia, Malaysia and Thailand': ['Indonesia', 'Malaysia', 'Thailand'] };
+/** A region of several countries gets a row per country: its countries from Admin › Sales regions. */
+const countriesOf = (reg: string) => (REGION_ROWS.includes(reg) || !REGION_COUNTRIES[reg]?.length ? [reg] : REGION_COUNTRIES[reg]);
 /** Where several BDMs share an area, who takes a new RP there (Jovial's sheet, 31 Oct). */
 const AREA_OWNER: Record<string, string> = { ahmedabad: 'riya1.shah@upgrad.com' };
 export const sampleBdm = (): BdmRow[] => {
@@ -189,7 +239,7 @@ export const sampleBdm = (): BdmRow[] => {
   const regions = [...new Set(rec.flatMap((x) => x.regions))];
   for (const reg of regions) {
     const ppl = rec.filter((x) => x.regions.includes(reg));
-    const countries = BDM_COUNTRIES[reg] ?? [reg];
+    const countries = countriesOf(reg);
     // the person whose area is the whole region (Saurabh Chaudhary: India) owns the rest of it, before anyone with no area (W7)
     const whole = ppl.find((x) => x.area === reg) ?? ppl.find((x) => !x.area) ?? ppl[0];
     for (const country of countries) {
@@ -206,7 +256,7 @@ export const sampleBdm = (): BdmRow[] => {
   // a region with a default BDM but nobody based there (Bhutan: Ishwor Acharya) gets its own row
   for (const [reg, who] of Object.entries(REGION_BDM)) {
     if (reg === 'Rest of world' || reg === 'Direct') continue;
-    for (const country of BDM_COUNTRIES[reg] ?? [reg]) if (!out.some((r) => r.country === country)) out.push(row(country, REGION_ROWS.includes(country) ? 'All countries' : 'All', who));
+    for (const country of countriesOf(reg)) if (!out.some((r) => r.country === country)) out.push(row(country, REGION_ROWS.includes(country) ? 'All countries' : 'All', who));
   }
   out.push(row('All other countries', 'All', N('ali.butt'), true));
   return out;
@@ -219,7 +269,6 @@ export type Rate = { code: string; name: string; aud: number; usedFor: string; u
 /** A week's rates, as Finance prices a line paid that week: { week: '2026-10-26', GBP: 1.95, … } */
 export type FxWeek = { week: string; [code: string]: number | string };
 const CUR_NAME: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound sterling', CAD: 'Canadian dollar', NZD: 'New Zealand dollar', EUR: 'Euro', USD: 'US dollar', INR: 'Indian rupee', NPR: 'Nepalese rupee', BDT: 'Bangladeshi taka', LKR: 'Sri Lankan rupee', VND: 'Vietnamese dong' };
-const PAYOUT: Record<string, string> = { INR: 'India', NPR: 'Nepal', BDT: 'Bangladesh', LKR: 'Sri Lanka', VND: 'Vietnam' };
 /** Course search's old rupee rates, for the currencies Finance's weekly table didn't have (CAD, EUR). */
 const SEED_INR: Record<string, number> = { CAD: 62, EUR: 95 };
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -259,7 +308,7 @@ export const sampleRates = (): Rate[] => {
   const w = fxWeekOn(sampleFxWeeks())!;
   const dests = (code: string) => (Object.entries(CURRENCY) as [Destination, string][]).filter(([, c]) => c === code).map(([d]) => d);
   return Object.keys(CUR_NAME).map((code, i) => {
-    const used = [...dests(code).map((d) => `Course search: ${d}`), ...(PAYOUT[code] ? [`RP payouts: ${PAYOUT[code]}`] : []), ...(code === 'INR' ? ['Course search budgets in lakhs'] : [])];
+    const used = [...dests(code).map((d) => `Course search: ${d}`), ...(code === 'INR' ? ['Course search budgets in lakhs'] : [])];
     return { code, name: CUR_NAME[code], aud: Number(w[code] ?? (code === 'VND' ? 0.0000585 : 0)), usedFor: used.join('; '), updated: Date.now() - (i % 4 + 1) * DAY };
   });
 };
@@ -306,7 +355,7 @@ export const sampleRules = (): RouteRule[] => [
   { id: 'list', title: 'RP is on a regional list', when: 'The RP is on one of the regional RP lists. Every application from that RP goes to the list’s region, onshore included. Nationality is not used.', region: 'The list’s region', bdm: 'The RP’s BDM', on: true },
   { id: 'keep', title: 'Onshore, RP has no Australian branch', when: 'Onshore application, the RP’s sales region is Vietnam or Latin America and Europe, and the RP has no branch in Australia.', region: 'The RP’s own region', bdm: 'The RP’s BDM', on: true },
   { id: 'onshore', title: 'Onshore application', when: 'The student’s current country is Australia and the destination is Australia.', region: 'Australia', bdm: 'Australia’s default BDM', on: true },
-  { id: 'nat', title: 'Student’s nationality', when: 'The student’s nationality is in the country map (152 countries mapped).', region: 'The nationality’s region', bdm: 'That region’s default BDM', on: true },
+  { id: 'nat', title: 'Student’s nationality', when: 'The student’s nationality is in the nationality map (Admin › Sales regions).', region: 'The nationality’s region', bdm: 'That region’s default BDM', on: true },
   { id: 'fb', title: 'Fallback', when: 'Nothing above matched, for example a nationality that is not in the map.', region: 'Direct', bdm: 'That region’s default BDM', on: true },
 ];
 /** Each region's default application BDM (Jovial's sheet, 31 Oct). */
@@ -315,38 +364,29 @@ export const REGION_BDM: Record<string, string> = {
   'Indonesia, Malaysia and Thailand': N('rifaldo.marbun'), Myanmar: N('nilar.win'), Bhutan: N('ishwor.acharya'), Australia: N('judy.tan'), Philippines: N('arielle.sevilleno'),
   Africa: N('gsp.bangladesh'), 'Latin America and Europe': N('camilo.penaranda'), China: N('annie.gu'), 'Rest of world': N('ali.butt'), Direct: N('ali.butt'),
 };
-/** Each region's Admissions queue, by queue name (Jovial, 31 Oct: Rest of world and Direct → Global Admissions). */
+/** Each region's Admissions queue at the start, by queue name (Jovial's sheet, 31 Oct): South-East Asia shares one; Rest of world and Direct → Global Admissions. Only seeds Admin's stored setting. */
 const SEA = ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan'];
-/** Each region's Admissions queue, by queue name (Jovial's sheet, 31 Oct): South-East Asia shares one; Rest of world and Direct → Global Admissions. */
-export const regionQueueName = (region: string) => (region === 'Rest of world' || region === 'Direct' ? 'Global Admissions' : SEA.includes(region) ? 'SEA Admissions' : region === 'Latin America and Europe' ? 'Latin America and Europe Admissions' : `${region} Admissions`);
-/** The PM's sample RPs, for the regional lists and the test. */
-export type RoutingRp = { name: string; region: string; auBranch: boolean; bdm: string };
-export const ROUTING_RPS: RoutingRp[] = [
-  { name: 'BrightPath Overseas', region: 'India', auBranch: false, bdm: N('harsh.solanki') },
-  { name: 'Horizon Overseas', region: 'India', auBranch: true, bdm: N('harsh.solanki') },
-  { name: 'Kathmandu Study Hub', region: 'Nepal', auBranch: false, bdm: N('ali.butt') },
-  { name: 'Dhaka Global Education', region: 'Bangladesh', auBranch: false, bdm: N('sania.shanta') },
-  { name: 'Saigon Study Link', region: 'Vietnam', auBranch: false, bdm: N('quan.hoang') },
-  { name: 'Mekong Edu Partners', region: 'Vietnam', auBranch: true, bdm: N('quan.hoang') },
-  { name: 'Andes Education Group', region: 'Latin America and Europe', auBranch: false, bdm: N('ali.butt') },
-  { name: 'Manila Abroad Consultancy', region: 'Philippines', auBranch: false, bdm: N('arielle.sevilleno') },
-  { name: 'Colombo Pathways', region: 'Sri Lanka', auBranch: false, bdm: N('kanchani.jayawardhana') },
-  { name: 'Lagos Study Partners', region: 'Africa', auBranch: false, bdm: N('gsp.bangladesh') },
-];
-export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Saigon Study Link', 'Mekong Edu Partners'], 'Latin America and Europe': ['Andes Education Group'], Philippines: ['Manila Abroad Consultancy'] });
-/** Nationality to region, for the test (the PM maps 152 countries; these are the ones the test offers). */
-export const NATIONALITY: Record<string, string> = {
-  India: 'India', Nepal: 'Nepal', Bangladesh: 'Bangladesh', 'Sri Lanka': 'Sri Lanka', Pakistan: 'Pakistan', Vietnam: 'Vietnam', Philippines: 'Philippines', China: 'China',
-  Indonesia: 'Indonesia, Malaysia and Thailand', Malaysia: 'Indonesia, Malaysia and Thailand', Thailand: 'Indonesia, Malaysia and Thailand', Myanmar: 'Myanmar', Bhutan: 'Bhutan',
-  Nigeria: 'Africa', Kenya: 'Africa', Ghana: 'Africa', Brazil: 'Latin America and Europe', Colombia: 'Latin America and Europe', Germany: 'Latin America and Europe',
-  'United Arab Emirates': 'Rest of world', Canada: 'Rest of world', 'United States': 'Rest of world',
+export const seedQueueName = (region: string) => (region === 'Rest of world' || region === 'Direct' ? 'Global Admissions' : SEA.includes(region) ? 'SEA Admissions' : `${region} Admissions`);
+/**
+ * A region's Admissions queue, by name (HC50, 1 Nov): the queue stored for it on Admin's sales region settings
+ * (Application routing › Region defaults), never worked out from the region's name. Global Admissions when none is set.
+ */
+export const regionQueueName = (region: string) => {
+  const c = live.cfg?.();
+  if (!c) return seedQueueName(region);
+  const id = c.regionQueue[region];
+  return c.queues.find((q) => q.id === id)?.name ?? 'Global Admissions';
 };
+/** An RP as the routing rules see it: its sales region, whether it has an Australian branch, and its BDM. From the RP records (data/regions.ts routingRps). */
+export type RoutingRp = { name: string; region: string; auBranch: boolean; bdm: string };
+/** The regional RP lists at the start: real RPs from the records (Jovial, 1 Nov, HC49). */
+export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Edunetwork Australia', 'IEMC Global Pty Ltd'], 'Latin America and Europe': ['Latin Education and Migration'], Philippines: ['Pathway To Aus'] });
 export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United States', 'New Zealand', 'Ireland'];
 
 /** Runs the rules from the top: the first that matches sets the region and BDM (PM: routing with its trace). */
-export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string; rpInfo?: RoutingRp }, defaults: Record<string, string> = REGION_BDM) {
-  // any RP, not only the test's: the caller says where it is (data/regions.ts)
-  const rp = ROUTING_RPS.find((r) => r.name === a.rp) ?? (a.rp ? a.rpInfo : undefined);
+export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string; rpInfo?: RoutingRp }, defaults: Record<string, string> = REGION_BDM, nationality: Record<string, string> = NATIONALITY) {
+  // the RP from its record: the caller says where it is (data/regions.ts routingRps)
+  const rp = a.rp ? a.rpInfo : undefined;
   const listRegion = rp && Object.entries(lists).find(([, l]) => l.includes(rp.name))?.[0];
   const onshore = a.now === 'Australia' && a.dest === 'Australia';
   const test: Record<RouteRule['id'], () => { region: string; bdm: string; why: string } | null> = {
@@ -354,7 +394,7 @@ export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { 
     list: () => (listRegion ? { region: listRegion, bdm: rp!.bdm, why: `${rp!.name} is on the ${listRegion} list` } : null),
     keep: () => (rp && onshore && ['Vietnam', 'Latin America and Europe'].includes(rp.region) && !rp.auBranch ? { region: rp.region, bdm: rp.bdm, why: `Onshore, and ${rp.name} (${rp.region}) has no Australian branch` } : null),
     onshore: () => (onshore ? { region: 'Australia', bdm: defaults.Australia || 'Not set', why: 'The student is in Australia and applying to Australia' } : null),
-    nat: () => (NATIONALITY[a.nationality] ? { region: NATIONALITY[a.nationality], bdm: defaults[NATIONALITY[a.nationality]] || 'Not set', why: `${a.nationality} maps to ${NATIONALITY[a.nationality]}` } : null),
+    nat: () => (nationality[a.nationality] ? { region: nationality[a.nationality], bdm: defaults[nationality[a.nationality]] || 'Not set', why: `${a.nationality} maps to ${nationality[a.nationality]}` } : null),
     fb: () => ({ region: 'Direct', bdm: defaults.Direct || 'Not set', why: 'Nothing above matched' }),
   };
   let hit: { region: string; bdm: string; why: string; rule: RouteRule; n: number } | null = null;

@@ -1,3 +1,4 @@
+import { renewalDays } from '../../work/renewal';
 import { IpCommission } from '../../components/CommissionSummary';
 import { dateError, focusFirstError } from '../../components/validate';
 import { useRef, useState } from 'react';
@@ -90,7 +91,7 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
                 </Button>
               </>
             )}
-            {a && p.status === EXECUTED && daysTo(a.end) <= 60 && <span className={`ipstatus__end irhead__k ${daysTo(a.end) < 0 ? 'is-bad' : 'is-warn'}`}>{endsText(a.end)}</span>}
+            {a && p.status === EXECUTED && daysTo(a.end) <= renewalDays() && <span className={`ipstatus__end irhead__k ${daysTo(a.end) < 0 ? 'is-bad' : 'is-warn'}`}>{endsText(a.end)}</span>}
           </div>
         }
       />
@@ -426,7 +427,7 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
       ) : (
         <p className="iempty">No documents yet.</p>
       )}
-      {a && <p className="irsec__foot">A renewal reminder goes to {p.rm} 60 days before the end date.</p>}
+      {a && <p className="irsec__foot">A renewal reminder goes to {p.rm} {renewalDays()} days before the end date.</p>}
     </Section>
   );
 }

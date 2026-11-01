@@ -9,6 +9,7 @@
 import type { Area, Level } from '../../data/courses';
 import { inDays, type Stamp } from './records';
 import { nameOf } from '../../data/staff';
+import { ROLES as GSP_PERMISSION_ROLES, salesRegionNames } from '../../admin/data/config';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
 
@@ -20,8 +21,10 @@ export const SUBCATEGORIES: Partial<Record<(typeof ANN_CATEGORIES)[number], stri
   'System Updates': ['New feature', 'Improvement', 'Fix'],
 };
 export const USER_TYPES = ['GSP', 'RP', 'MP'] as const;
-export const PERMISSION_ROLES = ['Admissions', 'Admissions Head', 'BAP', 'Data', 'IP', 'Recruitment', 'Recruitment Head', 'Commissions & Finance', 'Super Admin', 'Leadership', 'Master Partner admin', 'RP admin', 'RP branch manager', 'RP counsellor'] as const;
-export const SALES_REGIONS = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'] as const;
+/** Who an announcement can go to (Jovial, 1 Nov, HC37): GSP's nine permission roles from GSP · Admin, and the RP and Master Partner roles. */
+export const PERMISSION_ROLES = [...GSP_PERMISSION_ROLES, 'Master Partner admin', 'RP admin', 'RP branch manager', 'RP counsellor'] as const;
+/** The sales regions (HC38, 1 Nov): GSP · Admin › Sales regions, the only list, read each time it's listed. */
+export const SALES_REGIONS: Iterable<string> = { [Symbol.iterator]: () => salesRegionNames()[Symbol.iterator]() };
 export type AnnCategory = (typeof ANN_CATEGORIES)[number];
 export const ANN_STATUSES = ['Draft', 'Scheduled', 'Live', 'Expired', 'Withdrawn'] as const;
 export type AnnStatus = (typeof ANN_STATUSES)[number];

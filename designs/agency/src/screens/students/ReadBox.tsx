@@ -1,3 +1,4 @@
+import { UPLOAD } from '../../data/uploads';
 import { useRef, type DragEvent } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -99,7 +100,7 @@ export function ReadBox({
         ref={ref}
         id={id}
         type="file"
-        accept="image/*,.pdf"
+        accept={UPLOAD.accept}
         className="vh"
         tabIndex={-1}
         onChange={(e) => {

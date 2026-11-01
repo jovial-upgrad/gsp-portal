@@ -1,18 +1,50 @@
 import { Icon } from '../../components/Icon';
 import { SelectMenu } from '../../components/SelectMenu';
 import type { Course } from '../../data/courses';
-import { ALL_COUNTRIES, ENTRY_COUNTRIES, entryFor, flagOf, type EntryRules } from '../../data/entry';
+import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
+import { TEST_MIN, type AcademicRule, type EnglishRule } from '../../institution/data/catalogue';
 import { courseDocs, type CourseDoc } from '../../admin/data/store';
 import { Box, Tile } from './parts';
 
+/** The dropdown's first choice: every country side by side. */
+export const ALL_COUNTRIES = 'all';
+/** Where the RP is: the dropdown starts here (India for every agency in the prototype). */
+export const RP_COUNTRY = 'India';
+
+/** A country's flag, from its ISO code. */
+export const flagOf = (name: string) => {
+  const iso = COUNTRIES.find((c) => c.name === name)?.iso;
+  return iso ? String.fromCodePoint(...[...iso.toUpperCase()].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65)) : '';
+};
+
+/** The course's academic and English rules, as its catalogue record keeps them (Institution › Courses). */
+const rulesOf = (c: Course) => {
+  const r = c as Course & { academicRules?: AcademicRule[]; englishRules?: EnglishRule[] };
+  return { academic: r.academicRules ?? [], english: r.englishRules ?? [] };
+};
+/** The academic rows for students from a country: the country's own, or else the ones for every country. */
+const academicFor = (rows: AcademicRule[], country: string) => {
+  const own = rows.filter((r) => r.countries.includes(country));
+  return own.length ? own : rows.filter((r) => !r.countries.length);
+};
+/** The English rows for students from a country: for each test, the country's own row, or else the one for every country. */
+const englishFor = (rows: EnglishRule[], country: string) =>
+  [...new Set(rows.map((r) => r.test))].flatMap((t) => {
+    const own = rows.filter((r) => r.test === t && r.countries.includes(country));
+    return own.length ? own : rows.filter((r) => r.test === t && !r.countries.length);
+  });
+
 /**
- * Eligibility and documents, in both roles' course dialogs. Entry differs by where the student studied, so it
- * opens with one dropdown: **All countries** first, then the countries GSP recruits from most, each with its
- * flag; the RP's own country (India, for now) by default. One country shows its requirements, English and
- * documents, each card saying "For students from India"; All countries lays them side by side in tables, a
- * row a country, and the documents once (they're GSP · Admin's, the same for every country).
+ * Eligibility and documents, in every role's course dialog (Jovial, 1 Nov, HC6): the entry requirements are only
+ * the course record's **academic** and **English** rules, as the Institution Team enters them (no typed rules or
+ * waivers by country). The dropdown starts on the RP's own country and shows that country's rows (or the rows for
+ * every country when it has none of its own); **All countries** lays every row side by side. Backlogs are part of
+ * the academic rule. Then the documents, from GSP · Admin's document rules.
  */
 export function EntryTab({ c, country, onCountry }: { c: Course; country: string; onCountry: (c: string) => void }) {
+  const { academic, english } = rulesOf(c);
+  const named = [...academic, ...english].flatMap((r) => r.countries);
+  const countries = [...new Set([...TOP_MARKETS, ...named])];
   return (
     <div className="cm-stack">
       <div className="cm-cpick">
@@ -20,45 +52,171 @@ export function EntryTab({ c, country, onCountry }: { c: Course; country: string
           Requirements for students from
         </label>
         <div className="cm-cpick__menu">
-          <SelectMenu
-            id="cm-cpick"
-            value={country}
-            label="Countries"
-            options={[{ value: ALL_COUNTRIES, label: 'All countries' }, ...ENTRY_COUNTRIES.map((n) => ({ value: n, label: `${flagOf(n)}  ${n}` }))]}
-            onChange={onCountry}
-          />
+          <SelectMenu id="cm-cpick" value={country} label="Countries" options={[{ value: ALL_COUNTRIES, label: 'All countries' }, ...countries.map((n) => ({ value: n, label: `${flagOf(n)}  ${n}` }))]} onChange={onCountry} />
         </div>
       </div>
-      {country === ALL_COUNTRIES ? <AllCountries c={c} /> : <OneCountry c={c} country={country} />}
+      {country === ALL_COUNTRIES ? <AllCountries c={c} academic={academic} english={english} /> : <OneCountry c={c} country={country} academic={academicFor(academic, country)} english={englishFor(english, country)} />}
+      <Docs c={c} />
     </div>
   );
 }
 
-const isPg = (c: Course) => c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research';
 const before = (c: Course) => `Completed before the ${c.level === 'PhD or research' ? 'PhD' : c.level.charAt(0).toLowerCase() + c.level.slice(1)}`;
-const TESTS = (c: Course): [string, string, string][] => [
-  ['IELTS Academic', c.ielts[0].toFixed(1), c.ielts[1].toFixed(1)],
-  ['PTE Academic', String(c.pte[0]), String(c.pte[1])],
-  ['TOEFL iBT', String(c.toefl[0]), String(c.toefl[1])],
-];
+const qualText = (r: AcademicRule) => (r.board ? `${r.qual} (${r.board})` : r.qual);
+const minText = (r: AcademicRule) => (r.scale === 'Percentage' ? `${r.min}%` : r.scale === 'GPA 4' ? `${r.min} out of 4` : r.scale === 'GPA 10' ? `${r.min} out of 10` : `${r.min} (UK class)`);
+const backlogText = (r: AcademicRule) => (r.backlogs === '' ? 'No limit' : r.backlogs === '0' ? 'None' : `Up to ${r.backlogs}`);
+const countriesText = (l: string[]) => (l.length ? l.join(', ') : 'All countries');
 const needClass = (need: string) => `cs-need cs-need--${need === 'Required' ? 'req' : need === 'Optional' ? 'opt' : 'later'}`;
 
+/** A pathway provider, from the university's record (HC2). */
 function Pathway({ c }: { c: Course }) {
-  if (!c.pathway) return null;
+  if (!c.uni.pathway) return null;
   return (
     <p className="cnote">
-      <strong>Doesn’t meet entry yet?</strong> The university runs a pathway: {isPg(c) ? 'a graduate certificate' : 'a foundation year or diploma'} or English classes first, then straight into this course.
+      <strong>Doesn’t meet entry yet?</strong> {c.uni.name} is a pathway provider.
     </p>
   );
 }
 
-function EnglishTiles({ c }: { c: Course }) {
-  return (
-    <dl className="cm-tiles">
-      {TESTS(c).map(([t, overall, band]) => (
-        <Tile key={t} k={t} v={overall} sub={`Overall · no band below ${band}`} />
+const Notes = ({ rows }: { rows: { id: string; note: string }[] }) => (
+  <>
+    {rows
+      .filter((r) => r.note.trim())
+      .map((r) => (
+        <p key={r.id} className="cnote">
+          {r.note}
+        </p>
       ))}
-    </dl>
+  </>
+);
+
+/** One country: its academic rule as tiles (a table when it has several), its English tests as tiles. */
+function OneCountry({ c, country, academic, english }: { c: Course; country: string; academic: AcademicRule[]; english: EnglishRule[] }) {
+  const meta = `For students from ${country}`;
+  return (
+    <>
+      <Box id="cs-academic" icon="cap" title="Entry requirements" meta={meta}>
+        {academic.length === 0 ? (
+          <p className="cnote">No academic rule added for this course yet.</p>
+        ) : academic.length === 1 ? (
+          <dl className="cm-tiles">
+            <Tile k="Qualification" v={qualText(academic[0])} sub={before(c)} />
+            <Tile k="Minimum" v={minText(academic[0])} sub={academic[0].scale} />
+            {academic[0].backlogs !== '' && <Tile k="Backlogs allowed" v={backlogText(academic[0])} />}
+          </dl>
+        ) : (
+          <AcademicTable rows={academic} />
+        )}
+        <Notes rows={academic} />
+        <Pathway c={c} />
+      </Box>
+
+      <Box id="cs-english" icon="chat" title="English" meta={meta}>
+        {english.length ? (
+          <dl className="cm-tiles">
+            {english.map((r) => (
+              <Tile key={r.id} k={r.test} v={String(r.overall)} sub={r.min > 0 ? `Overall · ${TEST_MIN[r.test].toLowerCase()} ${r.min}` : 'Overall'} />
+            ))}
+          </dl>
+        ) : (
+          <p className="cnote">No English rule added for this course yet.</p>
+        )}
+        <Notes rows={english} />
+      </Box>
+    </>
+  );
+}
+
+function AcademicTable({ rows, countries = false }: { rows: AcademicRule[]; countries?: boolean }) {
+  const backlogs = rows.some((r) => r.backlogs !== '');
+  return (
+    <table className="cs-etable">
+      <thead>
+        <tr>
+          {countries && <th scope="col">Students from</th>}
+          <th scope="col">Qualification</th>
+          <th scope="col">Minimum</th>
+          {backlogs && <th scope="col">Backlogs allowed</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id}>
+            {countries && <CountryCell l={r.countries} />}
+            <td data-k="Qualification">
+              <strong>{qualText(r)}</strong>
+            </td>
+            <td data-k="Minimum">
+              <strong>{minText(r)}</strong>
+              <span className="cs-etable__sub">{r.scale}</span>
+            </td>
+            {backlogs && <td data-k="Backlogs allowed">{backlogText(r)}</td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+const CountryCell = ({ l }: { l: string[] }) => (
+  <th scope="row" className="cs-etable__c">
+    {l.length === 1 && (
+      <span className="cs-etable__flag" aria-hidden="true">
+        {flagOf(l[0])}
+      </span>
+    )}
+    {countriesText(l)}
+  </th>
+);
+
+/** Every row the course has, side by side: whom each is for. */
+function AllCountries({ c, academic, english }: { c: Course; academic: AcademicRule[]; english: EnglishRule[] }) {
+  const meta = 'For all countries';
+  return (
+    <>
+      <Box id="cs-academic" icon="cap" title="Entry requirements" meta={meta}>
+        {academic.length ? (
+          <>
+            <AcademicTable rows={academic} countries />
+            <p className="cs-etable__foot">{before(c)}.</p>
+          </>
+        ) : (
+          <p className="cnote">No academic rule added for this course yet.</p>
+        )}
+        <Notes rows={academic} />
+        <Pathway c={c} />
+      </Box>
+
+      <Box id="cs-english" icon="chat" title="English" meta={meta}>
+        {english.length ? (
+          <table className="cs-etable">
+            <thead>
+              <tr>
+                <th scope="col">Students from</th>
+                <th scope="col">Test</th>
+                <th scope="col">Overall</th>
+                <th scope="col">Lowest band or part</th>
+              </tr>
+            </thead>
+            <tbody>
+              {english.map((r) => (
+                <tr key={r.id}>
+                  <CountryCell l={r.countries} />
+                  <td data-k="Test">
+                    <strong>{r.test}</strong>
+                  </td>
+                  <td data-k="Overall">{r.overall}</td>
+                  <td data-k="Lowest band or part">{r.min > 0 ? r.min : <span className="cs-etable__sub">Not set</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="cnote">No English rule added for this course yet.</p>
+        )}
+        <Notes rows={english} />
+      </Box>
+    </>
   );
 }
 
@@ -90,102 +248,5 @@ function Docs({ c }: { c: Course }) {
     <Box id="cs-docs" icon="folder" title="Documents to collect" meta={`${req} required`}>
       <DocList docs={docs} />
     </Box>
-  );
-}
-
-/** One country: its requirements as tiles, English with its waiver, and the documents. */
-function OneCountry({ c, country }: { c: Course; country: string }) {
-  const r = entryFor(c, country);
-  const meta = `For students from ${country}`;
-  return (
-    <>
-      <Box id="cs-academic" icon="cap" title="Entry requirements" meta={meta}>
-        <dl className="cm-tiles">
-          <Tile k="Eligibility" v={r.from} sub={before(c)} />
-          <Tile k="Highest education" v={r.grade} sub={r.gradeSub} />
-          {r.backlogs && <Tile k="Maximum backlogs" v={String(c.backlogs)} sub="in the bachelor’s degree" />}
-        </dl>
-        {r.note && <p className="cnote">{r.note}</p>}
-        <Pathway c={c} />
-      </Box>
-
-      <Box id="cs-english" icon="chat" title="English" meta={meta}>
-        <EnglishTiles c={c} />
-        {c.englishFlex && <p className="cnote">The English test can wait: a conditional offer is possible{r.waiver ? `, or ${r.waiver}` : ''}.</p>}
-      </Box>
-
-      <Docs c={c} />
-    </>
-  );
-}
-
-const Country = ({ n }: { n: string }) => (
-  <th scope="row" className="cs-etable__c">
-    <span className="cs-etable__flag" aria-hidden="true">
-      {flagOf(n)}
-    </span>
-    {n}
-  </th>
-);
-
-/** Every country side by side: a table a card, a row a country; then the documents, once. */
-function AllCountries({ c }: { c: Course }) {
-  const rows: [string, EntryRules][] = ENTRY_COUNTRIES.map((n) => [n, entryFor(c, n)]);
-  const meta = `For all ${ENTRY_COUNTRIES.length} countries`;
-  const backlogs = rows.some(([, r]) => r.backlogs);
-  return (
-    <>
-      <Box id="cs-academic" icon="cap" title="Entry requirements" meta={meta}>
-        <table className="cs-etable">
-          <thead>
-            <tr>
-              <th scope="col">Country</th>
-              <th scope="col">Eligibility</th>
-              <th scope="col">Highest education</th>
-              {backlogs && <th scope="col">Maximum backlogs</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([n, r]) => (
-              <tr key={n}>
-                <Country n={n} />
-                <td data-k="Eligibility">
-                  <strong>{r.from}</strong>
-                  {r.note && <span className="cs-etable__note">{r.note}</span>}
-                </td>
-                <td data-k="Highest education">
-                  <strong>{r.grade}</strong>
-                  <span className="cs-etable__sub">{r.gradeSub}</span>
-                </td>
-                {backlogs && <td data-k="Maximum backlogs">{r.backlogs ? <strong>{c.backlogs}</strong> : <span className="cs-etable__sub">Not counted</span>}</td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="cs-etable__foot">{before(c)}.</p>
-        <Pathway c={c} />
-      </Box>
-
-      <Box id="cs-english" icon="chat" title="English" meta={meta}>
-        <EnglishTiles c={c} />
-        {c.englishFlex && (
-          <>
-            <p className="cs-etable__k">The test can wait: a conditional offer is possible. How it can be waived:</p>
-            <table className="cs-etable cs-etable--2">
-              <tbody>
-                {rows.map(([n, r]) => (
-                  <tr key={n}>
-                    <Country n={n} />
-                    <td data-k="Waiver">{r.waiver ? r.waiver.charAt(0).toUpperCase() + r.waiver.slice(1) : <span className="cs-etable__sub">Not waived: a test score is needed</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-      </Box>
-
-      <Docs c={c} />
-    </>
   );
 }

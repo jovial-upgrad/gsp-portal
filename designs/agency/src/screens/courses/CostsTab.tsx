@@ -7,7 +7,7 @@ import { Box } from './parts';
  * The course dialog's Costs, in every role (Jovial, 1 Nov): exactly four parts and their total, for the course's
  * duration as its record gives it: the tuition fee, living costs and visa and health cover (both from GSP · Admin's
  * settings), and the application fee, once. A course whose length is in credits shows one year of each and says so.
- * Then the scholarships, only as their records have them.
+ * Then the scholarships: only the university record's that fit this course (Jovial, 1 Nov, HC9), as the record has them.
  */
 export function CostsTab({ c }: { c: Course }) {
   const { parts, total, span, credits, credit } = courseCosts(c);
@@ -38,7 +38,7 @@ export function CostsTab({ c }: { c: Course }) {
           <ul className="cs-schols">
             {schols.map((x) => (
               <li key={x.name} className="cs-schol">
-                <p className="cs-schol__from">{x.from === 'course' ? 'For this course' : `From ${c.uni.name}`}</p>
+                <p className="cs-schol__from">From {c.uni.name}</p>
                 <p className="cs-schol__name">{x.name}</p>
                 <p className="cs-schol__amt">{x.amount}</p>
                 {x.forCountries && <p className="cs-schol__who">For students from {x.forCountries.join(', ')}</p>}

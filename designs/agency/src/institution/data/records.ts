@@ -1,3 +1,6 @@
+import { adminCfg } from '../../admin/data/store';
+import { REGION_COUNTRIES } from '../../admin/data/config';
+import { renewalDays } from '../../work/renewal';
 /**
  * What the Institution Team keeps (29 Oct): the institution partners GSP has agreements with, the universities under
  * them and their courses (GSP's catalogue, the one Course search reads, in catalogue.ts), and the recruitment
@@ -15,7 +18,7 @@ import { nameOf, staffIn, label } from '../../data/staff';
 import { partnerManagerFor, businessDocsFor } from '../../data/partners';
 import { RPS } from '../../data/dataset';
 import { phoneOf, rpAdmin } from '../../data/rpteam';
-import { sampleRegions, NATIONALITY } from '../../admin/data/config';
+import { NATIONALITY } from '../../admin/data/config';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
 
@@ -68,7 +71,7 @@ export const endsText = (iso: string) => {
   const n = daysTo(iso);
   if (n < 0) return -n < 60 ? `Ended ${-n} ${-n === 1 ? 'day' : 'days'} ago` : `Ended about ${Math.round(-n / 30)} months ago`;
   if (n === 0) return 'Ends today';
-  return n <= 60 ? `Ends in ${n} ${n === 1 ? 'day' : 'days'}` : n < 700 ? `Ends in about ${Math.round(n / 30.4)} months` : `Ends in about ${Math.round(n / 365)} years`;
+  return n <= renewalDays() ? `Ends in ${n} ${n === 1 ? 'day' : 'days'}` : n < 700 ? `Ends in about ${Math.round(n / 30.4)} months` : `Ends in about ${Math.round(n / 365)} years`;
 };
 /** "today", "yesterday", "3 days" for how long something has waited. */
 export const waitedText = (iso: string) => {
@@ -153,7 +156,7 @@ export function stagesOf(p: InstitutionPartner): Stage[] {
   const a = agreementOf(p);
   if (!a) return ['executed'];
   const n = daysTo(a.end);
-  return n < 0 ? ['ended'] : n <= 60 ? ['executed', 'ending'] : ['executed'];
+  return n < 0 ? ['ended'] : n <= renewalDays() ? ['executed', 'ending'] : ['executed'];
 }
 /** The status as it reads now (W30): an executed agreement past its end date has ended. */
 export const statusNow = (p: InstitutionPartner): PartnerStatus => {
@@ -354,10 +357,9 @@ const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
     });
   })(),
   bdm: partnerManagerFor(r.country, r.city, '')?.name ?? '',
-  admissions: sampleRegions().find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
+  admissions: adminCfg().regions.find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
 });
 /** Every other RP GSP's applications are with (data/dataset.ts), by Finance's id: signed partners, so their applications link here. */
-const COUNTRY_OF: Record<string, string> = { 'Indonesia, Malaysia and Thailand': 'Indonesia', Africa: 'Nigeria', 'Latin America and Europe': 'Colombia', Direct: 'Australia' };
 const datasetRps = (): RecruitmentPartner[] =>
   RPS.map((r) => {
     // W31: its own city and the date it joined; W21: its contact is its RP Admin, from its one team record
@@ -369,7 +371,7 @@ const datasetRps = (): RecruitmentPartner[] =>
       code: test ? 'AG-1001' : /^\d+$/.test(r.id) ? `AG-${r.id}` : r.id,
       name: r.name.replace(/^Sample: /, ''),
       city: r.city ?? '',
-      country: COUNTRY_OF[r.region] ?? r.region,
+      country: REGION_COUNTRIES[r.region]?.[0] ?? (r.region === 'Direct' ? 'Australia' : r.region),
       status: 'Agreement signed' as const,
       since,
       contact: { name: admin?.name ?? '', email: admin?.email ?? '', phone: phoneOf(admin) },

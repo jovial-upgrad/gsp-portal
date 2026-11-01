@@ -6,14 +6,16 @@
  */
 import { useSyncExternalStore } from 'react';
 import COMM from './comm.json';
-import { ROLES, DEFAULT_MATRIX } from './access';
+import { gspRoles } from './access';
+import { getState as workState } from '../work/store';
 import { STAFF, label } from '../data/staff';
 import { withDatasetTerms, datasetFinanceApps, withInstitution } from './fromDataset';
+import { settingsOf } from './defaults';
 import { onDbChange } from '../institution/data/store';
 import { adminCfg, onAdminChange } from '../admin/data/store';
 import { onLiveChange } from '../data/live';
 
-const KEY = 'gsp-finance-v4'; // v4: exchange rates from Admin (31 Oct)
+const KEY = 'gsp-finance-v5'; // v5: roles, access and queues from Admin and Work; Finance setup's defaults (1 Nov)
 
 /* Every GSP person comes from the staff list (data/staff.ts); the RP person is the sample agency's admin. */
 export const USERS = [
@@ -21,12 +23,6 @@ export const USERS = [
   { id: 'u-nesil', name: 'Nesil Noble', role: 'rp-admin', title: 'RP Admin', agency: 'GSP test agency', branch: 'Bengaluru head office' },
 ];
 export const DEFAULT_PERSONA = { 'gsp-finance': 'u-suman1-verma', 'gsp-admin': 'u-jovial-lejo', 'rp-admin': 'u-nesil', 'gsp-team': 'u-suman1-verma' };
-const QUEUES = [
-  { id: 'q-finance', name: 'Finance' },
-  { id: 'q-institution', name: 'Institution' },
-  { id: 'q-rp-ops', name: 'Recruitment Ops' },
-  { id: 'q-adm-ops', name: 'Admission Ops' },
-];
 const KBS_REMITTANCE = {
   id: 'M-5021', state: 'new', mailbox: 'mb-comm', subject: 'Commission remittance – Trimester 2 2026', from: ['Kaplan Business School Finance', 'agentpayments@kbs.example'],
   received: Date.now() - 20 * 36e5, attachments: ['KBS_Remittance_T2_2026.pdf'], ai: { intent: 'commission', conf: 98, record: null, reasons: [], fields: {} },
@@ -38,7 +34,8 @@ const KBS_REMITTANCE = {
  */
 function commFromDataset() {
   const today = new Date().toISOString().slice(0, 10);
-  const cfg = withDatasetTerms(COMM.cfg);
+  // Finance setup's defaults (HC43–HC45) on the settings from the start
+  const cfg = withDatasetTerms({ ...COMM.cfg, settings: settingsOf(COMM.cfg) });
   // exchange rates: GSP · Admin › Currency exchange is the one source (Jovial, 31 Oct)
   cfg.settings.fx = structuredClone(adminCfg().fxWeeks);
   cfg.settings.sandboxDate = today;
@@ -47,7 +44,7 @@ function commFromDataset() {
 
 function fresh() {
   return {
-    users: USERS, roles: ROLES, matrix: DEFAULT_MATRIX, queues: QUEUES, persona: null, log: [], tasks: [], records: [],
+    users: USERS, persona: null, log: [], tasks: [], records: [],
     comm: commFromDataset(),
     mail: { emails: [KBS_REMITTANCE] },
   };
@@ -59,8 +56,10 @@ function joinEnrolled() {
   if (!state) return;
   const now = datasetFinanceApps(state.comm.cfg, state.comm.today);
   const add = Object.keys(now).filter((id) => !state.comm.apps[id]);
-  if (!add.length) return;
-  state = { ...state, comm: { ...state.comm, apps: { ...state.comm.apps, ...Object.fromEntries(add.map((id) => [id, now[id]])) } } };
+  // the final tuition fee changed on the application: re-price it (Jovial, 1 Nov)
+  const repriced = Object.keys(now).filter((id) => state.comm.apps[id] && state.comm.apps[id].tuition !== now[id].tuition);
+  if (!add.length && !repriced.length) return;
+  state = { ...state, comm: { ...state.comm, apps: { ...state.comm.apps, ...Object.fromEntries(add.map((id) => [id, now[id]])), ...Object.fromEntries(repriced.map((id) => [id, { ...state.comm.apps[id], tuition: now[id].tuition, scholarship: 0 }])) } } };
   save();
   listeners.forEach((f) => f());
 }
@@ -69,7 +68,20 @@ if (!state.comm) state = fresh();
 const listeners = new Set();
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full or blocked */ } }
 
-export function getState() { return state; }
+/*
+ * What the pages read (HC46, 1 Nov): the stored state, with GSP's roles from Admin › Permission roles and the queues
+ * from Work › Queues, SLA and escalation. Finance keeps no list of either.
+ */
+let view = null, vkey = [];
+let adminTick = 0;
+function queuesNow() { try { return workState().queues; } catch { return []; } }
+export function getState() {
+  const q = queuesNow();
+  if (view && vkey[0] === state && vkey[1] === adminTick && vkey[2] === q) return view;
+  view = { ...state, roles: gspRoles(), queues: q };
+  vkey = [state, adminTick, q];
+  return view;
+}
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 onLiveChange(joinEnrolled);
 joinEnrolled();
@@ -83,6 +95,7 @@ function takeAdminFx() {
   listeners.forEach((f) => f());
 }
 onAdminChange(takeAdminFx);
+onAdminChange(() => { adminTick += 1; view = null; listeners.forEach((f) => f()); });
 takeAdminFx();
 /** The Institution Team's agreement dates and territory reach Finance's terms as they change (W8). */
 function takeInstitution() {

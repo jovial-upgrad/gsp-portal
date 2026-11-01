@@ -49,7 +49,7 @@ export const newForm = (nationality: string, rp = ''): AddForm => ({
   country: nationality,
   passport: '',
   email: '',
-  dial: countryByName(nationality)?.dial ?? '+91',
+  dial: countryByName(nationality)?.dial ?? '',
   phone: '',
   highest: '',
   counsellor: 'me',

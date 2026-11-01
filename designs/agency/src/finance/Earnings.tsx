@@ -1,7 +1,7 @@
 // @ts-nocheck -- ported from the add-on layer (JS); typed properly when the finance API is designed.
 /*
  * Earnings (RP side). Replaces the designer's "Earnings is designed next" page.
- * What the agency has earned, what's in the next Thursday payout, what's waiting
+ * What the agency has earned, what's in the next payout (on Finance's pay day), what's waiting
  * for the university to pay GSP, and what will be recovered. Shows only the
  * RP's own amounts and rate: never GSP's commission or the university's rate.
  */
@@ -14,7 +14,7 @@ import { useCheck } from '../components/validate';
 import { fmtAmount } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
 import { nice, money, bandTxt, winName, windowKey, thursdayOf } from './engine';
-import { useComm, liveRun, convert, sum } from './shared';
+import { useComm, liveRun, convert, sum, payDayName } from './shared';
 
 const SHOW = [['', 'All'], ['next', 'In the next payout'], ['approved', 'Approved'], ['wait', 'Waiting for the university'], ['paid', 'Paid'], ['recover', 'To be recovered']];
 
@@ -40,7 +40,7 @@ export default function Earnings() {
   if (!rp) return <Page title="Earnings" top={<PersonaBar />}><Card><Empty title="No commission terms yet">GSP Finance hasn’t entered your agency’s terms. Your BDM can help.</Empty></Card></Page>;
 
   const cur = rp.cur || 'AUD';
-  const today = c.today; const thu = thursdayOf(today);
+  const today = c.today; const thu = thursdayOf(today, cfg); const payDay = payDayName(cfg);
   const mine = res.rp.filter(x => (x.r.payee || x.r.rp).id === rp.id);
   const inCur = (amt, from) => convert(cfg, amt, from, cur, today);
   // W13: a line in a run Finance has approved is Approved until pay day, then Paid
@@ -79,14 +79,14 @@ export default function Earnings() {
   const LABEL = { next: ['In next payout', 'dpill--checking'], approved: ['Approved', 'dpill--checking'], wait: ['Waiting for the university', ''], paid: ['Paid', 'dpill--verified'], recover: ['To be recovered', 'dpill--bad'] };
 
   return (
-    <Page title="Earnings" top={<PersonaBar />} lead={`Commission for ${rp.name}, paid every Thursday in ${cur} once the university has paid GSP.`}>
+    <Page title="Earnings" top={<PersonaBar />} lead={`Commission for ${rp.name}, paid every ${payDay} in ${cur} once the university has paid GSP.`}>
       <Tiles items={tiles} value={f || null} onChange={v => setF(v || '')} />
       {inv && myRun && (
         <Card>
           <h2 className="gspx-h3">Invoice {inv.no} for the payout on {nice(run.date)}</h2>
-          <p>GSP has raised this invoice on your behalf (recipient-created tax invoice) for <b className="num">{Object.entries(myRun.total).map(([k, v]) => money(v, k)).join(' + ')}</b>, {myRun.lines.length} payments. Check it and approve it to be paid on Thursday.</p>
+          <p>GSP has raised this invoice on your behalf (recipient-created tax invoice) for <b className="num">{Object.entries(myRun.total).map(([k, v]) => money(v, k)).join(' + ')}</b>, {myRun.lines.length} payments. Check it and approve it to be paid on {payDay}.</p>
           {inv.status === 'sent' && canAct ? <div className="gspx-inline">
-            <Button kind="primary" onClick={() => update(d => { d.comm.run.invoices[rp.id].status = 'approved'; }, `${user.name} (${rp.name}) approved invoice ${inv.no}`) || toast('Approved. It will be paid on Thursday.')}>Approve invoice</Button>
+            <Button kind="primary" onClick={() => update(d => { d.comm.run.invoices[rp.id].status = 'approved'; }, `${user.name} (${rp.name}) approved invoice ${inv.no}`) || toast(`Approved. It will be paid on ${payDay}.`)}>Approve invoice</Button>
             <Button onClick={() => update(d => { d.comm.run.invoices[rp.id].status = 'queried'; d.tasks.unshift({ id: 'T-Q-' + inv.no, record: 'cm-payout', kind: 'k-exception', queue: 'q-finance', title: `${rp.name} queried invoice ${inv.no}`, created: Date.now(), status: 'open' }); }, `${user.name} (${rp.name}) queried invoice ${inv.no}`) || toast('Sent to GSP Finance. They’ll reply in the portal.')}>Something’s wrong</Button>
           </div> : <Pill tone={inv.status === 'approved' || inv.status === 'paying' ? 'dpill--verified' : 'dpill--bad'}>{inv.status === 'paying' ? `Approved by GSP: paid on ${nice(run.date)}` : inv.status === 'approved' ? 'You approved it' : 'You queried it: Finance will reply'}</Pill>}
         </Card>)}
@@ -101,7 +101,7 @@ export default function Earnings() {
         </Card>
         <Card>
           <h2 className="gspx-h3">Where we pay</h2>
-          <p>{rp.bank === 'AU' ? 'Australian bank account' : 'Local bank account'} in {cur}. Account ending <span className="num">••4821</span>.</p>
+          <p>{rp.bank === 'AU' ? 'Australian bank account' : 'Local bank account'} in {cur}.{rp.bankLast4 ? <> Account ending <span className="num">••{rp.bankLast4}</span>.</> : ' The account on file with GSP Finance.'}</p>
           {rp.bankVerified === false ? <Notice tone="warn">New bank details are waiting for GSP to verify them. Payouts are held until then.</Notice> : <p className="muted">Verified by GSP Finance.</p>}
           {canBank && <div><Button onClick={() => setBank(true)}>Change bank details</Button></div>}
         </Card>
@@ -157,7 +157,7 @@ export function BankSheet({ rp, user, onClose }) {
   const dirty = !!(d.name || d.no || d.no2 || d.code || d.letter);
   const send = () => {
     update(x => {
-      x.comm.cfg.rps.find(r => r.id === rp.id).bankVerified = false;
+      { const t = x.comm.cfg.rps.find(r => r.id === rp.id); t.bankVerified = false; t.bankLast4 = no.slice(-4); t.bankName = d.name.trim(); }
       x.tasks.unshift({ id: 'T-BANK-' + Date.now(), record: 'cm-payout', kind: 'k-exception', queue: 'q-finance', title: `Verify new bank details for ${rp.name}`, note: `Bank letter: ${d.letter}. Check the account name and number against it.`, maker: user.id, created: Date.now(), status: 'open' });
     }, `${user.name} changed ${rp.name}’s bank details (waiting for Finance to verify)`);
     toast('Bank details sent', { text: 'GSP Finance verifies the new account. Payouts are held until then.' }); onClose();

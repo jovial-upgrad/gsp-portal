@@ -1,6 +1,6 @@
 // @ts-nocheck -- ported from the add-on layer (JS); typed properly when the finance API is designed.
 /*
- * Thursday payout run. One Finance person prepares it, which raises an invoice
+ * The payout run, on Finance setup's pay day. One Finance person prepares it, which raises an invoice
  * (RCTI) on each RP's behalf; the RP approves it in Earnings; a second Finance
  * person approves payment of approved invoices. Batch 1: Australian bank
  * accounts. Batch 2: local accounts. A run is held for any currency without
@@ -105,10 +105,10 @@ export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
               </tr>); })}
           </Table>
         </Card>); })}
-      {!payees.length && <Card><Empty title="Nothing to pay this Thursday">Lines become payable once the university has paid GSP.</Empty></Card>}
+      {!payees.length && <Card><Empty title={`Nothing to pay this ${DAYS[opsOf(c.cfg).payDay]}`}>Lines become payable once the university has paid GSP.</Empty></Card>}
       <Card flush>
         <div className="gspx-pad"><h2 className="gspx-h3">Earlier runs</h2></div>
-        <Table head={['Thursday', 'RPs', 'Total', 'Prepared by', 'Approved by', 'Status']}>
+        <Table head={['Pay day', 'RPs', 'Total', 'Prepared by', 'Approved by', 'Status']}>
           {c.runs.map(r => (
             <tr key={r.id} className="irow"><td className="num">{nice(r.date)}</td><td className="num">{r.payees}</td><td className="num">{aud(r.totalAud)}</td>
               <td>{nameOf(s, r.preparedBy)}</td><td>{nameOf(s, r.checkedBy)}</td><td>{r.status === 'approved' ? <Pill tone="dpill--checking">Approved: paid {nice(r.date)}</Pill> : <Pill tone="dpill--verified">Paid</Pill>}</td></tr>))}

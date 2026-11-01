@@ -5,6 +5,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import { COURSES, type Course } from '../../data/courses';
+import { INTAKE_TIMES, setIntakeTimesReader, type IntakeTimes } from '../../data/courses'; // hc-courses (HC8), see the end
 import { fmtMoney } from '../../data/format';
 import {
   sampleBdm,
@@ -27,7 +28,11 @@ import {
   sampleRules,
   condOf,
   REGION_BDM,
-  regionQueueName,
+  seedQueueName,
+  sampleNationality,
+  sampleSecurity,
+  live,
+  type Security,
   type BdmRow,
   type DocRule,
   type EmailGroup,
@@ -48,7 +53,12 @@ import {
 /** Everything GSP Admin configures; each change is logged. */
 export type Cfg = {
   users: User[];
+  /** Admin › Sales regions: the only list of sales regions, each with its countries (HC38). */
   regions: Region[];
+  /** Nationality to sales region (HC42), editable on Sales regions. */
+  nationality: Record<string, string>;
+  /** Sign-in rules for every GSP portal (HC52). */
+  security: Security;
   perms: Perms;
   queues: Queue[];
   emails: EmailGroup[];
@@ -75,6 +85,8 @@ export const sampleCfg = (): Cfg => {
   return {
     users,
     regions: sampleRegions(),
+    nationality: sampleNationality(),
+    security: sampleSecurity(),
     perms: samplePerms(),
     queues,
     emails: sampleEmails(users),
@@ -86,7 +98,7 @@ export const sampleCfg = (): Cfg => {
     rules: sampleRules(),
     lists: sampleLists(),
     regionBdm: { ...REGION_BDM },
-    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === regionQueueName(r))?.id ?? ''])),
+    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === seedQueueName(r))?.id ?? ''])),
     docRules: sampleDocRules(),
     rpDocs: sampleRpDocs(),
     filters: sampleFilters(),
@@ -95,7 +107,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v4'; // v4: Jovial's sheet answers (31 Oct)
+const KEY = 'gsp-admin-v5'; // v5: sales regions with their countries, nationality map, sign-in security, Work permissions (1 Nov)
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {
@@ -106,6 +118,9 @@ function load(): Cfg {
   } catch {
     state = sampleCfg();
   }
+  // permission objects added since the settings were saved start at their sample levels
+  const perms = samplePerms();
+  state = { ...state!, perms: { ...perms, ...state!.perms }, regions: state!.regions.map((r) => ({ ...r, countries: r.countries ?? [] })) };
   // every week carries every currency (W14): older saved settings may have weeks without one
   state = { ...state!, fxWeeks: fillFx(state!.fxWeeks, state!.rates) };
   applyCourseCosts(state!);
@@ -140,6 +155,8 @@ try {
 } catch {
   /* no window */
 }
+// the readers that can't wait for the store (a nationality, a region's queue) read it once it's loaded
+live.cfg = () => state;
 /** Admin's settings now. */
 export const adminCfg = (): Cfg => load();
 /** Change Admin's settings (Admin's pages do this through `change`, which also logs it). */
@@ -240,3 +257,17 @@ export const useAdminCfg = () => [useAdmin(), setAdminCfg] as const;
 
 // Admin's costs reach every course from the start
 load();
+
+/* ---------- appended (hc-courses, Jovial 1 Nov, HC8): intake timings, a course setting ---------- */
+
+/**
+ * How intakes are timed in course search, applications and the catalogue: the days an intake still shows as late
+ * after its deadline (14), how close a deadline is marked as soon (21) and how close it shows a countdown and counts
+ * for "Deadline within" (45). Edited in Admin › Living costs › Intake timings; kept with the other settings (a saved
+ * copy from before this setting gets the defaults). data/courses.ts reads it through `setIntakeTimesReader`.
+ */
+export type IntakeCfg = Cfg & { intakeTimes?: IntakeTimes };
+export const intakeTimesOf = (c: Cfg): IntakeTimes => ({ ...INTAKE_TIMES, ...(c as IntakeCfg).intakeTimes });
+/** Sets the intake timings (for `change`, which saves and logs it). */
+export const withIntakeTimes = (c: Cfg, t: IntakeTimes): Cfg => ({ ...c, intakeTimes: t }) as IntakeCfg;
+setIntakeTimesReader(() => intakeTimesOf(load()));

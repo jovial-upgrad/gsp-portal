@@ -1,3 +1,4 @@
+import { nextWorkingDay } from '../../data/workdays';
 /** The portal around a partner: which sections they can use, and the verification that opens the rest. */
 import { fmtDate } from '../../data/format';
 import type { IconName } from '../../components/Icon';
@@ -212,10 +213,7 @@ export function whenLabel(ts?: number) {
   return `${sameDay(d, new Date()) ? 'today' : day(d)}, ${time(d)}`;
 }
 
-/** GSP works Monday to Saturday; "usually within 1 working day" lands on the next one. */
-export function expectedBy(ts?: number) {
-  const d = new Date(ts ?? Date.now());
-  d.setDate(d.getDate() + 1);
-  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+/** The date to expect GSP's verification by (HC32): the next working day in GSP's calendar for the agency's country. */
+export function expectedBy(ts?: number, country = '') {
+  return nextWorkingDay(ts ?? Date.now(), country).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }

@@ -5,7 +5,7 @@ import { Field, SelectInput, TextInput } from '../../components/forms';
 import { AREAS, LEVELS, type Area, type Course, type Level, type StudyMode } from '../../data/courses';
 import { campusLabel } from '../courses/parts';
 import type { CourseRec, UniRec } from '../data/catalogue';
-import { today } from '../data/records';
+import { todayIso } from '../data/records';
 
 /**
  * Adding a course (29 Oct, 4th round; 6th round as in the PM prototype). It asks for the basics only (university,
@@ -45,7 +45,6 @@ export function newCourse(f: CourseDraft, unis: UniRec[], courses: CourseRec[]):
     durUnit: 'Months',
     durValue: 0,
     url: '',
-    psw: false,
     tags: [],
     intakes: [],
     dates: {},
@@ -65,13 +64,10 @@ export function newCourse(f: CourseDraft, unis: UniRec[], courses: CourseRec[]):
     deposit: 0,
     scholarship: 0,
     scholarshipName: undefined,
-    placement: false,
-    pathway: false,
-    careers: [],
     cricos: undefined,
     rate: u.rate,
-    offerDays: u.offerDays,
-    checked: today(),
+    // the day it was added; the team sets the date it was last checked on its Basics (HC3)
+    checked: todayIso(),
     status: 'Draft',
     source: 'Added by hand',
     stamps: {},

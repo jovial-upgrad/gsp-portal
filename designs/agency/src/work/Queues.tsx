@@ -11,6 +11,9 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useCheck, numError, dupError, dateError } from '../components/validate';
 import { fmtDate, fmtWhen } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
+import { useCalendars, getCalendars, setCalendars, daysText, clockText, DEFAULT_START, DEFAULT_END } from './calendars';
+import { salesRegionNames } from '../admin/data/config';
+import { MultiPick } from '../institution/records/MultiPick';
 
 const STAGES = ['New', 'Pre-screening', 'Application', 'Offer', 'Verification', 'Acceptance', 'Visa', 'Enrolment'];
 
@@ -234,35 +237,108 @@ function SlaCell({ r, i, by }) {
 }
 
 const DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']];
+/**
+ * Working days (Jovial, 1 Nov, HC31): every calendar can be changed, and new ones added: its name, working days,
+ * hours (9:30 to 18:30 unless set), holidays, and the sales regions that use it (GSP · Admin › Sales regions). A
+ * region is on one calendar; picking it for another moves it. RP Home's working hours read these.
+ */
 function Calendars({ may, by }) {
+  const cals = useCalendars();
   const s = useStore();
   const [hol, setHol] = useState({});
   const [tried, setTried] = useState({});
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(null);
+  const regions = salesRegionNames();
   const holErr = i => { const h = hol[i] || {}; return { d: dateError(h.d || '', { what: 'holiday date', required: true }), n: !(h.n || '').trim() ? 'Enter the holiday name.' : null }; };
+  const log = text => update(() => {}, text);
+  const edit = (i, fn, text) => { setCalendars(x => { fn(x[i], x); return x; }); log(text); };
+  const hoursErr = c => !/^\d{2}:\d{2}$/.test(c.start || '') || !/^\d{2}:\d{2}$/.test(c.end || '') ? 'Enter both times.' : (c.end <= c.start ? 'The day ends after it starts.' : null);
   return (
+    <>
+    {may('C') && <div className="gspx-inline"><Button kind="primary" onClick={() => setAdding(true)}>Add a calendar</Button></div>}
     <div className="gspx-grid2">
-      {s.calendars.map((c, i) => (
+      {cals.map((c, i) => (
         <Card key={c.id}>
-          <h3 className="gspx-h3">{c.name}</h3>
-          <p className="muted">{c.regions.join(', ')}</p>
+          {may('U') ? <Field id={`cn-${i}`} label="Calendar name" required error={!String(c.name).trim() ? 'Enter the calendar’s name.' : null}><Input id={`cn-${i}`} value={c.name} onChange={x => setCalendars(l => { l[i].name = x; return l; })} onBlur={() => log(`${by.name} renamed a calendar to ${c.name}`)} /></Field>
+            : <h3 className="gspx-h3">{c.name}</h3>}
+          <p className="muted">{daysText(c.days)}, {clockText(c.start || DEFAULT_START)} to {clockText(c.end || DEFAULT_END)}</p>
           <div className="iseg" role="group" aria-label={`Working days for ${c.name}`}>
             {DAYS.map(([d, t]) => <button key={d} type="button" className="ichip" disabled={!may('U')} aria-pressed={String(c.days.includes(d))}
-              onClick={() => update(x => { const cal = x.calendars[i]; cal.days = cal.days.includes(d) ? cal.days.filter(y => y !== d) : [...cal.days, d]; }, `${by.name} changed working days for ${c.name}`)}>{t}</button>)}
+              onClick={() => edit(i, cal => { cal.days = cal.days.includes(d) ? cal.days.filter(y => y !== d) : [...cal.days, d]; }, `${by.name} changed working days for ${c.name}`)}>{t}</button>)}
+          </div>
+          <div className="gspx-inline">
+            <Field id={`cs-${i}`} label="Day starts" required error={hoursErr(c)}><Input id={`cs-${i}`} type="time" disabled={!may('U')} value={c.start || DEFAULT_START} onChange={x => edit(i, cal => { cal.start = x; }, `${by.name} set ${c.name}’s day to start at ${x}`)} /></Field>
+            <Field id={`ce-${i}`} label="Day ends" required><Input id={`ce-${i}`} type="time" disabled={!may('U')} value={c.end || DEFAULT_END} onChange={x => edit(i, cal => { cal.end = x; }, `${by.name} set ${c.name}’s day to end at ${x}`)} /></Field>
+          </div>
+          <div className="field"><span className="field__label">Sales regions on it</span>
+            {may('U') ? <MultiPick id={`cr-${i}`} label={`Sales regions on ${c.name}`} value={c.regions.filter(r => regions.includes(r))} options={regions} empty="No regions" search
+              onChange={l => { setCalendars(x => { x.forEach((y, j) => { if (j === i) y.regions = l; else y.regions = y.regions.filter(r => !l.includes(r)); }); return x; }); log(`${by.name} set the regions on ${c.name}: ${l.join(', ') || 'none'}`); }} />
+              : <p className="muted">{c.regions.join(', ') || 'No regions'}</p>}
           </div>
           <h4 className="gspx-h4">Holidays</h4>
           <ul className="gspx-list">{c.holidays.map(([d, n], j) => <li key={j}><span className="num">{fmtDate(d)}</span> {n} {may('U') && <LinkButton aria-label={`Remove ${n}`} onClick={() => {
             // reversible: no question, Undo in the notification (QC, 1 Nov)
-            update(x => { x.calendars[i].holidays.splice(j, 1); }, `${by.name} removed holiday ${n}`);
-            toast('Holiday removed', { text: `${n}, ${fmtDate(d)}`, undo: () => update(x => { x.calendars[i].holidays.splice(j, 0, [d, n]); }, `${by.name} put back holiday ${n}`) });
+            edit(i, cal => { cal.holidays.splice(j, 1); }, `${by.name} removed holiday ${n}`);
+            toast('Holiday removed', { text: `${n}, ${fmtDate(d)}`, undo: () => edit(i, cal => { cal.holidays.splice(j, 0, [d, n]); }, `${by.name} put back holiday ${n}`) });
           }}>Remove</LinkButton>}</li>)}</ul>
           {may('U') && <><div className="gspx-inline">
             <Field id={`hd-${i}`} label="Holiday date" required error={tried[i] ? holErr(i).d : null}><Input id={`hd-${i}`} type="date" value={(hol[i] || {}).d || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), d: x } })} /></Field>
             <Field id={`hn-${i}`} label="Holiday name" required error={tried[i] ? holErr(i).n : null}><Input id={`hn-${i}`} value={(hol[i] || {}).n || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), n: x } })} placeholder="Like: Diwali" /></Field>
           </div>
-          <div><Button size="sm" onClick={() => { const h = hol[i] || {}; const e = holErr(i); if (e.d || e.n) { setTried({ ...tried, [i]: true }); window.setTimeout(() => document.getElementById(e.d ? `hd-${i}` : `hn-${i}`)?.focus(), 30); return; } update(x => { x.calendars[i].holidays.push([h.d, h.n.trim()]); }, `${by.name} added holiday ${h.n}`); setHol({ ...hol, [i]: {} }); setTried({ ...tried, [i]: false }); toast('Holiday added', { text: `${h.n.trim()}, ${fmtDate(h.d)}` }); }}>Add holiday</Button></div></>}
+          <div className="gspx-inline"><Button size="sm" onClick={() => { const h = hol[i] || {}; const e = holErr(i); if (e.d || e.n) { setTried({ ...tried, [i]: true }); window.setTimeout(() => document.getElementById(e.d ? `hd-${i}` : `hn-${i}`)?.focus(), 30); return; } edit(i, cal => { cal.holidays.push([h.d, h.n.trim()]); cal.holidays.sort((a, b) => (a[0] < b[0] ? -1 : 1)); }, `${by.name} added holiday ${h.n}`); setHol({ ...hol, [i]: {} }); setTried({ ...tried, [i]: false }); toast('Holiday added', { text: `${h.n.trim()}, ${fmtDate(h.d)}` }); }}>Add holiday</Button>
+            {may('D') && cals.length > 1 && <Button size="sm" kind="danger-quiet" onClick={() => setRemoving(c)}>Delete calendar</Button>}</div></>}
         </Card>
       ))}
     </div>
+    {adding && <NewCalendar by={by} regions={regions} onClose={() => setAdding(false)} log={log} />}
+    <ConfirmDialog open={!!removing} danger title={`Delete ${removing?.name}?`} confirm="Delete calendar" onCancel={() => setRemoving(null)}
+      onConfirm={() => { const r = removing; setRemoving(null); setCalendars(x => { const left = x.filter(y => y.id !== r.id); left[0].regions = [...new Set([...left[0].regions, ...r.regions])]; return left; }); log(`${by.name} deleted calendar ${r.name}`); toast('Calendar deleted', { text: r.regions.length ? `Its regions moved to ${cals.find(y => y.id !== r.id)?.name}.` : '' }); }}>
+      <p>{removing?.regions.length ? `${removing.regions.join(', ')} move to ${cals.find(y => y.id !== removing.id)?.name}.` : 'No region uses it.'} SLA clocks count on the new calendar from now.</p>
+    </ConfirmDialog>
+    </>
+  );
+}
+
+function NewCalendar({ by, regions, onClose, log }) {
+  const init = React.useRef({ name: '', days: [1, 2, 3, 4, 5], start: DEFAULT_START, end: DEFAULT_END, regions: [] });
+  const [v, setV] = useState(() => ({ ...init.current }));
+  const set = (k, x) => setV(o => ({ ...o, [k]: x }));
+  const cals = getCalendars();
+  const errors = {
+    name: !v.name.trim() ? 'Enter the calendar’s name, like Saturday to Wednesday.' : dupError(v.name, cals.map(c => c.name), 'There’s already a calendar with this name.'),
+    days: v.days.length ? null : 'Pick at least one working day.',
+    hours: v.end <= v.start ? 'The day ends after it starts.' : null,
+  };
+  const c = useCheck(errors);
+  const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
+  const save = () => {
+    if (!c.submit()) return;
+    const id = 'cal-' + Date.now().toString(36);
+    setCalendars(x => { x.forEach(y => { y.regions = y.regions.filter(r => !v.regions.includes(r)); }); return [...x, { id, name: v.name.trim(), days: v.days, start: v.start, end: v.end, holidays: [], regions: v.regions }]; });
+    log(`${by.name} added calendar ${v.name.trim()}`);
+    toast('Calendar added', { text: v.regions.length ? `${v.regions.join(', ')} count on it from now.` : 'Pick the regions that use it.' });
+    onClose();
+  };
+  return (
+    <Sheet title="Add a calendar" onClose={onClose} dirty={dirty} what="the new calendar"
+      footer={<><span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={save}>Add calendar</Button></>}>
+      <div className="cfg__form">
+        <Field id="nc-name" label="Calendar name" required error={c.err('name')}><Input id="nc-name" value={v.name} onBlur={c.blur('name')} onChange={x => set('name', x)} placeholder="Like: Saturday to Wednesday" /></Field>
+        <div className="field"><span className="field__label">Working days</span>
+          <div className="iseg" role="group" aria-label="Working days">
+            {DAYS.map(([d, t]) => <button key={d} type="button" className="ichip" aria-pressed={String(v.days.includes(d))} onClick={() => set('days', v.days.includes(d) ? v.days.filter(y => y !== d) : [...v.days, d])}>{t}</button>)}
+          </div>
+          {c.err('days') && <p className="field__msg field__msg--error" role="alert">{c.err('days')}</p>}
+        </div>
+        <div className="gspx-inline">
+          <Field id="nc-start" label="Day starts" required error={c.err('hours')}><Input id="nc-start" type="time" value={v.start} onChange={x => set('start', x)} /></Field>
+          <Field id="nc-end" label="Day ends" required><Input id="nc-end" type="time" value={v.end} onChange={x => set('end', x)} /></Field>
+        </div>
+        <MultiPick id="nc-regions" label="Sales regions on it" value={v.regions} options={regions} empty="No regions yet" search onChange={l => set('regions', l)} />
+        <p className="muted">A region is on one calendar: picking one here moves it from its calendar now.</p>
+      </div>
+    </Sheet>
   );
 }
 

@@ -1,3 +1,4 @@
+import { UPLOAD } from '../../data/uploads';
 import { setLiveFlags } from '../../data/live';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -5,7 +6,7 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { courseOf, gspContact, type Application, type Msg, type Need } from '../../data/applications';
+import { gspContact, type Application, type Msg, type Need } from '../../data/applications';
 import { DocButtons } from '../../components/DocView';
 import { AssistLabel, Thinking } from './parts';
 
@@ -50,10 +51,9 @@ export function Assist({
   say: (m: string) => void;
 }) {
   const reduce = useReducedMotion();
-  const c = courseOf(a);
-  const g = gspContact(c.uni.country, a.officer);
+  const g = gspContact(a);
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
+  const busy = false; // nothing answers automatically (HC26)
   const list = useRef<HTMLOListElement>(null);
   const timers = useRef<number[]>([]);
   const chat = a.chat.filter((m) => m.from !== 'ai');
@@ -67,30 +67,15 @@ export function Assist({
     update((x) => ({ ...x, chat: [...x.chat, { ...m, id: `m${now}${Math.round(Math.random() * 1000)}`, at: now }] }));
   };
 
-  /** The message goes to GSP; in the prototype, the contact says they're on it. */
+  /** The message goes to GSP; GSP's person answers in the chat themselves (HC26: no automatic reply). */
   const send = (q: string) => {
     const v = q.trim();
     if (!v || busy) return;
-    const first = !chat.some((m) => m.from === 'gsp' && m.at > Date.now() - 60 * 60_000);
     push({ from: 'you', name: me, text: v });
     // the officer gets a "Needs you" for it (W11, Jovial, 1 Nov)
     setLiveFlags(a.id, { rpNews: Date.now(), rpWhat: 'a message' });
     setText('');
-    setBusy(true);
-    timers.current.push(
-      window.setTimeout(
-        () => {
-          push({
-            from: 'gsp',
-            name: g.name,
-            text: first ? `Hi ${me.split(' ')[0]}, ${g.first} here. I’ll look into it and reply here by ${time(Date.now() + 2 * 3_600_000)}.` : 'Thanks, noted. I’ll come back to you here.',
-          });
-          setBusy(false);
-          say(`${g.name} replied.`);
-        },
-        reduce ? 300 : 2200,
-      ),
-    );
+    say(`Sent to ${g.name}.`);
   };
 
   return (
@@ -261,7 +246,7 @@ function RequestCard({ a, s, id, name, onFile, onForm }: { a: Application; s: St
             id={inputId}
             className="vh"
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            accept={UPLOAD.accept}
             aria-label={`Upload ${n.title}`}
             onChange={(e) => {
               const f = e.target.files?.[0];

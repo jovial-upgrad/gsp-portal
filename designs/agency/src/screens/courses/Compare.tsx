@@ -32,6 +32,7 @@ type Field = {
   agent?: boolean;
 };
 
+/** Only what the course, campus and university records hold (Jovial, 1 Nov, HC2, HC9): no scholarship (it's in Costs), deposit, English test waiting or post-study work. */
 export const FIELDS: Field[] = [
   { key: 'course', label: 'Course', get: (c) => c.name, csv: true, on: true },
   { key: 'uni', label: 'University', get: (c) => c.uni.name, compare: true, csv: true, on: true },
@@ -45,9 +46,7 @@ export const FIELDS: Field[] = [
   { key: 'currency', label: 'Currency', get: (c) => c.currency, csv: true, on: true },
   { key: 'tuition', label: 'Tuition a year', get: (c) => money(c.tuition, c.currency), num: (c) => c.tuition, best: 'low', money: true, compare: true, csv: true, on: true },
   { key: 'total', label: 'Total tuition', get: (c) => money(Math.round((c.tuition * c.months) / 12), c.currency), num: (c) => Math.round((c.tuition * c.months) / 12), best: 'low', money: true, compare: true, csv: true },
-  { key: 'schol', label: 'Scholarship', get: (c) => (c.scholarship ? `Up to ${money(c.scholarship, c.currency)}` : 'None listed'), num: (c) => c.scholarship, best: 'high', money: true, compare: true, csv: true, on: true },
   { key: 'fee', label: 'Application fee', get: (c) => (c.appFee ? money(c.appFee, c.currency) : 'Free'), num: (c) => c.appFee, best: 'low', money: true, compare: true, csv: true },
-  { key: 'deposit', label: 'Deposit', get: (c) => money(c.deposit, c.currency), num: (c) => c.deposit, best: 'low', money: true, compare: true, csv: true },
   { key: 'intakes', label: 'Intakes', get: (c) => c.intakes.map((i) => i.month).join(', '), compare: true, csv: true, on: true },
   {
     key: 'deadline',
@@ -64,10 +63,8 @@ export const FIELDS: Field[] = [
   { key: 'band', label: 'IELTS no band below', get: (c) => c.ielts[1].toFixed(1), num: (c) => c.ielts[1], best: 'low', compare: true, csv: true },
   { key: 'pte', label: 'PTE overall', get: (c) => String(c.pte[0]), num: (c) => c.pte[0], best: 'low', compare: true, csv: true },
   { key: 'toefl', label: 'TOEFL iBT overall', get: (c) => String(c.toefl[0]), num: (c) => c.toefl[0], best: 'low', compare: true, csv: true },
-  { key: 'wait', label: 'English test can wait', get: (c) => (c.englishFlex ? 'Yes' : 'No'), compare: true, csv: true },
   { key: 'academic', label: 'Academic minimum (%)', get: (c) => `${c.academic}%`, num: (c) => c.academic, best: 'low', compare: true, csv: true, on: true },
   { key: 'qs', label: 'QS world ranking', get: (c) => (c.uni.qs ? `#${c.uni.qs}` : 'Not ranked'), num: (c) => c.uni.qs ?? null, best: 'low', compare: true, csv: true },
-  { key: 'psw', label: 'Post-study work visa', get: (c) => (c.psw ? 'Yes' : 'No'), compare: true, csv: true },
   { key: 'web', label: 'University website', get: (c) => c.uni.website ?? '', csv: true },
   { key: 'earn', label: 'Base commission (approx.)', get: (c) => `≈ ${money(earnOf(c), c.currency)}`, num: (c) => earnOf(c), best: 'high', money: true, compare: true, csv: true, agent: true },
 ];

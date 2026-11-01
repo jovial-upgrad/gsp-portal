@@ -1,3 +1,4 @@
+import { TEST_COUNTRY } from '../../data/rpteam';
 import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -9,7 +10,7 @@ import { Field, SelectInput, TextInput, describedBy } from '../../components/for
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { countryByName, type Contact } from '../../data/partners';
-import { CITIES, type Member, type Student, type TeamRole } from '../../data/students';
+import { citiesOf, type Member, type Student, type TeamRole } from '../../data/students';
 import { TEAM_ROLES, branchBdm, lastAdmin, type Branch } from '../../data/team';
 
 type Props = {
@@ -224,10 +225,12 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
 
 /** Add or edit a branch: its name and where it is. The branch BDM follows from the city, set by the system (it shows in the table). */
 function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean; edit?: Branch; branches: Branch[]; onClose: () => void; onSave: (b: Branch) => void }) {
-  const [b, setB] = useState<Branch>({ id: '', name: '', country: 'India', state: '', city: '' });
+  // a new branch starts in the agency's own country (its head office's), and a new member with its code (HC19)
+  const home = branches.find((x) => x.main)?.country ?? TEST_COUNTRY;
+  const [b, setB] = useState<Branch>({ id: '', name: '', country: home, state: '', city: '' });
   const [start, setStart] = useState<Branch>(b);
   const states = countryByName(b.country)?.states ?? [];
-  const cities = CITIES[b.state] ?? [];
+  const cities = citiesOf(b.country, b.state);
   // QC, 1 Nov (H25): the city comes from the state's list when there is one
   const err = {
     name: b.name.trim().length < 2 ? 'Enter the branch name, like Mysuru.' : dupError(b.name, branches.filter((x) => x.id !== b.id).map((x) => x.name), 'There’s already a branch with this name.'),
@@ -238,7 +241,7 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
   const c = useCheck(err);
   useEffect(() => {
     if (!open) return;
-    const x = edit ?? { id: `br${Date.now()}`, name: '', country: 'India', state: '', city: '' };
+    const x = edit ?? { id: `br${Date.now()}`, name: '', country: home, state: '', city: '' };
     setB(x);
     setStart(x);
     c.reset();
@@ -322,7 +325,8 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
 
 /** Invite a team member, or edit one: their name, work email, phone with the country code, role and branch. */
 function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: boolean; edit?: Member; team: Member[]; branches: Branch[]; onClose: () => void; onSave: (m: Member) => void }) {
-  const blank = (): Member => ({ id: `m${Date.now()}`, name: '', role: 'Counsellor', email: '', dial: '+91', phone: '', branch: branches.find((b) => b.main)?.id ?? branches[0]?.id, invited: true });
+  const homeDial = countryByName(branches.find((x) => x.main)?.country ?? TEST_COUNTRY)?.dial ?? '';
+  const blank = (): Member => ({ id: `m${Date.now()}`, name: '', role: 'Counsellor', email: '', dial: homeDial, phone: '', branch: branches.find((b) => b.main)?.id ?? branches[0]?.id, invited: true });
   const [m, setM] = useState<Member>(blank);
   const [start, setStart] = useState<Member>(m);
   const email = (m.email ?? '').trim().toLowerCase();
@@ -331,13 +335,13 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
   const err = {
     name: m.name.trim().length < 2 ? 'Enter their full name.' : null,
     email: emailError(email, { what: 'work email', example: 'name@agency.com' }) || dupError(email, team.filter((x) => x.id !== m.id).map((x) => x.email ?? ''), 'Someone on the team already has this email.'),
-    phone: phoneError(m.dial ?? '+91', m.phone ?? '', { required: true }),
+    phone: phoneError(m.dial ?? homeDial, m.phone ?? '', { required: true }),
     branch: m.branch ? null : 'Pick their branch.',
   };
   const c = useCheck(err);
   useEffect(() => {
     if (!open) return;
-    const x = edit ? { dial: '+91', phone: '', email: '', ...edit } : blank();
+    const x = edit ? { dial: homeDial, phone: '', email: '', ...edit } : blank();
     setM(x);
     setStart(x);
     c.reset();
@@ -384,7 +388,7 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
           <TextInput id="tm-email" type="email" value={m.email ?? ''} onBlur={c.blur('email')} onChange={(e) => setM((x) => ({ ...x, email: e.target.value }))} />
         </Field>
         <Field id="tm-phone" label="Phone number" required error={show('phone')}>
-          <PhoneInput id="tm-phone" dial={m.dial ?? '+91'} number={m.phone ?? ''} invalid={!!show('phone')} describedBy={describedBy('tm-phone', show('phone'))} onBlur={c.blur('phone')} onDial={(v) => setM((x) => ({ ...x, dial: v }))} onNumber={(v) => setM((x) => ({ ...x, phone: v }))} />
+          <PhoneInput id="tm-phone" dial={m.dial ?? homeDial} number={m.phone ?? ''} invalid={!!show('phone')} describedBy={describedBy('tm-phone', show('phone'))} onBlur={c.blur('phone')} onDial={(v) => setM((x) => ({ ...x, dial: v }))} onNumber={(v) => setM((x) => ({ ...x, phone: v }))} />
         </Field>
         <div className="grid2">
           <Field id="tm-role" label="Role" required hint={onlyAdmin ? 'The only RP Admin: make someone else an RP Admin first.' : undefined}>

@@ -1,3 +1,4 @@
+import { UPLOAD, uploadError, sizeText } from '../../data/uploads';
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
@@ -42,9 +43,7 @@ const NEW_STUDENT = '__new';
 type Up = { file: string; size: number; phase: 'sending' | 'reading' | 'ok' | 'flag'; pct: number; note?: string; issue?: DocIssue };
 /** "statement of purpose", "CV", "10th marksheet": a document's name inside a sentence. */
 const named = (n: string) => n.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase());
-const MAX_MB = 10;
 const TYPES = /\.(pdf|jpe?g|png)$/i;
-const sizeText = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 /**
  * Starting an application takes three choices: the student (or a new one, added without leaving), the
@@ -172,7 +171,7 @@ export function NewApplication({
   const pickFile = (m: AppDoc, file: File | null) => {
     if (!file || !s) return;
     if (!TYPES.test(file.name)) return setBad((b) => ({ ...b, [m.key]: `${file.name} can’t be used. Upload a PDF, JPG or PNG.` }));
-    if (file.size > MAX_MB * 1048576) return setBad((b) => ({ ...b, [m.key]: `${file.name} is ${sizeText(file.size)}. Upload one up to ${MAX_MB} MB.` }));
+    if (uploadError(file)) return setBad((b) => ({ ...b, [m.key]: uploadError(file) }));
     setBad((b) => ({ ...b, [m.key]: undefined }));
     const mine = (x?: Up) => x?.file === file.name;
     setUp((u) => ({ ...u, [m.key]: { file: file.name, size: file.size, phase: 'sending', pct: 0 } }));
@@ -286,7 +285,7 @@ export function NewApplication({
             </h3>
             <p className="nadone__text">
               {made.status === 'checking'
-                ? 'Sent to GSP. GSP checks the documents, usually within the hour, then submits to the university.'
+                ? 'Sent to GSP. GSP checks the documents, then submits to the university.'
                 : 'Waiting for documents.'}
             </p>
             <div className="nadone__track">
@@ -805,7 +804,7 @@ function Documents({
         <motion.span initial={false} animate={{ width: `${required.length ? (ready / required.length) * 100 : 100}%` }} transition={{ duration: 0.4, ease }} />
       </div>
       <p className="nahint">
-        What {c.uni.name} asks for with this course, for {s.first}’s education. Anything needed later, GSP asks for in the chat. Add each as a PDF, JPG or PNG, up to {MAX_MB} MB; what’s on {s.first}’s profile is
+        What {c.uni.name} asks for with this course, for {s.first}’s education. Anything needed later, GSP asks for in the chat. Add each as a {UPLOAD.types}, up to {UPLOAD.maxMB} MB; what’s on {s.first}’s profile is
         used from there. GSP verifies every one for this application, those from the profile too.
       </p>
       <ol className="mdocs">
@@ -848,7 +847,7 @@ function DocCard({ n, d, s, u, bad, onFile, onRemove }: { n: number; d: AppDoc; 
       id={id}
       className="vh"
       type="file"
-      accept=".pdf,.jpg,.jpeg,.png"
+      accept={UPLOAD.accept}
       aria-label={`Upload the ${named(d.name)}`}
       aria-describedby={bad ? `${id}-err` : undefined}
       onChange={(e) => {
@@ -896,7 +895,7 @@ function DocCard({ n, d, s, u, bad, onFile, onRemove }: { n: number; d: AppDoc; 
             <span className="mdrop__main">
               Drop the file here, or <span className="mdrop__link">browse</span>
             </span>
-            <span className="mdrop__sub">PDF, JPG or PNG · up to {MAX_MB} MB</span>
+            <span className="mdrop__sub">{UPLOAD.short}</span>
           </span>
           {input}
         </label>

@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon';
 import { SelectInput } from '../../components/forms';
 import { DESTINATIONS, LEVELS, money } from '../../data/courses';
 import { COURSE_STATUSES, type CourseRec, type CourseStatus } from '../data/catalogue';
+import { dateText } from '../data/records';
 import { NoMatch, PAGE, PageHead, Tiles, useRecord } from './parts';
 import { COURSE_TONE, CoursePill } from './pills';
 import { CoursePage } from './CoursePage';
@@ -151,7 +152,7 @@ export function Catalogue(props: PageProps) {
                         <td className="num">{c.academic > 0 && c.ielts[0] > 0 ? `${c.academic}% · IELTS ${c.ielts[0]}` : <span className="muted">Not added</span>}</td>
                         <td>
                           {c.source}
-                          <span className="irow__sub">{c.checked}</span>
+                          <span className="irow__sub">Checked {dateText(c.checked)}</span>
                         </td>
                         <td>
                           <CoursePill s={c.status} />

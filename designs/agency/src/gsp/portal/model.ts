@@ -1,5 +1,8 @@
+import { nextWorkingDay } from '../../data/workdays';
 /** The portal around a partner: which sections they can use, and the verification that opens the rest. */
 import { fmtDate } from '../../data/format';
+import { liveMenu } from '../../admin/data/menus';
+import { PERM_ROLE } from '../../proto/roles';
 import type { IconName } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import { SAMPLE, accountCreated, type SignupState } from '../../screens/signup/model';
@@ -15,7 +18,7 @@ export type Section = 'home' | 'mywork' | 'mail' | 'applications' | 'students' |
 export type Access = 'setup' | 'verifying' | 'all';
 
 /** The menu never changes order with the account's state; locked sections keep their place and say so. */
-export const NAV: { key: Section; label: string; short: string; icon: IconName; locked: boolean }[] = [
+const ALL_NAV: { key: Section; label: string; short: string; icon: IconName; locked: boolean }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home', locked: false },
   // Jovial, 31 Oct: GSP · Admissions works from My work and Mail; Earnings is the RP's, not Admissions'
   { key: 'mywork', label: 'My work', short: 'My work', icon: 'checkCircle', locked: false },
@@ -25,6 +28,8 @@ export const NAV: { key: Section; label: string; short: string; icon: IconName; 
   { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search', locked: false },
   { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: false },
 ];
+/** GSP · Admissions' menu, cut to what Admission can open in GSP · Admin › Permission roles (HC47). */
+export const NAV = liveMenu(ALL_NAV, () => PERM_ROLE['gsp-team']);
 
 /** What each locked section is for, said on its locked page and on Home. */
 export const LOCKED_COPY: Partial<Record<Section, { title: string; text: string }>> = {
@@ -214,10 +219,7 @@ export function whenLabel(ts?: number) {
   return `${sameDay(d, new Date()) ? 'today' : day(d)}, ${time(d)}`;
 }
 
-/** GSP works Monday to Saturday; "usually within 1 working day" lands on the next one. */
-export function expectedBy(ts?: number) {
-  const d = new Date(ts ?? Date.now());
-  d.setDate(d.getDate() + 1);
-  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+/** The date to expect GSP's verification by (HC32): the next working day in GSP's calendar for the agency's country. */
+export function expectedBy(ts?: number, country = '') {
+  return nextWorkingDay(ts ?? Date.now(), country).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }

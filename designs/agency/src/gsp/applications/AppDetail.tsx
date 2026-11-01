@@ -1,3 +1,5 @@
+import { withdrawReasons } from '../../data/reasons';
+import { UPLOAD } from '../../data/uploads';
 import { PriorityChip } from '../../components/PriorityChip';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
@@ -34,7 +36,7 @@ import { AssistMark, StageTrack } from './parts';
 import { Chat, type AskSeed } from './Chat';
 import { MailTab } from './Mail';
 import { SubmissionTab, isSubmitted } from './Submission';
-import { setLiveStatus, setLiveFlags, flagsOf } from '../../data/live';
+import { setLiveStatus, setLiveFlags, flagsOf, finalFeeOf, useLiveAll } from '../../data/live';
 import { routeApplication } from '../../data/regions';
 import { isMine } from '../../data/scope';
 import { regionQueueName } from '../../admin/data/config';
@@ -126,6 +128,7 @@ export function AppDetail({
   const rpPeople = rpTeam(agency);
   const counsellor = rpPeople.find((m) => m.id === s.counsellor) ?? team.find((m) => m.id === s.counsellor && (m.rp ?? agency) === agency) ?? rpPeople.find((m) => m.role === 'Counsellor') ?? rpPeople[0];
   const rp = rpContact(counsellor ?? { name: agency, role: 'RP Admin' }, agency);
+  useLiveAll(); // the final tuition fee prices the base commission
   const earn = earnFor(a);
   const [withdraw, setWithdraw] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -229,8 +232,12 @@ export function AppDetail({
     log(`Set the census date to ${longDate(t)}`);
     say(`Census date set to ${longDate(t)}.`);
   };
+  // the final tuition fee: the course's until Admissions changes it; Finance prices commission on it (Jovial, 1 Nov)
+  useLiveAll(); // re-render when the fee changes
+  const feeFlag = flagsOf(a.id);
+  const fee = finalFeeOf(a.id, c.tuition);
   const setFee = (n: number) => {
-    setDesk((x) => ({ ...x, fee: n }));
+    setLiveFlags(a.id, { fee: n, feeBy: gsp.name, feeAt: Date.now() });
     log(`Set the final tuition fee to ${money(n, c.currency)}`);
     say(`Final tuition fee set to ${money(n, c.currency)}.`);
   };
@@ -643,22 +650,17 @@ export function AppDetail({
                 k="Final tuition fee"
                 kind="money"
                 currency={c.currency}
-                value={desk.fee}
+                value={fee}
                 shown={
-                  desk.fee ? (
-                    <span>
-                      <span className="num">{money(desk.fee, c.currency)}</span>
-                      {desk.fee !== c.tuition && <span className="cdl__soft num"> · listed {money(c.tuition, c.currency)}</span>}
-                    </span>
-                  ) : (
-                    <span className="cdl__soft">Not added yet: add it from the offer letter (listed {money(c.tuition, c.currency)})</span>
-                  )
+                  <span>
+                    <span className="num">{money(fee, c.currency)}</span>
+                    <span className="cdl__soft"> · {feeFlag.feeBy ? `updated by ${feeFlag.feeBy}${feeFlag.feeAt ? `, ${shortDate(new Date(feeFlag.feeAt))}` : ''}` : 'from the course; change it when the offer letter arrives'}</span>
+                  </span>
                 }
                 onSave={setFee}
               />
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Length" v={duration(c.months)} />
-              {c.scholarship > 0 && <Row k="Scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}
               {offer && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
@@ -1000,7 +1002,7 @@ function DocsTab({
             id="gdocs-file"
             className="vh"
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            accept={UPLOAD.accept}
             aria-label="Upload a document as GSP"
             onChange={(e) => {
               onUpload(e.target.files?.[0] ?? null);
@@ -1177,17 +1179,18 @@ function Activity({ a, agency }: { a: Application; agency: string }) {
 
 /* ---------- withdrawing ---------- */
 
-const REASONS = ['The student chose another offer', 'The student is deferring to a later intake', 'The student isn’t going to study abroad', 'Another reason'];
+/** Why it's withdrawn: one list, data/reasons.ts (HC23). */
+const REASONS = { get list() { return withdrawReasons(); } };
 
 function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; agency: string; onCancel: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reason, setReason] = useState(REASONS.list[0]);
   const c = courseOf(a);
   return (
     <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
       <p>Tell {c.uni.name} by mail; the application closes here and for {agency}, with the reason. {s.first}’s documents stay on the profile for other applications.</p>
       <fieldset className="wreasons">
         <legend className="wreasons__legend">Why?</legend>
-        {REASONS.map((r) => (
+        {REASONS.list.map((r) => (
           <label key={r} className="wreason">
             <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
             <span>{r}</span>

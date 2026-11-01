@@ -1,5 +1,7 @@
 import type { IconName } from '../../components/Icon';
 import type { Db, SetDb } from '../data/store';
+import { liveKeys, liveMenu } from '../../admin/data/menus';
+import { PERM_ROLE } from '../../proto/roles';
 
 /**
  * The Institution Team's pages (29 Oct), in Nesil's order. It keeps GSP Team's Students, Applications and Course
@@ -9,7 +11,7 @@ import type { Db, SetDb } from '../data/store';
  */
 export type Section = 'home' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'profile';
 
-export const NAV: { key: Section; label: string; short: string; icon: IconName }[] = [
+const ALL_NAV: { key: Section; label: string; short: string; icon: IconName }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home' },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
@@ -21,8 +23,11 @@ export const NAV: { key: Section; label: string; short: string; icon: IconName }
   { key: 'announcements', label: 'Announcements', short: 'News', icon: 'mail' },
 ];
 
+/** GSP · Institution's menu, cut to what Institution can open in GSP · Admin › Permission roles (HC47). */
+export const NAV = liveMenu(ALL_NAV, () => PERM_ROLE['institution-partner']);
+
 /** On phones the tab bar has room for five: the records first, then Home. */
-export const TABS: Section[] = ['home', 'applications', 'universities', 'catalogue', 'ips'];
+export const TABS: Section[] = liveKeys<Section>(['home', 'applications', 'universities', 'catalogue', 'ips'], () => PERM_ROLE['institution-partner']);
 
 /** The pages that hold records. */
 export type RecordSection = 'universities' | 'catalogue' | 'ips' | 'rps' | 'announcements';

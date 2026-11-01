@@ -1,4 +1,16 @@
-import { countryByName, emailInUse } from '../../data/partners';
+import { countryByName } from '../../data/partners';
+import { accountFor } from '../signin/model';
+import { TEST_AGENCY, allRpMembers } from '../../data/rpteam';
+
+/**
+ * An email that already has a GSP account (HC35): a sign-in account, or someone on an RP's team. One source each,
+ * so the sample that says "already on GSP" is a real account (Ananya Rao, Horizon Overseas).
+ */
+export const emailInUse = (email: string) => {
+  const v = email.trim().toLowerCase();
+  const a = accountFor(v);
+  return (!!a && [a.email, ...(a.aliases ?? [])].includes(v)) || allRpMembers().some((m) => (m.email ?? '').toLowerCase() === v);
+};
 import { checkPassword } from '../signin/model';
 import type { DocSlot } from './docs';
 
@@ -65,18 +77,19 @@ export const EMPTY_FORM: SignupForm = {
   first: '',
   last: '',
   biz: '',
-  country: 'India',
+  // no default country or code (HC19): the agency picks its country, and the code follows it
+  country: '',
   pw: '',
   pw2: '',
   state: '',
   city: '',
   email: '',
-  dial: '+91',
+  dial: '',
   phone: '',
   ownerSame: true,
   ownerName: '',
   ownerEmail: '',
-  ownerDial: '+91',
+  ownerDial: '',
   ownerPhone: '',
   cemail: '',
   src: '',
@@ -92,24 +105,32 @@ export const initialState = (): SignupState => ({
   docs: {},
 });
 
-/** The sample agency: what it gave when registering, then the details it adds in the portal. */
+/**
+ * The sign-up demo persona (HC35, Jovial 1 Nov): a NEW agency, on no list yet (not the GSP test agency the sign-in
+ * samples use, and no RP the Institution Team or Admin already has). Once it registers, the Institution Team's
+ * Recruitment partners page lists it under this name (institution/data/rpverify.ts).
+ */
+export const SIGNUP_SAMPLE = { first: 'Meera', last: 'Krishnan', biz: 'Kaveri Study Abroad', domain: 'kaveristudyabroad.in', country: 'India', state: 'Karnataka', city: 'Mysuru' };
 export const SAMPLE_REGISTER: SignupForm = {
   ...EMPTY_FORM,
-  first: 'Asha',
-  last: 'Menon',
-  biz: 'BrightPath Overseas',
-  country: 'India',
-  email: 'asha@brightpathoverseas.in',
+  first: SIGNUP_SAMPLE.first,
+  last: SIGNUP_SAMPLE.last,
+  biz: SIGNUP_SAMPLE.biz,
+  country: SIGNUP_SAMPLE.country,
+  dial: countryByName(SIGNUP_SAMPLE.country)?.dial ?? '',
+  ownerDial: countryByName(SIGNUP_SAMPLE.country)?.dial ?? '',
+  email: `${SIGNUP_SAMPLE.first.toLowerCase()}@${SIGNUP_SAMPLE.domain}`,
 };
 export const SAMPLE: SignupForm = {
   ...SAMPLE_REGISTER,
-  state: 'Karnataka',
-  city: 'Bengaluru',
-  phone: '98450 12345',
-  cemail: 'accounts@brightpathoverseas.in',
+  state: SIGNUP_SAMPLE.state,
+  city: SIGNUP_SAMPLE.city,
+  phone: '98451 60237',
+  cemail: `accounts@${SIGNUP_SAMPLE.domain}`,
   src: 'Event or fair',
 };
-const PW = 'Bright2026';
+const PW = 'Kaveri2026';
+const USED = allRpMembers().find((m) => m.rp !== TEST_AGENCY && m.role === 'RP Admin')!;
 
 /** Named states the prototype can jump to (each has a #token link). The portal's own come from the portal. */
 export const PRESETS: Record<string, { label: string; make: () => SignupState }> = {
@@ -122,7 +143,7 @@ export const PRESETS: Record<string, { label: string; make: () => SignupState }>
     label: 'Sent with errors',
     make: () => ({
       ...initialState(),
-      form: { ...EMPTY_FORM, first: 'Asha', biz: 'BrightPath Overseas', email: 'asha@brightpath', pw: 'bright', pw2: 'bright' },
+      form: { ...EMPTY_FORM, first: SIGNUP_SAMPLE.first, biz: SIGNUP_SAMPLE.biz, email: `${SIGNUP_SAMPLE.first.toLowerCase()}@kaveri`, pw: 'bright', pw2: 'bright' },
       submitted: true,
     }),
   },
@@ -130,7 +151,8 @@ export const PRESETS: Record<string, { label: string; make: () => SignupState }>
     label: 'Email already on GSP',
     make: () => ({
       ...initialState(),
-      form: { ...EMPTY_FORM, first: 'Ananya', last: 'Rao', email: 'ananya@horizonoverseas.in' },
+      // someone already on an RP's team (data/rpteam.ts): the RP Admin of another agency
+      form: { ...EMPTY_FORM, first: USED.name.split(' ')[0], last: USED.name.split(' ').slice(1).join(' '), email: USED.email ?? '' },
       touched: { email: true },
     }),
   },

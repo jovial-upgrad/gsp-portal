@@ -35,12 +35,7 @@ export const CHANNEL_NAME: Record<Channel['via'], string> = { mail: 'Through mai
 export type Desk = { mails: Mail[]; channel: Channel; census: number; fee: number; dismissed?: string[] };
 
 const DAY = 86_400_000;
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-/** The first day of an intake like "Feb 2027". */
-export const intakeStart = (intake: string) => {
-  const [m, y] = intake.split(' ');
-  return new Date(Number(y), Math.max(0, MONTHS.indexOf(m)), 1).getTime();
-};
+/* Course start and census without catalogue dates: one rule, data/applications.ts startOf and censusOf (HC25). */
 /** A date with its year: "31 Mar 2027". */
 export const longDate = (t: number) => `${shortDate(new Date(t))} ${new Date(t).getFullYear()}`;
 
@@ -58,8 +53,9 @@ function mailsFor(a: Application, s: Student): Mail[] {
   const c = courseOf(a);
   const u = c.uni;
   const web = u.website ?? `${u.id}.edu`;
-  const g = gspContact(u.country);
-  const gspMail = `${g.name.toLowerCase().replace(' ', '.')}@gsp.upgrad.com`;
+  // GSP's person on it (HC21) writes from their own address on the staff list (HC28)
+  const g = gspContact(a);
+  const gspMail = g.email || 'admissions@upgrad.com';
   const admissions = { name: `${u.name} Admissions`, email: `admissions@${web}` };
   const name = fullName(s);
   const at = (re: RegExp) => a.history.find((e) => re.test(e.text))?.at;
@@ -72,10 +68,10 @@ function mailsFor(a: Application, s: Student): Mail[] {
       from: admissions,
       to: [gspMail],
       subject: `Application received: ${name}, ${c.name} (${a.uniRef})`,
-      body: `Dear ${g.first},\n\nThank you for submitting ${name}'s application for the ${c.name}, ${a.intake} intake.\n\nYour reference is ${a.uniRef}. Please quote it in all correspondence about this application.\n\nWe aim to make an assessment within ${c.offerDays} working days. We will contact you if we need anything further.\n\nKind regards,\nInternational Admissions\n${u.name}`,
+      body: `Dear ${g.first},\n\nThank you for submitting ${name}'s application for the ${c.name}, ${a.intake} intake.\n\nYour reference is ${a.uniRef}. Please quote it in all correspondence about this application.\n\nWe will contact you if we need anything further.\n\nKind regards,\nInternational Admissions\n${u.name}`,
       box: 'in',
       read: true,
-      summary: [`${u.name} has received ${s.first}'s application for the ${c.name}, ${a.intake}.`, `Their reference is ${a.uniRef}: quote it in every mail.`, `A decision usually takes about ${c.offerDays} working days.`],
+      summary: [`${u.name} has received ${s.first}'s application for the ${c.name}, ${a.intake}.`, `Their reference is ${a.uniRef}: quote it in every mail.`],
     });
   }
   if (a.chased) {
@@ -160,8 +156,9 @@ export function statusMail(a: Application, s: Student, k: StatusKey, at: number)
   const c = courseOf(a);
   const u = c.uni;
   const web = u.website ?? `${u.id}.edu`;
-  const g = gspContact(u.country);
-  const gspMail = `${g.name.toLowerCase().replace(' ', '.')}@gsp.upgrad.com`;
+  // GSP's person on it (HC21) writes from their own address on the staff list (HC28)
+  const g = gspContact(a);
+  const gspMail = g.email || 'admissions@upgrad.com';
   const name = fullName(s);
   const short = u.name.replace(/ University$|^University of (the )?/, '').replace(/\s+/g, '_');
   const ref = a.uniRef ? ` (${a.uniRef})` : '';

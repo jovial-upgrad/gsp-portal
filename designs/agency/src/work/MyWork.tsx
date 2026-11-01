@@ -6,11 +6,10 @@
  */
 import React, { useContext, useMemo, useState } from 'react';
 import { useStore, update, closeTask, assignTask, recordById, queueById, kindById, nameOf, slaOf, waitOf, SLA_PILL } from './store';
-import { can, inScope } from '../finance/access';
+import { can, inScope, oversees } from '../finance/access';
 import { Page, Card, Tiles, Segmented, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, toast, fmtDate, fmtAge } from '../finance/kit';
 import { PersonaBar, usePersona, HostContext } from './persona';
 
-const OVERSIGHT = ['admission-ops', 'admin', 'view-only'];
 
 export function taskTitle(s, t) {
   if (t.title) return t.title;
@@ -27,7 +26,7 @@ export function visibleTasks(s, user, role) {
   return s.tasks.filter(t => {
     const rec = recordById(s, t.record) || {};
     if (!inScope(user, rec, s.roles)) return false;
-    if (OVERSIGHT.includes(role.id)) return true;
+    if (oversees(role.id)) return true;
     if (t.assignee === user.id) return true;
     const q = queueById(s, t.queue);
     const esc = t.esc && t.esc.level >= 2 ? queueById(s, t.esc.to) : null;
@@ -47,7 +46,7 @@ export default function MyWork() {
   const canAct = can(s.matrix, role.id, 'tasks', 'U');
   const myQueues = s.queues.filter(q => q.leader === user.id || (q.members || []).includes(user.id));
   const leads = s.queues.filter(q => q.leader === user.id);
-  const seeAll = OVERSIGHT.includes(role.id);
+  const seeAll = oversees(role.id);
   const vis = useMemo(() => visibleTasks(s, user, role).filter(t => t.status === 'open'), [s, user, role]);
   const sla = t => slaOf(s, t);
 

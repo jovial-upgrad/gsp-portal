@@ -469,3 +469,13 @@ input[type='date'].icell { min-width: 150px; }
 .csum__item { padding-top: var(--sp-12); border-top: 1px solid var(--line); }
 .csum__name { font-weight: 600; margin-bottom: var(--sp-6); }
 .csum .cdl__row { display: grid; grid-template-columns: 180px 1fr; gap: var(--sp-12); }
+
+/* a university's Pictures (Jovial, 1 Nov, HC11): course search's Campus life photos */
+.ipics { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: var(--sp-16); }
+.ipic { display: grid; align-content: start; gap: var(--sp-4); min-width: 0; }
+.ipic.is-out { opacity: 0.6; }
+.ipic__img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r-sm); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.ipic__ph { display: grid; place-content: center; justify-items: center; gap: var(--sp-4); color: var(--text-3); font-size: var(--t-caption); }
+.ipic__name { font-size: var(--t-label); line-height: var(--lh-label); color: var(--text); overflow-wrap: anywhere; }
+.ipic__note { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.ipic__rm { justify-self: start; }

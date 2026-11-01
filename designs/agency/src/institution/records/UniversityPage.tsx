@@ -17,10 +17,11 @@ import { CoursePill, PartnerPill, UniPill } from './pills';
 import { Territory } from './uni/Territory';
 import { Submission } from './uni/Submission';
 import { Scholarships } from './uni/Scholarships';
+import { Pictures } from './uni/Pictures';
 import type { PageProps } from '../portal/model';
 
-type Tab = 'overview' | 'campuses' | 'courses' | 'scholarships' | 'territory' | 'submission';
-const TABS: Tab[] = ['overview', 'campuses', 'courses', 'scholarships', 'territory', 'submission'];
+type Tab = 'overview' | 'campuses' | 'pictures' | 'courses' | 'scholarships' | 'territory' | 'submission';
+const TABS: Tab[] = ['overview', 'campuses', 'pictures', 'courses', 'scholarships', 'territory', 'submission'];
 export type UniUpd = (fn: (u: UniRec) => UniRec) => void;
 const SENT = { 'Own portal': 'applications on its own portal', StudyLink: 'applications through StudyLink', Email: 'applications by email' } as const;
 
@@ -135,6 +136,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
         tabs={[
           { key: 'overview', label: 'Overview' },
           { key: 'campuses', label: 'Campuses', n: u.campuses.length },
+          { key: 'pictures', label: 'Pictures', n: u.pictures.length },
           { key: 'courses', label: 'Courses', n: courses.length },
           { key: 'scholarships', label: 'Scholarships', n: u.scholarships.length },
           { key: 'territory', label: 'Territory' },
@@ -218,9 +220,13 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
                     ) : null,
                   ],
                   ...(u.country === 'Australia' ? ([['CRICOS provider code', u.cricos || null]] as [string, string | null][]) : []),
+                  // shown in course search (Jovial, 1 Nov, HC2, HC3): QS rank, founding year, about, pathway
+                  ['QS world ranking', u.qs ? <span key="qs" className="num">#{u.qs}</span> : null],
+                  ['Founded', u.founded ? <span key="fd" className="num">{u.founded}</span> : null],
                   ['Display priority', u.priority ? <span key="dp" className="num">{u.priority}</span> : null],
                   ['Applies through StudyLink', u.studylink ? 'Yes' : 'No'],
                   ['Pathway provider', u.pathway ? 'Yes' : 'No'],
+                  ['About', u.about || null],
                 ]}
               />
             </Section>
@@ -258,6 +264,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
           />
         )}
 
+        {tab === 'pictures' && <Pictures u={u} upd={part('pictures')} say={say} updated={u.stamps.pictures} />}
         {tab === 'scholarships' && <Scholarships u={u} upd={part('scholarships')} say={say} updated={u.stamps.scholarships} />}
         {tab === 'territory' && <Territory u={u} rps={db.rps} upd={upd} say={say} me={me} />}
         {tab === 'submission' && <Submission u={u} p={p} part={part} say={say} me={me} />}
@@ -325,6 +332,7 @@ function Campuses({ u, upd, say, counts, onSave }: { u: UniRec; upd: UniUpd; say
                   <tr key={c.name}>
                     <td>
                       {c.name}
+                      {c.address ? <span className="irow__sub">{c.address}</span> : <span className="irow__sub muted">Address not added</span>}
                       {c.setting && <span className="irow__sub">{c.setting}</span>}
                     </td>
                     <td>
@@ -385,17 +393,17 @@ function Campuses({ u, upd, say, counts, onSave }: { u: UniRec; upd: UniUpd; say
   );
 }
 
-type CampusDraft = { name: string; country: string; state: string; city: string; map: string; setting: string };
+type CampusDraft = { name: string; country: string; state: string; city: string; address: string; map: string; setting: string };
 
 /** Add or edit a campus. Every field but the setting is needed. */
 function CampusForm({ u, k, onCancel, onSave }: { u: UniRec; k: CampusRec | 'new' | null; onCancel: () => void; onSave: (k: CampusRec) => void }) {
   const home = GEO_NAME[u.country] ?? u.country;
-  const blank: CampusDraft = { name: '', country: home, state: '', city: '', map: '', setting: '' };
+  const blank: CampusDraft = { name: '', country: home, state: '', city: '', address: '', map: '', setting: '' };
   const [v, setV] = useState<CampusDraft>(blank);
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!k) return;
-    setV(k === 'new' ? blank : { name: k.name, country: k.country ?? home, state: k.state ?? '', city: k.city, map: k.map ?? '', setting: k.setting ?? '' });
+    setV(k === 'new' ? blank : { name: k.name, country: k.country ?? home, state: k.state ?? '', city: k.city, address: k.address ?? '', map: k.map ?? '', setting: k.setting ?? '' });
     setTried(false);
   }, [k]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (f: Partial<CampusDraft>) => setV((x) => ({ ...x, ...f }));
@@ -414,7 +422,7 @@ function CampusForm({ u, k, onCancel, onSave }: { u: UniRec; k: CampusRec | 'new
     if (Object.values(err).some(Boolean)) return;
     const setting = (v.setting || undefined) as CampusRec['setting'];
     const old = k && k !== 'new' ? k : undefined;
-    onSave({ ...old, name: v.name.trim(), country: v.country, state: v.state.trim(), city: v.city.trim(), map: v.map.trim(), setting, regional: u.country === 'Australia' ? setting === 'Regional town' : undefined });
+    onSave({ ...old, name: v.name.trim(), country: v.country, state: v.state.trim(), city: v.city.trim(), address: v.address.trim() || undefined, map: v.map.trim(), setting, regional: u.country === 'Australia' ? setting === 'Regional town' : undefined });
   };
   return (
     <Sheet
@@ -463,6 +471,9 @@ function CampusForm({ u, k, onCancel, onSave }: { u: UniRec; k: CampusRec | 'new
         <Field id="iuc-city" label="City" required error={show('city')}>
           <TextInput id="iuc-city" value={v.city} invalid={!!show('city')} onChange={(e) => set({ city: e.target.value })} />
         </Field>
+        <Field id="iuc-address" label="Address" optional hint="Shown on the campus in course search." className="iform__wide">
+          <TextInput id="iuc-address" value={v.address} onChange={(e) => set({ address: e.target.value })} placeholder="Like: 11 Kirinari Street, Bruce ACT 2617" />
+        </Field>
         <Field id="iuc-setting" label="Setting" optional>
           <SelectInput id="iuc-setting" value={v.setting} placeholder="Pick one" allowEmpty onChange={(e) => set({ setting: e.target.value })}>
             {SETTINGS.map((x) => (
@@ -472,7 +483,7 @@ function CampusForm({ u, k, onCancel, onSave }: { u: UniRec; k: CampusRec | 'new
             ))}
           </SelectInput>
         </Field>
-        <Field id="iuc-map" label="Google Maps link" required error={show('map')} className="iform__wide">
+        <Field id="iuc-map" label="Google Maps link" required error={show('map')} hint="Course search shows it as View on map." className="iform__wide">
           <TextInput id="iuc-map" type="url" value={v.map} invalid={!!show('map')} onChange={(e) => set({ map: e.target.value })} placeholder="https://maps.google.com/…" />
         </Field>
       </div>
@@ -549,20 +560,25 @@ function UniCourses({ u, courses, onOpen, onAdd }: { u: UniRec; courses: CourseR
   );
 }
 
-type Profile = Pick<UniRec, 'name' | 'utype' | 'sector' | 'website' | 'cricos' | 'priority' | 'studylink' | 'pathway'>;
+type Profile = Pick<UniRec, 'name' | 'utype' | 'sector' | 'website' | 'cricos' | 'priority' | 'studylink' | 'pathway' | 'qs' | 'founded' | 'about'>;
+/** The QS rank and founding year as typed. */
+type ProfileDraft = Omit<Profile, 'qs' | 'founded'> & { qs: string; founded: string };
 
 function EditProfile({ u, onCancel, onSave }: { u: UniRec | null; onCancel: () => void; onSave: (f: Profile) => void }) {
-  const [v, setV] = useState<Profile>({ name: '', utype: 'University', sector: 'Public', website: '', cricos: '', priority: '', studylink: false, pathway: false });
+  const [v, setV] = useState<ProfileDraft>({ name: '', utype: 'University', sector: 'Public', website: '', cricos: '', priority: '', studylink: false, pathway: false, qs: '', founded: '', about: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!u) return;
-    setV({ name: u.name, utype: u.utype, sector: u.sector, website: u.website ?? '', cricos: u.cricos, priority: u.priority, studylink: u.studylink, pathway: u.pathway });
+    setV({ name: u.name, utype: u.utype, sector: u.sector, website: u.website ?? '', cricos: u.cricos, priority: u.priority, studylink: u.studylink, pathway: u.pathway, qs: u.qs ? String(u.qs) : '', founded: u.founded ? String(u.founded) : '', about: u.about ?? '' });
     setTried(false);
   }, [u]);
-  const set = (f: Partial<Profile>) => setV((x) => ({ ...x, ...f }));
+  const set = (f: Partial<ProfileDraft>) => setV((x) => ({ ...x, ...f }));
+  const year = new Date().getFullYear();
   const err = {
     name: !v.name.trim() ? 'Enter the university’s name.' : null,
     website: !v.website?.trim() ? 'Enter its website.' : null,
+    qs: v.qs && !(Number(v.qs) >= 1 && Number(v.qs) <= 2000) ? 'A rank from 1 to 2000, or leave it empty.' : null,
+    founded: v.founded && !(Number(v.founded) >= 1000 && Number(v.founded) <= year) ? `A year, like 1966, up to ${year}.` : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   return (
@@ -582,7 +598,7 @@ function EditProfile({ u, onCancel, onSave }: { u: UniRec | null; onCancel: () =
               onClick={() => {
                 setTried(true);
                 if (Object.values(err).some(Boolean)) return;
-                onSave({ ...v, name: v.name.trim(), website: (v.website ?? '').trim().replace(/^https?:\/\//, ''), cricos: v.cricos.trim() });
+                onSave({ ...v, name: v.name.trim(), website: (v.website ?? '').trim().replace(/^https?:\/\//, ''), cricos: v.cricos.trim(), qs: v.qs ? Number(v.qs) : undefined, founded: v.founded ? Number(v.founded) : undefined, about: v.about?.trim() || undefined });
               }}
             >
               Save
@@ -615,6 +631,17 @@ function EditProfile({ u, onCancel, onSave }: { u: UniRec | null; onCancel: () =
         </Field>
         <Field id="iup-priority" label="Display priority" optional hint="A number. It breaks ties in search.">
           <TextInput id="iup-priority" inputMode="numeric" value={v.priority} onChange={(e) => set({ priority: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="Like: 10" />
+        </Field>
+        <Field id="iup-qs" label="QS world ranking" optional hint="Shown on the course cards and the course page." error={show('qs')}>
+          <TextInput id="iup-qs" inputMode="numeric" value={v.qs} invalid={!!show('qs')} onChange={(e) => set({ qs: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="Like: 415" />
+        </Field>
+        <Field id="iup-founded" label="Founded" optional error={show('founded')}>
+          <TextInput id="iup-founded" inputMode="numeric" value={v.founded} invalid={!!show('founded')} onChange={(e) => set({ founded: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="Like: 1966" />
+        </Field>
+        <Field id="iup-about" label="About" optional hint="A line about the university, on the course page’s University tab." className="iform__wide">
+          <div className="control iform__area">
+            <textarea id="iup-about" className="control__input" rows={2} value={v.about ?? ''} onChange={(e) => set({ about: e.target.value })} />
+          </div>
         </Field>
         {u?.country === 'Australia' && (
           <Field id="iup-cricos" label="CRICOS provider code" optional>

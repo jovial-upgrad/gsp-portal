@@ -5,17 +5,20 @@ import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { Sheet } from '../../components/Sheet';
-import { DESTINATIONS, NATIONALITY, ROUTING_RPS, route, type Region, type RouteRule } from '../data/config';
+import { DESTINATIONS, route, type Region, type RouteRule } from '../data/config';
+import { routingRps } from '../../data/regions';
+import { COUNTRIES } from '../../data/partners';
 import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft } from './parts';
 
 const EXAMPLES: [string, { rp: string; nationality: string; now: string; dest: string }][] = [
-  ['Indian student, Indian RP', { rp: 'BrightPath Overseas', nationality: 'India', now: 'India', dest: 'Australia' }],
-  ['Indian student, Nepali RP', { rp: 'Kathmandu Study Hub', nationality: 'India', now: 'India', dest: 'United Kingdom' }],
-  ['Onshore, Vietnamese RP', { rp: 'Saigon Study Link', nationality: 'Vietnam', now: 'Australia', dest: 'Australia' }],
-  ['Onshore, Indian RP', { rp: 'BrightPath Overseas', nationality: 'India', now: 'Australia', dest: 'Australia' }],
+  // real RPs from the records (HC49, 1 Nov)
+  ['Indian student, Indian RP', { rp: 'Silver Fern Education', nationality: 'India', now: 'India', dest: 'Australia' }],
+  ['Indian student, Nepali RP', { rp: 'Kathmandu Pathways', nationality: 'India', now: 'India', dest: 'United Kingdom' }],
+  ['Onshore, Vietnamese RP', { rp: 'Future Journey Visa Services', nationality: 'Vietnam', now: 'Australia', dest: 'Australia' }],
+  ['Onshore, Indian RP', { rp: 'Silver Fern Education', nationality: 'India', now: 'Australia', dest: 'Australia' }],
   ['Direct, Nigerian student', { rp: '', nationality: 'Nigeria', now: 'Nigeria', dest: 'Canada' }],
-  ['Unmapped nationality', { rp: 'Horizon Overseas', nationality: 'United Arab Emirates', now: 'United Arab Emirates', dest: 'Australia' }],
+  ['Unmapped nationality', { rp: 'MWT Education', nationality: 'Japan', now: 'Japan', dest: 'Australia' }],
 ];
 
 type Draft = { rules: RouteRule[]; lists: Record<string, string[]>; regionBdm: Record<string, string>; regionQueue: Record<string, string>; regions: Region[] };
@@ -36,7 +39,10 @@ export function Routing({ cfg, change, say }: ConfigProps) {
   const d = useDraft(saved, 'the routing');
   const v = d.value;
   const ed = d.editing;
-  const r = route(v.rules, v.lists, t, v.regionBdm);
+  // the RPs as the rules see them, from their records; on this draft's lists a listed RP takes the list's region
+  const rpRecs = routingRps().map((p) => ({ ...p, region: Object.entries(v.lists).find(([, l]) => l.includes(p.name))?.[0] ?? p.region }));
+  const r = route(v.rules, v.lists, { ...t, rpInfo: rpRecs.find((p) => p.name === t.rp) }, v.regionBdm, cfg.nationality);
+  const countries = COUNTRIES.map((c) => c.name);
   const keepAt = v.rules.findIndex((x) => x.id === 'keep');
   const onAt = v.rules.findIndex((x) => x.id === 'onshore');
   const move = (i: number, dir: -1 | 1) =>
@@ -130,7 +136,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
             <Field id="rt-rp" label="RP">
               <SelectInput id="rt-rp" value={t.rp} onChange={(e) => setT((x) => ({ ...x, rp: e.target.value }))}>
                 <option value="">No RP (direct application)</option>
-                {ROUTING_RPS.map((p) => (
+                {rpRecs.map((p) => (
                   <option key={p.name} value={p.name}>
                     {p.name} ({p.region})
                   </option>
@@ -139,14 +145,14 @@ export function Routing({ cfg, change, say }: ConfigProps) {
             </Field>
             <Field id="rt-nat" label="Student nationality">
               <SelectInput id="rt-nat" value={t.nationality} onChange={(e) => setT((x) => ({ ...x, nationality: e.target.value }))}>
-                {Object.keys(NATIONALITY).map((c) => (
+                {countries.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
               </SelectInput>
             </Field>
             <Field id="rt-now" label="Student current country">
               <SelectInput id="rt-now" value={t.now} onChange={(e) => setT((x) => ({ ...x, now: e.target.value }))}>
-                {[...new Set(['Australia', ...Object.keys(NATIONALITY)])].map((c) => (
+                {countries.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
               </SelectInput>
@@ -261,7 +267,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
                   {ed && (
                     <td>
                       <div className="cfg__add">
-                        <MultiPick id={`rl-${reg}`} label={`RPs to add to the ${reg} list`} value={addTo[reg] ?? []} options={ROUTING_RPS.filter((p) => !onList.has(p.name)).map((p) => p.name)} empty="Choose RPs" search onChange={(l) => setAddTo((x) => ({ ...x, [reg]: l }))} />
+                        <MultiPick id={`rl-${reg}`} label={`RPs to add to the ${reg} list`} value={addTo[reg] ?? []} options={rpRecs.filter((p) => !onList.has(p.name)).map((p) => p.name)} empty="Choose RPs" search onChange={(l) => setAddTo((x) => ({ ...x, [reg]: l }))} />
                         <Button
                           variant="secondary"
                           size="sm"
@@ -349,7 +355,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
         queues={admissionsQueues}
         onClose={() => setNewRegion(false)}
         onAdd={(x) => {
-          d.set((y) => ({ ...y, regions: [...y.regions.filter((z) => z.name !== 'Global'), { name: x.name, contact: x.contact }, ...y.regions.filter((z) => z.name === 'Global')], regionBdm: { ...y.regionBdm, [x.name]: x.bdm }, regionQueue: { ...y.regionQueue, [x.name]: x.queue } }));
+          d.set((y) => ({ ...y, regions: [...y.regions.filter((z) => z.name !== 'Global'), { name: x.name, contact: x.contact, countries: [] }, ...y.regions.filter((z) => z.name === 'Global')], regionBdm: { ...y.regionBdm, [x.name]: x.bdm }, regionQueue: { ...y.regionQueue, [x.name]: x.queue } }));
           setNewRegion(false);
         }}
       />

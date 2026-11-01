@@ -1,3 +1,4 @@
+import { TEST_COUNTRY } from '../../data/rpteam';
 /** Review states for the Students page and student records, for an agency GSP has verified. */
 import { sampleStudents, type Student } from '../../data/students';
 import { newAdd, type AddState } from './form';
@@ -6,7 +7,7 @@ import type { RecordTab } from './StudentRecord';
 type Make = (me: string) => { students: Student[]; add?: AddState | true; open?: string; tab?: RecordTab };
 
 const filled = (patch: Partial<AddState['f']>, more: Partial<AddState> = {}): AddState => {
-  const a = newAdd('India');
+  const a = newAdd(TEST_COUNTRY);
   return { ...a, ...more, f: { ...a.f, ...patch } };
 };
 

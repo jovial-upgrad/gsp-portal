@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { DateInput, SelectInput } from '../../components/forms';
+import { DateInput, Field, SelectInput, TextInput } from '../../components/forms';
 import { fmtDate } from '../../data/format';
-import { afterError, dateError } from '../../components/validate';
+import { afterError, dateError, numError, useCheck } from '../../components/validate';
+import { EditBar, History, Panel, useDraft } from './parts';
+import type { Security as SecurityCfg } from '../data/config';
 import { PageHead, downloadCsv } from '../../institution/records/parts';
 import type { ConfigProps } from './ConfigPage';
 
@@ -106,6 +108,58 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
           {!rows.length && <p className="cfg__note cfg__empty">No downloads match these filters.</p>}
         </div>
       </section>
+    </>
+  );
+}
+
+/**
+ * Sign-in security (Jovial, 1 Nov, HC52): how many wrong passwords pause sign-in, for how long, and how soon a code
+ * can be sent again. Every GSP sign-in reads it (GSP · Admin's and GSP · Institution's). Edit, then Save.
+ */
+export function Security({ cfg, change, say }: ConfigProps) {
+  const d = useDraft<SecurityCfg>(cfg.security, 'the sign-in rules');
+  const v = d.value;
+  const c = useCheck({
+    max: numError(v.maxAttempts, { what: 'wrong passwords before sign-in pauses', min: 1, max: 20, int: true, required: true }),
+    lock: numError(v.lockMinutes, { what: 'minutes sign-in pauses for', min: 1, max: 1440, int: true, required: true }),
+    resend: numError(v.resendSeconds, { what: 'seconds before a code can be sent again', min: 5, max: 600, int: true, required: true }),
+  });
+  const num = (k: keyof SecurityCfg) => (x: string) => d.set((s) => ({ ...s, [k]: x === '' ? ('' as unknown as number) : Number(x) }));
+  return (
+    <>
+      <PageHead title="Sign-in security" lead="How GSP’s sign-in protects accounts. Every GSP portal’s sign-in follows these as soon as they’re saved." />
+      <Panel
+        title="Sign-in rules"
+        note="Wrong passwords in a row pause sign-in for that person; codes sent by email can be sent again after a wait."
+        action={
+          <EditBar
+            editing={d.editing}
+            dirty={d.dirty}
+            name="sign-in rules"
+            onEdit={() => (c.reset(), d.start())}
+            onCancel={d.stop}
+            onSave={() => {
+              if (!c.submit()) return;
+              change('Sign-in security', `Sign-in pauses after ${v.maxAttempts} wrong passwords for ${v.lockMinutes} minutes; codes again after ${v.resendSeconds} seconds`, (x) => ({ ...x, security: { maxAttempts: Number(v.maxAttempts), lockMinutes: Number(v.lockMinutes), resendSeconds: Number(v.resendSeconds) } }));
+              say('Sign-in rules saved. They apply to the next sign-in.');
+              d.stop();
+            }}
+          />
+        }
+      >
+        <div className="cfg__form">
+          <Field id="sec-max" label="Wrong passwords before sign-in pauses" required error={c.err('max')}>
+            <TextInput id="sec-max" type="number" inputMode="numeric" disabled={!d.editing} value={String(v.maxAttempts)} onBlur={c.blur('max')} onChange={(e) => num('maxAttempts')(e.target.value)} />
+          </Field>
+          <Field id="sec-lock" label="Sign-in pauses for (minutes)" required error={c.err('lock')}>
+            <TextInput id="sec-lock" type="number" inputMode="numeric" disabled={!d.editing} value={String(v.lockMinutes)} onBlur={c.blur('lock')} onChange={(e) => num('lockMinutes')(e.target.value)} />
+          </Field>
+          <Field id="sec-resend" label="A code can be sent again after (seconds)" required error={c.err('resend')}>
+            <TextInput id="sec-resend" type="number" inputMode="numeric" disabled={!d.editing} value={String(v.resendSeconds)} onBlur={c.blur('resend')} onChange={(e) => num('resendSeconds')(e.target.value)} />
+          </Field>
+        </div>
+      </Panel>
+      <History log={cfg.log} area="Sign-in security" />
     </>
   );
 }

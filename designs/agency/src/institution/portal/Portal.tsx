@@ -1,3 +1,4 @@
+import { TEST_COUNTRY } from '../../data/rpteam';
 import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -84,7 +85,7 @@ export function Portal({
 }) {
   const reduce = useReducedMotion();
   const [section, setSection] = useState<Section>(sectionOf(start?.section));
-  const country = join?.form.country || 'India';
+  const country = join?.form.country || TEST_COUNTRY;
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(country, join?.form.state || ''));
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? sampleStudents(acc.name));
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));

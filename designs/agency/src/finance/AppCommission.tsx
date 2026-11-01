@@ -12,7 +12,7 @@ import { compute, money, nice } from './engine';
 import { getState } from './store';
 import { UNI_TERMS, rpByName } from '../data/dataset';
 import { uniSteps } from './Commissions';
-import { convert } from './shared';
+import { convert, settingsOf } from './shared';
 import './finance.css';
 
 const LEVEL: Record<string, string> = { Foundation: 'FDN', Diploma: 'DIP', 'Bachelor’s degree': 'UG', 'Postgraduate diploma': 'PG', 'Master’s degree': 'PG', 'PhD or research': 'RES' };
@@ -37,19 +37,21 @@ function priced(a: Application, agency: string) {
   const assumed = !uni;
   const rpId = a.rp ? rpByName(a.rp)?.id : 'R-TEST';
   const rp = cfg.rps.find((r) => r.id === rpId) ?? cfg.rps.find((r) => r.id === 'R-TEST');
+  // the estimate for a university with no terms yet: Finance setup's defaults (HC43)
+  const est = settingsOf(cfg).estimate;
   if (stored) {
     const res = compute(cfg, s.comm.apps, today);
     const one = { ...res, ip: res.ip.filter((x) => x.app === a.id), rp: res.rp.filter((x) => x.app === a.id) };
-    return { res: one, r: res.apps[a.id], cfg, uni: uni ?? { name: c.uni.name, cur: c.currency, payDays: 30, levels: {}, trigger: 'census' }, rp, assumed, enrolled: true, today };
+    return { res: one, r: res.apps[a.id], cfg, uni: uni ?? { name: c.uni.name, cur: c.currency, payDays: est.payDays, levels: {}, trigger: est.trigger }, rp, assumed, enrolled: true, today };
   }
   const cfg2 = structuredClone(cfg);
   if (!uni) {
     // no terms in Finance for this university: the course record's rate, as an estimate
-    uni = { id: `x-${c.uni.id}`, name: c.uni.name, group: '', country: COUNTRY[c.uni.country] ?? 'AU', cur: c.currency, ends: '', trigger: 'census', inst: 2, payDays: 30, cap: null, levels: { [lvl]: c.rate || c.uni.rate }, fixed: {}, tier: null, annuity: null };
+    uni = { id: `x-${c.uni.id}`, name: c.uni.name, group: '', country: COUNTRY[c.uni.country] ?? 'AU', cur: c.currency, ends: '', trigger: est.trigger, inst: est.inst, payDays: est.payDays, cap: null, levels: { [lvl]: c.rate || c.uni.rate }, fixed: {}, tier: null, annuity: null };
     cfg2.unis.push(uni);
   }
   const start = iso(startOf(a));
-  const app = { census: iso(censusOf(a)), id: a.id, student: '', rp: rp.id, uni: uni.id, level: lvl, intake: start, tuition: c.tuition, scholarship: c.scholarship, enrolled: start, studentType: 'New', nationality: rp.region, inv: {}, paidIP: {}, paidRP: {} };
+  const app = { census: iso(censusOf(a)), id: a.id, student: '', rp: rp.id, uni: uni.id, level: lvl, intake: start, tuition: finalFeeOf(a.id, c.tuition), scholarship: 0, enrolled: start, studentType: est.studentType, nationality: rp.region, inv: {}, paidIP: {}, paidRP: {} };
   const res = compute(cfg2, { ...s.comm.apps, [a.id]: app }, today);
   const one = { ...res, ip: res.ip.filter((x) => x.app === a.id), rp: res.rp.filter((x) => x.app === a.id) };
   return { res: one, r: res.apps[a.id], cfg: cfg2, uni, rp, assumed, enrolled: false, today };
@@ -85,7 +87,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
               <tbody>
                 {ip.map((x) => { const k = 'u' + x.l.key; const [t, tone] = stOf(x.l.st); return [
                   <tr key={k} className="irow">
-                    <td>{x.l.bonus ? 'University bonus' : x.l.annuity ? `Annuity, year ${x.l.y}` : `Instalment ${x.l.k}${x.l.n > 1 ? ` of ${x.l.n}` : ''}`}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of net tuition` : 'No rate'}</span></td>
+                    <td>{x.l.bonus ? 'University bonus' : x.l.annuity ? `Annuity, year ${x.l.y}` : `Instalment ${x.l.k}${x.l.n > 1 ? ` of ${x.l.n}` : ''}`}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of the final tuition fee` : 'No rate'}</span></td>
                     <td className="num">{nice(x.l.date)}</td>
                     <td className="num">{money(x.l.ent, uni.cur)}{x.l.gst ? <span className="irow__sub">+ GST {money(x.l.gst, uni.cur)}</span> : null}</td>
                     <td><span className={`dpill ${tone}`}>{t}</span></td>

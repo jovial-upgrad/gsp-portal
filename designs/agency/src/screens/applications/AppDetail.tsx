@@ -1,4 +1,7 @@
-import { setLiveStatus, setLiveFlags } from '../../data/live';
+import { RP_OWNER_TAG as OWNER_TAG } from '../../data/owners';
+import { withdrawReasons } from '../../data/reasons';
+import { UPLOAD } from '../../data/uploads';
+import { setLiveStatus, setLiveFlags, useLiveAll } from '../../data/live';
 import { NameDialog } from '../../gsp/applications/NameDialog';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
@@ -57,7 +60,7 @@ const TABS: [AppTab, string, IconName][] = [
 /** The one tag in the header's corner: who has the application now, never two at once. */
 /** A due date with its year: "31 Oct 26". */
 const dueDate = (t: number) => `${shortDate(new Date(t))} ${String(new Date(t).getFullYear()).slice(2)}`;
-const HEAD_TAG: Record<AppOwner, string> = { you: 'Pending on you', gsp: 'GSP', uni: 'University', done: 'Done', end: 'Closed' };
+const HEAD_TAG: Record<AppOwner, string> = OWNER_TAG;
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 /** A need is met when its file reads as the right document, a profile detail is filled, or a payment is confirmed. */
@@ -105,8 +108,9 @@ export function AppDetail({
   const c = courseOf(a);
   const d = c.uni.country;
   const o = ownerOf(a);
-  const gsp = gspContact(d, a.officer);
+  const gsp = gspContact(a);
   const counsellor = team.find((m) => m.id === s.counsellor);
+  useLiveAll(); // the final tuition fee prices the base commission
   const earn = earnFor(a);
   const [withdraw, setWithdraw] = useState(false);
   const needsRef = useRef<HTMLElement>(null);
@@ -151,13 +155,8 @@ export function AppDetail({
       history: [...x.history, { at: now, who: 'you', text: `Uploaded the ${named(n.title)} GSP asked for`, by: me }, ...(note ? [{ at: now, who: 'ai' as const, text: `GSP Assist read it first: ${note}` }] : [])],
     }));
     setLiveFlags(a.id, { rpNews: now, rpWhat: `the ${named(n.title)}` });
+    // no made-up reply from GSP (HC26): Activity has the upload, and GSP answers in the chat themselves
     say(`${n.title} sent to ${n.request?.by ?? 'GSP'}.`);
-    timers.current.push(
-      window.setTimeout(() => {
-        const at = Date.now();
-        update((x) => ({ ...x, chat: [...x.chat, { id: `m${at}`, at, from: 'gsp', name: n.request?.by ?? gsp.name, text: `Thanks, got the ${named(n.title)}. I’ll take it from here.` }] }));
-      }, reduce ? 300 : 1800),
-    );
   };
 
   // an offer's conditions, answered in the form and sent to GSP together
@@ -174,12 +173,6 @@ export function AppDetail({
     setAnswering(null);
     setLiveFlags(a.id, { rpNews: now, rpWhat: `the ${named(n.title)}` });
     say(`${n.title} sent to ${by}.`);
-    timers.current.push(
-      window.setTimeout(() => {
-        const at = Date.now();
-        update((x) => ({ ...x, chat: [...x.chat, { id: `m${at}`, at, from: 'gsp', name: by, text: `Thanks, got the ${named(n.title)}. I’ll check them and send them to ${c.uni.name}.` }] }));
-      }, reduce ? 300 : 1800),
-    );
   };
 
   // GSP Assist reads a file for a need; a request goes on to GSP as soon as it reads as right
@@ -252,10 +245,11 @@ export function AppDetail({
     update((x) => ({
       ...x,
       chased: now,
-      history: [...x.history, { at: now, who: 'you', text: `Asked GSP to chase ${c.uni.name}`, by: me }, { at: now, who: 'gsp', text: `Reminded ${c.uni.name} about the decision`, by: gsp.name }],
-      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: gsp.name, text: `I’ve asked ${c.uni.name} for an update and flagged it as overdue. I’ll post their reply here.` }],
+      // Activity keeps the request; GSP's own reply comes from GSP (HC26: no automatic answer)
+      history: [...x.history, { at: now, who: 'you', text: `Asked GSP to chase ${c.uni.name}`, by: me }],
     }));
-    say(`GSP is chasing ${c.uni.name}. ${gsp.first} will post the reply in the chat.`);
+    setLiveFlags(a.id, { rpNews: now, rpWhat: `a request to chase ${c.uni.name}` });
+    say(`Asked ${gsp.first} to chase ${c.uni.name}.`);
   };
 
   // the visa is lodged by the agency or by GSP: asking GSP hands the step over
@@ -266,7 +260,6 @@ export function AppDetail({
       visaBy: 'gsp',
       needs: x.needs.filter((n) => n.id !== 'visa'),
       history: [...x.history, { at: now, who: 'you', text: 'Asked GSP to lodge the visa', by: me }],
-      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: gsp.name, text: `Happy to. I’ll lodge ${s.first}’s visa and upload the lodgement proof here.` }],
     }));
     setLiveFlags(a.id, { visaBy: 'gsp', rpNews: now, rpWhat: 'a request for GSP to lodge the visa' });
     say(`GSP will lodge ${s.first}’s visa.`);
@@ -545,7 +538,6 @@ export function AppDetail({
               <Row k="Intake" v={a.intake} />
               <Row k="Duration" v={duration(c.months)} />
               <Row k="Tuition, per year" v={<span className="num">{money(c.tuition, c.currency)}</span>} />
-              {c.scholarship > 0 && <Row k="Scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}
               {offer && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
@@ -702,7 +694,7 @@ function NeedRow({
             id={id}
             className="vh"
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            accept={UPLOAD.accept}
             aria-label={`Upload ${n.title}`}
             onChange={(e) => {
               onFile(e.target.files?.[0] ?? null);
@@ -892,7 +884,7 @@ function DocsTab({
                             id={id}
                             className="vh"
                             type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
+                            accept={UPLOAD.accept}
                             aria-label={`Upload ${r.name}`}
                             onChange={(e) => {
                               const f = e.target.files?.[0] ?? null;
@@ -969,7 +961,7 @@ function ExtraDoc({ onAdd }: { onAdd: (name: string, file: string) => void }) {
       <Button variant="secondary" onClick={() => input.current?.click()}>
         <Icon name="upload" size={16} /> Upload a document
       </Button>
-      <input ref={input} type="file" hidden accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+      <input ref={input} type="file" hidden accept={UPLOAD.accept} onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
       <NameDialog file={file} usual={['Gap explanation letter', 'Experience letter', 'Sponsor letter', 'Name change affidavit']} onCancel={() => setFile(null)} onAdd={(n) => { if (file) onAdd(n, file.name); setFile(null); }} />
     </section>
   );
@@ -1015,17 +1007,18 @@ function Activity({ a }: { a: Application }) {
 
 /* ---------- withdrawing ---------- */
 
-const REASONS = ['The student chose another offer', 'The student is deferring to a later intake', 'The student isn’t going to study abroad', 'Another reason'];
+/** Why it's withdrawn: one list, data/reasons.ts (HC23). */
+const REASONS = { get list() { return withdrawReasons(); } };
 
 function WithdrawDialog({ open, a, s, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; onCancel: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reason, setReason] = useState(REASONS.list[0]);
   const c = courseOf(a);
   return (
     <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
       <p>GSP tells {c.uni.name}, and the application closes. {s.first}’s documents stay on the profile for other applications.</p>
       <fieldset className="wreasons">
         <legend className="wreasons__legend">Why?</legend>
-        {REASONS.map((r) => (
+        {REASONS.list.map((r) => (
           <label key={r} className="wreason">
             <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
             <span>{r}</span>

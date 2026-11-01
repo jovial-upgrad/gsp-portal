@@ -1879,7 +1879,63 @@
    "terms": true,
    "city": "Bengaluru",
    "state": "Karnataka",
-   "since": "2024-06-10"
+   "country": "India",
+   "since": "2024-06-10",
+   "team": [
+    {
+     "key": "me",
+     "name": "Nesil Noble",
+     "email": "nesil@upgard.com",
+     "dial": "+91",
+     "phone": "98450 12345",
+     "role": "RP Admin",
+     "branch": "hq"
+    },
+    {
+     "key": "anita",
+     "name": "Anita Desai",
+     "email": "anita.desai@gsptestagency.in",
+     "dial": "+91",
+     "phone": "98201 55408",
+     "role": "Branch Admin",
+     "branch": "mumbai"
+    },
+    {
+     "key": "karthik",
+     "name": "Karthik Nair",
+     "email": "karthik.nair@gsptestagency.in",
+     "dial": "+91",
+     "phone": "98450 22113",
+     "role": "Counsellor",
+     "branch": "hq"
+    },
+    {
+     "key": "divya",
+     "name": "Divya Shetty",
+     "email": "divya.shetty@gsptestagency.in",
+     "dial": "+91",
+     "phone": "98201 76420",
+     "role": "Counsellor",
+     "branch": "mumbai"
+    }
+   ],
+   "branches": [
+    {
+     "id": "hq",
+     "name": "Bengaluru head office",
+     "country": "India",
+     "state": "Karnataka",
+     "city": "Bengaluru",
+     "main": true
+    },
+    {
+     "id": "mumbai",
+     "name": "Mumbai",
+     "country": "India",
+     "state": "Maharashtra",
+     "city": "Mumbai"
+    }
+   ]
   },
   {
    "id": "13885",
@@ -5145,5 +5201,1362 @@
   "A0040128": "GSP-22128",
   "A0040129": "GSP-22129",
   "A0040130": "GSP-22130"
+ },
+ "testAgency": {
+  "students": [
+   {
+    "oneName": false,
+    "dial": "+91",
+    "gender": "",
+    "dob": "",
+    "passportExpiry": "",
+    "country": "India",
+    "state": "",
+    "city": "",
+    "eduCountry": "India",
+    "edu": {},
+    "work": [],
+    "tests": [],
+    "visa": "",
+    "visaNote": "",
+    "disability": "",
+    "disabilityNote": "",
+    "docs": {},
+    "read": [],
+    "addedBy": "Divya Shetty",
+    "apps": [],
+    "id": "S-24818",
+    "first": "Mohammed",
+    "last": "Irfan",
+    "nationality": "India",
+    "email": "irfan.m@gmail.com",
+    "phone": "94470 31288",
+    "passport": "",
+    "highest": "ug",
+    "counsellor": "divya",
+    "added": "@now-1",
+    "shortlist": [
+     "deakin-5",
+     "flinders-3",
+     "coventry-3"
+    ]
+   },
+   {
+    "oneName": false,
+    "dial": "+91",
+    "gender": "Female",
+    "dob": "14/03/2000",
+    "passportExpiry": "18/09/2032",
+    "country": "India",
+    "state": "Karnataka",
+    "city": "Bengaluru",
+    "eduCountry": "India",
+    "edu": {
+     "ug": {
+      "country": "India",
+      "state": "Karnataka",
+      "level": "Bachelor’s degree",
+      "institution": "Visvesvaraya Technological University",
+      "qualification": "B.E., Computer Science",
+      "grading": "10",
+      "score": "7.6",
+      "language": "English",
+      "backlogs": "0",
+      "start": "08/2018",
+      "end": "06/2022"
+     },
+     "g12": {
+      "country": "India",
+      "state": "Karnataka",
+      "level": "Grade 12 (higher secondary)",
+      "institution": "Karnataka School Examination and Assessment Board",
+      "qualification": "PUC, Science (PCMB)",
+      "grading": "100",
+      "score": "84",
+      "language": "English",
+      "backlogs": "",
+      "start": "06/2016",
+      "end": "03/2018"
+     }
+    },
+    "work": [
+     {
+      "id": "w1",
+      "org": "Infosys, Bengaluru",
+      "role": "Systems engineer",
+      "from": "08/2022",
+      "to": "",
+      "current": true
+     }
+    ],
+    "tests": [
+     {
+      "id": "t1",
+      "type": "IELTS",
+      "cert": "26IN004512RAMP011A",
+      "date": "12/08/2026",
+      "overall": "7.0",
+      "parts": {
+       "l": "7.5",
+       "r": "7.0",
+       "w": "6.5",
+       "s": "7.0"
+      }
+     }
+    ],
+    "visa": "no",
+    "visaNote": "",
+    "disability": "no",
+    "disabilityNote": "",
+    "docs": {
+     "passport": {
+      "name": "Passport",
+      "file": "priya_passport.pdf",
+      "status": "verified"
+     },
+     "edu-ug": {
+      "name": "Undergraduate transcript and degree certificate",
+      "file": "priya_btech_transcript.pdf",
+      "status": "verified"
+     },
+     "edu-g12": {
+      "name": "Grade 12 marksheet",
+      "file": "priya_puc_marksheet.pdf",
+      "status": "verified"
+     },
+     "test-t1": {
+      "name": "IELTS Academic score report",
+      "file": "priya_ielts_trf.pdf",
+      "status": "verified"
+     },
+     "cv": {
+      "name": "CV",
+      "file": "priya_raman_cv.pdf",
+      "status": "uploaded"
+     }
+    },
+    "read": [],
+    "addedBy": "{me}",
+    "apps": [],
+    "id": "S-24811",
+    "shortlist": [
+     "deakin-14",
+     "rmit-10"
+    ],
+    "first": "Priya",
+    "last": "Raman",
+    "nationality": "India",
+    "email": "priya.raman@gmail.com",
+    "phone": "98450 77120",
+    "passport": "V8810342",
+    "highest": "ug",
+    "counsellor": "karthik",
+    "added": "@now-12"
+   },
+   {
+    "oneName": false,
+    "dial": "+91",
+    "gender": "Female",
+    "dob": "02/11/2001",
+    "passportExpiry": "20/01/2027",
+    "country": "India",
+    "state": "Karnataka",
+    "city": "Hubballi",
+    "eduCountry": "India",
+    "edu": {
+     "ug": {
+      "country": "India",
+      "state": "Karnataka",
+      "level": "Bachelor’s degree",
+      "institution": "Karnatak University",
+      "qualification": "B.Com",
+      "grading": "100",
+      "score": "68",
+      "language": "English",
+      "backlogs": "1",
+      "start": "07/2019",
+      "end": "05/2022"
+     }
+    },
+    "work": [],
+    "tests": [
+     {
+      "id": "t1",
+      "type": "PTE",
+      "cert": "PTE-ACA-5512-0918",
+      "date": "21/06/2026",
+      "overall": "65",
+      "parts": {
+       "l": "66",
+       "r": "63",
+       "w": "68",
+       "s": "62"
+      }
+     },
+     {
+      "id": "t2",
+      "type": "GMAT",
+      "cert": "",
+      "date": "",
+      "overall": "",
+      "parts": {}
+     }
+    ],
+    "visa": "no",
+    "visaNote": "",
+    "disability": "",
+    "disabilityNote": "",
+    "docs": {
+     "passport": {
+      "name": "Passport",
+      "file": "sneha_passport.jpg",
+      "status": "verified"
+     },
+     "edu-ug": {
+      "name": "Undergraduate transcript and degree certificate",
+      "file": "sneha_bcom_marks.pdf",
+      "status": "verified"
+     },
+     "test-t1": {
+      "name": "PTE Academic score report",
+      "file": "sneha_pte.pdf",
+      "status": "verified"
+     }
+    },
+    "read": [],
+    "addedBy": "{me}",
+    "apps": [],
+    "id": "S-24807",
+    "first": "Sneha",
+    "last": "Patil",
+    "nationality": "India",
+    "email": "sneha.patil01@gmail.com",
+    "phone": "99001 44562",
+    "passport": "U3329018",
+    "highest": "ug",
+    "counsellor": "me",
+    "added": "@now-19"
+   },
+   {
+    "oneName": false,
+    "dial": "+91",
+    "gender": "Male",
+    "dob": "09/02/2001",
+    "passportExpiry": "12/12/2030",
+    "country": "India",
+    "state": "Punjab",
+    "city": "Ludhiana",
+    "eduCountry": "India",
+    "edu": {
+     "ug": {
+      "country": "India",
+      "state": "Punjab",
+      "level": "Bachelor’s degree",
+      "institution": "Punjab Technical University",
+      "qualification": "BCA",
+      "grading": "10",
+      "score": "6.8",
+      "language": "English",
+      "backlogs": "2",
+      "start": "07/2019",
+      "end": "06/2022"
+     }
+    },
+    "work": [],
+    "tests": [
+     {
+      "id": "t1",
+      "type": "IELTS",
+      "cert": "25IN009934GUPR004A",
+      "date": "30/11/2025",
+      "overall": "6.0",
+      "parts": {
+       "l": "6.5",
+       "r": "6.0",
+       "w": "5.5",
+       "s": "6.0"
+      }
+     }
+    ],
+    "visa": "",
+    "visaNote": "",
+    "disability": "",
+    "disabilityNote": "",
+    "docs": {
+     "passport": {
+      "name": "Passport",
+      "file": "rohan_passport.pdf",
+      "status": "verified"
+     },
+     "edu-ug": {
+      "name": "Undergraduate transcript and degree certificate",
+      "file": "rohan_bca.pdf",
+      "status": "verified"
+     },
+     "test-t1": {
+      "name": "IELTS Academic score report",
+      "file": "rohan_trf.pdf",
+      "status": "verified"
+     }
+    },
+    "read": [],
+    "addedBy": "{me}",
+    "apps": [],
+    "id": "S-24796",
+    "first": "Rohan",
+    "last": "Gupta",
+    "nationality": "India",
+    "email": "rohan.gupta.pb@gmail.com",
+    "phone": "98140 22981",
+    "passport": "S9940211",
+    "highest": "ug",
+    "counsellor": "divya",
+    "added": "@now-33"
+   },
+   {
+    "oneName": false,
+    "dial": "+91",
+    "gender": "Female",
+    "dob": "05/12/1998",
+    "passportExpiry": "22/08/2031",
+    "country": "India",
+    "state": "Telangana",
+    "city": "Hyderabad",
+    "eduCountry": "India",
+    "edu": {
+     "pg": {
+      "country": "India",
+      "state": "Telangana",
+      "level": "Master’s degree",
+      "institution": "Osmania University",
+      "qualification": "M.Tech, Structural Engineering",
+      "grading": "10",
+      "score": "8.1",
+      "language": "English",
+      "backlogs": "0",
+      "start": "08/2020",
+      "end": "07/2022"
+     },
+     "ug": {
+      "country": "India",
+      "state": "Telangana",
+      "level": "Bachelor’s degree",
+      "institution": "JNTU Hyderabad",
+      "qualification": "B.Tech, Civil Engineering",
+      "grading": "100",
+      "score": "70",
+      "language": "English",
+      "backlogs": "0",
+      "start": "08/2016",
+      "end": "06/2020"
+     }
+    },
+    "work": [
+     {
+      "id": "w1",
+      "org": "L&T Construction",
+      "role": "Site engineer",
+      "from": "09/2022",
+      "to": "08/2025",
+      "current": false
+     }
+    ],
+    "tests": [
+     {
+      "id": "t1",
+      "type": "IELTS",
+      "cert": "26IN007702SHEF002A",
+      "date": "14/02/2026",
+      "overall": "6.5",
+      "parts": {
+       "l": "7.0",
+       "r": "6.5",
+       "w": "6.0",
+       "s": "6.5"
+      }
+     }
+    ],
+    "visa": "yes",
+    "visaNote": "Canada, study permit, 2023",
+    "disability": "",
+    "disabilityNote": "",
+    "docs": {
+     "passport": {
+      "name": "Passport",
+      "file": "fatima_passport.pdf",
+      "status": "verified"
+     },
+     "edu-pg": {
+      "name": "Postgraduate transcript and degree certificate",
+      "file": "fatima_mtech.pdf",
+      "status": "verified"
+     },
+     "test-t1": {
+      "name": "IELTS Academic score report",
+      "file": "fatima_trf.pdf",
+      "status": "verified"
+     },
+     "work": {
+      "name": "Work experience letters",
+      "file": "fatima_lnt_letter.pdf",
+      "status": "uploaded"
+     }
+    },
+    "read": [],
+    "addedBy": "{me}",
+    "apps": [],
+    "id": "S-24781",
+    "first": "Fatima",
+    "last": "Sheikh",
+    "nationality": "India",
+    "email": "fatima.sheikh98@gmail.com",
+    "phone": "90000 51734",
+    "passport": "R6672330",
+    "highest": "pg",
+    "counsellor": "divya",
+    "added": "@now-58"
+   }
+  ],
+  "apps": [
+   {
+    "id": "GSP-24102",
+    "studentId": "S-24811",
+    "courseId": "deakin-5",
+    "intake": "Feb 2027",
+    "status": "conditions",
+    "created": "@now-16",
+    "since": "@now-1.125",
+    "uniRef": "DKN-2611407",
+    "offer": {
+     "kind": "conditional",
+     "file": "Deakin_conditional_offer_Priya_Raman.pdf",
+     "at": "@now-1.125",
+     "acceptBy": "@now+19",
+     "deposit": 9000,
+     "found": "chat",
+     "conditions": [
+      {
+       "id": "c1",
+       "text": "Final semester transcript, showing the degree is complete",
+       "doc": "Final semester transcript",
+       "source": "Offer letter, page 2, condition 1"
+      },
+      {
+       "id": "c2",
+       "text": "Bank statements for the last 6 months, showing at least AUD 67,510",
+       "doc": "Bank statements (6 months)",
+       "source": "Offer letter, page 2, condition 2"
+      }
+     ]
+    },
+    "needs": [
+     {
+      "id": "conds",
+      "title": "Offer conditions",
+      "why": "Deakin’s conditional offer has 3 conditions. Answer them all, then send them to GSP.",
+      "source": "Conditional offer letter, page 2",
+      "due": "@now+19",
+      "request": {
+       "by": "{officer}",
+       "at": "@now-1.12431"
+      },
+      "step": "conditions",
+      "form": [
+       {
+        "id": "c1",
+        "kind": "question",
+        "text": "Will Priya accept the offer and start in February 2027?",
+        "source": "Condition 1"
+       },
+       {
+        "id": "c2",
+        "kind": "question",
+        "text": "Why has Priya chosen Deakin and this course over similar courses in India? (Genuine Student statement, 100 to 300 words)",
+        "source": "Condition 2"
+       },
+       {
+        "id": "c3",
+        "kind": "question",
+        "text": "Has Priya been refused a visa for any country before? If so, when and why?",
+        "source": "Condition 3"
+       }
+      ]
+     }
+    ],
+    "files": [
+     {
+      "name": "10th marksheet",
+      "file": "priya_10th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-16",
+      "status": "verified"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "priya_sop_deakin.pdf",
+      "from": "you",
+      "at": "@now-16",
+      "status": "verified"
+     },
+     {
+      "name": "CV",
+      "file": "priya_raman_cv.pdf",
+      "from": "you",
+      "at": "@now-16",
+      "status": "verified"
+     },
+     {
+      "name": "Conditional offer letter",
+      "file": "Deakin_conditional_offer_Priya_Raman.pdf",
+      "from": "gsp",
+      "at": "@now-1.125",
+      "status": "verified",
+      "via": "chat"
+     }
+    ],
+    "history": [
+     {
+      "at": "@now-16",
+      "who": "you",
+      "text": "Application started for Priya Raman",
+      "by": "Karthik Nair"
+     },
+     {
+      "at": "@now-16",
+      "who": "ai",
+      "text": "GSP Assist reused 4 documents from Priya’s profile and read 1 new one"
+     },
+     {
+      "at": "@now-15.9583",
+      "who": "gsp",
+      "text": "GSP checked the documents: all clear",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-15",
+      "who": "gsp",
+      "text": "Submitted to Deakin University. Reference DKN-2611407",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-1.125",
+      "who": "gsp",
+      "text": "GSP uploaded the conditional offer letter, in the chat",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-1.125",
+      "who": "ai",
+      "text": "GSP Assist found the offer letter in the chat and read it: 2 conditions, accept by {date:@now+19}"
+     },
+     {
+      "at": "@now-1.12431",
+      "who": "gsp",
+      "text": "Sent the offer’s 3 conditions to answer",
+      "by": "{officer}"
+     }
+    ],
+    "chat": [
+     {
+      "id": "m1",
+      "at": "@now-15",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "Submitted to Deakin today. Their reference is DKN-2611407."
+     },
+     {
+      "id": "m2",
+      "at": "@now-1.125",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "Good news: Deakin has made Priya a conditional offer. The letter is attached.",
+      "files": [
+       "Deakin_conditional_offer_Priya_Raman.pdf"
+      ]
+     },
+     {
+      "id": "m3",
+      "at": "@now-1.12431",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "The offer has 3 conditions. Answer them in the form by the date and send it; I’ll pass them to Deakin.",
+      "request": "conds",
+      "requestName": "Offer conditions"
+     }
+    ],
+    "unread": 2,
+    "officer": "u-ramish-jafery"
+   },
+   {
+    "id": "GSP-24097",
+    "studentId": "S-24811",
+    "courseId": "uow-13",
+    "intake": "Feb 2027",
+    "status": "lodged",
+    "created": "@now-14",
+    "since": "@now-9.08333",
+    "uniRef": "UOW-5508812",
+    "needs": [],
+    "files": [
+     {
+      "name": "10th marksheet",
+      "file": "priya_10th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-14",
+      "status": "verified"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "priya_sop_wollongong.pdf",
+      "from": "you",
+      "at": "@now-14",
+      "status": "verified"
+     },
+     {
+      "name": "CV",
+      "file": "priya_raman_cv.pdf",
+      "from": "you",
+      "at": "@now-14",
+      "status": "verified"
+     }
+    ],
+    "chased": "@now-0.16667",
+    "history": [
+     {
+      "at": "@now-14",
+      "who": "you",
+      "text": "Application started for Priya Raman",
+      "by": "Karthik Nair"
+     },
+     {
+      "at": "@now-14",
+      "who": "ai",
+      "text": "GSP Assist reused 4 documents from Priya’s profile and read 1 new one"
+     },
+     {
+      "at": "@now-13",
+      "who": "gsp",
+      "text": "GSP checked the documents: all clear",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-9.08333",
+      "who": "gsp",
+      "text": "Submitted to University of Wollongong. Reference UOW-5508812",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-0.16667",
+      "who": "gsp",
+      "text": "Reminded Wollongong about the decision",
+      "by": "{officer}"
+     }
+    ],
+    "chat": [
+     {
+      "id": "m1",
+      "at": "@now-0.16667",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "Wollongong is taking a little longer than usual this month. I reminded them today and will again on Wednesday."
+     }
+    ],
+    "officer": "u-ramish-jafery"
+   },
+   {
+    "id": "GSP-24055",
+    "studentId": "S-24807",
+    "courseId": "flinders-3",
+    "intake": "Feb 2027",
+    "status": "checking",
+    "created": "@now-0.04167",
+    "since": "@now-0.025",
+    "needs": [
+     {
+      "id": "req-gap",
+      "title": "Gap explanation document",
+      "why": "Sneha finished her B.Com in 2022. Flinders asks for a short signed letter on what she has done since.",
+      "request": {
+       "by": "{officer}",
+       "at": "@now-0.0125"
+      },
+      "due": "@now+3"
+     }
+    ],
+    "files": [
+     {
+      "name": "Passport",
+      "file": "sneha_passport.jpg",
+      "from": "you",
+      "at": "@now-0.04167",
+      "status": "checking",
+      "via": "profile"
+     },
+     {
+      "name": "UG marksheet",
+      "file": "sneha_bcom_marks.pdf",
+      "from": "you",
+      "at": "@now-0.04167",
+      "status": "checking",
+      "via": "profile"
+     },
+     {
+      "name": "PTE Academic score report",
+      "file": "sneha_pte.pdf",
+      "from": "you",
+      "at": "@now-0.04167",
+      "status": "checking",
+      "via": "profile"
+     },
+     {
+      "name": "10th marksheet",
+      "file": "sneha_sslc_marksheet.pdf",
+      "from": "you",
+      "at": "@now-0.04167",
+      "status": "checking"
+     },
+     {
+      "name": "12th marksheet",
+      "file": "sneha_hsc_marksheet.pdf",
+      "from": "you",
+      "at": "@now-0.04167",
+      "status": "checking"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "sneha_sop_flinders.pdf",
+      "from": "you",
+      "at": "@now-0.04167",
+      "status": "checking"
+     },
+     {
+      "name": "CV",
+      "file": "sneha_patil_cv.pdf",
+      "from": "you",
+      "at": "@now-0.04167",
+      "status": "checking"
+     }
+    ],
+    "history": [
+     {
+      "at": "@now-0.04167",
+      "who": "you",
+      "text": "Application started for Sneha Patil",
+      "by": "You"
+     },
+     {
+      "at": "@now-0.04167",
+      "who": "ai",
+      "text": "GSP Assist reused 3 documents from Sneha’s profile and read 2 new ones"
+     },
+     {
+      "at": "@now-0.025",
+      "who": "system",
+      "text": "Sent to GSP: checking documents"
+     },
+     {
+      "at": "@now-0.0125",
+      "who": "gsp",
+      "text": "GSP asked for a gap explanation",
+      "by": "{officer}"
+     }
+    ],
+    "chat": [
+     {
+      "id": "m1",
+      "at": "@now-0.0125",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "Before I submit to Flinders, could you upload a short gap explanation from Sneha? Everything else looks good.",
+      "request": "req-gap",
+      "requestName": "Gap explanation document"
+     }
+    ],
+    "unread": 1,
+    "officer": "u-ramish-jafery"
+   },
+   {
+    "id": "GSP-24061",
+    "studentId": "S-24807",
+    "courseId": "newcastle-3",
+    "intake": "Feb 2027",
+    "status": "reupload",
+    "created": "@now-5",
+    "since": "@now-1.20833",
+    "needs": [
+     {
+      "id": "edu-ug",
+      "title": "Undergraduate transcript and degree certificate",
+      "why": "GSP: pages 3 and 4 of the transcript are missing. Upload all 4 pages as one file.",
+      "source": "GSP check, {date:@now-1.20833}",
+      "request": {
+       "by": "{officer}",
+       "at": "@now-1.20833"
+      },
+      "step": "reupload"
+     }
+    ],
+    "files": [
+     {
+      "name": "10th marksheet",
+      "file": "sneha_sslc_marksheet.pdf",
+      "from": "you",
+      "at": "@now-5",
+      "status": "verified"
+     },
+     {
+      "name": "12th marksheet",
+      "file": "sneha_hsc_marksheet.pdf",
+      "from": "you",
+      "at": "@now-5",
+      "status": "verified"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "sneha_sop_newcastle.pdf",
+      "from": "you",
+      "at": "@now-5",
+      "status": "verified"
+     },
+     {
+      "name": "CV",
+      "file": "sneha_patil_cv.pdf",
+      "from": "you",
+      "at": "@now-5",
+      "status": "verified"
+     }
+    ],
+    "history": [
+     {
+      "at": "@now-5",
+      "who": "you",
+      "text": "Application started for Sneha Patil",
+      "by": "You"
+     },
+     {
+      "at": "@now-5",
+      "who": "ai",
+      "text": "GSP Assist reused 3 documents from Sneha’s profile and read 2 new ones"
+     },
+     {
+      "at": "@now-1.20833",
+      "who": "gsp",
+      "text": "Sent back the undergraduate transcript: pages 3 and 4 missing",
+      "by": "{officer}"
+     }
+    ],
+    "chat": [
+     {
+      "id": "m1",
+      "at": "@now-1.20833",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "The transcript only has pages 1 and 2. Could you upload all four pages in one file? Everything else is fine.",
+      "request": "edu-ug",
+      "requestName": "Undergraduate transcript and degree certificate"
+     }
+    ],
+    "unread": 1,
+    "officer": "u-ramish-jafery"
+   },
+   {
+    "id": "GSP-24063",
+    "studentId": "S-24807",
+    "courseId": "coventry-3",
+    "intake": "Jan 2027",
+    "status": "waitad",
+    "created": "@now-31",
+    "since": "@now-3.08333",
+    "uniRef": "COV-1189034",
+    "needs": [],
+    "funds": 31800,
+    "files": [
+     {
+      "name": "10th marksheet",
+      "file": "sneha_sslc_marksheet.pdf",
+      "from": "you",
+      "at": "@now-31",
+      "status": "verified"
+     },
+     {
+      "name": "12th marksheet",
+      "file": "sneha_hsc_marksheet.pdf",
+      "from": "you",
+      "at": "@now-31",
+      "status": "verified"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "sneha_sop_coventry.pdf",
+      "from": "you",
+      "at": "@now-31",
+      "status": "verified"
+     },
+     {
+      "name": "CV",
+      "file": "sneha_patil_cv.pdf",
+      "from": "you",
+      "at": "@now-31",
+      "status": "verified"
+     },
+     {
+      "name": "Unconditional offer letter",
+      "file": "Coventry_offer_Sneha_Patil.pdf",
+      "from": "gsp",
+      "at": "@now-22",
+      "status": "verified"
+     },
+     {
+      "name": "Deposit proof",
+      "file": "sneha_coventry_deposit.pdf",
+      "from": "you",
+      "at": "@now-4",
+      "status": "verified"
+     }
+    ],
+    "history": [
+     {
+      "at": "@now-31",
+      "who": "you",
+      "text": "Application started for Sneha Patil",
+      "by": "You"
+     },
+     {
+      "at": "@now-30",
+      "who": "gsp",
+      "text": "Submitted to Coventry University. Reference COV-1189034",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-27",
+      "who": "gsp",
+      "text": "Verified the financial documents: GBP 31,800",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-22",
+      "who": "gsp",
+      "text": "GSP uploaded the unconditional offer letter",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-4",
+      "who": "you",
+      "text": "Deposit proof uploaded: GBP 3,000",
+      "by": "You"
+     },
+     {
+      "at": "@now-3.08333",
+      "who": "gsp",
+      "text": "Deposit confirmed with Coventry",
+      "by": "{officer}"
+     }
+    ],
+    "chat": [
+     {
+      "id": "m1",
+      "at": "@now-3.08333",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "Coventry confirmed the deposit."
+     }
+    ],
+    "officer": "u-prachi-pilani"
+   },
+   {
+    "id": "GSP-23941",
+    "studentId": "S-24796",
+    "courseId": "coventry-60",
+    "intake": "Jan 2027",
+    "status": "lodged",
+    "created": "@now-12",
+    "since": "@now-4.125",
+    "uniRef": "COV-1201877",
+    "needs": [],
+    "files": [
+     {
+      "name": "10th marksheet",
+      "file": "rohan_10th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-12",
+      "status": "verified"
+     },
+     {
+      "name": "12th marksheet",
+      "file": "rohan_12th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-12",
+      "status": "verified"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "rohan_sop_coventry.pdf",
+      "from": "you",
+      "at": "@now-12",
+      "status": "verified"
+     },
+     {
+      "name": "CV",
+      "file": "rohan_gupta_cv.pdf",
+      "from": "you",
+      "at": "@now-12",
+      "status": "verified"
+     }
+    ],
+    "history": [
+     {
+      "at": "@now-12",
+      "who": "you",
+      "text": "Application started for Rohan Gupta",
+      "by": "Divya Shetty"
+     },
+     {
+      "at": "@now-11",
+      "who": "gsp",
+      "text": "GSP checked the documents: all clear",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-4.125",
+      "who": "gsp",
+      "text": "Submitted to Coventry University. Reference COV-1201877",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-4",
+      "who": "uni",
+      "text": "Coventry acknowledged the application, by email. Placed in the chat automatically"
+     }
+    ],
+    "chat": [
+     {
+      "id": "m1",
+      "at": "@now-4",
+      "from": "uni",
+      "name": "Coventry University Admissions",
+      "text": "Thank you for your application to MSc Cyber Security (January 2027). Your reference is COV-1201877.",
+      "via": "email"
+     }
+    ],
+    "officer": "u-prachi-pilani"
+   },
+   {
+    "id": "GSP-23944",
+    "studentId": "S-24796",
+    "courseId": "northumbria-55",
+    "intake": "Jan 2027",
+    "status": "checking",
+    "created": "@now-0.125",
+    "since": "@now-0.04167",
+    "needs": [],
+    "files": [
+     {
+      "name": "Passport",
+      "file": "rohan_passport.pdf",
+      "from": "you",
+      "at": "@now-0.125",
+      "status": "checking",
+      "via": "profile"
+     },
+     {
+      "name": "UG marksheet",
+      "file": "rohan_bca.pdf",
+      "from": "you",
+      "at": "@now-0.125",
+      "status": "checking",
+      "via": "profile"
+     },
+     {
+      "name": "IELTS Academic score report",
+      "file": "rohan_trf.pdf",
+      "from": "you",
+      "at": "@now-0.125",
+      "status": "checking",
+      "via": "profile"
+     },
+     {
+      "name": "10th marksheet",
+      "file": "rohan_10th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-0.125",
+      "status": "checking"
+     },
+     {
+      "name": "12th marksheet",
+      "file": "rohan_12th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-0.125",
+      "status": "checking"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "rohan_sop_northumbria.pdf",
+      "from": "you",
+      "at": "@now-0.125",
+      "status": "uploaded"
+     },
+     {
+      "name": "CV",
+      "file": "rohan_gupta_cv.pdf",
+      "from": "you",
+      "at": "@now-0.125",
+      "status": "uploaded"
+     }
+    ],
+    "history": [
+     {
+      "at": "@now-0.125",
+      "who": "you",
+      "text": "Application started for Rohan Gupta",
+      "by": "Divya Shetty"
+     },
+     {
+      "at": "@now-0.04167",
+      "who": "system",
+      "text": "Sent to GSP: checking documents"
+     }
+    ],
+    "chat": [],
+    "officer": "u-prachi-pilani"
+   },
+   {
+    "id": "GSP-23710",
+    "studentId": "S-24781",
+    "courseId": "rmit-10",
+    "intake": "Feb 2027",
+    "status": "visa",
+    "created": "@now-46",
+    "since": "@now-2.25",
+    "uniRef": "RMIT-77120554",
+    "funds": 92400,
+    "needs": [
+     {
+      "id": "visa",
+      "title": "Visa lodgement proof",
+      "why": "Lodge the student visa (subclass 500) in ImmiAccount, then upload the lodgement receipt here.",
+      "due": "@now+12",
+      "request": {
+       "by": "{officer}",
+       "at": "@now-2.20833"
+      },
+      "step": "visa"
+     }
+    ],
+    "files": [
+     {
+      "name": "10th marksheet",
+      "file": "fatima_10th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-46",
+      "status": "verified"
+     },
+     {
+      "name": "12th marksheet",
+      "file": "fatima_12th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-46",
+      "status": "verified"
+     },
+     {
+      "name": "UG marksheet",
+      "file": "fatima_btech_marksheets.pdf",
+      "from": "you",
+      "at": "@now-46",
+      "status": "verified"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "fatima_sop_rmit.pdf",
+      "from": "you",
+      "at": "@now-46",
+      "status": "verified"
+     },
+     {
+      "name": "CV",
+      "file": "fatima_sheikh_cv.pdf",
+      "from": "you",
+      "at": "@now-46",
+      "status": "verified"
+     },
+     {
+      "name": "Conditional offer letter",
+      "file": "RMIT_conditional_offer_Fatima_Sheikh.pdf",
+      "from": "gsp",
+      "at": "@now-33",
+      "status": "verified"
+     },
+     {
+      "name": "Unconditional offer letter",
+      "file": "RMIT_offer_Fatima_Sheikh.pdf",
+      "from": "gsp",
+      "at": "@now-20",
+      "status": "verified"
+     },
+     {
+      "name": "Deposit proof",
+      "file": "fatima_rmit_deposit.pdf",
+      "from": "you",
+      "at": "@now-9",
+      "status": "verified"
+     },
+     {
+      "name": "Confirmation of Enrolment (CoE)",
+      "file": "CoE_Fatima_Sheikh.pdf",
+      "from": "gsp",
+      "at": "@now-2.25",
+      "status": "verified"
+     }
+    ],
+    "history": [
+     {
+      "at": "@now-46",
+      "who": "you",
+      "text": "Application started for Fatima Sheikh",
+      "by": "Divya Shetty"
+     },
+     {
+      "at": "@now-44",
+      "who": "gsp",
+      "text": "Submitted to RMIT University. Reference RMIT-77120554",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-33",
+      "who": "gsp",
+      "text": "GSP uploaded the conditional offer letter",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-27",
+      "who": "gsp",
+      "text": "Verified the financial documents: AUD 92,400",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-20",
+      "who": "gsp",
+      "text": "GSP uploaded the unconditional offer letter",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-9",
+      "who": "you",
+      "text": "Deposit proof uploaded: AUD 11,000",
+      "by": "Divya Shetty"
+     },
+     {
+      "at": "@now-2.25",
+      "who": "gsp",
+      "text": "GSP uploaded the CoE",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-2.20833",
+      "who": "gsp",
+      "text": "Asked for the visa lodgement proof",
+      "by": "{officer}"
+     }
+    ],
+    "chat": [
+     {
+      "id": "m1",
+      "at": "@now-2.25",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "Fatima’s CoE is here (in Documents). She can lodge the visa now; lodging in the next 2 weeks keeps her well ahead of February. I can lodge it with you if you’d like.",
+      "files": [
+       "CoE_Fatima_Sheikh.pdf"
+      ]
+     },
+     {
+      "id": "m2",
+      "at": "@now-2.20833",
+      "from": "gsp",
+      "name": "{officer}",
+      "text": "",
+      "request": "visa",
+      "requestName": "Visa lodgement proof"
+     }
+    ],
+    "unread": 1,
+    "officer": "u-ramish-jafery"
+   },
+   {
+    "id": "GSP-23655",
+    "studentId": "S-24781",
+    "courseId": "deakin-14",
+    "intake": "Feb 2027",
+    "status": "closed",
+    "created": "@now-58",
+    "since": "@now-20",
+    "uniRef": "DKN-2580031",
+    "needs": [],
+    "files": [
+     {
+      "name": "10th marksheet",
+      "file": "fatima_10th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-58",
+      "status": "verified"
+     },
+     {
+      "name": "12th marksheet",
+      "file": "fatima_12th_marksheet.pdf",
+      "from": "you",
+      "at": "@now-58",
+      "status": "verified"
+     },
+     {
+      "name": "UG marksheet",
+      "file": "fatima_btech_marksheets.pdf",
+      "from": "you",
+      "at": "@now-58",
+      "status": "verified"
+     },
+     {
+      "name": "Statement of purpose",
+      "file": "fatima_sop_deakin.pdf",
+      "from": "you",
+      "at": "@now-58",
+      "status": "verified"
+     },
+     {
+      "name": "CV",
+      "file": "fatima_sheikh_cv.pdf",
+      "from": "you",
+      "at": "@now-58",
+      "status": "verified"
+     }
+    ],
+    "end": {
+     "kind": "Student withdrawn",
+     "reason": "Fatima chose RMIT",
+     "stage": 2,
+     "at": "@now-20"
+    },
+    "history": [
+     {
+      "at": "@now-58",
+      "who": "you",
+      "text": "Application started for Fatima Sheikh",
+      "by": "Divya Shetty"
+     },
+     {
+      "at": "@now-55",
+      "who": "gsp",
+      "text": "Submitted to Deakin University. Reference DKN-2580031",
+      "by": "{officer}"
+     },
+     {
+      "at": "@now-20",
+      "who": "you",
+      "text": "Withdrawn: Fatima chose RMIT",
+      "by": "Divya Shetty"
+     }
+    ],
+    "chat": [],
+    "officer": "u-ramish-jafery"
+   }
+  ]
  }
 }
