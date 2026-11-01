@@ -51,7 +51,7 @@ function priced(a: Application, agency: string) {
     cfg2.unis.push(uni);
   }
   const start = iso(startOf(a));
-  const app = { census: iso(censusOf(a)), id: a.id, student: '', rp: rp.id, uni: uni.id, level: lvl, intake: start, tuition: c.tuition, scholarship: c.scholarship, enrolled: start, studentType: est.studentType, nationality: rp.region, inv: {}, paidIP: {}, paidRP: {} };
+  const app = { census: iso(censusOf(a)), id: a.id, student: '', rp: rp.id, uni: uni.id, level: lvl, intake: start, tuition: finalFeeOf(a.id, c.tuition), scholarship: 0, enrolled: start, studentType: est.studentType, nationality: rp.region, inv: {}, paidIP: {}, paidRP: {} };
   const res = compute(cfg2, { ...s.comm.apps, [a.id]: app }, today);
   const one = { ...res, ip: res.ip.filter((x) => x.app === a.id), rp: res.rp.filter((x) => x.app === a.id) };
   return { res: one, r: res.apps[a.id], cfg: cfg2, uni, rp, assumed, enrolled: false, today };
@@ -87,7 +87,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
               <tbody>
                 {ip.map((x) => { const k = 'u' + x.l.key; const [t, tone] = stOf(x.l.st); return [
                   <tr key={k} className="irow">
-                    <td>{x.l.bonus ? 'University bonus' : x.l.annuity ? `Annuity, year ${x.l.y}` : `Instalment ${x.l.k}${x.l.n > 1 ? ` of ${x.l.n}` : ''}`}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of net tuition` : 'No rate'}</span></td>
+                    <td>{x.l.bonus ? 'University bonus' : x.l.annuity ? `Annuity, year ${x.l.y}` : `Instalment ${x.l.k}${x.l.n > 1 ? ` of ${x.l.n}` : ''}`}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of the final tuition fee` : 'No rate'}</span></td>
                     <td className="num">{nice(x.l.date)}</td>
                     <td className="num">{money(x.l.ent, uni.cur)}{x.l.gst ? <span className="irow__sub">+ GST {money(x.l.gst, uni.cur)}</span> : null}</td>
                     <td><span className={`dpill ${tone}`}>{t}</span></td>

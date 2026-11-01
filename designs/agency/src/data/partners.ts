@@ -1,8 +1,13 @@
 import { adminCfg } from '../admin/data/store';
 import geoJson from './geo.json';
 
-export type Country = { name: string; iso: string; dial: string; states: string[] };
+/** A country, its states, and (in GSP's main markets) the cities of its states most students and agencies are in. */
+export type Country = { name: string; iso: string; dial: string; states: string[]; cities?: Record<string, string[]> };
 export const COUNTRIES = geoJson as Country[];
+/** A state's cities (HC14: one list, in geo.json); none where the city is typed. */
+export const citiesOf = (country: string, state: string) => countryByName(country)?.cities?.[state] ?? [];
+/** Every state's cities, by state, across the countries that have them (Bdm's place list reads this). */
+export const CITIES: Record<string, string[]> = Object.assign({}, ...[...COUNTRIES].reverse().map((c) => c.cities ?? {}));
 
 /** Markets GSP recruits from most, shown first in the country picker (PM prototype `TOP`). */
 export const TOP_MARKETS = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Philippines', 'Nigeria'];
@@ -58,7 +63,6 @@ export function businessDocsFor(country: string): DocNeed[] {
 }
 
 import { STAFF, fullName, label, type Staff } from './staff';
-import { CITIES } from './students';
 
 export type Contact = { name: string; role: string; phone: string; email: string; initials: string };
 
@@ -96,7 +100,4 @@ export function partnerManagerFor(country: string, city: string, referral: strin
   return contactOf(who, `Partner manager · ${where}`);
 }
 
-/** Emails that already have a GSP account (sample data from the PM prototype). */
-export const EXISTING_EMAILS = ['ananya@horizonoverseas.in', 'lan@saigonbridge.vn', 'rahul@horizonoverseas.in'];
-
-export const emailInUse = (email: string) => EXISTING_EMAILS.includes(email.trim().toLowerCase());
+/* Emails that already have a GSP account: screens/signup/model.ts emailInUse, from the sign-in accounts and the RP teams (HC35). */

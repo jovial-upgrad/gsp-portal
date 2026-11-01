@@ -262,6 +262,8 @@ export type Course = {
   ielts: [number, number];
   pte: [number, number];
   toefl: [number, number];
+  /** Duolingo English Test [overall, no subscore below], from the course's English rule (HC15). */
+  duolingo?: [number, number];
   /** The minimum percentage asked of students from the main markets. */
   academic: number;
   /**
@@ -499,8 +501,8 @@ for (const a of DATASET.apps) {
   if (like) COURSES.push({ ...like, id: `${a.uni}-n${COURSES.filter((c) => c.uni.id === a.uni).length + 1}`, name: a.course, level: a.level as Level });
 }
 
-/** What the agency earns: 70% of GSP's commission on first-year tuition after any scholarship. */
-export const earnOf = (c: Course) => Math.round(((c.tuition - c.scholarship) * c.rate * 0.7) / 100 / 10) * 10;
+/** Base commission in course search: 70% of the university's rate on the course's first-year tuition fee (no scholarship taken off: Jovial, 1 Nov). */
+export const earnOf = (c: Course) => Math.round((c.tuition * c.rate * 0.7) / 100 / 10) * 10;
 
 /** One money format everywhere (QC, 1 Nov): "INR 6,69,598", "AUD 2,295.00". */
 export const money = (n: number, cur: string) => fmtMoney(n, cur);

@@ -6,7 +6,7 @@ import { shortDate } from '../../data/dates';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { downloadDoc, Paper } from '../../components/DocView';
-import { REJECT_REASONS, toReview, type Review } from './review';
+import { sendBackReasons, toReview, type Review } from './review';
 
 const MAX = 240;
 export const whereFrom = (r: Review, s: Student) =>
@@ -138,7 +138,7 @@ export function ReviewDialog({
             Start from a reason
           </p>
           <div className="grev__chips" role="group" aria-labelledby="grev-chips">
-            {REJECT_REASONS.map((x) => (
+            {sendBackReasons().map((x) => (
               <button key={x} type="button" className="gchip" onClick={() => pick(x)}>
                 <span className="gchip__in">{x}</span>
               </button>

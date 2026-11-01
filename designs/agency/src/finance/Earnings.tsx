@@ -101,7 +101,7 @@ export default function Earnings() {
         </Card>
         <Card>
           <h2 className="gspx-h3">Where we pay</h2>
-          <p>{rp.bank === 'AU' ? 'Australian bank account' : 'Local bank account'} in {cur}. Account ending <span className="num">••4821</span>.</p>
+          <p>{rp.bank === 'AU' ? 'Australian bank account' : 'Local bank account'} in {cur}.{rp.bankLast4 ? <> Account ending <span className="num">••{rp.bankLast4}</span>.</> : ' The account on file with GSP Finance.'}</p>
           {rp.bankVerified === false ? <Notice tone="warn">New bank details are waiting for GSP to verify them. Payouts are held until then.</Notice> : <p className="muted">Verified by GSP Finance.</p>}
           {canBank && <div><Button onClick={() => setBank(true)}>Change bank details</Button></div>}
         </Card>
@@ -157,7 +157,7 @@ export function BankSheet({ rp, user, onClose }) {
   const dirty = !!(d.name || d.no || d.no2 || d.code || d.letter);
   const send = () => {
     update(x => {
-      x.comm.cfg.rps.find(r => r.id === rp.id).bankVerified = false;
+      { const t = x.comm.cfg.rps.find(r => r.id === rp.id); t.bankVerified = false; t.bankLast4 = no.slice(-4); t.bankName = d.name.trim(); }
       x.tasks.unshift({ id: 'T-BANK-' + Date.now(), record: 'cm-payout', kind: 'k-exception', queue: 'q-finance', title: `Verify new bank details for ${rp.name}`, note: `Bank letter: ${d.letter}. Check the account name and number against it.`, maker: user.id, created: Date.now(), status: 'open' });
     }, `${user.name} changed ${rp.name}’s bank details (waiting for Finance to verify)`);
     toast('Bank details sent', { text: 'GSP Finance verifies the new account. Payouts are held until then.' }); onClose();

@@ -1,3 +1,6 @@
+import { withdrawReasons } from '../../data/reasons';
+import { useLiveAll } from '../../data/live';
+import { UPLOAD } from '../../data/uploads';
 import { gspWord } from '../../data/scope';
 import { PriorityChip } from '../../components/PriorityChip';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
@@ -122,6 +125,7 @@ export function AppDetail({
   const rpPeople = rpTeam(agency);
   const counsellor = rpPeople.find((m) => m.id === s.counsellor) ?? team.find((m) => m.id === s.counsellor && (m.rp ?? agency) === agency) ?? rpPeople.find((m) => m.role === 'Counsellor') ?? rpPeople[0];
   const rp = rpContact(counsellor ?? { name: agency, role: 'RP Admin' }, agency);
+  useLiveAll(); // the final tuition fee prices the base commission
   const earn = earnFor(a);
   const [withdraw, setWithdraw] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -628,7 +632,6 @@ export function AppDetail({
               />
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Length" v={duration(c.months)} />
-              {c.scholarship > 0 && <Row k="Scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}
               {offer && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
@@ -970,7 +973,7 @@ function DocsTab({
             id="gdocs-file"
             className="vh"
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            accept={UPLOAD.accept}
             aria-label="Upload a document as GSP"
             onChange={(e) => {
               onUpload(e.target.files?.[0] ?? null);
@@ -1147,17 +1150,18 @@ function Activity({ a, agency }: { a: Application; agency: string }) {
 
 /* ---------- withdrawing ---------- */
 
-const REASONS = ['The student chose another offer', 'The student is deferring to a later intake', 'The student isn’t going to study abroad', 'Another reason'];
+/** Why it's withdrawn: one list, data/reasons.ts (HC23). */
+const REASONS = { get list() { return withdrawReasons(); } };
 
 function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; agency: string; onCancel: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reason, setReason] = useState(REASONS.list[0]);
   const c = courseOf(a);
   return (
     <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
       <p>Tell {c.uni.name} by mail; the application closes here and for {agency}, with the reason. {s.first}’s documents stay on the profile for other applications.</p>
       <fieldset className="wreasons">
         <legend className="wreasons__legend">Why?</legend>
-        {REASONS.map((r) => (
+        {REASONS.list.map((r) => (
           <label key={r} className="wreason">
             <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
             <span>{r}</span>

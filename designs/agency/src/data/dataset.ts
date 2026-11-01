@@ -13,14 +13,17 @@ import { COURSES, money, type Course, type Destination } from './courses';
 import { ENROL_DOC_LONG, VISA_NAME, docsFor, type AppFile, type Application, type Event, type Msg, type Need, type StatusKey } from './applications';
 import { eduDocKey, eduDocName, type Edu, type Level, type Student } from './students';
 import { labelOfId, staffById } from './staff';
+import { shortDate } from './dates';
 
 const DAY = 86_400_000;
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export type DataApp = (typeof DATASET.apps)[number];
 /** One person on an RP's team (W21, 1 Nov): the RP's Profile and GSP's RP contact both read these. */
-export type DataRpPerson = { name: string; email: string; dial: string; phone: string; role: 'RP Admin' | 'Counsellor' };
-export type DataRp = { id: string; name: string; region: string; terms: boolean; city?: string; state?: string; since?: string; team?: DataRpPerson[] };
+export type DataRpPerson = { name: string; email: string; dial: string; phone: string; role: 'RP Admin' | 'Branch Admin' | 'Counsellor'; /** The member's id in the portal (the test agency's: 'me' is whoever signs in as its RP Admin). */ key?: string; branch?: string };
+/** One of an RP's offices; the head office (`main`) is the one it registered with. */
+export type DataBranch = { id: string; name: string; country: string; state: string; city: string; main?: boolean };
+export type DataRp = { id: string; name: string; region: string; terms: boolean; city?: string; state?: string; country?: string; since?: string; team?: DataRpPerson[]; branches?: DataBranch[] };
 
 /** Every RP an application in the data set is with: Finance's id, name and sales region, its city, since when, its team. */
 export const RPS: DataRp[] = DATASET.rps as DataRp[];
@@ -329,3 +332,38 @@ export function datasetStudents(me: string): Student[] {
 export const officerOf = (a: Pick<Application, 'officer'>) => (a.officer ? staffById(a.officer) : undefined);
 /** The data set's record for an application id (new or old), when it's one of these. */
 export const dataApp = (id: string) => DATASET.apps.find((a) => a.id === (OLD_ID[id] ?? id));
+
+/* ---------- the GSP test agency's own (HC13, 1 Nov): its five students and nine applications, in the data set ---------- */
+
+/** The test agency's record (Finance's R-TEST): its team, branches and country. */
+export const TEST_RP = RPS.find((r) => r.id === 'R-TEST')!;
+type Ctx = { now: number; me: string; officer: string; officerFirst: string };
+const NOW_AT = /^@now([+-][\d.]+)$/;
+/** scripts/test_agency.json's tokens: "@now-16" a time 16 days ago, "{date:@now+19}" that day's date, "{officer}" the application's officer, "{me}" who signs in. */
+function hydrate(o: unknown, c: Ctx): unknown {
+  if (Array.isArray(o)) return o.map((x) => hydrate(x, c));
+  if (o && typeof o === 'object') return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, hydrate(v, c)]));
+  if (typeof o !== 'string') return o;
+  const t = NOW_AT.exec(o);
+  if (t) return Math.round(c.now + Number(t[1]) * DAY);
+  return o
+    .replace(/\{date:@now([+-][\d.]+)\}/g, (_m, x: string) => shortDate(new Date(c.now + Number(x) * DAY)))
+    .replace(/\{officerFirst\}/g, c.officerFirst)
+    .replace(/\{officer\}/g, c.officer)
+    .replace(/\{me\}/g, c.me);
+}
+type Own = { students: unknown[]; apps: ({ officer: string } & Record<string, unknown>)[] };
+const OWN = (DATASET as unknown as { testAgency: Own }).testAgency;
+/** The test agency's students. `me` is the person signed in. */
+export function testAgencyStudents(me: string): Student[] {
+  const now = Date.now();
+  return OWN.students.map((s) => hydrate(s, { now, me, officer: '', officerFirst: '' }) as Student);
+}
+/** The test agency's applications; GSP's person on each is its officer. */
+export function testAgencyApps(): Application[] {
+  const now = Date.now();
+  return OWN.apps.map((a) => {
+    const o = staffById(a.officer);
+    return hydrate(a, { now, me: '', officer: o ? labelOfId(a.officer) : 'GSP admissions', officerFirst: o?.first ?? '' }) as Application;
+  });
+}

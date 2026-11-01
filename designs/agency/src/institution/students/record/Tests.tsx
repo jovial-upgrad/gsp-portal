@@ -6,13 +6,15 @@ import { fillFromTest, saveTest } from './read';
 import { parseDate, shortDate, typeDate } from '../../../data/dates';
 import { ReadBox, ReadNote, readMs } from '../ReadBox';
 import { Txt, type Update } from './fields';
+import { useRevealErrors } from '../../../components/validate';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 /**
  * English test: optional. English tests (IELTS, TOEFL, PTE, Duolingo) and admission tests (SAT, ACT, GMAT, GRE),
  * added from "Add test" at the top of the section, each with its certificate ID, date and scores in their
- * own ranges. The first time, uploading the score report fills it in; after that it's edited by hand, and the
+ * own ranges. Once a test is added, every field is required (Jovial's Test fields sheet, 1 Nov): the score report,
+ * the certificate ID, the date of examination, the overall and every part; Save shows what's missing. The first time, uploading the score report fills it in; after that it's edited by hand, and the
  * report is kept in Documents. Scores past their validity say so.
  */
 export function Tests({ s, update }: { s: Student; update: Update }) {
@@ -59,7 +61,10 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
       setReading(false);
     }, readMs(reduce));
   };
-  const scoreError = (v: string, range: [number, number, number]) => (v && !inRange(v, range) ? `Enter a score from ${rangeText(range)}.` : null);
+  const scoreError = (v: string, range: [number, number, number], what: string) => (!v.trim() ? `Enter the ${what}.` : !inRange(v, range) ? `Enter a score from ${rangeText(range)}.` : null);
+  // the score report is required too: Save says so under the upload (HC Test fields, 1 Nov)
+  const reveal = useRevealErrors();
+  const noReport = !doc && !reading && reveal > 0;
 
   return (
     <motion.section className="card rlevel" aria-labelledby={id('title')} initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}>
@@ -78,38 +83,56 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
         </button>
       </header>
       {reading || (!doc && !(t.cert || t.date || t.overall)) ? (
-        <ReadBox id={id('file')} compact title="Fill this in from the score report" text="Upload it and we fill in the scores below. It’s kept in Documents." button="Upload report" file={doc?.file} reading={reading} onFile={readFile} />
+        <>
+          <ReadBox id={id('file')} compact title="Fill this in from the score report *" text="Upload it and we fill in the scores below. It’s kept in Documents." button="Upload report" file={doc?.file} reading={reading} onFile={readFile} />
+          {noReport && (
+            <p className="field__msg field__msg--error" id={id('file-error')} role="alert" tabIndex={-1} aria-invalid="true">
+              <span>Upload the score report.</span>
+            </p>
+          )}
+        </>
+      ) : !doc ? (
+        <>
+          <ReadBox id={id('file')} compact title="Score report *" text="Upload the score report. It’s kept in Documents." button="Upload report" reading={reading} onFile={(f) => update((p) => saveTest(p, t, f.name))} />
+          {noReport && (
+            <p className="field__msg field__msg--error" id={id('file-error')} role="alert" tabIndex={-1} aria-invalid="true">
+              <span>Upload the score report.</span>
+            </p>
+          )}
+        </>
       ) : (
         doc && s.read.some((k) => k.startsWith(`test.${t.id}.`)) && <ReadNote text="Filled in from the score report, which is in Documents. What was read is highlighted: check it." />
       )}
       <div className="grid2">
-        <Txt id={id('cert')} label="Certificate ID" value={t.cert} read={read('cert')} hint={def.cert} onChange={(v) => set({ cert: v }, 'cert')} />
+        <Txt id={id('cert')} label="Certificate ID" required error={t.cert.trim() ? null : 'Enter the certificate ID.'} value={t.cert} read={read('cert')} hint={def.cert} onChange={(v) => set({ cert: v }, 'cert')} />
         <Txt
           id={id('date')}
           label="Date of examination"
+          required
           value={t.date}
           read={read('date')}
           placeholder="DD/MM/YYYY"
           inputMode="numeric"
           format={typeDate}
           onChange={(v) => set({ date: v }, 'date')}
-          error={t.date && !date ? 'Enter the date as DD/MM/YYYY, like 12/08/2026.' : date && date.getTime() > Date.now() ? 'The test date can’t be in the future.' : null}
+          error={!t.date ? 'Enter the date of examination.' : !date ? 'Enter the date as DD/MM/YYYY, like 12/08/2026.' : date && date.getTime() > Date.now() ? 'The test date can’t be in the future.' : null}
           hint={`Scores count for ${def.years} years.`}
         />
       </div>
       <div className={`rscores ${def.parts.length > 4 ? 'is-wide' : ''}`}>
-        <Txt id={id('overall')} label="Overall" value={t.overall} read={read('overall')} inputMode="decimal" hint={rangeText(def.overall)} onChange={(v) => set({ overall: v.replace(/[^\d.]/g, '') }, 'overall')} error={scoreError(t.overall, def.overall)} />
+        <Txt id={id('overall')} label="Overall" required value={t.overall} read={read('overall')} inputMode="decimal" hint={rangeText(def.overall)} onChange={(v) => set({ overall: v.replace(/[^\d.]/g, '') }, 'overall')} error={scoreError(t.overall, def.overall, 'overall score')} />
         {def.parts.map((p) => (
           <Txt
             key={p.key}
             id={id(p.key)}
             label={p.label}
+            required
             value={t.parts[p.key] ?? ''}
             read={read(p.key)}
             inputMode="decimal"
             hint={rangeText(p.range)}
             onChange={(v) => set({ parts: { ...t.parts, [p.key]: v.replace(/[^\d.]/g, '') } }, p.key)}
-            error={scoreError(t.parts[p.key] ?? '', p.range)}
+            error={scoreError(t.parts[p.key] ?? '', p.range, `${p.label.toLowerCase()} score`)}
           />
         ))}
       </div>

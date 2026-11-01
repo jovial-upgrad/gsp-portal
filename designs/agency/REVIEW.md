@@ -191,7 +191,7 @@ The GSP Team role (the Role switch beside Prototype) starts as a copy of the age
   - **Documents** filters to **Student's documents** or **Documents by GSP**, with chips rather than tabs (no tabs inside tabs).
   - The page acts as GSP now: the agency's uploads and Send to GSP became a read-only **With RP** list, the chat is GSP's (no GSP Assist replies), and the side card is the **RP contact**.
   - Open question: should a status GSP sets by hand be marked as set by hand where the RP sees it?
-  - Open question: the census date and fee start from the intake and the course's tuition; where do the real ones come from (the offer letter, the university)? A data source for Jovial and Rishi.
+  - [x] ~~Open question: where do the real census date and fee come from?~~ Fee answered by Jovial, 1 Nov: Admissions changes it from the offer letter (see 1 Nov below). The census date is still open.
 - [x] Nesil, 27 Oct (3rd round): **no backup applications** in GSP Team either, as in RP Admin: no On hold status, no Backup tag, no "Waiting as a backup" banner, no "alongside or as a backup" choice in Add an application, which now ends with **"Waiting for documents."**
 - [x] Nesil, 27 Oct (4th round): signed in as **Freddy Forrest, GSP** (the sidebar, the top bar and Home's greeting); GSP's actions are his.
 - [x] Nesil, 27 Oct (4th round): **reviewing the RP's documents**: To review first in Documents, a preview of each, **Accept**, or **Reject** with a reason, which sends it back to the RP to upload again.
@@ -335,9 +335,10 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 - [x] Jovial, 1 Nov (morning, in chat): **course search, application and RP onboarding fixes** (1 Nov, 9cedc2b)
   - **Course page Costs:** tuition, living costs, visa and health cover for the course's length (1 year when it's in credits) and the application fee, with a total; living costs and visa and health cover from Admin; no "Other costs", no "after scholarship". Scholarships show only their record. Documents come from Admin › Document configuration. Shortlist is off until the RP has a student.
-  - **Application:** the university's own form (Institution › Submission and contacts) shows on Add an application with its template to download; the RP can upload any other document and name it; a calendar on date fields; What's needed is optional in a document request; Change status asks only stage and status (and who lodges the visa); the payment proof is asked for by hand; new status **Acceptance letter received** (Mail's CoE/CAS email suggests it, not the visa step); the final tuition fee is empty until Admissions adds it.
+  - **Application:** the university's own form (Institution › Submission and contacts) shows on Add an application with its template to download; the RP can upload any other document and name it; a calendar on date fields; What's needed is optional in a document request; Change status asks only stage and status (and who lodges the visa); the payment proof is asked for by hand; new status **Acceptance letter received** (Mail's CoE/CAS email suggests it, not the visa step); the final tuition fee starts as the course's fee (replaced by Jovial's decision below).
   - **RP onboarding:** a nudge to add state and city, showing the partner manager they decide.
   - **UI:** list names on the role Homes start at the left; one "* Required" note on Add a student.
+- [x] Jovial, 1 Nov (afternoon, in chat). **Decision: the final tuition fee on the application is the only source of the tuition fee.** It starts as the course's fee, Admissions changes it once the offer letter arrives (who and when shown beside it), and every commission works from it: the base commission in Key details, the Commission tab's university instalments and RP payments, and Finance's invoices and payouts. Courses carry no scholarship, so nothing is taken off; the course-level Scholarship row is gone from Key details (university scholarships stay on the university's page). (1 Nov, commit "Final tuition fee is the only tuition source for commission")
 
 ## New pages
 

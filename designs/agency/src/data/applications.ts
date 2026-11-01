@@ -11,18 +11,20 @@
  * checking a document before GSP sees it, checking eligibility, forecasting dates and drafting messages.
  * They answer only from the application's own data, and they never change it.
  */
-import { flagsOf } from './live';
+import { finalFeeOf, flagsOf } from './live';
+import { closeReasons, type EndKind } from './reasons';
 import { uniForms } from './courses';
 import { adminCfg } from '../admin/data/store';
 import { condOf, whenText } from '../admin/data/config';
-import { person, label, idOf, staffById } from './staff';
-import { datasetApplications } from './dataset';
+import { STAFF, label, staffById } from './staff';
+import { routeApplication } from './regions';
+import { datasetApplications, testAgencyApps, testAgencyStudents } from './dataset';
 import { COURSES, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
+import { englishRuleFor } from './tests';
 import { TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
 
 export const DAY = 86_400_000;
-const HOUR = 3_600_000;
 
 /* ---------- stages and statuses ---------- */
 
@@ -87,8 +89,6 @@ type StatusDef = {
   stage: number;
   owner: AppOwner;
   text: (d: Destination) => string;
-  /** Typical days at this step, for the steps others take. */
-  usual?: number;
   /** A status only some applications go through, and when. */
   branch?: string;
   /** The document that arrives at this status, and who adds it ("lodger": whoever lodges the visa). */
@@ -104,32 +104,32 @@ type StatusDef = {
  */
 export const STATUS: Record<StatusKey, StatusDef> = {
   docs: { stage: 0, owner: 'you', text: () => 'Waiting for documents' },
-  checking: { stage: 1, owner: 'gsp', text: () => 'Pending verification', usual: 0 },
+  checking: { stage: 1, owner: 'gsp', text: () => 'Pending verification' },
   reupload: { stage: 1, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit', usual: 1 },
+  ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit' },
   lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university' },
   moreinfo: { stage: 2, owner: 'you', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true },
-  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', usual: 1, branch: 'After additional documents' },
+  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents' },
   reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   conditions: { stage: 3, owner: 'you', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
-  condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university', usual: 5 },
+  condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university' },
   reoffer: { stage: 3, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  finance: { stage: 4, owner: 'gsp', text: () => 'Finance and background check', usual: 2 },
-  interview: { stage: 4, owner: 'you', text: () => 'University assessment or interview', usual: 7, branch: 'If the university assesses or interviews' },
-  uol: { stage: 4, owner: 'gsp', text: () => 'Unconditional offer letter received', usual: 1, doc: { by: 'gsp', name: () => 'Unconditional offer letter' } },
+  finance: { stage: 4, owner: 'gsp', text: () => 'Finance and background check' },
+  interview: { stage: 4, owner: 'you', text: () => 'University assessment or interview', branch: 'If the university assesses or interviews' },
+  uol: { stage: 4, owner: 'gsp', text: () => 'Unconditional offer letter received', doc: { by: 'gsp', name: () => 'Unconditional offer letter' } },
   rever: { stage: 4, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   deposit: { stage: 5, owner: 'you', text: () => 'Tuition or deposit pending', asks: true },
-  payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', usual: 1, doc: { by: 'you', name: () => 'Payment proof' } },
-  waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', usual: 5, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', doc: { by: 'you', name: () => 'Payment proof' } },
+  waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
   // Jovial, 1 Nov: the acceptance letter (CoE, CAS, I-20, LOA…) in, before the visa step
-  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', usual: 1, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
   reacc: { stage: 5, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   // the visa is lodged by the agency or by GSP, never both: these two follow whoever lodges it (see ownerAt)
   visa: { stage: 6, owner: 'you', text: () => 'Visa lodgement pending', asks: true },
-  visasub: { stage: 6, owner: 'you', text: () => 'Visa decision pending', usual: 28, doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
+  visasub: { stage: 6, owner: 'you', text: () => 'Visa decision pending', doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
   startdate: { stage: 6, owner: 'gsp', text: () => 'Visa granted: waiting for start date', doc: { by: 'lodger', name: () => 'Visa' } },
   revisa: { stage: 6, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  enrolconf: { stage: 7, owner: 'gsp', text: () => 'Enrolment confirmation pending', usual: 7, doc: { by: 'gsp', name: () => 'Proof of enrolment' } },
+  enrolconf: { stage: 7, owner: 'gsp', text: () => 'Enrolment confirmation pending', doc: { by: 'gsp', name: () => 'Proof of enrolment' } },
   reenrol: { stage: 7, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   enrolled: { stage: 7, owner: 'done', text: () => 'Student enrolled' },
   closed: { stage: 0, owner: 'end', text: () => 'Closed' },
@@ -139,22 +139,12 @@ export const REUPLOAD_AT: (StatusKey | undefined)[] = [undefined, 'reupload', 'r
 /** The statuses in journey order (GSP's status list follows it). */
 export const STATUS_ORDER = Object.keys(STATUS).filter((k) => k !== 'closed') as StatusKey[];
 
-export const OWNER_WORD: Record<AppOwner, string> = { you: 'Pending on you', gsp: 'With GSP', uni: 'With university', done: 'Enrolled', end: 'Closed' };
-/** The short tag for who has a status: in the journey and the stage path. */
-export const OWNER_TAG: Record<AppOwner, string> = { you: 'You', gsp: 'GSP', uni: 'University', done: 'Done', end: 'Closed' };
-/** How an application can close, by where it is. Deferred can happen at any stage once it's with the university. */
-export type EndKind = 'Not eligible' | 'Student withdrawn' | 'University rejected' | 'Offer declined' | 'Refused after assessment' | 'Rejected by university' | 'Visa refused' | 'Deferred';
-/** The ways an application closes at each stage (index), for GSP's status list. */
-export const CLOSE_AT: EndKind[][] = [
-  ['Student withdrawn'],
-  ['Not eligible', 'Student withdrawn'],
-  ['University rejected', 'Student withdrawn', 'Deferred'],
-  ['Offer declined', 'Student withdrawn', 'Deferred'],
-  ['Refused after assessment', 'Rejected by university', 'Student withdrawn', 'Deferred'],
-  ['Student withdrawn', 'Deferred'],
-  ['Visa refused', 'Student withdrawn', 'Deferred'],
-  ['Deferred'],
-];
+/** Who has it, in words: one table, data/owners.ts (HC24). */
+// the RP portal's wording (GSP roles use data/owners.ts OWNER_WORD: On RP, On GSP, On university)
+export { RP_OWNER_WORD as OWNER_WORD, RP_OWNER_TAG as OWNER_TAG } from './owners';
+/** How an application can close, and the ways it closes at each stage (GSP's status list): one list, data/reasons.ts (HC23). */
+export type { EndKind } from './reasons';
+export const CLOSE_AT = new Proxy([] as EndKind[][], { get: (t, k) => (typeof k === 'string' && /^\d+$/.test(k) ? closeReasons(Number(k)) : Reflect.get(t, k)) });
 
 /* ---------- the application ---------- */
 
@@ -308,17 +298,37 @@ export const statusText = (a: Application) => (a.status === 'closed' ? `${a.end?
 export const isOpen = (a: Application) => a.status !== 'closed' && a.status !== 'enrolled';
 
 /**
- * The GSP admissions contact on an application, from the staff list (data/staff.ts). The sample agency is in India,
- * so it's India's Admissions contact, Ramish Jafery; UK and Ireland applications go to Prachi Pilani, on the same
- * India team. The staff list has no phone numbers, so none shows.
+ * GSP's person on an application (HC21, Jovial 1 Nov): its officer; without one, its sales region's Admissions
+ * contact (GSP · Admin › Sales regions). Both are people on the staff list (data/staff.ts).
  */
-const CONTACT_OF = { main: person('ramish.jafery@upgrad.com'), ukie: person('prachi.pilani@upgrad.com') };
-export function gspContact(d: Destination, officer?: string) {
-  const s = (officer && staffById(officer)) || (d === 'UK' || d === 'Ireland' ? CONTACT_OF.ukie : CONTACT_OF.main);
-  return { name: label(s), role: 'GSP admissions', phone: '', email: s.email, first: s.first };
+export function gspContact(a: Partial<Pick<Application, 'officer' | 'region'>>) {
+  let s = a.officer ? staffById(a.officer) : undefined;
+  if (!s && a.region) {
+    const name = adminCfg().regions.find((g) => g.name === a.region)?.contact;
+    s = name ? STAFF.find((x) => label(x) === name) : undefined;
+  }
+  if (!s) return { name: 'GSP Admissions', role: 'GSP admissions', phone: '', email: '', first: 'GSP' };
+  return { name: label(s), role: 'GSP admissions', phone: s.phone ? `${s.dial} ${s.phone}` : '', email: s.email, first: s.first };
 }
 
-const usualOf = (k: StatusKey, c: Course) => (k === 'lodged' ? c.offerDays : STATUS[k].usual);
+/**
+ * Typical days at a status (HC22, Jovial 1 Nov): Work › SLA by status, in working hours, 9 to a day. The work store
+ * reads every module's applications, so it's loaded after this module starts (a static import would be circular).
+ */
+type SlaRow = { stage: string; status: string; days: number };
+let slaRows: (() => SlaRow[]) | null = null;
+void import('../work/store')
+  .then((m) => {
+    slaRows = () => (m.getState() as { statusSla: SlaRow[] }).statusSla;
+  })
+  .catch(() => undefined);
+export function usualDays(k: StatusKey, d: Destination): number | undefined {
+  const rows = slaRows?.() ?? [];
+  const text = STATUS[k].text(d);
+  const row = rows.find((r) => r.status === text && r.stage === STAGES[STATUS[k].stage]) ?? rows.find((r) => r.status === text);
+  return row && row.days > 0 ? Math.max(1, Math.round(row.days / 9)) : undefined;
+}
+const usualOf = (k: StatusKey, c: Course) => usualDays(k, c.uni.country);
 
 /** How long the application has been at this status, and how long it usually takes there. */
 export function clock(a: Application) {
@@ -467,20 +477,25 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
   const pct = top ? pctOf(top) : null;
   if (pct === null) reasons.push({ ok: 'add', title: 'Academics', text: `Complete the academic details on ${s.first}’s profile to check eligibility.` });
   else reasons.push({ ok: pct >= c.academic ? 'yes' : 'no', title: 'Academics', text: `${uni} asks for ${c.academic}% and ${s.first} has ${pct}%, ${so(pct >= c.academic)}.` });
-  // English: the same, from the test on the profile
-  const ielts = s.tests.find((t) => t.type === 'IELTS' && t.overall);
-  const pte = s.tests.find((t) => t.type === 'PTE' && t.overall);
-  if (ielts || pte) {
-    const t = (ielts ?? pte)!;
-    const [need, band] = t.type === 'IELTS' ? c.ielts : c.pte;
-    const parts = Object.values(t.parts).map(Number).filter((n) => !Number.isNaN(n));
-    const low = parts.length ? Math.min(...parts) : Number(t.overall);
-    const fmt = (n: number) => (t.type === 'IELTS' ? n.toFixed(1) : String(n));
-    const meets = Number(t.overall) >= need && low >= band;
-    const said = `${uni} asks for ${t.type} ${fmt(need)} (no band below ${fmt(band)}) and ${s.first} has ${t.type} ${fmt(Number(t.overall))} (lowest band ${fmt(low)})`;
-    if (meets) reasons.push({ ok: 'yes', title: 'English', text: `${said}, ${so(true)}.` });
-    else if (c.englishFlex) reasons.push({ ok: 'warn', title: 'English', text: `${said}, so ${s.first} isn’t eligible yet: the university can offer on condition of a pre-sessional English course.` });
-    else reasons.push({ ok: 'no', title: 'English', text: `${said}, ${so(false)}.` });
+  // English (HC15): every English test on the profile (IELTS, TOEFL, PTE, Duolingo) against the course's rule for it;
+  // the one that meets it decides, otherwise the best of them
+  const english = s.tests.filter((t) => TESTS[t.type].kind === 'English' && t.overall);
+  if (english.length) {
+    const read = english.map((t) => {
+      const rule = englishRuleFor(c, t.type);
+      const def = TESTS[t.type];
+      const parts = def.parts.filter((p) => (t.parts[p.key] ?? '').trim() !== '').map((p) => Number(t.parts[p.key])).filter((n) => !Number.isNaN(n));
+      const low = parts.length ? Math.min(...parts) : Number(t.overall);
+      const fmt = (n: number) => (t.type === 'IELTS' ? n.toFixed(1) : String(n));
+      const part = t.type === 'IELTS' ? 'band' : 'part';
+      if (!rule) return { meets: false, takes: false, said: `${uni} doesn’t list ${def.short} for this course, and ${s.first} has ${def.short} ${fmt(Number(t.overall))}` };
+      const [need, band] = rule;
+      return { meets: Number(t.overall) >= need && low >= band, takes: true, said: `${uni} asks for ${def.short} ${fmt(need)} (no ${part} below ${fmt(band)}) and ${s.first} has ${def.short} ${fmt(Number(t.overall))} (lowest ${part} ${fmt(low)})` };
+    });
+    const best = read.find((x) => x.meets) ?? read.find((x) => x.takes) ?? read[0];
+    if (best.meets) reasons.push({ ok: 'yes', title: 'English', text: `${best.said}, ${so(true)}.` });
+    else if (c.englishFlex) reasons.push({ ok: 'warn', title: 'English', text: `${best.said}, so ${s.first} isn’t eligible yet: the university can offer on condition of a pre-sessional English course.` });
+    else reasons.push({ ok: 'no', title: 'English', text: `${best.said}, ${so(false)}.` });
   } else reasons.push({ ok: 'add', title: 'English', text: `Complete the English test details on ${s.first}’s profile to check eligibility.` });
   // intake
   const i = c.intakes.find((x) => x.month === intake);
@@ -613,8 +628,10 @@ export function intakeStart(intake: string) {
 
 /** What the agency earns on the application, once the student enrols and the census date passes. */
 export const earnFor = (a: Application) => {
+  // from the application's final tuition fee (Jovial, 1 Nov): the course's fee until Admissions changes it
   const c = courseOf(a);
-  return { amount: earnOf(c), currency: c.currency, text: money(earnOf(c), c.currency) };
+  const amount = earnOf({ ...c, tuition: finalFeeOf(a.id, c.tuition) });
+  return { amount, currency: c.currency, text: money(amount, c.currency) };
 };
 
 /* ---------- moving an application on ---------- */
@@ -650,7 +667,7 @@ export function askRp(x: Application, n: Omit<Need, 'request'>, by: string, at: 
  * is asked for by GSP in the chat, from `by` (the GSP contact, or the person in GSP's team who moved it); paying
  * the deposit is the agency's to confirm.
  */
-export function arriveAt(x: Application, k: StatusKey, at: number, by = gspContact(destOf(x)).name): Application {
+export function arriveAt(x: Application, k: StatusKey, at: number, by = gspContact(x).name): Application {
   // requests made at a later stage pause when the status moves back before it, and come back when it returns
   // there; anything already uploaded stays (Jovial, 1 Nov: Status triggers, O1)
   const stageAt = STATUS[k].stage;
@@ -717,278 +734,19 @@ export function newApplication(p: {
 
 /* ---------- sample applications ---------- */
 
-const m = (id: string, at: number, from: Msg['from'], name: string, text: string, more: Partial<Msg> = {}): Msg => ({ id, at, from, name, text, ...more });
-const f = (name: string, file: string, from: AppFile['from'], at: number, status: AppFile['status'] = 'verified', via?: AppFile['via']): AppFile => ({ name, file, from, at, status, via });
-
-/** The sample agency's applications, for its sample students: five need the agency, one is with GSP, three with universities, one closed. */
+/**
+ * Every application: the GSP test agency's own nine (HC13, 1 Nov: in the data set, scripts/test_agency.json; five
+ * need the agency, one is with GSP, three with universities, one closed), then every other application GSP has
+ * (data/dataset.ts). Each one's sales region comes from Admin's routing rules (HC27), never a default.
+ */
 export function sampleApplications(): Application[] {
-  const now = Date.now();
-  const ago = (d: number, h = 0) => now - d * DAY - h * HOUR;
-  const offerAt = ago(1, 3);
-  const own: Application[] = [
-    {
-      id: 'GSP-24102',
-      studentId: 'S-24811',
-      courseId: 'deakin-5',
-      intake: 'Feb 2027',
-      status: 'conditions',
-      created: ago(16),
-      since: offerAt,
-      uniRef: 'DKN-2611407',
-      offer: {
-        kind: 'conditional',
-        file: 'Deakin_conditional_offer_Priya_Raman.pdf',
-        at: offerAt,
-        acceptBy: now + 19 * DAY,
-        deposit: 9000,
-        found: 'chat',
-        conditions: [
-          { id: 'c1', text: 'Final semester transcript, showing the degree is complete', doc: 'Final semester transcript', source: 'Offer letter, page 2, condition 1' },
-          { id: 'c2', text: 'Bank statements for the last 6 months, showing at least AUD 67,510', doc: 'Bank statements (6 months)', source: 'Offer letter, page 2, condition 2' },
-        ],
-      },
-      needs: [
-        {
-          id: 'conds',
-          title: 'Offer conditions',
-          why: 'Deakin’s conditional offer has 3 conditions. Answer them all, then send them to GSP.',
-          source: 'Conditional offer letter, page 2',
-          due: now + 19 * DAY,
-          request: { by: gspContact('Australia').name, at: offerAt + 60_000 },
-          step: 'conditions',
-          form: [
-            { id: 'c1', kind: 'question', text: 'Will Priya accept the offer and start in February 2027?', source: 'Condition 1' },
-            { id: 'c2', kind: 'question', text: 'Why has Priya chosen Deakin and this course over similar courses in India? (Genuine Student statement, 100 to 300 words)', source: 'Condition 2' },
-            { id: 'c3', kind: 'question', text: 'Has Priya been refused a visa for any country before? If so, when and why?', source: 'Condition 3' },
-          ],
-        },
-      ],
-      files: [f('10th marksheet', 'priya_10th_marksheet.pdf', 'you', ago(16), 'verified'), f('Statement of purpose', 'priya_sop_deakin.pdf', 'you', ago(16)), f('CV', 'priya_raman_cv.pdf', 'you', ago(16)), f('Conditional offer letter', 'Deakin_conditional_offer_Priya_Raman.pdf', 'gsp', offerAt, 'verified', 'chat')],
-      history: [
-        { at: ago(16), who: 'you', text: 'Application started for Priya Raman', by: 'Karthik Nair' },
-        { at: ago(16), who: 'ai', text: 'GSP Assist reused 4 documents from Priya’s profile and read 1 new one' },
-        { at: ago(16, -1), who: 'gsp', text: 'GSP checked the documents: all clear', by: gspContact('Australia').name },
-        { at: ago(15), who: 'gsp', text: 'Submitted to Deakin University. Reference DKN-2611407', by: gspContact('Australia').name },
-        { at: offerAt, who: 'gsp', text: 'GSP uploaded the conditional offer letter, in the chat', by: gspContact('Australia').name },
-        { at: offerAt, who: 'ai', text: `GSP Assist found the offer letter in the chat and read it: 2 conditions, accept by ${shortDate(new Date(now + 19 * DAY))}` },
-        { at: offerAt + 60_000, who: 'gsp', text: 'Sent the offer’s 3 conditions to answer', by: gspContact('Australia').name },
-      ],
-      chat: [
-        m('m1', ago(15), 'gsp', gspContact('Australia').name, 'Submitted to Deakin today. Their reference is DKN-2611407. Offers for this course usually take about 6 days.'),
-        m('m2', offerAt, 'gsp', gspContact('Australia').name, 'Good news: Deakin has made Priya a conditional offer. The letter is attached.', { files: ['Deakin_conditional_offer_Priya_Raman.pdf'] }),
-        m('m3', offerAt + 60_000, 'gsp', gspContact('Australia').name, 'The offer has 3 conditions. Answer them in the form by the date and send it; I’ll pass them to Deakin.', { request: 'conds', requestName: 'Offer conditions' }),
-      ],
-      unread: 2,
-    },
-    {
-      id: 'GSP-24097',
-      studentId: 'S-24811',
-      courseId: 'uow-13',
-      intake: 'Feb 2027',
-      status: 'lodged',
-      created: ago(14),
-      since: ago(9, 2),
-      uniRef: 'UOW-5508812',
-      needs: [],
-      files: [f('10th marksheet', 'priya_10th_marksheet.pdf', 'you', ago(14), 'verified'), f('Statement of purpose', 'priya_sop_wollongong.pdf', 'you', ago(14)), f('CV', 'priya_raman_cv.pdf', 'you', ago(14))],
-      chased: ago(0, 4),
-      history: [
-        { at: ago(14), who: 'you', text: 'Application started for Priya Raman', by: 'Karthik Nair' },
-        { at: ago(14), who: 'ai', text: 'GSP Assist reused 4 documents from Priya’s profile and read 1 new one' },
-        { at: ago(13), who: 'gsp', text: 'GSP checked the documents: all clear', by: gspContact('Australia').name },
-        { at: ago(9, 2), who: 'gsp', text: 'Submitted to University of Wollongong. Reference UOW-5508812', by: gspContact('Australia').name },
-        { at: ago(0, 4), who: 'gsp', text: 'Reminded Wollongong about the decision', by: gspContact('Australia').name },
-      ],
-      chat: [m('m1', ago(0, 4), 'gsp', gspContact('Australia').name, 'Wollongong is taking a little longer than usual this month. I reminded them today and will again on Wednesday.')],
-    },
-    {
-      id: 'GSP-24055',
-      studentId: 'S-24807',
-      courseId: 'flinders-3',
-      intake: 'Feb 2027',
-      status: 'checking',
-      created: ago(0, 1),
-      since: ago(0, 0.6),
-      needs: [
-        {
-          id: 'req-gap',
-          title: 'Gap explanation document',
-          why: 'Sneha finished her B.Com in 2022. Flinders asks for a short signed letter on what she has done since.',
-          request: { by: gspContact('Australia').name, at: ago(0, 0.3) },
-          due: now + 3 * DAY,
-        },
-      ],
-      files: [
-        f('Passport', 'sneha_passport.jpg', 'you', ago(0, 1), 'checking', 'profile'),
-        f('UG marksheet', 'sneha_bcom_marks.pdf', 'you', ago(0, 1), 'checking', 'profile'),
-        f('PTE Academic score report', 'sneha_pte.pdf', 'you', ago(0, 1), 'checking', 'profile'),
-        f('10th marksheet', 'sneha_sslc_marksheet.pdf', 'you', ago(0, 1), 'checking'),
-        f('12th marksheet', 'sneha_hsc_marksheet.pdf', 'you', ago(0, 1), 'checking'),
-        f('Statement of purpose', 'sneha_sop_flinders.pdf', 'you', ago(0, 1), 'checking'),
-        f('CV', 'sneha_patil_cv.pdf', 'you', ago(0, 1), 'checking'),
-      ],
-      history: [
-        { at: ago(0, 1), who: 'you', text: 'Application started for Sneha Patil', by: 'You' },
-        { at: ago(0, 1), who: 'ai', text: 'GSP Assist reused 3 documents from Sneha’s profile and read 2 new ones' },
-        { at: ago(0, 0.6), who: 'system', text: 'Sent to GSP: checking documents' },
-        { at: ago(0, 0.3), who: 'gsp', text: 'GSP asked for a gap explanation', by: gspContact('Australia').name },
-      ],
-      chat: [m('m1', ago(0, 0.3), 'gsp', gspContact('Australia').name, 'Before I submit to Flinders, could you upload a short gap explanation from Sneha? Everything else looks good.', { request: 'req-gap', requestName: 'Gap explanation document' })],
-      unread: 1,
-    },
-    {
-      id: 'GSP-24061',
-      studentId: 'S-24807',
-      courseId: 'newcastle-3',
-      intake: 'Feb 2027',
-      status: 'reupload',
-      created: ago(5),
-      since: ago(1, 5),
-      needs: [
-        {
-          id: 'edu-ug',
-          title: 'Undergraduate transcript and degree certificate',
-          why: 'GSP: pages 3 and 4 of the transcript are missing. Upload all 4 pages as one file.',
-          source: 'GSP check, ' + shortDate(new Date(ago(1, 5))),
-          request: { by: gspContact('Australia').name, at: ago(1, 5) },
-          step: 'reupload',
-        },
-      ],
-      files: [f('10th marksheet', 'sneha_sslc_marksheet.pdf', 'you', ago(5), 'verified'), f('12th marksheet', 'sneha_hsc_marksheet.pdf', 'you', ago(5), 'verified'), f('Statement of purpose', 'sneha_sop_newcastle.pdf', 'you', ago(5)), f('CV', 'sneha_patil_cv.pdf', 'you', ago(5))],
-      history: [
-        { at: ago(5), who: 'you', text: 'Application started for Sneha Patil', by: 'You' },
-        { at: ago(5), who: 'ai', text: 'GSP Assist reused 3 documents from Sneha’s profile and read 2 new ones' },
-        { at: ago(1, 5), who: 'gsp', text: 'Sent back the undergraduate transcript: pages 3 and 4 missing', by: gspContact('Australia').name },
-      ],
-      chat: [m('m1', ago(1, 5), 'gsp', gspContact('Australia').name, 'The transcript only has pages 1 and 2. Could you upload all four pages in one file? Everything else is fine.', { request: 'edu-ug', requestName: 'Undergraduate transcript and degree certificate' })],
-      unread: 1,
-    },
-    {
-      id: 'GSP-24063',
-      studentId: 'S-24807',
-      courseId: 'coventry-3',
-      intake: 'Jan 2027',
-      status: 'waitad',
-      created: ago(31),
-      since: ago(3, 2),
-      uniRef: 'COV-1189034',
-      needs: [],
-      funds: 31800,
-      files: [f('10th marksheet', 'sneha_sslc_marksheet.pdf', 'you', ago(31), 'verified'), f('12th marksheet', 'sneha_hsc_marksheet.pdf', 'you', ago(31), 'verified'), 
-        f('Statement of purpose', 'sneha_sop_coventry.pdf', 'you', ago(31)),
-        f('CV', 'sneha_patil_cv.pdf', 'you', ago(31)),
-        f('Unconditional offer letter', 'Coventry_offer_Sneha_Patil.pdf', 'gsp', ago(22)),
-        f('Deposit proof', 'sneha_coventry_deposit.pdf', 'you', ago(4)),
-      ],
-      history: [
-        { at: ago(31), who: 'you', text: 'Application started for Sneha Patil', by: 'You' },
-        { at: ago(30), who: 'gsp', text: 'Submitted to Coventry University. Reference COV-1189034', by: gspContact('UK').name },
-        { at: ago(27), who: 'gsp', text: 'Verified the financial documents: GBP 31,800', by: gspContact('UK').name },
-        { at: ago(22), who: 'gsp', text: 'GSP uploaded the unconditional offer letter', by: gspContact('UK').name },
-        { at: ago(4), who: 'you', text: 'Deposit proof uploaded: GBP 3,000', by: 'You' },
-        { at: ago(3, 2), who: 'gsp', text: 'Deposit confirmed with Coventry', by: gspContact('UK').name },
-      ],
-      chat: [m('m1', ago(3, 2), 'gsp', gspContact('UK').name, 'Coventry confirmed the deposit. The CAS usually follows within 5 working days.')],
-    },
-    {
-      id: 'GSP-23941',
-      studentId: 'S-24796',
-      courseId: 'coventry-60',
-      intake: 'Jan 2027',
-      status: 'lodged',
-      created: ago(12),
-      since: ago(4, 3),
-      uniRef: 'COV-1201877',
-      needs: [],
-      files: [f('10th marksheet', 'rohan_10th_marksheet.pdf', 'you', ago(12), 'verified'), f('12th marksheet', 'rohan_12th_marksheet.pdf', 'you', ago(12), 'verified'), f('Statement of purpose', 'rohan_sop_coventry.pdf', 'you', ago(12)), f('CV', 'rohan_gupta_cv.pdf', 'you', ago(12))],
-      history: [
-        { at: ago(12), who: 'you', text: 'Application started for Rohan Gupta', by: 'Divya Shetty' },
-        { at: ago(11), who: 'gsp', text: 'GSP checked the documents: all clear', by: gspContact('UK').name },
-        { at: ago(4, 3), who: 'gsp', text: 'Submitted to Coventry University. Reference COV-1201877', by: gspContact('UK').name },
-        { at: ago(4), who: 'uni', text: 'Coventry acknowledged the application, by email. Placed in the chat automatically' },
-      ],
-      chat: [m('m1', ago(4), 'uni', 'Coventry University Admissions', 'Thank you for your application to MSc Cyber Security (January 2027). Your reference is COV-1201877. We aim to make a decision within 10 working days.', { via: 'email' })],
-    },
-    {
-      id: 'GSP-23944',
-      studentId: 'S-24796',
-      courseId: 'northumbria-55',
-      intake: 'Jan 2027',
-      status: 'checking',
-      created: ago(0, 3),
-      since: ago(0, 1),
-      needs: [],
-      files: [
-        f('Passport', 'rohan_passport.pdf', 'you', ago(0, 3), 'checking', 'profile'),
-        f('UG marksheet', 'rohan_bca.pdf', 'you', ago(0, 3), 'checking', 'profile'),
-        f('IELTS Academic score report', 'rohan_trf.pdf', 'you', ago(0, 3), 'checking', 'profile'),
-        f('10th marksheet', 'rohan_10th_marksheet.pdf', 'you', ago(0, 3), 'checking'),
-        f('12th marksheet', 'rohan_12th_marksheet.pdf', 'you', ago(0, 3), 'checking'),
-        f('Statement of purpose', 'rohan_sop_northumbria.pdf', 'you', ago(0, 3), 'uploaded'),
-        f('CV', 'rohan_gupta_cv.pdf', 'you', ago(0, 3), 'uploaded'),
-      ],
-      history: [
-        { at: ago(0, 3), who: 'you', text: 'Application started for Rohan Gupta', by: 'Divya Shetty' },
-        { at: ago(0, 1), who: 'system', text: 'Sent to GSP: checking documents' },
-      ],
-      chat: [],
-    },
-    {
-      id: 'GSP-23710',
-      studentId: 'S-24781',
-      courseId: 'rmit-10',
-      intake: 'Feb 2027',
-      status: 'visa',
-      created: ago(46),
-      since: ago(2, 6),
-      uniRef: 'RMIT-77120554',
-      funds: 92400,
-      needs: [{ id: 'visa', title: 'Visa lodgement proof', why: 'Lodge the student visa (subclass 500) in ImmiAccount, then upload the lodgement receipt here.', due: now + 12 * DAY, request: { by: gspContact('Australia').name, at: ago(2, 5) }, step: 'visa' }],
-      files: [f('10th marksheet', 'fatima_10th_marksheet.pdf', 'you', ago(46), 'verified'), f('12th marksheet', 'fatima_12th_marksheet.pdf', 'you', ago(46), 'verified'), f('UG marksheet', 'fatima_btech_marksheets.pdf', 'you', ago(46), 'verified'), 
-        f('Statement of purpose', 'fatima_sop_rmit.pdf', 'you', ago(46)),
-        f('CV', 'fatima_sheikh_cv.pdf', 'you', ago(46)),
-        f('Conditional offer letter', 'RMIT_conditional_offer_Fatima_Sheikh.pdf', 'gsp', ago(33)),
-        f('Unconditional offer letter', 'RMIT_offer_Fatima_Sheikh.pdf', 'gsp', ago(20)),
-        f('Deposit proof', 'fatima_rmit_deposit.pdf', 'you', ago(9)),
-        f('Confirmation of Enrolment (CoE)', 'CoE_Fatima_Sheikh.pdf', 'gsp', ago(2, 6)),
-      ],
-      history: [
-        { at: ago(46), who: 'you', text: 'Application started for Fatima Sheikh', by: 'Divya Shetty' },
-        { at: ago(44), who: 'gsp', text: 'Submitted to RMIT University. Reference RMIT-77120554', by: gspContact('Australia').name },
-        { at: ago(33), who: 'gsp', text: 'GSP uploaded the conditional offer letter', by: gspContact('Australia').name },
-        { at: ago(27), who: 'gsp', text: 'Verified the financial documents: AUD 92,400', by: gspContact('Australia').name },
-        { at: ago(20), who: 'gsp', text: 'GSP uploaded the unconditional offer letter', by: gspContact('Australia').name },
-        { at: ago(9), who: 'you', text: 'Deposit proof uploaded: AUD 11,000', by: 'Divya Shetty' },
-        { at: ago(2, 6), who: 'gsp', text: 'GSP uploaded the CoE', by: gspContact('Australia').name },
-        { at: ago(2, 5), who: 'gsp', text: 'Asked for the visa lodgement proof', by: gspContact('Australia').name },
-      ],
-      chat: [m('m1', ago(2, 6), 'gsp', gspContact('Australia').name, 'Fatima’s CoE is here (in Documents). She can lodge the visa now; lodging in the next 2 weeks keeps her well ahead of February. I can lodge it with you if you’d like.', { files: ['CoE_Fatima_Sheikh.pdf'] }),
-        m('m2', ago(2, 5), 'gsp', gspContact('Australia').name, '', { request: 'visa', requestName: 'Visa lodgement proof' }),
-      ],
-      unread: 1,
-    },
-    {
-      id: 'GSP-23655',
-      studentId: 'S-24781',
-      courseId: 'deakin-14',
-      intake: 'Feb 2027',
-      status: 'closed',
-      created: ago(58),
-      since: ago(20),
-      uniRef: 'DKN-2580031',
-      needs: [],
-      files: [f('10th marksheet', 'fatima_10th_marksheet.pdf', 'you', ago(58), 'verified'), f('12th marksheet', 'fatima_12th_marksheet.pdf', 'you', ago(58), 'verified'), f('UG marksheet', 'fatima_btech_marksheets.pdf', 'you', ago(58), 'verified'), f('Statement of purpose', 'fatima_sop_deakin.pdf', 'you', ago(58)), f('CV', 'fatima_sheikh_cv.pdf', 'you', ago(58))],
-      end: { kind: 'Student withdrawn', reason: 'Fatima chose RMIT', stage: 2, at: ago(20) },
-      history: [
-        { at: ago(58), who: 'you', text: 'Application started for Fatima Sheikh', by: 'Divya Shetty' },
-        { at: ago(55), who: 'gsp', text: 'Submitted to Deakin University. Reference DKN-2580031', by: gspContact('Australia').name },
-        { at: ago(20), who: 'you', text: 'Withdrawn: Fatima chose RMIT', by: 'Divya Shetty' },
-      ],
-      chat: [],
-    },
-  ];
-  // the sample agency's own (above), then every other application GSP has (data/dataset.ts)
-  return [...own.map((x) => ({ ...x, region: x.region ?? 'India', officer: x.officer ?? idOf(gspContact(destOf(x)).email) })), ...datasetApplications()];
+  const studs = new Map(testAgencyStudents('').map((s) => [s.id, s]));
+  const routed = (x: Application): Application => {
+    if (x.region) return x;
+    const s = studs.get(x.studentId);
+    return { ...x, region: routeApplication({ rp: x.rp, nationality: s?.nationality ?? '', livesIn: s?.country ?? '', dest: destOf(x) }).region };
+  };
+  return [...testAgencyApps().map(routed), ...datasetApplications()];
 }
 
 /** The next application ID. */

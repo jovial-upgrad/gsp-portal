@@ -9,7 +9,7 @@ import { useCheck } from '../../components/validate';
 import { COUNTRIES, countryByName } from '../../data/partners';
 import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
-import { CITIES } from '../../data/students';
+import { CITIES } from '../../data/partners';
 import { REGION_ROWS, type BdmRow } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { History, Panel } from './parts';

@@ -19,7 +19,7 @@ import { withLive, liveFlags } from '../data/live';
 import { intakeState } from '../data/courses';
 import { onLeave } from '../data/leave';
 import { regionQueueId } from './seed';
-import { routeApplication } from '../data/regions';
+import { routeApplication, TEST_AGENCY } from '../data/regions';
 import { destOf } from '../data/applications';
 import { dayOf } from './calendars';
 
@@ -105,7 +105,7 @@ const lateIntake = (a) => {
 };
 
 /** Who-has-it labels (Jovial, 1 Nov). */
-export const OWNER_LABEL = { you: 'On RP', gsp: 'On GSP', uni: 'On university', done: 'Done', end: 'Ended' };
+export { OWNER_WORD as OWNER_LABEL } from '../data/owners';
 
 /* ---------- applications, as every module sees them now ---------- */
 let cache = { key: null, apps: [] };
@@ -173,5 +173,5 @@ export function appTasks(s, live, now = Date.now()) {
 /** The application record My work and Mail show, from the live application. */
 export function appRecord(a) {
   const c = courseOf(a);
-  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region || 'India', agency: a.rp || 'GSP test agency', uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, since: a.since, closed: !isOpen(a) };
+  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region, agency: a.rp || TEST_AGENCY.name, uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, since: a.since, closed: !isOpen(a) };
 }

@@ -31,17 +31,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export const shortDate = (d: Date, year = false) => `${d.getDate()} ${MONTHS[d.getMonth()]}${year ? ` ${d.getFullYear()}` : ''}`;
 export const monthLabel = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
-const monthsUntil = (d: Date) => (d.getTime() - Date.now()) / (30.44 * 86_400_000);
-
-/** A passport that runs out within 6 months can't be used for most student visas. */
-export function expiryNote(v: string) {
-  const d = parseDate(v);
-  if (!d) return null;
-  const m = monthsUntil(d);
-  if (m < 0) return { level: 'bad' as const, text: 'Expired. The student needs a new passport before applying.' };
-  if (m < 6) return { level: 'warn' as const, text: `Expires in ${Math.max(1, Math.round(m))} ${Math.round(m) === 1 ? 'month' : 'months'}. Most student visas need 6 months or more.` };
-  return null;
-}
+/* No passport-validity rule here (HC17, Jovial 1 Nov): how long a passport must still run is the visa's rule, not ours. */
 
 /** Whole years since a date: an age, or how old a test score is. */
 export const yearsSince = (d: Date) => Math.floor((Date.now() - d.getTime()) / (365.25 * 86_400_000));

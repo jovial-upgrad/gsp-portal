@@ -1,4 +1,4 @@
-import { gspWord } from '../../data/scope';
+import { OWNER_WORD } from '../../data/owners';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { initialsOf, type Owner, type Student } from '../../data/students';
@@ -38,13 +38,13 @@ export function Ring({ pct, size = 28 }: { pct: number; size?: number }) {
   );
 }
 
-// GSP's view (W12): the agency's part is the RP's; GSP's is "Pending on you" only in Admissions
+// who has it: one table for every role (data/owners.ts, HC24)
 export const OWNER: Record<Owner | 'done' | 'end', [string, string]> = {
-  you: ['With RP', 'who--you'],
-  get gsp(): [string, string] { return [gspWord(), 'who--gsp']; },
-  uni: ['With university', 'who--uni'],
-  done: ['Enrolled', 'who--ok'],
-  end: ['Closed', 'who--end'],
+  you: [OWNER_WORD.you, 'who--you'],
+  gsp: [OWNER_WORD.gsp, 'who--gsp'],
+  uni: [OWNER_WORD.uni, 'who--uni'],
+  done: [OWNER_WORD.done, 'who--ok'],
+  end: [OWNER_WORD.end, 'who--end'],
 };
 
 /** Copies to the clipboard, falling back to a hidden text box where the clipboard API isn't allowed. */

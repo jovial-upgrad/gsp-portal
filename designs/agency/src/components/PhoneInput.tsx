@@ -33,7 +33,7 @@ export function PhoneInput({
     <div className={`control phone ${invalid ? 'is-invalid' : ''}`}>
       <div className="phone__dial">
         <span className="phone__code num" aria-hidden="true">
-          {dial}
+          {dial || 'Code'}
         </span>
         <Icon name="chevronDown" size={16} aria-hidden="true" />
         <select
@@ -42,6 +42,7 @@ export function PhoneInput({
           value={dial}
           onChange={(e) => onDial(e.target.value)}
         >
+          {!dial && <option value="">Pick the country code</option>}
           <optgroup label="Where most partners are">
             {options.top.map((c) => (
               <option key={c.iso} value={c.dial}>

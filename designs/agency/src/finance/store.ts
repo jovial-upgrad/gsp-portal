@@ -56,8 +56,10 @@ function joinEnrolled() {
   if (!state) return;
   const now = datasetFinanceApps(state.comm.cfg, state.comm.today);
   const add = Object.keys(now).filter((id) => !state.comm.apps[id]);
-  if (!add.length) return;
-  state = { ...state, comm: { ...state.comm, apps: { ...state.comm.apps, ...Object.fromEntries(add.map((id) => [id, now[id]])) } } };
+  // the final tuition fee changed on the application: re-price it (Jovial, 1 Nov)
+  const repriced = Object.keys(now).filter((id) => state.comm.apps[id] && state.comm.apps[id].tuition !== now[id].tuition);
+  if (!add.length && !repriced.length) return;
+  state = { ...state, comm: { ...state.comm, apps: { ...state.comm.apps, ...Object.fromEntries(add.map((id) => [id, now[id]])), ...Object.fromEntries(repriced.map((id) => [id, { ...state.comm.apps[id], tuition: now[id].tuition, scholarship: 0 }])) } } };
   save();
   listeners.forEach((f) => f());
 }

@@ -304,10 +304,11 @@ export const QUALIFICATIONS = ['Applicable to all', 'Bachelor (3 years)', 'Bache
 export type Qualification = (typeof QUALIFICATIONS)[number];
 export const SCALES = ['Percentage', 'GPA 4', 'GPA 10', 'UK class'] as const;
 export type Scale = (typeof SCALES)[number];
-export const TESTS = ['IELTS Academic', 'TOEFL iBT', 'PTE Academic', 'Duolingo'] as const;
+/** The English tests a course rule can name: the same names as the student's tests (data/tests.ts, HC15). */
+export const TESTS = ['IELTS Academic', 'TOEFL iBT', 'PTE Academic', 'Duolingo English Test'] as const;
 export type Test = (typeof TESTS)[number];
 /** What the second figure of each test is called. */
-export const TEST_MIN: Record<Test, string> = { 'IELTS Academic': 'No band below', 'TOEFL iBT': 'Minimum in each section', 'PTE Academic': 'No part below', Duolingo: 'No subscore below' };
+export const TEST_MIN: Record<Test, string> = { 'IELTS Academic': 'No band below', 'TOEFL iBT': 'Minimum in each section', 'PTE Academic': 'No part below', 'Duolingo English Test': 'No subscore below' };
 
 /** An intake's other dates, beside its application deadline (the shared intake's `deadline`). */
 export type IntakeDates = { deposit: string; accept: string; start: string; census: string };
@@ -402,7 +403,7 @@ export function withSearchFields(c: CourseRec): CourseRec {
   const back = c.academicRules.find((r) => r.backlogs !== '');
   // Course search shows tuition a year: the full course fee over the years it takes (one, for a course under a year)
   const tuition = c.fullFee > 0 ? Math.round(c.fullFee / Math.max(1, months / 12)) : c.tuition;
-  return { ...c, months, tuition, academic: pct?.min ?? 0, backlogs: back ? Number(back.backlogs) : undefined, ielts: test('IELTS Academic', c.ielts), toefl: test('TOEFL iBT', c.toefl), pte: test('PTE Academic', c.pte) };
+  return { ...c, months, tuition, academic: pct?.min ?? 0, backlogs: back ? Number(back.backlogs) : undefined, ielts: test('IELTS Academic', c.ielts), toefl: test('TOEFL iBT', c.toefl), pte: test('PTE Academic', c.pte), duolingo: test('Duolingo English Test', c.duolingo ?? [0, 0]) };
 }
 
 /** Course search shows live courses at live universities. */

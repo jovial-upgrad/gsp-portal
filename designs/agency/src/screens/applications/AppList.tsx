@@ -165,9 +165,9 @@ export function AppList({
         {(
           [
             ['', 'All applications'],
-            ['you', 'Pending on you'],
-            ['gsp', 'With GSP'],
-            ['uni', 'With university'],
+            ['you', OWNER_WORD.you],
+            ['gsp', OWNER_WORD.gsp],
+            ['uni', OWNER_WORD.uni],
           ] as [OwnerView, string][]
         ).map(([k, label]) => (
           <button key={k || 'all'} type="button" className={`atile atile--${k || 'all'}`} aria-pressed={st.owner === k} onClick={() => set((p) => ({ ...p, owner: k }))}>
@@ -435,7 +435,7 @@ function Empty({ hasStudents, onAdd, onFindCourses }: { hasStudents: boolean; on
           <li>
             <span className="aempty__ic aempty__ic--gsp" aria-hidden="true" />
             <span>
-              <strong>Violet is GSP.</strong> GSP checks the documents and submits to the university, usually the same day.
+              <strong>Violet is GSP.</strong> GSP checks the documents and submits to the university.
             </span>
           </li>
           <li>

@@ -13,7 +13,7 @@ import { sampleStudents } from '../data/students';
 import { UNI_TERMS, rpByName, dataApp } from '../data/dataset';
 import { compute, thursdayOf } from './engine';
 import { settingsOf } from './defaults';
-import { withLive } from '../data/live';
+import { withLive, finalFeeOf } from '../data/live';
 import { getDb } from '../institution/data/store';
 import { agreementOf, statusNow } from '../institution/data/records';
 
@@ -81,7 +81,7 @@ export function datasetFinanceApps(cfg, today) {
     const census = d && d.intakeDate ? undefined : iso(censusOf(a));
     apps[a.id] = {
       id: a.id, student: st ? `${st.first} ${st.last}` : a.studentId, rp: rp ? rp.id : 'R-TEST', uni: UNI_TERMS[c.uni.id] ?? `none-${c.uni.id}`,
-      level: LEVEL[c.level] ?? 'PG', intake: start, ...(census ? { census } : {}), tuition: c.tuition, scholarship: c.scholarship, enrolled: start,
+      level: LEVEL[c.level] ?? 'PG', intake: start, ...(census ? { census } : {}), tuition: finalFeeOf(a.id, c.tuition), scholarship: 0, enrolled: start,
       studentType: (d && d.fin && d.fin.studentType) || 'New', nationality: st ? st.nationality : 'India', courseYears: d && d.fin && d.fin.courseYears,
       inv: {}, paidIP: {}, paidRP: {}, gspLead: !!(d && d.fin && d.fin.gspLead), ...(withdrawn ? { withdrawn } : {}),
     };

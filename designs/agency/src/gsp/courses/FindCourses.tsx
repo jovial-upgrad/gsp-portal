@@ -1,3 +1,4 @@
+import { TOP_MARKETS } from '../../data/partners';
 import { fmtDate, fmtMoney } from '../../data/format';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -38,7 +39,8 @@ import '../../screens/courses/courses.css';
 
 type SetSearch = (fn: (s: CourseSearch) => CourseSearch) => void;
 const ease = [0.2, 0.8, 0.2, 1] as const;
-const TOP = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Philippines', 'Nigeria', 'Ghana', 'Kenya'];
+// one markets list (HC36)
+const TOP = TOP_MARKETS;
 
 /**
  * Find courses. Optionally for one of the agency's students (their country and state then decide what they can
