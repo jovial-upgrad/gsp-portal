@@ -1,7 +1,8 @@
 /**
- * Sample course data for Find courses. Real university names, made-up fees and dates, in the shape the brief
- * and the PM prototype use: intakes with deadlines and a status, English scores, offer time, the commission
- * rate GSP gets (the agency earns 70% of it), and the date each record was last checked.
+ * Sample course data: the seed of the Institution Team's catalogue, which Find courses reads in every role (HC1).
+ * Real university names, made-up fees and dates, in the shape the brief and the PM prototype use: intakes with
+ * deadlines and a status, English scores, the commission rate GSP gets (the agency earns 70% of it), and the date
+ * each course was last checked.
  * Universities can be closed to students from some countries or states (territory rules).
  */
 
@@ -46,10 +47,12 @@ export const FLAG_COLOURS: Record<Destination, [string, string]> = {
 };
 
 /**
- * A campus: where it is, what kind of place, and (Australia) whether it's in a regional area for visa purposes,
- * which usually lets graduates stay longer on a post-study work visa.
+ * A campus, as its record keeps it (Institution › Campuses): where it is, its address and Google Maps link, what kind
+ * of place, and (Australia) whether it's in a regional area (the sample's Regional tag).
  */
-export type Campus = { name: string; city: string; address?: string; setting?: 'City centre' | 'Suburban' | 'Regional town'; regional?: boolean };
+export type Campus = { name: string; city: string; address?: string; setting?: 'City centre' | 'Suburban' | 'Regional town'; regional?: boolean; /** Its Google Maps link, from the campus record (HC3). */ map?: string };
+/** A picture on the university's record (HC11): its file name, and the image when there is one (an upload in the prototype keeps only its name). */
+export type Picture = { id: string; name: string; src?: string };
 
 export type University = {
   id: string;
@@ -73,60 +76,106 @@ export type University = {
   /** Students the university doesn't take through GSP: a whole country, or some of its states. */
   blocked?: { country: string; states?: string[] }[];
   rate: number;
-  offerDays: number;
-  checked: string;
+  /** A pathway provider (Jovial, 1 Nov, HC2): a university-level field on its record (Institution › Profile). */
+  pathway?: boolean;
+  /** The university record's type and sector (Institution › Profile), when it's read from the catalogue. */
+  utype?: string;
+  sector?: 'Public' | 'Private';
+  /** The record's pictures (Institution › Pictures, HC11): course search's campus photos. None: no photos. */
+  pictures?: Picture[];
   /** Colleges award diplomas and certificates, not degrees. */
   college?: boolean;
 };
 
 export const UNIVERSITIES: University[] = [
-  { id: 'flinders', name: 'Flinders University', country: 'Australia', campuses: [{ name: 'Bedford Park', city: 'Adelaide' }], qs: 415, rate: 15, offerDays: 6, checked: '30 Sep', priorityFor: ['India'] },
-  { id: 'adelaide', name: 'Adelaide University', aka: ['University of Adelaide', 'University of South Australia', 'UniSA'], country: 'Australia', campuses: [{ name: 'City East', city: 'Adelaide' }, { name: 'North Terrace', city: 'Adelaide' }], qs: 82, group: 'Group of Eight', rate: 12, offerDays: 12, checked: '21 Oct' },
-  { id: 'deakin', name: 'Deakin University', country: 'Australia', campuses: [{ name: 'Burwood', city: 'Melbourne' }, { name: 'Waurn Ponds', city: 'Geelong' }], qs: 197, rate: 15, offerDays: 8, checked: '14 Oct' },
-  { id: 'newcastle', name: 'University of Newcastle', country: 'Australia', campuses: [{ name: 'Callaghan', city: 'Newcastle' }, { name: 'Sydney', city: 'Sydney' }], qs: 179, rate: 15, offerDays: 9, checked: '30 Sep' },
-  { id: 'uow', name: 'University of Wollongong', country: 'Australia', campuses: [{ name: 'Wollongong', city: 'Wollongong' }], qs: 162, rate: 15, offerDays: 7, checked: '7 Oct' },
-  { id: 'cqu', name: 'CQUniversity', aka: ['Central Queensland University'], country: 'Australia', campuses: [{ name: 'Sydney', city: 'Sydney' }, { name: 'Melbourne', city: 'Melbourne' }, { name: 'Brisbane', city: 'Brisbane' }], rate: 18, offerDays: 4, checked: '21 Oct', blocked: [{ country: 'India', states: ['Punjab'] }] },
-  { id: 'vu', name: 'Victoria University', country: 'Australia', campuses: [{ name: 'Footscray Park', city: 'Melbourne' }, { name: 'Sydney', city: 'Sydney' }], rate: 18, offerDays: 5, checked: '30 Sep', blocked: [{ country: 'India', states: ['Punjab', 'Haryana'] }] },
-  { id: 'murdoch', name: 'Murdoch University', country: 'Australia', campuses: [{ name: 'Perth', city: 'Perth' }], qs: 591, rate: 16, offerDays: 7, checked: '14 Oct' },
-  { id: 'rmit', name: 'RMIT University', country: 'Australia', campuses: [{ name: 'City', city: 'Melbourne' }], qs: 123, rate: 12, offerDays: 14, checked: '7 Oct' },
-  { id: 'feduni', name: 'Federation University', aka: ['University of Ballarat'], country: 'Australia', campuses: [{ name: 'Berwick', city: 'Melbourne' }, { name: 'Mt Helen', city: 'Ballarat' }], rate: 20, offerDays: 4, checked: '21 Oct', blocked: [{ country: 'India', states: ['Punjab', 'Haryana', 'Gujarat'] }, { country: 'Nepal' }] },
+  { id: 'flinders', name: 'Flinders University', country: 'Australia', campuses: [{ name: 'Bedford Park', city: 'Adelaide' }], qs: 415, rate: 15, priorityFor: ['India'] },
+  { id: 'adelaide', name: 'Adelaide University', aka: ['University of Adelaide', 'University of South Australia', 'UniSA'], country: 'Australia', campuses: [{ name: 'City East', city: 'Adelaide' }, { name: 'North Terrace', city: 'Adelaide' }], qs: 82, group: 'Group of Eight', rate: 12 },
+  { id: 'deakin', name: 'Deakin University', country: 'Australia', campuses: [{ name: 'Burwood', city: 'Melbourne' }, { name: 'Waurn Ponds', city: 'Geelong' }], qs: 197, rate: 15 },
+  { id: 'newcastle', name: 'University of Newcastle', country: 'Australia', campuses: [{ name: 'Callaghan', city: 'Newcastle' }, { name: 'Sydney', city: 'Sydney' }], qs: 179, rate: 15 },
+  { id: 'uow', name: 'University of Wollongong', country: 'Australia', campuses: [{ name: 'Wollongong', city: 'Wollongong' }], qs: 162, rate: 15 },
+  { id: 'cqu', name: 'CQUniversity', aka: ['Central Queensland University'], country: 'Australia', campuses: [{ name: 'Sydney', city: 'Sydney' }, { name: 'Melbourne', city: 'Melbourne' }, { name: 'Brisbane', city: 'Brisbane' }], rate: 18, blocked: [{ country: 'India', states: ['Punjab'] }] },
+  { id: 'vu', name: 'Victoria University', country: 'Australia', campuses: [{ name: 'Footscray Park', city: 'Melbourne' }, { name: 'Sydney', city: 'Sydney' }], rate: 18, blocked: [{ country: 'India', states: ['Punjab', 'Haryana'] }] },
+  { id: 'murdoch', name: 'Murdoch University', country: 'Australia', campuses: [{ name: 'Perth', city: 'Perth' }], qs: 591, rate: 16 },
+  { id: 'rmit', name: 'RMIT University', country: 'Australia', campuses: [{ name: 'City', city: 'Melbourne' }], qs: 123, rate: 12 },
+  { id: 'feduni', name: 'Federation University', aka: ['University of Ballarat'], country: 'Australia', campuses: [{ name: 'Berwick', city: 'Melbourne' }, { name: 'Mt Helen', city: 'Ballarat' }], rate: 20, blocked: [{ country: 'India', states: ['Punjab', 'Haryana', 'Gujarat'] }, { country: 'Nepal' }] },
 
-  { id: 'abertay', name: 'Abertay University', country: 'UK', campuses: [{ name: 'Dundee', city: 'Dundee' }], rate: 15, offerDays: 5, checked: '30 Sep', priorityFor: ['India', 'Bangladesh'] },
-  { id: 'coventry', name: 'Coventry University', country: 'UK', campuses: [{ name: 'Coventry', city: 'Coventry' }, { name: 'London', city: 'London' }], qs: 532, rate: 15, offerDays: 6, checked: '14 Oct' },
-  { id: 'herts', name: 'University of Hertfordshire', country: 'UK', campuses: [{ name: 'Hatfield', city: 'Hatfield' }], rate: 15, offerDays: 7, checked: '7 Oct' },
-  { id: 'northumbria', name: 'Northumbria University', country: 'UK', campuses: [{ name: 'Newcastle', city: 'Newcastle upon Tyne' }, { name: 'London', city: 'London' }], qs: 263, rate: 14, offerDays: 8, checked: '21 Oct' },
-  { id: 'greenwich', name: 'University of Greenwich', country: 'UK', campuses: [{ name: 'Greenwich', city: 'London' }], rate: 16, offerDays: 5, checked: '30 Sep', blocked: [{ country: 'Bangladesh' }] },
-  { id: 'ulster', name: 'Ulster University', country: 'UK', campuses: [{ name: 'Belfast', city: 'Belfast' }, { name: 'London', city: 'London' }, { name: 'Birmingham', city: 'Birmingham' }], rate: 16, offerDays: 6, checked: '14 Oct' },
-  { id: 'leeds', name: 'University of Leeds', country: 'UK', campuses: [{ name: 'Leeds', city: 'Leeds' }], qs: 82, group: 'Russell Group', rate: 10, offerDays: 21, checked: '7 Oct' },
-  { id: 'birmingham', name: 'University of Birmingham', country: 'UK', campuses: [{ name: 'Edgbaston', city: 'Birmingham' }], qs: 76, group: 'Russell Group', rate: 10, offerDays: 18, checked: '21 Oct' },
+  { id: 'abertay', name: 'Abertay University', country: 'UK', campuses: [{ name: 'Dundee', city: 'Dundee' }], rate: 15, priorityFor: ['India', 'Bangladesh'] },
+  { id: 'coventry', name: 'Coventry University', country: 'UK', campuses: [{ name: 'Coventry', city: 'Coventry' }, { name: 'London', city: 'London' }], qs: 532, rate: 15 },
+  { id: 'herts', name: 'University of Hertfordshire', country: 'UK', campuses: [{ name: 'Hatfield', city: 'Hatfield' }], rate: 15 },
+  { id: 'northumbria', name: 'Northumbria University', country: 'UK', campuses: [{ name: 'Newcastle', city: 'Newcastle upon Tyne' }, { name: 'London', city: 'London' }], qs: 263, rate: 14 },
+  { id: 'greenwich', name: 'University of Greenwich', country: 'UK', campuses: [{ name: 'Greenwich', city: 'London' }], rate: 16, blocked: [{ country: 'Bangladesh' }] },
+  { id: 'ulster', name: 'Ulster University', country: 'UK', campuses: [{ name: 'Belfast', city: 'Belfast' }, { name: 'London', city: 'London' }, { name: 'Birmingham', city: 'Birmingham' }], rate: 16 },
+  { id: 'leeds', name: 'University of Leeds', country: 'UK', campuses: [{ name: 'Leeds', city: 'Leeds' }], qs: 82, group: 'Russell Group', rate: 10 },
+  { id: 'birmingham', name: 'University of Birmingham', country: 'UK', campuses: [{ name: 'Edgbaston', city: 'Birmingham' }], qs: 76, group: 'Russell Group', rate: 10 },
 
-  { id: 'windsor', name: 'University of Windsor', country: 'Canada', campuses: [{ name: 'Windsor', city: 'Windsor, Ontario' }], rate: 15, offerDays: 14, checked: '30 Sep' },
-  { id: 'algoma', name: 'Algoma University', country: 'Canada', campuses: [{ name: 'Brampton', city: 'Brampton, Ontario' }, { name: 'Sault Ste. Marie', city: 'Sault Ste. Marie, Ontario' }], rate: 18, offerDays: 10, checked: '14 Oct' },
-  { id: 'fanshawe', name: 'Fanshawe College', country: 'Canada', campuses: [{ name: 'London', city: 'London, Ontario' }], rate: 15, offerDays: 9, checked: '7 Oct', college: true },
-  { id: 'tru', name: 'Thompson Rivers University', country: 'Canada', campuses: [{ name: 'Kamloops', city: 'Kamloops, British Columbia' }], rate: 15, offerDays: 12, checked: '21 Oct' },
+  { id: 'windsor', name: 'University of Windsor', country: 'Canada', campuses: [{ name: 'Windsor', city: 'Windsor, Ontario' }], rate: 15 },
+  { id: 'algoma', name: 'Algoma University', country: 'Canada', campuses: [{ name: 'Brampton', city: 'Brampton, Ontario' }, { name: 'Sault Ste. Marie', city: 'Sault Ste. Marie, Ontario' }], rate: 18 },
+  { id: 'fanshawe', name: 'Fanshawe College', country: 'Canada', campuses: [{ name: 'London', city: 'London, Ontario' }], rate: 15, college: true },
+  { id: 'tru', name: 'Thompson Rivers University', country: 'Canada', campuses: [{ name: 'Kamloops', city: 'Kamloops, British Columbia' }], rate: 15 },
 
-  { id: 'massey', name: 'Massey University', country: 'New Zealand', campuses: [{ name: 'Auckland', city: 'Auckland' }, { name: 'Manawatū', city: 'Palmerston North' }], qs: 230, rate: 15, offerDays: 8, checked: '30 Sep' },
-  { id: 'waikato', name: 'University of Waikato', country: 'New Zealand', campuses: [{ name: 'Hamilton', city: 'Hamilton' }, { name: 'Tauranga', city: 'Tauranga' }], qs: 235, rate: 15, offerDays: 9, checked: '14 Oct' },
-  { id: 'lincoln', name: 'Lincoln University', country: 'New Zealand', campuses: [{ name: 'Lincoln', city: 'Christchurch' }], qs: 362, rate: 15, offerDays: 10, checked: '7 Oct' },
+  { id: 'massey', name: 'Massey University', country: 'New Zealand', campuses: [{ name: 'Auckland', city: 'Auckland' }, { name: 'Manawatū', city: 'Palmerston North' }], qs: 230, rate: 15 },
+  { id: 'waikato', name: 'University of Waikato', country: 'New Zealand', campuses: [{ name: 'Hamilton', city: 'Hamilton' }, { name: 'Tauranga', city: 'Tauranga' }], qs: 235, rate: 15 },
+  { id: 'lincoln', name: 'Lincoln University', country: 'New Zealand', campuses: [{ name: 'Lincoln', city: 'Christchurch' }], qs: 362, rate: 15 },
 
-  { id: 'griffith', name: 'Griffith College', country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 15, offerDays: 6, checked: '21 Oct', college: true },
-  { id: 'dbs', name: 'Dublin Business School', aka: ['DBS'], country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 16, offerDays: 5, checked: '30 Sep', college: true },
-  { id: 'ul', name: 'University of Limerick', country: 'Ireland', campuses: [{ name: 'Limerick', city: 'Limerick' }], qs: 421, rate: 12, offerDays: 14, checked: '14 Oct' },
+  { id: 'griffith', name: 'Griffith College', country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 15, college: true },
+  { id: 'dbs', name: 'Dublin Business School', aka: ['DBS'], country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 16, college: true },
+  { id: 'ul', name: 'University of Limerick', country: 'Ireland', campuses: [{ name: 'Limerick', city: 'Limerick' }], qs: 421, rate: 12 },
 
-  { id: 'pace', name: 'Pace University', country: 'USA', campuses: [{ name: 'New York City', city: 'New York' }], rate: 12, offerDays: 14, checked: '7 Oct' },
-  { id: 'usf', name: 'University of South Florida', country: 'USA', campuses: [{ name: 'Tampa', city: 'Tampa, Florida' }], qs: 586, rate: 12, offerDays: 18, checked: '21 Oct' },
+  { id: 'pace', name: 'Pace University', country: 'USA', campuses: [{ name: 'New York City', city: 'New York' }], rate: 12 },
+  { id: 'usf', name: 'University of South Florida', country: 'USA', campuses: [{ name: 'Tampa', city: 'Tampa, Florida' }], qs: 586, rate: 12 },
 
   // added with their logos; kept last so the courses generated before them stay the same
-  { id: 'canberra', name: 'University of Canberra', aka: ['UC'], country: 'Australia', campuses: [{ name: 'Bruce', city: 'Canberra' }], rate: 15, offerDays: 6, checked: '21 Oct', priorityFor: ['India', 'Nepal'] },
-  { id: 'unisc', name: 'University of the Sunshine Coast', aka: ['UniSC', 'USC'], country: 'Australia', campuses: [{ name: 'Sunshine Coast', city: 'Sippy Downs' }, { name: 'Moreton Bay', city: 'Petrie' }], rate: 16, offerDays: 5, checked: '14 Oct' },
+  { id: 'canberra', name: 'University of Canberra', aka: ['UC'], country: 'Australia', campuses: [{ name: 'Bruce', city: 'Canberra' }], rate: 15, priorityFor: ['India', 'Nepal'] },
+  { id: 'unisc', name: 'University of the Sunshine Coast', aka: ['UniSC', 'USC'], country: 'Australia', campuses: [{ name: 'Sunshine Coast', city: 'Sippy Downs' }, { name: 'Moreton Bay', city: 'Petrie' }], rate: 16 },
 ];
+
+/**
+ * The seed for two course fields (Jovial, 1 Nov, HC3): the date each course was last checked (`checked`, which the
+ * Institution Team sets on the course record from then on) and the sample `offerDays` that only GSP's application
+ * mail still reads. Neither is a university field any more; universities added from the dataset take the fallback.
+ */
+const SEED: Record<string, [number, string]> = {
+  flinders: [6, '2026-09-30'],
+  adelaide: [12, '2026-10-21'],
+  deakin: [8, '2026-10-14'],
+  newcastle: [9, '2026-09-30'],
+  uow: [7, '2026-10-07'],
+  cqu: [4, '2026-10-21'],
+  vu: [5, '2026-09-30'],
+  murdoch: [7, '2026-10-14'],
+  rmit: [14, '2026-10-07'],
+  feduni: [4, '2026-10-21'],
+  abertay: [5, '2026-09-30'],
+  coventry: [6, '2026-10-14'],
+  herts: [7, '2026-10-07'],
+  northumbria: [8, '2026-10-21'],
+  greenwich: [5, '2026-09-30'],
+  ulster: [6, '2026-10-14'],
+  leeds: [21, '2026-10-07'],
+  birmingham: [18, '2026-10-21'],
+  windsor: [14, '2026-09-30'],
+  algoma: [10, '2026-10-14'],
+  fanshawe: [9, '2026-10-07'],
+  tru: [12, '2026-10-21'],
+  massey: [8, '2026-09-30'],
+  waikato: [9, '2026-10-14'],
+  lincoln: [10, '2026-10-07'],
+  griffith: [6, '2026-10-21'],
+  dbs: [5, '2026-09-30'],
+  ul: [14, '2026-10-14'],
+  pace: [14, '2026-10-07'],
+  usf: [18, '2026-10-21'],
+  canberra: [6, '2026-10-21'],
+  unisc: [5, '2026-10-14'],
+};
+const seedOf = (id: string): [number, string] => SEED[id] ?? [10, '2026-10-31'];
 
 /**
  * The universities GSP's applications use that this list didn't have (Jovial, 31 Oct: one application data set).
  * Added at the end so every course above keeps its id and figures. From data/dataset.json.
  */
 for (const u of DATASET.unis) {
-  UNIVERSITIES.push({ id: u.id, name: u.name, country: u.country as Destination, campuses: [{ name: u.city, city: u.city }], rate: 0, offerDays: 10, checked: '31 Oct', college: u.college || undefined });
+  UNIVERSITIES.push({ id: u.id, name: u.name, country: u.country as Destination, campuses: [{ name: u.city, city: u.city }], rate: 0, college: u.college || undefined });
 }
 /** GSP's commission rate on each university comes from Finance's terms (the contract, or sample terms until it's loaded). */
 const RATES = DATASET.rates as unknown as Record<string, Record<string, number>>;
@@ -205,7 +254,7 @@ export type Course = {
   currency: string;
   appFee: number;
   deposit: number;
-  /** Up to this much off the first year; 0 if none is listed. */
+  /** Sample: seeds the university record's scholarships and Finance's lines; course search shows only the record's (HC9). */
   scholarship: number;
   /** Visa figure for a year's living costs. */
   living: number;
@@ -215,25 +264,23 @@ export type Course = {
   toefl: [number, number];
   /** The minimum percentage asked of students from the main markets. */
   academic: number;
-  /** The English test can wait (conditional offer) or be waived with Grade 12 English. */
+  /**
+   * Removed from course search (Jovial, 1 Nov, HC2: no "English test can wait"): always false. The field stays only
+   * because GSP · Admin's courseDocs and data/applications.ts still read it.
+   */
   englishFlex: boolean;
-  psw: boolean;
   intakes: Intake[];
+  /** Sample only, and shown nowhere in course search (HC3): GSP's application mail (desk.ts) and applications.ts still read it. */
   offerDays: number;
   rate: number;
+  /** When the course was last checked: an ISO date on the course record, set by the Institution Team (HC3). */
   checked: string;
   /** How it's taught: Full time, Part time, Blended (on campus and online) or Online. */
   mode: StudyMode;
   /** Australia registers every course for international students under a CRICOS code. */
   cricos?: string;
-  placement: boolean;
-  /** A pathway (foundation, diploma or English) if the student doesn't meet entry yet. */
-  pathway: boolean;
-  recognition?: string;
-  careers: string[];
+  /** The seed for the university record's scholarships (institution/data/catalogue.ts); course search shows only the record's (HC9). */
   scholarshipName?: string;
-  /** The scholarship comes with the offer, or needs its own application. */
-  scholarshipAuto?: boolean;
   /** Costs on top of tuition, approximate. */
   otherFees: [string, number][];
   /** Postgraduate courses: the most backlogs (subjects failed and cleared later) accepted in the student's degree. */
@@ -303,6 +350,8 @@ function build(): Course[] {
     return (seed - 1) / 2147483646;
   };
   const pick = <T,>(a: readonly T[]) => a[Math.floor(rnd() * a.length)];
+  /** Draws that are no longer kept: made anyway, so every value after them stays as it was. */
+  const drawn = (..._: unknown[]) => false;
   const out: Course[] = [];
   const seen = new Set<string>();
   // most agency business is master's and bachelor's degrees
@@ -346,12 +395,12 @@ function build(): Course[] {
         pte: [ieltsBase >= 7 ? 65 : ieltsBase >= 6.5 ? 58 : ieltsBase >= 6 ? 50 : 42, ieltsBase >= 6.5 ? 50 : 36],
         toefl: [ieltsBase >= 7 ? 94 : ieltsBase >= 6.5 ? 79 : ieltsBase >= 6 ? 60 : 46, ieltsBase >= 6.5 ? 18 : 12],
         academic: level === 'PhD or research' ? 65 : level === 'Master’s degree' ? Math.round(55 + rnd() * 15) : level === 'Bachelor’s degree' ? Math.round(55 + rnd() * 15) : 50,
-        englishFlex: rnd() < 0.3,
-        psw: u.country !== 'USA' ? rnd() < 0.85 : false,
+        // drawn, but not kept (HC2): the English test can wait, and (outside the USA) post-study work, so the courses after keep their figures
+        englishFlex: drawn(rnd(), u.country !== 'USA' && rnd()),
         intakes,
-        offerDays: Math.max(2, u.offerDays + Math.round(rnd() * 4 - 2)),
+        offerDays: Math.max(2, seedOf(u.id)[0] + Math.round(rnd() * 4 - 2)),
         rate: u.rate,
-        checked: u.checked,
+        checked: seedOf(u.id)[1],
       };
       out.push({ ...base, ...extrasFor(base) });
     }
@@ -370,7 +419,7 @@ function modeOf(id: string): StudyMode {
   return n < 72 ? 'Full time' : n < 84 ? 'Blended' : n < 94 ? 'Part time' : 'Online';
 }
 
-type Extras = Pick<Course, 'mode' | 'cricos' | 'placement' | 'pathway' | 'recognition' | 'careers' | 'scholarshipName' | 'scholarshipAuto' | 'otherFees' | 'backlogs'>;
+type Extras = Pick<Course, 'mode' | 'cricos' | 'scholarshipName' | 'otherFees' | 'backlogs'>;
 
 /** How many backlogs universities in each destination usually accept from Indian students on postgraduate courses. */
 const BACKLOGS: Record<Destination, number[]> = { UK: [10, 12, 15], Australia: [5, 8, 10], Canada: [5, 6, 8], 'New Zealand': [5, 8], Ireland: [8, 10, 12], USA: [5, 8, 10] };
@@ -421,16 +470,19 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
   const dest = c.uni.country;
   const nursing = /Nursing/.test(c.name);
   const body = nursing ? NURSING[dest] : BODIES[c.area]?.[dest];
-  const careers = [...CAREERS[c.area]].sort(() => rnd() - 0.5).slice(0, 3);
+  // careers, placement, pathway, recognition and the scholarship's timing are gone (REVIEW 31 Oct; HC2): their draws
+  // are still made, in the same order, so every value after them stays as it was
+  [...CAREERS[c.area]].sort(() => rnd() - 0.5);
+  const cricos = dest === 'Australia' ? `0${String(10000 + Math.floor(rnd() * 89999))}${'ABCDEFGHJKM'[Math.floor(rnd() * 11)]}` : undefined;
+  if (!(nursing || /Physiotherapy/.test(c.name)) && c.level !== 'Foundation') rnd();
+  if (degree) rnd();
+  if (body && degree && !nursing) rnd();
+  const scholarshipName = c.scholarship ? SCHOLARSHIPS[Math.floor(rnd() * SCHOLARSHIPS.length)] : undefined;
+  if (c.scholarship) rnd();
   return {
     mode: modeOf(c.id),
-    cricos: dest === 'Australia' ? `0${String(10000 + Math.floor(rnd() * 89999))}${'ABCDEFGHJKM'[Math.floor(rnd() * 11)]}` : undefined,
-    placement: nursing || /Physiotherapy/.test(c.name) || (c.level !== 'Foundation' && rnd() < 0.35),
-    pathway: degree && rnd() < 0.55,
-    recognition: body && degree && (nursing || rnd() < 0.75) ? body : undefined,
-    careers,
-    scholarshipName: c.scholarship ? SCHOLARSHIPS[Math.floor(rnd() * SCHOLARSHIPS.length)] : undefined,
-    scholarshipAuto: c.scholarship ? rnd() < 0.6 : undefined,
+    cricos,
+    scholarshipName,
     otherFees: OTHER_FEES[dest],
     // drawn last, so the values above stay as they were
     backlogs: pg ? (c.level === 'PhD or research' ? 3 : BACKLOGS[dest][Math.floor(rnd() * BACKLOGS[dest].length)]) : undefined,
@@ -456,12 +508,23 @@ export const money = (n: number, cur: string) => fmtMoney(n, cur);
 /** Days from today to a date (negative once it's passed). */
 export const daysTo = (iso: string) => Math.ceil((new Date(iso + 'T23:59:59').getTime() - Date.now()) / 86_400_000);
 
-/** An intake is open until its deadline passes. */
-/** How many days after the deadline an intake still shows, as late (Jovial, 31 Oct). */
-export const LATE_DAYS = 14;
+/**
+ * An intake's timings (Jovial, 1 Nov, HC8), set in GSP · Admin › Living costs › Intake timings: how many days after
+ * its deadline an intake still shows as late, how close a deadline is marked as soon, and how close it shows a
+ * countdown (and the "Deadline within" filter). admin/data/store.ts sets the reader; these are its defaults.
+ */
+export type IntakeTimes = { lateDays: number; warnDays: number; countdownDays: number };
+export const INTAKE_TIMES: IntakeTimes = { lateDays: 14, warnDays: 21, countdownDays: 45 };
+let intakeTimesOf: () => IntakeTimes = () => INTAKE_TIMES;
+export const setIntakeTimesReader = (f: typeof intakeTimesOf) => {
+  intakeTimesOf = f;
+};
+export const intakeTimes = () => intakeTimesOf();
+
+/** An intake is open until its deadline passes, then late for Admin's late days. */
 export const intakeState = (i: Intake): IntakeStatus => {
   const d = daysTo(i.deadline);
-  return d < -LATE_DAYS ? 'closed' : d < 0 ? 'late' : i.status;
+  return d < -intakeTimes().lateDays ? 'closed' : d < 0 ? 'late' : i.status;
 };
 
 /** Does the university take students from this country and state through GSP? */
@@ -469,14 +532,13 @@ export function blockedFor(u: University, country: string, state: string) {
   return (u.blocked ?? []).some((b) => b.country === country && (!b.states || b.states.includes(state)));
 }
 
-/* ---------- scholarships: the course's own, then the university's ---------- */
+/* ---------- scholarships: the university record's ---------- */
 
 /**
- * A scholarship as its record keeps it (Jovial, 1 Nov: only what the record has): the course's own (its name and
- * amount), or the university's from the Institution Team's catalogue (its name, amount, the countries it's for and
- * its conditions).
+ * A scholarship as the university's record keeps it (Jovial, 1 Nov, HC9: only from the record, no fallbacks): its
+ * name, amount, the countries it's for and its conditions.
  */
-export type Scholarship = { name: string; amount: string; from: 'course' | 'university'; forCountries?: string[]; conditions?: string };
+export type Scholarship = { name: string; amount: string; from: 'university'; forCountries?: string[]; conditions?: string };
 
 /** An intake's dates and a university's submission channel as the Institution Team keeps them (set by institution/data/store.ts). */
 export type IntakeDates = { deposit: string; accept: string; start: string; census: string };
@@ -511,8 +573,7 @@ export const setUniScholarships = (f: typeof uniScholarshipsOf) => {
 };
 export function scholarshipsOf(c: Course): Scholarship[] {
   const list: Scholarship[] = [];
-  if (c.scholarship) list.push({ name: c.scholarshipName ?? 'Course scholarship', amount: `Up to ${money(c.scholarship, c.currency)}`, from: 'course' });
-  // the university's scholarships from the Institution Team's catalogue (Jovial, 31 Oct)
+  // the university's scholarships from the Institution Team's catalogue, where the course's level and area fit (Jovial, 31 Oct)
   for (const x of uniScholarshipsOf(c.uni.id) ?? []) {
     if (x.levels.length && !x.levels.includes(c.level)) continue;
     if (x.areas.length && !x.areas.includes(c.area)) continue;

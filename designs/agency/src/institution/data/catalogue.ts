@@ -9,9 +9,14 @@
  * team fills in the rest on its page; a course is added with its basics and its details are entered on its page. The
  * four-weekly check is gone.
  */
-import { COURSES, UNIVERSITIES, type Area, type Campus, type Course, type Level, type University } from '../../data/courses';
+import { COURSES, UNIVERSITIES, type Area, type Campus, type Course, type Level, type Picture, type University } from '../../data/courses';
+import sample1 from '../../assets/campus/sample-1.webp';
+import sample2 from '../../assets/campus/sample-2.webp';
+import sample3 from '../../assets/campus/sample-3.webp';
+import sample4 from '../../assets/campus/sample-4.webp';
+import sample5 from '../../assets/campus/sample-5.webp';
 import { COUNTRIES } from '../../data/partners';
-import { inDays, partnerIdOf, today, type Contact, type InstitutionPartner, type Stamps } from './records';
+import { inDays, partnerIdOf, type Contact, type InstitutionPartner, type Stamps } from './records';
 import { nameOf } from '../../data/staff';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
@@ -78,8 +83,8 @@ export type UniRec = Omit<University, 'campuses'> & {
   cricos: string;
   /** Display priority: a number that breaks ties in search; '' when not set. */
   priority: string;
-  /** Pictures on the page partners see, up to four. */
-  pictures: number;
+  /** Pictures (Jovial, 1 Nov, HC11): course search's campus photos, in this order; none, and it shows none. */
+  pictures: Picture[];
   /** Campuses made inactive: their courses leave Course search; applications already made carry on. */
   inactive: string[];
   scholarships: Scholarship[];
@@ -140,21 +145,34 @@ const SUB: Record<string, [Channel, string]> = {
   USA: ['Own portal', 'apply'],
 };
 
+/** The sample pictures, on the sample records of the Australian and UK universities that have a profile (HC11). */
+const SAMPLE_PICTURES: [string, string][] = [
+  ['campus-lawn.webp', sample1],
+  ['between-classes.webp', sample2],
+  ['on-campus.webp', sample3],
+  ['library.webp', sample4],
+  ['graduation.webp', sample5],
+];
+/** Pathway providers in the sample (HC2: a university-level field, Institution › Profile). */
+const PATHWAY = ['flinders', 'deakin', 'newcastle', 'uow', 'canberra', 'coventry', 'herts', 'northumbria', 'ulster', 'tru', 'pace', 'usf'];
+/** A sample campus's Google Maps link, from its address (HC3: a field on the campus record from now on). */
+const mapOf = (u: University, k: Campus) => (k.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${u.name}, ${k.address}`)}` : undefined);
+
 function record(u: University, i: number): UniRec {
   const [channel, part] = SUB[u.country];
   const domain = mailOf(u);
   return {
     ...u,
-    campuses: [...u.campuses],
+    campuses: u.campuses.map((k) => ({ ...k, map: k.map ?? mapOf(u, k) })),
     ip: partnerIdOf(u.id),
     status: u.id === 'massey' ? 'Paused' : 'Live',
     utype: u.college ? 'College' : 'University',
     sector: u.kind?.startsWith('Private') ? 'Private' : 'Public',
     studylink: channel === 'StudyLink',
-    pathway: false,
+    pathway: PATHWAY.includes(u.id),
     cricos: u.country === 'Australia' ? `${String(100 + i * 37).padStart(5, '0')}${'ABCDEFGHJK'[i % 10]}` : '',
     priority: u.priorityFor?.length ? '10' : '',
-    pictures: u.logo ? 4 : 2,
+    pictures: u.about && (u.country === 'Australia' || u.country === 'UK') ? SAMPLE_PICTURES.map(([name, src]) => ({ id: nid('pic'), name, src })) : [],
     inactive: [],
     scholarships: scholarshipsOf(u),
     territory: territoryOf(u),
@@ -171,14 +189,14 @@ function record(u: University, i: number): UniRec {
 /** Two more, set up but not live: one under a partner still being agreed, one waiting for its courses. */
 const extra = (): UniRec[] => [
   {
-    ...record({ id: 'utas', name: 'University of Tasmania', aka: ['UTAS'], country: 'Australia', campuses: [{ name: 'Sandy Bay', city: 'Hobart', setting: 'Suburban', regional: true }, { name: 'Launceston', city: 'Launceston', setting: 'Regional town', regional: true }], website: 'utas.edu.au', kind: 'Public university', founded: 1890, about: 'Australia’s fourth-oldest university, with campuses across Tasmania.', qs: 293, rate: 15, offerDays: 7, checked: today() }, 40),
+    ...record({ id: 'utas', name: 'University of Tasmania', aka: ['UTAS'], country: 'Australia', campuses: [{ name: 'Sandy Bay', city: 'Hobart', setting: 'Suburban', regional: true }, { name: 'Launceston', city: 'Launceston', setting: 'Regional town', regional: true }], website: 'utas.edu.au', kind: 'Public university', founded: 1890, about: 'Australia’s fourth-oldest university, with campuses across Tasmania.', qs: 293, rate: 15 }, 40),
     ip: 'ip-utas',
     status: 'Setting up',
     added: inDays(-40),
     logins: [],
   },
   {
-    ...record({ id: 'wichita', name: 'Wichita State University', country: 'USA', campuses: [{ name: 'Main campus', city: 'Wichita', setting: 'Suburban' }], website: 'wichita.edu', kind: 'Public university', founded: 1895, about: 'A public research university in Kansas, known for aviation and engineering.', rate: 12, offerDays: 9, checked: today() }, 41),
+    ...record({ id: 'wichita', name: 'Wichita State University', country: 'USA', campuses: [{ name: 'Main campus', city: 'Wichita', setting: 'Suburban' }], website: 'wichita.edu', kind: 'Public university', founded: 1895, about: 'A public research university in Kansas, known for aviation and engineering.', rate: 12 }, 41),
     ip: 'ip-campusconnect',
     status: 'Setting up',
     added: inDays(-6),
@@ -213,7 +231,7 @@ export function sampleUniRecs(): UniRec[] {
 /** A new university, with its basic details: set up, out of Course search, and the rest entered on its page. */
 export function newUniRec(f: { name: string; utype: UniType; country: University['country']; website: string; ip: string }): UniRec {
   const id = `${f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36).slice(-4)}`;
-  const u = record({ id, name: f.name, country: f.country, campuses: [], website: f.website || undefined, rate: 15, offerDays: 7, checked: today(), college: f.utype === 'College' }, 50);
+  const u = record({ id, name: f.name, country: f.country, campuses: [], website: f.website || undefined, rate: 15, college: f.utype === 'College' }, 50);
   return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, priority: '', cricos: '', logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {} };
 }
 
@@ -240,7 +258,7 @@ export const canApplyFrom = (t: Territory, all: string[]) => (t.mode === 'only' 
 
 /**
  * A course as the PM prototype's course record keeps it (29 Oct, 6th round): Basics (code, name, level, study area,
- * duration, campus, mode, its page on the university's website, post-study work visa, tags), Intakes (each with its
+ * duration, campus, mode, its page on the university's website, tags, the date it was last checked), Intakes (each with its
  * dates), Fees, Academic rules and English rules. No other fields, nothing automated. The shared course fields that
  * Course search reads (months, intakes, academic, IELTS, PTE, TOEFL, backlogs) follow from these when it's saved.
  */
@@ -318,14 +336,11 @@ export type CourseRec = Course & {
 
 const MAJOR = ['Melbourne', 'Sydney', 'Brisbane', 'Perth', 'Adelaide', 'London', 'Birmingham', 'Manchester', 'Toronto', 'Vancouver', 'Dublin', 'Auckland'];
 function tagsOf(c: Course): string[] {
+  // sample tags; none from offer time, the English test waiting, placement or post-study work (Jovial, 1 Nov, HC2)
   const t: string[] = [];
-  if (c.offerDays <= 5) t.push('Faster offer TAT');
   if (c.scholarship) t.push('Scholarship available');
-  if (c.englishFlex) t.push('English test waiver');
-  if (c.placement) t.push('Co-op and built-in internships');
   if (MAJOR.includes(c.campus.city)) t.push('Major city');
   if (c.campus.regional) t.push('Regional university (Australia)');
-  if (c.psw) t.push('Post-study work visa');
   return t;
 }
 const plusDays = (iso: string, n: number) => {

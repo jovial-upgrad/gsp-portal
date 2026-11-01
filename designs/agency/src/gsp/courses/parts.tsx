@@ -1,13 +1,15 @@
-import { daysTo, intakeState, type Campus, type Intake, type University } from '../../data/courses';
+import { daysTo, intakeState, intakeTimes, type Campus, type Intake, type University } from '../../data/courses';
 
 /** An intake with its status in words: open and closing in N days, likely open, or closed. */
 export function IntakePill({ i }: { i: Intake }) {
   const st = intakeState(i);
   const d = daysTo(i.deadline);
+  // Admin's intake timings (HC8): marked soon within the warning days, counting down within the countdown days
+  const t = intakeTimes();
   return (
-    <span className={`ipill ipill--${st} ${st === 'open' && d <= 21 ? 'is-soon' : ''}`}>
+    <span className={`ipill ipill--${st} ${st === 'open' && d <= t.warnDays ? 'is-soon' : ''}`}>
       {i.month}
-      <span className="ipill__note">{st === 'open' ? (d <= 45 ? ` · closes in ${d} ${d === 1 ? 'day' : 'days'}` : ' · open') : st === 'likely' ? ' · likely' : ' · closed'}</span>
+      <span className="ipill__note">{st === 'open' ? (d <= t.countdownDays ? ` · closes in ${d} ${d === 1 ? 'day' : 'days'}` : ' · open') : st === 'likely' ? ' · likely' : ' · closed'}</span>
     </span>
   );
 }

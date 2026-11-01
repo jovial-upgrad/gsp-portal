@@ -5,6 +5,8 @@ import { TextInput } from '../../components/forms';
 import { FLAG } from '../../data/courses';
 import { PageHead } from '../../institution/records/parts';
 import { inrPerFrom, type FxWeek, type Living, type Rate, type VisaFee } from '../data/config';
+import { intakeTimesOf, withIntakeTimes } from '../data/store';
+import type { IntakeTimes } from '../../data/courses';
 import type { ConfigProps } from './ConfigPage';
 import { CellError, EditBar, History, Panel, useDraft, when } from './parts';
 import { useCheck } from '../../components/validate';
@@ -288,6 +290,79 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
         )}
       </Panel>
       <History log={cfg.log} area="Living costs" />
+      <IntakeTimings cfg={cfg} change={change} say={say} />
+    </>
+  );
+}
+
+/* ---------- appended (hc-courses, Jovial 1 Nov, HC8): intake timings ---------- */
+
+const TIMES: [keyof IntakeTimes, string, string][] = [
+  ['lateDays', 'Late after the deadline', 'Days after an intake’s application deadline that it still shows, as “Late: likelihood is low”. Then it’s closed.'],
+  ['warnDays', 'Deadline soon', 'Days before the deadline that an open intake is marked as closing soon.'],
+  ['countdownDays', 'Countdown', 'Days before the deadline that an intake shows “closes in N days”, and the reach of course search’s “Deadline within” filter.'],
+];
+
+/**
+ * Intake timings (Jovial, 1 Nov, HC8): how course search and the catalogue time an intake, in days (an intake's
+ * late days reach applications too, through intakeState).
+ * Read-only until Edit, kept on Save, and logged like every setting.
+ */
+function IntakeTimings({ cfg, change, say }: Omit<ConfigProps, 'me'>) {
+  const saved = intakeTimesOf(cfg);
+  const d = useDraft<IntakeTimes>(saved, 'the intake timings');
+  const ed = d.editing;
+  const errors: Record<string, string | null> = {};
+  for (const [k] of TIMES) errors[`it-${k}`] = !(d.value[k] > 0 && d.value[k] <= 365) ? 'A number of days, from 1 to 365.' : null;
+  if (!errors['it-warnDays'] && !errors['it-countdownDays'] && d.value.warnDays > d.value.countdownDays) errors['it-warnDays'] = 'No more than the countdown’s days.';
+  const v = useCheck(errors);
+  const save = () => {
+    if (!v.submit()) return;
+    const t = d.value;
+    change('Intake timings', `Saved late ${t.lateDays} days, deadline soon ${t.warnDays} days, countdown ${t.countdownDays} days`, (c) => withIntakeTimes(c, t));
+    say('Intake timings saved. Course search uses them from now.');
+    v.reset();
+    d.stop();
+  };
+  return (
+    <>
+      <Panel
+        flush
+        title="Intake timings"
+        note="How course search and the catalogue time an intake, in days."
+        action={<EditBar name="intake timings" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (v.reset(), d.stop())} onSave={save} />}
+      >
+        <div className="stab-wrap">
+          <table className="itab cfg__tab">
+            <thead>
+              <tr>
+                <th scope="col">Setting</th>
+                <th scope="col">Days</th>
+                <th scope="col">What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TIMES.map(([k, label, what]) => (
+                <tr key={k}>
+                  <td className="cfg__strong">{label}</td>
+                  <td>
+                    {ed ? (
+                      <>
+                        <TextInput id={`it-${k}`} aria-label={`${label}, in days`} inputMode="numeric" className="cfg__cellinput cfg__num" value={d.value[k] ? String(d.value[k]) : ''} invalid={!!v.err(`it-${k}`)} aria-describedby={v.err(`it-${k}`) ? `it-${k}-error` : undefined} onBlur={v.blur(`it-${k}`)} onChange={(e) => d.set((x) => ({ ...x, [k]: num(e.target.value) }))} />
+                        <CellError id={`it-${k}`}>{v.err(`it-${k}`)}</CellError>
+                      </>
+                    ) : (
+                      <span className="num">{saved[k]} days</span>
+                    )}
+                  </td>
+                  <td className="cfg__muted">{what}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+      <History log={cfg.log} area="Intake timings" />
     </>
   );
 }
