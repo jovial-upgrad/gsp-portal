@@ -4,7 +4,7 @@ import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Field } from '../../components/forms';
 import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
-import { CLOSE_AT, STAGES, STATUS, STATUS_ORDER, destOf, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
+import { CLOSE_AT, STAGES, STATUS, STATUS_ORDER, destOf, phaseOf, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
 
 /** Where the application goes: a status, or closed at a stage, and how. */
 export type StatusPick = { k: StatusKey; visaBy?: 'you' | 'gsp' } | { end: EndKind; stage: number };
@@ -34,7 +34,8 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const stages: MenuOption[] = STAGES.map((st, i) => ({ value: String(i), label: `${i + 1}. ${st}`, note: i === stageOf(a) ? 'Now' : undefined }));
   const statuses: MenuOption[] = [
-    ...STATUS_ORDER.filter((x) => STATUS[x].stage === stage).map((x) => ({ value: x, label: STATUS[x].text(d), note: x === a.status ? 'Now' : undefined })),
+    // the Application stage splits into Before and After submission (engineering review, 1 Nov), from the status data
+    ...STATUS_ORDER.filter((x) => STATUS[x].stage === stage).map((x) => ({ value: x, label: STATUS[x].text(d), note: x === a.status ? 'Now' : undefined, group: phaseOf(x) })),
     ...CLOSE_AT[stage].map((kind) => ({ value: `end:${stage}:${kind}`, label: `Closed: ${kind}`, group: 'Close the application' })),
   ];
   const okStatus = !!k && k !== a.status;

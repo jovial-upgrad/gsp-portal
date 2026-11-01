@@ -254,8 +254,6 @@ export const FIELD_LABEL: Record<string, string> = {
   src: 'How you found us', pw: 'Password', pw2: 'Password, again',
 };
 
-/** WhatsApp is the update channel in these markets (brief); elsewhere it's email. */
-export const WHATSAPP_MARKETS = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam'];
 
 const KEY = 'gsp-agency-signup-v1';
 export function loadDraft(): SignupState | null {

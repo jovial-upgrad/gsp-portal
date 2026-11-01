@@ -34,7 +34,6 @@ export type Filters = {
   soon: boolean;
   schol: boolean;
   noFee: boolean;
-  shortlisted: boolean;
   /** The tuition cap as it was typed in rupees ("under 25 lakhs"), to say it back the same way. */
   feeLakh?: number;
 };
@@ -60,7 +59,7 @@ export type CourseSearch = {
   studentId?: string;
 };
 
-export const NO_FILTERS: Filters = { uni: '', intake: '', maxFee: 0, maxIelts: 0, open: false, soon: false, schol: false, noFee: false, shortlisted: false };
+export const NO_FILTERS: Filters = { uni: '', intake: '', maxFee: 0, maxIelts: 0, open: false, soon: false, schol: false, noFee: false };
 
 /** The student's country and state start as the agency's own (it says so, and they can be changed). */
 export const newSearch = (country = 'India', state = ''): CourseSearch => ({
@@ -302,7 +301,28 @@ export type Results = {
   alias?: string;
   /** Matches before the filters, for "N courses match so far". */
   before: number;
+  /** Those matches themselves: the filters offer only what's in them (1 Nov). */
+  pool: Course[];
 };
+
+/**
+ * Whether a course passes the filters. With `skip`, every filter but that one: what a filter offers is what the
+ * other filters leave (1 Nov), so a university picked doesn't hide the other universities.
+ */
+export function passes(c: Course, f: Filters, skip?: keyof Filters) {
+  const on = <K extends keyof Filters>(k: K) => k !== skip && !!f[k];
+  return (
+    (!on('uni') || c.uni.id === f.uni) &&
+    (!on('intake') || c.intakes.some((i) => i.month.startsWith(f.intake) && intakeState(i) !== 'closed')) &&
+    (!on('maxFee') || c.tuition <= f.maxFee) &&
+    (!on('maxIelts') || c.ielts[0] <= f.maxIelts) &&
+    (!on('open') || !!nextOpen(c)) &&
+    (!on('soon') || (nextDeadline(c) >= 0 && nextDeadline(c) <= intakeTimes().countdownDays)) &&
+    // the university record's scholarships that fit the course (HC9)
+    (!on('schol') || scholarshipsOf(c).length > 0) &&
+    (!on('noFee') || c.appFee === 0)
+  );
+}
 
 function keywordMatch(c: Course, q: string[]) {
   const hay = words(`${c.name} ${c.uni.name} ${(c.uni.aka ?? []).join(' ')} ${c.campus.name} ${c.campus.city} ${c.area}`);
@@ -319,19 +339,7 @@ export function results(s: CourseSearch): Results {
   const blocked = n.country ? pool.filter((c) => blockedFor(c.uni, n.country, n.state)) : [];
   pool = pool.filter((c) => !blocked.includes(c));
   const before = pool.length;
-  let list = pool.filter(
-    (c) =>
-      (!f.uni || c.uni.id === f.uni) &&
-      (!f.intake || c.intakes.some((i) => i.month.startsWith(f.intake) && intakeState(i) !== 'closed')) &&
-      (!f.maxFee || c.tuition <= f.maxFee) &&
-      (!f.maxIelts || c.ielts[0] <= f.maxIelts) &&
-      (!f.open || !!nextOpen(c)) &&
-      (!f.soon || (nextDeadline(c) >= 0 && nextDeadline(c) <= intakeTimes().countdownDays)) &&
-      // the university record's scholarships that fit the course (HC9)
-      (!f.schol || scholarshipsOf(c).length > 0) &&
-      (!f.noFee || c.appFee === 0) &&
-      (!f.shortlisted || s.shortlist.includes(c.id)),
-  );
+  let list = pool.filter((c) => passes(c, f));
   const by: Record<Sort, (a: Course, b: Course) => number> = {
     match: (a, b) => Number(isPriority(b, n.country)) - Number(isPriority(a, n.country)) || Number(!!nextOpen(b)) - Number(!!nextOpen(a)) || nextDeadline(a) - nextDeadline(b),
     deadline: (a, b) => nextDeadline(a) - nextDeadline(b),
@@ -340,7 +348,7 @@ export function results(s: CourseSearch): Results {
     earn: (a, b) => earnOf(b) - earnOf(a),
   };
   list = [...list].sort(by[s.sort === 'earn' ? 'match' : s.sort]);
-  return { list, hidden: blocked.length, hiddenBy: [...new Set(blocked.map((c) => c.uni.name))], uni: named?.uni ?? null, alias: named?.alias, before };
+  return { list, pool, hidden: blocked.length, hiddenBy: [...new Set(blocked.map((c) => c.uni.name))], uni: named?.uni ?? null, alias: named?.alias, before };
 }
 
 /** How many courses the fields chosen so far would give, while some are still empty. */

@@ -32,6 +32,10 @@ function fresh() {
 let state;
 try { state = JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch { state = fresh(); }
 if (!state.mail || !state.mail.threads) state = fresh();
+// engineering review, 1 Nov: queues saved before it may still say round robin, members pick or back to the queue
+const SHARED = ['fewest-open', 'record-owner'];
+state.queues = (state.queues || []).map(q => (SHARED.includes(q.assign) && q.cover === 'leader' ? q : { ...q, assign: SHARED.includes(q.assign) ? q.assign : 'fewest-open', cover: 'leader' }));
+state.rules = (state.rules || []).map(r => (r.who === 'round-robin' ? { ...r, who: 'fewest-open' } : r));
 const listeners = new Set();
 
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full or blocked */ } }
@@ -190,5 +194,10 @@ export function waitOf(rec) {
 }
 
 export const SLA_PILL = { 'on-track': ['On track', 'dpill--verified'], 'due-soon': ['Due soon', 'dpill--checking'], breached: ['Breached', 'dpill--bad'], done: ['Done', 'dpill--verified'] };
-export const ASSIGN = { 'fewest-open': 'Fewest open applications', 'record-owner': 'Record owner', 'round-robin': 'Round robin', 'members-pick': 'Members pick', 'leader-assigns': 'Leader assigns', 'not-maker': 'Anyone but the maker', owner: 'Record owner' };
-export const COVER = { leader: 'To the leader', queue: 'Back to the queue', 'round-robin': 'Round robin to others' };
+export const ASSIGN = { 'fewest-open': 'Fewest open', 'record-owner': 'Record owner', 'members-pick': 'Members pick', 'leader-assigns': 'Leader assigns', 'not-maker': 'Anyone but the maker', owner: 'Record owner' };
+/** How a queue shares its work (engineering review, 1 Nov): only these two. No round robin, and nothing goes back to the queue. */
+export const QUEUE_ASSIGN = { 'fewest-open': 'Fewest open', 'record-owner': 'Record owner' };
+export const QUEUE_ASSIGN_HELP = {
+  'fewest-open': 'New work goes to the member with the fewest open tasks. People on leave are skipped.',
+  'record-owner': 'Follow-up work on a record goes to whoever owns it, or handled it last.',
+};

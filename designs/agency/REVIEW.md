@@ -25,9 +25,13 @@ How this list works: before changing a page, check its section here. When an ite
 
 ## Sign in, Become a partner, Check your email, portal Home while registering
 
+- [x] Engineering walkthrough, 1 Nov (Rishi, Prince, Abhay): no hint under Country, no referral code, no WhatsApp (copy now says email); owner contact ticked by default and the commissions email stay. (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
+
 No changes from this review.
 
 ## Find courses: search and results
+
+- [x] Engineering walkthrough, 1 Nov: **Select student** is off until GSP verifies the agency; no **Shortlisted only** filter; results in **pages of 20** (Previous, numbers, Next); the left filters offer only what's in the results, and University is searchable, A to Z, 10 at a time. Open: Best match and Deadline soonest logic, ranking by CSV, search type (sheet, *Walkthrough 1 Nov*). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
 - [x] Add **Intake** to the main search bar, next to Destination (there's room). Today it's only in the side filters. Free text like "nursing in Australia, Feb" fills it in. (27 Oct: sixth part of the bar, optional, "Any" by default; out of the side filters)
 - [x] Rename **You earn** to **Base commission**. The Student view still hides it. (27 Oct: on the cards, the sort ("Highest base commission"), the course page, the application page and GSP Assist's answer)
@@ -49,6 +53,8 @@ No changes from this review.
 - [x] Nesil, 30 Oct, in RP Admin, GSP Team and GSP · Institution: **no offer time anywhere** in Find courses (Course search): not on the cards (“Offer in about 5 days”, still on GSP Team’s and the Institution Team’s), not in the dialog (its fact strip and “Typical offer time”), and no **Offer within 7 days** filter or **Fastest offer** sort. (30 Oct, commit “30 Oct review: course search trimmed, the RP on GSP’s adds, Institution edits”)
 
 ## Course page
+
+- [x] Engineering walkthrough, 1 Nov: no Compare inside the course dialog (Compare stays on the cards; the comparison downloads as PDF and CSV). Open: when the comparison highlights a value. (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
 - [x] **Remove "Show only this university in results".** (Decision) (27 Oct, with the redesign below)
 - [x] Rename **You earn** to **Base commission**, as on the results. (27 Oct)
@@ -79,6 +85,8 @@ No changes from this review.
 
 ## Add a student
 
+- [x] Engineering walkthrough, 1 Nov: **passport number required**; the duplicate check is by passport number within the RP only (no email or cross-RP check). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
+
 - [ ] Collect **every mandatory field** here, so the profile never shows a mandatory field as pending.
   - Open question: which fields are mandatory? Today passport number, gender, date of birth, passport expiry, state and city are later listed as "missing".
 
@@ -86,6 +94,8 @@ No changes from this review.
 - [x] Nesil, 30 Oct, in GSP Team and GSP · Institution, not RP Admin: **Recruitment partner** first in Add a student (required): GSP adds students for a recruitment partner. The list is the ones whose agreement is signed. (30 Oct, commit “30 Oct review: course search trimmed, the RP on GSP’s adds, Institution edits”)
 
 ## Student record
+
+- [x] Engineering walkthrough, 1 Nov: one **Edit** in each section's header; autofill from a document happens **once**, then "Filled in from … Correct any field by hand." Open: profile completeness counts mandatory or optional fields (this page's item above says optional; the walkthrough said mandatory). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
 - [x] **Lead with bulk document upload and auto-reading**, then show what's still missing in each section. (27 Oct, commit “Student record: one page, led by uploading every document”)
   - Nesil, 29 Oct (last round): no lines under the parts of Personal details (Personal, English test, Work experience, Background) or under Where they live; "The highest education is required. Other levels are optional." under the highest education; Documents has no "Needed to apply" and its line sits under the title; My applications cards have the university's logo; **Start application opens Add an application on the profile**. In Add a student: no hint under the highest education, the dialog scrolls to new files, a light line above Choose files. (29 Oct, commit “Notifications bottom left; compare beside the star; profile without section lines; Add an application on the profile”)
@@ -116,6 +126,8 @@ No changes from this review.
 - [x] Nesil, 27 Oct (2nd round): **no lines under the status** (time at the step, "usually N days", "GSP asked"); the CSV drops them too.
 
 ## Add an application
+
+- [x] Engineering walkthrough, 1 Nov: one **open** application per student and course (any intake; closed ones don't block); GSP Assist's eligibility check never blocks. (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
 - [ ] Intakes: replace "Likely to open" with the deadline, batch start date and census date.
 - [x] If commission shows here, call it **Base commission**. (27 Oct: it doesn't show here)
@@ -176,6 +188,8 @@ No changes from this review.
 - [x] Nesil, 27 Oct (3rd round): a **liquid-glass frame** round the chat (the messages stay on a solid panel); **space and a light upright line** between the status and More.
 
 ## GSP Team
+
+- [x] Engineering walkthrough, 1 Nov: Change status groups the Application stage into **Before submission** and **After submission**; new status **Additional documents submitted to university**. Queues share work by **Fewest open** or **Record owner** only (round robin gone; SEA Admissions is Fewest open). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
 The GSP Team role (the Role switch beside Prototype) starts as a copy of the agency portal, seen from GSP's side. What changes here doesn't touch RP Admin.
 

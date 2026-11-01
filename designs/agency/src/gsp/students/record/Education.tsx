@@ -22,7 +22,7 @@ import {
   type Student,
 } from '../../../data/students';
 import { parseMonth, typeMonth } from '../../../data/dates';
-import { ReadBox, ReadNote, readMs } from '../ReadBox';
+import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
 import { Sel, Txt, type Update } from './fields';
 import { fillFromEducation, saveEducation } from './read';
 
@@ -100,6 +100,8 @@ function LevelCard({
   const doc = s.docs[eduDocKey(l)];
   const from = isSchool(l) ? 'marksheet' : 'transcript';
   const read = (f: keyof Edu) => (s.read.includes(`edu.${l}.${f}`) ? from : null);
+  // autofill is one-time (1 Nov): once the document filled this level in, it's corrected by hand
+  const filled = filledAt(s, eduDocKey(l));
   const states = countryByName(e.country)?.states ?? [];
   const left = eduFields(l, e).filter(([, , ok]) => !ok).length;
   const pct = pctOf(e);
@@ -131,7 +133,7 @@ function LevelCard({
         )}
       </header>
 
-      {reading || (!doc && !(e.level || e.institution || e.qualification || e.score)) ? (
+      {reading || (!filled && !doc && !(e.level || e.institution || e.qualification || e.score)) ? (
         <ReadBox
           id={id('file')}
           compact
@@ -143,7 +145,7 @@ function LevelCard({
           onFile={readFile}
         />
       ) : (
-        doc && s.read.some((k) => k.startsWith(`edu.${l}.`)) && <ReadNote text={`Filled in from the ${from}, which is in Documents. What was read is highlighted: check it.`} />
+        filled && <ReadNote text={filledText(eduDocName(l).toLowerCase(), filled)} />
       )}
 
       <div className="grid2">

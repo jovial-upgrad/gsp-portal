@@ -2,18 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
-import { Icon } from '../../components/Icon';
 import { Checkbox, Field, Form, SelectInput, TextInput, describedBy } from '../../components/forms';
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { countryByName } from '../../data/partners';
-import { HIGHEST, fullName, readPassport, type Level, type Member, type Student } from '../../data/students';
-import { FIELD_ORDER, atOtherAgency, isDirty, makeStudent, newAdd, sameStudent, validate, type AddForm, type AddState, type FieldKey } from './form';
+import { HIGHEST, readPassport, type Level, type Member, type Student } from '../../data/students';
+import { FIELD_ORDER, isDirty, makeStudent, newAdd, sameStudent, validate, type AddForm, type AddState, type FieldKey } from './form';
 import { ReadBox, readMs } from './ReadBox';
 import { addedLabel } from './parts';
 import { AddDocs, fileError, type BulkFile, type Failed } from './AddDocs';
 import { classify, fileInto } from './record/sort';
-import { RPS, rpLabel } from '../rps';
+import { RPS, rpLabel, rpOf } from '../rps';
 import { rpTeam } from '../../data/rpteam';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -64,11 +63,13 @@ export function AddStudentSheet({
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
   const keepRef = useRef<HTMLButtonElement>(null);
   const f = a.f;
-  const errors = useMemo(() => validate(f, list), [f, list]);
-  const dup = sameStudent(f, list);
-  const other = atOtherAgency(f.passport) && !dup.byPassport;
+  // duplicates are checked within the chosen RP only (1 Nov): the same passport at another RP is allowed
+  const mine = useMemo(() => (f.rp ? list.filter((x) => rpOf(x) === f.rp) : []), [list, f.rp]);
+  const errors = useMemo(() => validate(f, mine), [f, mine]);
+  // the duplicate check: same passport number, this agency only (1 Nov); it blocks, and says who straight away
+  const dup = sameStudent(f, mine);
 
-  const show = (k: FieldKey) => (a.submitted || a.touched[k] ? errors[k] ?? null : null);
+  const show = (k: FieldKey) => (a.submitted || a.touched[k] || (k === 'passport' && dup.byPassport) ? errors[k] ?? null : null);
   const touch = (k: FieldKey) => setA((p) => ({ ...p, touched: { ...p.touched, [k]: true } }));
   const up = (patch: Partial<AddForm>) => setA((p) => ({ ...p, f: { ...p.f, ...patch }, auto: p.auto.filter((k) => !(k in patch)) }));
   const isAuto = (k: keyof AddForm) => a.auto.includes(k);
@@ -266,30 +267,23 @@ export function AddStudentSheet({
             />
           </Field>
           <div>
-            <Field id="as-passport" label="Passport number" error={show('passport')} hint={autoHint('passport') ?? 'Optional now, needed to apply. It lets GSP spot a student another agency already added.'}>
+            <Field id="as-passport" required label="Passport number" error={show('passport')} hint={autoHint('passport')}>
               <TextInput
                 id="as-passport"
                 autoComplete="off"
                 value={f.passport}
                 className={isAuto('passport') ? 'is-auto' : ''}
                 invalid={!!show('passport')}
-                aria-describedby={describedBy('as-passport', show('passport'), true)}
+                aria-describedby={describedBy('as-passport', show('passport'), autoHint('passport'))}
                 onChange={(e) => up({ passport: e.target.value.toUpperCase() })}
                 onBlur={() => touch('passport')}
               />
             </Field>
             <AnimatePresence initial={false}>
               {dup.byPassport && <Dupe key="dp" s={dup.byPassport} team={team} onOpen={onOpenStudent} fade={fade} pick={forApplication} />}
-              {other && (
-                <motion.p key="other" className="anote" {...fade}>
-                  <Icon name="info" size={16} />
-                  <span>This passport is on a student at another agency. You can still add them: GSP will ask the student which agency they want to apply with.</span>
-                </motion.p>
-              )}
             </AnimatePresence>
           </div>
-          <div>
-            <Field id="as-email" required label="Email" hint="Used on university applications. GSP never sends students marketing." error={show('email')}>
+          <Field id="as-email" required label="Email" hint="Used on university applications. GSP never sends students marketing." error={show('email')}>
               <TextInput
                 id="as-email"
                 type="email"
@@ -301,10 +295,6 @@ export function AddStudentSheet({
                 onBlur={() => touch('email')}
               />
             </Field>
-            <AnimatePresence initial={false}>
-              {dup.byEmail && dup.byEmail !== dup.byPassport && <Dupe key="de" s={dup.byEmail} team={team} onOpen={onOpenStudent} fade={fade} pick={forApplication} />}
-            </AnimatePresence>
-          </div>
           <Field id="as-phone" required label="Phone number" error={show('phone')}>
             <PhoneInput
               id="as-phone"
@@ -351,14 +341,11 @@ export function AddStudentSheet({
   );
 }
 
-/** Someone already in this agency's students: who, when and with whom, and a way to open them instead. */
+/** The student who already has this passport number (the field's error names them): when and with whom, and a way to open them instead. */
 function Dupe({ s, team, onOpen, fade, pick = false }: { s: Student; team: Member[]; onOpen: (s: Student) => void; fade: object; pick?: boolean }) {
   const who = team.find((m) => m.id === s.counsellor)?.name;
   return (
     <motion.div className="dupe" {...fade}>
-      <p className="dupe__t">
-        <strong>{fullName(s)}</strong> is already in your students.
-      </p>
       <p className="dupe__meta">
         {addedLabel(s.added)}
         {who ? ` · with ${who}` : ''}

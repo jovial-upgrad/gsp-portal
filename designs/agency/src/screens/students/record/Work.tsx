@@ -4,7 +4,7 @@ import { Checkbox } from '../../../components/forms';
 import { Icon } from '../../../components/Icon';
 import type { Student, Work as Job } from '../../../data/students';
 import { parseMonth, typeMonth } from '../../../data/dates';
-import { ReadBox, ReadNote, readMs } from '../ReadBox';
+import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
 import { Txt, type Update } from './fields';
 import { fillFromResume, saveResume } from './read';
 
@@ -42,11 +42,13 @@ export function Work({ s, update }: { s: Student; update: Update }) {
   const setJob = (id: string, patch: Partial<Job>) =>
     update((p) => ({ ...p, work: p.work.map((j) => (j.id === id ? { ...j, ...patch } : j)), read: p.read.filter((k) => !Object.keys(patch).some((f) => k === `work.${id}.${f}`)) }));
   const read = (id: string, f: keyof Job) => (s.read.includes(`work.${id}.${f}`) ? 'resume' : null);
+  // autofill is one-time (1 Nov): once the resume filled this in, jobs are corrected or added by hand
+  const filled = filledAt(s, 'cv');
   const remove = (id: string) => update((p) => ({ ...p, work: p.work.filter((j) => j.id !== id) }));
 
   return (
     <div className="rsec">
-      {reading || (!s.docs.cv && s.work.length === 0) ? (
+      {reading || (!filled && !s.docs.cv && s.work.length === 0) ? (
         <ReadBox
           id="rw-file"
           title="Fill this in from the resume"
@@ -57,7 +59,7 @@ export function Work({ s, update }: { s: Student; update: Update }) {
           onFile={readFile}
         />
       ) : (
-        s.docs.cv && s.read.some((k) => k.startsWith('work.')) && <ReadNote text="Jobs read from the resume, which is in Documents as the CV, are highlighted: check them." />
+        filled && <ReadNote text={filledText('resume', filled)} />
       )}
       {s.work.length > 0 && total > 0 && (
         <p className="rtotal">

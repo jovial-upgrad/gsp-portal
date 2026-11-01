@@ -4,7 +4,7 @@ import { Icon } from '../../../components/Icon';
 import { TESTS, inRange, rangeText, testDocKey, type Student, type Test } from '../../../data/students';
 import { fillFromTest, saveTest } from './read';
 import { parseDate, shortDate, typeDate } from '../../../data/dates';
-import { ReadBox, ReadNote, readMs } from '../ReadBox';
+import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
 import { Txt, type Update } from './fields';
 import { useRevealErrors } from '../../../components/validate';
 
@@ -47,6 +47,8 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
   const id = (f: string) => `rt-${t.id}-${f}`;
   const doc = s.docs[testDocKey(t)];
   const read = (f: string) => (s.read.includes(`test.${t.id}.${f}`) ? 'score report' : null);
+  // autofill is one-time (1 Nov): once the score report filled this in, it's corrected by hand
+  const filled = filledAt(s, testDocKey(t));
   const set = (patch: Partial<Test>, field: string) =>
     update((p) => ({ ...p, tests: p.tests.map((x) => (x.id === t.id ? { ...x, ...patch } : x)), read: p.read.filter((k) => k !== `test.${t.id}.${field}`) }));
   const date = parseDate(t.date);
@@ -82,7 +84,7 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
           <Icon name="close" size={16} />
         </button>
       </header>
-      {reading || (!doc && !(t.cert || t.date || t.overall)) ? (
+      {reading || (!filled && !doc && !(t.cert || t.date || t.overall)) ? (
         <>
           <ReadBox id={id('file')} compact title="Fill this in from the score report *" text="Upload it and we fill in the scores below. It’s kept in Documents." button="Upload report" file={doc?.file} reading={reading} onFile={readFile} />
           {noReport && (
@@ -100,9 +102,8 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
             </p>
           )}
         </>
-      ) : (
-        doc && s.read.some((k) => k.startsWith(`test.${t.id}.`)) && <ReadNote text="Filled in from the score report, which is in Documents. What was read is highlighted: check it." />
-      )}
+      ) : null}
+      {filled && !reading && <ReadNote text={filledText(`${def.name} score report`, filled)} />}
       <div className="grid2">
         <Txt id={id('cert')} label="Certificate ID" required error={t.cert.trim() ? null : 'Enter the certificate ID.'} value={t.cert} read={read('cert')} hint={def.cert} onChange={(v) => set({ cert: v }, 'cert')} />
         <Txt
