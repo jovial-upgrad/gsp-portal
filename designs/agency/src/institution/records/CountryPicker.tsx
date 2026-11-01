@@ -1,19 +1,12 @@
+import { REGION_COUNTRIES } from '../../admin/data/config';
 import { useEffect, useMemo, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { COUNTRIES } from '../../data/partners';
 
-/** Regions to tick at once, as in the PM prototype's territory picker, named as the country list names them. */
-export const REGIONS_OF: Record<string, string[]> = {
-  'South Asia': ['India', 'Nepal', 'Sri Lanka', 'Bangladesh', 'Pakistan', 'Bhutan', 'Maldives'],
-  'South-East Asia': ['Vietnam', 'Indonesia', 'Philippines', 'Myanmar', 'Malaysia', 'Thailand', 'Cambodia', 'Laos'],
-  'East Asia': ['China', 'Hong Kong S.A.R.', 'Taiwan', 'South Korea', 'Japan', 'Mongolia'],
-  'Middle East': ['United Arab Emirates', 'Saudi Arabia', 'Oman', 'Qatar', 'Kuwait', 'Bahrain', 'Jordan', 'Iran', 'Iraq'],
-  Africa: ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cameroon', 'Cape Verde', 'Central African Republic', 'Chad', 'Comoros', 'Congo', 'Democratic Republic of the Congo', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Swaziland', 'Ethiopia', 'Gabon', 'The Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', "Cote D'Ivoire (Ivory Coast)", 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'],
-  'Central Asia': ['Uzbekistan', 'Kazakhstan', 'Kyrgyzstan', 'Tajikistan', 'Turkmenistan'],
-  'Latin America': ['Brazil', 'Colombia', 'Mexico', 'Peru', 'Chile', 'Argentina', 'Ecuador'],
-};
+/** Regions to tick at once: Admin › Sales regions and their countries (Jovial, 1 Nov, HC42). */
+export const REGIONS_OF: Record<string, string[]> = REGION_COUNTRIES;
 
 /**
  * Picks countries in a pop-up (29 Oct, 7th round), as the PM prototype's territory picker does: a search, a whole

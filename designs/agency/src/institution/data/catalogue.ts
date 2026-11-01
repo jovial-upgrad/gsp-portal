@@ -1,3 +1,4 @@
+import { salesRegionNames } from '../../admin/data/config';
 /**
  * The catalogue as the Institution Team keeps it (29 Oct, 2nd round, from the PM prototype's IP team): each
  * university sits under one institution partner and goes live on its own; it has campuses that can be made inactive,
@@ -66,7 +67,8 @@ export const FORM_FOR = ['All courses', 'Undergraduate', 'Postgraduate', 'Resear
 export type FormFor = (typeof FORM_FOR)[number];
 export type SubmissionForm = { id: string; name: string; file: string; for: FormFor };
 
-export const REGIONS = ['All regions', 'India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Nigeria', 'Rest of the world'] as const;
+/** The sales regions a submission contact covers: Admin › Sales regions (Jovial, 1 Nov, HC38). */
+export const REGIONS: string[] = ['All regions', ...salesRegionNames().filter((r) => r !== 'Global')];
 export type Login = { id: string; region: string; username: string; secret: string; added: string; by: string };
 
 /** A campus as the team keeps it (30 Oct): its country, state and Google Maps link too. */

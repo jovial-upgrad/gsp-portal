@@ -1,3 +1,4 @@
+import { renewalDays } from '../../work/renewal';
 /**
  * The Institution Team's queue (29 Oct, 2nd round, after the PM prototype's My queues): every task waiting on the
  * team, made from the records as they stand, oldest first. A task leaves the queue when its record no longer needs
@@ -42,7 +43,7 @@ export function tasksFor(ips: InstitutionPartner[], unis: UniRec[], courses: Cou
     const st = stagesOf(p);
     const a = agreementOf(p);
     if (!a || !(st.includes('ending') || st.includes('ended'))) continue;
-    out.push({ id: `t-renew-${p.id}`, type: 'Renew an agreement', item: p.name, sub: `${endsText(a.end)}: add the renewal under Documents`, who: p.rm, since: plus(a.end, -60), late: daysTo(a.end) < 21, open: { section: 'ips', id: p.id, tab: 'documents' } });
+    out.push({ id: `t-renew-${p.id}`, type: 'Renew an agreement', item: p.name, sub: `${endsText(a.end)}: add the renewal under Documents`, who: p.rm, since: plus(a.end, -renewalDays()), late: daysTo(a.end) < 21, open: { section: 'ips', id: p.id, tab: 'documents' } });
   }
   return out.sort((a, b) => a.since.localeCompare(b.since));
 }

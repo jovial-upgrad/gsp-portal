@@ -1,3 +1,4 @@
+import { renewalDays } from '../../work/renewal';
 import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -13,7 +14,7 @@ import type { PageProps } from '../portal/model';
 const TILES: { key: Stage; label: string; sub: string; tone: Tone }[] = [
   { key: 'executed', label: 'Agreement executed', sub: 'Its universities can go live', tone: 'ok' },
   { key: 'before', label: 'Before agreement', sub: 'Prospect to agreement received', tone: 'gsp' },
-  { key: 'ending', label: 'Ending in 60 days', sub: 'Renewal reminder sent', tone: 'you' },
+  { key: 'ending', label: `Ending in ${renewalDays()} days`, sub: 'Renewal reminder sent', tone: 'you' },
   { key: 'ended', label: 'Agreement ended', sub: 'End date passed, not renewed', tone: 'bad' },
   { key: 'closed', label: 'Closed', sub: 'Didn’t go ahead, ended or merged', tone: 'grey' },
 ];
