@@ -148,13 +148,16 @@ export type Student = {
   docs: Record<string, Doc>;
   /** Fields read from an uploaded document, until someone edits them. */
   read: string[];
+  /**
+   * The documents already used to fill the profile in, by their key in `docs` (passport, edu-ug, test-…, cv), and
+   * when. Autofill is one-time (1 Nov, with engineering): after it, the part is corrected by hand.
+   */
+  filled?: Record<string, number>;
   // around the student
   counsellor: string;
   added: number;
   addedBy: string;
   apps: StudentApp[];
-  /** The passport is on a student at another agency: GSP asks the student which agency they want. */
-  consentCheck?: boolean;
   /** Courses shortlisted for the student in Find courses, by id. */
   shortlist?: string[];
 };
@@ -216,9 +219,6 @@ export function readiness(s: Student) {
 }
 
 /* ---------- reading documents (OCR in the real product; sample values here) ---------- */
-
-/** Passports already on students at other agencies (sample). */
-export const OTHER_AGENCY_PASSPORTS = ['N4417720', 'P7712045'];
 
 /** What the passport page reads as. A file named after a person uses that name. */
 export function readPassport(fileName: string) {
