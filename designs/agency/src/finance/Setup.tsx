@@ -11,7 +11,7 @@ import { Page, Card, Select, Table, Button, LinkButton, Field, Input, Num, Notic
 import { useCheck, numError } from '../components/validate';
 import { useUnsaved } from '../components/unsaved';
 import { PersonaBar, usePersona } from './persona';
-import { useComm, opsOf, DAYS, proposeChange, applyChange, impactOf, aud } from './shared';
+import { useComm, opsOf, DAYS, proposeChange, applyChange, impactOf, aud, ENGINE_EXCEPTIONS } from './shared';
 import { Settings } from './Terms';
 
 const PAGES = [['gspx-fin-home', 'Home'], ['gspx-fin-uni', 'University invoices'], ['gspx-fin-rp', 'RP commission'], ['gspx-fin-run', 'Payout run'], ['gspx-fin-exc', 'Exceptions'], ['gspx-fin-terms', 'Commission terms'], ['gspx-fin-reports', 'Reports'], ['gspx-fin-setup', 'Finance setup'], ['gspx-mail', 'Mail'], ['gspx-mywork', 'My work']];
@@ -27,7 +27,9 @@ export default function Setup() {
   const set = (k, v) => setD(x => ({ ...x, [k]: v }));
   const changed = JSON.stringify(d) !== JSON.stringify(saved);
   const pending = c.checks.some(k => k.status === 'waiting' && k.area === 'settings');
-  const queues = [['q-finance', 'Finance'], ['officer', 'The application’s admission officer'], ['q-institution', 'Institution'], ['q-rp-ops', 'Recruitment Ops'], ['q-adm-ops', 'Admission Ops'], ['legal', 'Legal']];
+  // where an exception goes: the Work queues (Work › Queues, SLA and escalation; HC46), the officer, or Legal
+  const queues = [...s.queues.filter(q => q.kind === 'team').map(q => [q.id, q.name]), ['officer', 'The application’s admission officer'], ['legal', 'Legal']];
+  const [newExc, setNewExc] = useState('');
   const finance = s.users.filter(u => u.role === 'finance');
   // QC, 1 Nov: no negative or empty days, a prefix and names that aren't blank; checked when left and on Send
   const slaErr = d.exceptions.map(x => numError(x.sla, { what: `SLA for ${x.type}`, min: 1, max: 60, int: true, required: true }));
@@ -39,6 +41,7 @@ export default function Setup() {
     batch: d.batches.some(b => !String(b.name).trim()) ? 'Give every batch a name.' : null,
     sla: slaErr.find(Boolean) || null,
     jobs: d.jobs.some(j => !String(j.name).trim()) ? 'Give every job a name.' : dayErr.find(Boolean) || null,
+    ahead: ['annuity', 'notices', 'contracts'].map(k => numError(d.lookAhead[k], { what: 'days to look ahead', min: 1, max: 365, int: true, required: true })).find(Boolean) || null,
   };
   const page = React.useRef(null);
   const v = useCheck(errors, () => page.current);
@@ -103,16 +106,31 @@ export default function Setup() {
 
       <Card flush>
         <div className="gspx-pad"><h2 className="gspx-h3">Exceptions</h2><p className="muted">What each exception does and who fixes it. Each one raises a task with this SLA.</p></div>
-        <Table head={['Exception', 'Blocks payment', 'Goes to', 'SLA (working days)']}>
+        <Table head={['Exception', 'Blocks payment', 'Goes to', 'SLA (working days)', '']}>
           {d.exceptions.map((x, i) => (
             <tr key={x.type} className="irow">
-              <td className="cfg__strong">{x.type}</td>
+              <td className="cfg__strong">{x.type}<span className="irow__sub">{ENGINE_EXCEPTIONS.includes(x.type) ? 'Raised by the commission engine' : 'Raised by hand'}</span></td>
               <td><input type="checkbox" aria-label={`${x.type} blocks payment`} disabled={!canEdit} checked={x.blocks} onChange={e => row('exceptions', i, { blocks: e.target.checked })} /></td>
               <td><Select id={`ex-${i}`} label={`${x.type}: goes to`} hideLabel disabled={!canEdit} value={x.to} onChange={y => row('exceptions', i, { to: y })} options={queues} /></td>
               <td><Num label={`${x.type}: SLA (working days)`} disabled={!canEdit} value={x.sla} error={(v.err('sla') && slaErr[i]) || undefined} onBlur={v.blur('sla')} onChange={y => row('exceptions', i, { sla: y })} /></td>
+              <td>{canEdit && !ENGINE_EXCEPTIONS.includes(x.type) && <LinkButton aria-label={`Remove ${x.type}`} onClick={() => set('exceptions', d.exceptions.filter((_, j) => j !== i))}>Remove</LinkButton>}</td>
             </tr>))}
         </Table>
+        {canEdit && <div className="gspx-pad gspx-inline">
+          <Field id="ex-new" label="Add an exception type"><Input id="ex-new" value={newExc} onChange={setNewExc} placeholder="Like: Duplicate enrolment" /></Field>
+          <Button disabled={!newExc.trim() || d.exceptions.some(x => x.type.toLowerCase() === newExc.trim().toLowerCase())} onClick={() => { set('exceptions', [...d.exceptions, { type: newExc.trim(), blocks: false, sla: 2, to: 'q-finance' }]); setNewExc(''); }}>Add</Button>
+        </div>}
         {v.err('sla') && <p className="field__msg field__msg--error gspx-pad" role="alert">{v.err('sla')}</p>}
+      </Card>
+
+      <Card>
+        <h2 className="gspx-h3">Look-ahead</h2>
+        <p className="muted">How far ahead Finance home and Commission terms look for what’s coming up.</p>
+        <div className="gspx-form2">
+          <Field id="la-ann" label="Annuity lines due within (days)" required error={v.err('ahead')}><Input id="la-ann" type="number" value={d.lookAhead.annuity} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, annuity: x === '' ? '' : Number(x) })} /></Field>
+          <Field id="la-not" label="Notices ending within (days)" required><Input id="la-not" type="number" value={d.lookAhead.notices} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, notices: x === '' ? '' : Number(x) })} /></Field>
+          <Field id="la-con" label="Contracts ending within (days)" required><Input id="la-con" type="number" value={d.lookAhead.contracts} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, contracts: x === '' ? '' : Number(x) })} /></Field>
+        </div>
       </Card>
 
       <Card flush>

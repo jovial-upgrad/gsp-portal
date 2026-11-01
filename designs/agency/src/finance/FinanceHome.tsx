@@ -28,8 +28,8 @@ export default function FinanceHome() {
   const checks = c.checks.filter(k => k.status === 'waiting');
   const forMe = checks.filter(k => k.maker !== user.id);
   const mail = s.mail.emails.filter(e => e.mailbox === 'mb-comm' && e.state === 'new');
-  const ann = res.ip.filter(x => x.l.annuity && /Ready to invoice|Not yet due/.test(x.l.st[0]) && x.l.date <= addDays(today, 31));
-  const ending = cfg.unis.filter(u => u.ends && u.ends >= today && u.ends <= addDays(today, 90)).length + cfg.notices.filter(n => n.end && n.end >= today && n.end <= addDays(today, 31)).length;
+  const ann = res.ip.filter(x => x.l.annuity && /Ready to invoice|Not yet due/.test(x.l.st[0]) && x.l.date <= addDays(today, opsOf(cfg).lookAhead.annuity));
+  const ending = cfg.unis.filter(u => u.ends && u.ends >= today && u.ends <= addDays(today, opsOf(cfg).lookAhead.contracts)).length + cfg.notices.filter(n => n.end && n.end >= today && n.end <= addDays(today, opsOf(cfg).lookAhead.notices)).length;
   const runText = run.status === 'draft' ? `${Object.keys(run.payees).length} RPs, ${aud(sum(run.lines, L => L.aud))} to prepare` : run.status === 'prepared' ? `Prepared by ${nameOf(s, run.preparedBy)}; ${Object.values(run.invoices).filter(i => i.status === 'approved').length} of ${Object.keys(run.invoices).length} RPs approved` : 'Done';
   const M = {
     fx: [fxMissing.length, fxMissing.length ? `Missing: ${fxMissing.join(', ')}` : 'All rates in'],

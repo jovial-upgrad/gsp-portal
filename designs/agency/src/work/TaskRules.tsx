@@ -12,17 +12,13 @@ import { useCheck, numError, dupError } from '../components/validate';
 import { PersonaBar, usePersona } from './persona';
 import { ChangeLog } from './Queues';
 
-/* What a rule can watch, per record. In the real build each line maps to an event or a scheduled check. */
-export const TRIGGERS = {
-  Application: ['Status becomes Pending verification', 'Status becomes Ready to submit', 'Submitted to university for longer than its SLA', 'Status becomes Finance and background check', 'Status becomes Payment proof under review', 'Documents verified and ready to submit', 'Visa granted and start date within 14 days', 'Census date passed and enrolment not confirmed', 'Deferred and the new intake is 30 days away'],
-  RP: ['All onboarding documents uploaded', 'Not activated for 3 days', 'Documents sent back and not re-uploaded for 5 days', 'No application in 90 days', 'Bank details changed'],
-  'Institution partner': ['60 days before the agreement ends', '30 days before the agreement ends', 'Agreement signed'],
-  University: ['Set up for 14 days and not live', 'Paused for 30 days'],
-  Course: ['A course is in draft for 7 days', 'Fees valid until date is 30 days away', 'Intake has no census date 60 days before start'],
-  Commission: ['An agreement is signed and no terms are entered', 'Terms, a notice or a scheme changed', 'An enrolment cannot be priced', 'Thursday payout run is due', 'Weekly FX rate is missing'],
-  Email: ['An email is matched to an application', 'AI confidence below 60%', 'An RP email is not answered in 1 working day'],
-  Any: ['A task is overdue by 2 working days'],
-};
+/*
+ * What a rule can watch, per record (Jovial, 1 Nov, HC29): the triggers the rules themselves have, with their own
+ * values (48 working hours, 60 days…), never a typed list that could differ from them. In the real build each one
+ * maps to an event or a scheduled check.
+ */
+export const RECORDS = ['Application', 'RP', 'Institution partner', 'University', 'Course', 'Commission', 'Email', 'Any'];
+export const triggersOf = (rules, record) => [...new Set(rules.filter(r => r.record === record).map(r => r.when))];
 
 const DEST = s => [['region', 'The application’s regional Admissions queue'], ['owner', 'Straight to the record owner (officer, BDM, account manager)'], ...s.queues.filter(q => q.kind === 'team').map(q => [q.id, `${q.name} queue`])];
 const destName = (s, to) => to === 'region' ? 'Regional Admissions queue' : to === 'owner' ? 'Record owner' : (queueById(s, to) || {}).name || 'Queue deleted';
@@ -39,7 +35,7 @@ export default function TaskRules() {
       lead="Rules create tasks from the records themselves. Each says what it watches, the task people see, where it goes, its SLA, and when it closes on its own."
       actions={may('C') && <Button kind="primary" onClick={() => setEdit({})}>New task rule</Button>}>
       {!may('U') && <Notice>{role.name} can see the rules but not change them.</Notice>}
-      <Segmented label="Record" value={rec} onChange={setRec} options={[['', `All (${s.rules.length})`], ...Object.keys(TRIGGERS).map(k => [k, `${k} (${s.rules.filter(r => r.record === k).length})`])]} />
+      <Segmented label="Record" value={rec} onChange={setRec} options={[['', `All (${s.rules.length})`], ...RECORDS.map(k => [k, `${k} (${s.rules.filter(r => r.record === k).length})`])]} />
       <Card flush>
         <Table head={['Rule', 'When', 'Task', 'Goes to', 'SLA', 'Closes when', 'On', '']} className="cfg__tab">
           {rows.map(r => {
@@ -67,7 +63,7 @@ export default function TaskRules() {
 
 function RuleSheet({ rule, onClose, by, canDelete }) {
   const s = useStore();
-  const init = React.useRef(rule ? { ...rule } : { id: 'r' + Date.now(), on: true, name: '', record: 'Application', when: TRIGGERS.Application[0], task: '', to: 'region', who: 'owner', kind: s.kinds[0].id, sla: 9, closes: '' });
+  const init = React.useRef(rule ? { ...rule } : { id: 'r' + Date.now(), on: true, name: '', record: 'Application', when: triggersOf(s.rules, 'Application')[0] || '', task: '', to: 'region', who: 'owner', kind: s.kinds[0].id, sla: 9, closes: '' });
   const [v, setV] = useState(() => ({ ...init.current }));
   const [sure, setSure] = useState(false);
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
@@ -75,6 +71,7 @@ function RuleSheet({ rule, onClose, by, canDelete }) {
     name: !v.name.trim() ? 'Enter the rule name.' : dupError(v.name, s.rules.filter(r => r.id !== v.id).map(r => r.name), 'There’s already a rule with this name.'),
     task: !v.task.trim() ? 'Enter the task people see.' : null,
     sla: numError(v.sla, { what: 'SLA', min: 1, max: 540, int: true, required: true }),
+    days: v.days != null ? numError(v.days, { what: 'days before', min: 1, max: 365, int: true, required: true }) : null,
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
@@ -90,8 +87,10 @@ function RuleSheet({ rule, onClose, by, canDelete }) {
       footer={<>{rule && canDelete && <Button kind="danger-quiet" onClick={() => setSure(true)}>Delete rule</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!!rule && !dirty} onClick={save}>{rule ? 'Save' : 'Create rule'}</Button></>}>
       <div className="cfg__form gspx-form2">
         <Field id="r-name" label="Rule name" required error={c.err('name')}><Input id="r-name" value={v.name} onBlur={c.blur('name')} onChange={x => set('name', x)} placeholder="Like: Branch has no BDM" /></Field>
-        <Select id="r-rec" label="Record it watches" required value={v.record} onChange={x => setV(o => ({ ...o, record: x, when: TRIGGERS[x][0] }))} options={Object.keys(TRIGGERS)} />
-        <Select id="r-when" label="When" required value={v.when} onChange={x => set('when', x)} options={TRIGGERS[v.record]} />
+        <Select id="r-rec" label="Record it watches" required value={v.record} onChange={x => setV(o => ({ ...o, record: x, when: triggersOf(s.rules, x)[0] || '' }))} options={RECORDS} />
+        {triggersOf(s.rules, v.record).length ? <Select id="r-when" label="When" required value={v.when} onChange={x => set('when', x)} options={[...new Set([...triggersOf(s.rules, v.record), v.when].filter(Boolean))]} />
+          : <Field id="r-when" label="When" required><Input id="r-when" value={v.when} onChange={x => set('when', x)} placeholder="Like: A course is in draft for 7 days" /></Field>}
+        {v.days != null && <Field id="r-days" label="Days before" required error={c.err('days')} hint="The rule’s own value: the Institution Team’s renewal reminders read it."><Input id="r-days" type="number" value={v.days} onChange={x => setV(o => ({ ...o, days: x === '' ? '' : Number(x), when: String(o.when).replace(/^\d+/, x) }))} /></Field>}
         <Field id="r-task" label="Task people see" required error={c.err('task')} hint="Write [record] where the record’s name goes."><Input id="r-task" value={v.task} onBlur={c.blur('task')} onChange={x => set('task', x)} placeholder="Like: Chase the university for [record]" /></Field>
         <Select id="r-to" label="Goes to" required value={v.to} onChange={x => set('to', x)} options={DEST(s)} />
         <Select id="r-who" label="Assigned by" required value={v.who} onChange={x => set('who', x)} options={Object.entries(ASSIGN).filter(([k]) => k !== 'owner')} />

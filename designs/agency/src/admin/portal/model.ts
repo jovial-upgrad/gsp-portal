@@ -1,6 +1,8 @@
 import { person, label } from '../../data/staff';
 import type { IconName } from '../../components/Icon';
 import type { Section as InstitutionSection } from '../../institution/portal/model';
+import { canOpen } from '../data/menus';
+import { PERM_ROLE, type Role } from '../../proto/roles';
 
 /**
  * GSP Admin's pages (Nesil, 30 Oct), in groups. **User modules** (Course search, Students, Applications) and
@@ -113,7 +115,7 @@ export type VariantSpec = { brand: string; home: NavItem; flat: NavItem[]; group
 const it = (key: Section, label: string, short: string, icon: IconName): NavItem => ({ key, label, short, icon });
 /** The person each role signs in as, from the staff list. */
 const me = (local: string) => { const s = person(`${local}@upgrad.com`); return { name: label(s), first: s.first, role: s.role, email: s.email }; };
-export const VARIANTS: Record<Variant, VariantSpec> = {
+const SPECS: Record<Variant, VariantSpec> = {
   admin: {
     brand: 'Admin',
     home: HOME,
@@ -148,4 +150,28 @@ export const VARIANTS: Record<Variant, VariantSpec> = {
     tabs: ['home', 'fin-run', 'fin-uni', 'applications', 'fin-terms'],
     user: me('suman1.verma'),
   },
+};
+
+/** The Role menu's role for each variant. */
+const ROLE_OF: Record<Variant, Role> = { admin: 'gsp-admin', recruitment: 'gsp-recruitment', bap: 'gsp-bap', finance: 'gsp-finance' };
+/**
+ * Each variant's menu, cut to what its permission role can open in GSP · Admin › Permission roles (Jovial, 1 Nov,
+ * HC47): GSP · Recruitment is Recruitment, BAP is Recruitment Ops, Finance is Finance, Admin is Admin. A group with
+ * nothing left goes. Read fresh each time, so a change in Admin shows when the role's portal next draws.
+ */
+const cut = (v: Variant): VariantSpec => {
+  const spec = SPECS[v];
+  const ok = (k: Section) => canOpen(PERM_ROLE[ROLE_OF[v]], k);
+  return {
+    ...spec,
+    flat: spec.flat.filter((i) => ok(i.key)),
+    groups: spec.groups.map((g) => ({ ...g, items: g.items.filter((i) => ok(i.key)) })).filter((g) => g.items.length),
+    tabs: spec.tabs.filter(ok),
+  };
+};
+export const VARIANTS: Record<Variant, VariantSpec> = {
+  get admin() { return cut('admin'); },
+  get recruitment() { return cut('recruitment'); },
+  get bap() { return cut('bap'); },
+  get finance() { return cut('finance'); },
 };

@@ -28,3 +28,17 @@ export const ADMIN_LIKE: Role[] = ['gsp-admin', 'gsp-recruitment', 'gsp-bap', 'g
 export const PAIR: Role[] = ['rp-admin', 'gsp-team'];
 
 export const roleOf = (v: string | null): Role => (ROLES.some((r) => r.key === v) ? (v as Role) : 'rp-admin');
+
+/**
+ * Each GSP role's permission role in GSP · Admin › Permission roles (Jovial, 1 Nov, HC47): its menu and edit rights
+ * follow that role's line in the matrix. RP Admin is the agency's own portal, not GSP's.
+ */
+export const PERM_ROLE: Record<Role, string | null> = {
+  'rp-admin': null,
+  'gsp-team': 'Admission',
+  'gsp-recruitment': 'Recruitment',
+  'gsp-bap': 'Recruitment Ops',
+  'gsp-finance': 'Finance',
+  'institution-partner': 'Institution',
+  'gsp-admin': 'Admin',
+};

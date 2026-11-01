@@ -10,6 +10,7 @@ import { WHATSAPP_MARKETS, type SignupState } from '../../screens/signup/model';
 import { inSentence, returnedDocs, stillToReplace } from '../../screens/signup/docs';
 import { LOCKED_COPY, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { Track, type StepState } from './Track';
+import { hoursText } from '../../work/calendars';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const rise = (reduce: boolean | null, i: number) =>
@@ -145,7 +146,7 @@ export function Home({
                 <p className="side-card__text">Once you upload your documents and send them for verification, we’ll assign one.</p>
               </div>
             ) : manager ? (
-              <ContactCard person={{ ...manager, role: 'Partner manager' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
+              <ContactCard person={{ ...manager, role: 'Partner manager' }} hours={hoursText()} />
             ) : (
               <p className="side-card__text">Your partner manager will be in touch within 1 working day. Their name and number will show here.</p>
             )}

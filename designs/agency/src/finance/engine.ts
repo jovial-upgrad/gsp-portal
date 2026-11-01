@@ -1,7 +1,7 @@
 // @ts-nocheck -- ported from the add-on layer (JS); typed properly when the finance API is designed.
 /* Commission engine (ported unchanged from the Commissions sandbox). Pure functions over (cfg, apps, today).
  * compute(cfg, apps, today) -> { ip: university lines, rp: RP lines, exc: exceptions, apps: per-application workings }
- * buildRun(cfg, result, date) -> the Thursday payout run for that week.
+ * buildRun(cfg, result, date) -> the payout run for that week's pay day (Finance setup).
  * In production this runs on the server; the pages only read its output. */
 import { fmtMoney } from '../data/format';
 const DEFYEARS={UG:3,PG:2,RES:3,DIP:1,FDN:1,VET:2,ELICOS:1,SA:1};
@@ -13,7 +13,9 @@ const fd=d=>d.toISOString().slice(0,10);
 const addDays=(s,n)=>{const d=pd(s);d.setUTCDate(d.getUTCDate()+n);return fd(d);};
 const addMonths=(s,n)=>{const d=pd(s);d.setUTCMonth(d.getUTCMonth()+n);return fd(d);};
 const nice=s=>{if(!s)return '—';const d=pd(s);return d.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]+' '+d.getUTCFullYear();};
-const thursdayOf=s=>{const d=pd(s);const k=(4-d.getUTCDay()+7)%7;d.setUTCDate(d.getUTCDate()+k);return fd(d);};
+/* the pay day on or after a date (HC34): Finance setup's pay day, Thursday (4) when none is set */
+const payDayFor=cfg=>{const n=Number(cfg&&cfg.settings&&cfg.settings.ops&&cfg.settings.ops.payDay);return n>=0&&n<=6&&!isNaN(n)?n:4;};
+const thursdayOf=(s,cfg)=>{const d=pd(s);const k=(payDayFor(cfg)-d.getUTCDay()+7)%7;d.setUTCDate(d.getUTCDate()+k);return fd(d);};
 const r2=x=>Math.round(x*100)/100;
 // one money format everywhere (QC, 1 Nov): data/format.ts
 const money=(x,c)=>fmtMoney(x,c||'');
@@ -48,7 +50,7 @@ function compute(cfg,apps,today){
     if(u.country==='AU'&&!a.studentType)exc(a,'Student type missing','Student type (new, progression or transfer) is mandatory for Australian universities. Admissions enters it.','warn');
     const cnt=fixed!=null?1:n;
     for(let k=1;k<=cnt;k++)r.lines.push({key:'ip'+k,k,n:cnt,date:k===1?tb:addMonths(tb,gap*(k-1)),fixed,pct:pct==null?null:+pct});
-    const an=u.annuity;if(an&&an.on&&fixed==null){const yrs=Math.ceil(+a.courseYears||DEFYEARS[a.level]||2);const last=an.maxYears?Math.min(yrs,+an.maxYears):yrs;r.courseYears=yrs;
+    const an=u.annuity;if(an&&an.on&&fixed==null){const yrs=Math.ceil(+a.courseYears||(S.courseYears&&+S.courseYears[a.level])||DEFYEARS[a.level]||2);const last=an.maxYears?Math.min(yrs,+an.maxYears):yrs;r.courseYears=yrs;
       for(let y=2;y<=last;y++)for(let p=1;p<=n;p++)r.lines.push({key:'an'+y+'-'+p,k:'Y'+y+'-'+p,y,p,n,annuity:true,date:addMonths(tb,12*(y-1)+gap*(p-1)),fixed:null,pct:pct==null?null:+pct});}
   });
   /* university tiers: rank GSP-wide within the pool */
@@ -147,8 +149,8 @@ function compute(cfg,apps,today){
     const fx=fxRate(cfg,x.cur,today);x.audEnt=x.ent==null||fx==null?null:r2(x.ent*fx);x.audDue=x.due==null||fx==null?null:r2(x.due*fx);});
   return out;}
 
-/* payout run for the Thursday of a date */
-function buildRun(cfg,res,date){const run={date:thursdayOf(date),payees:{},hold:[],lines:[]};const S=cfg.settings;
+/* payout run for the pay day of a date's week (Finance setup's pay day) */
+function buildRun(cfg,res,date){const run={date:thursdayOf(date,cfg),payees:{},hold:[],lines:[]};const S=cfg.settings;
   res.rp.filter(x=>x.payable).forEach(x=>{const payee=x.r.payee||x.r.rp;const fixedAud=x.kind!=='pct'&&x.cur==='AUD';const payCur=fixedAud?'AUD':(payee.cur||'AUD');
     const f1=fxRate(cfg,x.cur,run.date),f2=fxRate(cfg,payCur,run.date);
     if(f1==null)run.hold.push(x.cur);if(f2==null)run.hold.push(payCur);
@@ -159,4 +161,4 @@ function buildRun(cfg,res,date){const run={date:thursdayOf(date),payees:{},hold:
   run.hold=[...new Set(run.hold)];
   Object.values(run.payees).forEach(p=>{p.total={};Object.entries(p.byCur).forEach(([c,v])=>{p.total[c]=r2(v.net+v.gst-v.wht);});p.carry=Object.values(p.total).some(v=>v<0);});
   return run;}
-export { compute, buildRun, thursdayOf, addDays, addMonths, fxRate, windowKey, nice, money, r2, LEVELS, TRIG, DEST, bandTxt, winName, DEFYEARS };
+export { compute, buildRun, thursdayOf, payDayFor, addDays, addMonths, fxRate, windowKey, nice, money, r2, LEVELS, TRIG, DEST, bandTxt, winName, DEFYEARS };

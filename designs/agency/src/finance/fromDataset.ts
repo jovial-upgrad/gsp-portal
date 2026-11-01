@@ -11,7 +11,8 @@ import DATASET from '../data/dataset.json';
 import { sampleApplications, courseOf, startOf, censusOf } from '../data/applications';
 import { sampleStudents } from '../data/students';
 import { UNI_TERMS, rpByName, dataApp } from '../data/dataset';
-import { compute } from './engine';
+import { compute, thursdayOf } from './engine';
+import { settingsOf } from './defaults';
 import { withLive } from '../data/live';
 import { getDb } from '../institution/data/store';
 import { agreementOf, statusNow } from '../institution/data/records';
@@ -43,19 +44,20 @@ export function withInstitution(cfg) {
 }
 
 const LEVEL = { 'Master’s degree': 'PG', 'Postgraduate diploma': 'PG', 'PhD or research': 'RES', 'Bachelor’s degree': 'UG', Diploma: 'DIP', Foundation: 'FDN' };
-const CUR = { India: 'INR', Bangladesh: 'BDT', Nepal: 'NPR', 'Sri Lanka': 'LKR' };
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
 const addDays = (d, n) => iso(Date.parse(d + 'T00:00:00Z') + n * 864e5);
 
 /** Finance's terms with every university and RP the data set uses. */
 export function withDatasetTerms(cfg0) {
   const cfg = structuredClone(cfg0);
+  // the payout currency by sales region: Finance setup's one table (HC44)
+  const CUR = settingsOf(cfg).payoutCur;
   for (const t of DATASET.sampleTerms) if (!cfg.unis.some((u) => u.id === t.id)) cfg.unis.push(t);
   withInstitution(cfg);
   for (const r of DATASET.rps) {
     const have = cfg.rps.find((x) => x.id === r.id);
     if (have) { have.name = r.name; continue; } // one name per RP, everywhere
-    cfg.rps.push({ id: r.id, name: r.name, region: r.region, scheme: '', flat: null, gst: false, cur: CUR[r.region] ?? 'AUD', bank: CUR[r.region] ? 'Local' : 'AU', payee: '', sample: false, note: 'No signed RP terms on file yet: Finance’s default applies.', mp: false, annuityPct: null, bankVerified: true });
+    cfg.rps.push({ id: r.id, name: r.name, region: r.region, scheme: '', flat: null, gst: false, cur: CUR[r.region] ?? 'AUD', bank: CUR[r.region] ? 'Local' : 'AU', curFromTable: true, payee: '', sample: false, note: 'No signed RP terms on file yet: Finance’s default applies.', mp: false, annuityPct: null, bankVerified: true });
   }
   return cfg;
 }
@@ -109,9 +111,9 @@ export function datasetFinanceApps(cfg, today) {
       x.paidIP[l.key] = { date: paidOn, amt: mode === 'short' && i === 0 ? Math.round(l.ent * 0.8 * 100) / 100 : l.ent };
     });
   }
-  // the RP is paid on the first payout day (Thursday) a week after the university pays, once that day has come (W13)
+  // the RP is paid on the first pay day (Finance setup) a week after the university pays, once that day has come (W13)
   res = compute(cfg, apps, today);
-  const thursdayAfter = (d) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + ((4 - t.getUTCDay() + 7) % 7)); return iso(t.getTime()); };
+  const thursdayAfter = (d) => thursdayOf(d, cfg); // Finance setup's pay day (HC34)
   res.rp.forEach((l) => {
     if (l.ip && l.ip.paid && thursdayAfter(addDays(l.ip.paid.date, 7)) <= today) apps[l.app].paidRP[l.key] = l.ent;
   });

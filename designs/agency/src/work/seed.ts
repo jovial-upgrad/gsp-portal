@@ -7,24 +7,23 @@
  */
 
 import { STAFF, label } from '../data/staff';
+import { adminCfg } from '../admin/data/store';
+import { salesRegionNames } from '../admin/data/config';
 
 const DAY = 864e5;
 export const ago = (d, h = 0) => Date.now() - d * DAY - h * 36e5;
 
-export const REGIONS = [
-  'India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan',
-  'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia',
-  'Philippines', 'Africa', 'Latin America and Europe', 'China',
-  'Rest of world', 'Direct',
-];
+/* The sales regions (HC38, 1 Nov): GSP · Admin › Sales regions, the only list. Global isn't a region work goes to. */
+export const regionsNow = () => salesRegionNames().filter((r) => r !== 'Global');
 
 /* Working week per region, for SLA clocks. 1 = Monday … 6 = Saturday, 0 = Sunday. */
 export const CALENDARS = [
   // Jovial, 1 Nov (Queue assignment A17): everyone works Monday to Friday, except Bangladesh, Sunday to Thursday.
   // Working hours 9:30 to 18:30 local: SLAs in hours count only these.
-  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], hours: '9:30 to 18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'],
+  // the seed for Work › Working days (work/calendars.ts), where they're edited
+  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], start: '09:30', end: '18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'],
     holidays: [['2026-11-08', 'Diwali'], ['2026-12-25', 'Christmas'], ['2027-01-01', 'New Year’s Day']] },
-  { id: 'cal-sun-thu', name: 'Sunday to Thursday', days: [0, 1, 2, 3, 4], hours: '9:30 to 18:30', regions: ['Bangladesh'],
+  { id: 'cal-sun-thu', name: 'Sunday to Thursday', days: [0, 1, 2, 3, 4], start: '09:30', end: '18:30', regions: ['Bangladesh'],
     holidays: [['2026-12-16', 'Victory Day'], ['2026-12-25', 'Christmas']] },
 ];
 
@@ -69,7 +68,7 @@ export const KINDS = [
   { id: 'k-terms', name: 'Enter commission terms', record: 'Commission', sla: 18 },
   { id: 'k-check', name: 'Check a change (maker-checker)', record: 'Commission', sla: 9 },
   { id: 'k-exception', name: 'Commission exception', record: 'Commission', sla: 18 },
-  { id: 'k-payout', name: 'Thursday payout run', record: 'Commission', sla: 9 },
+  { id: 'k-payout', name: 'Payout run', record: 'Commission', sla: 9 },
   { id: 'k-mail', name: 'Match an unmatched email', record: 'Email', sla: 9 },
   { id: 'k-escalation', name: 'SLA escalation', record: 'Any', sla: 9 },
 ];
@@ -77,8 +76,19 @@ export const KINDS = [
 const inRegion = (region) => STAFF.filter((s) => s.role === 'Admission' && s.regions.includes(region)).map((s) => s.id);
 const withRole = (role) => STAFF.filter((s) => s.role === role).map((s) => s.id);
 const SEA = ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan'];
-/** The Admissions queue an application's region goes to (Jovial's sheet, 31 Oct). */
-export const regionQueueId = (region) => (SEA.includes(region) ? 'q-adm-sea' : region === 'Rest of world' || region === 'Direct' ? 'q-adm-global' : 'q-adm-' + String(region || '').toLowerCase().replace(/\W+/g, '-'));
+/**
+ * The Admissions queue an application's region goes to (HC50, 1 Nov): the queue stored for the region in GSP · Admin
+ * (Application routing › Region defaults), matched to the work queue of the same name. Global Admissions if none.
+ */
+export const regionQueueId = (region, queues = QUEUES) => {
+  let name = null;
+  try {
+    const c = adminCfg();
+    name = c.queues.find((q) => q.id === c.regionQueue[region])?.name ?? null;
+  } catch { /* Admin not loaded */ }
+  const id = name ? queues.find((q) => q.name === name)?.id : null;
+  return id || 'q-adm-global';
+};
 const regionalQueue = (region, leader, members = inRegion(region).filter((id) => id !== leader), extra = {}) => ({
   id: 'q-adm-' + region.toLowerCase().replace(/\W+/g, '-'),
   name: region + ' Admissions', kind: 'region', region, leader, members,
@@ -173,7 +183,7 @@ export const RULES = [
   { id: 'r32', row: 'T36', on: true, name: 'RP lifecycle change', record: 'RP', when: 'The BDM requests a suspension, termination or tier change', task: 'Approve and make the change to [record]', to: 'q-rp-ops', who: 'leader-assigns', kind: 'k-rp-change', sla: 12, closes: 'Approved or rejected' },
   { id: 'r33', row: 'T37', on: true, name: 'RP inactive', record: 'RP', when: 'No new applications for 90 days', task: 'Check in with [record]', to: 'owner', who: 'owner', kind: 'k-rp-change', sla: 45, closes: 'An application is added, or the BDM notes why' },
   { id: 'r34', row: 'W23', on: true, name: 'New RP assigned', record: 'RP', when: 'A new RP is assigned to a BDM', task: 'Get in touch with [record]', to: 'owner', who: 'owner', kind: 'k-rp-change', sla: 18, closes: 'The BDM logs the first call' },
-  { id: 'r35', row: 'T38', on: true, name: 'Agreement ending', record: 'Institution partner', when: '60 days before the agreement ends', task: 'Renew the agreement with [record]', to: 'q-institution', who: 'record-owner', kind: 'k-renew', sla: 270, closes: 'A new agreement is uploaded' },
+  { id: 'r35', row: 'T38', on: true, name: 'Agreement ending', record: 'Institution partner', days: 60, when: '60 days before the agreement ends', task: 'Renew the agreement with [record]', to: 'q-institution', who: 'record-owner', kind: 'k-renew', sla: 270, closes: 'A new agreement is uploaded' },
   { id: 'r36', row: 'T39', on: true, name: 'Commission terms missing', record: 'Commission', when: 'An agreement is uploaded and no terms are entered', task: 'Enter commission terms for [record]', to: 'q-finance', who: 'members-pick', kind: 'k-terms', sla: 18, closes: 'Terms entered and checked' },
   { id: 'r37', row: 'T40', on: true, name: 'University not live', record: 'University', when: 'Go-live checks incomplete 14 days after it was created', task: 'Get [record] live', to: 'q-institution', who: 'record-owner', kind: 'k-golive', sla: 126, closes: 'University live' },
   { id: 'r38', row: 'T41', on: true, name: 'Draft courses', record: 'Course', when: 'A course is in draft for 7 days', task: 'Finish and publish [record]', to: 'q-inst-ops', who: 'round-robin', kind: 'k-course', sla: 45, closes: 'The course is published' },
@@ -183,7 +193,7 @@ export const RULES = [
   { id: 'r42', row: 'T46', on: true, name: 'University invoice due', record: 'Commission', when: 'A commission line’s trigger date passes (census or enrolment)', task: 'Raise the invoice for [record]', to: 'q-finance', who: 'members-pick', kind: 'k-exception', sla: 18, closes: 'Invoice sent' },
   { id: 'r43', row: 'T47', on: true, name: 'University payment overdue', record: 'Commission', when: 'Invoice unpaid past the university’s payment days', task: 'Chase [record]’s payment', to: 'q-finance', who: 'members-pick', kind: 'k-exception', sla: 18, closes: 'Paid' },
   { id: 'r44', row: 'T48', on: true, name: 'Short payment or unmatched remittance', record: 'Commission', when: 'Amount paid differs from the invoice', task: 'Resolve the exception on [record]', to: 'q-finance', who: 'members-pick', kind: 'k-exception', sla: 18, closes: 'Resolved' },
-  { id: 'r45', row: 'T49', on: true, name: 'Payout run', record: 'Commission', when: 'Every Monday (pay on Thursday)', task: 'Prepare the payout run', to: 'q-finance', who: 'leader-assigns', kind: 'k-payout', sla: 9, closes: 'Run approved' },
+  { id: 'r45', row: 'T49', on: true, name: 'Payout run', record: 'Commission', when: 'Every Monday (paid on Finance’s pay day)', task: 'Prepare the payout run', to: 'q-finance', who: 'leader-assigns', kind: 'k-payout', sla: 9, closes: 'Run approved' },
   { id: 'r46', row: 'T50', on: true, name: 'Exchange rates missing', record: 'Any', when: 'Friday, no rates for next week', task: 'Enter next week’s exchange rates', to: 'q-fallback', who: 'leader-assigns', kind: 'k-escalation', sla: 9, closes: 'Rates entered' },
   { id: 'r47', row: 'T51', on: true, name: 'SLA breached', record: 'Any', when: 'A task is overdue: its queue’s leader at once, the team’s Ops queue after 2 working days, Admin after 5', task: 'Escalated: [record]', to: 'ops', who: 'leader-assigns', kind: 'k-escalation', sla: 9, closes: 'The original task is done' }
 ];
@@ -235,7 +245,7 @@ export const RECORDS = [
   { id: 'cm-legal', type: 'Commission', label: 'Commission terms · The Legal Immigration' },
   { id: 'cm-uk-promo', type: 'Commission', label: 'Notice N01 · UK Promotion (bands changed)' },
   { id: 'cm-jcub', type: 'Commission', label: 'Exception · JCUB degree rate missing' },
-  { id: 'cm-payout', type: 'Commission', label: 'Payout run · Thursday' },
+  { id: 'cm-payout', type: 'Commission', label: 'Payout run · this pay day' },
   { id: 'mail-1', type: 'Email', label: 'admissions.india@ · “Offer letter – Student ID 4471209”', region: 'India' },
   { id: 'mail-2', type: 'Email', label: 'admissions.bangladesh@ · “Re: deposit receipt”', region: 'Bangladesh' },
 ];

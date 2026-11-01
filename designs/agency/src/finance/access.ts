@@ -1,36 +1,41 @@
 // @ts-nocheck -- ported from the add-on layer (JS); typed properly when the finance API is designed.
 /*
- * Roles, access (create / read / update / delete) and data scope.
- * This is the single source of truth for who can see and change what.
- * In the real build this table lives on the server; the UI only reads it.
+ * Roles, access (create / read / update / delete) and data scope, read from GSP · Admin › Permission roles.
+ * In the real build Admin's matrix lives on the server; the UI only reads it.
  */
 
-export const ROLES = [
-  { id: 'rp-admin', name: 'RP Admin', side: 'RP', scope: 'agency',
-    about: 'Runs the agency: every branch, every counsellor, students, applications, earnings and the team.' },
-  { id: 'branch-admin', name: 'Branch Admin', side: 'RP', scope: 'branch',
-    about: 'Runs one branch: its counsellors, students and applications.' },
-  { id: 'counsellor', name: 'Counsellor', side: 'RP', scope: 'own',
-    about: 'Works their own students and applications.' },
-  { id: 'recruitment-ops', name: 'Recruitment Ops', side: 'GSP', scope: 'global',
-    about: 'Verifies new recruitment partners and their documents (was BAP).' },
-  { id: 'recruitment', name: 'Recruitment', side: 'GSP', scope: 'regions',
-    about: 'BDMs: own their RPs and branches in their sales regions.' },
-  { id: 'institution-ops', name: 'Institution Ops', side: 'GSP', scope: 'global',
-    about: 'Keeps course data, intakes and fees current (was Data team).' },
-  { id: 'institution', name: 'Institution', side: 'GSP', scope: 'global',
-    about: 'Account managers for institution partners and universities.' },
-  { id: 'admission-ops', name: 'Admission Ops', side: 'GSP', scope: 'global',
-    about: 'Quality checks, announcements and SLA watch across every region.' },
-  { id: 'admission', name: 'Admission', side: 'GSP', scope: 'regions',
-    about: 'Admissions officers: work applications in their sales regions.' },
-  { id: 'finance', name: 'Finance', side: 'GSP', scope: 'global',
-    about: 'Commission terms, invoices, receipts and payouts.' },
-  { id: 'view-only', name: 'View Only', side: 'GSP', scope: 'global',
-    about: 'Sees everything, changes nothing. For leadership and auditors.' },
-  { id: 'admin', name: 'Admin', side: 'GSP', scope: 'global',
-    about: 'Configuration, users and roles. Can do everything.' },
+import { adminCfg } from '../admin/data/store';
+import { ROLES as PERMISSION_ROLES, OVERSIGHT_OBJECT } from '../admin/data/config';
+
+/*
+ * Who can do what (Jovial, 1 Nov, HC46): GSP's roles and their access are GSP · Admin › Permission roles, the one
+ * matrix. Finance and Work have no list of their own: each check below is a line of Admin's matrix (No access, View,
+ * View + edit). Region isolation (model D) gives Admission and Recruitment their own regions; the rest see all.
+ * The RP's roles aren't GSP's to set there: they stay the agency portal's own, below.
+ */
+const ABOUT = {
+  Admin: 'Configuration, users and roles. Can do everything.',
+  'View Only': 'Sees everything, changes nothing. For leadership and auditors.',
+  Finance: 'Commission terms, invoices, receipts and payouts.',
+  Institution: 'Account managers for institution partners and universities.',
+  'Institution Ops': 'Keeps course data, intakes and fees current (was Data team).',
+  Recruitment: 'BDMs: own their RPs and branches in their sales regions.',
+  'Recruitment Ops': 'Verifies new recruitment partners and their documents (was BAP).',
+  Admission: 'Admissions officers: work applications in their sales regions.',
+  'Admission Ops': 'Quality checks, announcements and SLA watch across every region.',
+};
+export const roleId = name => String(name).toLowerCase().replace(/ /g, '-');
+const RP_ROLES = [
+  { id: 'rp-admin', name: 'RP Admin', side: 'RP', scope: 'agency', about: 'Runs the agency: every branch, every counsellor, students, applications, earnings and the team.' },
+  { id: 'branch-admin', name: 'Branch Admin', side: 'RP', scope: 'branch', about: 'Runs one branch: its counsellors, students and applications.' },
+  { id: 'counsellor', name: 'Counsellor', side: 'RP', scope: 'own', about: 'Works their own students and applications.' },
 ];
+/** GSP's nine roles from Admin › Permission roles, then the RP's three. */
+export const gspRoles = () => [
+  ...PERMISSION_ROLES.map(name => ({ id: roleId(name), name, side: 'GSP', scope: name === 'Admission' || name === 'Recruitment' ? 'regions' : 'global', about: ABOUT[name] || '' })),
+  ...RP_ROLES,
+];
+export const ROLES = gspRoles();
 
 export const SCOPES = {
   global: 'Every region',
@@ -86,32 +91,48 @@ export const MODULES = [
 
 export const MODULE_NAME = Object.fromEntries(MODULES.flatMap(g => g.items));
 
-/*
- * Default matrix. Each cell is a string of the actions allowed:
- * C create, R read, U update, D delete. '' means no access.
- */
-const ALL = 'CRUD', R = 'R', RU = 'RU', CRU = 'CRU', N = '';
-const row = o => o;
-export const DEFAULT_MATRIX = {
-  'rp-admin': row({ students: ALL, 'student-docs': ALL, applications: CRU, 'app-status': N, 'app-docs': CRU, submission: N, chat: CRU, 'rp-profile': RU, 'rp-docs': CRU, 'rp-team': ALL, bdm: N, ip: N, universities: R, courses: R, announcements: R, 'comm-terms': N, 'comm-lines': N, invoices: N, payouts: N, earnings: RU, bank: RU, tasks: N, queues: N, mail: N, dashboards: R, users: N, regions: N, logs: N }),
-  'branch-admin': row({ students: ALL, 'student-docs': ALL, applications: CRU, 'app-status': N, 'app-docs': CRU, submission: N, chat: CRU, 'rp-profile': R, 'rp-docs': R, 'rp-team': RU, bdm: N, ip: N, universities: R, courses: R, announcements: R, 'comm-terms': N, 'comm-lines': N, invoices: N, payouts: N, earnings: R, bank: N, tasks: N, queues: N, mail: N, dashboards: R, users: N, regions: N, logs: N }),
-  counsellor: row({ students: CRU, 'student-docs': CRU, applications: CRU, 'app-status': N, 'app-docs': CRU, submission: N, chat: CRU, 'rp-profile': R, 'rp-docs': N, 'rp-team': R, bdm: N, ip: N, universities: R, courses: R, announcements: R, 'comm-terms': N, 'comm-lines': N, invoices: N, payouts: N, earnings: N, bank: N, tasks: N, queues: N, mail: N, dashboards: N, users: N, regions: N, logs: N }),
-  'recruitment-ops': row({ students: N, 'student-docs': N, applications: N, 'app-status': N, 'app-docs': N, submission: N, chat: N, 'rp-profile': RU, 'rp-docs': RU, 'rp-team': RU, bdm: R, ip: N, universities: R, courses: R, announcements: R, 'comm-terms': N, 'comm-lines': N, invoices: N, payouts: N, earnings: N, bank: RU, tasks: RU, queues: R, mail: RU, dashboards: R, users: N, regions: R, logs: N }),
-  recruitment: row({ students: R, 'student-docs': N, applications: R, 'app-status': N, 'app-docs': N, submission: N, chat: R, 'rp-profile': RU, 'rp-docs': R, 'rp-team': RU, bdm: R, ip: N, universities: R, courses: R, announcements: R, 'comm-terms': N, 'comm-lines': N, invoices: N, payouts: N, earnings: R, bank: N, tasks: RU, queues: R, mail: R, dashboards: R, users: N, regions: R, logs: N }),
-  'institution-ops': row({ students: N, 'student-docs': N, applications: N, 'app-status': N, 'app-docs': N, submission: N, chat: N, 'rp-profile': N, 'rp-docs': N, 'rp-team': N, bdm: N, ip: R, universities: RU, courses: ALL, announcements: CRU, 'comm-terms': N, 'comm-lines': N, invoices: N, payouts: N, earnings: N, bank: N, tasks: RU, queues: R, mail: RU, dashboards: R, users: N, regions: N, logs: N }),
-  institution: row({ students: N, 'student-docs': N, applications: R, 'app-status': N, 'app-docs': N, submission: R, chat: N, 'rp-profile': R, 'rp-docs': N, 'rp-team': N, bdm: N, ip: ALL, universities: ALL, courses: CRU, announcements: ALL, 'comm-terms': R, 'comm-lines': N, invoices: N, payouts: N, earnings: N, bank: N, tasks: RU, queues: R, mail: RU, dashboards: R, users: N, regions: N, logs: N }),
-  'admission-ops': row({ students: RU, 'student-docs': RU, applications: RU, 'app-status': RU, 'app-docs': RU, submission: RU, chat: CRU, 'rp-profile': R, 'rp-docs': N, 'rp-team': R, bdm: N, ip: R, universities: R, courses: R, announcements: ALL, 'comm-terms': N, 'comm-lines': R, invoices: N, payouts: N, earnings: N, bank: N, tasks: CRU, queues: RU, mail: RU, dashboards: R, users: R, regions: R, logs: R }),
-  admission: row({ students: CRU, 'student-docs': CRU, applications: CRU, 'app-status': RU, 'app-docs': CRU, submission: CRU, chat: CRU, 'rp-profile': R, 'rp-docs': N, 'rp-team': R, bdm: N, ip: R, universities: R, courses: R, announcements: R, 'comm-terms': N, 'comm-lines': R, invoices: N, payouts: N, earnings: N, bank: N, tasks: CRU, queues: R, mail: CRU, dashboards: R, users: N, regions: R, logs: N }),
-  finance: row({ students: R, 'student-docs': N, applications: R, 'app-status': N, 'app-docs': N, submission: N, chat: N, 'rp-profile': R, 'rp-docs': N, 'rp-team': R, bdm: N, ip: R, universities: R, courses: R, announcements: R, 'comm-terms': ALL, 'comm-lines': CRU, invoices: ALL, payouts: ALL, earnings: R, bank: RU, tasks: CRU, queues: R, mail: CRU, dashboards: R, users: N, regions: N, logs: R }),
-  'view-only': row(Object.fromEntries(MODULES.flatMap(g => g.items).map(([k]) => [k, R]))),
-  admin: row(Object.fromEntries(MODULES.flatMap(g => g.items).map(([k]) => [k, ALL]))),
+/* Each module here is a line of Admin › Permission roles (HC46). */
+const OBJECT_OF = {
+  students: 'Students', 'student-docs': 'Student documents', applications: 'Applications', 'app-status': 'Applications',
+  'app-docs': 'Application documents and checks', submission: 'Drafts to universities and placed emails', chat: 'Chat threads',
+  'rp-profile': 'Recruitment partner profile and status', 'rp-docs': 'RP onboarding documents', 'rp-team': 'RP branches and team', bdm: 'Settings',
+  ip: 'Institution partners', universities: 'Universities', courses: 'Courses, intakes and entry rules', announcements: 'Announcements',
+  'comm-terms': 'Commission terms', 'comm-lines': 'Commission lines', invoices: 'Invoices and receipts', payouts: 'Payout runs and statements',
+  earnings: 'Payout runs and statements', bank: 'RP bank details',
+  tasks: 'My work and tasks', queues: 'Queues, task rules and SLA', mail: 'Shared mailboxes', dashboards: 'Overview dashboard',
+  users: 'GSP users and roles', regions: 'Settings', logs: 'Download log and audit logs',
 };
+export const objectOf = moduleId => OBJECT_OF[moduleId];
+/* The RP's own access (the agency portal's; not GSP's to set in Admin). */
+const RP_ACCESS = {
+  'rp-admin': { students: 'CRUD', 'student-docs': 'CRUD', applications: 'CRU', 'app-docs': 'CRU', chat: 'CRU', 'rp-profile': 'RU', 'rp-docs': 'CRU', 'rp-team': 'CRUD', universities: 'R', courses: 'R', announcements: 'R', earnings: 'RU', bank: 'RU', dashboards: 'R' },
+  'branch-admin': { students: 'CRUD', 'student-docs': 'CRUD', applications: 'CRU', 'app-docs': 'CRU', chat: 'CRU', 'rp-profile': 'R', 'rp-docs': 'R', 'rp-team': 'RU', universities: 'R', courses: 'R', announcements: 'R', earnings: 'R', dashboards: 'R' },
+  counsellor: { students: 'CRU', 'student-docs': 'CRU', applications: 'CRU', 'app-docs': 'CRU', chat: 'CRU', 'rp-profile': 'R', 'rp-team': 'R', universities: 'R', courses: 'R', announcements: 'R' },
+};
+const ACTS = { E: 'CRUD', V: 'R', N: '' };
+const nameOfRole = id => PERMISSION_ROLES.find(n => roleId(n) === id);
+/** A role's level on a line of Admin's matrix: 'E' View + edit, 'V' View, 'N' No access. Admin has everything. */
+export function levelOf(roleIdOrName, object) {
+  const name = nameOfRole(roleIdOrName) || roleIdOrName;
+  if (name === 'Admin') return 'E';
+  let perms = {};
+  try { perms = adminCfg().perms || {}; } catch { perms = {}; }
+  return (perms[object] || {})[name] || 'N';
+}
+/** Roles that see every mailbox and every queue's tasks, not only their own (HC30): Admin's oversight line. */
+export const oversees = id => levelOf(id, OVERSIGHT_OBJECT) !== 'N';
 
 export const ACTIONS = [['C', 'Create'], ['R', 'Read'], ['U', 'Update'], ['D', 'Delete']];
 
-/* can(matrix, roleId, moduleId, action) — action is 'C' | 'R' | 'U' | 'D' */
-export function can(matrix, roleId, moduleId, action = 'R') {
-  return ((matrix[roleId] || {})[moduleId] || '').includes(action);
+/*
+ * can(_, roleId, moduleId, action): action is 'C' | 'R' | 'U' | 'D'. GSP roles read Admin › Permission roles (View
+ * reads, View + edit does everything); the first argument is kept for the callers and not used.
+ */
+export function can(_matrix, roleId, moduleId, action = 'R') {
+  if (RP_ACCESS[roleId]) return (RP_ACCESS[roleId][moduleId] || '').includes(action);
+  const obj = OBJECT_OF[moduleId];
+  if (!obj) return roleId === 'admin';
+  return ACTS[levelOf(roleId, obj)].includes(action);
 }
 
 /*
@@ -121,7 +142,7 @@ export function can(matrix, roleId, moduleId, action = 'R') {
  * Every record carries `region` (GSP side) and, for RP records, `agency`,
  * `branch` and `owner`.
  */
-export function inScope(user, record, roles = ROLES) {
+export function inScope(user, record, roles = gspRoles()) {
   const role = roles.find(r => r.id === user.role);
   if (!role) return false;
   if (role.side === 'GSP') {
@@ -137,7 +158,7 @@ export function inScope(user, record, roles = ROLES) {
 }
 
 export function whyInScope(user, record) {
-  const role = ROLES.find(r => r.id === user.role);
+  const role = gspRoles().find(r => r.id === user.role);
   if (!role) return 'Unknown role';
   if (role.side === 'GSP') {
     if (role.scope === 'global') return `${role.name} sees every region`;

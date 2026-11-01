@@ -7,22 +7,24 @@
  */
 import { useSyncExternalStore } from 'react';
 import * as seed from './seed';
-import { ROLES, DEFAULT_MATRIX } from '../finance/access';
+import { gspRoles } from '../finance/access';
+import { getCalendars, subscribeCalendars } from './calendars';
 import * as mail from './mail';
 import { liveAll, liveFlags, onLiveChange } from '../data/live';
 import { useLeave, subscribeLeave } from '../data/leave';
 import { adminCfg, onAdminChange } from '../admin/data/store';
 import { liveApps, appRecord, appTasks, addWorkingHours, workingHoursBetween, DAY_HOURS } from './engine';
 
-const KEY = 'gsp-work-v4'; // v4: tasks follow the application's status (Jovial, 1 Nov)
+import { WORK_KEY } from './renewal';
+const KEY = WORK_KEY; // v5: regions, roles and calendars from their one source each (HC31, HC38, HC46)
 
 function fresh() {
   return {
-    users: seed.USERS, regions: seed.REGIONS, calendars: seed.CALENDARS,
+    users: seed.USERS,
     queues: seed.QUEUES, kinds: seed.KINDS, rules: seed.RULES,
     statusSla: seed.STATUS_SLA, escalation: seed.ESCALATION,
     records: [...seed.RECORDS, ...mail.MAIL_RECORDS], tasks: [...mail.MAIL_TASKS, ...seed.TASKS], watching: seed.WATCHING,
-    roles: ROLES, matrix: DEFAULT_MATRIX, persona: null, log: [], closed: {}, overrides: {},
+    persona: null, log: [], closed: {}, overrides: {},
     mail: { threads: mail.THREADS, filed: mail.FILED, mailboxes: mail.MAILBOXES, filters: mail.FILTERS, intents: mail.INTENTS, settings: mail.MAIL_SETTINGS },
   };
 }
@@ -46,12 +48,14 @@ const OPS_OF = q => (!q ? 'q-fallback' : q.kind === 'region' || q.id === 'q-adm-
 let view = null, vkey = [];
 function derive() {
   const live = liveAll(), fl = liveFlags(), minute = Math.floor(Date.now() / 60000);
-  if (view && vkey[0] === state && vkey[1] === live && vkey[2] === fl && vkey[3] === leaveSnap && vkey[4] === minute) return view;
+  const cals = getCalendars();
+  if (view && vkey[0] === state && vkey[1] === live && vkey[2] === fl && vkey[3] === leaveSnap && vkey[4] === minute && vkey[5] === cals && vkey[6] === adminTick) return view;
   const apps = liveApps(live);
   const recs = apps.map(a => ({ ...SEED_RECS[a.id], ...appRecord(a), ...(SEED_RECS[a.id]?.waitingOn && SEED_RECS[a.id].status === appRecord(a).status ? {} : { waitingOn: undefined }) }));
   const appIds = new Set(recs.map(r => r.id));
   const closedApp = new Set(recs.filter(r => r.closed).map(r => r.id));
-  const base = { ...state, users: usersNow(state), records: [...recs, ...state.records.filter(r => r.type !== 'Application' || !appIds.has(r.id))] };
+  // one source each: the sales regions (Admin), the roles and their access (Admin › Permission roles), the working days (Work › Working days)
+  const base = { ...state, regions: seed.regionsNow(), roles: gspRoles(), calendars: cals, users: usersNow(state), records: [...recs, ...state.records.filter(r => r.type !== 'Application' || !appIds.has(r.id))] };
   const auto = appTasks(base, live).map(t => ({ ...t, ...(state.overrides?.[t.id] || {}) }));
   const manual = state.tasks.map(t => (t.status === 'open' && closedApp.has(t.record) ? { ...t, status: 'done', doneAt: Date.now(), doneBy: null, outcome: 'Closed with the application' } : t));
   const tasks = [...auto, ...manual].map(t => {
@@ -64,7 +68,7 @@ function derive() {
     return { ...t, esc };
   });
   view = { ...base, tasks };
-  vkey = [state, live, fl, leaveSnap, minute];
+  vkey = [state, live, fl, leaveSnap, minute, cals, adminTick];
   return view;
 }
 /**
@@ -86,6 +90,7 @@ const nameOfIn = (s, id) => (s.users.find(u => u.id === id) || {}).name || '—'
 let leaveSnap = 0;
 subscribeLeave(() => { leaveSnap += 1; listeners.forEach(l => l()); });
 onLiveChange(() => listeners.forEach(l => l()));
+subscribeCalendars(() => { view = null; listeners.forEach(l => l()); });
 
 export function getState() { return derive(); }
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }

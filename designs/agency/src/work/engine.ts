@@ -9,8 +9,8 @@
  *   task closes itself. The officer can also close it with one click.
  * - Tasks go to the application's officer. Their queue is the application's regional Admissions queue; QC goes to
  *   Admission Ops. When the officer is on leave, the queue's leader covers.
- * - SLAs and waits count working hours (9:30 to 18:30) on working days: Monday to Friday, Sunday to Thursday in
- *   Bangladesh.
+ * - SLAs and waits count working hours on working days, as Work › Working days sets them for the region (9:30 to
+ *   18:30; Monday to Friday, Sunday to Thursday in Bangladesh, to start with).
  * In the real build this is the work service, run on every change to an application.
  */
 import { sampleApplications, STATUS, toCheck, openRequests, statusText, courseOf, REUPLOAD_AT, isOpen } from '../data/applications';
@@ -21,9 +21,11 @@ import { onLeave } from '../data/leave';
 import { regionQueueId } from './seed';
 import { routeApplication } from '../data/regions';
 import { destOf } from '../data/applications';
+import { dayOf } from './calendars';
 
 const H = 36e5;
 export const DAY_START = 9.5;
+/** A working day in SLA terms: 9 hours (an SLA set in days is days × 9). Each calendar's own hours set the clock. */
 export const DAY_HOURS = 9;
 
 /* ---------- working hours ---------- */
@@ -37,8 +39,9 @@ export function addWorkingHours(cal, from, hours) {
   let t = from;
   for (let guard = 0; guard < 400; guard++) {
     const day = startOfDay(t);
-    const open = day + DAY_START * H;
-    const close = open + DAY_HOURS * H;
+    const w = dayOf(cal);
+    const open = day + w.open * H;
+    const close = open + w.hours * H;
     if (isWorkingDay(cal, day) && t < close) {
       const from2 = Math.max(t, open);
       if (from2 + left <= close) return from2 + left;
@@ -56,8 +59,9 @@ export function workingHoursBetween(cal, a, b) {
   for (let day = startOfDay(a); day <= b; day += 24 * H) {
     const d0 = startOfDay(day + 2 * H); // daylight saving safe
     if (!isWorkingDay(cal, d0)) continue;
-    const open = d0 + DAY_START * H;
-    const close = open + DAY_HOURS * H;
+    const w = dayOf(cal);
+    const open = d0 + w.open * H;
+    const close = open + w.hours * H;
     n += Math.max(0, Math.min(close, b) - Math.max(open, a));
   }
   return n / H;
@@ -121,7 +125,7 @@ export function liveApps(live) {
 
 /** The officer who gets a new application: the regional queue's member with the fewest open applications, skipping people on leave (Queue assignment A1). */
 export function pickOfficer(s, apps, region) {
-  const q = s.queues.find((x) => x.id === regionQueueId(region)) || s.queues.find((x) => x.id === 'q-adm-global');
+  const q = s.queues.find((x) => x.id === regionQueueId(region, s.queues)) || s.queues.find((x) => x.id === 'q-adm-global');
   if (!q) return null;
   const people = [q.leader, ...(q.members || [])].filter((id) => id && !onLeave(id));
   if (!people.length) return q.leader;
@@ -141,7 +145,7 @@ export function appTasks(s, live, now = Date.now()) {
     const a = a0.officer ? a0 : { ...a0, officer: pickOfficer(s, all, a0.region || 'Direct') };
     const f = flags[a.id] || {};
     const cal = calFor(a.region);
-    const queue = regionQueueId(a.region || 'Direct');
+    const queue = regionQueueId(a.region || 'Direct', s.queues);
     const q = s.queues.find((x) => x.id === queue);
     for (const r of APP_RULES) {
       if (!r.when(a, f)) continue;

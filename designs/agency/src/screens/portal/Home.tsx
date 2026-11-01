@@ -16,6 +16,7 @@ import { STAFF, label } from '../../data/staff';
 import { courseOf, isOpen, needsYou, statusText, type Application } from '../../data/applications';
 import { fullName, type Student } from '../../data/students';
 import { shortDate } from '../../data/dates';
+import { hoursText } from '../../work/calendars';
 
 /** The agency's region's Admissions contact (W15): GSP · Admin › Sales regions, as a person from the staff list. */
 export function admissionsContactFor(country: string): Contact | null {
@@ -169,11 +170,11 @@ export function Home({
               </div>
             ) : manager ? (
               <>
-                <ContactCard person={{ ...manager, role: 'Partner manager (BDM)' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
+                <ContactCard person={{ ...manager, role: 'Partner manager (BDM)' }} hours={hoursText(join?.form.country || 'India')} />
                 {/* and the region's Admissions contact, for applications (W15) */}
                 {(() => {
                   const adm = admissionsContactFor(join?.form.country || 'India');
-                  return adm ? <ContactCard person={adm} hours="Mon–Sat, 9:30 am to 6:30 pm" /> : null;
+                  return adm ? <ContactCard person={adm} hours={hoursText(join?.form.country || 'India')} /> : null;
                 })()}
               </>
             ) : (

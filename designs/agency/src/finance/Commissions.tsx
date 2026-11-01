@@ -2,7 +2,7 @@
 /*
  * Commissions (GSP side): Finance's workspace.
  * Overview · University side (invoices and receipts) · RP side (what each RP is owed and why)
- * · Payout run (Thursday, maker-checker, RCTI invoices) · Exceptions · Terms · Processes.
+ * · Payout run (on Finance's pay day, maker-checker, RCTI invoices) · Exceptions · Terms · Processes.
  * Tabs follow the role's access: comm-lines, invoices, payouts, comm-terms.
  */
 import React, { useContext, useMemo, useState } from 'react';
@@ -12,7 +12,7 @@ import { Page, Card, Tiles, Segmented, Tabs, Select, Table, Pill, Button, LinkBu
 import { useCheck, numError } from '../components/validate';
 import { PersonaBar, usePersona, HostContext } from './persona';
 import { addDays, addMonths, nice, money, r2, LEVELS, thursdayOf } from './engine';
-import { useComm, liveRun, TONE, aud, sum, opsOf, nav, downloadCsv } from './shared';
+import { useComm, liveRun, TONE, aud, sum, opsOf, nav, downloadCsv, payDayName } from './shared';
 import Payout from './Payout';
 import Terms from './Terms';
 import COMM from './comm.json';
@@ -115,7 +115,7 @@ function Overview({ c, res, rpLines, ipLines, run, checks, go, allow }) {
       <Tiles items={tiles} value={null} onChange={v => { if (!v) return; const [t, f] = v.split(':'); go(t, f); }} />
       <div className="gspx-grid2">
         {allow.payout && <Card>
-          <h2 className="gspx-h3">Payout run · Thursday {nice(run.date)}</h2>
+          <h2 className="gspx-h3">Payout run · {payDayName(c.cfg)} {nice(run.date)}</h2>
           <p><span className="num">{Object.keys(run.payees).length}</span> RPs, <span className="num">{run.lines.length}</span> lines, about <b className="num">{aud(runTotal)}</b>.</p>
           {run.hold.length > 0 && <Notice tone="warn">On hold until this week’s rate is entered: {run.hold.join(', ')}.</Notice>}
           <p className="muted">{run.status === 'draft' ? 'Not prepared yet.' : run.status === 'prepared' ? `Prepared by ${run.preparedBy ? 'Finance' : '—'}; waiting for RPs to approve their invoices and a second person to approve.` : ''}</p>
@@ -376,6 +376,10 @@ function Reports({ c, res, rpLines, ipLines }) {
 
 /* ---------- Finance processes ---------- */
 function Processes() {
+  // the pay day is Finance setup's (HC34): the process notes name it, not a typed Thursday
+  const { cfg } = useComm();
+  const day = payDayName(cfg);
+  const t = x => String(x || '').replace(/Thursday/g, day);
   return (
     <>
       <Notice>What Finance does to keep commissions automatic: enter terms once from contracts, agreements and notices, then run the weekly and daily jobs. Everything else is calculated.</Notice>
@@ -384,9 +388,9 @@ function Processes() {
           <h2 className="gspx-h3">{g.g}</h2>
           {g.items.map(it => (
             <details key={it.t} className="gspx-proc">
-              <summary><b>{it.t}</b><span className="muted"> · {it.who} · {it.when}</span></summary>
-              <ol>{it.steps.map((st, i) => <li key={i}>{st}</li>)}</ol>
-              {it.auto && <p className="gspx-sentence">Automatic: {it.auto}</p>}
+              <summary><b>{t(it.t)}</b><span className="muted"> · {it.who} · {t(it.when)}</span></summary>
+              <ol>{it.steps.map((st, i) => <li key={i}>{t(st)}</li>)}</ol>
+              {it.auto && <p className="gspx-sentence">Automatic: {t(it.auto)}</p>}
             </details>))}
         </Card>))}
     </>
