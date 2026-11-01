@@ -215,6 +215,9 @@
 .rpanel__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); margin-bottom: var(--sp-16); }
 .rpanel__text { flex: 1 1 280px; color: var(--text-2); font-size: var(--t-label); line-height: var(--lh-label); }
 .rpanel__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-8); }
+/* a section's header (1 Nov): its name on the left; what it adds and its one Edit on the right */
+.rsechead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); min-height: 36px; margin-bottom: var(--sp-16); }
+.rsechead__title { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); font-weight: var(--fw-semi); }
 /* the tabs inside Personal details and Applications (Nesil, 29 Oct, against the "no tabs inside tabs" Decision):
    underlined, so they read apart from the menu beside them */
 .rtabs { display: flex; gap: var(--sp-20); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }

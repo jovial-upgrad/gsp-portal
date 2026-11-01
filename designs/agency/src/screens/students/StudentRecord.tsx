@@ -78,7 +78,8 @@ function merge(k: Editable, p: Student, d: Student): Student {
   OWN[k].forEach((f) => (out[f] = d[f]));
   const own = OWN_DOCS[k];
   const docs = own ? { ...Object.fromEntries(Object.entries(p.docs).filter(([x]) => !own(x))), ...Object.fromEntries(Object.entries(d.docs).filter(([x]) => own(x))) } : p.docs;
-  return { ...(out as Student), docs, read: [...new Set([...p.read, ...d.read])] };
+  // what an upload read meanwhile, and which documents have filled the profile in (one-time, 1 Nov), stay
+  return { ...(out as Student), docs, read: [...new Set([...p.read, ...d.read])], filled: p.filled || d.filled ? { ...p.filled, ...d.filled } : undefined };
 }
 const without = <T extends object>(o: T, k: keyof T): T => {
   const c = { ...o };
@@ -368,7 +369,7 @@ export function StudentRecord({
                 icon: 'checkCircle',
                 tone: 'ok',
                 title: `${fullName(s)} added`,
-                text: s.consentCheck ? `This passport is also on another agency’s student, so GSP is asking ${s.first} which agency they want. Meanwhile, complete the profile.` : 'Complete the student’s profile.',
+                text: 'Complete the student’s profile.',
               }
             : null
         }
@@ -423,16 +424,6 @@ export function StudentRecord({
         </div>
       </header>
 
-      {s.consentCheck && (
-        <div className="sflag" role="note">
-          <span className="who who--gsp">With GSP</span>
-          <p>
-            <strong>Checking with {s.first}.</strong> This passport is also on a student at another agency, so GSP has asked {s.first} which agency they want to apply with. Applications can
-            start once they reply.
-          </p>
-        </div>
-      )}
-
       <div className="rbody">
         <nav className="rnav" aria-label="Profile sections">
           <div role="tablist" aria-orientation="vertical" aria-label="Profile sections" className="rnav__list" onKeyDown={onKey}>
@@ -480,25 +471,33 @@ export function StudentRecord({
           <div id="rsubpanel" role={group === 'documents' ? undefined : 'tabpanel'} aria-labelledby={group === 'documents' ? undefined : `rsub-${tab}`}>
             <AnimatePresence mode="wait" initial={false}>
               <motion.div key={tab} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease }}>
-                {(sec || (INTRO[tab] && group !== 'documents')) && (
-                <div className="rpanel__row">
-                  {INTRO[tab] && group !== 'documents' && <p className="rpanel__text">{INTRO[tab]}</p>}
-                  {sec && (
+                {sec ? (
+                  // the section's header (1 Nov, with engineering): its name, what it adds, and one Edit for the whole section
+                  <div className="rsechead">
+                    <h3 id="rsec-title" className="rsechead__title">
+                      {LABEL[sec]}
+                    </h3>
                     <div className="rpanel__acts">
                       {adder(sec)}
                       {mode === 'view' && (
-                        <Button data-edit variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => startEdit(sec)} aria-label={`Edit ${LABEL[sec].toLowerCase()}`}>
-                          Edit
+                        <Button data-edit variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => startEdit(sec)}>
+                          Edit<span className="vh"> {LABEL[sec].toLowerCase()}</span>
                         </Button>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  INTRO[tab] &&
+                  group !== 'documents' && (
+                    <div className="rpanel__row">
+                      <p className="rpanel__text">{INTRO[tab]}</p>
+                    </div>
+                  )
                 )}
                 {sec ? (
                   // saved: the same fields, read-only and shown as text; editing: the draft
                   <RevealErrors.Provider value={mode === 'edit' ? reveal : 0}>
-                  <fieldset className={`rform ${mode === 'view' ? 'is-view' : ''}`} disabled={mode === 'view'} aria-label={LABEL[sec]}>
+                  <fieldset className={`rform ${mode === 'view' ? 'is-view' : ''}`} disabled={mode === 'view'} aria-labelledby="rsec-title">
                     {sec === 'personal' && <Personal s={shown} list={list} update={sectionUpdate} />}
                     {sec === 'education' && <Education s={shown} update={sectionUpdate} />}
                     {sec === 'work' && <Work s={shown} update={sectionUpdate} />}

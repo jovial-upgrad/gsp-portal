@@ -3,13 +3,12 @@ import { useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Checkbox, Field } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
-import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
-import { citiesOf, fullName, type Student } from '../../../data/students';
+import { citiesOf, type Student } from '../../../data/students';
 import { fillFromPassport, savePassport } from './read';
 import { parseDate, typeDate, yearsSince } from '../../../data/dates';
-import { atOtherAgency, isEmail, passportOk, sameStudent } from '../form';
-import { ReadBox, ReadNote, readMs } from '../ReadBox';
+import { isEmail, passportError, sameStudent } from '../form';
+import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
 import { Choice, Phone, Sel, Txt, type Update } from './fields';
 
 const PASSPORT = 'passport';
@@ -29,7 +28,10 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
   const read = (k: string) => (s.read.includes(k) ? PASSPORT : null);
   /** Sets fields and drops their "read from a document" mark. */
   const set = (patch: Partial<Student>) => update((p) => ({ ...p, ...patch, read: p.read.filter((k) => !(k in patch)) }));
+  // the same passport number on another of this RP's students (1 Nov: passport only, within one RP)
   const dup = sameStudent(s, list, s.id);
+  // autofill is one-time (1 Nov): once the passport filled this in, it's corrected by hand
+  const filled = filledAt(s, PASSPORT);
   const dob = parseDate(s.dob);
 
   const readFile = (file: File) => {
@@ -43,7 +45,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
 
   return (
     <div className="rsec">
-      {reading || (!s.docs.passport && !(s.dob || s.gender)) ? (
+      {reading || (!filled && !s.docs.passport && !(s.dob || s.gender)) ? (
         <ReadBox
           id="rp-file"
           title="Fill this in from the passport"
@@ -54,8 +56,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
           onFile={readFile}
         />
       ) : (
-        s.docs.passport &&
-        s.read.some((k) => ['gender', 'dob', 'first', 'last', 'passport'].includes(k)) && <ReadNote text="Filled in from the passport, which is in Documents. What was read is highlighted: check it." />
+        filled && <ReadNote text={filledText('passport', filled)} />
       )}
 
       <fieldset className="rgroup">
@@ -79,14 +80,8 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
               value={s.passport}
               read={read('passport')}
               onChange={(v) => set({ passport: v.toUpperCase() })}
-              error={!passportOk(s.passport) ? 'A passport number is 6 to 9 letters and digits.' : dup.byPassport ? `This passport number is already on ${fullName(dup.byPassport)}.` : null}
+              error={passportError(s.passport, dup.byPassport)}
             />
-            {atOtherAgency(s.passport) && !s.consentCheck && (
-              <p className="anote">
-                <Icon name="info" size={16} />
-                <span>This passport is on a student at another agency. GSP will ask the student which agency they want to apply with.</span>
-              </p>
-            )}
           </div>
           <Txt
             id="rp-dob"
@@ -128,7 +123,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
             value={s.email}
             onChange={(v) => set({ email: v })}
             hint="Used on university applications."
-            error={!s.email.trim() ? 'Enter the student’s email.' : !isEmail(s.email) ? 'Enter a full email address, like name@gmail.com.' : dup.byEmail ? `This email is already on ${fullName(dup.byEmail)}.` : null}
+            error={!s.email.trim() ? 'Enter the student’s email.' : !isEmail(s.email) ? 'Enter a full email address, like name@gmail.com.' : null}
           />
           <Phone id="rp-phone" required dial={s.dial} number={s.phone} error={phoneError(s.dial, s.phone, { required: true, what: 'student’s mobile number' })} onDial={(v) => set({ dial: v })} onNumber={(v) => set({ phone: v })} />
         </div>

@@ -1,7 +1,7 @@
 /** The Add a student form: the basics, what's checked, duplicates, and how a new student is made. */
 import { phoneError } from '../../components/validate';
 import { countryByName } from '../../data/partners';
-import { OTHER_AGENCY_PASSPORTS, emptyEdu, type Gender, type Level, type Student } from '../../data/students';
+import { emptyEdu, fullName, type Gender, type Level, type Student } from '../../data/students';
 
 export type AddForm = {
   first: string;
@@ -55,19 +55,23 @@ export const newAdd = (nationality: string): AddState => ({ f: newForm(nationali
 /* ---------- checks ---------- */
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
-const norm = (v: string) => v.replace(/\s+/g, '').toUpperCase();
+/** A passport number as it's compared and kept: no spaces, upper case (1 Nov). */
+export const normPassport = (v: string) => v.replace(/\s+/g, '').toUpperCase();
+const norm = normPassport;
 
-/** Someone this agency already added, with the same email or passport. */
-export function sameStudent(f: Pick<AddForm, 'email' | 'passport'>, list: Student[], except?: string) {
-  const email = f.email.trim().toLowerCase();
+/**
+ * Someone this agency already added with the same passport number (1 Nov, with engineering: the duplicate check is
+ * by passport only, and only within one RP; the same passport at another RP is allowed).
+ */
+export function sameStudent(f: Pick<AddForm, 'passport'>, list: Student[], except?: string) {
   const pp = norm(f.passport);
-  const others = list.filter((s) => s.id !== except);
-  const byEmail = email ? others.find((s) => s.email.toLowerCase() === email) : undefined;
-  const byPassport = pp ? others.find((s) => norm(s.passport) === pp) : undefined;
-  return { byEmail, byPassport };
+  const byPassport = pp ? list.find((s) => s.id !== except && norm(s.passport) === pp) : undefined;
+  return { byPassport };
 }
-export const atOtherAgency = (passport: string) => !!passport && OTHER_AGENCY_PASSPORTS.includes(norm(passport));
-export const passportOk = (v: string) => !v.trim() || /^[A-Z0-9]{6,9}$/i.test(norm(v));
+/** The passport number is required to add a student (1 Nov): 6 to 9 letters and digits. */
+export const passportOk = (v: string) => /^[A-Z0-9]{6,9}$/i.test(norm(v));
+export const passportError = (v: string, dup?: Student) =>
+  !v.trim() ? 'Enter the passport number.' : !passportOk(v) ? 'A passport number is 6 to 9 letters and digits.' : dup ? `${fullName(dup)} already has this passport number.` : null;
 
 export const FIELD_ORDER = ['first', 'last', 'nationality', 'country', 'passport', 'email', 'phone', 'highest'] as const;
 export type FieldKey = (typeof FIELD_ORDER)[number];
@@ -78,12 +82,10 @@ export function validate(f: AddForm, list: Student[]) {
   if (!f.oneName && !f.last.trim()) e.last = 'Enter the last name, or tick “Only one name on the passport”.';
   if (!f.nationality) e.nationality = 'Choose the nationality on the passport.';
   if (!f.country) e.country = 'Choose the country the student lives in now.';
-  const { byEmail, byPassport } = sameStudent(f, list);
-  if (!passportOk(f.passport)) e.passport = 'A passport number is 6 to 9 letters and digits.';
-  else if (byPassport) e.passport = 'This passport number is already on one of your students.';
+  const pe = passportError(f.passport, sameStudent(f, list).byPassport);
+  if (pe) e.passport = pe;
   if (!f.email.trim()) e.email = 'Enter the student’s email.';
   else if (!isEmail(f.email)) e.email = 'Enter a full email address, like name@gmail.com.';
-  else if (byEmail) e.email = 'This email is already on one of your students.';
   if (!f.phone.trim()) e.phone = 'Enter the student’s mobile number.';
   else if (phoneError(f.dial, f.phone)) e.phone = phoneError(f.dial, f.phone, { what: 'student’s mobile number' })!;
   if (!f.highest) e.highest = 'Choose the highest education the student has finished.';
@@ -128,10 +130,11 @@ export function makeStudent(a: AddState, me: string): Student {
     disabilityNote: '',
     docs: a.file ? { passport: { name: 'Passport', file: a.file.name, status: 'uploaded' } } : {},
     read: x ? ['gender', 'dob'] : [],
+    // the passport read here is its one autofill (1 Nov): the record doesn't offer it again
+    filled: x ? { passport: Date.now() } : undefined,
     counsellor: f.counsellor,
     added: Date.now(),
     addedBy: me,
     apps: [],
-    consentCheck: atOtherAgency(f.passport) || undefined,
   };
 }

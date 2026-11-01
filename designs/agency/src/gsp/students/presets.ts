@@ -30,9 +30,10 @@ export const STUDENT_PRESETS: Record<string, { label: string; make: Make }> = {
     label: 'Add: Validations',
     make: (me) => ({ students: sampleStudents(me), add: filled({ first: 'Meera', email: 'meera.iyer@gmail', phone: '98', passport: 'AB12' }, { submitted: true, attempts: 1 }) }),
   },
+  // 1 Nov: the duplicate check is by passport number, within one RP
   'students-duplicate': {
-    label: 'Add: Email already exists',
-    make: (me) => ({ students: sampleStudents(me), add: filled({ first: 'Priya', last: 'Raman', email: 'priya.raman@gmail.com' }, { touched: { email: true } }) }),
+    label: 'Add: Passport already exists',
+    make: (me) => ({ students: sampleStudents(me), add: filled({ first: 'Priya', last: 'Raman', passport: 'V8810342', rp: 'GSP test agency' }, { touched: { passport: true } }) }),
   },
   'students-add-complete': {
     label: 'Add: Completed',
