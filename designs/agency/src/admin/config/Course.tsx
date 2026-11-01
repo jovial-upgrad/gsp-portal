@@ -183,8 +183,8 @@ export function Currency({ cfg, change, say }: ConfigProps) {
 }
 
 /**
- * Living costs: a year's living costs in each destination, as its visa rules set them; the course dialog adds it to
- * the first year. Jovial, 31 Oct: the same as Currency exchange: Edit, then Save; **Get current figures** fills them
+ * Living costs: a year's living costs in each destination, as its visa rules set them; the course dialog's Costs
+ * shows it for the course's duration. Jovial, 31 Oct: the same as Currency exchange: Edit, then Save; **Get current figures** fills them
  * from each country's visa rules (in the prototype, the figures as they stand) for you to check; destinations can be
  * added.
  */
@@ -217,7 +217,7 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
   };
   return (
     <>
-      <PageHead title="Living costs" lead="A year’s living costs in each destination, as its visa rules set them. The course page shows it under Other costs and adds it to the first year, all in, for every course there.">
+      <PageHead title="Living costs" lead="A year’s living costs in each destination, as its visa rules set them. The course page’s Costs shows it for each course there, for the course’s duration (a year for a course measured in credits).">
         <Button variant="secondary" iconLeft={<Icon name="refresh" size={18} />} onClick={fetchFigures}>
           Get current figures
         </Button>
@@ -295,7 +295,7 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
 /**
  * Visa and health fees (Jovial, 31 Oct): what a student pays to study in each destination, besides tuition and
  * living costs: the visa, health cover. Set up like Living costs: Edit, then Save; rows can be added. The course page's
- * Other costs and its first year, all in, read them.
+ * Costs reads them (Jovial, 1 Nov), for the course's duration.
  */
 export function VisaFees({ cfg, change, say }: ConfigProps) {
   const d = useDraft<VisaFee[]>(cfg.visaFees, 'the visa and health fees');
@@ -319,7 +319,7 @@ export function VisaFees({ cfg, change, say }: ConfigProps) {
   };
   return (
     <>
-      <PageHead title="Visa and health fees" lead="What a student pays to study in each destination besides tuition and living costs. The course page lists them under Other costs and adds them to the first year, all in.">
+      <PageHead title="Visa and health fees" lead="What a student pays to study in each destination besides tuition and living costs. The course page’s Costs adds them for the course’s duration: a yearly fee for each year, a one-off once.">
         <EditBar name="visa and health fees" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (v.reset(), d.stop())} onSave={save} />
       </PageHead>
       <Panel flush>

@@ -109,9 +109,9 @@ export function FindCourses({
   const onStar = (c: Course, anchor: HTMLElement) => {
     if (student) toggleFor(student, c);
     else if (students.length) setPickFor((p) => (p?.c.id === c.id ? null : { c, anchor }));
-    // no students yet (while GSP verifies the agency): a shortlist for this search only
-    else set((p) => ({ ...p, shortlist: p.shortlist.includes(c.id) ? p.shortlist.filter((x) => x !== c.id) : [...p.shortlist, c.id] }));
   };
+  // shortlists are students' (Jovial, 1 Nov): with no students yet, Shortlist is off, and says why
+  const shortOff = students.length ? undefined : 'Add a student first';
   // up to five courses, ticked to compare or download together
   const [picked, setPicked] = useState<string[]>([]);
   const [comparing, setComparing] = useState(false);
@@ -354,6 +354,7 @@ export function FindCourses({
                     shortlisted={isShort(c.id)}
                     shortFor={student?.first}
                     onShort={(el) => onStar(c, el)}
+                    shortOff={shortOff}
                     picked={picked.includes(c.id)}
                     pickable={picked.includes(c.id) || picked.length < MAX_PICK}
                     onPick={() => togglePick(c.id)}
@@ -399,6 +400,7 @@ export function FindCourses({
         onClose={() => setOpen(null)}
         shortlisted={!!open && isShort(open.id)}
         onShort={(el) => open && onStar(open, el)}
+        shortOff={shortOff}
         compared={!!open && picked.includes(open.id)}
         comparable={!!open && (picked.includes(open.id) || picked.length < MAX_PICK)}
         onCompare={() => open && togglePick(open.id)}
@@ -416,6 +418,7 @@ export function FindCourses({
         isShort={isShort}
         onApply={onApply}
         onShort={onStar}
+        shortOff={shortOff}
         onClose={() => setComparing(false)}
         onRemove={(id) => {
           setPicked((l) => l.filter((x) => x !== id));
@@ -647,6 +650,7 @@ function CourseCard({
   shortlisted,
   shortFor,
   onShort,
+  shortOff,
   picked,
   pickable,
   onPick,
@@ -662,6 +666,8 @@ function CourseCard({
   /** The student picked in the search: the star shortlists for them; with none, it asks who for. */
   shortFor?: string;
   onShort: (anchor: HTMLElement) => void;
+  /** Why Shortlist is off (no students yet), when it is. */
+  shortOff?: string;
   /** Ticked to compare or download, and whether another can be ticked (up to five). */
   picked: boolean;
   pickable: boolean;
@@ -720,8 +726,9 @@ function CourseCard({
             type="button"
             className={`star ${shortlisted ? 'is-on' : ''}`}
             aria-pressed={shortlisted}
-            aria-label={shortFor ? `Shortlist ${c.name}, ${c.uni.name}, for ${shortFor}` : `Shortlist ${c.name}, ${c.uni.name}, for a student`}
-            title={shortlisted ? (shortFor ? `Shortlisted for ${shortFor}` : 'Shortlisted') : shortFor ? `Shortlist for ${shortFor}` : 'Shortlist for a student'}
+            disabled={!!shortOff}
+            aria-label={shortOff ? `Shortlist ${c.name}, ${c.uni.name}: ${shortOff.toLowerCase()}` : shortFor ? `Shortlist ${c.name}, ${c.uni.name}, for ${shortFor}` : `Shortlist ${c.name}, ${c.uni.name}, for a student`}
+            title={shortOff ?? (shortlisted ? (shortFor ? `Shortlisted for ${shortFor}` : 'Shortlisted') : shortFor ? `Shortlist for ${shortFor}` : 'Shortlist for a student')}
             onClick={(e) => onShort(e.currentTarget)}
           >
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">

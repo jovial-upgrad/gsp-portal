@@ -753,6 +753,12 @@
 .cbar__item dd { margin: 0; text-align: right; white-space: nowrap; }
 .cbar__amt { font-size: var(--t-label); font-weight: var(--fw-medium); color: var(--text); }
 .cbar__pct { font-size: var(--t-caption); color: var(--text-3); }
+.cbar__item dt .cbar__key { margin-top: 0.3em; align-self: flex-start; }
+.cbar__lab { display: grid; gap: 2px; min-width: 0; }
+.cbar__basis { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.cbar__item--total { border-top: 1px solid var(--line-strong) !important; }
+.cbar__item--total dt { font-weight: var(--fw-semi); color: var(--text); }
+.cbar__item--total .cbar__amt { font-weight: var(--fw-semi); }
 
 /* the scholarships, across the tab: one tile each, the course's own first */
 .cs-schols { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: var(--sp-12); }
@@ -760,11 +766,7 @@
 .cs-schol__from { font-size: var(--t-micro); line-height: var(--lh-micro); font-weight: var(--fw-semi); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); }
 .cs-schol__name { margin-top: 2px; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
 .cs-schol__amt { margin-top: var(--sp-6); font-size: 1.375rem; line-height: 1.875rem; font-weight: var(--fw-semi); color: var(--text); }
-.cs-schol__off { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
 .cs-schol__who { margin-top: var(--sp-8); font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
-.cs-schol__how { display: inline-flex; align-items: center; gap: var(--sp-6); margin-top: auto; padding-top: var(--sp-10); font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-medium); color: var(--text-2); }
-.cs-schol__who + .cs-schol__how { border-top: 1px dashed var(--line-strong); margin-top: var(--sp-10); }
-.cs-schol__how.is-auto { color: var(--ok); }
 
 /* whose entry requirements: one dropdown, All countries then the main countries with their flags */
 .cm-cpick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); }
@@ -1120,3 +1122,7 @@
 .cs-news__title { margin: 0; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
 .cs-news__body { margin: 2px 0 0; font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); overflow-wrap: anywhere; }
 .cs-news__meta { margin: 2px 0 0; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+
+/* why Shortlist is off (Jovial, 1 Nov: no students yet) */
+.cm-acts__why { align-self: center; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); white-space: nowrap; }
+.star:disabled { opacity: 0.4; cursor: not-allowed; }
