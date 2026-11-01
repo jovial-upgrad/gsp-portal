@@ -45,51 +45,6 @@ export const SCOPES = {
   own: 'Their own students only',
 };
 
-/* Modules, grouped as on the permission page. */
-export const MODULES = [
-  { group: 'Students and applications', items: [
-    ['students', 'Students'],
-    ['student-docs', 'Student documents'],
-    ['applications', 'Applications'],
-    ['app-status', 'Application status changes'],
-    ['app-docs', 'Application documents and checks'],
-    ['submission', 'Submission and university mail'],
-    ['chat', 'Chat with RPs'],
-  ] },
-  { group: 'Recruitment partners', items: [
-    ['rp-profile', 'RP profile and status'],
-    ['rp-docs', 'RP onboarding documents'],
-    ['rp-team', 'RP branches and team'],
-    ['bdm', 'BDM assignment'],
-  ] },
-  { group: 'Institutions and courses', items: [
-    ['ip', 'Institution partners and agreements'],
-    ['universities', 'Universities'],
-    ['courses', 'Courses, intakes and fees'],
-    ['announcements', 'Announcements'],
-  ] },
-  { group: 'Commissions', items: [
-    ['comm-terms', 'Commission terms'],
-    ['comm-lines', 'Commission lines and ledgers'],
-    ['invoices', 'Invoices and receipts'],
-    ['payouts', 'Payout runs'],
-    ['earnings', 'RP earnings and statements'],
-    ['bank', 'RP bank details'],
-  ] },
-  { group: 'Work', items: [
-    ['tasks', 'Tasks in my queues'],
-    ['queues', 'Queues, task rules and SLA'],
-    ['mail', 'Shared mailboxes'],
-    ['dashboards', 'Dashboards'],
-  ] },
-  { group: 'Administration', items: [
-    ['users', 'Users, roles and access'],
-    ['regions', 'Sales regions and routing'],
-    ['logs', 'Logs and exports'],
-  ] },
-];
-
-export const MODULE_NAME = Object.fromEntries(MODULES.flatMap(g => g.items));
 
 /* Each module here is a line of Admin › Permission roles (HC46). */
 const OBJECT_OF = {
