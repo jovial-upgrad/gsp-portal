@@ -2,10 +2,11 @@ import type { Course, Destination } from './courses';
 import { COUNTRIES } from './partners';
 
 /**
- * Entry requirements and documents depend on where the student studied. The course page's dropdown offers All
+ * Entry requirements depend on where the student studied. The course page's dropdown offers All
  * countries, then the countries GSP recruits from most, and opens on the RP's own country. These are sample
  * rules: the qualification each country's students hold, how a course's percentage reads in that country's
- * grading, whether backlogs are counted, how English can be waived, and the documents only that country needs.
+ * grading, whether backlogs are counted and how English can be waived. The documents aren't here (Jovial, 1 Nov):
+ * they come from GSP · Admin › Document configuration (admin/data/store.ts courseDocs).
  */
 export const ENTRY_COUNTRIES = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Nigeria', 'Vietnam'];
 /** The dropdown's first choice: every country side by side. */
@@ -19,7 +20,6 @@ export const flagOf = (name: string) => {
   return iso ? String.fromCodePoint(...[...iso.toUpperCase()].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65)) : '';
 };
 
-type Doc = Course['docs'][number];
 /** What the course asks of a student from one country. */
 export type EntryRules = {
   /** The qualification needed before the course, and a line under it. */
@@ -31,14 +31,12 @@ export type EntryRules = {
   backlogs: boolean;
   /** How the English test can be waived, after "a conditional offer is possible". */
   waiver?: string;
-  docs: Course['docs'];
   /** Anything else worth knowing for students from here. */
   note?: string;
 };
 
 type Rules = {
   school: string;
-  schoolDocs: string;
   degree: string;
   grade: (p: number, pg: boolean) => [string, string];
   backlogs: boolean;
@@ -60,7 +58,6 @@ const gpa10 = scale([[50, 5.5], [60, 6.5], [70, 7.0], [80, 8.0], [90, 9.0]]);
 const RULES: Record<string, Rules> = {
   India: {
     school: 'Grade 12 (CBSE, ISC or a state board)',
-    schoolDocs: 'Class 10 and 12 mark sheets',
     degree: 'Bachelor’s degree, 3 or 4 years',
     grade: (p) => [`${p}%+`, ''],
     backlogs: true,
@@ -69,7 +66,6 @@ const RULES: Record<string, Rules> = {
   },
   Bangladesh: {
     school: 'HSC (or A-Level)',
-    schoolDocs: 'SSC and HSC certificates and mark sheets',
     degree: 'Bachelor’s degree, 4 years',
     grade: (p, pg) => (pg ? [`CGPA ${gpa4(p)}`, 'out of 4'] : [`GPA ${gpa5(p)}`, 'out of 5, in the HSC']),
     backlogs: false,
@@ -78,7 +74,6 @@ const RULES: Record<string, Rules> = {
   },
   Nepal: {
     school: 'NEB Grade 12 (or A-Level)',
-    schoolDocs: 'SEE and NEB Grade 12 transcripts',
     degree: 'Bachelor’s degree, 4 years for most universities',
     grade: (p, pg) => [`${p}% or GPA ${gpa4(p)}`, pg ? 'out of 4, in the bachelor’s degree' : 'out of 4, in Grade 12'],
     backlogs: true,
@@ -86,7 +81,6 @@ const RULES: Record<string, Rules> = {
   },
   'Sri Lanka': {
     school: 'GCE A-Level, 3 passes',
-    schoolDocs: 'GCE O-Level and A-Level certificates',
     degree: 'Bachelor’s degree',
     grade: (p, pg) => (pg ? [`GPA ${gpa4(p)}`, 'out of 4, or a second class'] : ['3 passes', 'at A-Level, C or better']),
     backlogs: false,
@@ -94,7 +88,6 @@ const RULES: Record<string, Rules> = {
   },
   Nigeria: {
     school: 'WAEC or NECO (SSCE), 5 credits',
-    schoolDocs: 'WAEC or NECO results (SSCE)',
     degree: 'Bachelor’s degree (BSc or BA)',
     grade: (p, pg) => (pg ? [p >= 65 ? 'Second class upper' : 'Second class lower', p >= 65 ? '2:1, or CGPA 3.5 out of 5' : '2:2, or CGPA 2.5 out of 5'] : ['5 credits', 'including English and Maths']),
     backlogs: false,
@@ -102,7 +95,6 @@ const RULES: Record<string, Rules> = {
   },
   Vietnam: {
     school: 'High school graduation (Grade 12)',
-    schoolDocs: 'High school transcript and graduation certificate',
     degree: 'Bachelor’s degree',
     grade: (p, pg) => [`GPA ${gpa10(p)}`, pg ? 'out of 10, in the bachelor’s degree' : 'out of 10, in Grade 12'],
     backlogs: false,
@@ -112,7 +104,6 @@ const RULES: Record<string, Rules> = {
 /** Any country without its own rules: the course's percentage or its equivalent, checked by GSP. */
 const ANY: Rules = {
   school: 'Grade 12 or equivalent',
-  schoolDocs: 'School leaving certificates and mark sheets',
   degree: 'Bachelor’s degree or equivalent',
   grade: (p) => [`${p}% or equivalent`, 'in the country’s own grading'],
   backlogs: false,
@@ -126,22 +117,12 @@ export function entryFor(c: Course, country: string): EntryRules {
   const pg = PG.includes(c.level);
   const from = c.level === 'PhD or research' ? 'Master’s degree' : pg ? r.degree : c.level === 'Foundation' && country === 'India' ? 'Grade 11 or 12' : r.school;
   const [grade, sub] = r.grade(c.academic, pg);
-  // 30 Oct: only the passport, the academic documents (the school's, in the country's own names, and the degree's for
-  // a postgraduate course) and the English test score, which is optional
-  const school = !pg && country === 'India' ? c.docs[1][0] : r.schoolDocs;
-  const docs: Doc[] = [
-    ['Passport', 'Required', 'With the application'],
-    [school, 'Required', 'With the application'],
-    ...(pg ? [[c.docs[1][0], 'Required', 'With the application'] as Doc] : []),
-    ['English test score', 'Optional', 'With the application'],
-  ];
   return {
     from,
     grade,
     gradeSub: sub || (pg ? 'in the bachelor’s degree' : 'in Grade 12'),
     backlogs: r.backlogs && c.backlogs !== undefined,
     waiver: r.waiver,
-    docs,
     note: r.note?.(pg, c.uni.country),
   };
 }

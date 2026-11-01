@@ -27,7 +27,7 @@ export function CostsTab({ c }: { c: Course }) {
           <p className="cm-total__note">
             {credits
               ? `This course’s length is in credits${credit ? ` (${credit})` : ''}, so these are for 1 year.`
-              : `For one student, for the course’s ${span}: tuition, living costs, visa and health cover, and the application fee.`}
+              : `For one student, for the whole course (${span}): tuition, living costs, visa and health cover, and the application fee.`}
           </p>
         </div>
         <CostBar parts={parts} total={total} cur={c.currency} />

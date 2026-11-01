@@ -25,6 +25,7 @@ import {
   sampleRegions,
   sampleRpDocs,
   sampleRules,
+  condOf,
   REGION_BDM,
   regionQueueName,
   type BdmRow,
@@ -202,6 +203,34 @@ export function courseCosts(c: Course & { durUnit?: string; durValue?: number; f
   return { parts, total: parts.reduce((n, p) => n + p.v, 0), span, credits, credit: credits ? c.durValue : undefined };
 }
 const durationText = (m: number) => (m % 12 === 0 ? `${m / 12} ${m === 12 ? 'year' : 'years'}` : `${m} months`);
+/** A document a course asks for: its name, whether it's needed, and when (or for whom). */
+export type CourseDoc = [string, 'Required' | 'Optional', string];
+/** The study level as Admin's document rules name it (as data/applications.ts reads them). */
+const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 'Diploma', 'Bachelor’s degree': 'Undergraduate', 'Postgraduate diploma': 'Postgraduate', 'Master’s degree': 'Postgraduate', 'PhD or research': 'Doctorate' };
+/**
+ * The documents a course asks for (Jovial, 1 Nov), from GSP · Admin › Document configuration, read the way Add an
+ * application reads them (data/applications.ts docsFor): the rules switched on for the New stage that the RP uploads,
+ * where the rule's study levels and university countries take this course. A rule for students already in (or
+ * outside) the destination, or with a condition of its own, says so and is optional unless it's mandatory and
+ * plain. Then the English test, from the course's English rule.
+ */
+export function courseDocs(c: Pick<Course, 'level' | 'englishFlex'> & { uni: { country: string; name: string } }): CourseDoc[] {
+  const level = RULE_LEVEL[c.level] ?? 'Postgraduate';
+  const out: CourseDoc[] = [];
+  const dest = c.uni.country === 'UK' || c.uni.country === 'USA' ? `the ${c.uni.country}` : c.uni.country;
+  for (const r of load().docRules) {
+    if (!r.on || r.stage !== 'New' || r.by !== 'RP') continue;
+    const k = condOf(r);
+    if (k.levels.length && !k.levels.includes(level)) continue;
+    if (k.countries.length && !k.countries.includes(c.uni.country)) continue;
+    if (out.some(([n]) => n === r.doc)) continue;
+    const where = k.where === 'Already in the destination' ? `For students already in ${dest}` : k.where === 'Outside the destination' ? `For students outside ${dest}` : '';
+    const other = k.other.trim() ? `When ${k.other.trim().charAt(0).toLowerCase()}${k.other.trim().slice(1)}` : '';
+    out.push([r.doc, r.setting === 'Mandatory' && !k.other.trim() ? 'Required' : 'Optional', [where, other].filter(Boolean).join('; ') || 'With the application']);
+  }
+  out.push(['English test score report', c.englishFlex ? 'Optional' : 'Required', c.englishFlex ? `${c.uni.name} can take it later` : 'With the application']);
+  return out;
+}
 /** Rupees for one unit of a currency, from Admin's Currency exchange (course search's budget in lakhs). */
 export const inrPer = (code: string) => inrPerFrom(load().rates, code);
 /** Admin's settings in a component, kept up to date. */

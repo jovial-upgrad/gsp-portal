@@ -234,8 +234,6 @@ export type Course = {
   scholarshipName?: string;
   /** The scholarship comes with the offer, or needs its own application. */
   scholarshipAuto?: boolean;
-  /** What the application needs: document, needed or optional, and when. */
-  docs: [string, 'Required' | 'Optional' | 'Can come later', string][];
   /** Costs on top of tuition, approximate. */
   otherFees: [string, number][];
   /** Postgraduate courses: the most backlogs (subjects failed and cleared later) accepted in the student's degree. */
@@ -372,7 +370,7 @@ function modeOf(id: string): StudyMode {
   return n < 72 ? 'Full time' : n < 84 ? 'Blended' : n < 94 ? 'Part time' : 'Online';
 }
 
-type Extras = Pick<Course, 'mode' | 'cricos' | 'placement' | 'pathway' | 'recognition' | 'careers' | 'scholarshipName' | 'scholarshipAuto' | 'docs' | 'otherFees' | 'backlogs'>;
+type Extras = Pick<Course, 'mode' | 'cricos' | 'placement' | 'pathway' | 'recognition' | 'careers' | 'scholarshipName' | 'scholarshipAuto' | 'otherFees' | 'backlogs'>;
 
 /** How many backlogs universities in each destination usually accept from Indian students on postgraduate courses. */
 const BACKLOGS: Record<Destination, number[]> = { UK: [10, 12, 15], Australia: [5, 8, 10], Canada: [5, 6, 8], 'New Zealand': [5, 8], Ireland: [8, 10, 12], USA: [5, 8, 10] };
@@ -424,18 +422,6 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
   const nursing = /Nursing/.test(c.name);
   const body = nursing ? NURSING[dest] : BODIES[c.area]?.[dest];
   const careers = [...CAREERS[c.area]].sort(() => rnd() - 0.5).slice(0, 3);
-  const docs: Extras['docs'] = [
-    ['Passport', 'Required', 'With the application'],
-    [pg ? 'Bachelor’s transcripts and degree certificate' : c.level === 'Foundation' ? 'Class 10 and 11 mark sheets' : 'Class 10 and 12 mark sheets', 'Required', 'With the application'],
-    ['English test score', c.englishFlex ? 'Can come later' : 'Required', c.englishFlex ? 'GSP asks for it before the offer is final' : 'With the application'],
-    ['Statement of purpose', pg ? 'Required' : 'Optional', 'With the application'],
-    ['CV', pg ? 'Required' : 'Optional', 'With the application'],
-  ];
-  if (c.area === 'Arts and design') docs.push(['Portfolio', 'Required', 'With the application']);
-  if (c.level === 'PhD or research') docs.push(['Research proposal', 'Required', 'With the application']);
-  if (pg) docs.push(['Two references', 'Optional', 'GSP asks for them if the university wants them']);
-  docs.push(['Gap explanation document', 'Optional', 'GSP asks for it if there’s a gap in study']);
-  docs.push(['Financial documents', 'Required', dest === 'UK' ? 'GSP asks for them after the offer, before the CAS' : 'GSP asks for them after the offer, for the visa']);
   return {
     mode: modeOf(c.id),
     cricos: dest === 'Australia' ? `0${String(10000 + Math.floor(rnd() * 89999))}${'ABCDEFGHJKM'[Math.floor(rnd() * 11)]}` : undefined,
@@ -445,7 +431,6 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
     careers,
     scholarshipName: c.scholarship ? SCHOLARSHIPS[Math.floor(rnd() * SCHOLARSHIPS.length)] : undefined,
     scholarshipAuto: c.scholarship ? rnd() < 0.6 : undefined,
-    docs,
     otherFees: OTHER_FEES[dest],
     // drawn last, so the values above stay as they were
     backlogs: pg ? (c.level === 'PhD or research' ? 3 : BACKLOGS[dest][Math.floor(rnd() * BACKLOGS[dest].length)]) : undefined,

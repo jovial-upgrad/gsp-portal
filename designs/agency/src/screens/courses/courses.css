@@ -791,10 +791,6 @@
 .cs-etable__note { display: block; margin-top: var(--sp-4); font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
 .cs-etable__foot { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
 .cs-etable__k { font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-semi); color: var(--text-2); }
-.cs-etable__docs { list-style: none; display: grid; gap: var(--sp-8); }
-.cs-etable__docs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-12); align-items: center; }
-.cs-etable__docs .cs-need { grid-column: 2; grid-row: 1 / span 2; }
-.cs-etable__dname { font-weight: var(--fw-medium); color: var(--text); }
 @container cmodal (max-width: 560px) {
   .cs-etable,
   .cs-etable tbody,

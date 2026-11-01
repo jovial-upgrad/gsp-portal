@@ -2,6 +2,7 @@ import { Icon } from '../../components/Icon';
 import { SelectMenu } from '../../components/SelectMenu';
 import type { Course } from '../../data/courses';
 import { ALL_COUNTRIES, ENTRY_COUNTRIES, entryFor, flagOf, type EntryRules } from '../../data/entry';
+import { courseDocs, type CourseDoc } from '../../admin/data/store';
 import { Box, Tile } from './parts';
 
 /**
@@ -9,7 +10,7 @@ import { Box, Tile } from './parts';
  * opens with one dropdown: **All countries** first, then the countries GSP recruits from most, each with its
  * flag; the RP's own country (India, for now) by default. One country shows its requirements, English and
  * documents, each card saying "For students from India"; All countries lays them side by side in tables, a
- * row a country, and lists once the documents every country needs.
+ * row a country, and the documents once (they're GSP · Admin's, the same for every country).
  */
 export function EntryTab({ c, country, onCountry }: { c: Course; country: string; onCountry: (c: string) => void }) {
   return (
@@ -61,7 +62,7 @@ function EnglishTiles({ c }: { c: Course }) {
   );
 }
 
-function DocList({ docs }: { docs: Course['docs'] }) {
+function DocList({ docs }: { docs: CourseDoc[] }) {
   return (
     <ul className="cs-docs">
       {docs.map(([name, need, when]) => (
@@ -78,11 +79,24 @@ function DocList({ docs }: { docs: Course['docs'] }) {
   );
 }
 
-/** One country: its requirements as tiles, English with its waiver, and its documents. */
+/**
+ * The documents to collect (Jovial, 1 Nov): GSP · Admin's document rules for this course, the same for students from
+ * every country, as Add an application asks for them.
+ */
+function Docs({ c }: { c: Course }) {
+  const docs = courseDocs(c);
+  const req = docs.filter(([, need]) => need === 'Required').length;
+  return (
+    <Box id="cs-docs" icon="folder" title="Documents to collect" meta={`${req} required`}>
+      <DocList docs={docs} />
+    </Box>
+  );
+}
+
+/** One country: its requirements as tiles, English with its waiver, and the documents. */
 function OneCountry({ c, country }: { c: Course; country: string }) {
   const r = entryFor(c, country);
   const meta = `For students from ${country}`;
-  const req = r.docs.filter(([, need]) => need === 'Required').length;
   return (
     <>
       <Box id="cs-academic" icon="cap" title="Entry requirements" meta={meta}>
@@ -100,9 +114,7 @@ function OneCountry({ c, country }: { c: Course; country: string }) {
         {c.englishFlex && <p className="cnote">The English test can wait: a conditional offer is possible{r.waiver ? `, or ${r.waiver}` : ''}.</p>}
       </Box>
 
-      <Box id="cs-docs" icon="folder" title="Documents to collect" meta={`${meta} · ${req} required`}>
-        <DocList docs={r.docs} />
-      </Box>
+      <Docs c={c} />
     </>
   );
 }
@@ -116,15 +128,11 @@ const Country = ({ n }: { n: string }) => (
   </th>
 );
 
-/** Every country side by side: a table a card, a row a country; the documents every country needs listed once. */
+/** Every country side by side: a table a card, a row a country; then the documents, once. */
 function AllCountries({ c }: { c: Course }) {
   const rows: [string, EntryRules][] = ENTRY_COUNTRIES.map((n) => [n, entryFor(c, n)]);
   const meta = `For all ${ENTRY_COUNTRIES.length} countries`;
   const backlogs = rows.some(([, r]) => r.backlogs);
-  // a document every country's list has, the same way, is listed once; the rest by country
-  const key = (d: Course['docs'][number]) => d.join('|');
-  const common = rows[0][1].docs.filter((d) => rows.every(([, r]) => r.docs.some((x) => key(x) === key(d))));
-  const own = rows.map(([n, r]) => [n, r.docs.filter((d) => !common.some((x) => key(x) === key(d)))] as const);
   return (
     <>
       <Box id="cs-academic" icon="cap" title="Entry requirements" meta={meta}>
@@ -177,35 +185,7 @@ function AllCountries({ c }: { c: Course }) {
         )}
       </Box>
 
-      <Box id="cs-docs" icon="folder" title="Documents to collect" meta={meta}>
-        <p className="cs-etable__k">From every country</p>
-        <DocList docs={common} />
-        <p className="cs-etable__k">And by country</p>
-        <table className="cs-etable cs-etable--2">
-          <tbody>
-            {own.map(([n, docs]) => (
-              <tr key={n}>
-                <Country n={n} />
-                <td data-k="Documents">
-                  {docs.length ? (
-                    <ul className="cs-etable__docs">
-                      {docs.map(([name, need, when]) => (
-                        <li key={name}>
-                          <span className="cs-etable__dname">{name}</span>
-                          <span className="cs-etable__sub">{when}</span>
-                          <span className={needClass(need)}>{need}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <span className="cs-etable__sub">Nothing more</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Box>
+      <Docs c={c} />
     </>
   );
 }
