@@ -14,7 +14,7 @@
  */
 import { NATIONALITY, REGION_BDM, ROUTING_RPS, route } from '../admin/data/config';
 import { adminCfg } from '../admin/data/store';
-import { rpByName } from './dataset';
+import { TEST_RP, rpByName } from './dataset';
 import { STAFF } from './staff';
 
 /** Built on first use: Admin's nationality map loads after this module in some import orders. */
@@ -31,7 +31,12 @@ const countryRegion = (): Record<string, string> => (MAP ??= {
 export const regionOfCountry = (country: string) => countryRegion()[country] ?? 'Rest of world';
 
 /** The signed-in sample agency: head office in Bengaluru, a branch in Mumbai, both India. */
-export const TEST_AGENCY = { name: 'GSP test agency', country: 'India', branches: [{ name: 'Bengaluru head office', country: 'India' }, { name: 'Mumbai', country: 'India' }] };
+/** The signed-in sample agency, from its one record in the data set (HC13): its name, country and branches. */
+export const TEST_AGENCY = {
+  get name() { return TEST_RP.name; },
+  get country() { return TEST_RP.country ?? ''; },
+  get branches() { return TEST_RP.branches ?? []; },
+};
 
 /** An RP's sales region: a regional list wins, then its head office's country. */
 export function rpRegion(rp?: string) {

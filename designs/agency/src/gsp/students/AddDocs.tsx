@@ -1,3 +1,4 @@
+import { UPLOAD } from '../../data/uploads';
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -12,7 +13,7 @@ export type BulkFile = { name: string; sorting: boolean };
 export type Failed = { name: string; error: string };
 
 /** Why a file can't be uploaded, or nothing. */
-export const fileError = (f: File) => (!OK_TYPES.test(f.name) ? 'not a PDF, JPG or PNG' : f.size > MAX_SIZE ? 'over 20 MB' : '');
+export const fileError = (f: File) => (!OK_TYPES.test(f.name) ? `not a ${UPLOAD.types}` : f.size > MAX_SIZE ? `over ${UPLOAD.maxMB} MB` : '');
 
 /**
  * Documents, at the end of Add a student: **Bulk upload**, with "Or upload them individually from the student's
@@ -135,7 +136,7 @@ export function AddDocs({
                     id="as-bulk"
                     type="file"
                     multiple
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept={UPLOAD.accept}
                     className="vh"
                     tabIndex={-1}
                     aria-labelledby="as-docs-k"
@@ -149,7 +150,7 @@ export function AddDocs({
                     Choose files
                   </Button>
                   <span id="as-bulk-rules" className="abulk__rules">
-                    or drop them here · PDF, JPG or PNG, up to 20 MB each
+                    or drop them here · {UPLOAD.types}, up to {UPLOAD.maxMB} MB each
                   </span>
                 </div>
                 {(files.length > 0 || failed.length > 0) && (

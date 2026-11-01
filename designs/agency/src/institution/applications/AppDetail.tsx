@@ -1,3 +1,5 @@
+import { withdrawReasons } from '../../data/reasons';
+import { UPLOAD } from '../../data/uploads';
 import { gspWord } from '../../data/scope';
 import { PriorityChip } from '../../components/PriorityChip';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
@@ -970,7 +972,7 @@ function DocsTab({
             id="gdocs-file"
             className="vh"
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            accept={UPLOAD.accept}
             aria-label="Upload a document as GSP"
             onChange={(e) => {
               onUpload(e.target.files?.[0] ?? null);
@@ -1147,17 +1149,18 @@ function Activity({ a, agency }: { a: Application; agency: string }) {
 
 /* ---------- withdrawing ---------- */
 
-const REASONS = ['The student chose another offer', 'The student is deferring to a later intake', 'The student isn’t going to study abroad', 'Another reason'];
+/** Why it's withdrawn: one list, data/reasons.ts (HC23). */
+const REASONS = { get list() { return withdrawReasons(); } };
 
 function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; agency: string; onCancel: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reason, setReason] = useState(REASONS.list[0]);
   const c = courseOf(a);
   return (
     <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
       <p>Tell {c.uni.name} by mail; the application closes here and for {agency}, with the reason. {s.first}’s documents stay on the profile for other applications.</p>
       <fieldset className="wreasons">
         <legend className="wreasons__legend">Why?</legend>
-        {REASONS.map((r) => (
+        {REASONS.list.map((r) => (
           <label key={r} className="wreason">
             <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
             <span>{r}</span>

@@ -100,7 +100,4 @@ export function partnerManagerFor(country: string, city: string, referral: strin
   return contactOf(who, `Partner manager · ${where}`);
 }
 
-/** Emails that already have a GSP account (sample data from the PM prototype). */
-export const EXISTING_EMAILS = ['ananya@horizonoverseas.in', 'lan@saigonbridge.vn', 'rahul@horizonoverseas.in'];
-
-export const emailInUse = (email: string) => EXISTING_EMAILS.includes(email.trim().toLowerCase());
+/* Emails that already have a GSP account: screens/signup/model.ts emailInUse, from the sign-in accounts and the RP teams (HC35). */

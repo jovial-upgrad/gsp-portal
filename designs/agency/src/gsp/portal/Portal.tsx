@@ -188,11 +188,11 @@ export function Portal({
   useEffect(() => {
     if (was.current !== phase) {
       // the details are in now: course search starts from the agency's own country and state
-      if (was.current === 'setup' && join) setSearch(newSearch(join.form.country || 'India', join.form.state || ''));
+      if (was.current === 'setup' && join) setSearch(newSearch(join.form.country || TEST_COUNTRY, join.form.state || ''));
       if (phase === 'setup') setAnnounce('');
       else if (phase === 'verified') setAnnounce(`GSP verified ${acc.agency}. Students, applications and earnings are open.`);
       else if (phase === 'sent-back') setAnnounce(`GSP couldn’t verify ${back === 1 ? '1 document' : `${back} documents`}. Replace ${back === 1 ? 'it' : 'them'} to finish verification.`);
-      else setAnnounce('Sent to GSP. Course search and your profile are open. Verification usually takes 1 working day.');
+      else setAnnounce('Sent to GSP. Course search and your profile are open.');
     }
     was.current = phase;
   }, [phase, acc.agency, back]);
@@ -276,7 +276,7 @@ export function Portal({
               <>
                 <span className="who who--gsp">With GSP</span>
                 <p className="sstatus__title">Verification in progress</p>
-                <p className="sstatus__text">Usually by {expectedBy(join.sentAt)}</p>
+                <p className="sstatus__text">Expect it by {expectedBy(join.sentAt, join.form.country)}</p>
                 <button type="button" className="btn btn--link sstatus__link" onClick={openDocs}>
                   View documents
                 </button>

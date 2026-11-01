@@ -52,4 +52,4 @@ export function reviewsOf(a: Application, s: Student): Review[] {
 export const toReview = (r: Review, a: Application) => !r.back && (r.status === 'checking' || (r.status === 'uploaded' && a.status !== 'docs'));
 
 /** Reasons GSP most often sends a document back, to start the explanation from. */
-export const REJECT_REASONS = ['Blurred or hard to read', 'Pages are missing', 'It’s the wrong document', 'The name doesn’t match the passport', 'It has expired'];
+export { sendBackReasons } from '../../data/reasons';

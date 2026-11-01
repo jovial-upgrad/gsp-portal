@@ -1,5 +1,6 @@
 /** Sign-in and forgot-password state. Prototype rules are listed in the Prototype panel. */
 import { TEST_PASSWORD } from '../../data/testing';
+import { TEST_AGENCY, rpTeam } from '../../data/rpteam';
 
 export type ForgotStep = 'request' | 'code' | 'new' | 'done';
 
@@ -31,14 +32,18 @@ export type AuthState = {
 
 export type Account = { name: string; first: string; email: string; agency: string; role: string; aliases?: string[] };
 
-/** The test account first, then sample people from the PM prototype's agencies. */
-const ACCOUNTS: Account[] = [
-  { name: 'Nesil Noble', first: 'Nesil', email: 'nesil@upgard.com', aliases: ['nesil@upgrad.com'], agency: 'GSP test agency', role: 'RP admin' },
-  { name: 'Ananya Rao', first: 'Ananya', email: 'ananya@horizonoverseas.in', agency: 'Horizon Overseas', role: 'RP admin' },
-  { name: 'Vikram Desai', first: 'Vikram', email: 'vikram@horizonoverseas.in', agency: 'Horizon Overseas · Pune', role: 'Branch admin' },
-  { name: 'Rahul Verma', first: 'Rahul', email: 'rahul@horizonoverseas.in', agency: 'Horizon Overseas · Lucknow', role: 'Counsellor' },
-  { name: 'Lan Tran', first: 'Lan', email: 'lan@saigonbridge.vn', agency: 'Saigon Bridge Education', role: 'RP admin' },
-];
+/**
+ * One sample agency (HC35, Jovial 1 Nov): the accounts are the GSP test agency's team, from its one record
+ * (data/rpteam.ts): Nesil Noble, its RP Admin (the test account), then its Branch Admin and counsellors.
+ */
+const ACCOUNTS: Account[] = rpTeam(TEST_AGENCY).map((m) => ({
+  name: m.name,
+  first: m.name.split(' ')[0],
+  email: m.email ?? '',
+  ...(m.id === 'me' ? { aliases: ['nesil@upgrad.com'] } : {}),
+  agency: TEST_AGENCY,
+  role: m.role,
+}));
 
 export const SAMPLE_ACCOUNT = ACCOUNTS[0];
 

@@ -1,3 +1,4 @@
+import { OWNER_WORD } from './owners';
 /**
  * Who's looking, in GSP's roles (W12, 1 Nov): the signed-in GSP person's role and sales regions, so the shared
  * Students and Applications pages can word things for them and, later, show only their regions.
@@ -59,6 +60,5 @@ export const byRegion = <T,>(list: T[], regionOf: (x: T) => string | undefined, 
 
 /** GSP's own part of an application is the signed-in person's to do only in Admissions; other roles see it as GSP's. */
 export const gspIsMine = (s: Scope = scope) => s.viewer === 'gsp-admissions';
-/** "Pending on you" for Admissions; "With GSP" for every other GSP role. */
-/** Jovial, 1 Nov (Who has it): On GSP, in every GSP role. */
-export const gspWord = () => 'On GSP';
+/** Jovial, 1 Nov (Who has it): On GSP, in every GSP role; the one table is data/owners.ts (HC24). */
+export const gspWord = () => OWNER_WORD.gsp;

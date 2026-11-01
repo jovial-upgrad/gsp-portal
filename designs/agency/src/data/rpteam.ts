@@ -13,7 +13,7 @@ export const TEST_AGENCY = TEST_RP.name;
 const admin0 = TEST_RP.team?.find((p) => p.key === 'me') ?? TEST_RP.team?.[0];
 export const TEST_ADMIN = { name: admin0?.name ?? '', email: admin0?.email ?? '' };
 /** The test agency's country: the default for its forms' country and phone code (HC19). */
-export const TEST_COUNTRY = TEST_RP.country ?? 'India';
+export const TEST_COUNTRY = TEST_RP.country ?? '';
 
 /** An RP's team, by its name; the test agency's when none is given. Ids are unique across RPs ("16018:1"); the test agency's are its own ('me', 'karthik'…). */
 export function rpTeam(rp?: string): Member[] {

@@ -1,3 +1,4 @@
+import { UPLOAD, uploadError } from '../../../data/uploads';
 import { useRef, useState } from 'react';
 import { Button } from '../../../components/Button';
 import { Icon } from '../../../components/Icon';
@@ -7,8 +8,6 @@ import { fillFromEducation, fillFromPassport, fillFromResume, fillFromTest, save
 import { PLACE_NAME, classify, fileInto, isOther, nameOf, placesOf } from './sort';
 import type { Update } from './fields';
 
-const OK_TYPES = /\.(pdf|jpe?g|png)$/i;
-const MAX = 20 * 1024 * 1024;
 const STATUS: Record<Doc['status'], [string, string]> = {
   uploaded: ['Uploaded', 'dstat--up'],
   checking: ['GSP checking', 'dstat--gsp'],
@@ -16,7 +15,7 @@ const STATUS: Record<Doc['status'], [string, string]> = {
 };
 
 
-const check = (f: File) => (!OK_TYPES.test(f.name) ? 'Use a PDF, JPG or PNG.' : f.size > MAX ? 'This file is over 20 MB. Upload a smaller scan.' : '');
+const check = (f: File) => uploadError(f);
 
 /** One document the profile keeps: where it's saved, and, uploaded into an empty part of the profile, what it fills in. */
 type Slot = { key: string; name: string; place: (p: Student, file: string) => Student };
@@ -105,7 +104,7 @@ export function Documents({ s, update }: { s: Student; update: Update }) {
         <input
           ref={input}
           type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
+          accept={UPLOAD.accept}
           className="vh"
           tabIndex={-1}
           aria-label="Upload a document"
@@ -207,7 +206,7 @@ function DocRow({ id, slot, s, doc, onFile }: { id: string; slot: Slot; s: Stude
         ref={ref}
         id={id}
         type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
+        accept={UPLOAD.accept}
         className="vh"
         tabIndex={-1}
         aria-labelledby={`${id}-name`}

@@ -12,6 +12,7 @@
  * They answer only from the application's own data, and they never change it.
  */
 import { flagsOf } from './live';
+import { closeReasons, type EndKind } from './reasons';
 import { uniForms } from './courses';
 import { adminCfg } from '../admin/data/store';
 import { condOf, whenText } from '../admin/data/config';
@@ -88,8 +89,6 @@ type StatusDef = {
   stage: number;
   owner: AppOwner;
   text: (d: Destination) => string;
-  /** Typical days at this step, for the steps others take. */
-  usual?: number;
   /** A status only some applications go through, and when. */
   branch?: string;
   /** The document that arrives at this status, and who adds it ("lodger": whoever lodges the visa). */
@@ -105,32 +104,32 @@ type StatusDef = {
  */
 export const STATUS: Record<StatusKey, StatusDef> = {
   docs: { stage: 0, owner: 'you', text: () => 'Waiting for documents' },
-  checking: { stage: 1, owner: 'gsp', text: () => 'Pending verification', usual: 0 },
+  checking: { stage: 1, owner: 'gsp', text: () => 'Pending verification' },
   reupload: { stage: 1, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit', usual: 1 },
+  ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit' },
   lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university' },
   moreinfo: { stage: 2, owner: 'you', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true },
-  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', usual: 1, branch: 'After additional documents' },
+  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents' },
   reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   conditions: { stage: 3, owner: 'you', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
-  condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university', usual: 5 },
+  condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university' },
   reoffer: { stage: 3, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  finance: { stage: 4, owner: 'gsp', text: () => 'Finance and background check', usual: 2 },
-  interview: { stage: 4, owner: 'you', text: () => 'University assessment or interview', usual: 7, branch: 'If the university assesses or interviews' },
-  uol: { stage: 4, owner: 'gsp', text: () => 'Unconditional offer letter received', usual: 1, doc: { by: 'gsp', name: () => 'Unconditional offer letter' } },
+  finance: { stage: 4, owner: 'gsp', text: () => 'Finance and background check' },
+  interview: { stage: 4, owner: 'you', text: () => 'University assessment or interview', branch: 'If the university assesses or interviews' },
+  uol: { stage: 4, owner: 'gsp', text: () => 'Unconditional offer letter received', doc: { by: 'gsp', name: () => 'Unconditional offer letter' } },
   rever: { stage: 4, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   deposit: { stage: 5, owner: 'you', text: () => 'Tuition or deposit pending', asks: true },
-  payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', usual: 1, doc: { by: 'you', name: () => 'Payment proof' } },
-  waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', usual: 5, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', doc: { by: 'you', name: () => 'Payment proof' } },
+  waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
   // Jovial, 1 Nov: the acceptance letter (CoE, CAS, I-20, LOA…) in, before the visa step
-  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', usual: 1, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
   reacc: { stage: 5, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   // the visa is lodged by the agency or by GSP, never both: these two follow whoever lodges it (see ownerAt)
   visa: { stage: 6, owner: 'you', text: () => 'Visa lodgement pending', asks: true },
-  visasub: { stage: 6, owner: 'you', text: () => 'Visa decision pending', usual: 28, doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
+  visasub: { stage: 6, owner: 'you', text: () => 'Visa decision pending', doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
   startdate: { stage: 6, owner: 'gsp', text: () => 'Visa granted: waiting for start date', doc: { by: 'lodger', name: () => 'Visa' } },
   revisa: { stage: 6, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  enrolconf: { stage: 7, owner: 'gsp', text: () => 'Enrolment confirmation pending', usual: 7, doc: { by: 'gsp', name: () => 'Proof of enrolment' } },
+  enrolconf: { stage: 7, owner: 'gsp', text: () => 'Enrolment confirmation pending', doc: { by: 'gsp', name: () => 'Proof of enrolment' } },
   reenrol: { stage: 7, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   enrolled: { stage: 7, owner: 'done', text: () => 'Student enrolled' },
   closed: { stage: 0, owner: 'end', text: () => 'Closed' },
@@ -140,22 +139,11 @@ export const REUPLOAD_AT: (StatusKey | undefined)[] = [undefined, 'reupload', 'r
 /** The statuses in journey order (GSP's status list follows it). */
 export const STATUS_ORDER = Object.keys(STATUS).filter((k) => k !== 'closed') as StatusKey[];
 
-export const OWNER_WORD: Record<AppOwner, string> = { you: 'Pending on you', gsp: 'With GSP', uni: 'With university', done: 'Enrolled', end: 'Closed' };
-/** The short tag for who has a status: in the journey and the stage path. */
-export const OWNER_TAG: Record<AppOwner, string> = { you: 'You', gsp: 'GSP', uni: 'University', done: 'Done', end: 'Closed' };
-/** How an application can close, by where it is. Deferred can happen at any stage once it's with the university. */
-export type EndKind = 'Not eligible' | 'Student withdrawn' | 'University rejected' | 'Offer declined' | 'Refused after assessment' | 'Rejected by university' | 'Visa refused' | 'Deferred';
-/** The ways an application closes at each stage (index), for GSP's status list. */
-export const CLOSE_AT: EndKind[][] = [
-  ['Student withdrawn'],
-  ['Not eligible', 'Student withdrawn'],
-  ['University rejected', 'Student withdrawn', 'Deferred'],
-  ['Offer declined', 'Student withdrawn', 'Deferred'],
-  ['Refused after assessment', 'Rejected by university', 'Student withdrawn', 'Deferred'],
-  ['Student withdrawn', 'Deferred'],
-  ['Visa refused', 'Student withdrawn', 'Deferred'],
-  ['Deferred'],
-];
+/** Who has it, in words: one table, data/owners.ts (HC24). */
+export { OWNER_WORD, OWNER_TAG } from './owners';
+/** How an application can close, and the ways it closes at each stage (GSP's status list): one list, data/reasons.ts (HC23). */
+export type { EndKind } from './reasons';
+export const CLOSE_AT = new Proxy([] as EndKind[][], { get: (t, k) => (typeof k === 'string' && /^\d+$/.test(k) ? closeReasons(Number(k)) : Reflect.get(t, k)) });
 
 /* ---------- the application ---------- */
 
@@ -322,7 +310,24 @@ export function gspContact(a: Partial<Pick<Application, 'officer' | 'region'>>) 
   return { name: label(s), role: 'GSP admissions', phone: s.phone ? `${s.dial} ${s.phone}` : '', email: s.email, first: s.first };
 }
 
-const usualOf = (k: StatusKey, c: Course) => (k === 'lodged' ? c.offerDays : STATUS[k].usual);
+/**
+ * Typical days at a status (HC22, Jovial 1 Nov): Work › SLA by status, in working hours, 9 to a day. The work store
+ * reads every module's applications, so it's loaded after this module starts (a static import would be circular).
+ */
+type SlaRow = { stage: string; status: string; days: number };
+let slaRows: (() => SlaRow[]) | null = null;
+void import('../work/store')
+  .then((m) => {
+    slaRows = () => (m.getState() as { statusSla: SlaRow[] }).statusSla;
+  })
+  .catch(() => undefined);
+export function usualDays(k: StatusKey, d: Destination): number | undefined {
+  const rows = slaRows?.() ?? [];
+  const text = STATUS[k].text(d);
+  const row = rows.find((r) => r.status === text && r.stage === STAGES[STATUS[k].stage]) ?? rows.find((r) => r.status === text);
+  return row && row.days > 0 ? Math.max(1, Math.round(row.days / 9)) : undefined;
+}
+const usualOf = (k: StatusKey, c: Course) => usualDays(k, c.uni.country);
 
 /** How long the application has been at this status, and how long it usually takes there. */
 export function clock(a: Application) {

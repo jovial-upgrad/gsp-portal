@@ -56,8 +56,8 @@ export function LockedSection({ section, join, onDocs, go }: { section: Section;
           </p>
         ) : (
           <p className="locked__text">
-            {copy?.text} GSP is verifying {join.form.biz}, usually within 1 working day. Expect it by{' '}
-            <span className="num">{expectedBy(join.sentAt)}</span>.
+            {copy?.text} GSP is verifying {join.form.biz}. Expect it by{' '}
+            <span className="num">{expectedBy(join.sentAt, join.form.country)}</span>.
           </p>
         )}
         <div className="locked__actions">

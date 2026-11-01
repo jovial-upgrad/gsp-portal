@@ -1,3 +1,4 @@
+import { routeApplication } from '../../data/regions';
 import { PriorityChip } from '../../components/PriorityChip';
 import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -72,7 +73,12 @@ export function AppList({
   const counsellorOf = (a: Application) => team.find((m) => m.id === stu(a)?.counsellor);
   // GSP sees every RP's applications (W12): each with its own RP and sales region, cut to the person's regions
   const rpOf = (a: Application) => a.rp ?? stu(a)?.rp ?? HOME_RP;
-  const regionOf = (a: Application) => a.region ?? 'India';
+  // never a default region (HC27): one without a region is routed by Admin's rules
+  const regionOf = (a: Application) => {
+    if (a.region) return a.region;
+    const s = stu(a);
+    return routeApplication({ rp: a.rp ?? s?.rp, nationality: s?.nationality ?? '', livesIn: s?.country ?? '', dest: destOf(a) }).region;
+  };
   useScope(); // re-render when the person switches to every region
   apps = byRegion(apps, regionOf);
   const owners = { '': apps.length, you: 0, gsp: 0, uni: 0 } as Record<OwnerView, number>;
@@ -452,7 +458,7 @@ function Empty({ hasStudents, onAdd, onFindCourses }: { hasStudents: boolean; on
           <li>
             <span className="aempty__ic aempty__ic--gsp" aria-hidden="true" />
             <span>
-              <strong>Violet is GSP.</strong> Admissions checks the documents and submits to the university, usually the same day.
+              <strong>Violet is GSP.</strong> Admissions checks the documents and submits to the university.
             </span>
           </li>
           <li>

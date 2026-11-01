@@ -5,7 +5,8 @@ import { CountryCombobox } from '../../components/CountryCombobox';
 import { PasswordInput } from '../../components/PasswordInput';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { countryByName, emailInUse } from '../../data/partners';
+import { countryByName } from '../../data/partners';
+import { emailInUse } from './model';
 import { checkPassword } from '../signin/model';
 import { PASSWORD_RULE, REGISTER_ORDER, isEmail, validateRegister, type SignupForm as Form, type SignupState } from './model';
 

@@ -428,7 +428,7 @@ export function StudentRecord({
           <span className="who who--gsp">With GSP</span>
           <p>
             <strong>Checking with {s.first}.</strong> This passport is also on a student at another agency, so GSP has asked {s.first} which agency they want to apply with. Applications can
-            start once they reply, usually within 2 days.
+            start once they reply.
           </p>
         </div>
       )}

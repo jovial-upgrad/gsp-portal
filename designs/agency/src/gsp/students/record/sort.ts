@@ -8,12 +8,12 @@ import { fillFromEducation, fillFromPassport, fillFromResume, fillFromTest, save
  * Education, score reports into Tests, the CV's jobs into Work experience. The CV, SOP, recommendation and work
  * letters, and anything that isn't part of a section, are kept in Additional documents.
  */
-export const OK_TYPES = /\.(pdf|jpe?g|png)$/i;
+export { OK_TYPES } from '../../../data/uploads';
 /** A file that isn't the passport, a marksheet, a transcript or a score report: kept in Documents under its own name. */
 export const isOther = (key: string) => key.startsWith('other-');
 let other = 1;
 export const otherKey = () => `other-${Date.now().toString(36)}${other++}`;
-export const MAX_SIZE = 20 * 1024 * 1024;
+export { UPLOAD_MAX_BYTES as MAX_SIZE } from '../../../data/uploads';
 
 export type Place = 'personal' | 'education' | 'work' | 'tests' | 'documents';
 export type Kind = { t: 'passport' } | { t: 'edu'; l: Level } | { t: 'test'; type: TestType } | { t: 'extra'; key: string } | { t: 'other' };
