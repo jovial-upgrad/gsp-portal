@@ -116,12 +116,12 @@ export function SignupForm({ s, set, onSubmit, onSignIn }: Props) {
               onBlur={() => touch('biz')}
             />
           </Field>
-          <Field id="su-country" required label="Country" hint="Decides the documents we ask for and who your GSP contact is." error={show('country')}>
+          <Field id="su-country" required label="Country" error={show('country')}>
             <CountryCombobox
               id="su-country"
               value={f.country}
               invalid={!!show('country')}
-              describedBy={describedBy('su-country', show('country'), true)}
+              describedBy={describedBy('su-country', show('country'))}
               onChange={(name) => {
                 if (name === f.country) return;
                 const c = countryByName(name);

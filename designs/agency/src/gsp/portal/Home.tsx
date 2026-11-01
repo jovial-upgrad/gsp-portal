@@ -8,7 +8,7 @@ import { Icon, type IconName } from '../../components/Icon';
 import type { Contact } from '../../data/partners';
 import type { Account } from '../../screens/signin/model';
 import { Setup } from './Setup';
-import { WHATSAPP_MARKETS, type SignupState } from '../../screens/signup/model';
+import { type SignupState } from '../../screens/signup/model';
 import { inSentence, returnedDocs, stillToReplace } from '../../screens/signup/docs';
 import { LOCKED_COPY, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { Track, type StepState } from './Track';
@@ -163,7 +163,6 @@ export function Home({
 function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () => void; reduce: boolean | null }) {
   const f = join.form;
   const sent = sentDocs(join).filter((d) => d.slot.file);
-  const whatsapp = WHATSAPP_MARKETS.includes(f.country);
   const again = (join.rounds ?? 1) > 1;
   const steps: { title: string; note?: string; state: StepState }[] = [
     { title: 'Account created', state: 'done' },
@@ -219,8 +218,7 @@ function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
           View documents
         </Button>
         <p className="vcard__note">
-          We’ll email {f.email}
-          {whatsapp ? ' and message you on WhatsApp' : ''} when it’s done.
+          We’ll email {f.email} when it’s done.
         </p>
       </div>
     </motion.section>
