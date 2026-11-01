@@ -75,6 +75,8 @@ export type University = {
   priorityFor?: string[];
   /** Students the university doesn't take through GSP: a whole country, or some of its states. */
   blocked?: { country: string; states?: string[] }[];
+  /** Recruitment partners (record ids) this university is hidden from in course search (its territory). */
+  hiddenFrom?: string[];
   rate: number;
   /** A pathway provider (Jovial, 1 Nov, HC2): a university-level field on its record (Institution › Profile). */
   pathway?: boolean;

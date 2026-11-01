@@ -1,7 +1,7 @@
 import { RP_OWNER_TAG as OWNER_TAG } from '../../data/owners';
 import { withdrawReasons } from '../../data/reasons';
 import { UPLOAD } from '../../data/uploads';
-import { setLiveStatus, setLiveFlags, useLiveAll } from '../../data/live';
+import { setLiveStatus, setLiveFlags, useLiveAll, finalFeeOf } from '../../data/live';
 import { NameDialog } from '../../gsp/applications/NameDialog';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
@@ -537,7 +537,7 @@ export function AppDetail({
               {a.uniRef && <Row k="University reference" v={<span className="num">{a.uniRef}</span>} />}
               <Row k="Intake" v={a.intake} />
               <Row k="Duration" v={duration(c.months)} />
-              <Row k="Tuition, per year" v={<span className="num">{money(c.tuition, c.currency)}</span>} />
+              <Row k="Final tuition fee" v={<span className="num">{money(finalFeeOf(a.id, c.tuition), c.currency)}</span>} />
               {offer && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />

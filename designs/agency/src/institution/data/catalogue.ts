@@ -247,6 +247,7 @@ export function forSearch(u: UniRec, _p?: InstitutionPartner): University {
     ...u,
     campuses: u.campuses.filter((c) => !u.inactive.includes(c.name)),
     priorityFor: t.priority,
+    hiddenFrom: t.hiddenFrom,
     blocked: [...out.map((country) => ({ country })), ...[...states].filter(([c]) => !out.includes(c)).map(([country, s]) => ({ country, states: s }))],
     // GSP's rate comes from Finance's terms (data/courses.ts termsRate), not the partner record (Jovial, 31 Oct)
     rate: u.rate,
