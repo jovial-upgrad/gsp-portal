@@ -296,7 +296,7 @@ export function AppList({
             ) : (
               <>
                 <p className="snone__title">{st.owner === 'you' ? 'Nothing pending on you' : st.owner === 'gsp' ? 'Nothing with GSP right now' : 'Nothing with a university right now'}</p>
-                <p className="snone__text">{st.owner === 'you' ? 'When something does, it shows here first, and on WhatsApp.' : 'Applications move here as they progress.'}</p>
+                <p className="snone__text">{st.owner === 'you' ? 'When something does, it shows here first, and by email.' : 'Applications move here as they progress.'}</p>
               </>
             )}
           </div>

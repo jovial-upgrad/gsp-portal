@@ -147,7 +147,6 @@ export function ProtoPanel({
               <li>Students: name a passport file after a person (<code>meera_iyer_passport.jpg</code>) and autofill uses that name. Email <code>priya.raman@gmail.com</code> is already a student; passport <code>P7712045</code> is on another agency's student. In a record, drop several files at once on “Upload … documents”: the file name says what each is (<code>passport</code>, <code>btech</code> or <code>transcript</code>, <code>12th</code>, <code>ielts</code>, <code>cv</code>, <code>sop</code>…), and anything else goes to Additional documents. Passports, marksheets and score reports are read in with sample values.</li>
               <li>Portal: “Registered: Onboarding” and “Onboarding: Documents” show registering on Home. “Verified: All Access” plays GSP verifying the agency, and “Onboarding: Verification Failed” plays GSP returning 1 or 2 documents with a note each. After registering, they act on yours.</li>
               <li>Becoming a partner: the sample is Meera Krishnan of Kaveri Study Abroad, a new agency. An email already on an RP’s team (like <code>chloe@visafastmigration.com</code>) is already registered.</li>
-              <li>Referral code <code>ADI-204</code> assigns Aditya Nomula as your contact (the first three letters of a Recruitment person’s first name).</li>
               <li>Your contact comes from the staff list: the Recruitment person whose area covers your city or state (try Hyderabad, Jalandhar, Kochi or Hanoi), else the one for your country.</li>
             </ul>
           </Section>

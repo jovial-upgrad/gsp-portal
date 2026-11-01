@@ -63,9 +63,6 @@ export function CourseSheet({
   shortlisted,
   onShort,
   shortOff,
-  compared = false,
-  comparable = true,
-  onCompare,
   canApply,
   agency,
   onApply,
@@ -79,10 +76,6 @@ export function CourseSheet({
   onShort: (anchor: HTMLElement) => void;
   /** Why Shortlist is off (no students yet), when it is. */
   shortOff?: string;
-  /** Ticked to compare (up to five), beside Shortlist. */
-  compared?: boolean;
-  comparable?: boolean;
-  onCompare?: () => void;
   canApply: boolean;
   agency: string;
   onApply: () => void;
@@ -170,17 +163,7 @@ export function CourseSheet({
           <div className={`cm-bar ${stuck ? 'is-stuck' : ''}`}>
             <Tabs tab={tab} setTab={setTab} />
             <div className="csheet__acts">
-              {onCompare && (
-                <label className={`ccmp ccmp--sheet ${compared ? 'is-on' : ''} ${comparable ? '' : 'is-off'}`} title={comparable ? undefined : 'Up to 5 courses'}>
-                  <input type="checkbox" className="vh" checked={compared} disabled={!comparable} onChange={onCompare} aria-label={`Compare ${c.name}`} />
-                  <span className="ccmp__box" aria-hidden="true">
-                    <Icon name="check" size={12} strokeWidth={2.8} />
-                  </span>
-                  <span className="cm-acts__label" aria-hidden="true">
-                    Compare
-                  </span>
-                </label>
-              )}
+              {/* no Compare in the course dialog (1 Nov): it's on the result cards */}
               {shortOff && (
                 <span id="cs-short-off" className="cm-acts__why">
                   {shortOff}
