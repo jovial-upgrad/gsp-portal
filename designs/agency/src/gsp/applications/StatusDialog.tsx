@@ -7,7 +7,7 @@ import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
 import { CLOSE_AT, STAGES, STATUS, STATUS_ORDER, destOf, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
 
 /** Where the application goes: a status, or closed at a stage, and how. */
-export type StatusPick = { k: StatusKey; visaBy?: 'you' | 'gsp'; conds?: string } | { end: EndKind; stage: number };
+export type StatusPick = { k: StatusKey; visaBy?: 'you' | 'gsp' } | { end: EndKind; stage: number };
 
 /**
  * Changing the status by hand: GSP's team moves every status but the first (New to Pre-screening happens when
@@ -22,9 +22,8 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
   const [k, setK] = useState<string>(a.status);
   const [tried, setTried] = useState(false);
   const [closing, setClosing] = useState<{ end: EndKind; stage: number } | null>(null);
-  // Jovial, 1 Nov: who lodges the visa is set here, and the conditions go to the RP with a conditional offer
+  // Jovial, 1 Nov: only stage and status, and who lodges the visa when it moves to Visa lodgement pending
   const [visaBy, setVisaBy] = useState<'you' | 'gsp'>(a.visaBy ?? 'you');
-  const [conds, setConds] = useState('');
   useEffect(() => {
     if (!open) return;
     setStage(stageOf(a));
@@ -32,7 +31,6 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
     setTried(false);
     setClosing(null);
     setVisaBy(a.visaBy ?? 'you');
-    setConds('');
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const stages: MenuOption[] = STAGES.map((st, i) => ({ value: String(i), label: `${i + 1}. ${st}`, note: i === stageOf(a) ? 'Now' : undefined }));
   const statuses: MenuOption[] = [
@@ -45,7 +43,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
     if (!okStatus) return;
     const [, at, kind] = k.split(':');
     if (k.startsWith('end:')) setClosing({ end: kind as EndKind, stage: Number(at) });
-    else onConfirm({ k: k as StatusKey, ...(k === 'visa' ? { visaBy } : {}), ...(k === 'conditions' ? { conds: conds.trim() } : {}) });
+    else onConfirm({ k: k as StatusKey, ...(k === 'visa' ? { visaBy } : {}) });
   };
   return (
     <>
@@ -117,11 +115,6 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
                 </label>
               ))}
             </fieldset>
-          )}
-          {k === 'conditions' && (
-            <Field id="gstat-conds" label="Conditions to send to the RP" hint="They go to the RP in the chat. Leave it empty to send them later: the application stays with GSP, with a task, until you do.">
-              <textarea id="gstat-conds" className="input" rows={4} value={conds} onChange={(e) => setConds(e.target.value)} placeholder="For example: final semester transcript; IELTS 6.5 with no band below 6.0" />
-            </Field>
           )}
         </div>
       </Sheet>

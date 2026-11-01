@@ -207,10 +207,9 @@ export function statusMail(a: Application, s: Student, k: StatusKey, at: number)
   }
   return undefined;
 }
-/** Census date: the catalogue's, for this intake. Final tuition fee: the course's yearly tuition. */
+/** Census date: the catalogue's, for this intake. Final tuition fee: empty until Admissions adds it from the offer (Jovial, 1 Nov). */
 export function deskFor(a: Application, s: Student): Desk {
-  const c = courseOf(a);
-  return { mails: mailsFor(a, s), channel: channelFor(a), census: censusOf(a), fee: c.tuition };
+  return { mails: mailsFor(a, s), channel: channelFor(a), census: censusOf(a), fee: 0 };
 }
 
 /** GSP Assist's summary of a mail: the written one, or its first few sentences. */

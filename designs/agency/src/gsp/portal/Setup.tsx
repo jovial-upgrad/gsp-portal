@@ -181,7 +181,7 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
     onSaved();
   };
 
-  const manager = partnerManagerFor(f.country, f.city, f.ref);
+  const manager = partnerManagerFor(f.country, f.city, f.ref, f.state);
   const refKnown = f.ref.trim() && manager?.role.includes('referral');
   const whatsapp = WHATSAPP_MARKETS.includes(f.country);
   const fade = reduce ? {} : { initial: { opacity: 0, y: -6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -6 } };

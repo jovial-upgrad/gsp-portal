@@ -347,7 +347,7 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
     window.setTimeout(() => ref.current?.focus(), 60);
   }, []);
   const dueOk = !due || /^\d{4}-\d{2}-\d{2}$/.test(due);
-  const ok = title.trim().length > 1 && text.trim().length > 4 && dueOk;
+  const ok = title.trim().length > 1 && dueOk; // what's needed is optional (Jovial, 1 Nov)
   return (
     <motion.form
       className="greq"
@@ -384,7 +384,7 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
       </label>
       <label className="greq__field" htmlFor="greq-text">
         <span className="greq__label">What’s needed</span>
-        <span className={`control gstat__area ${tried && text.trim().length < 5 ? 'is-invalid' : ''}`}>
+        <span className="control gstat__area">
           <textarea id="greq-text" className="control__input" rows={3} value={text} placeholder="What it should show, and why the university needs it" onChange={(e) => setText(e.target.value)} />
         </span>
       </label>
@@ -397,7 +397,7 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
       {tried && !ok && (
         <p className="gmail__err" role="alert">
           <Icon name="alert" size={14} />
-          {title.trim().length < 2 ? 'Enter the title.' : text.trim().length < 5 ? 'Say what’s needed.' : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.'}
+          {title.trim().length < 2 ? 'Enter the title.' : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.'}
         </p>
       )}
       <div className="greq__acts">

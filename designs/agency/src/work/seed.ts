@@ -126,6 +126,7 @@ export const STATUS_SLA = [
   { stage: 'Acceptance', status: 'Tuition or deposit pending', owner: 'RP', days: 18 },
   { stage: 'Acceptance', status: 'Payment proof under review', owner: 'GSP', days: 4 },
   { stage: 'Acceptance', status: 'Awaiting acceptance letter from university', owner: 'University', days: 27 },
+  { stage: 'Acceptance', status: 'Acceptance letter received', owner: 'GSP', days: 9 },
   { stage: 'Visa', status: 'Visa lodgement pending', owner: 'RP', days: 63 },
   { stage: 'Visa', status: 'Visa decision pending', owner: 'Government', days: 252 },
   { stage: 'Visa', status: 'Visa granted: waiting for start date', owner: 'GSP', days: 45 },

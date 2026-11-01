@@ -1,4 +1,5 @@
 import { setLiveStatus, setLiveFlags } from '../../data/live';
+import { NameDialog } from '../../gsp/applications/NameDialog';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -456,6 +457,12 @@ export function AppDetail({
                 pendRef={needsRef}
                 onDoc={addDoc}
                 onForm={setAnswering}
+                onExtra={(name, file) => {
+                  const now = Date.now();
+                  update((x) => ({ ...x, files: [...x.files, { name, file, from: 'you', at: now, status: 'checking' }], history: [...x.history, { at: now, who: 'you', text: `Uploaded “${name}”`, by: me }] }));
+                  setLiveFlags(a.id, { rpNews: now, rpWhat: `“${name}”` });
+                  say(`${name} sent to GSP to check.`);
+                }}
                 sendBar={
                   (sendable || handOver) && (
                     <div className="aneeds__send">
@@ -773,6 +780,7 @@ function DocsTab({
   sendBar,
   onDoc,
   onForm,
+  onExtra,
 }: {
   a: Application;
   s: Student;
@@ -785,6 +793,8 @@ function DocsTab({
   onDoc: (d: AppDoc, f: File | null) => void;
   /** An offer's conditions: the form opens. */
   onForm: (n: Need) => void;
+  /** Another document, named by the RP. */
+  onExtra?: (name: string, file: string) => void;
 }) {
   // the needs show as their own rows; the rest of the documents by state
   const rows = docRows(a, s).filter((r) => !r.need);
@@ -940,8 +950,28 @@ function DocsTab({
           )}
         </div>
       </section>
+      {isOpen(a) && onExtra && <ExtraDoc onAdd={onExtra} />}
       <CondDialog v={viewing ? views.find((v) => v.id === viewing) ?? null : null} s={s} onClose={() => setViewing(null)} />
     </div>
+  );
+}
+
+/** Any other document the RP wants GSP to have, with a name the RP gives it (Jovial, 1 Nov). */
+function ExtraDoc({ onAdd }: { onAdd: (name: string, file: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  return (
+    <section className="card aextra">
+      <div>
+        <h3 className="aextra__t">Another document</h3>
+        <p className="aextra__s">Anything else GSP should have for this application. You name it; GSP checks it.</p>
+      </div>
+      <Button variant="secondary" onClick={() => input.current?.click()}>
+        <Icon name="upload" size={16} /> Upload a document
+      </Button>
+      <input ref={input} type="file" hidden accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+      <NameDialog file={file} usual={['Gap explanation letter', 'Experience letter', 'Sponsor letter', 'Name change affidavit']} onCancel={() => setFile(null)} onAdd={(n) => { if (file) onAdd(n, file.name); setFile(null); }} />
+    </section>
   );
 }
 

@@ -190,12 +190,6 @@ export function AddStudentSheet({
         <p className="vh" role="status">
           {listed.length > 0 ? `${listed.length} ${listed.length === 1 ? 'field needs' : 'fields need'} attention.` : ''}
         </p>
-        <p className="asheet__req">
-          <span className="field__req" aria-hidden="true">
-            *
-          </span>{' '}
-          Required
-        </p>
 
         {/* GSP adds students for a recruitment partner (30 Oct): whose is first */}
         <Field id="as-rp" required label="Recruitment partner" error={show('rp')}>

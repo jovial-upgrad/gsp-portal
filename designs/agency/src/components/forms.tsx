@@ -1,4 +1,4 @@
-import { createContext, forwardRef, useContext, useEffect, useState, type FormHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { createContext, forwardRef, useContext, useEffect, useRef, useState, type FormHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { Icon } from './Icon';
 import { dmyToIso, isoToDmy } from '../data/format';
 import { typeDate } from '../data/dates';
@@ -172,6 +172,7 @@ export const DateInput = forwardRef<HTMLInputElement, Omit<InputProps, 'value' |
   ref,
 ) {
   const [text, setText] = useState(() => isoToDmy(value));
+  const pick = useRef<HTMLInputElement>(null);
   // a value set from outside (a reset, a prefill) shows as typed
   useEffect(() => {
     if (value !== (dmyToIso(text) ?? text) && !(value === '' && text === '')) setText(isoToDmy(value));
@@ -184,7 +185,38 @@ export const DateInput = forwardRef<HTMLInputElement, Omit<InputProps, 'value' |
       placeholder={placeholder}
       maxLength={10}
       value={text}
-      leading={<Icon name="calendar" size={18} />}
+      // the calendar opens a small date picker (Jovial, 1 Nov); typing DD/MM/YYYY still works
+      leading={
+        <span className="dpick">
+          <button
+            type="button"
+            className="dpick__btn"
+            aria-label="Pick a date from a calendar"
+            onClick={() => {
+              const el = pick.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+              try {
+                el?.showPicker?.();
+              } catch {
+                el?.focus();
+              }
+            }}
+          >
+            <Icon name="calendar" size={18} />
+          </button>
+          <input
+            ref={pick}
+            type="date"
+            className="dpick__native"
+            tabIndex={-1}
+            aria-hidden="true"
+            value={/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
+            onChange={(e) => {
+              setText(isoToDmy(e.target.value));
+              onChange(e.target.value);
+            }}
+          />
+        </span>
+      }
       onChange={(e) => {
         const t = typeDate(e.target.value);
         setText(t);

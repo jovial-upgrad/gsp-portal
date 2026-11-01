@@ -33,7 +33,7 @@ export const INTENTS = [
   { id: 'offer', name: 'Unconditional offer', act: 'status', key: 'uol', status: 'Unconditional offer letter received', attach: 'Offer letter', text: 'Add the offer to Documents and move the application to “Unconditional offer letter received”.' },
   { id: 'cond', name: 'Conditional offer', act: 'status', key: 'conditions', status: 'Conditional offer received, conditions pending', attach: 'Offer letter', text: 'Add the offer, record its conditions, and move to “Conditional offer received”.' },
   { id: 'reject', name: 'Rejection', act: 'status', key: 'closed', end: 'Rejected by university', status: 'Closed: Rejected by university', attach: 'Outcome letter', text: 'Close the application as “Rejected by university” and tell the RP.' },
-  { id: 'coe', name: 'CoE, CAS or LOA', act: 'status', key: 'visa', status: 'Visa lodgement pending', attach: 'CoE / CAS', text: 'Add the CoE or CAS to Documents and move to “Visa lodgement pending”.' },
+  { id: 'coe', name: 'CoE, CAS or LOA', act: 'status', key: 'accrec', status: 'Acceptance letter received', attach: 'CoE / CAS', text: 'Add the CoE or CAS to Documents and move to “Acceptance letter received”.' },
   { id: 'info', name: 'University needs more information', act: 'task', kind: 'k-uni-mail', sla: 1, text: 'Get it from the RP: a document request goes to the RP in the application’s chat.' },
   { id: 'answer', name: 'RP answered GSP’s question', act: 'reply', text: 'Pass the RP’s answer to the university, in the same thread.' },
   { id: 'funds', name: 'Funds verification', act: 'task', kind: 'k-gsp-check', sla: 2, text: 'Raise a GSP check task for the funds documents.' },

@@ -1055,3 +1055,4 @@ button.nachip:hover { border-color: var(--line-strong); }
 
 /* a priority source market for the university: GSP's people only (Jovial, 31 Oct) */
 .prio-chip { display: inline-flex; align-items: center; margin-left: var(--sp-8); padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: var(--t-micro); line-height: var(--lh-micro); font-weight: var(--fw-semi); letter-spacing: 0.02em; color: var(--text-2); background: var(--surface-2); white-space: nowrap; vertical-align: middle; }
+.aextra { display:flex; align-items:center; justify-content:space-between; gap: var(--sp-16); flex-wrap: wrap; padding: var(--sp-16) var(--sp-20); margin-top: var(--sp-16); } .aextra__t { font-weight:600; } .aextra__s { color: var(--text-2); font-size: var(--t-label); }

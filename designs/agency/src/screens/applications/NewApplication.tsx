@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
+import { downloadDoc } from '../../components/DocView';
 import { Field, SelectInput } from '../../components/forms';
 import { AREAS, COURSES, DESTINATIONS, FLAG, LEVELS, UNIVERSITIES, daysTo, intakeState, money, type Course } from '../../data/courses';
 import { shortDate } from '../../data/dates';
@@ -839,6 +840,11 @@ function DocCard({ n, d, s, u, bad, onFile, onRemove }: { n: number; d: AppDoc; 
             <span className="mdoc__need">{need ? 'Required' : 'Optional'}</span>
           </p>
           <p className="mdoc__what">{d.what}</p>
+          {d.template && (
+            <button type="button" className="btn btn--link mdoc__tpl" onClick={() => downloadDoc({ name: d.template!.name, file: d.template!.file })}>
+              <Icon name="download" size={14} /> Download the template: {d.template.name}
+            </button>
+          )}
         </div>
         <span className={`mdoc__pill mdoc__pill--${pill[1]}`}>{pill[0]}</span>
       </div>

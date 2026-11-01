@@ -200,3 +200,9 @@
 
 /* "* Required", once per form (QC, 1 Nov) */
 .req-note { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+/* Date field: the calendar icon opens a small date picker (Jovial, 1 Nov) */
+.dpick { position: relative; display: inline-flex; }
+.dpick__btn { display: inline-flex; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; border-radius: 6px; }
+.dpick__btn:hover { color: var(--text); }
+.dpick__btn:focus-visible { outline: 2px solid var(--focus, #2563eb); outline-offset: 2px; }
+.dpick__native { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; pointer-events: none; }

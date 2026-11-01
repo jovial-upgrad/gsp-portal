@@ -185,12 +185,6 @@ export function AddStudentSheet({
         <p className="vh" role="status">
           {listed.length > 0 ? `${listed.length} ${listed.length === 1 ? 'field needs' : 'fields need'} attention.` : ''}
         </p>
-        <p className="asheet__req">
-          <span className="field__req" aria-hidden="true">
-            *
-          </span>{' '}
-          Required
-        </p>
 
         <ReadBox
           id="as-file"

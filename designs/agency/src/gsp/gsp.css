@@ -310,3 +310,6 @@
 .regionbar { margin: 0 0 var(--sp-12); padding: var(--sp-8) var(--sp-12); border-radius: var(--r-md, 10px); background: var(--surface-2, #f4f4f6); font-size: var(--t-label); }
 .regionbar.is-all { background: var(--warn-bg, #fff6e5); }
 .gstat__ro { font-size: var(--t-caption); color: var(--text-3); }
+/* Home lists: names start at the left (1 Nov, UI fix) */
+.shome__grid .ilist__t { text-align: left; justify-items: start; }
+.shome__grid .ilist__t > .btn--link, .shome__grid .ilist__t > button { text-align: left; justify-content: flex-start; padding-inline: 0; }

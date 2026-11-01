@@ -181,7 +181,7 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
     onSaved();
   };
 
-  const manager = partnerManagerFor(f.country, f.city, f.ref);
+  const manager = partnerManagerFor(f.country, f.city, f.ref, f.state);
   const refKnown = f.ref.trim() && manager?.role.includes('referral');
   const whatsapp = WHATSAPP_MARKETS.includes(f.country);
   const fade = reduce ? {} : { initial: { opacity: 0, y: -6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -6 } };
@@ -288,6 +288,19 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
               />
             </Field>
           </div>
+          {(() => {
+            // Jovial, 1 Nov: nudge for state and city, which decide the partner manager (BDM assignment)
+            const pm = f.city.trim() && (f.state || !states.length) ? partnerManagerFor(f.country, f.city, f.ref, f.state) : null;
+            return pm ? (
+              <p className="su-nudge is-done" role="status">
+                Your GSP partner manager will be <strong>{pm.name}</strong> ({pm.role.replace('Partner manager · ', '')}).
+              </p>
+            ) : (
+              <p className="su-nudge" role="status">
+                Add your {states.length ? 'state and city' : 'city'}: they decide your GSP partner manager, who helps you get started.
+              </p>
+            );
+          })()}
         </fieldset>
       </div>
 

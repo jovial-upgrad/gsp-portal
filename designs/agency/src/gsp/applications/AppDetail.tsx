@@ -202,19 +202,18 @@ export function AppDetail({
     const now = Date.now();
     const from = statusText(a);
     const to = STATUS[k].text(d);
-    const conds = 'conds' in pick ? pick.conds : undefined;
     const visaBy = 'visaBy' in pick ? pick.visaBy : undefined;
     update((x) => ({
       ...arriveAt({ ...x, ...(visaBy ? { visaBy } : {}), history: [...x.history, { at: now, who: 'gsp', text: `Changed the status from “${from}” to “${to}”`, by: gsp.name }, ...(visaBy ? [{ at: now, who: 'gsp' as const, text: visaBy === 'gsp' ? 'GSP lodges the visa for this application' : 'The RP lodges the visa', by: gsp.name }] : [])] }, k, now, gsp.name),
       status: k,
       since: now,
       end: undefined,
-      ...(conds ? { chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp' as const, name: gsp.name, text: `The university has made a conditional offer. Its conditions:\n${conds}\n\nPlease send what meets them here.` }] } : {}),
     }));
     // every module sees it: My work's tasks follow the status, and who has it (Jovial, 1 Nov)
     setLiveStatus(a.id, { status: k, at: now, by: gsp.name, note: to, via: 'portal' });
     if (visaBy) setLiveFlags(a.id, { visaBy });
-    if (k === 'conditions') setLiveFlags(a.id, { condsSent: conds ? now : false });
+    // a conditional offer is GSP's until it asks the RP for the conditions in the chat (Who has it)
+    if (k === 'conditions') setLiveFlags(a.id, { condsSent: false });
     const mail = statusMail({ ...a, status: k }, s, k, now - 15 * 60_000);
     if (mail) setDesk((x) => (x.mails.some((m) => m.id === mail.id) ? x : { ...x, mails: [mail, ...x.mails] }));
     say(`Status changed to ${to}.`);
@@ -646,10 +645,14 @@ export function AppDetail({
                 currency={c.currency}
                 value={desk.fee}
                 shown={
-                  <span>
-                    <span className="num">{money(desk.fee, c.currency)}</span>
-                    {desk.fee !== c.tuition && <span className="cdl__soft num"> · listed {money(c.tuition, c.currency)}</span>}
-                  </span>
+                  desk.fee ? (
+                    <span>
+                      <span className="num">{money(desk.fee, c.currency)}</span>
+                      {desk.fee !== c.tuition && <span className="cdl__soft num"> · listed {money(c.tuition, c.currency)}</span>}
+                    </span>
+                  ) : (
+                    <span className="cdl__soft">Not added yet: add it from the offer letter (listed {money(c.tuition, c.currency)})</span>
+                  )
                 }
                 onSave={setFee}
               />
@@ -734,7 +737,7 @@ function EditRow({ id, k, kind, value, shown, currency, onSave }: { id: string; 
   const ref = useRef<HTMLInputElement>(null);
   const pencil = useRef<HTMLButtonElement>(null);
   const begin = () => {
-    setV(kind === 'date' ? isoDate(value) : String(value));
+    setV(kind === 'date' ? isoDate(value) : value ? String(value) : '');
     setBad(false);
     setEditing(true);
     window.setTimeout(() => ref.current?.focus(), 30);

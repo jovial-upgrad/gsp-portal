@@ -495,6 +495,17 @@ export type IntakeDates = { deposit: string; accept: string; start: string; cens
 export type Submission = { channel: string; link: string; username?: string; secret?: string };
 let intakeDatesOf: (courseId: string, month: string) => IntakeDates | undefined = () => undefined;
 let submissionOf: (uniId: string) => Submission | undefined = () => undefined;
+/** The university's own application forms (Institution › Submission and contacts), each with who it's for. */
+export type UniForm = { name: string; file: string; for: string };
+let formsOf: (uniId: string) => UniForm[] = () => [];
+export const setFormsReader = (f: typeof formsOf) => {
+  formsOf = f;
+};
+/** The forms for a course's level: "All courses", or the level's own (Jovial, 1 Nov). */
+export function uniForms(uniId: string, level: string) {
+  const want = /Bachelor/.test(level) ? 'Undergraduate' : /Master|Postgraduate/.test(level) ? 'Postgraduate' : /PhD|research/i.test(level) ? 'Research' : 'Foundation and diploma';
+  return formsOf(uniId).filter((f) => f.for === 'All courses' || f.for === want);
+}
 export const setCatalogueReaders = (dates: typeof intakeDatesOf, sub: typeof submissionOf) => {
   intakeDatesOf = dates;
   submissionOf = sub;

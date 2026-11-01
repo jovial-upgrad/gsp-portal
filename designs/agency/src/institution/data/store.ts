@@ -6,7 +6,7 @@
  */
 import { fmtDate } from '../../data/format';
 import { useSyncExternalStore } from 'react';
-import { setCatalogueReaders, setUniScholarships, type Course, type University } from '../../data/courses';
+import { setCatalogueReaders, setFormsReader, setUniScholarships, type Course, type University } from '../../data/courses';
 import { sampleAnnouncements, type Announcement } from './announcements';
 import { forSearch, sampleCourseRecs, sampleUniRecs, searchable, type CourseRec, type UniRec } from './catalogue';
 import { samplePartners, sampleRps, type InstitutionPartner, type RecruitmentPartner } from './records';
@@ -52,6 +52,9 @@ setCatalogueReaders(
     return { channel: u.channel, link: u.link, username: l?.username, secret: l?.secret };
   },
 );
+
+// each university's own application forms, for Add an application (Jovial, 1 Nov)
+setFormsReader((uniId) => getDb().unis.find((u) => u.id === uniId)?.forms ?? []);
 
 let cache: { db: Db; out: { courses: Course[]; unis: University[] } } | null = null;
 /**

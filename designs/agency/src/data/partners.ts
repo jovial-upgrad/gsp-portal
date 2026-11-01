@@ -77,13 +77,13 @@ const byLabel = (n: string) => STAFF.find((x) => label(x) === n);
 const initialsOf = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('');
 
 /** The GSP partner manager (BDM) a new sign-up is given. A referral code wins over the assignment table. */
-export function partnerManagerFor(country: string, city: string, referral: string): Contact | null {
+export function partnerManagerFor(country: string, city: string, referral: string, state = ''): Contact | null {
   const code = referral.trim().toUpperCase();
   const pre = code.slice(0, 3);
   const byRef = pre.length === 3 ? STAFF.filter((s) => s.role === 'Recruitment' && s.first.toUpperCase().startsWith(pre)) : [];
   if (byRef.length === 1) return contactOf(byRef[0], `Partner manager · from referral code ${code}`);
   const rows = adminCfg().bdm;
-  const st = city.trim() ? stateOf(city) : undefined;
+  const st = state.trim() || (city.trim() ? stateOf(city) : undefined);
   const areas = (area: string) => area.split(',').map(norm);
   const mine = rows.filter((r) => r.country === country);
   const cityRow = city.trim() && mine.find((r) => areas(r.area).includes(norm(city)));

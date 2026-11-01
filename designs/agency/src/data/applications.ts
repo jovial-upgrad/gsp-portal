@@ -12,6 +12,7 @@
  * They answer only from the application's own data, and they never change it.
  */
 import { flagsOf } from './live';
+import { uniForms } from './courses';
 import { adminCfg } from '../admin/data/store';
 import { condOf, whenText } from '../admin/data/config';
 import { person, label, idOf, staffById } from './staff';
@@ -60,6 +61,7 @@ export type StatusKey =
   | 'deposit'
   | 'payreview'
   | 'waitad'
+  | 'accrec'
   | 'reacc'
   | 'visa'
   | 'visasub'
@@ -119,6 +121,8 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   deposit: { stage: 5, owner: 'you', text: () => 'Tuition or deposit pending', asks: true },
   payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', usual: 1, doc: { by: 'you', name: () => 'Payment proof' } },
   waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', usual: 5, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  // Jovial, 1 Nov: the acceptance letter (CoE, CAS, I-20, LOA…) in, before the visa step
+  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', usual: 1, doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
   reacc: { stage: 5, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   // the visa is lodged by the agency or by GSP, never both: these two follow whoever lodges it (see ownerAt)
   visa: { stage: 6, owner: 'you', text: () => 'Visa lodgement pending', asks: true },
@@ -357,6 +361,8 @@ export type AppDoc = {
   need: 'required' | 'optional';
   /** A marksheet, and the level of education it's for. */
   level?: EduLevel;
+  /** The university's template to download and fill (its own application form). */
+  template?: { name: string; file: string };
 };
 
 const PG_LEVELS: string[] = ['Master’s degree', 'Postgraduate diploma', 'PhD or research'];
@@ -412,7 +418,11 @@ export function docsFor(s: Student, c: Course): AppDoc[] {
     else if (/class 12|12th|hsc/i.test(name)) add(markDoc('g12', need));
     else if (/^UG |undergraduate|bachelor/i.test(name)) add(markDoc('ug', need));
     else if (/^PG |postgraduate|master/i.test(name)) add(markDoc('pg', need));
-    else {
+    else if (/application form/i.test(name)) {
+      // only when the university has its own form for this level, with the template to download (Jovial, 1 Nov)
+      const f = uniForms(c.uni.id, c.level)[0];
+      if (f) add({ key: 'uni-form', name: 'University application form, filled', what: `${c.uni.name}’s own form: download the template, fill it in and upload it`, need: r.setting === 'Mandatory' ? 'required' : 'optional', template: { name: f.name, file: f.file } });
+    } else {
       const own = OWN.find(([re]) => re.test(name));
       add({ key: profileKeyFor(name) ?? name.toLowerCase().replace(/[^a-z]+/g, '-'), name: own?.[1] ?? name, what: k.other ? `When ${k.other.charAt(0).toLowerCase()}${k.other.slice(1)}` : own?.[2] ?? `GSP asks for it for ${whenText(k).toLowerCase()}`, need });
     }
@@ -615,8 +625,7 @@ export const NEXT_AFTER_YOU: Partial<Record<StatusKey, StatusKey>> = { docs: 'ch
 /** What the agency has to do at a status it arrives at: documents (which GSP asks for in the chat) or something to confirm. */
 export function needsAt(k: StatusKey, a: Application): Need[] {
   const c = courseOf(a);
-  if (k === 'deposit')
-    return [{ id: 'payment-proof', title: 'Payment proof', why: `Pay ${money(a.offer?.deposit ?? c.deposit, c.currency)} (tuition or deposit) to ${c.uni.name}, then upload the receipt.` }];
+  // the payment proof is asked for by GSP, by hand, in the chat (Jovial, 1 Nov): nothing automatic at the deposit
   if (k === 'visa' && a.visaBy !== 'gsp') return [{ id: 'visa', title: 'Visa lodgement proof', why: `Lodge the ${VISA_NAME[c.uni.country]}, then upload the lodgement receipt here.` }];
   return [];
 }
