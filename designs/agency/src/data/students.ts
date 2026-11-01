@@ -6,7 +6,9 @@
  */
 import { countryByName } from './partners';
 import { parseDate, parseMonth } from './dates';
-import { datasetStudents } from './dataset';
+import { datasetStudents, testAgencyStudents } from './dataset';
+import { GRADING_SCALES } from './grading';
+import { TESTS, type Test, type TestType } from './tests';
 
 /* ---------- education ---------- */
 
@@ -29,14 +31,9 @@ export const STUDY_LEVELS: Record<Level, string[]> = {
   g12: ['Grade 12 (higher secondary)', 'A levels', 'IB Diploma', 'Diploma after Grade 10'],
   g10: ['Grade 10 (secondary)', 'O levels', 'IGCSE'],
 };
-export const GRADING: [Grading, string][] = [
-  ['100', 'Percentage (out of 100)'],
-  ['10', 'CGPA out of 10'],
-  ['7', 'CGPA out of 7'],
-  ['5', 'CGPA out of 5'],
-  ['4', 'GPA out of 4'],
-];
+/** A student's grading system: the numeric scales of the one list (data/grading.ts). */
 export type Grading = '' | '100' | '10' | '7' | '5' | '4';
+export const GRADING: [Grading, string][] = GRADING_SCALES.filter((g) => g.max).map((g) => [g.key as Grading, g.label]);
 export const LANGUAGES = ['English', 'Hindi', 'Bengali', 'Nepali', 'Sinhala', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Gujarati', 'Punjabi', 'Urdu', 'Vietnamese', 'Other'];
 
 export type Edu = {
@@ -91,76 +88,8 @@ export function eduFields(l: Level, e: Edu) {
 
 export type Work = { id: string; org: string; role: string; from: string; to: string; current: boolean };
 
-export type TestType = 'IELTS' | 'TOEFL' | 'PTE' | 'DET' | 'SAT' | 'ACT' | 'GMAT' | 'GRE';
-type Range = [number, number, number];
-export type TestDef = {
-  name: string;
-  kind: 'English' | 'Admission';
-  cert: string;
-  overall: Range;
-  parts: { key: string; label: string; range: Range; optional?: boolean }[];
-  /** How long a score is accepted. */
-  years: number;
-};
-const band = (key: string, label: string, range: Range) => ({ key, label, range });
-const LRWS = (r: Range) => [band('l', 'Listening', r), band('r', 'Reading', r), band('w', 'Writing', r), band('s', 'Speaking', r)];
-export const TESTS: Record<TestType, TestDef> = {
-  IELTS: { name: 'IELTS Academic', kind: 'English', cert: 'Test Report Form number', overall: [0, 9, 0.5], parts: LRWS([0, 9, 0.5]), years: 2 },
-  TOEFL: { name: 'TOEFL iBT', kind: 'English', cert: 'Appointment number', overall: [0, 120, 1], parts: LRWS([0, 30, 1]), years: 2 },
-  PTE: { name: 'PTE Academic', kind: 'English', cert: 'Score report code', overall: [10, 90, 1], parts: LRWS([10, 90, 1]), years: 2 },
-  DET: { name: 'Duolingo English Test', kind: 'English', cert: 'Certificate ID', overall: [10, 160, 5], parts: [], years: 2 },
-  SAT: {
-    name: 'SAT',
-    kind: 'Admission',
-    cert: 'Score report ID',
-    overall: [400, 1600, 10],
-    parts: [band('rw', 'Reading and writing', [200, 800, 10]), band('math', 'Math', [200, 800, 10]), { ...band('essay', 'Essay', [2, 8, 1]), optional: true }],
-    years: 5,
-  },
-  ACT: {
-    name: 'ACT',
-    kind: 'Admission',
-    cert: 'ACT ID',
-    overall: [1, 36, 1],
-    parts: [band('math', 'Math', [1, 36, 1]), band('reading', 'Reading', [1, 36, 1]), band('science', 'Science', [1, 36, 1]), band('english', 'English', [1, 36, 1]), { ...band('writing', 'Writing', [2, 12, 1]), optional: true }],
-    years: 5,
-  },
-  GMAT: {
-    name: 'GMAT',
-    kind: 'Admission',
-    cert: 'Score report ID',
-    overall: [200, 800, 10],
-    parts: [band('q', 'Quantitative', [6, 51, 1]), band('v', 'Verbal', [6, 51, 1]), band('awa', 'Analytical writing', [0, 6, 0.5]), band('ir', 'Integrated reasoning', [1, 8, 1])],
-    years: 5,
-  },
-  GRE: {
-    name: 'GRE General',
-    kind: 'Admission',
-    cert: 'Registration number',
-    overall: [260, 340, 1],
-    parts: [band('q', 'Quantitative', [130, 170, 1]), band('v', 'Verbal', [130, 170, 1]), band('awa', 'Analytical writing', [0, 6, 0.5])],
-    years: 5,
-  },
-};
-export const TEST_ORDER: TestType[] = ['IELTS', 'TOEFL', 'PTE', 'DET', 'SAT', 'ACT', 'GMAT', 'GRE'];
-export type Test = { id: string; type: TestType; cert: string; /** DD/MM/YYYY */ date: string; overall: string; parts: Record<string, string> };
-
-/** A score inside its range and on its steps (IELTS goes up in halves). */
-export function inRange(v: string, [min, max, step]: Range) {
-  if (v.trim() === '') return false;
-  const n = Number(v);
-  return !Number.isNaN(n) && n >= min && n <= max && Math.abs((n - min) / step - Math.round((n - min) / step)) < 1e-6;
-}
-export const rangeText = ([min, max, step]: Range) => `${min} to ${max}${step !== 1 ? `, in steps of ${step}` : ''}`;
-
-/** A one-line summary: "IELTS 7.0 (no band below 6.5)". */
-export function testSummary(t: Test) {
-  const d = TESTS[t.type];
-  if (!t.overall) return d.name;
-  const bands = d.parts.filter((p) => !p.optional).map((p) => Number(t.parts[p.key])).filter((n) => !Number.isNaN(n) && t.parts);
-  const low = d.kind === 'English' && bands.length === d.parts.length && bands.length ? Math.min(...bands) : null;
-  return `${t.type === 'DET' ? 'Duolingo' : t.type} ${t.type === 'IELTS' ? Number(t.overall).toFixed(1) : t.overall}${low !== null ? ` (no band below ${t.type === 'IELTS' ? low.toFixed(1) : low})` : ''}`;
-}
+// the tests: one table (HC15), data/tests.ts
+export { TESTS, TEST_ORDER, ENGLISH_TESTS, inRange, rangeText, testSummary, testMissing, type TestType, type TestDef, type Test } from './tests';
 
 /* ---------- documents ---------- */
 
@@ -235,43 +164,11 @@ export type TeamRole = 'RP Admin' | 'Branch Admin' | 'Counsellor';
 /** Someone on the agency's team: their contact, role and branch; `invited` until they accept the invitation. */
 export type Member = { id: string; name: string; role: TeamRole; email?: string; dial?: string; phone?: string; branch?: string; invited?: boolean; /** The RP whose team they're on (GSP's lists hold every RP's). */ rp?: string };
 
-/** The agency's team (sample): the person signed in, its RP Admin, and two counsellors, at the head office and a branch. */
-export const teamFor = (me: string, email = 'asha@brightpathoverseas.in'): Member[] => {
-  // the colleagues' addresses are the agency's own domain; the test account signs in with an upGrad address (W21)
-  const own = email.split('@')[1] ?? 'brightpathoverseas.in';
-  const domain = /^up(grad|gard)\.com$/.test(own) ? 'gsptestagency.in' : own;
-  return [
-    { id: 'me', name: me, role: 'RP Admin', email, dial: '+91', phone: '98450 12345', branch: 'hq' },
-    { id: 'karthik', name: 'Karthik Nair', role: 'Counsellor', email: `karthik.nair@${domain}`, dial: '+91', phone: '98450 22113', branch: 'hq' },
-    { id: 'divya', name: 'Divya Shetty', role: 'Counsellor', email: `divya.shetty@${domain}`, dial: '+91', phone: '98201 76420', branch: 'mumbai' },
-  ];
-};
-
 export const fullName = (s: Pick<Student, 'first' | 'last'>) => [s.first, s.last].filter(Boolean).join(' ');
 export const initialsOf = (s: Pick<Student, 'first' | 'last'>) => ((s.first[0] ?? '') + (s.last[0] ?? s.first[1] ?? '')).toUpperCase();
 
-/** A city list for the states most students come from; elsewhere the city is typed. */
-export const CITIES: Record<string, string[]> = {
-  Karnataka: ['Bengaluru', 'Mysuru', 'Mangaluru', 'Hubballi', 'Belagavi'],
-  Kerala: ['Kochi', 'Thiruvananthapuram', 'Kozhikode', 'Thrissur'],
-  Maharashtra: ['Mumbai', 'Pune', 'Nagpur', 'Nashik'],
-  'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli'],
-  Telangana: ['Hyderabad', 'Warangal', 'Karimnagar'],
-  'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Tirupati'],
-  Delhi: ['New Delhi'],
-  Punjab: ['Ludhiana', 'Amritsar', 'Jalandhar', 'Mohali'],
-  Haryana: ['Gurugram', 'Faridabad', 'Karnal', 'Ambala'],
-  Gujarat: ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot'],
-  'Uttar Pradesh': ['Lucknow', 'Noida', 'Kanpur', 'Varanasi'],
-  'West Bengal': ['Kolkata', 'Siliguri', 'Durgapur'],
-  Rajasthan: ['Jaipur', 'Jodhpur', 'Udaipur'],
-  'Madhya Pradesh': ['Indore', 'Bhopal', 'Gwalior'],
-  'Bagmati Zone': ['Kathmandu', 'Lalitpur', 'Bhaktapur'],
-  'Gandaki Zone': ['Pokhara'],
-  'Dhaka Division': ['Dhaka', 'Gazipur', 'Narayanganj'],
-  'Chittagong Division': ['Chattogram', 'Cox’s Bazar'],
-  'Western Province': ['Colombo', 'Negombo', 'Kalutara'],
-};
+/** A city list for the states most students come from; elsewhere the city is typed (HC14: data/geo.json). */
+export { CITIES, citiesOf } from './partners';
 
 /**
  * How ready a profile is to apply with. Only what's mandatory counts: the personal details with a copy of the
@@ -367,9 +264,9 @@ export function readTest(type: TestType): Pick<Test, 'cert' | 'date' | 'overall'
     IELTS: { cert: '26IN004512NAIA012A', date: '12/08/2026', overall: '7.0', parts: { l: '7.5', r: '7.0', w: '6.5', s: '7.0' } },
     TOEFL: { cert: '0000 2468 1357 9024', date: '03/07/2026', overall: '98', parts: { l: '26', r: '25', w: '23', s: '24' } },
     PTE: { cert: 'PTE-ACA-8841-2207', date: '21/06/2026', overall: '65', parts: { l: '66', r: '63', w: '68', s: '62' } },
-    DET: { cert: 'DET-7C21A9F0', date: '02/09/2026', overall: '120', parts: {} },
-    SAT: { cert: 'SAT-55120347', date: '04/10/2025', overall: '1380', parts: { rw: '680', math: '700', essay: '' } },
-    ACT: { cert: 'ACT-11872034', date: '13/09/2025', overall: '29', parts: { math: '30', reading: '28', science: '29', english: '29', writing: '' } },
+    Duolingo: { cert: 'DET-7C21A9F0', date: '02/09/2026', overall: '120', parts: { lit: '125', comp: '120', conv: '110', prod: '115' } },
+    SAT: { cert: 'SAT-55120347', date: '04/10/2025', overall: '1380', parts: { rw: '680', math: '700', essay: '6' } },
+    ACT: { cert: 'ACT-11872034', date: '13/09/2025', overall: '29', parts: { math: '30', reading: '28', science: '29', english: '29', writing: '8' } },
     GMAT: { cert: 'GMAT-0198-4472', date: '18/05/2026', overall: '660', parts: { q: '47', v: '35', awa: '5.0', ir: '6' } },
     GRE: { cert: 'GRE-7741023', date: '27/04/2026', overall: '318', parts: { q: '162', v: '156', awa: '4.0' } },
   };
@@ -378,166 +275,11 @@ export function readTest(type: TestType): Pick<Test, 'cert' | 'date' | 'overall'
 
 /* ---------- sample students ---------- */
 
-const DAY = 86_400_000;
-const edu = (p: Partial<Edu>): Edu => ({ ...emptyEdu('India'), language: 'English', ...p });
-const blank = (me: string) => ({
-  oneName: false,
-  dial: '+91',
-  gender: '' as Gender,
-  dob: '',
-  passportExpiry: '',
-  country: 'India',
-  state: '',
-  city: '',
-  eduCountry: 'India',
-  edu: {},
-  work: [] as Work[],
-  tests: [] as Test[],
-  visa: '' as const,
-  visaNote: '',
-  disability: '' as const,
-  disabilityNote: '',
-  docs: {} as Record<string, Doc>,
-  read: [] as string[],
-  addedBy: me,
-  apps: [] as StudentApp[],
-});
-const doc = (name: string, file: string, status: DocStatus = 'verified'): Doc => ({ name, file, status });
-
-/** A Bengaluru agency's students: one just added (profile incomplete, no applications yet), and four with complete profiles and applications. */
+/**
+ * Every student: the GSP test agency's own five (HC13, 1 Nov: in the data set, scripts/test_agency.json; one just
+ * added with an incomplete profile, four complete with applications), then the students of every other application
+ * GSP has (data/dataset.ts). `me` is the person signed in.
+ */
 export function sampleStudents(me: string): Student[] {
-  const now = Date.now();
-  const own: Student[] = [
-    {
-      ...blank(me),
-      id: 'S-24818',
-      first: 'Mohammed',
-      last: 'Irfan',
-      nationality: 'India',
-      email: 'irfan.m@gmail.com',
-      phone: '94470 31288',
-      passport: '',
-      highest: 'ug',
-      counsellor: 'divya',
-      added: now - 1 * DAY,
-      addedBy: 'Divya Shetty',
-      shortlist: ['deakin-5', 'flinders-3', 'coventry-3'],
-    },
-    {
-      ...blank(me),
-      id: 'S-24811',
-      shortlist: ['deakin-14', 'rmit-10'],
-      first: 'Priya',
-      last: 'Raman',
-      nationality: 'India',
-      email: 'priya.raman@gmail.com',
-      phone: '98450 77120',
-      passport: 'V8810342',
-      highest: 'ug',
-      gender: 'Female',
-      dob: '14/03/2000',
-      passportExpiry: '18/09/2032',
-      state: 'Karnataka',
-      city: 'Bengaluru',
-      edu: {
-        ug: edu({ state: 'Karnataka', level: 'Bachelor’s degree', institution: 'Visvesvaraya Technological University', qualification: 'B.E., Computer Science', grading: '10', score: '7.6', backlogs: '0', start: '08/2018', end: '06/2022' }),
-        g12: edu({ state: 'Karnataka', level: 'Grade 12 (higher secondary)', institution: 'Karnataka School Examination and Assessment Board', qualification: 'PUC, Science (PCMB)', grading: '100', score: '84', start: '06/2016', end: '03/2018' }),
-      },
-      work: [{ id: 'w1', org: 'Infosys, Bengaluru', role: 'Systems engineer', from: '08/2022', to: '', current: true }],
-      tests: [{ id: 't1', type: 'IELTS', cert: '26IN004512RAMP011A', date: '12/08/2026', overall: '7.0', parts: { l: '7.5', r: '7.0', w: '6.5', s: '7.0' } }],
-      visa: 'no',
-      disability: 'no',
-      docs: {
-        passport: doc('Passport', 'priya_passport.pdf'),
-        'edu-ug': doc(eduDocName('ug'), 'priya_btech_transcript.pdf'),
-        'edu-g12': doc(eduDocName('g12'), 'priya_puc_marksheet.pdf'),
-        'test-t1': doc('IELTS Academic score report', 'priya_ielts_trf.pdf'),
-        cv: doc('CV', 'priya_raman_cv.pdf', 'uploaded'),
-      },
-      counsellor: 'karthik',
-      added: now - 12 * DAY,
-    },
-    {
-      ...blank(me),
-      id: 'S-24807',
-      first: 'Sneha',
-      last: 'Patil',
-      nationality: 'India',
-      email: 'sneha.patil01@gmail.com',
-      phone: '99001 44562',
-      passport: 'U3329018',
-      highest: 'ug',
-      gender: 'Female',
-      dob: '02/11/2001',
-      passportExpiry: '20/01/2027',
-      state: 'Karnataka',
-      city: 'Hubballi',
-      edu: {
-        ug: edu({ state: 'Karnataka', level: 'Bachelor’s degree', institution: 'Karnatak University', qualification: 'B.Com', grading: '100', score: '68', backlogs: '1', start: '07/2019', end: '05/2022' }),
-      },
-      tests: [
-        { id: 't1', type: 'PTE', cert: 'PTE-ACA-5512-0918', date: '21/06/2026', overall: '65', parts: { l: '66', r: '63', w: '68', s: '62' } },
-        { id: 't2', type: 'GMAT', cert: '', date: '', overall: '', parts: {} },
-      ],
-      visa: 'no',
-      docs: { passport: doc('Passport', 'sneha_passport.jpg'), 'edu-ug': doc(eduDocName('ug'), 'sneha_bcom_marks.pdf'), 'test-t1': doc('PTE Academic score report', 'sneha_pte.pdf') },
-      counsellor: 'me',
-      added: now - 19 * DAY,
-    },
-    {
-      ...blank(me),
-      id: 'S-24796',
-      first: 'Rohan',
-      last: 'Gupta',
-      nationality: 'India',
-      email: 'rohan.gupta.pb@gmail.com',
-      phone: '98140 22981',
-      passport: 'S9940211',
-      highest: 'ug',
-      gender: 'Male',
-      dob: '09/02/2001',
-      passportExpiry: '12/12/2030',
-      state: 'Punjab',
-      city: 'Ludhiana',
-      edu: { ug: edu({ state: 'Punjab', level: 'Bachelor’s degree', institution: 'Punjab Technical University', qualification: 'BCA', grading: '10', score: '6.8', backlogs: '2', start: '07/2019', end: '06/2022' }) },
-      tests: [{ id: 't1', type: 'IELTS', cert: '25IN009934GUPR004A', date: '30/11/2025', overall: '6.0', parts: { l: '6.5', r: '6.0', w: '5.5', s: '6.0' } }],
-      docs: { passport: doc('Passport', 'rohan_passport.pdf'), 'edu-ug': doc(eduDocName('ug'), 'rohan_bca.pdf'), 'test-t1': doc('IELTS Academic score report', 'rohan_trf.pdf') },
-      counsellor: 'divya',
-      added: now - 33 * DAY,
-    },
-    {
-      ...blank(me),
-      id: 'S-24781',
-      first: 'Fatima',
-      last: 'Sheikh',
-      nationality: 'India',
-      email: 'fatima.sheikh98@gmail.com',
-      phone: '90000 51734',
-      passport: 'R6672330',
-      highest: 'pg',
-      gender: 'Female',
-      dob: '05/12/1998',
-      passportExpiry: '22/08/2031',
-      state: 'Telangana',
-      city: 'Hyderabad',
-      edu: {
-        pg: edu({ state: 'Telangana', level: 'Master’s degree', institution: 'Osmania University', qualification: 'M.Tech, Structural Engineering', grading: '10', score: '8.1', backlogs: '0', start: '08/2020', end: '07/2022' }),
-        ug: edu({ state: 'Telangana', level: 'Bachelor’s degree', institution: 'JNTU Hyderabad', qualification: 'B.Tech, Civil Engineering', grading: '100', score: '70', backlogs: '0', start: '08/2016', end: '06/2020' }),
-      },
-      work: [{ id: 'w1', org: 'L&T Construction', role: 'Site engineer', from: '09/2022', to: '08/2025', current: false }],
-      tests: [{ id: 't1', type: 'IELTS', cert: '26IN007702SHEF002A', date: '14/02/2026', overall: '6.5', parts: { l: '7.0', r: '6.5', w: '6.0', s: '6.5' } }],
-      visa: 'yes',
-      visaNote: 'Canada, study permit, 2023',
-      docs: {
-        passport: doc('Passport', 'fatima_passport.pdf'),
-        'edu-pg': doc(eduDocName('pg'), 'fatima_mtech.pdf'),
-        'test-t1': doc('IELTS Academic score report', 'fatima_trf.pdf'),
-        work: doc('Work experience letters', 'fatima_lnt_letter.pdf', 'uploaded'),
-      },
-      counsellor: 'divya',
-      added: now - 58 * DAY,
-    },
-  ];
-  // the sample agency's own (above), then the students of every other application GSP has (data/dataset.ts)
-  return [...own, ...datasetStudents(me)];
+  return [...testAgencyStudents(me), ...datasetStudents(me)];
 }

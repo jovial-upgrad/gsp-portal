@@ -105,7 +105,7 @@ export function AppDetail({
   const c = courseOf(a);
   const d = c.uni.country;
   const o = ownerOf(a);
-  const gsp = gspContact(d, a.officer);
+  const gsp = gspContact(a);
   const counsellor = team.find((m) => m.id === s.counsellor);
   const earn = earnFor(a);
   const [withdraw, setWithdraw] = useState(false);

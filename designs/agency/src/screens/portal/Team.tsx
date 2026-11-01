@@ -9,7 +9,7 @@ import { Field, SelectInput, TextInput, describedBy } from '../../components/for
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { countryByName, type Contact } from '../../data/partners';
-import { CITIES, type Member, type Student, type TeamRole } from '../../data/students';
+import { citiesOf, type Member, type Student, type TeamRole } from '../../data/students';
 import { TEAM_ROLES, branchBdm, lastAdmin, type Branch } from '../../data/team';
 
 type Props = {
@@ -227,7 +227,7 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
   const [b, setB] = useState<Branch>({ id: '', name: '', country: 'India', state: '', city: '' });
   const [start, setStart] = useState<Branch>(b);
   const states = countryByName(b.country)?.states ?? [];
-  const cities = CITIES[b.state] ?? [];
+  const cities = citiesOf(b.country, b.state);
   // QC, 1 Nov (H25): the city comes from the state's list when there is one
   const err = {
     name: b.name.trim().length < 2 ? 'Enter the branch name, like Mysuru.' : dupError(b.name, branches.filter((x) => x.id !== b.id).map((x) => x.name), 'There’s already a branch with this name.'),

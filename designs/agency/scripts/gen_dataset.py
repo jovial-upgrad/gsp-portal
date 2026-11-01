@@ -165,11 +165,26 @@ RP_PEOPLE = {'India': (['Anil', 'Deepa', 'Suresh', 'Lata', 'Manoj', 'Rekha', 'Pr
              'China': (['Wei', 'Jing'], ['Zhang', 'Liu'])}
 RP_DIAL = {'India': '+91', 'Australia': '+61', 'Vietnam': '+84', 'Nepal': '+977', 'Bangladesh': '+880', 'Sri Lanka': '+94', 'Pakistan': '+92', 'Philippines': '+63', 'China': '+86',
            'Indonesia, Malaysia and Thailand': '+62', 'Africa': '+234', 'Latin America and Europe': '+57', 'Myanmar': '+95', 'Bhutan': '+975', 'Direct': '+61'}
+# the GSP test agency (HC13, 1 Nov): its team, its branches, and its own students and applications
+# (scripts/test_agency.json: times are "@now±days", "{officer}" is the application's officer, "{me}" who signs in)
+TEST_TEAM = [
+    {'key': 'me', 'name': 'Nesil Noble', 'email': 'nesil@upgard.com', 'dial': '+91', 'phone': '98450 12345', 'role': 'RP Admin', 'branch': 'hq'},
+    {'key': 'anita', 'name': 'Anita Desai', 'email': 'anita.desai@gsptestagency.in', 'dial': '+91', 'phone': '98201 55408', 'role': 'Branch Admin', 'branch': 'mumbai'},
+    {'key': 'karthik', 'name': 'Karthik Nair', 'email': 'karthik.nair@gsptestagency.in', 'dial': '+91', 'phone': '98450 22113', 'role': 'Counsellor', 'branch': 'hq'},
+    {'key': 'divya', 'name': 'Divya Shetty', 'email': 'divya.shetty@gsptestagency.in', 'dial': '+91', 'phone': '98201 76420', 'role': 'Counsellor', 'branch': 'mumbai'},
+]
+TEST_BRANCHES = [
+    {'id': 'hq', 'name': 'Bengaluru head office', 'country': 'India', 'state': 'Karnataka', 'city': 'Bengaluru', 'main': True},
+    {'id': 'mumbai', 'name': 'Mumbai', 'country': 'India', 'state': 'Maharashtra', 'city': 'Mumbai'},
+]
+TEST_OWN = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_agency.json')))
+
 def rp_details(r):
     key = r['id']
     if key == 'R-TEST':
-        # the designer's agency, signed in as RP Admin: its Profile is the source (data/rpteam.ts keeps the same people)
-        r.update({'city': 'Bengaluru', 'state': 'Karnataka', 'since': '2024-06-10'})
+        # the designer's agency, signed in as RP Admin (HC13, 1 Nov): its one team record and its branches, here like
+        # every other RP's. `key` is the member's id in the portal ('me' is whoever signs in as its RP Admin).
+        r.update({'city': 'Bengaluru', 'state': 'Karnataka', 'country': 'India', 'since': '2024-06-10', 'team': TEST_TEAM, 'branches': TEST_BRANCHES})
         return
     cities = RP_CITY.get(r['region'], ['Melbourne'])
     r['city'] = cities[h(key + 'c', len(cities))]
@@ -289,6 +304,7 @@ out = {
     'students': students,
     'apps': apps,
     'idmap': idmap,
+    'testAgency': TEST_OWN,
 }
 json.dump(out, open(f'{SRC}/data/dataset.json', 'w'), ensure_ascii=False, indent=1)
 print(len(apps), 'apps;', len(students), 'students;', len(added), 'new universities;', len(sample_terms), 'sample terms;', sum(1 for r in rps.values() if not r['terms']), 'RPs without terms')

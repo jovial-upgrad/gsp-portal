@@ -22,7 +22,7 @@ const TEST_WORDS: [RegExp, TestType][] = [
   [/\bielts\b/, 'IELTS'],
   [/\btoefl\b/, 'TOEFL'],
   [/\bpte\b/, 'PTE'],
-  [/\b(duolingo|det)\b/, 'DET'],
+  [/\b(duolingo|det)\b/, 'Duolingo'],
   [/\bsat\b/, 'SAT'],
   [/\bact\b/, 'ACT'],
   [/\bgmat\b/, 'GMAT'],

@@ -5,7 +5,7 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { courseOf, gspContact, type Application, type Msg, type Need } from '../../data/applications';
+import { gspContact, type Application, type Msg, type Need } from '../../data/applications';
 import { DocButtons } from '../../components/DocView';
 import { AssistLabel, Thinking } from './parts';
 
@@ -50,8 +50,7 @@ export function Assist({
   say: (m: string) => void;
 }) {
   const reduce = useReducedMotion();
-  const c = courseOf(a);
-  const g = gspContact(c.uni.country, a.officer);
+  const g = gspContact(a);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLOListElement>(null);

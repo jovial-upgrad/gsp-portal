@@ -17,7 +17,9 @@ import { adminCfg } from '../admin/data/store';
 import { rpByName } from './dataset';
 import { STAFF } from './staff';
 
-export const COUNTRY_REGION: Record<string, string> = {
+/** Built on first use: Admin's nationality map loads after this module in some import orders. */
+let MAP: Record<string, string> | null = null;
+const countryRegion = (): Record<string, string> => (MAP ??= {
   ...NATIONALITY,
   Australia: 'Australia',
   'United Kingdom': 'Latin America and Europe',
@@ -25,8 +27,8 @@ export const COUNTRY_REGION: Record<string, string> = {
   Ireland: 'Latin America and Europe',
   'New Zealand': 'Rest of world',
   USA: 'Rest of world',
-};
-export const regionOfCountry = (country: string) => COUNTRY_REGION[country] ?? 'Rest of world';
+});
+export const regionOfCountry = (country: string) => countryRegion()[country] ?? 'Rest of world';
 
 /** The signed-in sample agency: head office in Bengaluru, a branch in Mumbai, both India. */
 export const TEST_AGENCY = { name: 'GSP test agency', country: 'India', branches: [{ name: 'Bengaluru head office', country: 'India' }, { name: 'Mumbai', country: 'India' }] };

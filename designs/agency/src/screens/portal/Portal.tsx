@@ -1,3 +1,5 @@
+import { TEST_COUNTRY } from '../../data/rpteam';
+import { TEST_RP } from '../../data/dataset';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
@@ -20,7 +22,8 @@ import type { NoteTarget } from '../../data/inbox';
 import { sampleAnnouncements } from '../../institution/data/announcements';
 import { useInbox } from './Inbox';
 import { Students } from '../students/Students';
-import { fullName, sampleStudents, teamFor, type Member, type Student } from '../../data/students';
+import { fullName, sampleStudents, type Member, type Student } from '../../data/students';
+import { teamFor } from '../../data/rpteam';
 import { sampleBranches, type Branch } from '../../data/team';
 import type { AddState } from '../students/form';
 import type { RecordTab } from '../students/StudentRecord';
@@ -111,7 +114,7 @@ export function Portal({
   // the course search lives here, so leaving Find courses and coming back keeps it
   // the agency's own state, from its profile (W34): the registration's, or the head office's for an established agency
   const homeState = join ? join.form.state || '' : sampleBranches().find((b) => b.main)?.state ?? '';
-  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || 'India', homeState));
+  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || TEST_COUNTRY, homeState));
   // students live here too: a new agency starts with none, an established one with its own
   // an RP sees only its own students and applications: GSP's others (with another RP) aren't theirs
   const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp));
@@ -129,9 +132,11 @@ export function Portal({
     role: 'rp',
     access: accessOf(join),
     agency: acc.agency,
-    country: join?.form.country || 'India',
+    country: join?.form.country || TEST_COUNTRY,
     apps,
     students,
+    me: acc,
+    join: join ?? undefined,
     anns,
     onOpen: (t) => openNote(t),
     onCourses: (uni) => {
@@ -143,7 +148,7 @@ export function Portal({
   useLinkedData(apps, setApps, students, setStudents, inbox.onIncoming);
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
   // the agency's team and branches: managed on Profile, and the team Students picks counsellors from
-  const [team, setTeam] = useState<Member[]>(() => teamFor(acc.name, acc.email));
+  const [team, setTeam] = useState<Member[]>(() => teamFor(acc));
   const [branches, setBranches] = useState<Branch[]>(sampleBranches);
   // moving between sections with something open: a student's record, an application, the new application sheet
   const [jump, setJump] = useState<PortalStart | undefined>();
@@ -185,7 +190,7 @@ export function Portal({
   // while registering, only Home is open; while GSP verifies, the sections marked locked wait
   const isLocked = (k: Section) => (access === 'setup' ? k !== 'home' : access === 'verifying' && !!NAV.find((n) => n.key === k)?.locked);
   const toDo = join && access === 'setup' ? (join.detailsDone ? 0 : 1) + missingRequired(docsFor(join.form.country), join.docs).length : 0;
-  const manager = join ? partnerManagerFor(join.form.country, join.form.city, join.form.ref) : partnerManagerFor('India', 'Bengaluru', '');
+  const manager = join ? partnerManagerFor(join.form.country, join.form.city, join.form.ref) : partnerManagerFor(TEST_COUNTRY, TEST_RP.city ?? '', '');
 
   // changes GSP makes while the portal is open are said once: verified, or documents sent back
   const [announce, setAnnounce] = useState('');
@@ -347,7 +352,7 @@ export function Portal({
         set={setStudents}
         team={team}
         me={acc.name}
-        nationality={join?.form.country || 'India'}
+        nationality={join?.form.country || TEST_COUNTRY}
         start={begin?.section === 'students' ? { key: begin.key, add: begin.add, open: begin.open, tab: begin.tab } : undefined}
         navKey={navKey}
         scrollTop={scrollTop}
@@ -373,7 +378,7 @@ export function Portal({
         navKey={navKey}
         scrollTop={scrollTop}
         onOpenStudent={(id, tab) => jumpTo({ section: 'students', open: id, tab: tab ?? 'personal' })}
-        nationality={join?.form.country || 'India'}
+        nationality={join?.form.country || TEST_COUNTRY}
         onFindCourses={() => go('courses')}
       />
     ) : section === 'courses' ? (
@@ -384,7 +389,7 @@ export function Portal({
         agency={acc.agency}
         onApply={(c) => jumpTo({ section: 'applications', app: { add: { courseId: c.id, studentId: search.studentId } } })}
         students={access === 'all' ? studentsView : []}
-        home={{ country: join?.form.country || 'India', state: homeState }}
+        home={{ country: join?.form.country || TEST_COUNTRY, state: homeState }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}

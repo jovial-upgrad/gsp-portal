@@ -6,9 +6,10 @@ import { Icon, type IconName } from '../../components/Icon';
 import { UNIVERSITIES } from '../../data/courses';
 import { GlassRim } from '../../components/GlassRim';
 import { Toast, type ToastMsg } from '../../components/Toast';
-import { NOTE_KINDS, noticesFor, notesFor, notesFromChange, type Note, type NoteKind, type NoteTarget, type Notice } from '../../data/inbox';
+import { NOTE_KINDS, noticesFor, notesFor, notesFromChange, type Note, type NoteKind, type NoteTarget, type NoteTask, type Notice } from '../../data/inbox';
 import { courseOf, type Application } from '../../data/applications';
 import { fullName, type Student } from '../../data/students';
+import { staffByEmail } from '../../data/staff';
 import type { Announcement } from '../../institution/data/announcements';
 import { ANN_CATEGORIES } from '../../institution/data/announcements';
 import { UniMark } from '../courses/parts';
@@ -34,10 +35,10 @@ const isToday = (at: number) => new Date(at).toDateString() === new Date().toDat
 const shortName = (name: string) => name.replace(/University of |\s*University/g, '').trim();
 
 /**
- * Everything a portal needs for its bell and megaphone (30 Oct; every role): the sample notifications for its role
- * and state, plus real ones from the other role while connected (`onIncoming`, for `useLinkedData`), and the
- * announcements it's sent. A change from the other role while the portal is open also shows as the bottom-left
- * notification, with Open.
+ * Everything a portal needs for its bell and megaphone (30 Oct; every role): the notifications built from its own
+ * applications (HC53, data/inbox.ts) and, for GSP, the signed-in person's My work tasks; the bottom-left notification
+ * when the other role changes an application while connected (`onIncoming`, for `useLinkedData`); and the
+ * announcements it's sent.
  */
 export function useInbox(o: {
   role: 'rp' | 'gsp';
@@ -46,19 +47,49 @@ export function useInbox(o: {
   country?: string;
   apps: Application[];
   students: Student[];
+  /** Who's signed in: their tasks (GSP) and the students they added themselves (RP) aren't news to them. */
+  me?: { name: string; email?: string };
+  /** The registration's times, while registering. */
+  join?: { sentAt?: number };
   /** Announcements in the Institution Team's model, and its universities' names. */
   anns: { list: Announcement[]; names: Record<string, string> };
   onOpen: (t: NoteTarget) => void;
   onCourses: (university: string) => void;
 }) {
   const [readIds, setReadIds] = useState<string[]>([]);
-  const [live, setLive] = useState<Note[]>([]);
   const [toast, setToast] = useState<ToastMsg | null>(null);
-  const sample = useMemo(
-    () => notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps.map((a) => a.id), students: o.students.map((s) => s.id) }),
-    [o.access, o.agency, o.apps.length, o.students.length], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-  const notes = useMemo(() => [...live, ...sample], [live, sample]);
+  const [opened] = useState(() => Date.now());
+  // My work's tasks, for GSP's roles: the bell follows them as they change. The work store is loaded after the page
+  // starts (it reads every module's applications), so it's imported here rather than at the top.
+  const [tasks, setTasks] = useState<NoteTask[]>([]);
+  useEffect(() => {
+    if (o.role !== 'gsp') return;
+    let off: (() => void) | undefined;
+    let live = true;
+    void import('../../work/store').then((m) => {
+      if (!live) return;
+      const read = () => {
+        try {
+          const st = m.getState() as { tasks: (NoteTask & { kind?: string })[]; kinds: { id: string; name: string }[]; records: { id: string; label?: string }[] };
+          // a task raised by hand has no title of its own: its kind's name, and what it's about
+          setTasks(st.tasks.map((t) => (t.title ? t : { ...t, title: [st.kinds.find((k) => k.id === t.kind)?.name ?? 'Task', st.records.find((r) => r.id === t.record)?.label].filter(Boolean).join(': ') })));
+        } catch {
+          setTasks([]);
+        }
+      };
+      read();
+      const un = m.subscribe(read);
+      off = () => void un();
+    });
+    return () => {
+      live = false;
+      off?.();
+    };
+  }, [o.role]);
+  const staffId = o.me?.email ? staffByEmail(o.me.email)?.id : undefined;
+  const notes = useMemo(() => {
+    return notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps, students: o.students, join: { created: opened, sentAt: o.join?.sentAt }, tasks, me: staffId, meName: o.me?.name });
+  }, [o.role, o.access, o.agency, o.apps, o.students, o.join?.sentAt, staffId, o.me?.name, tasks, opened]);
   const notices = useMemo(() => noticesFor(o.role, o.anns.list, o.anns.names, o.country), [o.anns, o.role, o.country]);
 
   const open = (n: Note) => {
@@ -71,8 +102,8 @@ export function useInbox(o: {
     const c = courseOf(after);
     const got = notesFromChange(o.role, before, after, { student: s ? fullName(s) : 'A new student', uni: c?.uni.name ?? 'the university', agency: o.agency });
     if (!got.length) return;
-    setLive((l) => [...got.filter((n) => !l.some((x) => x.id === n.id)), ...l]);
-    const n = got[got.length - 1];
+    // the bell already has it (it's built from the applications); this is the bottom-left notification
+    const n = got.sort((x, y) => x.at - y.at)[got.length - 1];
     setToast({
       key: Date.now(),
       title: n.title,

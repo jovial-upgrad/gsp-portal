@@ -5,7 +5,7 @@ import { Checkbox, Field } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
 import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
-import { CITIES, fullName, type Student } from '../../../data/students';
+import { citiesOf, fullName, type Student } from '../../../data/students';
 import { fillFromPassport, savePassport } from './read';
 import { parseDate, typeDate, yearsSince } from '../../../data/dates';
 import { atOtherAgency, isEmail, passportOk, sameStudent } from '../form';
@@ -24,7 +24,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
   const [reading, setReading] = useState(false);
   const [otherCity, setOtherCity] = useState(false);
   const states = countryByName(s.country)?.states ?? [];
-  const cities = CITIES[s.state];
+  const cities = citiesOf(s.country, s.state);
   const typedCity = otherCity || (!!s.city && !!cities && !cities.includes(s.city));
   const read = (k: string) => (s.read.includes(k) ? PASSPORT : null);
   /** Sets fields and drops their "read from a document" mark. */

@@ -1,3 +1,4 @@
+import { TEST_COUNTRY } from '../../data/rpteam';
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -172,7 +173,7 @@ export function Home({
                 <ContactCard person={{ ...manager, role: 'Partner manager (BDM)' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
                 {/* and the region's Admissions contact, for applications (W15) */}
                 {(() => {
-                  const adm = admissionsContactFor(join?.form.country || 'India');
+                  const adm = admissionsContactFor(join?.form.country || TEST_COUNTRY);
                   return adm ? <ContactCard person={adm} hours="Mon–Sat, 9:30 am to 6:30 pm" /> : null;
                 })()}
               </>
