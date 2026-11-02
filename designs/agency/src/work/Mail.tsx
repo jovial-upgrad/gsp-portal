@@ -236,7 +236,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
   const apps = s.records.filter((x) => x.type === 'Application' && inScope(user, x, s.roles));
   const cands = (t.candidates || []).map((id) => recordById(s, id)).filter(Boolean);
   const owner = ownerOf(t);
-  const people = s.users.filter((u) => ['admission', 'admission-ops', 'finance', 'recruitment-ops'].includes(u.role));
+  const people = s.users.filter((u) => ['admission', 'global-ops', 'finance', 'rp-ops'].includes(u.role));
   const canSend = mb.sendAs?.includes(role.id) || role.id === 'admin';
   const dupes = t.messages.filter((m, i) => i > 0 && m.body === t.messages[i - 1].body).length;
   const shown = t.messages.filter((m, i) => !(i > 0 && m.body === t.messages[i - 1].body));

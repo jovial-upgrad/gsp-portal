@@ -13,11 +13,11 @@ import { Select } from '../finance/kit';
 export const HostContext = createContext({ hostRole: 'gsp-admin', openRecord: () => {} });
 
 const ALLOWED = {
-  'gsp-team': ['admission', 'admission-ops', 'view-only'],
+  'gsp-team': ['admission', 'global-ops', 'view-only'],
   'gsp-recruitment': ['recruitment'],
-  'gsp-bap': ['recruitment-ops'],
-  'institution-partner': ['institution', 'institution-ops'],
-  'gsp-admin': ['admin', 'admission', 'admission-ops', 'recruitment', 'recruitment-ops', 'institution', 'institution-ops', 'finance', 'view-only'],
+  'gsp-bap': ['rp-ops'],
+  'institution-partner': ['institution', 'ip-ops'],
+  'gsp-admin': ['admin', 'admission', 'global-ops', 'recruitment', 'rp-ops', 'institution', 'ip-ops', 'finance', 'view-only'],
   'rp-admin': ['rp-admin', 'branch-admin', 'counsellor'],
   'gsp-finance': ['finance'],
 };

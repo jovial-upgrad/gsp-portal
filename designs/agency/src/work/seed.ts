@@ -21,7 +21,7 @@ export const CALENDARS = [
   // Jovial, 1 Nov (Queue assignment A17): everyone works Monday to Friday, except Bangladesh, Sunday to Thursday.
   // Working hours 9:30 to 18:30 local: SLAs in hours count only these.
   // the seed for Work › Working days (work/calendars.ts), where they're edited
-  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], start: '09:30', end: '18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'],
+  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], start: '09:30', end: '18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America & Europe', 'China', 'Rest of world', 'Direct', 'Global'],
     holidays: [['2026-11-08', 'Diwali'], ['2026-12-25', 'Christmas'], ['2027-01-01', 'New Year’s Day']] },
   { id: 'cal-sun-thu', name: 'Sunday to Thursday', days: [0, 1, 2, 3, 4], start: '09:30', end: '18:30', regions: ['Bangladesh'],
     holidays: [['2026-12-16', 'Victory Day'], ['2026-12-25', 'Christmas']] },
@@ -75,7 +75,7 @@ export const KINDS = [
 
 const inRegion = (region) => STAFF.filter((s) => s.role === 'Admission' && s.regions.includes(region)).map((s) => s.id);
 const withRole = (role) => STAFF.filter((s) => s.role === role).map((s) => s.id);
-const SEA = ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan'];
+const SEA = ['Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan'];
 /**
  * The Admissions queue an application's region goes to (HC50, 1 Nov): the queue stored for the region in GSP · Admin
  * (Application routing › Region defaults), matched to the work queue of the same name. Global Admissions if none.
@@ -111,12 +111,12 @@ export const QUEUES = [
   regionalQueue('Philippines', 'u-kimberly-olaes'),
   regionalQueue('Australia', 'u-jo-qiu'),
   regionalQueue('China', 'u-jo-qiu'),
-  regionalQueue('Latin America and Europe', 'u-valentina-castillo'),
-  { ...regionalQueue('Global', 'u-tasha-tandon', withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon')), name: 'Global Admissions', regions: ['Rest of world', 'Direct'] },
-  { id: 'q-rp-ops', name: 'Recruitment Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('Recruitment Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 18, kinds: ['k-rp-verify', 'k-rp-change'] },
+  regionalQueue('Latin America & Europe', 'u-valentina-castillo'),
+  { ...regionalQueue('Global', 'u-tasha-tandon', withRole('Global Ops').filter((id) => id !== 'u-tasha-tandon')), name: 'Global Admissions', regions: ['Rest of world', 'Direct'] },
+  { id: 'q-rp-ops', name: 'RP Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('RP Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 18, kinds: ['k-rp-verify', 'k-rp-change'] },
   { id: 'q-institution', name: 'Institution', kind: 'team', leader: 'u-matt-beazley', members: withRole('Institution').filter((id) => id !== 'u-matt-beazley'), assign: 'record-owner', cover: 'leader', sla: 45, kinds: ['k-renew', 'k-golive'] },
-  { id: 'q-inst-ops', name: 'Institution Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('Institution Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 45, kinds: ['k-course'] },
-  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'fewest-open', cover: 'leader', sla: 9, kinds: ['k-qc', 'k-announce', 'k-escalation', 'k-mail'] },
+  { id: 'q-inst-ops', name: 'IP Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('IP Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 45, kinds: ['k-course'] },
+  { id: 'q-adm-ops', name: 'Global Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Global Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'fewest-open', cover: 'leader', sla: 9, kinds: ['k-qc', 'k-announce', 'k-escalation', 'k-mail'] },
   { id: 'q-finance', name: 'Finance', kind: 'team', leader: 'u-suman1-verma', members: withRole('Finance').filter((id) => id !== 'u-suman1-verma'), assign: 'fewest-open', cover: 'leader', sla: 18, makerChecker: true, kinds: ['k-terms', 'k-check', 'k-exception', 'k-payout'] },
   { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial-lejo', members: [], assign: 'fewest-open', cover: 'leader', sla: 9, kinds: [] },
 ];

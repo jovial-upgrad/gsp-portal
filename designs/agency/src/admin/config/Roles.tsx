@@ -79,7 +79,7 @@ export function Regions({ cfg, change, say }: ConfigProps) {
         open={!!edit}
         region={edit === 'new' ? null : edit}
         regions={cfg.regions}
-        contacts={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Admission Ops') && u.status !== 'Deactivated').map((u) => u.name)}
+        contacts={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Global Ops') && u.status !== 'Deactivated').map((u) => u.name)}
         onClose={() => setEdit(null)}
         onSave={(r) => {
           const was = edit === 'new' ? null : edit;

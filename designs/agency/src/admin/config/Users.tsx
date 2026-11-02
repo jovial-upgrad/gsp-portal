@@ -22,7 +22,7 @@ const ago = (at?: number) => {
 
 /**
  * Create roles (Nesil, 30 Oct): GSP's people and their roles. Create a role with someone's name, email, phone with
- * the country code, role (Admin, Recruitment, Recruitment Ops, Admission, Admission Ops, Institution, Institution Ops
+ * the country code, role (Admin, Recruitment, RP Ops, Admission, Global Ops, Institution, IP Ops
  * or Finance), title and sales region; Send login link emails them a link to set their password. The list filters by
  * a search, role, sales region and login, exports as CSV, and each role can be edited or deleted.
  */

@@ -106,7 +106,7 @@ function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
   );
 }
 
-/** BAP (Recruitment Ops): the new RPs to verify, and the ones whose documents went back to them. */
+/** BAP (RP Ops): the new RPs to verify, and the ones whose documents went back to them. */
 function BapHome({ first, db, open, go }: Props) {
   const toCheck = db.rps.filter((r) => r.docs.some((d) => d.state === 'With BAP'));
   const toApprove = db.rps.filter(canApprove);

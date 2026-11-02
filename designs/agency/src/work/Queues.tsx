@@ -355,7 +355,7 @@ function Escalation({ may, by }) {
         <tr><td className="cfg__strong">A task is created</td><td>The assignee, or every queue member if it is unassigned</td><td>Bell notification and the task in My work</td></tr>
         <tr><td className="cfg__strong">{num('remindBefore', 'Remind days before due')} working day(s) before due</td><td>The assignee</td><td>Bell and the morning email</td></tr>
         <tr><td className="cfg__strong">Due today or breached</td><td>The assignee and the queue leader</td><td>Bell, morning email, red SLA pill</td></tr>
-        <tr><td className="cfg__strong">Breached by {num('opsAfter', 'Escalate to Admission Ops after')} working days</td><td>Admission Ops (an escalation task)</td><td>Task in the Admission Ops queue</td></tr>
+        <tr><td className="cfg__strong">Breached by {num('opsAfter', 'Escalate to Global Ops after')} working days</td><td>Global Ops (an escalation task)</td><td>Task in the Global Ops queue</td></tr>
         <tr><td className="cfg__strong">Breached by {num('adminAfter', 'Escalate to Admin after')} working days</td><td>Admin and the team’s dashboard</td><td>Bell and dashboard alert</td></tr>
       </Table>
       <p className="gspx-pad muted">The morning email goes at {may('U') ? <input className="control__input gspx-num" type="time" aria-label="Morning email time" value={e.digestTime} onChange={x => set('digestTime', x.target.value)} /> : e.digestTime} in each person’s own time zone: one email with everything due, not one per task.</p>

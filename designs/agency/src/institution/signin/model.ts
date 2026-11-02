@@ -44,12 +44,12 @@ export type TeamAuth = {
 export type Member = { name: string; first: string; email: string; org: string; role: string; set: boolean };
 
 /**
- * The Institution team on GSP's staff list (data/staff.ts): Institution and Institution Ops. Kevin Mcewan signs in
+ * The Institution team on GSP's staff list (data/staff.ts): Institution and IP Ops. Kevin Mcewan signs in
  * by default; Ally Kingsmill hasn't set a password yet, for the first-time flow.
  */
 const INVITED = 'ally.kingsmill@upgrad.com';
 const DEFAULT = 'kevin.mcewan@upgrad.com';
-const TEAM_STAFF = STAFF.filter((s) => s.role === 'Institution' || s.role === 'Institution Ops');
+const TEAM_STAFF = STAFF.filter((s) => s.role === 'Institution' || s.role === 'IP Ops');
 const MEMBERS: Member[] = [
   ...TEAM_STAFF.filter((s) => s.email === DEFAULT),
   ...TEAM_STAFF.filter((s) => s.email === INVITED),

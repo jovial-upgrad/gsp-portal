@@ -244,7 +244,7 @@ function RpPage({ r, tab: start, onBack, say, me, canVerify }: { r: RecruitmentP
         )}
         {tab === 'commission' && (
           <Section title="Commission" id="irp-commission">
-            {/* Jovial, 1 Nov: read-only terms; Recruitment Ops and Finance can change the bank details */}
+            {/* Jovial, 1 Nov: read-only terms; RP Ops and Finance can change the bank details */}
             <RpCommission name={r.name} canBank={['gsp-bap', 'gsp-finance', 'gsp-admin'].includes(getScope().viewer)} />
           </Section>
         )}

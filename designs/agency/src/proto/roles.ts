@@ -37,7 +37,7 @@ export const PERM_ROLE: Record<Role, string | null> = {
   'rp-admin': null,
   'gsp-team': 'Admission',
   'gsp-recruitment': 'Recruitment',
-  'gsp-bap': 'Recruitment Ops',
+  'gsp-bap': 'RP Ops',
   'gsp-finance': 'Finance',
   'institution-partner': 'Institution',
   'gsp-admin': 'Admin',

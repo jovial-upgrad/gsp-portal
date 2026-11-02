@@ -5,16 +5,16 @@
  *
  * staff.json is the CRM's user export of 31 Oct 2026 (First name, Last name, Email, Permission role, Sales region,
  * and for Recruitment the area each BDM covers), as given. Only the sales regions are mapped to the portal's names
- * ("LatAM Europe" → "Latin America and Europe", "Indonesia-Malaysia-Thailand" → "Indonesia, Malaysia and Thailand",
+ * ("LatAM Europe" → "Latin America & Europe", "Indonesia-Malaysia-Thailand" → "Indonesia Malaysia & Thailand",
  * "Myanmar" or "Bhutan" → "Myanmar and Bhutan"); `region` keeps the export's text.
  * Jovial's answers (31 Oct, Pending Questions sheet): one Sumit Singh (sumit.singh); Faryal Abbas in Recruitment only;
- * Kartik Sharma in Recruitment Ops; Caixia Qiu also covers China; Myanmar and Bhutan are separate regions. Phone
+ * Kartik Sharma in RP Ops; Caixia Qiu also covers China; Myanmar and Bhutan are separate regions. Phone
  * numbers and job titles aren't in the export: they're made up, as asked.
  * To change who's on the team, replace staff.json with a new export.
  */
 import RAW from './staff.json';
 
-export type StaffRole = 'Admin' | 'Admission' | 'Admission Ops' | 'Recruitment' | 'Recruitment Ops' | 'Institution' | 'Institution Ops' | 'Finance' | 'View Only';
+export type StaffRole = 'Admin' | 'Admission' | 'Global Ops' | 'Recruitment' | 'RP Ops' | 'Institution' | 'IP Ops' | 'Finance' | 'View Only';
 export type Staff = {
   /** From the email address, so it never changes: u-ramish-jafery */
   id: string;

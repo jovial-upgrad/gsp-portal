@@ -8,7 +8,7 @@
  * - A task exists while its condition holds: when the officer changes the status (forward, back, or closed), the
  *   task closes itself. The officer can also close it with one click.
  * - Tasks go to the application's officer. Their queue is the application's regional Admissions queue; QC goes to
- *   Admission Ops. When the officer is on leave, the queue's leader covers.
+ *   Global Ops. When the officer is on leave, the queue's leader covers.
  * - SLAs and waits count working hours on working days, as Work › Working days sets them for the region (9:30 to
  *   18:30; Monday to Friday, Sunday to Thursday in Bangladesh, to start with).
  * In the real build this is the work service, run on every change to an application.

@@ -18,11 +18,11 @@ const ABOUT = {
   'View Only': 'Sees everything, changes nothing. For leadership and auditors.',
   Finance: 'Commission terms, invoices, receipts and payouts.',
   Institution: 'Account managers for institution partners and universities.',
-  'Institution Ops': 'Keeps course data, intakes and fees current (was Data team).',
+  'IP Ops': 'Keeps course data, intakes and fees current (was Data team).',
   Recruitment: 'BDMs: own their RPs and branches in their sales regions.',
-  'Recruitment Ops': 'Verifies new recruitment partners and their documents (was BAP).',
+  'RP Ops': 'Verifies new recruitment partners and their documents (was BAP).',
   Admission: 'Admissions officers: work applications in their sales regions.',
-  'Admission Ops': 'Quality checks, announcements and SLA watch across every region.',
+  'Global Ops': 'Quality checks, announcements and SLA watch across every region.',
 };
 export const roleId = name => String(name).toLowerCase().replace(/ /g, '-');
 const RP_ROLES = [

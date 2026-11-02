@@ -21,12 +21,12 @@ export type LogEntry = { id: string; at: number; who: string; area: string; text
  */
 export type Region = { name: string; contact: string; countries: string[] };
 /** The sales regions as Jovial's sheet named them (31 Oct), in order: the seed for Admin › Sales regions. */
-const SEED_REGION_NAMES = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'];
+const SEED_REGION_NAMES = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America & Europe', 'China', 'Rest of world', 'Direct', 'Global'];
 /** Countries that make up a region, where it isn't the country itself (named as the country list names them). */
 const SEED_COUNTRIES: Record<string, string[]> = {
-  'Indonesia, Malaysia and Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
+  'Indonesia Malaysia & Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
   Africa: ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cameroon', 'Cape Verde', 'Central African Republic', 'Chad', 'Comoros', 'Congo', 'Democratic Republic of the Congo', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Swaziland', 'Ethiopia', 'Gabon', 'The Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', "Cote D'Ivoire (Ivory Coast)", 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'],
-  'Latin America and Europe': ['Brazil', 'Colombia', 'Mexico', 'Peru', 'Chile', 'Argentina', 'Ecuador', 'United Kingdom', 'Ireland', 'Germany', 'France', 'Spain', 'Italy', 'Netherlands', 'Portugal', 'Poland'],
+  'Latin America & Europe': ['Brazil', 'Colombia', 'Mexico', 'Peru', 'Chile', 'Argentina', 'Ecuador', 'United Kingdom', 'Ireland', 'Germany', 'France', 'Spain', 'Italy', 'Netherlands', 'Portugal', 'Poland'],
   // every country not in another region; students who apply without an RP; GSP people who cover every region
   'Rest of world': [],
   Direct: [],
@@ -35,8 +35,8 @@ const SEED_COUNTRIES: Record<string, string[]> = {
 /** Each region's Admissions contact (Jovial's sheet, 31 Oct). */
 const CONTACT: Record<string, string> = {
   India: N('ramish.jafery'), Bangladesh: N('kamrun.nahar'), Nepal: N('supriya.shrestha'), 'Sri Lanka': N('subodya.suraweera'), Vietnam: N('truc.nguyen'), Pakistan: N('sabrina.hyder'),
-  'Indonesia, Malaysia and Thailand': N('truc.nguyen'), Myanmar: N('truc.nguyen'), Bhutan: N('truc.nguyen'), Australia: N('jo.qiu'), Philippines: N('kimberly.olaes'), Africa: N('kamrun.nahar'),
-  'Latin America and Europe': N('valentina.castillo'), China: N('jo.qiu'), 'Rest of world': N('tasha.tandon'), Direct: N('tasha.tandon'),
+  'Indonesia Malaysia & Thailand': N('truc.nguyen'), Myanmar: N('truc.nguyen'), Bhutan: N('truc.nguyen'), Australia: N('jo.qiu'), Philippines: N('kimberly.olaes'), Africa: N('kamrun.nahar'),
+  'Latin America & Europe': N('valentina.castillo'), China: N('jo.qiu'), 'Rest of world': N('tasha.tandon'), Direct: N('tasha.tandon'),
 };
 export const sampleRegions = (): Region[] => SEED_REGION_NAMES.map((name) => ({ name, contact: CONTACT[name] ?? '', countries: SEED_COUNTRIES[name] ?? [name] }));
 /** Regions with no countries of their own: what they stand for, said where the countries would be. */
@@ -75,7 +75,7 @@ export const workRegions = (rs: Region[]) => rs.filter((r) => r.name !== 'Global
 
 /* ---------- GSP users and their roles (Nesil, 30 Oct: Create roles; people from the PM's samples) ---------- */
 /** The roles a GSP user can have (Nesil's list). */
-export const GSP_ROLES = ['Admin', 'Admission', 'Admission Ops', 'Recruitment', 'Recruitment Ops', 'Institution', 'Institution Ops', 'Finance', 'View Only'] as const;
+export const GSP_ROLES = ['Admin', 'Admission', 'Global Ops', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'Finance', 'View Only'] as const;
 export type GspRole = (typeof GSP_ROLES)[number];
 /** Link sent: waiting for them to set a password; Active: they've signed in; Deactivated: can't sign in (Jovial, 31 Oct). */
 export type UserStatus = 'Not sent' | 'Link sent' | 'Active' | 'Deactivated';
@@ -94,9 +94,9 @@ export const LEVELS = [
 ] as const;
 export type Level = (typeof LEVELS)[number][0];
 /** Jovial, 31 Oct: GSP's nine roles. */
-export const ROLES = ['Admin', 'Admission', 'Admission Ops', 'Recruitment', 'Recruitment Ops', 'Institution', 'Institution Ops', 'Finance', 'View Only'] as const;
+export const ROLES = ['Admin', 'Admission', 'Global Ops', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'Finance', 'View Only'] as const;
 /** The columns of the table below, in the order of Jovial's sheet. */
-const COLS = ['Admin', 'View Only', 'Finance', 'Institution', 'Institution Ops', 'Recruitment', 'Recruitment Ops', 'Admission', 'Admission Ops'] as const;
+const COLS = ['Admin', 'View Only', 'Finance', 'Institution', 'IP Ops', 'Recruitment', 'RP Ops', 'Admission', 'Global Ops'] as const;
 /** Each object's level for each role (Jovial's Permissions tab, 31 Oct): N no access, V view, E view + edit. */
 const P: [string, string][] = [
   ['Students', 'E V V V V V V E E'],
@@ -167,12 +167,12 @@ export const sampleQueues = (users: User[]): Queue[] => {
       ['Philippines Admissions', N('kimberly.olaes'), region('Philippines')],
       ['Australia Admissions', N('jo.qiu'), region('Australia')],
       ['China Admissions', N('jo.qiu'), region('China')],
-      ['Latin America and Europe Admissions', N('valentina.castillo'), region('Latin America and Europe')],
-      ['Global Admissions', N('tasha.tandon'), role('Admission Ops')],
-      ['Admission Ops', N('tasha.tandon'), role('Admission Ops')],
-      ['Recruitment Ops', N('garima.bhardwaj'), role('Recruitment Ops')],
+      ['Latin America & Europe Admissions', N('valentina.castillo'), region('Latin America & Europe')],
+      ['Global Admissions', N('tasha.tandon'), role('Global Ops')],
+      ['Global Ops', N('tasha.tandon'), role('Global Ops')],
+      ['RP Ops', N('garima.bhardwaj'), role('RP Ops')],
       ['Institution', N('matt.beazley'), role('Institution')],
-      ['Institution Ops', N('gauri.bhardwaj'), role('Institution Ops')],
+      ['IP Ops', N('gauri.bhardwaj'), role('IP Ops')],
       ['Finance', N('suman1.verma'), role('Finance')],
     ] as [string, string, string[]][]
   ).map(([name, lead, members], i) => {
@@ -190,11 +190,11 @@ const iso = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY).toISOStrin
  * can see and send from it by default (to be made configurable). Admin sees them all.
  */
 export const MAILBOX_QUEUES: Record<string, string[]> = {
-  'admin.gsp@upgrad.com': ['Recruitment Ops'], // Jovial, 1 Nov (O6)
-  'bap.gsp@upgrad.com': ['Recruitment Ops'],
+  'admin.gsp@upgrad.com': ['RP Ops'], // Jovial, 1 Nov (O6)
+  'bap.gsp@upgrad.com': ['RP Ops'],
   'commissions.gsp@upgrad.com': ['Finance'],
-  'data-team.gsp@upgrad.com': ['Institution Ops'],
-  'gsp.admissions@upgrad.com': ['Each region’s Admissions queue', 'Admission Ops'],
+  'data-team.gsp@upgrad.com': ['IP Ops'],
+  'gsp.admissions@upgrad.com': ['Each region’s Admissions queue', 'Global Ops'],
 };
 export const MAILBOX_WHY: Record<string, string> = {
   'admin.gsp@upgrad.com': 'New users, role changes and other admin requests',
@@ -261,7 +261,7 @@ export const sampleBdm = (): BdmRow[] => {
   out.push(row('All other countries', 'All', N('ali.butt'), true));
   return out;
 };
-export const REGION_ROWS = ['Latin America and Europe', 'Africa'];
+export const REGION_ROWS = ['Latin America & Europe', 'Africa'];
 
 /* ---------- currency exchange: the one source (Jovial, 31 Oct). Course search and Finance both read it ---------- */
 /** One unit of a currency in Australian dollars (Finance's base). Course search's rupee budget is worked out from these. */
@@ -353,7 +353,7 @@ export type RouteRule = { id: 'direct' | 'list' | 'keep' | 'onshore' | 'nat' | '
 export const sampleRules = (): RouteRule[] => [
   { id: 'direct', title: 'Direct application', when: 'The application has no RP (the student applied to GSP directly).', region: 'Direct', bdm: 'Direct region default BDM', on: true },
   { id: 'list', title: 'RP is on a regional list', when: 'The RP is on one of the regional RP lists. Every application from that RP goes to the list’s region, onshore included. Nationality is not used.', region: 'The list’s region', bdm: 'The RP’s BDM', on: true },
-  { id: 'keep', title: 'Onshore, RP has no Australian branch', when: 'Onshore application, the RP’s sales region is Vietnam or Latin America and Europe, and the RP has no branch in Australia.', region: 'The RP’s own region', bdm: 'The RP’s BDM', on: true },
+  { id: 'keep', title: 'Onshore, RP has no Australian branch', when: 'Onshore application, the RP’s sales region is Vietnam or Latin America & Europe, and the RP has no branch in Australia.', region: 'The RP’s own region', bdm: 'The RP’s BDM', on: true },
   { id: 'onshore', title: 'Onshore application', when: 'The student’s current country is Australia and the destination is Australia.', region: 'Australia', bdm: 'Australia’s default BDM', on: true },
   { id: 'nat', title: 'Student’s nationality', when: 'The student’s nationality is in the nationality map (Admin › Sales regions).', region: 'The nationality’s region', bdm: 'That region’s default BDM', on: true },
   { id: 'fb', title: 'Fallback', when: 'Nothing above matched, for example a nationality that is not in the map.', region: 'Direct', bdm: 'That region’s default BDM', on: true },
@@ -361,11 +361,11 @@ export const sampleRules = (): RouteRule[] => [
 /** Each region's default application BDM (Jovial's sheet, 31 Oct). */
 export const REGION_BDM: Record<string, string> = {
   India: N('saurabh.chaudhary'), Bangladesh: N('sania.shanta'), Nepal: N('anil.shrestha'), 'Sri Lanka': N('kanchani.jayawardhana'), Vietnam: N('quan.hoang'), Pakistan: N('ali.butt'),
-  'Indonesia, Malaysia and Thailand': N('rifaldo.marbun'), Myanmar: N('nilar.win'), Bhutan: N('ishwor.acharya'), Australia: N('judy.tan'), Philippines: N('arielle.sevilleno'),
-  Africa: N('gsp.bangladesh'), 'Latin America and Europe': N('camilo.penaranda'), China: N('annie.gu'), 'Rest of world': N('ali.butt'), Direct: N('ali.butt'),
+  'Indonesia Malaysia & Thailand': N('rifaldo.marbun'), Myanmar: N('nilar.win'), Bhutan: N('ishwor.acharya'), Australia: N('judy.tan'), Philippines: N('arielle.sevilleno'),
+  Africa: N('gsp.bangladesh'), 'Latin America & Europe': N('camilo.penaranda'), China: N('annie.gu'), 'Rest of world': N('ali.butt'), Direct: N('ali.butt'),
 };
 /** Each region's Admissions queue at the start, by queue name (Jovial's sheet, 31 Oct): South-East Asia shares one; Rest of world and Direct → Global Admissions. Only seeds Admin's stored setting. */
-const SEA = ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan'];
+const SEA = ['Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan'];
 export const seedQueueName = (region: string) => (region === 'Rest of world' || region === 'Direct' ? 'Global Admissions' : SEA.includes(region) ? 'SEA Admissions' : `${region} Admissions`);
 /**
  * A region's Admissions queue, by name (HC50, 1 Nov): the queue stored for it on Admin's sales region settings
@@ -380,7 +380,7 @@ export const regionQueueName = (region: string) => {
 /** An RP as the routing rules see it: its sales region, whether it has an Australian branch, and its BDM. From the RP records (data/regions.ts routingRps). */
 export type RoutingRp = { name: string; region: string; auBranch: boolean; bdm: string };
 /** The regional RP lists at the start: real RPs from the records (Jovial, 1 Nov, HC49). */
-export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Edunetwork Australia', 'IEMC Global Pty Ltd'], 'Latin America and Europe': ['Latin Education and Migration'], Philippines: ['Pathway To Aus'] });
+export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Edunetwork Australia', 'IEMC Global Pty Ltd'], 'Latin America & Europe': ['Latin Education and Migration'], Philippines: ['Pathway To Aus'] });
 export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United States', 'New Zealand', 'Ireland'];
 
 /** Runs the rules from the top: the first that matches sets the region and BDM (PM: routing with its trace). */
@@ -392,7 +392,7 @@ export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { 
   const test: Record<RouteRule['id'], () => { region: string; bdm: string; why: string } | null> = {
     direct: () => (!rp ? { region: 'Direct', bdm: defaults.Direct || 'Not set', why: 'No RP: the student applied to GSP directly' } : null),
     list: () => (listRegion ? { region: listRegion, bdm: rp!.bdm, why: `${rp!.name} is on the ${listRegion} list` } : null),
-    keep: () => (rp && onshore && ['Vietnam', 'Latin America and Europe'].includes(rp.region) && !rp.auBranch ? { region: rp.region, bdm: rp.bdm, why: `Onshore, and ${rp.name} (${rp.region}) has no Australian branch` } : null),
+    keep: () => (rp && onshore && ['Vietnam', 'Latin America & Europe'].includes(rp.region) && !rp.auBranch ? { region: rp.region, bdm: rp.bdm, why: `Onshore, and ${rp.name} (${rp.region}) has no Australian branch` } : null),
     onshore: () => (onshore ? { region: 'Australia', bdm: defaults.Australia || 'Not set', why: 'The student is in Australia and applying to Australia' } : null),
     nat: () => (nationality[a.nationality] ? { region: nationality[a.nationality], bdm: defaults[nationality[a.nationality]] || 'Not set', why: `${a.nationality} maps to ${nationality[a.nationality]}` } : null),
     fb: () => ({ region: 'Direct', bdm: defaults.Direct || 'Not set', why: 'Nothing above matched' }),
@@ -499,6 +499,6 @@ export const sampleLog = (): LogEntry[] => [
   { id: 'l6', at: at(2, 10, 15), who: N('lalaine.dizon'), area: 'Universities', text: 'Universities', kind: 'download', role: 'Institution', filters: 'Country: Australia', size: '86 rows', format: 'CSV' },
   { id: 'l7', at: at(3, 16, 40), who: N('kamrun.nahar'), area: 'Students', text: 'Students', kind: 'download', role: 'Admission', filters: 'Bangladesh · Added in October', size: '214 rows', format: 'CSV' },
   { id: 'l8', at: at(4, 9, 55), who: N('suman1.verma'), area: 'Commissions', text: 'University ledger', kind: 'download', role: 'Finance', filters: 'Status: Payment overdue', size: '37 rows', format: 'CSV' },
-  { id: 'l9', at: at(6, 14, 30), who: N('garima.bhardwaj'), area: 'Recruitment partners', text: 'Recruitment partners', kind: 'download', role: 'Recruitment Ops', filters: 'Status: Verification pending', size: '52 rows', format: 'CSV' },
+  { id: 'l9', at: at(6, 14, 30), who: N('garima.bhardwaj'), area: 'Recruitment partners', text: 'Recruitment partners', kind: 'download', role: 'RP Ops', filters: 'Status: Verification pending', size: '52 rows', format: 'CSV' },
   { id: 'l10', at: at(9, 17, 10), who: N('myleeta.williams'), area: 'Applications', text: 'Applications list', kind: 'download', role: 'View Only', filters: 'None', size: '41,805 rows', format: 'CSV' },
 ];

@@ -156,7 +156,7 @@ const SPECS: Record<Variant, VariantSpec> = {
 const ROLE_OF: Record<Variant, Role> = { admin: 'gsp-admin', recruitment: 'gsp-recruitment', bap: 'gsp-bap', finance: 'gsp-finance' };
 /**
  * Each variant's menu, cut to what its permission role can open in GSP · Admin › Permission roles (Jovial, 1 Nov,
- * HC47): GSP · Recruitment is Recruitment, BAP is Recruitment Ops, Finance is Finance, Admin is Admin. A group with
+ * HC47): GSP · Recruitment is Recruitment, BAP is RP Ops, Finance is Finance, Admin is Admin. A group with
  * nothing left goes. Read fresh each time, so a change in Admin shows when the role's portal next draws.
  */
 const cut = (v: Variant): VariantSpec => {

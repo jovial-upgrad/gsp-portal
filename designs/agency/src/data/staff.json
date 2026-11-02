@@ -55,7 +55,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -460,7 +460,7 @@
 "role": "Recruitment",
 "region": "LatAM Europe",
 "regions": [
-"Latin America and Europe"
+"Latin America & Europe"
 ],
 "area": "",
 "dial": "+57",
@@ -553,7 +553,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -568,7 +568,7 @@
 "role": "Recruitment",
 "region": "Indonesia-Mayalsia",
 "regions": [
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+62",
@@ -841,7 +841,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -856,7 +856,7 @@
 "role": "Recruitment",
 "region": "LatAM Europe",
 "regions": [
-"Latin America and Europe"
+"Latin America & Europe"
 ],
 "area": "",
 "dial": "+57",
@@ -964,7 +964,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -1174,7 +1174,7 @@
 "role": "Admission",
 "region": "LatAM Europe",
 "regions": [
-"Latin America and Europe"
+"Latin America & Europe"
 ],
 "area": "",
 "dial": "+57",
@@ -1372,7 +1372,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -1600,7 +1600,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -1649,7 +1649,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -1712,7 +1712,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -1760,7 +1760,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -1802,7 +1802,7 @@
 "first": "Meenu",
 "last": "Sharma",
 "email": "meenu.sharma@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -1810,7 +1810,7 @@
 "area": "",
 "dial": "+91",
 "phone": "93553 17324",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-sabrina-hyder",
@@ -1863,7 +1863,7 @@
 "first": "Puja",
 "last": "Sharma",
 "email": "puja1.sharma@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -1871,7 +1871,7 @@
 "area": "",
 "dial": "+91",
 "phone": "28220 24576",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-fahmina-enam",
@@ -1899,7 +1899,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -1926,7 +1926,7 @@
 "first": "Jaspreet",
 "last": "Kaur",
 "email": "jaspreet3.kaur@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -1934,14 +1934,14 @@
 "area": "",
 "dial": "+91",
 "phone": "52517 20932",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-vishakha-prabhakar",
 "first": "Vishakha",
 "last": "Prabhakar",
 "email": "vishakha.prabhakar@upgrad.com",
-"role": "Institution Ops",
+"role": "IP Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -1956,7 +1956,7 @@
 "first": "Rishabh",
 "last": "Sood",
 "email": "rishabh.sood@upgrad.com",
-"role": "Recruitment Ops",
+"role": "RP Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2113,7 +2113,7 @@
 "Vietnam",
 "Myanmar",
 "Bhutan",
-"Indonesia, Malaysia and Thailand"
+"Indonesia Malaysia & Thailand"
 ],
 "area": "",
 "dial": "+84",
@@ -2125,7 +2125,7 @@
 "first": "Shara",
 "last": "Cunanan",
 "email": "shara1.cunanan@upgrad.com",
-"role": "Recruitment Ops",
+"role": "RP Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2140,7 +2140,7 @@
 "first": "Neelam",
 "last": "Sharma",
 "email": "neelam.sharma@upgrad.com",
-"role": "Institution Ops",
+"role": "IP Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2170,7 +2170,7 @@
 "first": "Satinder",
 "last": "Kaur",
 "email": "satinder.kaur@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2178,7 +2178,7 @@
 "area": "",
 "dial": "+91",
 "phone": "22231 54447",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-supriya-shrestha",
@@ -2230,7 +2230,7 @@
 "first": "Kartik",
 "last": "Sharma",
 "email": "kartik.sharma@upgrad.com",
-"role": "Recruitment Ops",
+"role": "RP Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2260,7 +2260,7 @@
 "first": "Ashu",
 "last": "Rajpal",
 "email": "ashu.rajpal@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2268,14 +2268,14 @@
 "area": "",
 "dial": "+91",
 "phone": "25758 12431",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-munmun-kapil",
 "first": "Munmun",
 "last": "Kapil",
 "email": "munmun.kapil@upgrad.com",
-"role": "Institution Ops",
+"role": "IP Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2305,7 +2305,7 @@
 "first": "Tasha",
 "last": "Tandon",
 "email": "tasha.tandon@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2313,7 +2313,7 @@
 "area": "",
 "dial": "+91",
 "phone": "33289 20749",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-judy-tan",
@@ -2350,7 +2350,7 @@
 "first": "Divyashree",
 "last": "Singh",
 "email": "divyashree.singh@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2358,7 +2358,7 @@
 "area": "",
 "dial": "+91",
 "phone": "98327 28226",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-arielle-sevilleno",
@@ -2456,7 +2456,7 @@
 "first": "Gauri",
 "last": "Bhardwaj",
 "email": "gauri.bhardwaj@upgrad.com",
-"role": "Institution Ops",
+"role": "IP Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2486,7 +2486,7 @@
 "first": "Rajinder",
 "last": "Kaur",
 "email": "rajinder.kaur@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2494,7 +2494,7 @@
 "area": "",
 "dial": "+91",
 "phone": "54502 10575",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-cady-quan",
@@ -2531,7 +2531,7 @@
 "first": "Kavita",
 "last": "Malhotra",
 "email": "kavita.malhotra@upgrad.com",
-"role": "Admission Ops",
+"role": "Global Ops",
 "region": "Global",
 "regions": [
 "Global"
@@ -2539,14 +2539,14 @@
 "area": "",
 "dial": "+91",
 "phone": "95566 10955",
-"title": "Admission Ops Specialist"
+"title": "Global Ops Specialist"
 },
 {
 "id": "u-garima-bhardwaj",
 "first": "Garima",
 "last": "Bhardwaj",
 "email": "garima.bhardwaj@upgrad.com",
-"role": "Recruitment Ops",
+"role": "RP Ops",
 "region": "Global",
 "regions": [
 "Global"

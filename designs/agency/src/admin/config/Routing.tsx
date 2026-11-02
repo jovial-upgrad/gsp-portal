@@ -350,7 +350,7 @@ export function Routing({ cfg, change, say }: ConfigProps) {
       <NewRegionDialog
         open={newRegion}
         taken={v.regions.map((x) => x.name)}
-        admissions={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Admission Ops') && u.status !== 'Deactivated').map((u) => u.name)}
+        admissions={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Global Ops') && u.status !== 'Deactivated').map((u) => u.name)}
         bdms={bdms}
         queues={admissionsQueues}
         onClose={() => setNewRegion(false)}

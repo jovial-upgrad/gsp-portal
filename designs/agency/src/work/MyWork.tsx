@@ -136,7 +136,7 @@ export default function MyWork() {
                   <td><Pill tone={SLA_PILL[st.state][1]}>{SLA_PILL[st.state][0]}</Pill><span className="irow__sub">{st.text}</span></td>
                   <td><div className="gspx-acts">
                     {canAct && !t.assignee && <Button size="sm" onClick={() => pick(t)}>Pick up</Button>}
-                    {canAct && (isLeader || role.id === 'admin' || role.id === 'admission-ops' || (q && (q.members || []).includes(user.id))) && <LinkButton onClick={() => setAssigning(t)}>{t.assignee ? 'Reassign' : 'Assign'}</LinkButton>}
+                    {canAct && (isLeader || role.id === 'admin' || role.id === 'global-ops' || (q && (q.members || []).includes(user.id))) && <LinkButton onClick={() => setAssigning(t)}>{t.assignee ? 'Reassign' : 'Assign'}</LinkButton>}
                     {canAct && t.assignee === user.id && <LinkButton onClick={() => done(t)}>Done</LinkButton>}
                   </div></td>
                 </tr>);

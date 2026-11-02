@@ -12,11 +12,11 @@ const at = (h) => Date.now() - h * H;
 
 export const MAILBOXES = [
   // Jovial's Inbox tab (31 Oct): five mailboxes, each feeding its queues; everyone in them can see and send for now; Admin sees all
-  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-ops', see: ['admission', 'admission-ops', 'admin', 'view-only'], sendAs: ['admission', 'admission-ops'], ytd: 164952 },
-  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 1190 }, // Jovial, 1 Nov (O6): Recruitment Ops only
-  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 4847 },
+  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-ops', see: ['admission', 'global-ops', 'admin', 'view-only'], sendAs: ['admission', 'global-ops'], ytd: 164952 },
+  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 1190 }, // Jovial, 1 Nov (O6): RP Ops only
+  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 4847 },
   { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
-  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['institution-ops', 'admin', 'view-only'], sendAs: ['institution-ops'], ytd: 28 },
+  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['ip-ops', 'admin', 'view-only'], sendAs: ['ip-ops'], ytd: 28 },
 ];
 
 /* Mail that never reaches a person. Share = of all mail, Jan–Oct 2026. */
@@ -25,7 +25,7 @@ export const FILTERS = [
   { id: 'f-ack', name: 'Application received or submitted', example: 'Application Submitted – (SCU-…)', does: 'Filed on the application, with the university’s reference recorded.', share: 3.8, on: true },
   { id: 'f-bounce', name: 'Bounces and out-of-office', example: 'Undeliverable: … · Automatic reply: …', does: 'Bounces flag the address on the contact; out-of-office replies are filed.', share: 4.2, on: true },
   { id: 'f-code', name: 'Sign-in and verification codes', example: 'Your verification code', does: 'Sent only to the person who asked for it; never shared.', share: 0.4, on: true },
-  { id: 'f-marketing', name: 'Newsletters and marketing', example: 'October at OEG: was anything …', does: 'Sent to Admission Ops to review for an announcement (6 working hours).', share: 1.7, on: true },
+  { id: 'f-marketing', name: 'Newsletters and marketing', example: 'October at OEG: was anything …', does: 'Sent to Global Ops to review for an announcement (6 working hours).', share: 1.7, on: true },
 ];
 
 /* What each kind of conversation does once matched. Editable on Mail › Settings. */
@@ -204,13 +204,13 @@ export const THREADS = [
 export const FILED = [
   { id: 'F-1', filter: 'f-system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Enrolment Course update', at: at(0.3), outcome: 'GSP’s own notification. To be stopped at source.' },
   { id: 'F-2', filter: 'f-system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Student update', at: at(0.9), outcome: 'GSP’s own notification. To be stopped at source.' },
-  { id: 'F-3', filter: 'f-marketing', from: 'Opulence Education Group', subject: 'October at OEG: was anything missed?', at: at(1.1), outcome: 'Newsletter. Sent to Institution Ops as a possible announcement.' },
+  { id: 'F-3', filter: 'f-marketing', from: 'Opulence Education Group', subject: 'October at OEG: was anything missed?', at: at(1.1), outcome: 'Newsletter. Sent to IP Ops as a possible announcement.' },
   { id: 'F-4', filter: 'f-code', from: 'UWA Accounts', subject: 'Your verification code', at: at(1.4), outcome: 'A sign-in code. Sent only to Tasha Tandon, who asked for it from the UWA portal.' },
   { id: 'F-5', filter: 'f-ack', from: 'AUT (ArionSystem)', subject: 'Partners Online Application Received – AUT-26-55190', at: at(1.8), record: 'GSP-24214', outcome: 'Filed on GSP-24214. University reference AUT-26-55190 recorded.' },
   { id: 'F-6', filter: 'f-ack', from: 'University of Tasmania', subject: 'Application submitted', at: at(3.3), record: 'GSP-24221', outcome: 'Filed on GSP-24221. University reference 5523019 recorded.' },
   { id: 'F-7', filter: 'f-bounce', from: 'Mail Delivery Subsystem', subject: 'Undeliverable: Document request', at: at(4), outcome: 'Bounce. Address flagged on Lead Ahead Consultancy’s contact.' },
   { id: 'F-8', filter: 'f-bounce', from: 'Catherine (UC)', subject: 'Automatic reply: conditions', at: at(5), outcome: 'Out-of-office. Filed.' },
-  { id: 'F-9', filter: 'f-marketing', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18), outcome: 'Newsletter. Sent to Institution Ops.' },
+  { id: 'F-9', filter: 'f-marketing', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18), outcome: 'Newsletter. Sent to IP Ops.' },
 ];
 
 /* Conversations no record was found for raise a task in the Unmatched mail queue. */

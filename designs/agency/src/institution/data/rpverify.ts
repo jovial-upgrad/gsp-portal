@@ -1,5 +1,5 @@
 /**
- * Verifying a new recruitment partner (W4/W5, 1 Nov). BAP (GSP · BAP, Recruitment Ops) checks each onboarding
+ * Verifying a new recruitment partner (W4/W5, 1 Nov). BAP (GSP · BAP, RP Ops) checks each onboarding
  * document on the RP's record in Recruitment partners: **Verify**, or **Send back** with a note; once every required
  * document is verified, **Approve partner** activates it. The agency's own portal shows each decision.
  *
