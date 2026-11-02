@@ -1,8 +1,7 @@
 /* Slice 4: small fixes for the work pages. */
 /* the tick column in My work stays narrow */
-.gspx-page .itab--queue th:first-child:has(.check),
-.gspx-page .itab--queue td:first-child:has(.check) { width: 44px; padding-right: 0; }
-.gspx-page .itab--queue td:first-child:empty { width: 44px; }
+.itab--ticks th:first-child, .itab--ticks td:first-child { min-width: 0; width: 44px; padding-right: 0; }
+.itab--ticks td:nth-child(2) { min-width: 300px; }
 .gspx-page .itab--queue .check__label > span:last-child:has(.vh) { display: contents; }
 /* a multi-pick inside a two-column form never overflows its column */
 .gspx-form2 > .field { min-width: 0; }

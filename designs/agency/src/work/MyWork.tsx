@@ -140,7 +140,7 @@ export default function MyWork() {
               </tr>); })}
           </Table>
         ) : (
-          <Table head={head} className="itab--queue"
+          <Table head={head} className={canBulk ? "itab--queue itab--ticks" : "itab--queue"}
             empty={!rows.length && <Empty title={tab === 'mine' ? 'Nothing assigned to you' : 'Nothing here'}>New tasks appear here when a task rule fires.</Empty>}>
             {rows.map(t => {
               const rec = recordById(s, t.record) || {}; const q = queueById(s, t.queue); const st = sla(t);
