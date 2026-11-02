@@ -10,7 +10,7 @@ export type Section = 'home' | 'applications' | 'students' | 'courses' | 'earnin
 
 /**
  * setup: the account exists, but the business details and documents haven't gone to GSP; only Home is open.
- * verifying: GSP has the business details and documents; course search and the profile are open, the rest waits.
+ * verifying: GSP has the business details and documents; Home and Find courses (Select student off) are open, and Applications, Students, Earnings and Profile wait until verified (S2-28 B).
  * all: GSP verified the business and its documents, so every section is open.
  */
 export type Access = 'setup' | 'verifying' | 'all';
@@ -22,7 +22,7 @@ export const NAV: { key: Section; label: string; short: string; icon: IconName; 
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people', locked: true },
   { key: 'earnings', label: 'Earnings', short: 'Earnings', icon: 'wallet', locked: true },
-  { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: false },
+  { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: true },
 ];
 
 /** What each locked section is for, said on its locked page and on Home. */

@@ -7,6 +7,7 @@ import type { SignupState } from '../signup/model';
 import { returnedDocs } from '../signup/docs';
 import { LOCKED_COPY, NAV, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { TeamSection } from './Team';
+import { EmailPrefs } from './EmailPrefs';
 
 const labelOf = (k: Section) => NAV.find((n) => n.key === k)?.label ?? '';
 
@@ -167,6 +168,7 @@ export function ProfileSection({
         )}
 
         {team && <TeamSection {...team} />}
+        <EmailPrefs />
 
         <section className="card pcard" aria-labelledby="me-title">
           <h2 id="me-title" className="pcard__title">

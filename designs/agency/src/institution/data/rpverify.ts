@@ -32,6 +32,8 @@ const emit = (e: RpEvent) => listeners.forEach((f) => f(e));
 const stampDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 /** What the status is, from the documents: BAP still has some (Verifying), some went back, or all verified (still Verifying until approved). */
 function statusFrom(r: RecruitmentPartner): RpStatus {
+  // GSP's own decisions (Reject, Suspend; Dormant from job J2) aren't worked out from the documents
+  if (['Rejected', 'Suspended', 'Dormant'].includes(r.status)) return r.status;
   if (r.approved) return r.status === 'Agreement signed' ? r.status : 'Activated';
   if (r.docs.every((d) => d.state === 'Missing')) return 'Not activated';
   if (r.docs.some((d) => d.state === 'With BAP')) return 'Verifying';

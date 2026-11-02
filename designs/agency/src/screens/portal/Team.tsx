@@ -1,3 +1,5 @@
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { SelectMenu } from '../../components/SelectMenu';
 import { TEST_COUNTRY } from '../../data/rpteam';
 import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
@@ -37,6 +39,7 @@ const location = (b: Pick<Branch, 'city' | 'state' | 'country'>) => [b.city, b.s
  * Admin; their students move to you). The team is the one Students picks counsellors from.
  */
 export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches, students, setStudents }: Props) {
+  AGENCY.name = agency;
   const [branchDlg, setBranchDlg] = useState<{ edit?: Branch } | null>(null);
   const [memberDlg, setMemberDlg] = useState<{ edit?: Member } | null>(null);
   const [toast, setToast] = useState<ToastMsg | null>(null);
@@ -68,7 +71,13 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
       tell(`${b.name} removed`, moved ? `${moved === 1 ? 'Its team member is' : `Its ${moved} team members are`} now at ${main?.name}.` : undefined, undo);
     }
   };
-  const setRemoving = (r: { m: Member } | { b: Branch }) => {
+  // slice 2 PRD: Remove asks to confirm ("They lose access at once…"), then Undo in the toast
+  const [asking, setAsking] = useState<{ m: Member } | { b: Branch } | null>(null);
+  // Deactivate (proposal S2C-14): can't sign in, keeps their students, can be reactivated
+  const [off, setOff] = useState<string[]>([]);
+  const adminOf = team.find((x) => x.role === 'RP Admin' && x.id === 'me') ?? team.find((x) => x.role === 'RP Admin');
+  const setRemoving = (r: { m: Member } | { b: Branch }) => setAsking(r);
+  const doRemove = (r: { m: Member } | { b: Branch }) => {
     removeNow(r);
     // the row's menu has gone: focus goes to its section's heading (QC, 1 Nov, H8)
     window.setTimeout(() => {
@@ -170,6 +179,8 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
                     </span>
                     <span className="ttable__sub ttable__email">{m.email ?? '–'}</span>
                     {m.invited && <span className="tpill tpill--wait">Invited</span>}
+                    {off.includes(m.id) && <span className="tpill">Deactivated</span>}
+                    {lastAdmin(team, m) && m.id !== 'me' && <span className="ttable__sub">{m.name} is the only RP Admin. Make someone else RP Admin first.</span>}
                   </td>
                   <td data-k="Phone" className="num ttable__phone">
                     {m.phone ? `${m.dial ?? ''} ${m.phone}` : '–'}
@@ -182,7 +193,14 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
                       label={`More for ${m.name}`}
                       items={[
                         { id: 'edit', label: 'Edit details, role or branch', icon: 'edit', onPick: () => setMemberDlg({ edit: m }) },
-                        ...(m.id === 'me' || lastAdmin(team, m) ? [] : [{ id: 'remove', label: 'Remove from team', icon: 'close' as const, danger: true, onPick: () => setRemoving({ m }) }]),
+                        ...(m.id === 'me' || lastAdmin(team, m)
+                          ? []
+                          : [
+                              off.includes(m.id)
+                                ? { id: 'react', label: 'Reactivate', icon: 'check' as const, onPick: () => (setOff((l) => l.filter((x) => x !== m.id)), tell(`${m.name} reactivated`, 'They can sign in again.')) }
+                                : { id: 'deact', label: 'Deactivate', icon: 'lock' as const, onPick: () => (setOff((l) => [...l, m.id]), tell(`${m.name} deactivated`, 'They can’t sign in. They keep their students, and can be reactivated.')) },
+                              { id: 'remove', label: 'Remove from team', icon: 'close' as const, danger: true, onPick: () => setRemoving({ m }) },
+                            ]),
                       ]}
                     />
                   </td>
@@ -192,6 +210,25 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
           </table>
         </div>
       </section>
+
+      <ConfirmDialog
+        open={!!asking}
+        title={asking && 'm' in asking ? `Remove ${asking.m.name}?` : `Remove ${asking && 'b' in asking ? asking.b.name : ''}?`}
+        confirm={asking && 'm' in asking ? 'Remove from team' : 'Remove branch'}
+        danger
+        onCancel={() => setAsking(null)}
+        onConfirm={() => {
+          const r = asking;
+          setAsking(null);
+          if (r) doRemove(r);
+        }}
+      >
+        <p>
+          {asking && 'm' in asking
+            ? `They lose access at once. Their ${studentsOf(asking.m)} students move to ${adminOf?.name ?? 'the RP Admin'}. Past actions keep their names.`
+            : `Its people move to the head office${main ? `, ${main.name}` : ''}.`}
+        </p>
+      </ConfirmDialog>
 
       <BranchDialog
         open={!!branchDlg}
@@ -223,6 +260,8 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
   );
 }
 
+/** The agency's name, for "<RP> already has a branch with this name." (set as the section draws). */
+const AGENCY = { name: '' };
 /** Add or edit a branch: its name and where it is. The branch BDM follows from the city, set by the system (it shows in the table). */
 function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean; edit?: Branch; branches: Branch[]; onClose: () => void; onSave: (b: Branch) => void }) {
   // a new branch starts in the agency's own country (its head office's), and a new member with its code (HC19)
@@ -233,7 +272,7 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
   const cities = citiesOf(b.country, b.state);
   // QC, 1 Nov (H25): the city comes from the state's list when there is one
   const err = {
-    name: b.name.trim().length < 2 ? 'Enter the branch name, like Mysuru.' : dupError(b.name, branches.filter((x) => x.id !== b.id).map((x) => x.name), 'There’s already a branch with this name.'),
+    name: b.name.trim().length < 2 ? 'Enter the branch name, like Mysuru.' : dupError(b.name, branches.filter((x) => x.id !== b.id).map((x) => x.name), `${AGENCY.name || 'This RP'} already has a branch with this name.`),
     country: b.country ? null : 'Pick the country.',
     state: states.length && !b.state ? 'Pick the state or province.' : null,
     city: cities.length ? (!b.city ? 'Pick the city.' : null) : b.city.trim().length < 2 ? 'Enter the city.' : null,
@@ -334,7 +373,7 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
   // QC, 1 Nov: checked when left and on Send; the phone's length follows its country code; the first error is focused
   const err = {
     name: m.name.trim().length < 2 ? 'Enter their full name.' : null,
-    email: emailError(email, { what: 'work email', example: 'name@agency.com' }) || dupError(email, team.filter((x) => x.id !== m.id).map((x) => x.email ?? ''), 'Someone on the team already has this email.'),
+    email: emailError(email, { what: 'work email', example: 'name@agency.com' }) || dupError(email, team.filter((x) => x.id !== m.id).map((x) => x.email ?? ''), 'This email already has a partner account.'),
     phone: phoneError(m.dial ?? homeDial, m.phone ?? '', { required: true }),
     branch: m.branch ? null : 'Pick their branch.',
   };
@@ -391,23 +430,15 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
           <PhoneInput id="tm-phone" dial={m.dial ?? homeDial} number={m.phone ?? ''} invalid={!!show('phone')} describedBy={describedBy('tm-phone', show('phone'))} onBlur={c.blur('phone')} onDial={(v) => setM((x) => ({ ...x, dial: v }))} onNumber={(v) => setM((x) => ({ ...x, phone: v }))} />
         </Field>
         <div className="grid2">
-          <Field id="tm-role" label="Role" required hint={onlyAdmin ? 'The only RP Admin: make someone else an RP Admin first.' : undefined}>
-            <SelectInput id="tm-role" value={m.role} disabled={onlyAdmin} aria-describedby={describedBy('tm-role', null, onlyAdmin)} onChange={(e) => setM((x) => ({ ...x, role: e.target.value as TeamRole }))}>
-              {TEAM_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </SelectInput>
+          <Field id="tm-role" label="Role" required hint={onlyAdmin ? `${m.name} is the only RP Admin. Make someone else RP Admin first.` : undefined}>
+            {onlyAdmin ? (
+              <TextInput id="tm-role" value={m.role} readOnly aria-describedby={describedBy('tm-role', null, onlyAdmin)} />
+            ) : (
+              <SelectMenu id="tm-role" label="Role" value={m.role} options={TEAM_ROLES.map((r) => ({ value: r, label: r }))} onChange={(v) => setM((x) => ({ ...x, role: v as TeamRole }))} />
+            )}
           </Field>
           <Field id="tm-branch" label="Branch" required error={show('branch')}>
-            <SelectInput id="tm-branch" value={m.branch ?? ''} placeholder="Choose" onBlur={c.blur('branch')} onChange={(e) => setM((x) => ({ ...x, branch: e.target.value }))}>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </SelectInput>
+            <SelectMenu id="tm-branch" label="Branch" value={m.branch ?? ''} placeholder="Pick a branch" invalid={!!show('branch')} options={branches.map((b) => ({ value: b.id, label: b.name }))} onChange={(v) => setM((x) => ({ ...x, branch: v }))} />
           </Field>
         </div>
         <button type="submit" className="vh" tabIndex={-1} aria-hidden="true">
