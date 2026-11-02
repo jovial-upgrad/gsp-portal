@@ -154,17 +154,18 @@ function AdminHome({ first, db, go }: Props) {
   const empty = cfg.queues.filter((q) => !q.members.length && !q.lead);
   const noLead = cfg.queues.filter((q) => !q.lead);
   const noMembers = cfg.queues.filter((q) => !q.members.length && q.lead);
-  if (empty.length) warns.push({ id: 'q-empty', tone: 'bad', title: `${empty.length === 1 ? '1 queue has' : `${empty.length} queues have`} no one in it`, text: empty.map((q) => q.name).join(', '), go: 'queues', action: 'Queues' });
-  if (noMembers.length) warns.push({ id: 'q-members', tone: 'you', title: `${noMembers.length === 1 ? '1 queue has' : `${noMembers.length} queues have`} only a leader`, text: `${noMembers.map((q) => q.name).join(', ')}: every task goes to the leader.`, go: 'queues', action: 'Queues' });
-  if (noLead.length && !empty.length) warns.push({ id: 'q-lead', tone: 'you', title: `${noLead.length === 1 ? '1 queue has' : `${noLead.length} queues have`} no leader`, text: noLead.map((q) => q.name).join(', '), go: 'queues', action: 'Queues' });
+  if (empty.length) warns.push({ id: 'q-empty', tone: 'bad', title: `${empty.length} ${empty.length === 1 ? 'queue has' : 'queues have'} no one in it`, text: empty.map((q) => q.name).join(', '), go: 'work-sla', action: 'Queues' });
+  if (noMembers.length) warns.push({ id: 'q-members', tone: 'you', title: `${noMembers.length} ${noMembers.length === 1 ? 'queue has' : 'queues have'} only a leader: every task goes to the leader`, text: noMembers.map((q) => q.name).join(', '), go: 'work-sla', action: 'Queues' });
+  if (noLead.length && !empty.length) warns.push({ id: 'q-lead', tone: 'you', title: `${noLead.length === 1 ? '1 queue has' : `${noLead.length} queues have`} no leader`, text: noLead.map((q) => q.name).join(', '), go: 'work-sla', action: 'Queues' });
   // this week's exchange rates: Finance prices a line at the rate of the week it's paid
   const week = cfg.fxWeeks.find((w) => w.week <= today && today < iso(Date.parse(w.week + 'T00:00:00Z') + 7 * DAY));
   const codes = cfg.rates.map((r) => r.code).filter((c) => c !== 'AUD');
   const missing = week ? codes.filter((c) => week[c] === undefined || week[c] === '' || Number.isNaN(Number(week[c]))) : codes;
   if (!week) warns.push({ id: 'fx', tone: 'bad', title: 'No exchange rates for this week', text: 'Finance can’t price this week’s lines until the week’s rates are in.', go: 'currency', action: 'Currency exchange' });
   else if (missing.length) warns.push({ id: 'fx', tone: 'you', title: `This week’s rates are missing ${missing.join(', ')}`, text: `Week of ${week.week}.`, go: 'currency', action: 'Currency exchange' });
-  const fallback = work.tasks.filter((t) => t.queue === 'q-fallback' && t.status === 'open');
-  if (fallback.length) warns.push({ id: 'fb', tone: 'bad', title: `${fallback.length === 1 ? '1 task' : `${fallback.length} tasks`} in Fallback`, text: 'No queue matched them, or their queue was removed. Assign them, or fix the task rule.', go: 'mywork', action: 'My work' });
+  // slice 4 PRD: the Admin queue (was Fallback) holds tasks with no queue, level 3 escalations and Admin's own tasks
+  const fallback = work.tasks.filter((t) => t.queue === 'q-admin' && t.status === 'open');
+  if (fallback.length) warns.push({ id: 'fb', tone: 'bad', title: `${fallback.length === 1 ? '1 task' : `${fallback.length} tasks`} in the Admin queue`, text: 'Tasks with no queue (a deleted queue, no match), level 3 escalations and settings to fix. Open them in My work.', go: 'mywork', action: 'My work' });
   const noContact = cfg.regions.filter((r) => !r.contact && r.name !== 'Global');
   if (noContact.length) warns.push({ id: 'reg', tone: 'you', title: `${noContact.length === 1 ? '1 sales region has' : `${noContact.length} sales regions have`} no Admissions contact`, text: noContact.map((r) => r.name).join(', '), go: 'regions', action: 'Sales regions' });
   const noBdm = db.rps.filter((r) => !r.bdm && !['Rejected'].includes(r.status));

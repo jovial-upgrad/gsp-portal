@@ -16,7 +16,7 @@ import { PERM_ROLE, type Role } from '../../proto/roles';
  */
 export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'visa' | 'routing' | 'documents' | 'logs' | 'security';
 export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how';
-export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules';
+export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-mail';
 export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
@@ -120,7 +120,7 @@ const SPECS: Record<Variant, VariantSpec> = {
     brand: 'Admin',
     home: HOME,
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail')],
-    groups: [...GROUPS, { key: 'work', label: 'Work', icon: 'clock', items: [it('work-sla', 'Queues, SLA and escalation', 'SLA', 'clock'), it('work-rules', 'Task rules', 'Rules', 'sliders')] }],
+    groups: [...GROUPS, { key: 'work', label: 'Work', icon: 'clock', items: [it('work-sla', 'Queues, SLA and escalation', 'SLA', 'clock'), it('work-rules', 'Task rules', 'Rules', 'sliders'), it('work-mail', 'Emails and daily jobs', 'Emails', 'mail')] }],
     tabs: TABS, user: me('jovial.lejo') },
   recruitment: {
     brand: 'Recruitment',

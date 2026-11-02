@@ -9,10 +9,12 @@ import { PERM_ROLE } from '../../proto/roles';
  * courses. 29 Oct (2nd round), from the PM prototype's IP team: Announcements, after Courses; Home is the team's
  * queue. `profile` is the account page, opened from the initials on phones.
  */
-export type Section = 'home' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'profile';
+export type Section = 'home' | 'mywork' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'profile';
 
 const ALL_NAV: { key: Section; label: string; short: string; icon: IconName }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home' },
+  // slice 4 PRD: My work is in every GSP role's menu, first after Home
+  { key: 'mywork', label: 'My work', short: 'My work', icon: 'checkCircle' },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
   { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search' },

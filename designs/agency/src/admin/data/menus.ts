@@ -39,6 +39,7 @@ const OBJECT_OF: Record<string, string> = {
   'fin-setup': 'Commission terms',
   'work-sla': 'Queues, task rules and SLA',
   'work-rules': 'Queues, task rules and SLA',
+  'work-mail': 'Queues, task rules and SLA',
 };
 export const menuObjectOf = (key: string) => OBJECT_OF[key];
 /** A permission role's level on an object: E View + edit, V View, N No access. Admin has everything. */

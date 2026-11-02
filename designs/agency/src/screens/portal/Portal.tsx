@@ -218,7 +218,8 @@ export function Portal({
   const openNote = (t: NoteTarget) => {
     if ('app' in t) jumpTo({ section: 'applications', app: { open: t.app } });
     else if ('student' in t) jumpTo({ section: 'students', open: t.student, tab: 'personal' });
-    else go(t.page);
+    // RP roles have no My work (slice 4 PRD): a task notification never reaches them
+    else go(t.page === 'mywork' ? 'home' : t.page);
   };
 
   const initials = acc.name.split(' ').map((p) => p[0]).slice(0, 2).join('');

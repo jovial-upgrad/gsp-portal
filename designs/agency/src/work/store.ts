@@ -432,3 +432,8 @@ export function workNotes(s, me) {
 }
 /** For pages outside My work: is this person Admin, Global Ops or View Only (sees every queue)? */
 export const seesAll = (roleId) => oversees(roleId);
+/** The applications a person covers as "the officer" for the bell: their regional queue's leader while the officer is on leave or has left GSP. */
+export function coveringApps(s, me) {
+  if (!me) return [];
+  return s.records.filter((r) => r.type === 'Application' && !r.closed && r.officer && r.officer !== me && (onLeave(r.officer, istYmd(now())) || !s.users.some((u) => u.id === r.officer)) && (queueById(s, regionQueueId(r.region || 'Direct', s.queues)) || {}).leader === me).map((r) => r.id);
+}

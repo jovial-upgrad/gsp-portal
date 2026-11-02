@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { ConfigSection } from '../portal/model';
 import { type Cfg } from '../data/store';
 export { sampleCfg, type Cfg } from '../data/store';
-import { Regions, Permissions, Queues } from './Roles';
+import { Regions, Permissions } from './Roles';
 import { Users } from './Users';
 import { Emails } from './Emails';
 import { Bdm } from './Bdm';
@@ -37,7 +37,8 @@ export function ConfigPage({ section, cfg, setCfg, me, say }: { section: ConfigS
     users: <Users {...p} />,
     regions: <Regions {...p} />,
     permissions: <Permissions {...p} />,
-    queues: <Queues {...p} />,
+    // slice 4 PRD (S4-1): one queue editor, Admin › Work › Queues, SLA and escalation; this one is gone
+    queues: null,
     emails: <Emails {...p} />,
     bdm: <Bdm {...p} />,
     currency: <Currency {...p} />,

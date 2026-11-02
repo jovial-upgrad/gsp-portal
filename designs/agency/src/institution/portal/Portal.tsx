@@ -26,6 +26,7 @@ import { GSP_USER } from '../user';
 import { useSharedDb } from '../data/store';
 import { forSearch, searchable } from '../data/catalogue';
 import { TeamHome } from '../records/Home';
+import { WorkPage } from '../../work/WorkPage';
 import { Universities } from '../records/Universities';
 import { Catalogue } from '../records/Catalogue';
 import { InstitutionPartners } from '../records/InstitutionPartners';
@@ -229,6 +230,8 @@ export function Portal({
   const content =
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
+    ) : section === 'mywork' ? (
+      <WorkPage section="mywork" role="institution-partner" go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'profile' ? (
       <StaffProfile email={GSP_USER.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (

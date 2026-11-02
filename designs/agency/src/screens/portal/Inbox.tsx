@@ -6,7 +6,7 @@ import { Icon, type IconName } from '../../components/Icon';
 import { UNIVERSITIES } from '../../data/courses';
 import { GlassRim } from '../../components/GlassRim';
 import { Toast, type ToastMsg } from '../../components/Toast';
-import { NOTE_KINDS, noticesFor, notesFor, notesFromChange, type Note, type NoteKind, type NoteTarget, type NoteTask, type Notice } from '../../data/inbox';
+import { BELL_SHOWS, NOTE_KINDS, noticesFor, notesFor, notesFromChange, type Note, type NoteKind, type NoteTarget, type Notice } from '../../data/inbox';
 import { courseOf, type Application } from '../../data/applications';
 import { fullName, type Student } from '../../data/students';
 import { staffByEmail } from '../../data/staff';
@@ -56,12 +56,31 @@ export function useInbox(o: {
   onOpen: (t: NoteTarget) => void;
   onCourses: (university: string) => void;
 }) {
-  const [readIds, setReadIds] = useState<string[]>([]);
+  // read state is saved per person (slice 4 PRD, S4-15): this browser keeps it for whoever is signed in
+  const readKey = `gsp-bell-read-v1:${o.me?.email || o.agency || o.role}`;
+  const [readIds, setReadIdsRaw] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(readKey) || '[]') || [];
+    } catch {
+      return [];
+    }
+  });
+  const setReadIds = (fn: (l: string[]) => string[]) =>
+    setReadIdsRaw((l) => {
+      const next = fn(l).slice(-3000);
+      try {
+        localStorage.setItem(readKey, JSON.stringify(next));
+      } catch {
+        /* storage blocked: this session keeps it */
+      }
+      return next;
+    });
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const [opened] = useState(() => Date.now());
-  // My work's tasks, for GSP's roles: the bell follows them as they change. The work store is loaded after the page
-  // starts (it reads every module's applications), so it's imported here rather than at the top.
-  const [tasks, setTasks] = useState<NoteTask[]>([]);
+  // My work's notifications, for GSP's roles (work/store.ts workNotes): the bell follows the tasks as they change.
+  // The work store is loaded after the page starts (it reads every module's applications), so it's imported here.
+  const staffId = o.me?.email ? staffByEmail(o.me.email)?.id : undefined;
+  const [work, setWork] = useState<{ notes: Note[]; covering: string[] }>({ notes: [], covering: [] });
   useEffect(() => {
     if (o.role !== 'gsp') return;
     let off: (() => void) | undefined;
@@ -70,11 +89,10 @@ export function useInbox(o: {
       if (!live) return;
       const read = () => {
         try {
-          const st = m.getState() as { tasks: (NoteTask & { kind?: string })[]; kinds: { id: string; name: string }[]; records: { id: string; label?: string }[] };
-          // a task raised by hand has no title of its own: its kind's name, and what it's about
-          setTasks(st.tasks.map((t) => (t.title ? t : { ...t, title: [st.kinds.find((k) => k.id === t.kind)?.name ?? 'Task', st.records.find((r) => r.id === t.record)?.label].filter(Boolean).join(': ') })));
+          const st = m.getState();
+          setWork({ notes: m.workNotes(st, staffId) as Note[], covering: m.coveringApps(st, staffId) as string[] });
         } catch {
-          setTasks([]);
+          setWork({ notes: [], covering: [] });
         }
       };
       read();
@@ -85,11 +103,10 @@ export function useInbox(o: {
       live = false;
       off?.();
     };
-  }, [o.role]);
-  const staffId = o.me?.email ? staffByEmail(o.me.email)?.id : undefined;
+  }, [o.role, staffId]);
   const notes = useMemo(() => {
-    return notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps, students: o.students, join: { created: opened, sentAt: o.join?.sentAt }, tasks, me: staffId, meName: o.me?.name });
-  }, [o.role, o.access, o.agency, o.apps, o.students, o.join?.sentAt, staffId, o.me?.name, tasks, opened]);
+    return notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps, students: o.students, join: { created: opened, sentAt: o.join?.sentAt }, me: staffId, meName: o.me?.name, work: work.notes, covering: work.covering });
+  }, [o.role, o.access, o.agency, o.apps, o.students, o.join?.sentAt, staffId, o.me?.name, work, opened]);
   const notices = useMemo(() => noticesFor(o.role, o.anns.list, o.anns.names, o.country), [o.anns, o.role, o.country]);
 
   const open = (n: Note) => {
@@ -326,6 +343,7 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
 }) {
   const reduce = useReducedMotion();
   const [kind, setKind] = useState<K | ''>('');
+  const [older, setOlder] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const layer = typeof document === 'undefined' ? null : document.getElementById('layer');
@@ -342,6 +360,7 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
   useLayoutEffect(() => {
     if (!anchor) return;
     setKind('');
+    setOlder(false);
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
@@ -367,7 +386,9 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
     };
   }, [anchor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const list = [...items].sort((a, b) => b.at - a.at).filter((x) => !kind || x.kind === kind);
+  // the newest 40, then "Show older" for the rest of the 90 days (S4-15)
+  const all = [...items].sort((a, b) => b.at - a.at).filter((x) => !kind || x.kind === kind);
+  const list = older ? all : all.slice(0, BELL_SHOWS);
   const unread = (k: K | '') => items.filter((x) => (!k || x.kind === k) && !isRead(x)).length;
   const groups: [string, T[]][] = [
     ['Today', list.filter((x) => isToday(x.at))],
@@ -434,6 +455,11 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
                 ))
             ) : (
               <p className="inbox__none">{empty(kind)}</p>
+            )}
+            {!older && all.length > list.length && (
+              <button type="button" className="inbox__all" onClick={() => setOlder(true)}>
+                Show older ({all.length - list.length})
+              </button>
             )}
           </div>
         </motion.div>

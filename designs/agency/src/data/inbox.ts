@@ -21,14 +21,17 @@ export const NOTE_KINDS: [NoteKind, string][] = [
   ['mail', 'Mail'],
 ];
 /** Where a notification takes you: an application, a student's record, or a page. */
-export type NoteTarget = { app: string } | { student: string } | { page: 'home' | 'earnings' | 'profile' };
+export type NoteTarget = { app: string } | { student: string } | { page: 'home' | 'earnings' | 'profile' | 'mywork' };
 export type Note = { id: string; kind: NoteKind; title: string; text: string; at: number; read?: boolean; to?: NoteTarget };
 /** A My work task, as the bell needs it (work/store.ts). */
 export type NoteTask = { id: string; title: string; record?: string; assignee?: string | null; status: string; created?: number };
 
-/** How far back the bell looks, and how many it keeps. */
-const WINDOW = 30 * DAY;
-const MAX = 40;
+/**
+ * How far back the bell looks (slice 4 PRD, S4-15): notifications are kept 90 days; the bell shows the newest 40 and
+ * "Show older" for the rest (Inbox.tsx). Read state is saved per person (Inbox.tsx).
+ */
+const WINDOW = 90 * DAY;
+export const BELL_SHOWS = 40;
 const clip = (s: string) => (s.length > 110 ? `${s.slice(0, 107).trimEnd()}…` : s);
 const shortUni = (name: string) => name.replace(/^The /, '');
 
@@ -75,7 +78,7 @@ const lastBy = (a: Application, mine: string[]) => Math.max(0, ...a.history.filt
  */
 export function notesFor(
   role: 'rp' | 'gsp',
-  o: { access: 'setup' | 'verifying' | 'all'; agency: string; apps: Application[]; students: Student[]; join?: { created?: number; sentAt?: number }; tasks?: NoteTask[]; me?: string; meName?: string },
+  o: { access: 'setup' | 'verifying' | 'all'; agency: string; apps: Application[]; students: Student[]; join?: { created?: number; sentAt?: number }; tasks?: NoteTask[]; me?: string; meName?: string; work?: Note[]; covering?: string[] },
 ): Note[] {
   if (o.access !== 'all') return onboardingNotes(o.access, o.join);
   const from = Date.now() - WINDOW;
@@ -91,17 +94,21 @@ export function notesFor(
       if (s.added >= from && s.addedBy && s.addedBy !== o.meName && !s.rp)
         out.push({ id: `stu-${s.id}`, kind: 'system', title: `${s.addedBy} added a student`, text: `${fullName(s)}${s.city ? `, from ${s.city}` : ''}.`, at: s.added, read: true, to: { student: s.id } });
   } else {
-    const mine = o.me ? o.apps.filter((a) => a.officer === o.me) : o.apps;
+    // "the officer": the application's officer, or the queue's leader while the officer is on leave or deactivated (slice 4 PRD)
+    const mine = o.me ? o.apps.filter((a) => a.officer === o.me || (o.covering ?? []).includes(a.id)) : o.apps;
     for (const a of mine) out.push(...appNotes(a, ['you'], `${a.rp ?? o.agency} · ${aboutOf(a)}`, (e) => (e.by && e.by !== 'You' ? e.by : a.rp ?? o.agency), lastBy(a, ['gsp', 'uni'])));
-    const ids = new Set(o.apps.map((a) => a.id));
-    for (const t of o.tasks ?? [])
-      if (t.status === 'open' && o.me && t.assignee === o.me)
-        out.push({ id: `task-${t.id}`, kind: 'system', title: t.title, text: 'My work: a task for you', at: t.created ?? Date.now(), read: (t.created ?? 0) < Date.now() - DAY, to: t.record && ids.has(t.record) ? { app: t.record } : undefined });
+    // My work's notifications (slice 4 PRD, Tasks and SLAs), from the work store (work/store.ts workNotes)
+    if (o.work) out.push(...o.work);
+    else {
+      const ids = new Set(o.apps.map((a) => a.id));
+      for (const t of o.tasks ?? [])
+        if (t.status === 'open' && o.me && t.assignee === o.me)
+          out.push({ id: `task-${t.id}`, kind: 'system', title: t.title, text: 'My work: a task for you', at: t.created ?? Date.now(), to: t.record && ids.has(t.record) ? { app: t.record } : undefined });
+    }
   }
   return out
-    .filter((n) => n.at >= from && n.at <= Date.now() + HOUR)
-    .sort((x, y) => y.at - x.at)
-    .slice(0, MAX);
+    .filter((n) => n.at >= from && n.at <= Date.now() + 365 * DAY)
+    .sort((x, y) => y.at - x.at);
 }
 
 /**
