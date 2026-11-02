@@ -33,7 +33,11 @@ The agency portal prototype lives in `designs/agency/`. `README.md` there descri
 
 - `main` always holds the latest working prototype. Each piece of work gets a short branch (`admin-config`, `roles`, `commissions`…), merged into `main` once it's built and tested. Roles live in their own folders under `designs/agency/src/`, not on branches.
 
+## No Figma from now on (Jovial, 2 Nov)
+
+- **The deliverables are the PRD docs and the prototype artifact only.** Don't create or update Figma files or wireframes; the prototype (one Claude artifact link) is the design. Existing Figma pages are no longer maintained.
+
 ## Regression across slices (Jovial, 2 Nov)
 
-- **Any decision that changes something already written or drawn** (an earlier slice's PRD, its Figma wireframes, or the prototype) gets a row in the *Regression* tab of the Pending Questions sheet: the decision, its source (e.g. S3-21), the slices affected, and whether the docs, Figma frames and prototype are updated.
-- Before a slice's wireframes start, and before engineering picks up a slice, run a regression pass: apply every open Regression row to the docs, every affected Figma frame and the prototype, then mark the row done.
+- **Any decision that changes something already written or drawn** (an earlier slice's PRD or the prototype) gets a row in the *Regression* tab of the Pending Questions sheet: the decision, its source (e.g. S3-21), the slices affected, and whether the docs and prototype are updated (the Figma columns are no longer used).
+- Before engineering picks up a slice, run a regression pass: apply every open Regression row to the docs and the prototype, then mark the row done.
