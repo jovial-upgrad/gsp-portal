@@ -1,6 +1,6 @@
 /**
  * What GSP Admin configures (Nesil, 30 Oct). Taken from the PM prototype's Super Admin › Settings wherever it has
- * them (sales regions, permissions, queues, BDM assignment, application routing, document rules, the download log);
+ * them (sales regions, permissions, queues, Recruitment assignment, application routing, document rules, the download log);
  * the currency exchange, living costs and filters tables aren't in it, so they're built from the figures this
  * prototype already uses (course search's rates, the course dialog's visa figures, course search's filters).
  * Every change is logged (`log`), and Logs shows them with the download log. Sample data.
@@ -124,7 +124,7 @@ export type GspRole = (typeof GSP_ROLES)[number];
 export type UserStatus = 'Link sent' | 'Active' | 'Deactivated';
 /**
  * A GSP user (PRD slice 1). `id` is stable (never the email). `role` is '' only while a new user is being created.
- * `area` is no longer stored on the user (S1C-3): a Recruitment user's area is read from BDM assignment.
+ * `area` is no longer stored on the user (S1C-3): a Recruitment user's area is read from Recruitment assignment.
  */
 export type User = {
   id: string;
@@ -296,20 +296,28 @@ export const MAILBOX_SEED: [string, string, string[] | 'admissions'][] = [
   ['commissions.gsp@upgrad.com', 'Commission conversations', ['Finance']],
   ['data-team.gsp@upgrad.com', 'Course update requests', ['IP Ops']],
 ];
+/**
+ * Access is per user (Jovial, 2 Nov): each mailbox lists its people, each View or View and send; not per queue or
+ * region. The seed gives the people of the queues each mailbox fed before (as records), View and send.
+ */
 export const sampleEmails = (users: User[]): EmailGroup[] => {
-  const queues = sampleQueues(users).map((q) => q.name);
-  return MAILBOX_SEED.map(([email, what, qs], i) => ({
-    id: `e${i + 1}`,
-    email,
-    for: what,
-    sync: true,
-    since: ['2026-01-05', '2026-03-02', '2026-03-02', '2026-04-01', '2026-06-15'][i],
-    queues: qs === 'admissions' ? [...queues.filter(isRegionalAdmissions), 'Global Admissions'] : qs,
-    users: [],
-  }));
+  const qs0 = sampleQueues(users);
+  return MAILBOX_SEED.map(([email, what, qs], i) => {
+    const names = qs === 'admissions' ? [...qs0.map((q) => q.name).filter(isRegionalAdmissions), 'Global Admissions'] : qs;
+    const ids = [...new Set(qs0.filter((q) => names.includes(q.name)).flatMap((q) => [q.lead, ...q.members]).filter(Boolean))];
+    return {
+      id: `e${i + 1}`,
+      email,
+      for: what,
+      sync: true,
+      since: ['2026-01-05', '2026-03-02', '2026-03-02', '2026-04-01', '2026-06-15'][i],
+      queues: [],
+      users: ids.map((id) => ({ id, perm: 'send' as EmailPerm })),
+    };
+  });
 };
 
-/* ---------- BDM assignment (PRD slice 1, BDM assignment) ---------- */
+/* ---------- Recruitment assignment (PRD slice 1, Recruitment assignment) ---------- */
 /**
  * A row: a country (or "All other countries", the fallback row only), its states or cities ("All", "Rest of
  * <country>", or a list), the BDM, an optional note, and when and who last changed it.
@@ -320,14 +328,15 @@ const row = (country: string, area: string, bdm: string, fallback = false, note 
 /** Where several BDMs share an area, who owns it for new RPs, and who else covers it (the PRD's example: Ahmedabad, Riya Shah). */
 const AREA_OWNER: Record<string, string> = { ahmedabad: 'riya1.shah@upgrad.com' };
 /**
- * BDM assignment from the staff export's BDM areas (31 Oct): each Recruitment person's cities or states is a row for
+ * Recruitment assignment from the staff export's BDM areas (31 Oct): each Recruitment person's cities or states is a row for
  * their country; whoever covers the whole country takes "Rest of <country>" (or "All" when nobody else is named).
  * A region of several countries gets a row per country. Anything else goes to the fallback row (Ali Butt).
  */
 export const sampleBdm = (): BdmRow[] => {
   n = 0;
   const out: BdmRow[] = [];
-  const rec = STAFF.filter((x) => x.role === 'Recruitment' && !x.regions.includes('Global'));
+  // the fallback person (Ali Butt: Rest of world and Direct) has no country rows of their own
+  const rec = STAFF.filter((x) => x.role === 'Recruitment' && !x.regions.includes('Global') && !x.regions.every(isSystemRegion));
   const regions = [...new Set(rec.flatMap((x) => x.regions))];
   const countriesOf = (reg: string) => (REGION_COUNTRIES[reg]?.length ? REGION_COUNTRIES[reg] : [reg]);
   for (const reg of regions) {
@@ -351,7 +360,7 @@ export const sampleBdm = (): BdmRow[] => {
       out.push(row(country, placed.length ? `Rest of ${country}` : 'All', label(whole)));
     }
   }
-  // a region with a default BDM but nobody based there (Bhutan: Ishwor Acharya) gets its own rows
+  // a region with a default recruitment contact but nobody based there (Bhutan: Ishwor Acharya) gets its own rows
   for (const [reg, who] of Object.entries(REGION_BDM)) {
     if (isSystemRegion(reg)) continue;
     for (const country of countriesOf(reg)) if (!out.some((r) => r.country === country)) out.push(row(country, 'All', who));
@@ -457,14 +466,14 @@ export const sampleVisaFees = (): VisaFee[] => visaFeesOf(sampleLiving());
 export type RouteRule = { id: 'direct' | 'list' | 'keep' | 'onshore' | 'nat' | 'fb'; title: string; when: string; region: string; bdm: string; on: boolean };
 /** The six rules, in code: Admin owns each one's On or Off (not the Fallback) and the order (the Fallback stays last). */
 export const sampleRules = (): RouteRule[] => [
-  { id: 'direct', title: 'Direct application', when: 'The application has no RP', region: 'Direct', bdm: 'Direct’s default BDM', on: true },
-  { id: 'list', title: 'RP is on a regional list', when: 'The RP is on one of the regional RP lists (nationality not used; Australia included)', region: 'The list’s region', bdm: 'The RP’s BDM', on: true },
-  { id: 'keep', title: 'Student in Australia, RP has no Australian branch', when: 'Student in Australia, applying to Australia, RP’s region is Vietnam or Latin America & Europe, and the RP has no Australian branch', region: 'The RP’s region', bdm: 'The RP’s BDM', on: true },
-  { id: 'onshore', title: 'Student in Australia, applying to Australia', when: 'Student in Australia, applying to Australia', region: 'Australia', bdm: 'Australia’s default BDM', on: true },
-  { id: 'nat', title: 'Student’s nationality', when: 'The nationality is in the country map', region: 'That region', bdm: 'That region’s default BDM', on: true },
-  { id: 'fb', title: 'Fallback', when: 'Nothing above matched', region: 'Direct', bdm: 'Direct’s default BDM', on: true },
+  { id: 'direct', title: 'Direct application', when: 'The application has no RP', region: 'Direct', bdm: 'Direct’s default recruitment contact', on: true },
+  { id: 'list', title: 'RP is on a regional list', when: 'The RP is on one of the regional RP lists (nationality not used; Australia included)', region: 'The list’s region', bdm: 'The RP’s Recruitment contact', on: true },
+  { id: 'keep', title: 'Student in Australia, RP has no Australian branch', when: 'Student in Australia, applying to Australia, RP’s region is Vietnam or Latin America & Europe, and the RP has no Australian branch', region: 'The RP’s region', bdm: 'The RP’s Recruitment contact', on: true },
+  { id: 'onshore', title: 'Student in Australia, applying to Australia', when: 'Student in Australia, applying to Australia', region: 'Australia', bdm: 'Australia’s default recruitment contact', on: true },
+  { id: 'nat', title: 'Student’s nationality', when: 'The nationality is in the country map', region: 'That region', bdm: 'That region’s default recruitment contact', on: true },
+  { id: 'fb', title: 'Fallback', when: 'Nothing above matched', region: 'Direct', bdm: 'Direct’s default recruitment contact', on: true },
 ];
-/** Each region's default BDM (PRD seed table, from Jovial's Sales regions tab, 1 Nov). */
+/** Each region's default recruitment contact (PRD seed table, from Jovial's Sales regions tab, 1 Nov). */
 export const REGION_BDM: Record<string, string> = {
   India: N('saurabh.chaudhary'), Bangladesh: N('gsp.bangladesh'), Nepal: N('anil.shrestha'), 'Sri Lanka': N('kanchani.jayawardhana'), Vietnam: N('quan.hoang'), Pakistan: N('faryal.abbas+BDM'),
   'Indonesia Malaysia & Thailand': N('rifaldo.marbun'), Myanmar: N('nilar.win'), Bhutan: N('ishwor.acharya'), Australia: N('judy.tan'), Philippines: N('arielle.sevilleno'),
@@ -617,7 +626,7 @@ const E = (id: string, d: number, h: number, m: number, template: string, to: st
   id, at: at(d, h, m), who: 'System', area: 'Emails', text: template, kind: 'email', to, record, ses: `0109019a${id.replace(/\D/g, '').padStart(4, '0')}-6c1f-4e2b-9d0a-${(9_000_000_000 + Number(id.replace(/\D/g, '')) * 7919).toString(16)}`, delivered: ok,
 });
 export const sampleLog = (): LogEntry[] => [
-  { id: 'l1', at: Date.now() - 3 * 3_600_000, who: N('jovial.lejo'), area: 'BDM assignment', text: `India · Kerala: BDM ${N('saikat.bhowmik')} → ${N('mayank.kansal')}`, kind: 'change', role: 'Admin' },
+  { id: 'l1', at: Date.now() - 3 * 3_600_000, who: N('jovial.lejo'), area: 'Recruitment assignment', text: `India · Kerala: Recruitment ${N('saikat.bhowmik')} → ${N('mayank.kansal')}`, kind: 'change', role: 'Admin' },
   { id: 'l2', at: at(1, 12, 41), who: N('ramish.jafery'), area: 'Applications', text: 'Applications list', kind: 'download', role: 'Admission', filters: 'India · Status: With university', size: '312 rows', format: 'CSV' },
   { id: 'l3', at: at(1, 11, 2), who: N('saurabh.chaudhary'), area: 'Course search', text: 'Course shortlist', kind: 'download', role: 'Recruitment', filters: 'Australia · Master’s · Data science', size: '8 rows', format: 'CSV' },
   { id: 'l4', at: at(2, 18, 20), who: N('lav.likhi'), area: 'Commissions', text: 'RP ledger', kind: 'download', role: 'Finance', filters: 'Oct 2026', size: '1,204 rows', format: 'CSV' },

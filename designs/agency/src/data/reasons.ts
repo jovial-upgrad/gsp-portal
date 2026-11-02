@@ -30,6 +30,8 @@ export type EndKind =
   | 'Student withdrawn';
 /** A withdrawal, under either name. */
 export const isWithdrawal = (k?: string) => k === 'Withdrawn' || k === 'Student withdrawn';
+/** A close reason as it reads now: older saved ones under their new name (Visa refused is Visa rejected, Jovial 2 Nov). */
+export const endName = (k?: string) => (k === 'Visa refused' ? 'Visa rejected' : k);
 
 export type Reasons = { close: EndKind[][]; withdraw: string[]; sendBack: string[] };
 export const REASON_DEFAULTS: Reasons = {

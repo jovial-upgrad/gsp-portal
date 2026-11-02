@@ -12,7 +12,7 @@
  * They answer only from the application's own data, and they never change it.
  */
 import { finalFeeOf, flagsOf } from './live';
-import { closeReasons, isWithdrawal, type EndKind } from './reasons';
+import { closeReasons, endName, isWithdrawal, type EndKind } from './reasons';
 import { uniForms } from './courses';
 import { adminCfg } from '../admin/data/store';
 import { condOf, whenText } from '../admin/data/config';
@@ -328,7 +328,7 @@ export function ownerOf(a: Application): AppOwner {
 export const needsYou = (a: Application) => isOpen(a) && ownerOf(a) === 'you';
 /** "Closed: University rejected", "Withdrawn: The student chose another offer", or the status. */
 export const statusText = (a: Application) =>
-  a.status === 'closed' ? (isWithdrawal(a.end?.kind) ? `Withdrawn${a.end?.reason ? `: ${a.end.reason}` : ''}` : `Closed: ${a.end?.kind ?? ''}`.replace(/: $/, '')) : STATUS[a.status].text(destOf(a));
+  a.status === 'closed' ? (isWithdrawal(a.end?.kind) ? `Withdrawn${a.end?.reason ? `: ${a.end.reason}` : ''}` : `Closed: ${endName(a.end?.kind) ?? ''}`.replace(/: $/, '')) : STATUS[a.status].text(destOf(a));
 export const isOpen = (a: Application) => a.status !== 'closed' && a.status !== 'enrolled';
 
 /**

@@ -94,6 +94,6 @@ export const sampleMps = (): MasterPartner[] => {
       created: { by, at: atIso('2025-08-01') },
     },
   ];
-  // the BDM from BDM assignment, by city, state and country, once the location is in
+  // the BDM from Recruitment assignment, by city, state and country, once the location is in
   return rows.map((m) => ({ ...m, bdm: partnerManagerFor(m.country, m.city, '')?.name ?? '' }));
 };

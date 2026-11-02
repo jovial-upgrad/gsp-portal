@@ -596,9 +596,9 @@
 "last": "Mcewan",
 "email": "kevin.mcewan@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -776,9 +776,9 @@
 "last": "Pham",
 "email": "tam.pham@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -806,9 +806,9 @@
 "last": "Chugh",
 "email": "geetanshi.chugh@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -821,9 +821,9 @@
 "last": "Jain",
 "email": "rhythm.jain@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -899,9 +899,9 @@
 "last": "Tran",
 "email": "tya.tran@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -977,9 +977,9 @@
 "last": "Cabrera",
 "email": "joana.cabrera@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -992,9 +992,9 @@
 "last": "Landayan",
 "email": "arceli.landayan@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1037,9 +1037,9 @@
 "last": "Nath",
 "email": "namita.nath@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1157,9 +1157,9 @@
 "last": "Likhi",
 "email": "lav.likhi@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1292,9 +1292,9 @@
 "last": "Grace",
 "email": "nhu.phan@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1307,9 +1307,9 @@
 "last": "Ross",
 "email": "lachlan.ross@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1400,9 +1400,9 @@
 "last": "Kompalli",
 "email": "phalgun+GSP@upgrad.com",
 "role": "View Only",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1475,9 +1475,9 @@
 "last": "Williams",
 "email": "myleeta.williams@upgrad.com",
 "role": "View Only",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1550,9 +1550,9 @@
 "last": "Thakur",
 "email": "pallavi.thakur@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1565,9 +1565,9 @@
 "last": "Kumar",
 "email": "mayank@upgrad.com",
 "role": "View Only",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1803,9 +1803,13 @@
 "last": "Sharma",
 "email": "meenu.sharma@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -1864,9 +1868,13 @@
 "last": "Sharma",
 "email": "puja1.sharma@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -1927,9 +1935,13 @@
 "last": "Kaur",
 "email": "jaspreet3.kaur@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -1942,9 +1954,9 @@
 "last": "Prabhakar",
 "email": "vishakha.prabhakar@upgrad.com",
 "role": "IP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1957,9 +1969,9 @@
 "last": "Sood",
 "email": "rishabh.sood@upgrad.com",
 "role": "RP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -1972,9 +1984,9 @@
 "last": "Singh",
 "email": "praneet.singh@upgrad.com",
 "role": "View Only",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2047,9 +2059,9 @@
 "last": "Samdaria",
 "email": "chirag.samdaria@upgrad.com",
 "role": "View Only",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2078,9 +2090,9 @@
 "last": "Colabucci",
 "email": "pcolabucci@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2093,9 +2105,9 @@
 "last": "Nanda",
 "email": "prakriti.nanda@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2126,9 +2138,9 @@
 "last": "Cunanan",
 "email": "shara1.cunanan@upgrad.com",
 "role": "RP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2141,9 +2153,9 @@
 "last": "Sharma",
 "email": "neelam.sharma@upgrad.com",
 "role": "IP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2156,9 +2168,9 @@
 "last": "Beazley",
 "email": "matt.beazley@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2171,9 +2183,13 @@
 "last": "Kaur",
 "email": "satinder.kaur@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2231,9 +2247,9 @@
 "last": "Sharma",
 "email": "kartik.sharma@upgrad.com",
 "role": "RP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2261,9 +2277,13 @@
 "last": "Rajpal",
 "email": "ashu.rajpal@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2276,9 +2296,9 @@
 "last": "Kapil",
 "email": "munmun.kapil@upgrad.com",
 "role": "IP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2306,9 +2326,13 @@
 "last": "Tandon",
 "email": "tasha.tandon@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2336,9 +2360,10 @@
 "last": "Butt",
 "email": "ali.butt@upgrad.com",
 "role": "Recruitment",
-"region": "Global",
+"region": "Rest of world, Direct",
 "regions": [
-"Global"
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2351,9 +2376,13 @@
 "last": "Singh",
 "email": "divyashree.singh@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2381,9 +2410,9 @@
 "last": "Wilson",
 "email": "catherine.wilson@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2411,9 +2440,9 @@
 "last": "Sharma",
 "email": "nandini2.sharma@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2426,9 +2455,9 @@
 "last": "Kingsmill",
 "email": "ally.kingsmill@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2457,9 +2486,9 @@
 "last": "Bhardwaj",
 "email": "gauri.bhardwaj@upgrad.com",
 "role": "IP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2472,9 +2501,9 @@
 "last": "Dizon",
 "email": "lalaine.dizon@upgrad.com",
 "role": "Institution",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2487,9 +2516,13 @@
 "last": "Kaur",
 "email": "rajinder.kaur@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2502,9 +2535,9 @@
 "last": "Quan",
 "email": "cady.quan@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2517,9 +2550,9 @@
 "last": "Verma",
 "email": "suman1.verma@upgrad.com",
 "role": "Finance",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2532,9 +2565,13 @@
 "last": "Malhotra",
 "email": "kavita.malhotra@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2547,9 +2584,9 @@
 "last": "Bhardwaj",
 "email": "garima.bhardwaj@upgrad.com",
 "role": "RP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2592,9 +2629,13 @@
 "last": "Menon",
 "email": "rhea.menon@upgrad.com",
 "role": "Global Ops",
-"region": "Global",
+"region": "India, Bangladesh, Australia, Rest of world, Direct",
 "regions": [
-"Global"
+"India",
+"Bangladesh",
+"Australia",
+"Rest of world",
+"Direct"
 ],
 "area": "",
 "dial": "+91",
@@ -2607,9 +2648,9 @@
 "last": "Sethi",
 "email": "kabir.sethi@upgrad.com",
 "role": "IP Ops",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",
@@ -2622,9 +2663,9 @@
 "last": "Iyer",
 "email": "anaya.iyer@upgrad.com",
 "role": "View Only",
-"region": "Global",
+"region": "India",
 "regions": [
-"Global"
+"India"
 ],
 "area": "",
 "dial": "+91",

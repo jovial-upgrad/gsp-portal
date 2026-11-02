@@ -27,7 +27,7 @@ export const ROLES: { key: Role; label: string; note: string }[] = [
   { key: 'gsp-admin', label: 'GSP · Admin', note: 'GSP’s system admins: users, roles, settings, logs; can do everything.' },
   { key: 'gsp-team', label: 'GSP · Admission', note: 'Regional admissions officers: applications in their regions.' },
   { key: 'gsp-global-ops', label: 'GSP · Global Ops', note: 'The central admissions team: the Global Admissions queue, and oversight of every queue and mailbox.' },
-  { key: 'gsp-recruitment', label: 'GSP · Recruitment', note: 'BDMs: their RPs, the RPs’ students and applications.' },
+  { key: 'gsp-recruitment', label: 'GSP · Recruitment', note: 'Recruitment: their RPs, the RPs’ students and applications.' },
   { key: 'gsp-bap', label: 'GSP · RP Ops', note: 'BAP and partner operations: verifying new RPs and their documents, RP bank details.' },
   { key: 'institution-partner', label: 'GSP · Institution', note: 'The Institution team: institution partners, agreements, universities.' },
   { key: 'gsp-ip-ops', label: 'GSP · IP Ops', note: 'The Data team: courses, intakes, entry rules, announcements.' },

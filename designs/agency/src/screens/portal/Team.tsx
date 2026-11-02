@@ -106,7 +106,7 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
               <tr>
                 <th scope="col">Branch</th>
                 <th scope="col">Location</th>
-                <th scope="col">Branch BDM</th>
+                <th scope="col">Branch recruitment contact</th>
                 <th scope="col">Team</th>
                 <th scope="col">
                   <span className="vh">Actions</span>
@@ -123,7 +123,7 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
                       {b.main && <span className="tpill">Head office</span>}
                     </td>
                     <td data-k="Location">{location(b)}</td>
-                    <td data-k="Branch BDM">{branchBdm(b, bdm)?.name ?? 'Not set yet'}</td>
+                    <td data-k="Branch recruitment contact">{branchBdm(b, bdm)?.name ?? 'Not set yet'}</td>
                     <td data-k="Team" className="num">
                       {n}
                     </td>
@@ -239,7 +239,7 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
           const isNew = !branches.some((x) => x.id === b.id);
           setBranches((l) => (isNew ? [...l, b] : l.map((x) => (x.id === b.id ? b : x))));
           setBranchDlg(null);
-          tell(isNew ? `${b.name} added` : `${b.name} updated`, isNew ? `Branch BDM: ${branchBdm(b, bdm)?.name ?? 'set by GSP soon'}.` : undefined);
+          tell(isNew ? `${b.name} added` : `${b.name} updated`, isNew ? `Branch recruitment contact: ${branchBdm(b, bdm)?.name ?? 'set by GSP soon'}.` : undefined);
         }}
       />
       <MemberDialog

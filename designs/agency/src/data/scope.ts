@@ -35,11 +35,12 @@ export const getScope = () => scope;
 export const useScope = () => useSyncExternalStore((f) => (subs.add(f), () => subs.delete(f)), () => scope);
 
 /**
- * Region isolation, model D (Jovial, 1 Nov): Admission and Recruitment see their own sales regions in lists,
- * dashboards and My work; anyone else (Ops, Institution, Finance, Admin, View Only) and Global staff see every
- * region. An isolated person can look across every region, read only, and the switch is logged.
+ * Region isolation (Jovial, 2 Nov): every GSP role sees only the sales regions set on the person in Admin › GSP users;
+ * only Admin sees every region by default, and Admin can give anyone Global. (Was model D, 1 Nov: only Admission and
+ * Recruitment were cut to their regions.)
  */
-export const isIsolated = (s: Scope = scope) => ['Admission', 'Recruitment'].includes(s.role) && !s.regions.includes('Global');
+export const ALL_REGION_ROLES = ['Admin'];
+export const isIsolated = (s: Scope = scope) => !ALL_REGION_ROLES.includes(s.role) && !s.regions.includes('Global');
 export function setAllRegions(on: boolean, page = 'Applications') {
   if (!!scope.all === on) return;
   scope = { ...scope, all: on };

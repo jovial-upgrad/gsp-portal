@@ -9,7 +9,7 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { courseOf, isOpen, type Application, type Cond, type Msg, type Need } from '../../data/applications';
+import { courseOf, isOpen, named, type Application, type Cond, type Msg, type Need } from '../../data/applications';
 import { autoName } from '../../data/appRules';
 import { isWithdrawal } from '../../data/reasons';
 
@@ -138,7 +138,7 @@ export function Chat({
       needs: [...x.needs, ...needs],
       // each card goes out under the officer's name (S3-13)
       chat: [...x.chat, ...needs.map((n) => ({ id: `m${now}-${n.id}`, at: now, from: 'gsp' as const, name: autoName(x, g.name), text: '', request: n.id, requestName: n.title }))],
-      history: [...x.history, ...needs.map((n) => ({ at: now, who: 'gsp' as const, text: `Asked the RP for the ${n.title.toLowerCase()}`, by: g.name }))],
+      history: [...x.history, ...needs.map((n) => ({ at: now, who: 'gsp' as const, text: `Asked the RP for the ${named(n.title)}`, by: g.name }))],
     }));
     setAsking(false);
     setSeed(undefined);

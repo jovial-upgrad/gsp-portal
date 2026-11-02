@@ -114,7 +114,7 @@ const APP_KINDS = ['k-verify', 'k-submit', 'k-chase-uni', 'k-uni-mail', 'k-gsp-c
 /** A queue: a name, one leader, members, how work is shared, and what it receives. No type and no regions (S4-24). */
 const queue = (id, name, leader, members, assign, kinds) => ({ id, name, leader, members: [...new Set(members)].filter((m) => m && m !== leader), assign, kinds });
 const regional = (region, leader, members = inRegion(region)) => queue('q-adm-' + slug(region), region + ' Admissions', leader, members, 'fewest-open', APP_KINDS);
-/** One Recruitment queue per sales region (S4-3). S4-19's table is still blank: each is led by the region's default BDM, with its other BDMs. */
+/** One Recruitment queue per sales region (S4-3). S4-19's table is still blank: each is led by the region's default recruitment contact, with its other BDMs. */
 const REC_LEADS = {
   India: 'u-saurabh-chaudhary', Bangladesh: 'u-sania-shanta', Nepal: 'u-anil-shrestha', 'Sri Lanka': 'u-kanchani-jayawardhana', Vietnam: 'u-quan-hoang',
   Pakistan: 'u-ali-butt', 'Indonesia Malaysia & Thailand': 'u-rifaldo-marbun', Myanmar: 'u-nilar-win', Bhutan: 'u-ishwor-acharya', Australia: 'u-judy-tan',
@@ -209,10 +209,10 @@ export const RULES = [
   R('T58', 'RPs', { record: 'RP', name: 'Train a new RP', when: 'The RP’s agreement is executed (rp.agreement_signed)', task: 'Train <RP> on the portal', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-train', sla: d(5), closes: 'RP Ops marks the training done (S4-22)' }),
   R('T33', 'RPs', { record: 'RP', name: 'RP signed up, not activated', when: 'Signed up, not activated', after: d(2), task: 'Help <RP> finish sign-up', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'Activated' }),
   R('T34', 'RPs', { record: 'RP', name: 'RP documents sent back', when: 'Onboarding documents sent back', after: d(7), task: 'Chase <RP> for its documents', queue: 'q-rp-ops', kind: 'k-rp-change', sla: wh(18), remind: d(3), closes: 'Re-uploaded' }),
-  R('T36', 'RPs', { record: 'RP', name: 'RP lifecycle change', when: 'The BDM asks for a suspension, termination or tier change', task: 'Approve and make the change to <RP>', queue: 'q-rp-ops', share: 'to-leader', kind: 'k-rp-change', sla: wh(12), closes: 'Approved or rejected' }),
+  R('T36', 'RPs', { record: 'RP', name: 'RP lifecycle change', when: 'Recruitment asks for a suspension, termination or tier change', task: 'Approve and make the change to <RP>', queue: 'q-rp-ops', share: 'to-leader', kind: 'k-rp-change', sla: wh(12), closes: 'Approved or rejected' }),
   R('T59', 'RPs', { record: 'RP', name: 'Notice follow-up', when: 'RP Ops issues a notice to an RP', task: 'Follow up the notice to <RP>', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-notice', sla: d(3), closes: 'Done (S4-22)' }),
-  R('T37', 'RPs', { record: 'RP', name: 'RP inactive', when: 'No new application', after: days(90), task: 'Check in with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(45), closes: 'An application is added, or the BDM notes why' }),
-  R('W23', 'RPs', { record: 'RP', name: 'New RP assigned', when: 'A new RP is assigned to a BDM', task: 'Get in touch with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'The BDM logs the first call' }),
+  R('T37', 'RPs', { record: 'RP', name: 'RP inactive', when: 'No new application', after: days(90), task: 'Check in with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(45), closes: 'An application is added, or the Recruitment contact notes why' }),
+  R('W23', 'RPs', { record: 'RP', name: 'New RP assigned', when: 'A new RP is assigned to a Recruitment user', task: 'Get in touch with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'The BDM logs the first call' }),
   R('T35', 'RPs', { record: 'RP', name: 'New bank details', when: 'The RP sends new bank details (payouts held)', task: 'Check the new bank details for <RP>', queue: 'q-finance', share: 'not-maker', kind: 'k-check', sla: wh(6), closes: 'Approved or rejected' }),
 
   R('T38', IPG, { record: 'Institution partner', name: 'Agreement ending', days: 60, when: '<days> days before the agreement ends (the days are editable here; slice 2’s renewal reminder reads them)', task: 'Renew the agreement with <partner>', queue: 'q-institution', share: 'record-owner', kind: 'k-renew', sla: d(30), closes: 'A new agreement is uploaded' }),

@@ -38,7 +38,7 @@ export default function Earnings() {
     return <Page title="Earnings" top={<PersonaBar />}><Card><Empty title={`${role.name}s don’t see earnings`}>Your RP Admin sees the agency’s commission and payouts.</Empty></Card></Page>;
   }
   const rp = cfg.rps.find(r => r.name === user.agency);
-  if (!rp) return <Page title="Earnings" top={<PersonaBar />}><Card><Empty title="No commission terms yet">GSP Finance hasn’t entered your agency’s terms. Your BDM can help.</Empty></Card></Page>;
+  if (!rp) return <Page title="Earnings" top={<PersonaBar />}><Card><Empty title="No commission terms yet">GSP Finance hasn’t entered your agency’s terms. Your Recruitment contact at GSP can help.</Empty></Card></Page>;
 
   const cur = rp.cur || 'AUD';
   const today = c.today; const thu = thursdayOf(today, cfg); const payDay = payDayName(cfg);

@@ -6,30 +6,24 @@ import { DateInput, Field, Switch, TextInput } from '../../components/forms';
 import { useCheck, isEmail, dateError } from '../../components/validate';
 import { fmtDate } from '../../data/format';
 import { PageHead } from '../../institution/records/parts';
-import { MultiPick } from '../../institution/records/MultiPick';
-import { useStore } from '../../work/store';
 import type { EmailGroup, EmailPerm } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft } from './parts';
 import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, istDay, trySave, type SaveResult } from './states';
 
-const PERM: Record<EmailPerm, string> = { view: 'Can view', send: 'Can send' };
-type WorkQueue = { id: string; name: string; leader: string; members: string[] };
+/** Jovial, 2 Nov: View, or View and send, for each person. */
+const PERM: Record<EmailPerm, string> = { view: 'View', send: 'View and send' };
 
 /**
  * Shared mailboxes (PRD slice 1; Admin › User roles › Emails): GSP's shared inboxes the portal syncs, and who can use
- * each one. Each has an email (locked after the first save), what it's for, email sync and the date it syncs from,
- * its queues (from Admin › Work: their members get Can view and Can send, following the queue's membership) and the
- * people Admin adds by hand (Can view, the default, or Can send). A mailbox can't be deleted in this release
- * (proposal S1C-12): switch sync off to stop it. Reading and acting on the mail is Mail, a later slice.
+ * each one. Each has an email (locked after the first save), a note, email sync and the date it syncs from, and its
+ * people: access is per user (Jovial, 2 Nov), each View or View and send; not per queue or region. A mailbox can't be
+ * deleted in this release (proposal S1C-12): switch sync off to stop it. Reading and acting on the mail is Mail.
  */
 export function Emails({ cfg, change, say, canEdit }: ConfigProps) {
   const [cur, setCur] = useState(cfg.emails[0]?.id ?? '');
   const [edit, setEdit] = useState<EmailGroup | 'new' | null>(null);
-  const work = useStore() as { queues: WorkQueue[] };
-  const queues = (work.queues ?? []).filter((q) => q.id !== 'q-fallback');
   const g = cfg.emails.find((x) => x.id === cur) ?? cfg.emails[0];
-  const viaQueues = (m: EmailGroup) => [...new Set(queues.filter((q) => (m.queues ?? []).includes(q.name)).flatMap((q) => [q.leader, ...q.members]).filter(Boolean))];
   return (
     <>
       <PageHead title="Shared mailboxes" lead="GSP’s shared inboxes that the portal syncs, and who can use each one. Reading and acting on the mail is Mail; this page only sets them up.">
@@ -50,7 +44,7 @@ export function Emails({ cfg, change, say, canEdit }: ConfigProps) {
             <Panel title="Mailboxes" note={`${cfg.emails.length} mailboxes. A mailbox can’t be deleted in this release: switch sync off to stop it.`}>
               <ul className="cfg__groups" role="listbox" aria-label="Shared mailboxes">
                 {cfg.emails.map((x) => {
-                  const n = new Set([...viaQueues(x), ...x.users.map((u) => u.id)]).size;
+                  const n = new Set(x.users.map((u) => u.id)).size;
                   return (
                     <li key={x.id} className={`cfg__group ${x.id === g?.id ? 'is-on' : ''}`}>
                       <button type="button" role="option" aria-selected={x.id === g?.id} className="cfg__groupbtn" onClick={() => setCur(x.id)}>
@@ -75,7 +69,7 @@ export function Emails({ cfg, change, say, canEdit }: ConfigProps) {
                 })}
               </ul>
             </Panel>
-            {g && <Access key={g.id} g={g} cfg={cfg} queues={queues} change={change} say={say} canEdit={canEdit} />}
+            {g && <Access key={g.id} g={g} cfg={cfg} change={change} say={say} canEdit={canEdit} />}
           </div>
         )}
       </Loaded>
@@ -85,18 +79,16 @@ export function Emails({ cfg, change, say, canEdit }: ConfigProps) {
         open={!!edit}
         box={edit === 'new' ? null : edit}
         boxes={cfg.emails}
-        queues={queues.map((q) => q.name)}
         onClose={() => setEdit(null)}
         onSave={(x) => {
           const was = cfg.emails.find((y) => y.id === x.id);
-          if (!was) change('Emails', `Added ${x.email} (${x.for || 'no purpose'}): ${x.sync ? `syncs from ${fmtDate(x.since)}` : 'sync off'}; queues ${x.queues.join(', ') || 'none'}`, (c) => ({ ...c, emails: [...c.emails, { ...x, savedAt: Date.now() }] }));
+          if (!was) change('Emails', `Added ${x.email} (${x.for || 'no note'}): ${x.sync ? `syncs from ${fmtDate(x.since)}` : 'sync off'}`, (c) => ({ ...c, emails: [...c.emails, { ...x, savedAt: Date.now() }] }));
           else {
             const diffs = (
               [
-                ['for', was.for || '–', x.for || '–'],
+                ['note', was.for || '–', x.for || '–'],
                 ['email sync', was.sync ? 'On' : 'Off', x.sync ? 'On' : 'Off'],
                 ['sync from', fmtDate(was.since), fmtDate(x.since)],
-                ['queues', was.queues.join(', ') || 'none', x.queues.join(', ') || 'none'],
               ] as [string, string, string][]
             )
               .filter(([, a, b]) => a !== b)
@@ -113,7 +105,7 @@ export function Emails({ cfg, change, say, canEdit }: ConfigProps) {
 }
 
 /** Add or edit a mailbox (PRD slice 1, Shared mailboxes › Fields). The email is locked after the first save. */
-function MailboxDialog({ open, box, boxes, queues, onClose, onSave }: { open: boolean; box: EmailGroup | null; boxes: EmailGroup[]; queues: string[]; onClose: () => void; onSave: (g: EmailGroup) => void }) {
+function MailboxDialog({ open, box, boxes, onClose, onSave }: { open: boolean; box: EmailGroup | null; boxes: EmailGroup[]; onClose: () => void; onSave: (g: EmailGroup) => void }) {
   const today = istDay(Date.now());
   const blank = (): EmailGroup => ({ id: `e${Date.now()}`, email: '', for: '', sync: true, since: today, queues: [], users: [] });
   const [v, setV] = useState<EmailGroup>(blank);
@@ -169,8 +161,8 @@ function MailboxDialog({ open, box, boxes, queues, onClose, onSave }: { open: bo
         <Field id="eg-email" label="Email" required error={c.err('email')} hint={locked ? 'Locked after the first save.' : 'An @upgrad.com address.'}>
           <TextInput id="eg-email" type="email" value={v.email} disabled={locked} placeholder="name@upgrad.com" invalid={!!c.err('email')} onBlur={c.blur('email')} onChange={(e) => setV((x) => ({ ...x, email: e.target.value }))} />
         </Field>
-        <Field id="eg-for" label="For" optional>
-          <TextInput id="eg-for" value={v.for} maxLength={80} placeholder="Like: Partner onboarding" onChange={(e) => setV((x) => ({ ...x, for: e.target.value }))} />
+        <Field id="eg-for" label="Note" optional>
+          <TextInput id="eg-for" value={v.for} maxLength={120} placeholder="Like: Partner onboarding" onChange={(e) => setV((x) => ({ ...x, for: e.target.value }))} />
         </Field>
         <Switch id="eg-sync" checked={v.sync} onChange={(sync) => setV((x) => ({ ...x, sync }))}>
           Email sync
@@ -180,29 +172,23 @@ function MailboxDialog({ open, box, boxes, queues, onClose, onSave }: { open: bo
             <DateInput id="eg-since" value={v.since} invalid={!!c.err('since')} onBlur={c.blur('since')} onChange={(since) => setV((x) => ({ ...x, since }))} />
           </Field>
         )}
-        <Field id="eg-queues" label="Queues" optional hint="From Admin › Work. Their members get the mailbox, Can view and Can send, and follow the queue’s membership.">
-          <MultiPick id="eg-queues" label="Queues" value={v.queues} options={queues} empty="No queues" search onChange={(l) => setV((x) => ({ ...x, queues: l }))} />
-        </Field>
       </div>
     </Sheet>
   );
 }
 
 /**
- * Who can use a mailbox: everyone in its queues (Can view and Can send, following membership), and the people Admin
- * adds by hand with Add a person (Can view, or Can send). Read only until Edit; removing someone takes them off at
- * once, and drafts they started stay with the mailbox.
+ * Who can use a mailbox (Jovial, 2 Nov): the people Admin picks, each View or View and send; not per queue or region.
+ * Read only until Edit; removing someone takes them off at once, and drafts they started stay with the mailbox.
  */
-function Access({ g, cfg, queues, change, say, canEdit }: { g: EmailGroup; cfg: ConfigProps['cfg']; queues: WorkQueue[]; change: ConfigProps['change']; say: (m: string) => void; canEdit: boolean }) {
+function Access({ g, cfg, change, say, canEdit }: { g: EmailGroup; cfg: ConfigProps['cfg']; change: ConfigProps['change']; say: (m: string) => void; canEdit: boolean }) {
   const d = useDraft(g.users, `who can use ${g.email}`);
   const [adding, setAdding] = useState('');
   const [result, setResult] = useState<SaveResult | null>(null);
   const ed = d.editing;
   const list = d.value;
   const userOf = (id: string) => cfg.users.find((u) => u.id === id);
-  const fromQueues = queues.filter((q) => g.queues.includes(q.name));
-  const queueIds = new Set(fromQueues.flatMap((q) => [q.leader, ...q.members]).filter(Boolean));
-  const notIn = cfg.users.filter((u) => u.status === 'Active' && !list.some((x) => x.id === u.id) && !queueIds.has(u.id));
+  const notIn = cfg.users.filter((u) => u.status === 'Active' && !list.some((x) => x.id === u.id));
   const save = () => {
     const r = trySave();
     if (r !== 'ok') return setResult(r);
@@ -219,27 +205,13 @@ function Access({ g, cfg, queues, change, say, canEdit }: { g: EmailGroup; cfg: 
       title="Who can use it"
       note={
         <>
-          <b>{g.email}</b>. Can view: read only. Can send: reply and send from this address. People added by hand start as Can view.
+          <b>{g.email}</b>{g.for ? ` · ${g.for}` : ''}. {g.sync ? `Syncing from ${fmtDate(g.since)}.` : 'Sync off.'} View: read only. View and send: reply and send from this address.
         </>
       }
       action={canEdit && <EditBar name={`who can use ${g.email}`} editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (setAdding(''), setResult(null), d.stop())} onSave={save} />}
       flush
     >
       {ed && <SaveBanner result={result} onReload={d.stop} />}
-      <div className="cfg__foot">
-        <p className="cfg__k">From its queues</p>
-        {fromQueues.length ? (
-          <div className="cfg__chips">
-            {fromQueues.map((q) => (
-              <span key={q.id} className="cfg__chip cfg__chip--plain">
-                {q.name} · {[q.leader, ...q.members].filter(Boolean).length} people, Can send
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="cfg__muted">No queues.</p>
-        )}
-      </div>
       {ed && (
         <div className="cfg__foot cfg__addusers">
           <Pick id={`eu-${g.id}`} label="Person to add" value={adding} placeholder="Pick a person" options={notIn.map((u) => [u.id, `${u.name} · ${u.role}`] as [string, string])} onChange={setAdding} />
@@ -256,7 +228,7 @@ function Access({ g, cfg, queues, change, say, canEdit }: { g: EmailGroup; cfg: 
           </Button>
         </div>
       )}
-      <p className="cfg__k cfg__foot">Added by hand</p>
+      <p className="cfg__k cfg__foot">People</p>
       {list.length ? (
         <div className="stab-wrap">
           <table className="itab cfg__tab">
@@ -285,7 +257,7 @@ function Access({ g, cfg, queues, change, say, canEdit }: { g: EmailGroup; cfg: 
                     <td className="cfg__muted">{u.role}</td>
                     <td>
                       {ed ? (
-                        <Pick id={`ep-${g.id}-${x.id}`} label={`${u.name}: access`} value={x.perm} options={[['view', 'Can view'], ['send', 'Can send']]} onChange={(val) => d.set((l) => l.map((z) => (z.id === x.id ? { ...z, perm: val as EmailPerm } : z)))} />
+                        <Pick id={`ep-${g.id}-${x.id}`} label={`${u.name}: access`} value={x.perm} options={Object.entries(PERM) as [string, string][]} onChange={(val) => d.set((l) => l.map((z) => (z.id === x.id ? { ...z, perm: val as EmailPerm } : z)))} />
                       ) : (
                         PERM[x.perm]
                       )}
@@ -304,9 +276,8 @@ function Access({ g, cfg, queues, change, say, canEdit }: { g: EmailGroup; cfg: 
           </table>
         </div>
       ) : (
-        !fromQueues.length && <Empty>No one can use this mailbox yet.</Empty>
+        <Empty>No one can use this mailbox yet.</Empty>
       )}
-      {!list.length && fromQueues.length > 0 && <p className="cfg__muted cfg__foot">Nobody added by hand.</p>}
     </Panel>
   );
 }

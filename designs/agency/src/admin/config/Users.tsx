@@ -17,7 +17,7 @@ import { Loaded, NoResults, PAGE_SIZE, Pager, Pick, SaveBanner, ViewOnlyNote, ag
 
 const STATUSES: UserStatus[] = ['Link sent', 'Active', 'Deactivated'];
 
-/** A Recruitment user's area (S1C-3): the states and cities of the BDM assignment rows where they're the BDM. */
+/** A Recruitment user's area (S1C-3): the states and cities of the Recruitment assignment rows where they're the BDM. */
 export const areaOf = (u: Pick<User, 'name' | 'role'>, bdm: ConfigProps['cfg']['bdm']) =>
   u.role !== 'Recruitment' ? '' : [...new Set(bdm.filter((r) => r.bdm === u.name && !r.fallback).map((r) => (r.area === 'All' ? r.country : r.area)))].join(', ');
 
@@ -282,8 +282,8 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
   const [result, setResult] = useState<SaveResult | null>(null);
   const set = (p: Partial<User>) => setV((x) => ({ ...x, ...p }));
   const email = v.email.trim().toLowerCase();
-  // email: only while Link sent; locked once Active (PRD slice 1)
-  const emailLocked = !!user && user.status !== 'Link sent';
+  // email: read-only once the user is created (Jovial, 2 Nov)
+  const emailLocked = !!user;
   const c = useCheck({
     name: v.name.trim().length < 2 || v.name.trim().length > 100 ? 'Enter their full name.' : null,
     email: emailLocked
@@ -293,7 +293,8 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
         : users.some((x) => x.id !== v.id && x.email.toLowerCase() === email)
           ? 'Someone already has this email.'
           : null,
-    phone: phoneError(v.dial, v.phone) ? `Enter a valid phone number for ${v.dial}.` : null,
+    // required (Jovial, 2 Nov)
+    phone: phoneError(v.dial, v.phone, { required: true }),
     role: !v.role ? 'Pick their role.' : null,
     title: v.title.trim().length > 60 ? 'Keep the title under 60 characters.' : null,
     region: !v.regions.length ? 'Pick their sales region.' : null,
@@ -328,7 +329,7 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
       center
       className="iform cfg__sheet"
       title={user ? `Edit ${user.name}` : 'Create user'}
-      sub={user ? (emailLocked ? 'Their email is locked: they’ve signed in.' : undefined) : 'They get the Set up your account email straight away; the link works for 7 days.'}
+      sub={user ? 'Their email can’t be changed once the user is created.' : 'They get the Set up your account email straight away; the link works for 7 days.'}
       footer={
         <div className="asf">
           <div className="asf__acts">
@@ -352,19 +353,20 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
         <Field id="us-name" label="Name" required error={c.err('name')}>
           <TextInput id="us-name" value={v.name} maxLength={100} autoComplete="off" invalid={!!c.err('name')} onBlur={c.blur('name')} onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field id="us-email" label="Email" required error={c.err('email')} hint={user && !emailLocked ? 'Changing it sends a new login email; the old link stops working.' : undefined}>
-          <TextInput id="us-email" type="email" value={v.email} maxLength={254} placeholder="name@upgrad.com" autoComplete="off" disabled={emailLocked} invalid={!!c.err('email')} onBlur={c.blur('email')} onChange={(e) => set({ email: e.target.value })} />
+        <Field id="us-email" label="Email" required error={c.err('email')}>
+          <TextInput id="us-email" type="email" value={v.email} maxLength={254} placeholder="name@upgrad.com" autoComplete="off" readOnly={emailLocked} invalid={!!c.err('email')} onBlur={c.blur('email')} onChange={(e) => set({ email: e.target.value })} />
         </Field>
-        <Field id="us-phone" label="Phone" error={c.err('phone')}>
+        <Field id="us-phone" label="Phone" required error={c.err('phone')}>
           <PhoneInput id="us-phone" dial={v.dial} number={v.phone} invalid={!!c.err('phone')} describedBy={c.err('phone') ? 'us-phone-error' : undefined} onBlur={c.blur('phone')} onDial={(d) => set({ dial: d })} onNumber={(n) => set({ phone: n.replace(/\D/g, '') })} />
         </Field>
         <Field id="us-role" label="Role" required error={c.err('role')}>
           <Pick id="us-role" label="Role" value={v.role} placeholder="Pick their role" options={[...GSP_ROLES]} invalid={!!c.err('role')} describedBy={c.err('role') ? 'us-role-error' : undefined} onChange={(r) => (set({ role: r as GspRole }), c.blur('role')())} />
         </Field>
+        {/* optional free text; two people can have the same title (Jovial, 2 Nov) */}
         <Field id="us-title" label="Title" error={c.err('title')}>
           <TextInput id="us-title" value={v.title} placeholder="Like: Admissions Officer" invalid={!!c.err('title')} onBlur={c.blur('title')} onChange={(e) => set({ title: e.target.value })} />
         </Field>
-        <Field id="us-region" label="Sales regions" required error={c.err('region')} hint="One or more, or Global for someone who covers every region.">
+        <Field id="us-region" label="Sales regions" required error={c.err('region')} hint="One or more. Only Admin has Global by default; give it to anyone else here.">
           <MultiPick id="us-region" label="Sales regions" value={v.regions} options={regions} invalid={!!c.err('region')} onClose={c.blur('region')} onChange={pickRegions} empty="Pick their sales regions" />
         </Field>
       </div>

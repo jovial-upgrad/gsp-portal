@@ -6,6 +6,54 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 2 Nov dev briefs (Jovial)
+
+Jovial's decisions of 2 Nov and the day's dev briefs, by page, built in every role that shows the page. Not changed, as Jovial asked: mail compose, and commission visibility beyond Key details. Answered by Jovial the same evening and built: the acknowledgement's wording, Pending with agent, Deposit refund pending, sales region access, Recruitment for BDM; item 14 (disable More after enrolment) cancelled.
+
+### Everywhere
+- [x] "BDM" reads **Recruitment** everywhere (Recruitment assignment, Default recruitment contact, the RP's Recruitment and Admissions contacts). (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] **Sales region access:** only Admin sees every region by default; every other GSP role sees the regions set on the person; Admin can give Global. Seeded people who had Global now have real regions. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] The portal's tooltip stays on a menu item the pointer has focused (the disabled Withdraw's reason). (2 Nov, commit “2 Nov dev briefs: …”)
+
+### Student record
+- [x] Only the top **Add application** button; no Find courses button; no Add application in the Applications part. (2 Nov, commit “2 Nov dev briefs: …”)
+
+### Applications list
+- [x] Status chips All, New, Offer received, Enrolled, Closed with counts, greyed out at 0 (`data/listChips.ts`). (2 Nov, commit “2 Nov dev briefs: …”)
+  - Chosen in the build, for Jovial to confirm: **New** counts the New stage (Waiting for documents), not Pre-screening.
+- [x] Search by application number or student name only (no passport). (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] No "Showing your sales region" line. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] GSP: All RPs multi-select, paged (20 at a time); Advanced filters: Applied date between and Stage, each with its own Clear; Clear all clears everything. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] RP side: "Pending with agent" for what's on the RP (was Pending on you). (2 Nov, commit “2 Nov dev briefs: …”)
+
+### Application page
+- [x] Request a document: several at once, each from Admin's Request categories or Other (typed); each its own item in Documents. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Acknowledgement when the RP uploads a requested document: "Thanks for uploading <document>. We’re reviewing it and will update you here." (template in `data/chat.ts`). (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Chat rights: RP text only, uploads only against a request; attach, Request a document and Request conditions (every stage) GSP only. (Already so; recorded in `data/chat.ts`.) (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Key details in three groups, Application details, GSP details, RP details (GSP adds the RP and its branch); sections, not tabs; empty fields hidden. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] No Base commission in GSP's Key details; the RP keeps its own. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] University reference: Admissions edit it at any time from Key details, with a confirmation; logged in Activity. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Application stage: Submitted to university is the only status after submission (Additional documents requested, Verifying additional documents and Additional documents submitted to university removed, with tasks T7, T52, T53). (2 Nov, commit “2 Nov dev briefs: …”)
+  - Read as written ("the only status after submission"); Document re-upload pending stays, as rejecting a document sets it.
+- [x] Change status: no helper text (the conditional offer note and the others). (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] No automatic document request on any status change (the visa lodgement proof and payment proof included); GSP's own mandatory uploads stay. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] RP Withdraw up to Ready to submit; after submission greyed out with "Submitted to the university. Ask your GSP contact in chat to withdraw." GSP can close at any stage. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Verification: Background/finance documents upload pending (On RP while a request is open). University assessment or interview is On university. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Deposit refund pending in Acceptance and in Visa (On university; doesn't close the application). (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Visa rejected (was Visa refused) closes the application; Visa granted is one status and asks for the course start date. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] After Student enrolled, More shows only Student profile (item 14's "disable More" was cancelled by Jovial). (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Acceptance letter received: Change status no longer stays off when the acceptance letter is already in Documents (filed from Mail); uploading it in the popup turns it on. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Activity: the RP sees only chat, documents and commission lines; mail, submission and status lines are GSP's (`data/activity.ts`). (2 Nov, commit “2 Nov dev briefs: …”)
+  - Chosen in the build, for Jovial to confirm: status moves count as GSP-only (the RP sees the status in the header).
+- [x] Submission: logins only for Own portal and StudyLink (StudyLink one per sales region); "username and password"; email shows the address only; "Through university portal" is a chip. (2 Nov, commit “2 Nov dev briefs: …”)
+
+### GSP · Admin
+- [x] Create roles: phone required; email read-only after creation; Title optional free text; one role, changeable. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Sales regions: countries already in another region aren't offered; Working calendar optional; Working days takes any set of days (Sunday to Thursday); no stray "Last changed" on the nationality map. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Shared mailboxes: access per person, View or View and send; a note and a sync-from date per mailbox; no queues. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Recruitment assignment: one per state or city (duplicate refused with a warning); All / Rest of the country is the fallback, a city overrides it; with no row, the region's default recruitment contact; only Recruitment users. (2 Nov, commit “2 Nov dev briefs: …”)
+- [x] Document configuration: **Request categories**, editable; Other always offered. (2 Nov, commit “2 Nov dev briefs: …”)
+
 ## Everywhere
 
 - [ ] **No tabs inside tabs.** Separate sections with dividers and shadows instead. (Decision)

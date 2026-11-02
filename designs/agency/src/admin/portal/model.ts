@@ -10,7 +10,7 @@ import { PERM_ROLE, type Role } from '../../proto/roles';
  * pages GSP · Institution has, from its folder: a change there shows here too, unless a page gets its own setting
  * here later. The rest are GSP Admin's own configuration: **User roles** (Create roles, Sales regions, Permission
  * roles, Queues, Emails),
- * **Recruitment** (BDM assignment), **Course configuration** (Currency exchange, Living costs), **Application
+ * **Recruitment** (Recruitment assignment), **Course configuration** (Currency exchange, Living costs), **Application
  * configuration** (Application routing, Document configuration) and **Other configurations** (Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
@@ -64,7 +64,7 @@ export const GROUPS: NavGroup[] = [
     key: 'recruitment',
     label: 'Recruitment',
     icon: 'partner',
-    items: [{ key: 'bdm', label: 'BDM assignment', short: 'BDMs', icon: 'user' }],
+    items: [{ key: 'bdm', label: 'Recruitment assignment', short: 'Recruitment', icon: 'user' }],
   },
   {
     key: 'course',

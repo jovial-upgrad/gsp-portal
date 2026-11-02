@@ -33,7 +33,7 @@ const RP_ROLES = [
 ];
 /** GSP's nine roles from Admin › Permission roles, then the RP's three. */
 export const gspRoles = () => [
-  ...PERMISSION_ROLES.map(name => ({ id: roleId(name), name, side: 'GSP', scope: name === 'Admission' || name === 'Recruitment' ? 'regions' : 'global', about: ABOUT[name] || '' })),
+  ...PERMISSION_ROLES.map(name => ({ id: roleId(name), name, side: 'GSP', scope: name === 'Admin' ? 'global' : 'regions', about: ABOUT[name] || '' })),
   ...RP_ROLES,
 ];
 export const ROLES = gspRoles();

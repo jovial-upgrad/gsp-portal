@@ -17,14 +17,14 @@ import { sampleApplications, isOpen } from '../../data/applications';
 import { routingRps } from '../../data/regions';
 import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft } from './parts';
-import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, istDate, trySave, type SaveResult } from './states';
+import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, trySave, type SaveResult } from './states';
 
-/** A region as the Sales regions page edits it: its own record, plus its default BDM, Admissions queue and working calendar. */
+/** A region as the Sales regions page edits it: its own record, plus its default recruitment contact, Admissions queue and working calendar. */
 type RegionRow = Region & { bdm: string; queue: string; calendar: string };
 
 /**
  * Sales regions (PRD slice 1; Admin › User roles › Sales regions): the only list of sales regions in the product.
- * Each has a name, its countries, an Admissions contact, a default BDM, its Admissions queue (from Admin › Work, the
+ * Each has a name, its countries, an Admissions contact, a default recruitment contact, its Admissions queue (from Admin › Work, the
  * one queue editor, S4-1) and its working calendar (Admin › Work › Working days, S4-25). One time zone, IST. Global,
  * Direct and Rest of world are system regions. The same page keeps the nationality map, on its own tab.
  */
@@ -95,7 +95,7 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
                 <th scope="col">Name</th>
                 <th scope="col">Countries</th>
                 <th scope="col">Admissions contact</th>
-                <th scope="col">Default BDM</th>
+                <th scope="col">Default recruitment contact</th>
                 <th scope="col">Admissions queue</th>
                 <th scope="col">Working calendar</th>
                 {canEdit && (
@@ -152,7 +152,7 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
           const cal = cals.find((c) => c.name === r.calendar);
           const region: Region = { name: r.name, contact: r.contact, countries: r.countries, ...(cal ? { calendarId: cal.id } : {}) };
           if (!was) {
-            change('Sales regions', `Added ${r.name}: ${r.countries.length} countries; contact ${r.contact}; BDM ${r.bdm}; queue ${r.queue}; calendar ${r.calendar}`, (c) => {
+            change('Sales regions', `Added ${r.name}: ${r.countries.length} countries; contact ${r.contact}; recruitment contact ${r.bdm}; queue ${r.queue}; calendar ${r.calendar}`, (c) => {
               const at = c.regions.findIndex((x) => isSystemRegion(x.name));
               return { ...c, regions: [...c.regions.slice(0, at), region, ...c.regions.slice(at)], regionBdm: { ...c.regionBdm, [r.name]: r.bdm }, regionQueue: { ...c.regionQueue, [r.name]: r.queue } };
             });
@@ -166,7 +166,7 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
                 ['name', was.name, r.name],
                 ['countries', was.countries.join(', ') || 'none', r.countries.join(', ') || 'none'],
                 ['Admissions contact', was.contact, r.contact],
-                ['default BDM', was.bdm, r.bdm],
+                ['default recruitment contact', was.bdm, r.bdm],
                 ['Admissions queue', was.queue, r.queue],
                 ['working calendar', was.calendar, r.calendar],
               ] as [string, string, string][]
@@ -225,7 +225,8 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
 
 /** Add or edit a sales region (PRD slice 1, A sales region). System regions keep their name and countries. */
 function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars, onClose, onSave }: { open: boolean; region: RegionRow | null; regions: Region[]; contacts: string[]; bdms: string[]; queues: string[]; calendars: string[]; onClose: () => void; onSave: (r: RegionRow) => void }) {
-  const blank: RegionRow = { name: '', contact: '', countries: [], bdm: '', queue: '', calendar: calendars.includes('Monday to Friday') ? 'Monday to Friday' : calendars[0] ?? '' };
+  // the working calendar is optional (Jovial, 2 Nov)
+  const blank: RegionRow = { name: '', contact: '', countries: [], bdm: '', queue: '', calendar: '' };
   const [v, setV] = useState<RegionRow>(blank);
   const [result, setResult] = useState<SaveResult | null>(null);
   const system = !!region && isSystemRegion(region.name);
@@ -240,9 +241,8 @@ function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars
     name: system ? null : name.length < 2 || name.length > 60 ? 'Enter the region’s name.' : regions.some((r) => r.name !== region?.name && r.name.toLowerCase() === name.toLowerCase()) ? `There’s already a region called ${name}.` : null,
     countries: system || v.countries.length ? null : 'Pick at least one country.',
     contact: !v.contact ? 'Pick the admissions contact.' : null,
-    bdm: !v.bdm ? 'Pick the default BDM.' : null,
+    bdm: !v.bdm ? 'Pick the default recruitment contact.' : null,
     queue: !v.queue ? 'Pick the Admissions queue.' : null,
-    calendar: !v.calendar ? 'Pick the working calendar.' : null,
   });
   useEffect(() => {
     if (!open) return;
@@ -257,7 +257,8 @@ function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars
     if (r !== 'ok') return setResult(r);
     onSave({ ...v, name: system ? region!.name : name });
   };
-  const options = COUNTRIES.map((x) => x.name).map((x) => (elsewhere.has(x) && !v.countries.includes(x) ? `${x} (in ${elsewhere.get(x)})` : x));
+  // a country already in another sales region isn't offered (Jovial, 2 Nov)
+  const options = COUNTRIES.map((x) => x.name).filter((x) => !elsewhere.has(x) || v.countries.includes(x));
   return (
     <Sheet
       open={open}
@@ -267,7 +268,7 @@ function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars
       center
       className="iform cfg__sheet"
       title={region ? `Edit ${region.name}` : 'Add sales region'}
-      sub={system ? 'A system region: its name and countries are fixed; its contact, default BDM, queue and calendar can change.' : undefined}
+      sub={system ? 'A system region: its name and countries are fixed; its contact, default recruitment contact, queue and calendar can change.' : undefined}
       footer={
         <div className="asf">
           <div className="asf__acts">
@@ -292,7 +293,7 @@ function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars
             <p className="cfg__muted">{REGION_MEANS[region!.name]}</p>
           </div>
         ) : (
-          <Field id="rg-countries" label="Countries" required error={c.err('countries')} hint="A country sits in only one region; one already in another region can’t be picked until it’s removed there.">
+          <Field id="rg-countries" label="Countries" required error={c.err('countries')} hint="A country sits in only one region: countries already in another region aren’t listed.">
             <MultiPick
               id="rg-countries"
               label="Countries"
@@ -302,21 +303,21 @@ function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars
               onClose={c.blur('countries')}
               empty="Pick its countries"
               search
-              onChange={(l) => setV({ ...v, countries: l.filter((x) => !/ \(in .+\)$/.test(x)) })}
+              onChange={(l) => setV({ ...v, countries: l })}
             />
           </Field>
         )}
         <Field id="rg-contact" label="Admissions contact" required error={c.err('contact')} hint="Active Admission or Global Ops users.">
           <Pick id="rg-contact" label="Admissions contact" value={v.contact} placeholder="Pick the admissions contact" options={[...new Set([...contacts, v.contact].filter(Boolean))]} invalid={!!c.err('contact')} onChange={(x) => (setV({ ...v, contact: x }), c.blur('contact')())} />
         </Field>
-        <Field id="rg-bdm" label="Default BDM" required error={c.err('bdm')} hint="Active Recruitment users.">
-          <Pick id="rg-bdm" label="Default BDM" value={v.bdm} placeholder="Pick the default BDM" options={[...new Set([...bdms, v.bdm].filter(Boolean))]} invalid={!!c.err('bdm')} onChange={(x) => (setV({ ...v, bdm: x }), c.blur('bdm')())} />
+        <Field id="rg-bdm" label="Default recruitment contact" required error={c.err('bdm')} hint="Active Recruitment users.">
+          <Pick id="rg-bdm" label="Default recruitment contact" value={v.bdm} placeholder="Pick the default recruitment contact" options={[...new Set([...bdms, v.bdm].filter(Boolean))]} invalid={!!c.err('bdm')} onChange={(x) => (setV({ ...v, bdm: x }), c.blur('bdm')())} />
         </Field>
         <Field id="rg-queue" label="Admissions queue" required error={c.err('queue')} hint="From Admin › Work › Queues, SLA and escalation, the only queue editor. If the queue is deleted, the region falls back to Global Admissions.">
           <Pick id="rg-queue" label="Admissions queue" value={v.queue} placeholder="Pick the Admissions queue" options={queues} invalid={!!c.err('queue')} onChange={(x) => (setV({ ...v, queue: x }), c.blur('queue')())} />
         </Field>
-        <Field id="rg-cal" label="Working calendar" required error={c.err('calendar')} hint="Working days, hours and holidays, from Admin › Work › Working days. A region is on exactly one; picking it here or there is the same setting.">
-          <Pick id="rg-cal" label="Working calendar" value={v.calendar} placeholder="Pick the working calendar" options={calendars} invalid={!!c.err('calendar')} onChange={(x) => (setV({ ...v, calendar: x }), c.blur('calendar')())} />
+        <Field id="rg-cal" label="Working calendar" hint="Optional. Working days, hours and holidays, from Admin › Work › Working days (any set of days, like Sunday to Thursday). Picking it here or there is the same setting.">
+          <Pick id="rg-cal" label="Working calendar" value={v.calendar} placeholder="Pick a working calendar" options={calendars} onChange={(x) => setV({ ...v, calendar: x })} />
         </Field>
       </div>
     </Sheet>
@@ -398,7 +399,6 @@ function NationalityMap({ cfg, change, say, canEdit }: ConfigProps) {
               <tr>
                 <th scope="col">Nationality</th>
                 <th scope="col">Sales region</th>
-                <th scope="col">Last changed</th>
                 {d.editing && (
                   <th scope="col">
                     <span className="vh">Remove</span>
@@ -420,7 +420,6 @@ function NationalityMap({ cfg, change, say, canEdit }: ConfigProps) {
                       x
                     )}
                   </td>
-                  <td className="cfg__muted num">{d.value.at[k] ? istDate(d.value.at[k]) : '–'}</td>
                   {d.editing && (
                     <td className="cfg__acts">
                       <Button

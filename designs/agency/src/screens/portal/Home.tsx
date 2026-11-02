@@ -173,7 +173,7 @@ export function Home({
               </div>
             ) : manager ? (
               <>
-                <ContactCard person={{ ...manager, role: 'Partner manager (BDM)' }} hours={hoursText(regionOfCountry(join?.form.country || TEST_COUNTRY))} />
+                <ContactCard person={{ ...manager, role: 'Recruitment' }} hours={hoursText(regionOfCountry(join?.form.country || TEST_COUNTRY))} />
                 {/* and the region's Admissions contact, for applications (W15) */}
                 {(() => {
                   const adm = admissionsContactFor(join?.form.country || TEST_COUNTRY);
@@ -181,7 +181,7 @@ export function Home({
                 })()}
               </>
             ) : (
-              <p className="side-card__text">Your partner manager will be in touch. Their name and number will show here.</p>
+              <p className="side-card__text">Your Recruitment contact at GSP will be in touch. Their name and number will show here.</p>
             )}
           </section>
         </motion.aside>
