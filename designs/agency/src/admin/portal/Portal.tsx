@@ -32,6 +32,8 @@ import { Universities } from '../../institution/records/Universities';
 import { Catalogue } from '../../institution/records/Catalogue';
 import { InstitutionPartners } from '../../institution/records/InstitutionPartners';
 import { RecruitmentPartners } from '../../institution/records/RecruitmentPartners';
+import { MasterPartners } from '../../institution/records/MasterPartners';
+import { CourseTags } from '../../institution/records/CourseTags';
 import { Announcements } from '../../institution/records/Announcements';
 import { StaffProfile } from '../../gsp/portal/StaffPages';
 import { RoleHome } from './RoleHome';
@@ -368,6 +370,10 @@ export function Portal({
       <InstitutionPartners {...page} appsByUni={appsByUni} />
     ) : section === 'announcements' ? (
       <Announcements {...page} />
+    ) : section === 'mps' ? (
+      <MasterPartners {...page} />
+    ) : section === 'tags' ? (
+      <CourseTags db={db} set={setDb} me={ME.name} say={say} role={page.role} />
     ) : CONFIG.includes(section as ConfigSection) ? (
       <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={ME.name} say={say} />
     ) : (

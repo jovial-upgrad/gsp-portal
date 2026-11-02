@@ -9,7 +9,7 @@ import { PERM_ROLE } from '../../proto/roles';
  * courses. 29 Oct (2nd round), from the PM prototype's IP team: Announcements, after Courses; Home is the team's
  * queue. `profile` is the account page, opened from the initials on phones.
  */
-export type Section = 'home' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'profile';
+export type Section = 'home' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'mps' | 'profile';
 
 const ALL_NAV: { key: Section; label: string; short: string; icon: IconName }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home' },
@@ -17,6 +17,7 @@ const ALL_NAV: { key: Section; label: string; short: string; icon: IconName }[] 
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
   { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search' },
   { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner' },
+  { key: 'mps', label: 'Master Partners', short: 'MPs', icon: 'people' },
   { key: 'ips', label: 'Institution partners', short: 'Partners', icon: 'briefcase' },
   { key: 'universities', label: 'Universities', short: 'Universities', icon: 'building' },
   { key: 'catalogue', label: 'Courses', short: 'Courses', icon: 'cap' },
@@ -30,7 +31,7 @@ export const NAV = liveMenu(ALL_NAV, () => PERM_ROLE['institution-partner']);
 export const TABS: Section[] = liveKeys<Section>(['home', 'applications', 'universities', 'catalogue', 'ips'], () => PERM_ROLE['institution-partner']);
 
 /** The pages that hold records. */
-export type RecordSection = 'universities' | 'catalogue' | 'ips' | 'rps' | 'announcements';
+export type RecordSection = 'universities' | 'catalogue' | 'ips' | 'rps' | 'announcements' | 'mps';
 /** A record to open, on which tab, and where its back link goes when it isn't its own list. */
 export type Target = { section: RecordSection; id: string; tab?: string; back?: Target & { label: string } };
 /** A record opened from somewhere else (Home's queue, another record): a new key each time. */

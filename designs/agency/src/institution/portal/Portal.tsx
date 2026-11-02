@@ -1,3 +1,4 @@
+import { MasterPartners } from '../records/MasterPartners';
 import { TEST_COUNTRY } from '../../data/rpteam';
 import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -285,6 +286,8 @@ export function Portal({
       <Universities {...page} appsByUni={appsByUni} />
     ) : section === 'catalogue' ? (
       <Catalogue {...page} />
+    ) : section === 'mps' ? (
+      <MasterPartners {...page} />
     ) : section === 'ips' ? (
       <InstitutionPartners {...page} appsByUni={appsByUni} />
     ) : section === 'announcements' ? (

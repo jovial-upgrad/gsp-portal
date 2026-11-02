@@ -423,7 +423,21 @@ export type RecruitmentPartner = {
   signup?: true;
   /** When BAP approved the partner, and who (W4). */
   approved?: { at: number; by: string };
+  /** The RP agreement (slice 2 PRD, S2-4): uploaded by RP Ops before approval, sent on approval, signed by the RP. */
+  agreement?: RpAgreement;
+  /** The status before Suspended, which Reactivate returns to (S2C-9). */
+  before?: RpStatus;
+  /** T58 "Train <RP> on the portal" marked done by RP Ops (S4-22). */
+  trained?: { at: number; by: string };
+  /** Notices RP Ops issued (proposal S2C-12; starts T59). */
+  notices?: RpNotice[];
+  /** Branches GSP added from the RP's record (Recruitment, RP Ops, Admin; matrix RP branches and team). */
+  branches?: { id: string; name: string; country: string; state: string; city: string; main?: boolean; bdm?: string }[];
 };
+/** The RP agreement's state, shown on Activated: Sent (waiting for the RP), Signed copy received (waiting for BAP), Sent back (waiting for the RP). */
+export type RpAgreementState = 'Uploaded' | 'Sent' | 'Signed copy received' | 'Sent back' | 'Accepted';
+export type RpAgreement = { file: string; version: string; uploadedAt: number; by: string; state: RpAgreementState; sentAt?: number; signed?: { file: string; on: string; at: number }; reason?: string; checked?: { by: string; at: number } };
+export type RpNotice = { id: string; subject: string; message: string; file?: string; at: number; by: string };
 
 /** An RP's documents: the ones GSP · Admin's rules ask an agency in its country for (data/partners.ts). */
 let docsCountry = 'India';
@@ -475,7 +489,17 @@ const datasetRps = (): RecruitmentPartner[] =>
       ],
     };
   });
-export const sampleRps = (): RecruitmentPartner[] => [...rpRows(), ...datasetRps()].map(staffed);
+export const sampleRps = (): RecruitmentPartner[] => [...rpRows(), ...datasetRps()].map(staffed).map(withAgreement);
+/** The samples' RP agreements: signed ones accepted; Kathmandu's sent and waiting; Bright Future's signed copy waiting for BAP. */
+function withAgreement(r: RecruitmentPartner): RecruitmentPartner {
+  const RO = nameOf('garima.bhardwaj@upgrad.com');
+  const base = (at: string) => ({ file: `GSP_RP_agreement_${r.code}.pdf`, version: 'v3 · Oct 2026', uploadedAt: atIso(at, 9), by: RO, sentAt: atIso(at, 10) });
+  if (r.id === 'rp-kathmandu') return { ...r, approved: { at: atIso(inDays(-20)), by: RO }, agreement: { ...base(inDays(-20)), state: 'Sent' } };
+  if (r.id === 'rp-brightfuture') return { ...r, approved: { at: atIso(inDays(-27)), by: RO }, agreement: { ...base(inDays(-27)), state: 'Signed copy received', signed: { file: 'Bright_Future_signed_agreement.pdf', on: inDays(-2), at: atIso(inDays(-2), 15) } } };
+  if (['Agreement signed', 'Dormant', 'Suspended'].includes(r.status))
+    return { ...r, before: r.status === 'Suspended' ? 'Agreement signed' : r.before, trained: r.status === 'Agreement signed' && r.id !== 'rp-manila' ? { at: atIso(r.since), by: RO } : undefined, agreement: { ...base(r.since), state: 'Accepted', signed: { file: `${r.code}_signed_agreement.pdf`, on: r.since, at: atIso(r.since, 15) }, checked: { by: RO, at: atIso(r.since, 16) } } };
+  return r;
+}
 const rpRows = (): RecruitmentPartner[] => [
   rp('rp-dhaka', 1042, 'Dhaka Global Education', 'Dhaka', 'Bangladesh', 'Verifying', inDays(-8), { name: 'Nusrat Jahan', email: 'nusrat@dhakaglobaledu.com', phone: '+880 1711 552 019' }, 'Event or fair', '', '', docs('With BAP'), [{ at: inDays(-7), what: 'All documents uploaded' }, { at: inDays(-8), what: 'Signed up' }]),
   rp('rp-eduvista', 1043, 'EduVista Consultants', 'Hyderabad', 'India', 'Verifying', inDays(-9), { name: 'Kiran Reddy', email: 'kiran@eduvista.in', phone: '+91 98490 11220' }, 'Google search', '', '', docs('With BAP'), [{ at: inDays(-8), what: 'All documents uploaded' }, { at: inDays(-9), what: 'Signed up' }]),

@@ -47,6 +47,8 @@ export function ConfigPage({ section, cfg, setCfg, me, say }: { section: ConfigS
     documents: <Documents {...p} />,
     logs: <Logs {...p} />,
     security: <Security {...p} />,
+    // Course tags is GSP · Institution's page (institution/records/CourseTags.tsx), routed by the portal
+    tags: null,
   };
   return <div className="ipage cfg">{pages[section]}</div>;
 }
