@@ -587,7 +587,7 @@ export function NewApplication({
                           r={r}
                           i={i}
                           // details to complete: straight to that part of the profile
-                          onFix={r.ok === 'add' && (r.title === 'Academics' || r.title === 'English') ? () => onOpenStudent(s.id, r.title === 'English' ? 'tests' : 'education') : undefined}
+                          onFix={(r.title === 'Academics' || r.title === 'English') && (r.ok === 'add' || r.lines?.some((l) => l.ok === 'add')) ? () => onOpenStudent(s.id, r.title === 'English' ? 'tests' : 'education') : undefined}
                         />
                       ))}
                     </ul>
@@ -756,7 +756,7 @@ function ReasonRow({ r, i, onFix }: { r: Reason; i: number; onFix?: () => void }
       </span>
       <span className="nareason__k">{r.title}</span>
       <span className="nareason__v">
-        {r.text}
+        {r.lines ? <span className={`nareason__verdict nareason__verdict--${r.ok}`}>{r.text}</span> : r.text}
         {onFix && (
           <>
             {' '}
@@ -766,6 +766,19 @@ function ReasonRow({ r, i, onFix }: { r: Reason; i: number; onFix?: () => void }
           </>
         )}
       </span>
+      {r.lines && (
+        <ul className="nareason__subs">
+          {r.lines.map((l) => (
+            <li key={l.sub + l.text} className={`nasub nasub--${l.ok}`}>
+              <span className="nasub__ic" aria-hidden="true">
+                <Icon name={l.ok === 'yes' ? 'check' : l.ok === 'warn' ? 'info' : l.ok === 'no' ? 'close' : l.ok === 'add' ? 'edit' : 'minus'} size={11} strokeWidth={2.6} />
+              </span>
+              <span className="nasub__k">{l.sub}</span>
+              <span className="nasub__v">{l.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </motion.li>
   );
 }

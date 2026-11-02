@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { Checkbox, SearchInput } from '../../components/forms';
+import { Field } from '../../components/forms';
+import { MultiPick } from '../../institution/records/MultiPick';
+import { searchCatalogue } from '../../institution/data/store';
 import type { Course } from '../../data/courses';
 
 /** Results a page (1 Nov: page numbers, not "Show more"). */
@@ -62,17 +64,13 @@ export function Pager({ page, total, onPage, per: PER_PAGE = 20 }: { page: numbe
   );
 }
 
-const SHOW = 8;
-
 /**
- * The University filter (slice 3 PRD): the universities in the current results, searchable, A to Z, with a count
- * each; the first 8, then "Show N more universities". Picking several shows courses at any of them; none is
+ * The University filter (slice 3 PRD; Jovial, 2 Nov: a multi-select dropdown): the portal's own multi-select over the
+ * universities in the current results, A to Z, each with its course count, searchable and 10 at a time. The field
+ * names the one picked, or says how many; Clear empties it. Picking several shows courses at any of them; none is
  * "Any university".
  */
 export function UniFilter({ id, pool, value, onChange }: { id: string; pool: Course[]; value: string[]; onChange: (uniIds: string[]) => void }) {
-  const [q, setQ] = useState('');
-  const [all, setAll] = useState(false);
-  useEffect(() => setAll(false), [q]);
   const list = useMemo(() => {
     const by = new Map<string, { id: string; name: string; n: number }>();
     pool.forEach((c) => {
@@ -82,33 +80,26 @@ export function UniFilter({ id, pool, value, onChange }: { id: string; pool: Cou
     });
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [pool]);
-  const words = q.trim().toLowerCase();
-  const found = words ? list.filter((u) => u.name.toLowerCase().includes(words)) : list;
-  const shown = all ? found : found.slice(0, SHOW);
-  const left = found.length - shown.length;
-  const toggle = (uid: string, on: boolean) => onChange(on ? [...value, uid] : value.filter((x) => x !== uid));
+  const named = useMemo(() => new Map(list.map((u) => [u.id, u])), [list]);
+  // picked universities stay listed (and named) even when the other filters leave them no courses
+  const options = useMemo(() => [...list.map((u) => u.id), ...value.filter((v) => !named.has(v))], [list, value, named]);
+  const nameOf = useCallback((uid: string) => named.get(uid)?.name ?? searchCatalogue().unis.find((u) => u.id === uid)?.name ?? uid, [named]);
+  const countOf = useCallback((uid: string) => String(named.get(uid)?.n ?? 0), [named]);
   return (
-    <fieldset className="funi">
-      <legend className="field__label">University</legend>
-      <SearchInput id={`${id}-q`} label="Find a university" placeholder="Find a university" value={q} onChange={setQ} className="funi__search" />
-      <p className="funi__any">{value.length ? `${value.length} picked · ` : 'Any university'}{value.length > 0 && (
-        <button type="button" className="btn btn--link" onClick={() => onChange([])}>
-          Any university
-        </button>
-      )}</p>
-      <div className="funi__list">
-        {shown.map((u) => (
-          <Checkbox key={u.id} id={`${id}-${u.id}`} checked={value.includes(u.id)} onChange={(on) => toggle(u.id, on)}>
-            {u.name} <span className="funi__n num">({u.n})</span>
-          </Checkbox>
-        ))}
-        {words && !found.length && <p className="funi__none">No university in these results matches “{q.trim()}”.</p>}
-      </div>
-      {left > 0 && (
-        <button type="button" className="btn btn--link funi__more" onClick={() => setAll(true)}>
-          Show {left} more {left === 1 ? 'university' : 'universities'}
-        </button>
-      )}
-    </fieldset>
+    <Field id={id} label="University">
+      <MultiPick
+        id={id}
+        label="University"
+        value={value}
+        options={options}
+        labelOf={nameOf}
+        noteOf={countOf}
+        empty="Any university"
+        summarize={(v) => (v.length === 1 ? nameOf(v[0]) : `${v.length} selected`)}
+        search
+        pageSize={10}
+        onChange={onChange}
+      />
+    </Field>
   );
 }

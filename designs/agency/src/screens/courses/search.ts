@@ -71,7 +71,8 @@ export type CourseSearch = {
 };
 
 /** Duration's stops: <1 year, 1 to 4 years, 5+ years (S3-21). */
-export const DUR_STOPS = ['<1 year', '1 year', '2 years', '3 years', '4 years', '5+ years'];
+/** Duration's steps, in years (Jovial, 2 Nov: just the numbers; the filter's label says "years" once). */
+export const DUR_STOPS = ['<1', '1', '2', '3', '4', '5+'];
 export const ANY_DUR: [number, number] = [0, DUR_STOPS.length - 1];
 export const NO_FILTERS: Filters = { fee: null, tags: [], dur: ANY_DUR, unis: [], destState: '', intake: '' };
 

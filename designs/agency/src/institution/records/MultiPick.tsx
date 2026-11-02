@@ -8,7 +8,7 @@ import { Icon } from '../../components/Icon';
  * opens in the overlay layer, so a table or a dialog never clips it. With `all` (29 Oct, 7th round), the list starts
  * with that option ("All countries"), ticked while nothing else is; ticking it clears the rest.
  */
-export function MultiPick({ id, label, value, options, onChange, empty = 'Any (empty = all)', search, all, invalid, describedBy, onClose, pageSize }: { id: string; label: string; value: string[]; options: string[]; onChange: (v: string[]) => void; empty?: string; search?: boolean; all?: string; /** Jovial, 2 Nov: a long list (every RP) shows this many at a time, with Previous and Next. */ pageSize?: number; /** QC, 1 Nov: marked invalid and pointed at its error, like any other field. */ invalid?: boolean; describedBy?: string; /** When the list closes: the field has been left. */ onClose?: () => void }) {
+export function MultiPick({ id, label, value, options, onChange, empty = 'Any (empty = all)', search, all, invalid, describedBy, onClose, pageSize, labelOf = (o) => o, noteOf, summarize }: { id: string; label: string; value: string[]; options: string[]; onChange: (v: string[]) => void; empty?: string; search?: boolean; all?: string; /** What an option says, when its value is an id (Find courses' University: the university's name). */ labelOf?: (o: string) => string; /** A note after an option (the University filter's course count). */ noteOf?: (o: string) => string | undefined; /** The field's text for what's picked, in place of "A, B and N more". */ summarize?: (picked: string[]) => string; /** Jovial, 2 Nov: a long list (every RP) shows this many at a time, with Previous and Next. */ pageSize?: number; /** QC, 1 Nov: marked invalid and pointed at its error, like any other field. */ invalid?: boolean; describedBy?: string; /** When the list closes: the field has been left. */ onClose?: () => void }) {
   const listId = useId();
   const [open, setOpen] = useState(false);
   const wasOpen = useRef(false);
@@ -49,11 +49,12 @@ export function MultiPick({ id, label, value, options, onChange, empty = 'Any (e
   }, [open]);
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return t ? options.filter((o) => o.toLowerCase().includes(t)) : options;
-  }, [q, options]);
+    return t ? options.filter((o) => labelOf(o).toLowerCase().includes(t)) : options;
+  }, [q, options, labelOf]);
   const pages = pageSize ? Math.max(1, Math.ceil(shown.length / pageSize)) : 1;
   const onPage = pageSize ? shown.slice(Math.min(pg, pages - 1) * pageSize, (Math.min(pg, pages - 1) + 1) * pageSize) : shown;
-  const summary = !value.length ? empty : value.length <= 2 ? value.join(', ') : `${value.slice(0, 2).join(', ')} and ${value.length - 2} more`;
+  const names = value.map(labelOf);
+  const summary = !value.length ? empty : summarize ? summarize(value) : names.length <= 2 ? names.join(', ') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
   return (
     <div
       ref={box}
@@ -109,7 +110,8 @@ export function MultiPick({ id, label, value, options, onChange, empty = 'Any (e
                 <li key={o}>
                   <label className="imp__opt">
                     <input type="checkbox" checked={on} onChange={() => onChange(on ? value.filter((x) => x !== o) : [...value, o])} />
-                    <span>{o}</span>
+                    <span>{labelOf(o)}</span>
+                    {noteOf?.(o) && <span className="imp__note num">{noteOf(o)}</span>}
                   </label>
                 </li>
               );

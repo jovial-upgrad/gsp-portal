@@ -4,34 +4,59 @@ import { money, scholarshipsOf, type Course } from '../../data/courses';
 import { Box } from './parts';
 
 /**
- * The course dialog's Costs, in every role (Jovial, 1 Nov): exactly four parts and their total, for the course's
- * duration as its record gives it: the tuition fee, living costs and visa and health cover (both from GSP · Admin's
- * settings), and the application fee, once. A course whose length is in credits shows one year of each and says so.
- * Then the scholarships: only the university record's that fit this course (Jovial, 1 Nov, HC9), as the record has them.
+ * The course dialog's Costs, in every role (Jovial, 1 Nov; 2 Nov: the figures at the top are for one year). It opens
+ * with the first year: tuition a year, living costs a year (GSP · Admin › Living costs), visa and health cover for
+ * the year (Admin's Visa and health fees) and what's paid once, the application fee. A course shorter than a year
+ * shows its whole length; one in credits shows a year and says so. Under it, for a course longer than a year, the
+ * whole course's total, the same four parts for its full length. Then the scholarships: only the university
+ * record's that fit this course (Jovial, 1 Nov, HC9), as the record has them.
  */
 export function CostsTab({ c }: { c: Course }) {
-  const { parts, total, span, credits, credit } = courseCosts(c);
+  const { parts, total, span, credits, credit, yearParts, yearTotal, yearSpan, longer } = courseCosts(c);
   const schols = scholarshipsOf(c);
+  const short = yearSpan !== '1 year';
   return (
     <>
       <section className="cm-total" aria-labelledby="cs-total">
         <div className="cm-total__head">
           <h3 id="cs-total" className="cm-total__k">
-            Total, for {span}
+            {short ? `Total, for ${span}` : 'First year (a year’s costs)'}
           </h3>
           <p className="cm-total__v">
             <span className="cm-unit">≈ </span>
             <span className="cm-unit">{c.currency} </span>
-            {money(total, c.currency).split(' ').slice(1).join(' ')}
+            {money(yearTotal, c.currency).split(' ').slice(1).join(' ')}
           </p>
           <p className="cm-total__note">
             {credits
               ? `This course’s length is in credits${credit ? ` (${credit})` : ''}, so these are for 1 year.`
-              : `For one student, for the whole course (${span}): tuition, living costs, visa and health cover, and the application fee.`}
+              : short
+                ? `For one student, for the whole course (${span}): tuition, living costs, visa and health cover, and the application fee.`
+                : 'For one student, for the first year: tuition and living costs a year, visa and health cover, and the one-time application fee.'}
           </p>
         </div>
-        <CostBar parts={parts} total={total} cur={c.currency} />
+        <CostBar parts={yearParts} total={yearTotal} cur={c.currency} totalLabel={short ? 'Total' : 'First year'} />
       </section>
+
+      {longer && (
+        <Box id="cs-whole" icon="wallet" title={`Whole course, ${span}`} meta={`≈ ${money(total, c.currency)}`}>
+          <dl className="cs-whole">
+            {parts.map((p) => (
+              <div key={p.key} className="cs-whole__row">
+                <dt>
+                  {p.label}
+                  <span className="cbar__basis">{p.basis}</span>
+                </dt>
+                <dd className="num">{p.v ? money(p.v, c.currency) : p.key === 'app' ? 'Free' : '–'}</dd>
+              </div>
+            ))}
+            <div className="cs-whole__row cs-whole__row--total">
+              <dt>Total, for the whole course</dt>
+              <dd className="num">{money(total, c.currency)}</dd>
+            </div>
+          </dl>
+        </Box>
+      )}
 
       <Box id="cs-schol" icon="award" title="Scholarships" meta={schols.length === 1 ? '1 listed' : `${schols.length} listed`}>
         {schols.length ? (
@@ -58,7 +83,7 @@ export function CostsTab({ c }: { c: Course }) {
  * The parts as one bar, with the parts listed under it in aligned columns (amount, share) and what each is made of,
  * so no part relies on its colour alone. Pointing at a part shows its amount and share.
  */
-function CostBar({ parts, total, cur }: { parts: CostPart[]; total: number; cur: string }) {
+function CostBar({ parts, total, cur, totalLabel = 'Total' }: { parts: CostPart[]; total: number; cur: string; totalLabel?: string }) {
   const [hover, setHover] = useState<string | null>(null);
   const pct = (v: number) => (total ? Math.round((v / total) * 100) : 0);
   const shown = parts.filter((p) => p.v > 0);
@@ -96,7 +121,7 @@ function CostBar({ parts, total, cur }: { parts: CostPart[]; total: number; cur:
           </div>
         ))}
         <div className="cbar__item cbar__item--total">
-          <dt>Total</dt>
+          <dt>{totalLabel}</dt>
           <dd className="cbar__amt">{money(total, cur)}</dd>
           <dd className="cbar__pct">100%</dd>
         </div>
