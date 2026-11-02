@@ -167,6 +167,7 @@ No changes from this review.
   - Nesil, 28 Oct (3rd round): **GSP Assist's mark and name head the RP chat**, as in GSP Team. Still nothing answers on its own.
   - Nesil, 28 Oct, knowingly against this Decision (Nesil's choice when asked): **an offer's conditions come as a second structured template**, a form of questions and documents GSP sends and the RP answers in the chat or in Documents. Raise it at the next review.
   - Nesil, 28 Oct (3rd round): the conditions form is **questions only** now.
+  - Jovial, 2 Nov (slice 3 PRD, S3-30): **Decision changed: the chat has two structured templates**, the document request and the conditions request. This settles Nesil's 28 Oct note above.
   - Nesil, 27 Oct: the suggested questions under the chat are gone.
 - [x] ~~**University emails:** an agent or triggers read them and update the status on their own.~~ Replaced by Jovial, 1 Nov: every status after Pre-screening is changed by the officer. Mail reads the email and suggests the status; the officer confirms, and Mail warns when the move would skip a status. (1 Nov, 05249dc)
   - Nesil, 28 Oct (the stage and status concept): for now **GSP's team moves every status by hand** (only New to Pre-screening moves on its own). GSP Assist reads the university's mail for documents (offer letters, the acceptance letter, the visa) and **offers to add them** to Documents and tell the RP; it doesn't change the status. Confirm with the reviewers which way this goes.
