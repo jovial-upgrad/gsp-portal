@@ -1,4 +1,5 @@
 import { adminCfg } from '../admin/data/store';
+import { rpDocsOf, rpRuleFor } from '../admin/data/config';
 import geoJson from './geo.json';
 
 /** A country, its states, and (in GSP's main markets) the cities of its states most students and agencies are in. */
@@ -52,13 +53,12 @@ const HINT: [RegExp, string][] = [
   [/reference/i, 'Someone who knows your work: their name, email and phone'],
 ];
 export function businessDocsFor(country: string): DocNeed[] {
-  const rule = adminCfg().rpDocs.find((r) =>
-    r.applies === 'All countries' ? true : r.applies === 'Only these countries' ? r.countries.includes(country) : !r.countries.includes(country),
-  );
-  return (rule?.docs ?? []).map((d) => ({
-    name: d.replace(/\s*\(if [^)]*\)/i, ''),
-    hint: HINT.find(([re]) => re.test(d))?.[1] ?? '',
-    optional: /\(if /i.test(d) || undefined,
+  // slice 1 PRD: the first rule that names the country, else the All countries rule; each document Mandatory or Optional
+  const rule = rpRuleFor(adminCfg().rpDocs, country);
+  return (rule ? rpDocsOf(rule) : []).map((d) => ({
+    name: d.name,
+    hint: HINT.find(([re]) => re.test(d.name))?.[1] ?? '',
+    optional: d.setting === 'Optional' || undefined,
   }));
 }
 

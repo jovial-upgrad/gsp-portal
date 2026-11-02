@@ -1157,3 +1157,17 @@
 .fsearch__who.is-disabled { opacity: 0.55; }
 .fsearch__who.is-disabled .fsearch__who-select { cursor: not-allowed; }
 .fsearch__why { margin-top: var(--sp-8); font-size: var(--t-caption); color: var(--text-3); }
+
+/* the student and the search's own lists are the portal's SelectMenu (Jovial, 2 Nov: no system UI) */
+.fsearch__who-pick { position: static; flex: 1; min-width: 0; height: 100%; border-radius: inherit; }
+.fsearch__who-pick .smenu__btn--bare { width: 100%; height: 100%; padding: 0 calc(var(--sp-16) + 26px) 0 calc(var(--sp-20) + 20px + var(--sp-10)); border-radius: inherit; color: var(--text); font-size: var(--t-input); }
+.fsearch__who-pick .smenu__btn--bare:focus-visible { outline: none; }
+.fsearch__who.is-empty .fsearch__who-pick .smenu__value { color: var(--placeholder); }
+.fsearch__who-pick .smenu__btn--bare:disabled { cursor: not-allowed; }
+.fseg__pick { position: static; display: flex; width: 100%; }
+.fseg__pick .smenu__btn--bare { width: 100%; height: 24px; color: var(--text); font-size: var(--t-body); font-weight: var(--fw-medium); }
+.fseg__pick .smenu__btn--bare:focus-visible { outline: none; }
+.fseg__pick .smenu__btn--bare::after { content: ''; position: absolute; inset: 0; }
+.fseg__item.is-empty .fseg__pick .smenu__btn--bare { color: var(--placeholder); font-weight: var(--fw-book); }
+.fseg__item.is-error .fseg__pick .smenu__btn--bare { color: var(--bad); }
+.fseg__item.is-disabled .fseg__pick .smenu__btn--bare { cursor: not-allowed; }

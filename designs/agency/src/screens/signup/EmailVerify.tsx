@@ -15,7 +15,8 @@ export function sendCode(set: SetState, then?: () => void) {
     set((p) => ({
       ...p,
       stage: 'code',
-      email: { status: 'sent', code: '', codeError: null, sentTo: p.form.email.trim(), resendAt: Date.now() + 30_000 },
+      // a new code voids the old one: it works for 10 minutes and allows 5 wrong tries (S2C-16)
+      email: { status: 'sent', code: '', codeError: null, sentTo: p.form.email.trim(), resendAt: Date.now() + 30_000, sentAt: Date.now(), wrong: 0 },
     }));
     then?.();
   }, 700);
@@ -48,11 +49,12 @@ export function EmailCode({ s, set, onCreated, onBack }: { s: SignupState; set: 
   const check = (code: string) => {
     set((p) => ({ ...p, email: { ...p.email, status: 'checking', codeError: null } }));
     timer.current = window.setTimeout(() => {
-      if (code !== TEST_CODE) {
-        set((p) => ({
-          ...p,
-          email: { ...p.email, status: 'sent', code: '', codeError: 'That code doesn’t match. Check the latest email from GSP, or send a new code.' },
-        }));
+      const dead = (s.email.wrong ?? 0) >= 5 || (!!s.email.sentAt && Date.now() - s.email.sentAt > 10 * 60_000);
+      if (code !== TEST_CODE || dead) {
+        set((p) => {
+          const wrong = (p.email.wrong ?? 0) + (dead ? 0 : 1);
+          return { ...p, email: { ...p.email, status: 'sent', code: '', wrong, codeError: wrong >= 5 ? 'That code has stopped working after 5 wrong tries. Send a new one.' : 'That code isn’t right. Check it, or send a new one.' } };
+        });
         window.setTimeout(() => codeRef.current?.focus(), 60);
         return;
       }

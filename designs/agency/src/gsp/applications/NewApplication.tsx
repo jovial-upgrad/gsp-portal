@@ -27,6 +27,7 @@ import {
   type Verdict,
 } from '../../data/applications';
 import { campusLabel, UniMark } from '../courses/parts';
+import { blockMessage, blockingApp } from '../../data/appRules';
 import { AddStudentSheet } from '../students/AddStudentSheet';
 import { readMs } from '../students/ReadBox';
 import type { RecordTab } from '../students/StudentRecord';
@@ -146,7 +147,11 @@ export function NewApplication({
 
   const fit = s && c && intake ? checkFit(s, c, intake) : null;
   // one open application per student and course, whatever the intake (engineering review, 1 Nov); a closed one doesn't block
-  const dupe = s && c ? apps.find((a) => a.studentId === s.id && a.courseId === c.id && a.status !== 'closed') : undefined;
+  // uniqueness (slice 3 PRD): an open or Enrolled application for this course blocks, whatever the intake (S3-28);
+  // checked as soon as both are picked, and again on Start; outside the person's regions the message leaves out the
+  // ID, status and link (S3-7)
+  const dupe = s && c ? blockingApp(apps, s.id, c.id) : undefined;
+  const dupeMsg = dupe && s ? blockMessage(dupe, s.first) : undefined;
   // what this application asks for: the course's documents, read for the student (required ones first)
   const docs = s && c ? docsFor(s, c).sort((x, y) => Number(y.need === 'required') - Number(x.need === 'required')) : [];
   const required = docs.filter((d) => d.need === 'required');
@@ -244,7 +249,7 @@ export function NewApplication({
           : !c
             ? 'Pick a course.'
             : dupe
-              ? `${s.first} already has an open application for this course.`
+              ? `${s.first} already has an open application for this course. Change the student or the course.`
               : fit?.verdict === 'Not eligible'
                 ? 'You can still start it, but the university will likely say no.'
                 : ''}
@@ -384,13 +389,13 @@ export function NewApplication({
                 {dupe && (
                   <div className="nadupe">
                     <p className="field__msg field__msg--error" id="na-dupe" role="alert">
-                      <span>
-                        {s?.first} already has an open application for this course: <strong className="num">{dupe.id}</strong>, {STATUS[dupe.status].text(c.uni.country)}. Open it, or close it before applying again.
-                      </span>
+                      <span>{dupeMsg?.text}</span>
                     </p>
-                    <button type="button" className="btn btn--link" onClick={() => onOpenApp(dupe.id)}>
-                      Open {dupe.id}
-                    </button>
+                    {dupeMsg?.link && (
+                      <button type="button" className="btn btn--link" onClick={() => onOpenApp(dupe.id)}>
+                        Open {dupe.id}
+                      </button>
+                    )}
                   </div>
                 )}
                 </>

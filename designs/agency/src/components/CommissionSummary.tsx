@@ -2,7 +2,7 @@
 /**
  * Commission on the institution partner and RP records (Jovial, 1 Nov): a read-only summary of the terms Finance
  * keeps in Commissions, which stays the only place they're edited. The RP's bank details can be changed here by
- * Recruitment Ops and Finance; the change goes to Finance to verify against the bank letter, and payouts hold.
+ * RP Ops and Finance; the change goes to Finance to verify against the bank letter, and payouts hold.
  */
 import { useState } from 'react';
 import { useStore } from '../finance/store';
@@ -42,7 +42,7 @@ export function IpCommission({ unis }: { unis: { id: string; name: string }[] })
   );
 }
 
-/** An RP's terms and bank details. `canBank`: Recruitment Ops and Finance may change the bank details. */
+/** An RP's terms and bank details. `canBank`: RP Ops and Finance may change the bank details. */
 export function RpCommission({ name, canBank }: { name: string; canBank: boolean }) {
   const cfg = useStore((s) => s.comm.cfg);
   const [bank, setBank] = useState(false);

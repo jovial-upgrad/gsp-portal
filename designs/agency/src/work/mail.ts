@@ -10,13 +10,15 @@
 const H = 36e5;
 const at = (h) => Date.now() - h * H;
 
+import { ACCOUNT_EMAILS } from '../admin/data/emails';
+
 export const MAILBOXES = [
   // Jovial's Inbox tab (31 Oct): five mailboxes, each feeding its queues; everyone in them can see and send for now; Admin sees all
-  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-ops', see: ['admission', 'admission-ops', 'admin', 'view-only'], sendAs: ['admission', 'admission-ops'], ytd: 164952 },
-  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 1190 }, // Jovial, 1 Nov (O6): Recruitment Ops only
-  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['recruitment-ops', 'admin', 'view-only'], sendAs: ['recruitment-ops'], ytd: 4847 },
+  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-global', see: ['admission', 'global-ops', 'admin', 'view-only'], sendAs: ['admission', 'global-ops'], ytd: 164952 },
+  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-admin', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 1190 }, // slice 4 PRD: mail to admin.gsp@ is the Admin queue's (T29)
+  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 4847 },
   { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
-  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['institution-ops', 'admin', 'view-only'], sendAs: ['institution-ops'], ytd: 28 },
+  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['ip-ops', 'admin', 'view-only'], sendAs: ['ip-ops'], ytd: 28 },
 ];
 
 /* Mail that never reaches a person. Share = of all mail, Jan–Oct 2026. */
@@ -25,7 +27,7 @@ export const FILTERS = [
   { id: 'f-ack', name: 'Application received or submitted', example: 'Application Submitted – (SCU-…)', does: 'Filed on the application, with the university’s reference recorded.', share: 3.8, on: true },
   { id: 'f-bounce', name: 'Bounces and out-of-office', example: 'Undeliverable: … · Automatic reply: …', does: 'Bounces flag the address on the contact; out-of-office replies are filed.', share: 4.2, on: true },
   { id: 'f-code', name: 'Sign-in and verification codes', example: 'Your verification code', does: 'Sent only to the person who asked for it; never shared.', share: 0.4, on: true },
-  { id: 'f-marketing', name: 'Newsletters and marketing', example: 'October at OEG: was anything …', does: 'Sent to Admission Ops to review for an announcement (6 working hours).', share: 1.7, on: true },
+  { id: 'f-marketing', name: 'Newsletters and marketing', example: 'October at OEG: was anything …', does: 'Sent to Global Admissions (Global Ops) to review for an announcement (T31, 6 working hours).', share: 1.7, on: true },
 ];
 
 /* What each kind of conversation does once matched. Editable on Mail › Settings. */
@@ -204,17 +206,89 @@ export const THREADS = [
 export const FILED = [
   { id: 'F-1', filter: 'f-system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Enrolment Course update', at: at(0.3), outcome: 'GSP’s own notification. To be stopped at source.' },
   { id: 'F-2', filter: 'f-system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Student update', at: at(0.9), outcome: 'GSP’s own notification. To be stopped at source.' },
-  { id: 'F-3', filter: 'f-marketing', from: 'Opulence Education Group', subject: 'October at OEG: was anything missed?', at: at(1.1), outcome: 'Newsletter. Sent to Institution Ops as a possible announcement.' },
+  { id: 'F-3', filter: 'f-marketing', from: 'Opulence Education Group', subject: 'October at OEG: was anything missed?', at: at(1.1), outcome: 'Newsletter. Sent to Global Admissions as a possible announcement.' },
   { id: 'F-4', filter: 'f-code', from: 'UWA Accounts', subject: 'Your verification code', at: at(1.4), outcome: 'A sign-in code. Sent only to Tasha Tandon, who asked for it from the UWA portal.' },
   { id: 'F-5', filter: 'f-ack', from: 'AUT (ArionSystem)', subject: 'Partners Online Application Received – AUT-26-55190', at: at(1.8), record: 'GSP-24214', outcome: 'Filed on GSP-24214. University reference AUT-26-55190 recorded.' },
   { id: 'F-6', filter: 'f-ack', from: 'University of Tasmania', subject: 'Application submitted', at: at(3.3), record: 'GSP-24221', outcome: 'Filed on GSP-24221. University reference 5523019 recorded.' },
   { id: 'F-7', filter: 'f-bounce', from: 'Mail Delivery Subsystem', subject: 'Undeliverable: Document request', at: at(4), outcome: 'Bounce. Address flagged on Lead Ahead Consultancy’s contact.' },
   { id: 'F-8', filter: 'f-bounce', from: 'Catherine (UC)', subject: 'Automatic reply: conditions', at: at(5), outcome: 'Out-of-office. Filed.' },
-  { id: 'F-9', filter: 'f-marketing', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18), outcome: 'Newsletter. Sent to Institution Ops.' },
+  { id: 'F-9', filter: 'f-marketing', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18), outcome: 'Newsletter. Sent to Global Admissions.' },
 ];
 
 /* Conversations no record was found for raise a task in the Unmatched mail queue. */
 export const MAIL_RECORDS = THREADS.filter((t) => !t.record && t.state === 'match').map((t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}` }));
 export const MAIL_TASKS = THREADS.filter((t) => !t.record && t.state === 'match').map((t, i) => ({
-  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-adm-ops', rule: null, title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
+  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-adm-global', rule: 'T27', title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
 }));
+
+/* ---------- the portal's emails (slice 4 PRD, Emails) ---------- */
+/**
+ * Every email the portal sends: 21 templates the system fills in (slice 1 drafted E1 to E4; slice 4 the rest).
+ * `canTurnOff`: Profile › Email preferences (slice 1's page, both portals) lets each person turn off any email they
+ * get except slice 1's four account emails, which sign-in needs (S4-16). Turning an email off never turns off the bell.
+ * Slice 1's Email preferences reads this list.
+ */
+/** `who`: whose Email preferences list it (GSP Profile, the RP's Profile, or both). */
+export type EmailTemplate = { id: string; name: string; group: 'Account' | 'RP onboarding' | 'Applications' | 'Work'; slice: number; when: string; to: string; subject: string; body: string; canTurnOff: boolean; who: 'GSP' | 'RP' | 'Both' };
+/** Slice 1's wording for E1 to E4 (Admin › Sign-in security shows it): one source. */
+const ACCOUNT_BY_ID = { E1: 'setup', E2: 'code', E3: 'changed', E4: 'paused' };
+const account = (id) => ACCOUNT_EMAILS.find((a) => a.id === ACCOUNT_BY_ID[id]);
+export const EMAIL_TEMPLATES: EmailTemplate[] = [
+  { id: 'E1', name: 'Set up your account', group: 'Account', slice: 1, when: 'A GSP user or RP user is created', to: 'The new user', subject: account('E1').subject, body: account('E1').body, who: 'Both', canTurnOff: false },
+  { id: 'E2', name: 'Your code', group: 'Account', slice: 1, when: 'Sign-in or a password reset asks for a code', to: 'The person signing in', subject: account('E2').subject, body: account('E2').body, who: 'Both', canTurnOff: false },
+  { id: 'E3', name: 'Password changed', group: 'Account', slice: 1, when: 'A password is changed or reset', to: 'The account’s owner', subject: account('E3').subject, body: account('E3').body, who: 'Both', canTurnOff: false },
+  { id: 'E4', name: 'Sign-in paused', group: 'Account', slice: 1, when: 'Too many wrong attempts pause sign-in', to: 'The account’s owner', subject: account('E4').subject, body: account('E4').body, who: 'Both', canTurnOff: false },
+  { id: 'E5', name: 'Welcome', group: 'RP onboarding', slice: 2, when: 'rp.email_verified', to: 'The RP’s business email', subject: 'Welcome to upGrad GSP', body: 'Hi {first name}, your email is verified. Next, add {agency}’s business details and documents and send them to GSP: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E6', name: 'Documents received', group: 'RP onboarding', slice: 2, when: 'rp.documents_sent', to: 'The RP’s business email', subject: 'We’ve received your documents', body: 'Thanks, {agency}. GSP is checking your documents. We’ll email you once they’re verified, or if anything needs changing. Meanwhile you can look at courses in Find courses: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E7', name: 'Document sent back', group: 'RP onboarding', slice: 2, when: 'rp.document_sent_back', to: 'The RP’s business email', subject: 'Please upload your {document} again', body: 'GSP couldn’t accept your {document}: {reason}. Upload a new file here: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E8', name: 'Verified, with the agreement', group: 'RP onboarding', slice: 2, when: 'rp.approved (rp.agreement_sent goes with it, one email)', to: 'The RP’s business email', subject: 'You’re verified: sign your agreement', body: '{agency} is verified. Your agreement with upGrad GSP is attached and on your Home. Sign it and upload the signed copy: {link}. You can add students and apply now.', who: 'RP', canTurnOff: true },
+  { id: 'E9', name: 'Signed agreement sent back', group: 'RP onboarding', slice: 2, when: 'rp.agreement_sent_back', to: 'The RP’s business email', subject: 'Please upload your signed agreement again', body: 'GSP couldn’t accept the signed agreement: {reason}. Upload it again here: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E10', name: 'Agreement signed', group: 'RP onboarding', slice: 2, when: 'rp.agreement_signed', to: 'The RP’s business email', subject: 'Your agreement is signed: commissions start', body: 'Your agreement with upGrad GSP is signed. Commissions apply to applications from today. See Earnings: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E11', name: 'Account status', group: 'RP onboarding', slice: 2, when: 'rp.status_changed', to: 'The RP’s business email; Suspended and Reactivated also to every user of the RP', subject: 'Rejected: “Your GSP partner application”; Suspended: “Your upGrad GSP access is paused”; Reactivated: “Your upGrad GSP access is back”; Dormant: “We miss you at upGrad GSP”', body: 'Rejected: “We can’t take {agency} on as a GSP partner. Questions? Reply to your partner manager.” Suspended: “Access to the portal for {agency} is paused from {date}. Your partner manager can tell you more.” Reactivated: “Access for {agency} is back. Sign in: {link}.” Dormant: “{agency} hasn’t applied in 3 months. Find courses for your students: {link}.” Back from Dormant: no email.', who: 'RP', canTurnOff: true },
+  { id: 'E12', name: 'Linked to a Master Partner', group: 'RP onboarding', slice: 2, when: 'master_partner.rp_linked', to: 'The RP’s business email', subject: '{agency} is now part of {Master Partner}', body: '{agency} is linked to {Master Partner} from {date}. (Unlinked: “… is no longer part of …”)', who: 'RP', canTurnOff: true },
+  { id: 'E13', name: 'Onboarding reminder', group: 'RP onboarding', slice: 2, when: 'T34’s reminder, 3 working days after a send-back', to: 'The RP’s business email', subject: 'Reminder: your documents', body: 'Your {document} still needs a new upload: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E14', name: 'Announcement', group: 'RP onboarding', slice: 2, when: 'announcement.published with Send as email', to: 'The announcement’s recipients', subject: 'The announcement’s title', body: 'The announcement’s text, the university’s name, and “Search {university} courses”: {link}', who: 'Both', canTurnOff: true },
+  { id: 'E15', name: 'Request', group: 'Applications', slice: 3, when: 'request.sent (a document or conditions request)', to: 'The RP: the student’s counsellor, the branch’s Branch Admin, every RP Admin (S4-14)', subject: '{GSP name} needs {request title} for {student}', body: 'For {student}’s application to {course} at {university} ({application ID}): {what’s needed}. {Due by {due date}.} Upload or answer here: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E16', name: 'Sent back', group: 'Applications', slice: 3, when: 'document.rejected', to: 'The RP', subject: 'Please upload the {document} for {student} again', body: '{GSP name} sent back the {document}: {reason}. Upload a new file: {link}.', who: 'RP', canTurnOff: true },
+  { id: 'E17', name: 'Reminder', group: 'Applications', slice: 3, when: 'The “RP reminded” time of T2, T7, T9b, T14, T17', to: 'The RP', subject: 'Reminder: {request title} for {student}', body: 'GSP is still waiting for {request title} for {student}’s application to {university}. {Due by {due date}.} {link}', who: 'RP', canTurnOff: true },
+  { id: 'E18', name: 'Daily update', group: 'Applications', slice: 3, when: 'Once a day at 09:00 IST, when anything happened since the last one', to: 'The RP', subject: '{n} updates on your applications', body: 'One line per application: “{student} · {university}: {what happened}” (status changes, messages, verified documents, closes), each linked. Requests and send-backs are not repeated here.', who: 'RP', canTurnOff: true },
+  { id: 'E19', name: 'Morning email', group: 'Work', slice: 4, when: '08:30 IST, on their working days, when they have a task due today, due tomorrow or late', to: 'The GSP person', subject: 'Your work today: {n} due, {m} late', body: 'Three groups, Late, Due today, Due tomorrow, each task with its title, record and SLA words, linked; then “Open My work”: {link}. Leaders get a fourth group, “Late in your team”.', who: 'GSP', canTurnOff: true },
+  { id: 'E20', name: 'Renewal reminder', group: 'Work', slice: 4, when: 'T38 fires, 60 days before an agreement ends', to: 'The partner’s relationship manager', subject: 'The agreement with {partner} ends on {date}', body: 'Start the renewal: {link}. It’s in your My work too.', who: 'GSP', canTurnOff: true },
+  { id: 'E21', name: 'Escalated to you', group: 'Work', slice: 4, when: 'Level 3 escalation', to: 'Every Admin', subject: 'Late by 5 working days: {task title}', body: '{task title} on {record}, assigned to {assignee}, was due {date}. {link}', who: 'GSP', canTurnOff: true },
+];
+/** The rules every email follows (slice 4 PRD, Rules for every email). */
+export const EMAIL_RULES: [string, string][] = [
+  ['Sender', '“upGrad GSP” no-reply@gsp.upgrad.com, through Amazon SES (slice 1)'],
+  ['Reply-to', 'None: every email is a notification from no-reply, with no Reply-to. Work happens on the portal, so each email links to the page to act on and ends with “Please don’t reply to this email. Reply on the GSP portal.”'],
+  ['Language', 'English only'],
+  ['Layout', 'The upGrad GSP logo, the body, one button for {link}, and the footer “You’re getting this because you use the upGrad GSP portal.” with a link to Email preferences (not on the account emails)'],
+  ['Links', 'Every {link} opens the record in the portal; signed out, it goes through sign-in and then to the record'],
+  ['Unsubscribe', 'Profile › Email preferences, in both portals, lets each person turn off any or all of the emails they get (S4-16). Slice 1’s 4 account emails can’t be turned off, because sign-in doesn’t work without them (proposal, S4-16). Turning off an email never turns off the bell'],
+  ['Who it goes to on the RP side', 'Onboarding emails: the RP’s business email. Application emails: as the bell (S4-14)'],
+  ['Failure', 'A bounce or failure is logged against the email (Logs) and never retried more than 3 times'],
+  ['Logged', 'Every email sent: template, to, record, time, SES message ID, delivered or bounced'],
+];
+export const EMAIL_FOOTER = 'Please don’t reply to this email. Reply on the GSP portal.';
+export const EMAIL_PLACEHOLDERS = '{first name}, {agency}, {student}, {university}, {course}, {intake}, {application ID}, {request title}, {what’s needed}, {due date}, {document}, {reason}, {GSP name}, {status}, {date}, {link}';
+
+/* ---------- daily jobs (slice 4 PRD, Daily jobs): all times IST ---------- */
+export type Job = { id: string; name: string; slice: number; runs: string; every: { daily?: string; minutes?: number; weekly?: [number, string][] }; checks: string; changes: string; writes: string };
+export const JOBS: Job[] = [
+  { id: 'J1', name: 'Agreement ended', slice: 2, runs: 'Daily, 01:00', every: { daily: '01:00' }, checks: 'Institution partners at Agreement executed whose current agreement’s end date is before today (the end date itself is in date)', changes: 'Status → Agreement ended; its Live universities → Paused, so their courses leave course search (S2-15). Acts once per end date: a hand-picked Agreement executed afterwards is left alone', writes: 'ip.status_changed, university.status_changed, by “System”' },
+  { id: 'J2', name: 'Dormant', slice: 2, runs: 'Daily, 01:00', every: { daily: '01:00' }, checks: 'RPs at Agreement signed with no new application in the last 3 months', changes: 'Status → Dormant; sends E11. The RP’s next application moves it back (an event, not this job)', writes: 'rp.status_changed by “System”' },
+  { id: 'J3', name: 'Date rules', slice: 4, runs: 'Daily, 01:00', every: { daily: '01:00' }, checks: 'T33 (not activated 2 working days), T34 (sent back 7 working days), T37 (no application in 90 days), T38 (agreement ends in 60 days), T40 (university not live 14 days after creation), T41 (course in draft 7 days), T42 (last intake’s deadline passed, no next intake), T43 (1 September, no next year’s fees), T57 (the course start date, visa granted)', changes: 'Creates each task whose condition holds and that doesn’t exist yet; sends E20 for T38', writes: 'task.created' },
+  { id: 'J4', name: 'Work clock', slice: 4, runs: 'Every 15 minutes', every: { minutes: 15 }, checks: 'Every open condition with a wait (T2, T5, T7, T53, T54, T9b, T10, T14, T16, T17, T56), every open task’s due time, every RP reminder time', changes: 'Starts chase tasks whose wait ran out; sends RP reminders (E13, E17) at their time; moves tasks to Due soon and Breached; raises escalation levels 1, 2, 3 (E21 at level 3)', writes: 'task.created, task.due_soon, task.breached, task.escalated, email.sent' },
+  { id: 'J5', name: 'Leave cover', slice: 4, runs: 'Daily, 00:05', every: { daily: '00:05' }, checks: 'People whose leave starts or ends today', changes: 'Their open tasks show as their leader’s while on leave, and as theirs again after; new work skips them', writes: 'task.covered, task.uncovered' },
+  { id: 'J6', name: 'Morning email', slice: 4, runs: 'Every 30 minutes', every: { minutes: 30 }, checks: 'GSP people, once it is 08:30 IST on one of their working days, with something due today, due tomorrow or late', changes: 'Sends E19', writes: 'email.sent' },
+  { id: 'J7', name: 'RP daily update', slice: 4, runs: 'Every 30 minutes', every: { minutes: 30 }, checks: 'RPs, once it is 09:00 IST, with updates since the last one', changes: 'Sends E18', writes: 'email.sent' },
+  { id: 'J8', name: 'Weekly checks', slice: 4, runs: 'Fridays 01:00 (T50); Mondays 01:00 (T49, slice 5)', every: { weekly: [[5, '01:00'], [1, '01:00']] }, checks: 'No exchange rates entered for next week; the week’s payout run', changes: 'Creates T50’s task in the Admin queue; T49 is slice 5’s', writes: 'task.created' },
+  { id: 'J9', name: 'Announcements', slice: 2, runs: 'Every 15 minutes', every: { minutes: 15 }, checks: 'Scheduled announcements whose publish date and time has come; live ones past their end date', changes: 'Publishes (and sends E14 when Send as email), or ends them', writes: 'announcement.published' },
+];
+export const JOB_RULES: [string, string][] = [
+  ['Idempotent', 'Each change has a key: job + record + the date or the moment its condition started (for tasks, the task ID in My work). Running a job twice, or two copies at once, changes nothing the second time. A task closed with Done is not made again for the same condition.'],
+  ['Catches up', 'A job acts on every record past its date, not only those that passed since yesterday, so a missed run is made good by the next one. An email whose moment passed by more than 6 hours is not sent late (the morning email is skipped that day).'],
+  ['Working days', '“2 working days” and the like count on the record’s region calendar (SLAs). Calendar days (“60 days before”, “90 days”, “14 days”) are plain dates.'],
+  ['Switched-off rules', 'Make nothing; their open tasks stay until they clear.'],
+  ['Logged', 'Each run writes one line to Admin › Logs: job, start and end time, records checked, records changed, emails sent, and any error with the record it failed on. Each change also writes the record’s Activity, by “System”. A run that fails part-way keeps what it did and picks up the rest next time; three failed runs in a row put a warning on Admin Home (proposal).'],
+  ['Not jobs', 'An English test’s 2-year expiry (slice 3) and an intake’s “Late: likelihood is low” are worked out when shown. There is no document expiry job: passport validity was removed everywhere (31 Oct).'],
+];

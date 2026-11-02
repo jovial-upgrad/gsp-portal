@@ -4,6 +4,8 @@ import { Icon } from '../../components/Icon';
 import { Toast as SharedToast } from '../../components/Toast';
 import type { Focus, Target } from '../portal/model';
 import { dateText, type Stamp } from '../data/records';
+import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
+import { dateTimeText, roleName, type Change, type Created } from '../data/changelog';
 
 /** A records page's title, what it's for, and its main actions. */
 export function PageHead({ title, lead, children }: { title: string; lead: string; children?: ReactNode }) {
@@ -45,12 +47,11 @@ export function Block({ title, children, action }: { title: string; children: Re
   );
 }
 
-/** Nothing matches: what to do about it. */
-export function NoMatch({ what, onClear }: { what: string; onClear: () => void }) {
+/** No results (slice 2 PRD): "Nothing matches these filters." with Clear filters. */
+export function NoMatch({ onClear }: { what?: string; onClear: () => void }) {
   return (
     <div className="snone">
-      <p className="snone__title">No {what} match</p>
-      <p className="snone__text">Try another name, or clear the filters.</p>
+      <p className="snone__title">Nothing matches these filters.</p>
       <button type="button" className="btn btn--secondary btn--sm" onClick={onClear}>
         Clear filters
       </button>
@@ -58,8 +59,131 @@ export function NoMatch({ what, onClear }: { what: string; onClear: () => void }
   );
 }
 
-/** Rows shown at a time on a long list; Show more adds the next lot. */
-export const PAGE = 40;
+/** Empty (nothing yet): names what's missing, and offers the create action to those who can use it. */
+export function Empty({ text, action, onAction }: { text: string; action?: string; onAction?: () => void }) {
+  return (
+    <div className="snone">
+      <p className="snone__title">
+        {text}
+        {action && onAction ? ' ' : ''}
+        {action && onAction && (
+          <button type="button" className="btn btn--link" onClick={onAction}>
+            {action}
+          </button>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** Not found (deleted or a wrong link), and permission denied, as every record page shows them. */
+export function Gone({ denied = false, onBack, back }: { denied?: boolean; onBack: () => void; back: string }) {
+  return (
+    <div className="ipage">
+      <button type="button" className="rback" onClick={onBack}>
+        <Icon name="arrowLeft" size={18} />
+        {back}
+      </button>
+      <section className="card irsec" role="alert">
+        <p className="snone__title">{denied ? 'You don’t have access to this page.' : 'This record doesn’t exist or was removed.'}</p>
+        {denied && (
+          <button type="button" className="btn btn--link" onClick={onBack}>
+            Go to Home
+          </button>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** Rows a page (slice 2 PRD: 25 a page). */
+export const PAGE = 25;
+
+/** A list's page of rows, and its Previous / Next. The page goes back to the first when the rows change. */
+export function usePager<T>(rows: T[], deps: unknown[] = []) {
+  const [n, setN] = useState(0);
+  const key = JSON.stringify(deps);
+  useOnChange(key, () => setN(0));
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  const at = Math.min(n, pages - 1);
+  const page = rows.slice(at * PAGE, at * PAGE + PAGE);
+  const pager =
+    rows.length > PAGE ? (
+      <nav className="imore" aria-label="Pages">
+        <button type="button" className="btn btn--secondary btn--sm" disabled={at === 0} onClick={() => setN(at - 1)}>
+          Previous
+        </button>
+        <span className="imore__n">
+          <span className="num">{(at * PAGE + 1).toLocaleString('en-GB')}</span>–<span className="num">{Math.min(rows.length, at * PAGE + PAGE).toLocaleString('en-GB')}</span> of <span className="num">{rows.length.toLocaleString('en-GB')}</span>
+        </span>
+        <button type="button" className="btn btn--secondary btn--sm" disabled={at >= pages - 1} onClick={() => setN(at + 1)}>
+          Next
+        </button>
+      </nav>
+    ) : null;
+  return { page, pager };
+}
+
+/** A dropdown in the portal's own design (SelectMenu, never the browser's): `all` adds the empty "All …" choice for filters. */
+export function Pick({ id, label, value, options, onChange, all, placeholder, invalid }: { id: string; label: string; value: string; options: readonly (string | MenuOption)[]; onChange: (v: string) => void; all?: string; placeholder?: string; invalid?: boolean }) {
+  const opts: MenuOption[] = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  return <SelectMenu id={id} label={label} value={value} placeholder={placeholder ?? all ?? 'Pick one'} invalid={invalid} options={all ? [{ value: '', label: all }, ...opts] : opts} onChange={onChange} />;
+}
+
+/** The Change log tab (S2-13, S2-14): every change, newest first, written by the system and read-only. */
+export function ChangeLog({ log, id }: { log: Change[]; id: string }) {
+  return (
+    <Section title="Change log" id={id} note="Every change, newest first. The system writes it: nobody adds notes, and no entry can be edited or deleted.">
+      {log.length ? (
+        <div className="stab-wrap">
+          <table className="itab">
+            <thead>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col">Who</th>
+                <th scope="col">Role</th>
+                <th scope="col">What</th>
+                <th scope="col">Old → new</th>
+              </tr>
+            </thead>
+            <tbody>
+              {log.map((e) => (
+                <tr key={e.id}>
+                  <td className="num">{dateTimeText(e.at)}</td>
+                  <td>{e.who}</td>
+                  <td>{roleName(e.role)}</td>
+                  <td>{e.what}</td>
+                  <td>
+                    {e.from} → {e.to}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="iempty">No changes yet.</p>
+      )}
+    </Section>
+  );
+}
+
+/** System information, at the foot of the Overview: created by and on; last modified by and on (the latest Change log entry). */
+export function SystemInfo({ created, log }: { created: Created; log: Change[] }) {
+  const last = log[0];
+  return (
+    <Section title="System information" id="sysinfo">
+      <Facts
+        items={[
+          ['Created by', created.by],
+          ['Created on', dateTimeText(created.at)],
+          ['Last modified by', last ? last.who : created.by],
+          ['Last modified on', dateTimeText(last ? last.at : created.at)],
+        ]}
+      />
+    </Section>
+  );
+}
 
 /** Runs when the value changes, not when the page first shows: the menu clearing an open record, but not one Home opened. */
 export function useOnChange(value: unknown, fn: () => void) {

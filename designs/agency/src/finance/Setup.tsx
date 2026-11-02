@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { update, getState } from './store';
 import { can } from './access';
-import { Page, Card, Select, Table, Button, LinkButton, Field, Input, Num, Notice, Empty, toast } from './kit';
+import { Page, Card, Select, Table, Button, LinkButton, Field, Input, Num, Notice, Empty, toast, NumberInput } from './kit';
 import { useCheck, numError } from '../components/validate';
 import { useUnsaved } from '../components/unsaved';
 import { PersonaBar, usePersona } from './persona';
@@ -77,7 +77,7 @@ export default function Setup() {
         <div className="gspx-form2">
           <Select id="o-day" label="Pay day" required disabled={!canEdit} value={String(d.payDay)} onChange={v => set('payDay', Number(v))} options={[1, 2, 3, 4, 5].map(n => [String(n), DAYS[n]])} />
           <Field id="o-pre" label="Invoice number starts with" required error={v.err('pre')}><Input id="o-pre" value={d.rctiPrefix} onBlur={v.blur('pre')} onChange={x => set('rctiPrefix', x)} disabled={!canEdit} /></Field>
-          <Field id="o-days" label="RPs approve their invoice within (working days)" required={d.rpApproves} error={v.err('days')}><Input id="o-days" type="number" value={d.rpApproveDays} onBlur={v.blur('days')} onChange={x => set('rpApproveDays', x)} disabled={!canEdit || !d.rpApproves} /></Field>
+          <Field id="o-days" label="RPs approve their invoice within (working days)" required={d.rpApproves} error={v.err('days')}><NumberInput id="o-days" decimal={false} min={1} steppers value={d.rpApproveDays} onBlur={v.blur('days')} onChange={x => set('rpApproveDays', x)} disabled={!canEdit || !d.rpApproves} /></Field>
         </div>
         <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={d.rpApproves} onChange={e => set('rpApproves', e.target.checked)} /> RPs approve the invoice GSP raises for them (recipient-created tax invoice) before they’re paid</label>
         <h3 className="gspx-h4">Payment batches</h3>
@@ -99,7 +99,7 @@ export default function Setup() {
         <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={d.makerChecker.settings} onChange={e => set('makerChecker', { ...d.makerChecker, settings: e.target.checked })} /> A second person checks changes to defaults, FX and this page</label>
         <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={d.makerChecker.run} onChange={e => set('makerChecker', { ...d.makerChecker, run: e.target.checked })} /> The person who prepares a payout run can’t approve it</label>
         <div className="gspx-form2">
-          <Field id="o-adm" label="Runs above this also need an Admin (AUD)" hint="Leave blank for no limit" error={v.err('adm')}><Input id="o-adm" type="number" value={d.adminAbove ?? ''} onBlur={v.blur('adm')} onChange={x => set('adminAbove', x === '' ? null : x)} disabled={!canEdit} /></Field>
+          <Field id="o-adm" label="Runs above this also need an Admin (AUD)" hint="Leave blank for no limit" error={v.err('adm')}><NumberInput id="o-adm" value={d.adminAbove ?? ''} onBlur={v.blur('adm')} onChange={x => set('adminAbove', x === '' ? null : x)} disabled={!canEdit} /></Field>
         </div>
         <p className="muted">Who can do what in Finance (create, read, change, delete) is set in GSP · Admin › User roles › Permission roles.</p>
       </Card>
@@ -127,9 +127,9 @@ export default function Setup() {
         <h2 className="gspx-h3">Look-ahead</h2>
         <p className="muted">How far ahead Finance home and Commission terms look for what’s coming up.</p>
         <div className="gspx-form2">
-          <Field id="la-ann" label="Annuity lines due within (days)" required error={v.err('ahead')}><Input id="la-ann" type="number" value={d.lookAhead.annuity} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, annuity: x === '' ? '' : Number(x) })} /></Field>
-          <Field id="la-not" label="Notices ending within (days)" required><Input id="la-not" type="number" value={d.lookAhead.notices} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, notices: x === '' ? '' : Number(x) })} /></Field>
-          <Field id="la-con" label="Contracts ending within (days)" required><Input id="la-con" type="number" value={d.lookAhead.contracts} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, contracts: x === '' ? '' : Number(x) })} /></Field>
+          <Field id="la-ann" label="Annuity lines due within (days)" required error={v.err('ahead')}><NumberInput id="la-ann" decimal={false} min={0} steppers value={d.lookAhead.annuity} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, annuity: x === '' ? '' : Number(x) })} /></Field>
+          <Field id="la-not" label="Notices ending within (days)" required><NumberInput id="la-not" decimal={false} min={0} steppers value={d.lookAhead.notices} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, notices: x === '' ? '' : Number(x) })} /></Field>
+          <Field id="la-con" label="Contracts ending within (days)" required><NumberInput id="la-con" decimal={false} min={0} steppers value={d.lookAhead.contracts} disabled={!canEdit} onBlur={v.blur('ahead')} onChange={x => set('lookAhead', { ...d.lookAhead, contracts: x === '' ? '' : Number(x) })} /></Field>
         </div>
       </Card>
 

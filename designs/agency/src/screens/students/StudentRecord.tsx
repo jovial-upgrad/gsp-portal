@@ -107,6 +107,9 @@ const INTRO: Partial<Record<RecordTab, string>> = {
  * away. The first time, before a part has its document or details, uploading the document fills it in. Adding to a
  * part (a level, a job, a test) is at its top and opens it for editing. Documents save straight away.
  */
+/** Share with student is hidden in v1 (S3C-10): turn on when the student page is specified. */
+const SHARE_WITH_STUDENT = false as boolean;
+
 export function StudentRecord({
   s,
   list,
@@ -345,18 +348,21 @@ export function StudentRecord({
           <Icon name="arrowLeft" size={18} />
           Students
         </button>
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<Icon name={linkCopied ? 'check' : 'share'} size={16} />}
-          onClick={async () => {
-            await copyText(`https://gsp.upgrad.com/s/${s.id.toLowerCase().replace('s-', '')}`);
-            setLinkCopied(true);
-            say(`Link copied. ${s.first} can add their own details and documents; you check what they add.`);
-          }}
-        >
-          {linkCopied ? 'Link copied' : 'Share with student'}
-        </Button>
+        {/* Share with student: not in v1 (S3C-10's proposal, open): nothing behind it is specified, so it's hidden */}
+        {SHARE_WITH_STUDENT && (
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Icon name={linkCopied ? 'check' : 'share'} size={16} />}
+            onClick={async () => {
+              await copyText(`https://gsp.upgrad.com/s/${s.id.toLowerCase().replace('s-', '')}`);
+              setLinkCopied(true);
+              say(`Link copied. ${s.first} can add their own details and documents; you check what they add.`);
+            }}
+          >
+            {linkCopied ? 'Link copied' : 'Share with student'}
+          </Button>
+        )}
       </div>
 
       {/* just added: a notification, bottom left, that goes after a few seconds */}

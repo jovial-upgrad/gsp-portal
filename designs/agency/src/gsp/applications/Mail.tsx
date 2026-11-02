@@ -1,3 +1,4 @@
+import { canEditNow } from '../../admin/data/menus';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -167,9 +168,11 @@ export function MailTab({
                   {mails.length ? ` · ${mails.length === 1 ? '1 mail' : `${mails.length} mails`}` : ''}
                 </p>
               </div>
-              <Button size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setView({ mode: 'compose', kind: 'new' })}>
-                New mail
-              </Button>
+              {canEditNow('Shared mailboxes') && (
+                <Button size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setView({ mode: 'compose', kind: 'new' })}>
+                  New mail
+                </Button>
+              )}
             </header>
             {mails.length === 0 ? (
               <div className="gmail__empty">
@@ -278,12 +281,16 @@ function Reader({ m, uni, onBack, onReply, onForward }: { m: Mail; uni: Universi
         </p>
       </div>
       <div className="gmail__acts">
-        <Button size="sm" variant="secondary" iconLeft={<Icon name="arrowLeft" size={16} />} onClick={onReply}>
-          Reply
-        </Button>
-        <Button size="sm" variant="secondary" iconLeft={<Icon name="arrowRight" size={16} />} onClick={onForward}>
-          Forward
-        </Button>
+        {canEditNow('Shared mailboxes') && (
+          <>
+            <Button size="sm" variant="secondary" iconLeft={<Icon name="arrowLeft" size={16} />} onClick={onReply}>
+              Reply
+            </Button>
+            <Button size="sm" variant="secondary" iconLeft={<Icon name="arrowRight" size={16} />} onClick={onForward}>
+              Forward
+            </Button>
+          </>
+        )}
         {sum === 'idle' && (
           <button type="button" className="gmail__sum-btn" onClick={summarise}>
             <AssistMark size={16} />

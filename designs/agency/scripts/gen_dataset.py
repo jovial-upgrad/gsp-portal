@@ -135,10 +135,10 @@ STATUS_KEY = {'Ready to submit': 'ready', 'Enrolment confirmation pending': 'enr
 # ---------- people ----------
 by_role_region = lambda role, region: [s for s in STAFF if s['role'] == role and region in s['regions']]
 def officer_for(region, key):
-    ppl = by_role_region('Admission', region) or by_role_region('Admission Ops', 'Global')
+    ppl = by_role_region('Admission', region) or by_role_region('Global Ops', 'Global')
     return ppl[h(key, len(ppl))]['id']
 NAT = {'India': 'India', 'Bangladesh': 'Bangladesh', 'Nepal': 'Nepal', 'Sri Lanka': 'Sri Lanka', 'Pakistan': 'Pakistan', 'Vietnam': 'Vietnam', 'Philippines': 'Philippines',
-       'Australia': 'India', 'Indonesia, Malaysia and Thailand': 'Indonesia', 'Africa': 'Nigeria', 'Latin America and Europe': 'Colombia', 'Myanmar': 'Myanmar', 'Bhutan': 'Bhutan', 'Direct': 'India', 'China': 'China'}
+       'Australia': 'India', 'Indonesia Malaysia & Thailand': 'Indonesia', 'Africa': 'Nigeria', 'Latin America & Europe': 'Colombia', 'Myanmar': 'Myanmar', 'Bhutan': 'Bhutan', 'Direct': 'India', 'China': 'China'}
 DIAL = {'India': '+91', 'Bangladesh': '+880', 'Nepal': '+977', 'Sri Lanka': '+94', 'Pakistan': '+92', 'Vietnam': '+84', 'Philippines': '+63', 'Indonesia': '+62', 'Nigeria': '+234', 'Colombia': '+57', 'Myanmar': '+95', 'Ghana': '+233', 'Kenya': '+254', 'China': '+86', 'Mauritius': '+230'}
 FIN_REGION = {'Australia Onshore': 'Australia'}
 
@@ -155,8 +155,8 @@ def rp_of(rid, name, region):
 # so the RP's Profile, GSP's RP contact and the Recruitment partners page show the same people
 RP_CITY = {'India': ['Bengaluru', 'Hyderabad', 'Chennai', 'Pune', 'Ahmedabad', 'Kochi', 'Chandigarh', 'Jaipur'], 'Australia': ['Melbourne', 'Sydney', 'Brisbane', 'Adelaide', 'Perth'],
            'Vietnam': ['Ho Chi Minh City', 'Hanoi', 'Da Nang'], 'Nepal': ['Kathmandu', 'Pokhara'], 'Bangladesh': ['Dhaka', 'Chattogram'], 'Sri Lanka': ['Colombo', 'Kandy'],
-           'Pakistan': ['Lahore', 'Karachi', 'Islamabad'], 'Philippines': ['Manila', 'Cebu City'], 'Indonesia, Malaysia and Thailand': ['Jakarta', 'Kuala Lumpur', 'Bangkok'],
-           'Africa': ['Lagos', 'Accra', 'Nairobi'], 'Latin America and Europe': ['Bogotá', 'Lima'], 'Myanmar': ['Yangon'], 'Bhutan': ['Thimphu'], 'China': ['Shanghai', 'Beijing'], 'Direct': ['Melbourne']}
+           'Pakistan': ['Lahore', 'Karachi', 'Islamabad'], 'Philippines': ['Manila', 'Cebu City'], 'Indonesia Malaysia & Thailand': ['Jakarta', 'Kuala Lumpur', 'Bangkok'],
+           'Africa': ['Lagos', 'Accra', 'Nairobi'], 'Latin America & Europe': ['Bogotá', 'Lima'], 'Myanmar': ['Yangon'], 'Bhutan': ['Thimphu'], 'China': ['Shanghai', 'Beijing'], 'Direct': ['Melbourne']}
 RP_PEOPLE = {'India': (['Anil', 'Deepa', 'Suresh', 'Lata', 'Manoj', 'Rekha', 'Prakash', 'Geeta'], ['Iyer', 'Kulkarni', 'Bhat', 'Pillai', 'Rao', 'Hegde', 'Menon', 'Joshi']),
              'Australia': (['Tom', 'Sarah', 'Liam', 'Grace', 'Nathan', 'Chloe'], ['Walsh', 'Bennett', 'Hughes', 'Fraser', 'Doyle', 'Carter']),
              'Vietnam': (['Minh', 'Hoa', 'Tuan', 'Linh'], ['Tran', 'Le', 'Pham', 'Vo']), 'Nepal': (['Sagar', 'Pooja', 'Rabin'], ['Shrestha', 'Adhikari', 'Karki']),
@@ -164,7 +164,7 @@ RP_PEOPLE = {'India': (['Anil', 'Deepa', 'Suresh', 'Lata', 'Manoj', 'Rekha', 'Pr
              'Pakistan': (['Bilal', 'Sana', 'Usman'], ['Qureshi', 'Butt', 'Siddiqui']), 'Philippines': (['Miguel', 'Ana', 'Jose'], ['Santos', 'Cruz', 'Garcia']),
              'China': (['Wei', 'Jing'], ['Zhang', 'Liu'])}
 RP_DIAL = {'India': '+91', 'Australia': '+61', 'Vietnam': '+84', 'Nepal': '+977', 'Bangladesh': '+880', 'Sri Lanka': '+94', 'Pakistan': '+92', 'Philippines': '+63', 'China': '+86',
-           'Indonesia, Malaysia and Thailand': '+62', 'Africa': '+234', 'Latin America and Europe': '+57', 'Myanmar': '+95', 'Bhutan': '+975', 'Direct': '+61'}
+           'Indonesia Malaysia & Thailand': '+62', 'Africa': '+234', 'Latin America & Europe': '+57', 'Myanmar': '+95', 'Bhutan': '+975', 'Direct': '+61'}
 # the GSP test agency (HC13, 1 Nov): its team, its branches, and its own students and applications
 # (scripts/test_agency.json: times are "@now±days", "{officer}" is the application's officer, "{me}" who signs in)
 TEST_TEAM = [

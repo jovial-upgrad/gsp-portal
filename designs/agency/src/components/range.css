@@ -1,0 +1,18 @@
+/* The portal's two-handle range (components/RangeSlider.tsx): no browser slider. */
+.rslide { display: grid; gap: var(--sp-6); padding: var(--sp-4) 0; }
+.rslide__vals { display: flex; justify-content: space-between; gap: var(--sp-8); font-size: var(--t-caption); color: var(--text); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
+.rslide__track { position: relative; height: 28px; margin: 0 11px; touch-action: none; cursor: pointer; }
+.rslide__rail, .rslide__fill { position: absolute; top: 12px; height: 4px; border-radius: var(--r-pill); }
+.rslide__rail { left: -11px; right: -11px; background: var(--surface-3); }
+.rslide__fill { background: var(--primary); }
+.rslide__thumb {
+  position: absolute; top: 3px; width: 22px; height: 22px; margin-left: -11px; padding: 0;
+  border-radius: 50%; border: 2px solid var(--primary); background: var(--surface); box-shadow: var(--shadow-xs);
+  cursor: grab; touch-action: none;
+}
+.rslide__thumb:active { cursor: grabbing; transform: scale(1.08); }
+.rslide__thumb:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--ring); }
+.rslide__stops { display: flex; justify-content: space-between; font-size: var(--t-micro); color: var(--text-3); }
+.rslide.is-off { opacity: 0.55; }
+.rslide.is-off .rslide__track { cursor: default; }
+@media (prefers-reduced-motion: reduce) { .rslide__thumb:active { transform: none; } }

@@ -8,6 +8,7 @@ import { countryByName } from './partners';
 import { parseDate, parseMonth } from './dates';
 import { datasetStudents, testAgencyStudents } from './dataset';
 import { GRADING_SCALES } from './grading';
+import { grades, systemOf, toPct } from '../admin/data/eligibility';
 import { TESTS, type Test, type TestType } from './tests';
 
 /* ---------- education ---------- */
@@ -31,9 +32,31 @@ export const STUDY_LEVELS: Record<Level, string[]> = {
   g12: ['Grade 12 (higher secondary)', 'A levels', 'IB Diploma', 'Diploma after Grade 10'],
   g10: ['Grade 10 (secondary)', 'O levels', 'IGCSE'],
 };
-/** A student's grading system: the numeric scales of the one list (data/grading.ts). */
-export type Grading = '' | '100' | '10' | '7' | '5' | '4';
+/**
+ * A student's grading system (slice 3 PRD): picked from Admin › Course configuration › Grade conversion, its active
+ * systems (a retired one stays on the entries that have it, S3C-18). Older records hold a scale key ('100', '10', '4',
+ * '5'), read as Percentage, CGPA out of 10, GPA out of 4 and GPA out of 5.
+ */
+export type Grading = string;
+/** The picker's options: [value, label]; the record's current one is kept when it's retired or an older key. */
+export const gradingOptions = (current = ''): [string, string][] => {
+  const list = grades().filter((g) => g.status === 'Active').map((g): [string, string] => [g.name, g.usedIn ? `${g.name} (${g.usedIn})` : g.name]);
+  const cur = current ? systemOf(current) : undefined;
+  return current && !list.some(([k]) => k === current) ? [[current, cur ? `${cur.name}${cur.status === 'Retired' ? ' (retired)' : ''}` : current], ...list] : list;
+};
+/** @deprecated the fixed scales before Admin's list; kept for the readers that still import it. */
 export const GRADING: [Grading, string][] = GRADING_SCALES.filter((g) => g.max).map((g) => [g.key as Grading, g.label]);
+/** The top of a grading system's scale, for its numbers ("out of 10"); undefined for grades (bands with labels). */
+export function scaleMax(grading: string): number | undefined {
+  const s = systemOf(grading);
+  if (!s) return Number(grading) || undefined;
+  const named = /out of (\d+)/i.exec(s.name)?.[1];
+  if (named) return Number(named);
+  if (s.by === 'As is') return 100;
+  if (s.by === 'Multiplier') return Math.round((100 / (s.mult ?? 1)) * 100) / 100;
+  const nums = s.bands.flatMap((b) => [Number(b.from), Number(b.to)]).filter((n) => !Number.isNaN(n));
+  return nums.length ? Math.max(...nums) : undefined;
+}
 export const LANGUAGES = ['English', 'Hindi', 'Bengali', 'Nepali', 'Sinhala', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Gujarati', 'Punjabi', 'Urdu', 'Vietnamese', 'Other'];
 
 export type Edu = {
@@ -52,16 +75,20 @@ export type Edu = {
 };
 export const emptyEdu = (country = ''): Edu => ({ country, state: '', level: '', institution: '', qualification: '', grading: '', score: '', language: '', backlogs: '', start: '', end: '' });
 
-/** A score that fits its grading system. */
+/** A score that fits its grading system: a number on its scale, or one of its grades for band systems. */
 export const scoreOk = (e: Pick<Edu, 'grading' | 'score'>) => {
+  if (!e.grading || e.score.trim() === '') return false;
+  const s = systemOf(e.grading);
+  if (s?.by === 'Bands' && s.bands.some((b) => b.from.trim().toLowerCase() === e.score.trim().toLowerCase())) return true;
   const v = Number(e.score);
-  return !!e.grading && e.score.trim() !== '' && !Number.isNaN(v) && v >= 0 && v <= Number(e.grading);
+  const max = scaleMax(e.grading);
+  return !Number.isNaN(v) && v >= 0 && (max === undefined || v <= max);
 };
-/** Roughly what the score is as a percentage (CGPA out of 10 uses the common × 9.5). */
+/** The score as a percentage, with Admin's Grade conversion (S3-15). */
 export function pctOf(e: Pick<Edu, 'grading' | 'score'>) {
   if (!scoreOk(e)) return null;
-  const v = Number(e.score);
-  return Math.min(100, Math.round(e.grading === '100' ? v : e.grading === '10' ? v * 9.5 : (v / Number(e.grading)) * 100));
+  const p = toPct(systemOf(e.grading), e.score);
+  return p === null ? null : Math.round(p);
 }
 
 /** The fields an education level needs, in order, with how each is named when it's missing. */
@@ -111,7 +138,7 @@ export const EXTRA_DOCS: [string, string, string][] = [
 
 export type Owner = 'you' | 'gsp' | 'uni';
 /** An application as the student's record shows it; the Applications page holds the application itself. */
-export type StudentApp = { id: string; course: string; uni: string; intake: string; owner: Owner | 'done' | 'end'; status: string };
+export type StudentApp = { id: string; course: string; uni: string; intake: string; owner: Owner | 'done' | 'end' | 'wd'; status: string };
 export type Gender = '' | 'Male' | 'Female' | 'Other';
 
 export type Student = {
@@ -126,6 +153,8 @@ export type Student = {
   phone: string;
   passport: string;
   highest: Level;
+  /** Highest education in the one list (S3C-1), when it was picked; else read from `highest` (data/eligibility.ts). */
+  highestEd?: import('./education').HighestEducation;
   // the profile
   gender: Gender;
   /** DD/MM/YYYY */

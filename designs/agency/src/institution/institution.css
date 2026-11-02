@@ -425,7 +425,6 @@ input[type='date'].icell { min-width: 150px; }
 
 /* a table row's dropdowns wear the portal's own arrow; every box in a row is the same height, and lines up at the top */
 .icell-sel { position: relative; display: block; }
-.icell-sel select.icell { appearance: none; -webkit-appearance: none; padding-right: 36px; cursor: pointer; text-overflow: ellipsis; }
 .icell-sel > svg { position: absolute; right: 12px; top: 13px; color: var(--text-3); pointer-events: none; }
 .itab--form .imp__btn { padding-left: var(--sp-10); }
 /* room between the course's fields and its tags */
@@ -435,8 +434,7 @@ input[type='date'].icell { min-width: 150px; }
 .icell-pair .icell-sel { flex: none; }
 .icell-pair .icell-sel:first-child { width: 84px; }
 .icell-pair .icell-sel:last-child { width: 100px; }
-.icell-pair .icell-sel select.icell { min-width: 0; padding-right: 30px; }
-.icell-pair .icell-sel > svg { right: 8px; }
+.icell-pair .icell-pair .icell-sel > svg { right: 8px; }
 .ipicker > .btn { justify-self: start; }
 
 /* ---------- 30 Oct: edit what's been added ---------- */
@@ -479,3 +477,9 @@ input[type='date'].icell { min-width: 150px; }
 .ipic__name { font-size: var(--t-label); line-height: var(--lh-label); color: var(--text); overflow-wrap: anywhere; }
 .ipic__note { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
 .ipic__rm { justify-self: start; }
+/* a course's intakes: the month, year and status lists are the portal's SelectMenu; room for the value and its chevron */
+.icell-pair .smenu { flex: none; width: 104px; }
+.icell-pair .smenu + .smenu { width: 112px; }
+.icell-pair .smenu .smenu__btn { padding-left: var(--sp-12); padding-right: 34px; }
+.icell-pair .smenu .control__chevron { right: 8px; }
+.itab td > .smenu { min-width: 150px; }

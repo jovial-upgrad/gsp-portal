@@ -8,18 +8,24 @@ import React, { createContext, useContext } from 'react';
 import { useStore, update, userById } from './store';
 import { DEFAULT_PERSONA } from './seed';
 import { SCOPES } from '../finance/access';
-import { Select } from '../finance/kit';
+import { Pick } from './ui';
 
 export const HostContext = createContext({ hostRole: 'gsp-admin', openRecord: () => {} });
 
 const ALLOWED = {
-  'gsp-team': ['admission', 'admission-ops', 'view-only'],
+  'gsp-team': ['admission', 'global-ops', 'view-only'],
   'gsp-recruitment': ['recruitment'],
-  'gsp-bap': ['recruitment-ops'],
-  'institution-partner': ['institution', 'institution-ops'],
-  'gsp-admin': ['admin', 'admission', 'admission-ops', 'recruitment', 'recruitment-ops', 'institution', 'institution-ops', 'finance', 'view-only'],
+  'gsp-bap': ['rp-ops'],
+  'institution-partner': ['institution', 'ip-ops'],
+  'gsp-admin': ['admin', 'admission', 'global-ops', 'recruitment', 'rp-ops', 'institution', 'ip-ops', 'finance', 'view-only'],
   'rp-admin': ['rp-admin', 'branch-admin', 'counsellor'],
   'gsp-finance': ['finance'],
+  // slice 1 (2 Nov): the new roles in the Role menu
+  'gsp-global-ops': ['global-ops'],
+  'gsp-ip-ops': ['ip-ops'],
+  'gsp-view-only': ['view-only'],
+  'rp-branch-admin': ['branch-admin'],
+  'rp-counsellor': ['counsellor'],
 };
 
 export function usePersona() {
@@ -28,20 +34,20 @@ export function usePersona() {
   const allowed = ALLOWED[hostRole] || ALLOWED['gsp-admin'];
   let u = userById(s, s.persona);
   if (!u || !allowed.includes(u.role)) u = userById(s, DEFAULT_PERSONA[hostRole]) || s.users[0];
-  const role = s.roles.find(r => r.id === u.role);
+  const role = s.roles.find(r => r.id === u.role) || s.roles.find(r => r.id === 'view-only');
   return { user: u, role, allowed };
 }
 
 export function PersonaBar() {
   const s = useStore();
   const { user, role, allowed } = usePersona();
-  const options = s.users.filter(u => allowed.includes(u.role))
+  const options = s.users.filter(u => allowed.includes(u.role) && s.roles.some(r => r.id === u.role))
     .map(u => [u.id, `${u.name} · ${s.roles.find(r => r.id === u.role).name}`]);
   const scope = role.scope === 'regions' ? (user.regions || []).join(', ') : SCOPES[role.scope];
   return (
     <div className="gspx-persona" role="group" aria-label="Acting as">
       <span className="gspx-persona__k">Acting as</span>
-      <Select id="gspx-persona" label="Acting as" hideLabel value={user.id} onChange={v => update(d => { d.persona = v; })} options={options} />
+      <Pick id="gspx-persona" label="Acting as" hideLabel value={user.id} onChange={v => update(d => { d.persona = v; })} options={options} />
       <span className="gspx-persona__scope"><b>{role.name}</b> · sees {scope}</span>
       <span className="gspx-persona__tag">For testing: act as anyone in this role</span>
     </div>

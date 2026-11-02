@@ -1,7 +1,9 @@
 import type { IconName } from '../../components/Icon';
 import type { Db, SetDb } from '../data/store';
-import { liveKeys, liveMenu } from '../../admin/data/menus';
-import { PERM_ROLE } from '../../proto/roles';
+import { canEditObject, canSeeObject, levelFor, liveKeys, liveMenu } from '../../admin/data/menus';
+import { PERM_ROLE, currentRole } from '../../proto/roles';
+/** IP Ops reuses this portal (S1-1): the menu follows whichever role is on show. */
+const permNow = () => (currentRole() === 'gsp-ip-ops' ? PERM_ROLE['gsp-ip-ops'] : PERM_ROLE['institution-partner']);
 
 /**
  * The Institution Team's pages (29 Oct), in Nesil's order. It keeps GSP Team's Students, Applications and Course
@@ -9,14 +11,17 @@ import { PERM_ROLE } from '../../proto/roles';
  * courses. 29 Oct (2nd round), from the PM prototype's IP team: Announcements, after Courses; Home is the team's
  * queue. `profile` is the account page, opened from the initials on phones.
  */
-export type Section = 'home' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'profile';
+export type Section = 'home' | 'mywork' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'mps' | 'profile';
 
 const ALL_NAV: { key: Section; label: string; short: string; icon: IconName }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home' },
+  // slice 4 PRD: My work is in every GSP role's menu, first after Home
+  { key: 'mywork', label: 'My work', short: 'My work', icon: 'checkCircle' },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
   { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search' },
   { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner' },
+  { key: 'mps', label: 'Master Partners', short: 'MPs', icon: 'people' },
   { key: 'ips', label: 'Institution partners', short: 'Partners', icon: 'briefcase' },
   { key: 'universities', label: 'Universities', short: 'Universities', icon: 'building' },
   { key: 'catalogue', label: 'Courses', short: 'Courses', icon: 'cap' },
@@ -24,13 +29,13 @@ const ALL_NAV: { key: Section; label: string; short: string; icon: IconName }[] 
 ];
 
 /** GSP · Institution's menu, cut to what Institution can open in GSP · Admin › Permission roles (HC47). */
-export const NAV = liveMenu(ALL_NAV, () => PERM_ROLE['institution-partner']);
+export const NAV = liveMenu(ALL_NAV, permNow);
 
 /** On phones the tab bar has room for five: the records first, then Home. */
-export const TABS: Section[] = liveKeys<Section>(['home', 'applications', 'universities', 'catalogue', 'ips'], () => PERM_ROLE['institution-partner']);
+export const TABS: Section[] = liveKeys<Section>(['home', 'applications', 'universities', 'catalogue', 'ips'], permNow);
 
 /** The pages that hold records. */
-export type RecordSection = 'universities' | 'catalogue' | 'ips' | 'rps' | 'announcements';
+export type RecordSection = 'universities' | 'catalogue' | 'ips' | 'rps' | 'announcements' | 'mps';
 /** A record to open, on which tab, and where its back link goes when it isn't its own list. */
 export type Target = { section: RecordSection; id: string; tab?: string; back?: Target & { label: string } };
 /** A record opened from somewhere else (Home's queue, another record): a new key each time. */
@@ -51,4 +56,29 @@ export type PageProps = {
   me: string;
   /** GSP · BAP (and Admin) verify new recruitment partners' documents on Recruitment partners (W4). */
   canVerify?: boolean;
+  /** The signed-in person's permission role (slice 1 names: Admin, RP Ops, IP Ops, Institution…), for the Owner rules. */
+  role?: string;
 };
+
+/** A role's level on a matrix row: E edit, V view, N no access (slice 1's one helper, admin/data/menus.ts). */
+export const levelOf = (role: string | undefined, object: string): 'E' | 'V' | 'N' => levelFor(role, object);
+/** Slice 2 Owner rules: the roles with Edit on a row create, edit and delete; the rest only read; No access doesn't see it. */
+export const canEdit = (p: { role?: string }, object: string) => canEditObject(p.role, object);
+export const canSee = (p: { role?: string }, object: string) => canSeeObject(p.role, object);
+/** The matrix rows slice 2 reads. */
+export const OBJ = {
+  ips: 'Institution partners',
+  ipDocs: 'IP documents and IP changes',
+  unis: 'Universities',
+  campuses: 'Campuses',
+  logins: 'University portal logins',
+  microsites: 'University microsites',
+  courses: 'Courses, intakes and entry rules',
+  entry: 'Admission requirements',
+  anns: 'Announcements',
+  rp: 'Recruitment partner profile and status',
+  rpDocs: 'RP onboarding documents',
+  rpIssued: 'Documents issued to RPs',
+  rpTeam: 'RP branches and team',
+  mps: 'Master Partners',
+} as const;

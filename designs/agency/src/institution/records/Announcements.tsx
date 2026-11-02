@@ -1,20 +1,39 @@
 import { useUnsaved } from '../../components/unsaved';
-import { afterError, dateError, focusFirstError } from '../../components/validate';
+import { dateError, focusFirstError } from '../../components/validate';
 import { useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Checkbox, Field, SelectInput, TextInput, DateInput } from '../../components/forms';
+import { Checkbox, Field, TextInput, DateInput } from '../../components/forms';
+import { STAFF } from '../../data/staff';
+import { allRpMembers } from '../../data/rpteam';
+import { audit } from '../data/changelog';
 import { AREAS, LEVELS, type Area, type Level } from '../../data/courses';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
-import { ANN_CATEGORIES, ANN_STATUSES, PERMISSION_ROLES, SALES_REGIONS, SUBCATEGORIES, USER_TYPES, statusOf, type AnnCategory, type AnnStatus, type Announcement } from '../data/announcements';
+import { ANN_CATEGORIES, ANN_STATUSES, GSP_ROLES, PERMISSION_ROLES, RP_ROLES, SALES_REGIONS, SUBCATEGORIES, USER_TYPES, statusOf, type AnnCategory, type AnnStatus, type Announcement } from '../data/announcements';
 import { dateText, inDays, stampBy, todayIso } from '../data/records';
 import { patch } from '../data/store';
-import { NoMatch, PageHead, Tiles, Updated, useRecord, type Tone } from './parts';
+import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, Updated, usePager, useRecord, type Tone } from './parts';
 import { MultiPick } from './MultiPick';
 import { RichText, cleanHtml, textOf } from './RichText';
-import type { PageProps } from '../portal/model';
+import { OBJ, canEdit, type PageProps } from '../portal/model';
+
+/** "Reaches about N people": GSP users and RP users the recipients pick out (sales region narrows both, RP country narrows RP users). */
+export function reachOf(v: { userTypes: string[]; roles: string[]; countries: string[]; regions: string[] }) {
+  let n = 0;
+  if (v.userTypes.includes('GSP')) {
+    const roles = v.roles.filter((r) => (GSP_ROLES as readonly string[]).includes(r));
+    n += STAFF.filter((x) => (!v.roles.length || roles.includes(x.role)) && (!v.regions.length || x.regions.some((g) => v.regions.includes(g)))).length;
+  }
+  if (v.userTypes.includes('RP')) {
+    const roles = v.roles.filter((r) => (RP_ROLES as readonly string[]).includes(r));
+    const all = allRpMembers();
+    const share = (v.countries.length ? 0.35 : 1) * (v.regions.length ? 0.5 : 1);
+    n += Math.round(all.filter((m) => !v.roles.length || roles.includes(m.role)).length * share * 25);
+  }
+  return n;
+}
 
 const TONE: Record<AnnStatus, Tone> = { Draft: 'gsp', Scheduled: 'uni', Live: 'ok', Expired: 'grey', Withdrawn: 'grey' };
 const PILL: Record<Tone, string> = { ok: 'dpill--verified', gsp: 'dpill--checking', uni: 'dpill--uni', you: 'dpill--missing', bad: 'dpill--bad', grey: 'idpill--grey' };
@@ -30,6 +49,7 @@ const COUNTRY_LIST = [...TOP_MARKETS, ...COUNTRIES.map((c) => c.name).filter((n)
 export function Announcements(props: PageProps) {
   const { db, set, focus, navKey, open, say, scrollTop, me } = props;
   const { cur, show, back } = useRecord(focus, navKey, scrollTop, open);
+  const edit = canEdit(props, OBJ.anns);
   const [status, setStatus] = useState<AnnStatus | ''>('');
   const [cat, setCat] = useState('');
   const [uni, setUni] = useState('');
@@ -52,21 +72,25 @@ export function Announcements(props: PageProps) {
     setUni('');
     setQ('');
   };
+  const { page, pager } = usePager(rows, [status, cat, uni, q]);
   const nextId = () => `AN-${Math.max(...anns.map((a) => Number(a.id.slice(3))), 100) + 1}`;
 
   if (cur) {
     const a = cur.id === 'new' ? null : anns.find((x) => x.id === cur.id);
-    if (cur.id === 'new' || a)
-      return (
+    if (!(cur.id === 'new' && edit) && !a) return <Gone back="Announcements" onBack={back} />;
+    return (
         <AnnPage
           key={cur.id}
           a={a ?? null}
           id={a?.id ?? nextId()}
           me={me}
+          edit={edit}
           unis={db.unis.filter((u) => u.status !== 'Ended')}
           onBack={back}
           onSave={(x, what) => {
             set((d) => ({ ...d, anns: d.anns.some((y) => y.id === x.id) ? patch(d.anns, x.id, () => x) : [x, ...d.anns] }));
+            const st = statusOf(x);
+            if (st === 'Live' && (!a || statusOf(a) !== 'Live')) audit('Announcements', `announcement.published: ${x.id} ${x.title}${x.email ? ' (E14 to the recipients)' : ''}`, me, props.role ?? 'Institution');
             say(what);
             back();
           }}
@@ -77,9 +101,11 @@ export function Announcements(props: PageProps) {
   return (
     <div className="ipage">
       <PageHead title="Announcements" lead="Shown to recruitment partners in their portal’s top bar, on matching course cards and on the university’s page.">
-        <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => show('new')}>
-          New announcement
-        </Button>
+        {edit && (
+          <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => show('new')}>
+            New announcement
+          </Button>
+        )}
       </PageHead>
 
       <Tiles label="Where each announcement is" value={status} onPick={setStatus} items={ANN_STATUSES.map((s) => ({ key: s, label: s, sub: SUB[s], tone: TONE[s], n: anns.filter((a) => statusOf(a) === s).length }))} />
@@ -92,20 +118,8 @@ export function Announcements(props: PageProps) {
               <span className="vh">Search announcements</span>
               <input id="iann-q" type="search" placeholder="Title, number or author" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <SelectInput id="iann-cat" aria-label="Category" value={cat} placeholder="All categories" allowEmpty onChange={(e) => setCat(e.target.value)}>
-              {ANN_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </SelectInput>
-            <SelectInput id="iann-uni" aria-label="University" value={uni} placeholder="All universities" allowEmpty onChange={(e) => setUni(e.target.value)}>
-              {[...new Set(anns.flatMap((a) => a.unis))].map((id) => (
-                <option key={id} value={id}>
-                  {uniName(id)}
-                </option>
-              ))}
-            </SelectInput>
+            <Pick id="iann-cat" label="Category" value={cat} all="All categories" options={ANN_CATEGORIES} onChange={setCat} />
+            <Pick id="iann-uni" label="University" value={uni} all="All universities" options={[...new Set(anns.flatMap((a) => a.unis))].map((id) => ({ value: id, label: uniName(id) }))} onChange={setUni} />
           </div>
           <p className="stools__count" id="iann-count" role="status">
             <span>
@@ -113,8 +127,10 @@ export function Announcements(props: PageProps) {
             </span>
           </p>
         </div>
-        {rows.length === 0 ? (
-          <NoMatch what="announcements" onClear={clear} />
+        {anns.length === 0 ? (
+          <Empty text="No announcements yet." action={edit ? 'New announcement.' : undefined} onAction={() => show('new')} />
+        ) : rows.length === 0 ? (
+          <NoMatch onClear={clear} />
         ) : (
           <div className="stab-wrap">
             <table className="itab itab--ann">
@@ -130,7 +146,7 @@ export function Announcements(props: PageProps) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((a) => {
+                {page.map((a) => {
                   const s = statusOf(a);
                   return (
                     <tr key={a.id} className="irow" onClick={() => show(a.id)}>
@@ -144,7 +160,7 @@ export function Announcements(props: PageProps) {
                         {a.category}
                         {a.subcategory && <span className="irow__sub">{a.subcategory}</span>}
                       </td>
-                      <td>{a.unis.length ? (a.unis.length === 1 ? uniName(a.unis[0]) : `${a.unis.length} universities`) : <span className="muted">—</span>}</td>
+                      <td>{a.unis.length ? (a.unis.length === 1 ? uniName(a.unis[0]) : `${a.unis.length} universities`) : '—'}</td>
                       <td className="num">{dateText(a.publish)}</td>
                       <td className="num">{dateText(a.expires)}</td>
                       <td>{a.author === me ? `${a.author} (you)` : a.author}</td>
@@ -158,6 +174,7 @@ export function Announcements(props: PageProps) {
             </table>
           </div>
         )}
+        {pager}
       </section>
     </div>
   );
@@ -166,9 +183,10 @@ export function Announcements(props: PageProps) {
 type Draft = { title: string; category: AnnCategory | ''; subcategory: string; unis: string[]; levels: Level[]; areas: Area[]; publishDay: string; expires: string; body: string; files: string[]; email: boolean; userTypes: string[]; roles: string[]; countries: string[]; regions: string[] };
 
 /** One announcement: written, previewed, then saved as a draft, scheduled or published; a live one can be withdrawn. */
-function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; id: string; me: string; unis: PageProps['db']['unis']; onBack: () => void; onSave: (a: Announcement, what: string) => void }) {
+function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | null; id: string; me: string; edit: boolean; unis: PageProps['db']['unis']; onBack: () => void; onSave: (a: Announcement, what: string) => void }) {
   const s = a ? statusOf(a) : 'Draft';
-  const locked = s === 'Expired' || s === 'Withdrawn';
+  // Edit works on Draft, Scheduled and Live; Expired and Withdrawn are read-only (proposal, S2C-15)
+  const locked = s === 'Expired' || s === 'Withdrawn' || !edit;
   const [v, setV] = useState<Draft>(() =>
     a
       ? { title: a.title, category: a.category, subcategory: a.subcategory, unis: a.unis, levels: a.levels, areas: a.areas, publishDay: a.publish.slice(0, 10), expires: a.expires, body: a.body, files: a.files, email: a.email, userTypes: a.userTypes, roles: a.roles, countries: a.countries, regions: a.regions }
@@ -185,13 +203,13 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
   const subs = v.category ? SUBCATEGORIES[v.category] ?? [] : [];
   const needsUnis = v.category !== 'System Updates';
   const err = {
-    title: !v.title.trim() ? 'Write a title.' : null,
+    title: !v.title.trim() ? 'Enter the title.' : null,
     category: !v.category ? 'Pick a category.' : null,
-    unis: needsUnis && !v.unis.length ? 'Pick the universities it’s about.' : null,
-    publishDay: dateError(v.publishDay, { what: 'publish date', required: true }),
-    expires: dateError(v.expires, { what: 'expiry date', required: true }) || afterError(v.publishDay, v.expires, 'expiry date', 'publish date'),
-    body: !textOf(v.body) ? 'Write the description.' : null,
-    userTypes: !v.userTypes.length ? 'Pick who gets it.' : null,
+    unis: needsUnis && !v.unis.length ? 'Pick at least one university.' : null,
+    publishDay: dateError(v.publishDay, { what: 'publish date', required: true }) || (s !== 'Live' && v.publishDay < todayIso() ? 'Pick today or a later date.' : null),
+    expires: dateError(v.expires, { what: 'expiry date', required: true }) || (v.expires <= v.publishDay ? 'Pick a date after the publish date.' : null),
+    body: !textOf(v.body) ? 'Enter the description.' : null,
+    userTypes: !v.userTypes.length ? 'Pick who it goes to.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const uniName = (x: string) => unis.find((u) => u.id === x)?.name ?? x;
@@ -219,13 +237,14 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
     sent: a?.sent ?? 0,
     opened: a?.opened ?? 0,
     updated: stampBy(me),
+    createdAt: a?.createdAt ?? a?.publish ?? todayIso(),
   });
   const future = v.publishDay > todayIso();
   const go = () => {
     setTried(true);
     if (Object.values(err).some(Boolean)) return focusFirstError();
     setFirst(v);
-    onSave(build(false), s === 'Live' ? 'Saved.' : future ? `Scheduled for ${dateText(v.publishDay)}.` : 'Published: partners see it now.');
+    onSave(build(false), s === 'Live' ? 'Saved: it shows at once. No new email is sent.' : future ? `Scheduled for ${dateText(v.publishDay)}.` : 'Published: partners see it now.');
   };
   const pickById = (label: string, idx: string, value: string[], onChange: (x: string[]) => void, invalid = false) => (
     <MultiPick id={idx} label={label} invalid={invalid} value={value.map(uniName)} options={unis.map((u) => u.name)} onChange={(names) => onChange(names.map((n) => unis.find((u) => u.name === n)?.id ?? n))} empty="Choose" search />
@@ -241,7 +260,7 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
         <div>
           <h1 className="page__title">{a ? a.title : 'New announcement'}</h1>
           <p className="stu__lead">
-            {id} · {s}
+            {id} · {s}{locked && edit && ' · read-only'}
           </p>
           <Updated s={a?.updated} />
         </div>
@@ -255,22 +274,10 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
                 <TextInput id="ian-title" value={v.title} invalid={!!show('title')} onChange={(e) => set({ title: e.target.value })} />
               </Field>
               <Field id="ian-cat" label="Category" required error={show('category')}>
-                <SelectInput id="ian-cat" value={v.category} placeholder="Choose" invalid={!!show('category')} onChange={(e) => set({ category: e.target.value as AnnCategory, subcategory: '' })}>
-                  {ANN_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </SelectInput>
+                <Pick id="ian-cat" label="Category" value={v.category} placeholder="Pick a category" invalid={!!show('category')} options={ANN_CATEGORIES} onChange={(c) => set({ category: c as AnnCategory, subcategory: '' })} />
               </Field>
               <Field id="ian-sub" label="Subcategory" optional>
-                <SelectInput id="ian-sub" value={v.subcategory} placeholder="Choose" allowEmpty disabled={!subs.length} onChange={(e) => set({ subcategory: e.target.value })}>
-                  {subs.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </SelectInput>
+                {subs.length ? <Pick id="ian-sub" label="Subcategory" value={v.subcategory} all="None" options={subs} onChange={(subcategory) => set({ subcategory })} /> : <span className="muted">Only for Admission and System Updates</span>}
               </Field>
               <Field id="ian-unis" label="Universities" required={needsUnis} optional={!needsUnis} error={show('unis')} className="iform__wide">
                 {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }), !!show('unis'))}
@@ -291,7 +298,7 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
                 <RichText id="ian-body" value={v.body} onChange={(body) => set({ body })} files={v.files} onFiles={(files) => set({ files })} invalid={!!show('body')} disabled={locked} />
               </Field>
               <div className="iform__wide">
-                <Checkbox id="ian-email" checked={v.email} onChange={(email) => set({ email })} hint="One email at Publish on, from no-reply, to recipients who opted in.">
+                <Checkbox id="ian-email" checked={v.email} onChange={(email) => set({ email })} hint="E14 goes to the recipients when it publishes, from no-reply@gsp.upgrad.com. They can turn it off in Email preferences. A Live edit sends no new email.">
                   Send as email
                 </Checkbox>
               </div>
@@ -311,6 +318,9 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
                 <MultiPick id="ian-regions" label="Sales region" value={v.regions} options={[...SALES_REGIONS]} onChange={(regions) => set({ regions })} empty="All regions" all="All regions" />
               </Field>
             </div>
+            <p className="irsec__note" role="status">
+              Reaches about <span className="num">{reachOf(v).toLocaleString('en-GB')}</span> people.
+            </p>
           </fieldset>
           {!locked && (
             <div className="ianacts">
@@ -349,9 +359,11 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
               {(
                 [
                   ['Created by', a?.author ?? me],
+                  ['Created on', a ? dateText(a.createdAt ?? a.publish) : '—'],
+                  ['Last modified by', a?.updated?.by ?? a?.author ?? '—'],
+                  ['Last modified on', a?.updated ? dateText(a.updated.at) : a ? dateText(a.createdAt ?? a.publish) : '—'],
                   ['Status', s],
-                  ['Recipients reached', a?.reached ? a.reached.toLocaleString('en-GB') : '—'],
-                  ['Emails sent / opened', a?.sent ? `${a.sent} / ${a.opened}` : '—'],
+                  ...(a?.email && (s === 'Live' || s === 'Expired' || s === 'Withdrawn') ? ([['Emails', `${a.sent.toLocaleString('en-GB')} sent`]] as const) : []),
                 ] as const
               ).map(([k, x]) => (
                 <div key={k} className="ifacts__row">
@@ -396,7 +408,7 @@ function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; 
         }}
         onCancel={() => setWithdrawing(false)}
       >
-        <p>Partners stop seeing it straight away. Emails already sent can’t be taken back.</p>
+        <p>It comes down at once from the top bar, course cards and {v.unis.length ? v.unis.map(uniName).join(', ') : 'the university'}’s page. Emails already sent can’t be recalled.</p>
       </ConfirmDialog>
     </div>
   );

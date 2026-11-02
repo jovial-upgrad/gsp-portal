@@ -16,6 +16,27 @@ import { labelOfId, staffById } from './staff';
 import { shortDate } from './dates';
 
 const DAY = 86_400_000;
+
+/*
+ * Global Admissions' own (Jovial, 2 Nov): GSP · Global Ops (Rhea Menon) owns four open applications from Direct and
+ * Rest of world, so My work › Assigned to me has real work in it. Invented students, like the rest of the data set;
+ * added here, not in dataset.json, which gen_dataset.py builds.
+ */
+const GLOBAL_OPS_STUDENTS = [
+  { id: 'S-30078', first: 'Wanjiru', last: 'Kamau', nationality: 'Kenya', email: 'wanjiru.kamau41@gmail.com', dial: '+254', phone: '712 448 903', passport: 'AK3390217', rp: 'upGrad GSP Direct' },
+  { id: 'S-30079', first: 'Bolormaa', last: 'Enkhbat', nationality: 'Mongolia', email: 'bolormaa.enkhbat27@gmail.com', dial: '+976', phone: '8811 4062', passport: 'E1847263', rp: 'upGrad GSP Direct' },
+  { id: 'S-30080', first: 'Chidera', last: 'Nwosu', nationality: 'Nigeria', email: 'chidera.nwosu58@gmail.com', dial: '+234', phone: '803 517 2264', passport: 'B50918372', rp: 'upGrad GSP Direct' },
+  { id: 'S-30081', first: 'Mateo', last: 'Restrepo', nationality: 'Colombia', email: 'mateo.restrepo63@gmail.com', dial: '+57', phone: '310 482 7715', passport: 'AT921604', rp: 'upGrad GSP Direct' },
+];
+const GLOBAL_OPS_APPS = [
+  { id: 'GSP-24248', was: 'GSP-24248', rp: 'upGrad GSP Direct', rpId: '10913', region: 'Rest of world', studentId: 'S-30078', uni: 'acu', course: 'Bachelor of Nursing', level: 'Bachelor’s degree', intake: '16-Feb-2027', status: 'checking', sinceDays: 0.05, officer: 'u-rhea-menon' },
+  { id: 'GSP-24249', was: 'GSP-24249', rp: 'upGrad GSP Direct', rpId: '10913', region: 'Rest of world', studentId: 'S-30079', uni: 'latrobe', course: 'Global Master of Business Administration', level: 'Master’s degree', intake: '01-Mar-2027', status: 'ready', sinceDays: 1.2, officer: 'u-rhea-menon' },
+  { id: 'GSP-24250', was: 'GSP-24250', rp: 'upGrad GSP Direct', rpId: '10913', region: 'Direct', studentId: 'S-30080', uni: 'uws', course: 'Master of Business Administration (MBA)', level: 'Master’s degree', intake: '01-Jan-2027', status: 'payreview', sinceDays: 0.1, officer: 'u-rhea-menon' },
+  { id: 'GSP-24251', was: 'GSP-24251', rp: 'upGrad GSP Direct', rpId: '10913', region: 'Direct', studentId: 'S-30081', uni: 'murdoch', course: 'Graduate Diploma in Environmental Science', level: 'Postgraduate diploma', intake: '15-Feb-2027', status: 'finance', sinceDays: 0.15, officer: 'u-rhea-menon' },
+];
+for (const x of GLOBAL_OPS_STUDENTS) if (!DATASET.students.some((y) => y.id === x.id)) DATASET.students.push(x);
+for (const x of GLOBAL_OPS_APPS) if (!DATASET.apps.some((y) => y.id === x.id)) (DATASET.apps as unknown[]).push(x);
+
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export type DataApp = (typeof DATASET.apps)[number];
@@ -73,6 +94,8 @@ const HOME: Record<string, { state: string; city: string; uni: string; board: st
   Indonesia: [{ state: 'DKI Jakarta', city: 'Jakarta', uni: 'Universitas Indonesia', board: 'Ministry of Education', g12: 'SMA, Science' }],
   Nigeria: [{ state: 'Lagos', city: 'Lagos', uni: 'University of Lagos', board: 'West African Examinations Council', g12: 'WASSCE' }],
   Colombia: [{ state: 'Bogotá D.C.', city: 'Bogotá', uni: 'Universidad Nacional de Colombia', board: 'ICFES', g12: 'Bachillerato' }],
+  Kenya: [{ state: 'Nairobi County', city: 'Nairobi', uni: 'University of Nairobi', board: 'Kenya National Examinations Council', g12: 'KCSE' }],
+  Mongolia: [{ state: 'Ulaanbaatar', city: 'Ulaanbaatar', uni: 'National University of Mongolia', board: 'Education Evaluation Centre', g12: 'Complete secondary education' }],
   Myanmar: [{ state: 'Yangon Region', city: 'Yangon', uni: 'University of Yangon', board: 'Myanmar Examination Board', g12: 'Matriculation' }],
 };
 const levelOfCourse = (lv: string): Level => (lv === 'Bachelor’s degree' || lv === 'Diploma' || lv === 'Foundation' ? 'g12' : lv === 'PhD or research' ? 'pg' : 'ug');
@@ -317,7 +340,7 @@ export function datasetApplications(): Application[] {
       offer,
       funds: step >= 6 ? Math.round(c.tuition * 1.6) : undefined,
       unread: needs.some((n) => n.request) ? 1 : undefined,
-      ...(a.status === 'closed' ? { end: { kind: 'Student withdrawn' as const, reason: 'Withdrew after enrolling', stage: 7, at: since + DAY } } : {}),
+      ...(a.status === 'closed' ? { end: { kind: 'Withdrawn' as const, reason: 'The student isn’t going to study abroad', stage: 7, at: since + DAY } } : {}),
     };
     return app;
   });

@@ -28,7 +28,7 @@ The file to share is `dist-artifact/gsp-partner-portal.html` (about 500 KB). It 
 
 Open the **Prototype** button (bottom right) to jump between states, switch theme, view a 390 px phone frame, and reset everything. States are grouped by area, and each group heading opens and closes its group; the group holding the state on screen starts open, the others closed. Each state also has its own link.
 
-**Role** (the button beside Prototype, for testing) picks who the portal is seen as: **RP Admin**, the recruitment partner's admin, which is the agency portal everything below describes; **GSP Team**, GSP's own team; **GSP · Institution** (29 Oct), GSP's Institution Team: GSP Team members a GSP admin gives access to, who keep the records of the institutions GSP works with; or **GSP · Admin** (30 Oct), GSP's admins: GSP's configuration, with the Institution Team's pages. GSP Team started as a copy of the agency portal (`src/gsp/`) and has since been reshaped for GSP without touching RP Admin. The Institution Team started as a copy of GSP Team (`src/institution/`) and has its own sign-in, pages and styles; nothing changed for it reaches RP Admin or GSP Team (Nesil's rule). GSP Admin is a copy of the Institution Team (`src/admin/`), its sign-in included, with its own colour. The role is remembered; switching it shows the same state in the other role, or that role's Home, signed in, from the sign-in pages. The review states and links work in either role.
+**Role** (the button beside Prototype, for testing) picks who the portal is seen as: **RP Admin**, the recruitment partner's admin, which is the agency portal everything below describes; **GSP Team**, GSP's own team; **GSP · Institution** (29 Oct), GSP's Institution Team: GSP Team members a GSP admin gives access to, who keep the records of the institutions GSP works with; or **GSP · Admin** (30 Oct), GSP's admins: GSP's configuration, with the Institution Team's pages. GSP Team started as a copy of the agency portal (`src/gsp/`) and has since been reshaped for GSP without touching RP Admin. The Institution Team started as a copy of GSP Team (`src/institution/`) and has its own sign-in, pages and styles; nothing changed for it reaches RP Admin or GSP Team (Nesil's rule). GSP Admin is a copy of the Institution Team (`src/admin/`), its sign-in included, with its own colour. The role is remembered; switching it shows the same state in the other role, or that role's Home, signed in, from the sign-in pages. The review states and links work in either role. Since 2 Nov (slice 1 PRD) the menu has **12 roles**, one signed-in person each: the 9 GSP roles and the 3 RP roles (see *Design decisions: GSP · Admin*).
 
 **Connect RP Admin and GSP Team** (in the Role menu, for testing) makes one application (with its student) or all of them the same in both roles: GSP requests a document, changes the status or sends a document back, and the RP sees it; the RP uploads or writes in the chat, and GSP sees it. Each change also lands in the other role's bell (30 Oct). Switching role shows it in this window. **See both side by side** shows the two roles in two panes, where changes show in the other pane as they happen; another tab keeps up too. Opening side by side connects all applications unless one is picked. The latest change wins. The Role button says "connected" while it's on. Only copies of the **same build** keep up with each other (28 Oct): every downloaded copy shares the browser's storage, and an older copy left open in another tab used to send applications the newer one couldn't read (a status it no longer has), which left it blank. An application with a status this build doesn't have is left out too.
 
@@ -48,7 +48,9 @@ If a screen fails anyway, the page says so instead of going blank: **This screen
 | `#courses` | Find courses, before searching |
 | `#courses-results` | Results: master's in data science, Australia |
 | `#courses-renamed` | A misspelt old university name ("univeristy of adelaide") finds Adelaide University |
-| `#courses-none` | Nothing matches the filters |
+| `#courses-none` | Nothing matches the filters ("No courses match these filters", Clear filters) |
+| `#courses-hidden` | Some courses hidden by university territory rules (Punjab) |
+| `#courses-error` | "Courses didn't load. Try again." |
 | `#signup` | Become a partner: empty form |
 | `#signup-filled` | Filled in, with a password |
 | `#signup-errors` | Sent with errors (inline messages) |
@@ -135,6 +137,48 @@ If a screen fails anyway, the page says so instead of going blank: **This screen
 - "How did you find us?" is optional: leave it empty and the details still save. No referral code and no WhatsApp (1 Nov).
 - Email `ananya@horizonoverseas.in` is already registered.
 - Cities Bengaluru, Mumbai, Delhi, Kathmandu, Dhaka and Colombo each pick a named contact.
+
+## Slice 3 PRD (2 Nov)
+
+The prototype follows *GSP portal PRD · Slice 3: Core flow* (the gap list is `prd-gaps/S3.md`). Where a rule waits on a sheet
+row (tab *S3 check*) or on S3-31, the PRD's proposal is built. In every role:
+
+- **Find courses** is one page for RP users and every GSP role (GSP's own copies now render it, without Student view or
+  commission, W26). Five filters and no others: **Tuition fee** (two handles, the total fee, bounds from the results),
+  **Tags** (all the ones picked, S3C-4), **Duration** (two handles, <1 year to 5+ years; courses in credits match every
+  range and show "36 credits"), **University** (any of them; 8, then "Show N more universities") and **Destination state
+  or province**. Four sorts: **Recommended** (the university's Search priority, the soonest open deadline, QS rank,
+  name), **Fee high to low**, **Fee low to high** (total fee), **QS ranking**. Cards show the total tuition fee with the
+  fee a year under it, up to two intakes ("Mar 2027 · Open"), QS rank or "—". The two sliders are the portal's own
+  (`components/RangeSlider.tsx`): arrow keys, Page Up/Down, Home/End, drag.
+- **Course page**: Apply only (no Compare, no Shortlist), intakes with days left, University tab without the
+  disciplines and levels. **Eligibility and documents** starts on the search's student country; with a student
+  picked it shows GSP Assist's check: highest education against the course's **Minimum highest education required**,
+  academics through Grade conversion, backlogs, English (Meets, Below, "Meets (converted from PTE)", May be waived,
+  Expired, Not specified) and the overall verdict (`data/eligibility.ts`).
+- **Compare**: the decided fields in order (Program level, Duration, Intakes, Application deadline, Tuition fee,
+  Application fee, Scholarship, Requirements, QS rank), tags only where 2+ courses differ (ties tag all; "—" never
+  wins; other currencies converted), "Requirements are for students from …". Download: PDF for the student or CSV for
+  internal use (same fields, logged).
+- **GSP · Admin › Course configuration** gains **Grade conversion** (9 seeded systems; add, edit, retire, restore;
+  bands can't overlap) and **English test equivalence** (5 seeded rows, edited in place) (`admin/config/Eligibility.tsx`).
+  The check reads each course's **Minimum highest education required** (`minEducation`, slice 2's course form).
+- **Students**: Highest education is the one list (Grade 10 … Doctorate, S3C-1); a qualification's grading system is
+  picked from Admin's Grade conversion; Share with student is hidden (S3C-10); 25 a page.
+- **Applications**: Who has it follows the PRD's five rules (an open RP request outranks a university status;
+  Assessment is the university's; Visa decision pending is GSP's). Finished applications show **Enrolled**, **Closed**
+  or **Withdrawn**. **Change status**: stage, then status (no Waiting for documents or re-upload pending; a reject is the
+  only way there), then the stage's close reasons (New: S3-31's proposal). It stays off until the status differs and
+  what it needs is done: the university reference or No reference ID (same reference at the same university clashes),
+  the conditional or unconditional offer letter, the Acceptance letter, the visa grant when GSP lodged, who lodges the
+  visa. **Close** posts "Application closed: <reason>"; **Withdraw** (More, RP or Admissions, a required reason) posts
+  "Application withdrawn by <name>: <reason>", both under the assigned officer's name; open requests read "Closed with
+  the application"; the chat goes read-only. GSP can **withdraw a request** ("Withdrawn by <name>"). Key details: the
+  reference (added later after No reference ID), the **assigned officer** (Change: the regional queue's members, S3C-8),
+  visa lodged by, Started or Applied. Add an application blocks an open **or Enrolled** application for the course,
+  without the ID outside the person's regions. Lists: the PRD's tiles, filters and columns, 25 a page.
+- The Institution Team's (and so Admin's) Applications and Students are GSP · Admissions' own modules
+  (`institution/applications`, `institution/students` re-export `gsp/`).
 
 ## What's in it
 
@@ -448,6 +492,18 @@ The agency is "You" in the tags (product rule: plain words, no internal labels);
 
 **Not yet:** the student's own view, bulk actions (assign, chase), Earnings, and the GSP side that creates document requests.
 
+## Slices 1 to 4 merged (2 Nov)
+
+The four slice branches (prd-s1, prd-s2, prd-s4, prd-s3) are one prototype on `prd-merge`; each slice's gap list stays in `prd-gaps/S<n>.md`. Where they overlapped there is now one source:
+
+- **Names:** only slice 1's: the roles Global Ops, RP Ops, IP Ops (no old-name aliases left) and the regions Indonesia Malaysia & Thailand, Latin America & Europe.
+- **Permissions:** one helper, `canEditObject` / `canSeeObject` / `canEditNow` in `src/admin/data/menus.ts`, on Admin › Permission roles. Slice 2's `canEdit` / `canSee`, Finance and Work's `can()` and the shared Students and Applications pages read it, so **GSP · View Only** sees no Add, Edit, status or row actions in slices 1 to 4 (Course tags, Grade conversion and English test equivalence included). Roles with View on Students or Applications (Recruitment, RP Ops, Institution, IP Ops, Finance) no longer see Add student or Add application, as the matrix says.
+- **Emails:** `EMAIL_TEMPLATES` in `src/work/mail.ts` (E1 to E21, with `canTurnOff` and `who`: GSP, RP or Both) is the only list: GSP Profile › Email preferences and the RP's Profile › Email preferences both read it; E1 to E4 use slice 1's wording (`src/admin/data/emails.ts`).
+- **Working calendar:** a sales region's calendar is one setting: its `calendarId` and the calendar's list of regions, set from either Sales regions or Work › Working days.
+- **Work:** slice 4's engine with slice 1's Global Admissions (`q-adm-global`), no quality check, and the personas Rhea Menon (Global Ops), Kabir Sethi (IP Ops), Anaya Iyer (View Only), Anita Desai (Branch Admin) and Karthik Nair (Counsellor). The User roles › Queues editor is gone.
+- **Course search:** Search priority reads `searchPriority` only; the Tags filter lists Admin's active tags that at least one course has. Samples: courses tagged English test waiver and MOI acceptable ("May be waived"), and two US master's courses in credits (Pace, 36; South Florida, 30).
+- **Saved data:** `gsp-admin-v7`, `gsp-work-v7`, `gsp-work-calendars-v2`, so older saved settings don't load.
+
 ## Design decisions: GSP Team
 
 The **GSP Team** role (Role, beside Prototype) is GSP's own team. It starts as a copy of the agency portal in `src/gsp/`, sharing the data, components and styles, and changes there don't touch RP Admin. So far (27 Oct):
@@ -497,25 +553,50 @@ The **GSP Team** role (Role, beside Prototype) is GSP's own team. It starts as a
 
 The team's changes stay in its own portal for now, like every role's data: RP Admin's and GSP Team's Course search don't see a course it adds.
 
+## Design decisions: slice 2 PRD (2 Nov)
+
+The slice 2 PRD (*Supply and partner onboarding*) is the source for these screens; `prd-gaps/S2.md` lists each rule and what changed. Proposals S2C-1 to S2C-19 are built as proposed.
+
+| Screen | What it does now |
+| --- | --- |
+| Every slice 2 page | **Owner rules from Admin › Permission roles**: only roles with Edit on the matrix row see Add, Edit, Change and status buttons; No access hides the part (an institution partner's Documents tab; a university's Campuses and Portal logins). 25 rows a page with Previous and Next; "Nothing matches these filters." with Clear filters; empty states that offer the create action; "This record doesn't exist or was removed." Uploads are checked for type and size first. Every event writes Admin › Logs |
+| Change log and System information | Institution partners, universities, courses and Master Partners have a read-only **Change log** tab (when, who, role, what, old → new), written on every save, and System information (created by and on, last modified by and on) |
+| Institution partners | Fields: name, type, status (Add only; not Agreement ended), relationship manager, country (every country), state, city. **Agreement ended** is set only by job J1, once per end date, which also pauses Live universities; **Decision A**: Agreement executed set by hand after the end date counts as in date (sample: Lincoln University). A Renewal ending today or later brings an ended partner back. A Closed status asks first and ends its universities; back from Closed, they become Paused. Documents: Current tag, Download, Uploaded by and on, Remove with a confirm. Contacts: first and last name, title, For, phone, email |
+| Universities | List with QS rank and Status filter. Add a university: name, partner, type, country only. **Go live** needs five things (partner Agreement executed, an active campus, a live course, how applications are sent, profile complete) and lists what's missing; **Pause** asks first; Ended is read-only. Profile: **Search priority** 0–100 (was Display priority), QS ranking read-only ("#415 · QS 2026"), logo upload. Campuses: Setting is descriptive only; a campus without courses can be removed. Pictures: caption, drag or menu to reorder. Territory: read-only with Edit territory, blocked country with or without a state, hidden-from by RP name or code. Courses tab: search, Level and Status, Import CSV, Add a course |
+| Courses | List with Import CSV (asks for the university). **Add a course** asks for every Basics field and saves with Add draft. Tabs are read-only with Edit, then Save or Cancel; the university can't change. Source is a Basics field; tags come from Admin › Course tags. Intakes check the date order and show what course search shows; Fees have a fee year and the fee a year under the full course fee; Academic asks **Minimum highest education required** first (needed to publish); English checks each test's range. Delete (Live or Hidden) only with no applications |
+| Announcements | No Master Partner user type or role; RP roles RP Admin, Branch Admin, Counsellor; "Reaches about N people"; Edit on Draft, Scheduled and Live; PRD copy for Withdraw |
+| GSP · BAP | Home: To verify, Ready to approve, Signed copy to check, Sent back, Not activated. An RP's record: Upload agreement once every document is verified, **Approve partner** once it's uploaded (sends it to the RP), Accept or Send back the signed copy; **Reject, Suspend, Reactivate**; Mark training done; Issue a notice; Edit details, BDM and Master Partner link; Branches and team with Add branch. Admission and Recruitment see only their regions' RPs |
+| Master Partners | GSP · BAP › Master Partners (and every role with View): list, New Master Partner, and a record with Overview, RPs (Link an RP, Unlink), Documents, Commission and Change log; Active or Inactive |
+| GSP · Admin › Course tags | Add, rename, retire and restore the course tags (seeded with today's nine) |
+| RP portal | Profile stays locked until verified (Home and Find courses open once documents are sent). The agreement card on Home: download, upload the signed copy with Signed on. Earnings says commission is held until it's signed. A Suspended or Rejected RP sees its account closed. Profile has Email preferences; team members can be deactivated, and Remove asks first |
+
 ## Design decisions: GSP · Admin
 
-**Who it's for** (Nesil, 30 Oct): GSP's admins. The role is **GSP · Admin** in the Role switch and **GSP Admin** beside the logo, signed in as **Ishaan Verma, GSP · Admin**. It **builds on GSP · Institution**: its pages and records (as User modules and Institution in its menu, below), the bell and megaphone, and its own copy of the sign-in (GSP email and password, Set up your password the first time, no registering). Test values: Ishaan Verma (`ishaan.verma@gsp.upgrad.com`, `upGrad1234`), Sara Thomas (`sara.thomas@gsp.upgrad.com`, no password yet, to try setting one up); the code is `000000`. It lives in `src/admin/` and changes there touch no other role; it shares GSP · Institution's pages and styles.
+**Source** (Jovial, 2 Nov): the screens below follow the **slice 1 PRD** (*GSP portal PRD · Slice 1: Foundation*) line by line; `prd-gaps/S1.md` lists every gap found and how it was closed. Where the PRD points to an open question (S1C-n), its proposal is built.
 
-**Its colours** (Nesil, 30 Oct): the same as every role, RP Admin's (GSP's navy, the upGrad red glow). Teal and then red and blue were tried first and dropped; the role is told apart by its name beside the logo and its menu.
+**Who it's for:** GSP's admins. **GSP · Admin** in the Role menu, **GSP Admin** beside the logo, signed in as **Jovial Lejo, GSP · Admin**. Its colours are every role's (RP Admin's). It lives in `src/admin/`; Admin's settings are one store every role reads (`src/admin/data/store.ts`).
 
-**Its menu** (Nesil, 30 Oct). Home, then seven groups, each a row with an arrow; picking one opens **a small glass menu beside the sidebar**, level with the group, listing its pages with their icons (after Nesil's reference: not a drop-down). The group holding the page on screen wears the lens; arrows move in the menu, Enter opens a page, Esc or a click elsewhere closes it.
-- **User modules**: Course search, Students, Applications. **Institution**: Recruitment partners, Institution partners, Universities, Courses, Announcements. Both are **GSP · Institution's own pages** (imported from `src/institution/`, no copies), so a change there shows here too, unless a page gets its own setting here later. While GSP Admin is open they act as Ishaan Verma, and GSP · Institution gets its own person back after.
-- **User roles** (Nesil, 30 Oct):
-  - **Create roles**: GSP's people. **Create role** asks for the name, email, phone with the country code, **role** (Admin, Recruitment, Recruitment Ops, Admission, Admission Ops, Institution, Institution Ops or Finance), title and **sales region**; **Save and send login link** emails them a link to set their password (or Save without sending). The list shows each person's role, title, region and login (Not sent, Link sent, Active), filters by a search, role, sales region and login, and exports as CSV. Each row has **Send login link** (Resend link once sent) and Edit role or Delete role; deleting takes them off every queue and email group, and the only Admin can't be deleted.
-  - **Sales regions**: each region's countries, its Admissions contact and how many users it has. **Add sales region**, and Edit (its name and contact; renaming moves its users with it) or Delete (its users have no region until they're given one). Global stays.
-  - **Permission roles**: pick a role to set each of 30 objects from No access to Manage, or see every role side by side as a matrix; Super Admin manages all.
-  - **Queues**: each queue's **name, leader and members**. **Create queue** with the leader picked from one list and the members ticked from another; edit or delete one.
-  - **Emails**: GSP's **email groups**. **Add email group** asks for the email, **Email sync** and the **sync start date**. Pick a group to see its **email group users**: add people from a list (they start as **Only view**) and set each to Only view or **Can send**; take someone off with ×. Edit or delete a group.
-- **Recruitment**: **BDM assignment** (country or region, states or cities, BDM; most specific match first; add or edit in a dialog with a state grid and city field, a fallback row that can't go).
-- **Course configuration**: **Currency exchange** (1 unit of each destination currency in INR, edited in place) and **Living costs** (a year's visa figure per destination and where it comes from).
-- **Application configuration**: **Application routing** (the six rules in order, switch off or move one; a test with its trace; regional RP lists; region defaults) and **Document configuration** (the 20 application document rules: stage, when, mandatory or optional, who uploads, on; and the recruitment partner documents by country).
-- **Other configurations**: **Filters configuration** (show, hide and order the filters of Course search, Applications and Students) and **Logs** (every change in these settings and every download, filtered by kind, area or person; Export log is logged too).
-- Every change shows the bottom-left notification and goes into the page's **Change history** and Logs. The fields come from the PM prototype's Super Admin › Settings where it has them; Currency exchange, Living costs and Filters configuration aren't in it (REVIEW.md). Pages in `src/admin/config/`, their data in `src/admin/data/config.ts`.
+**Roles (12, Jovial 2 Nov; S1-1):** the Role menu has one signed-in person for every role, labelled with slice 1's names: GSP · Admin, GSP · Admission (Ramish Jafery), **GSP · Global Ops** (Rhea Menon, a pseudonym: GSP · Admissions' portal with every region, the oversight tab and Global Admissions), GSP · Recruitment, GSP · RP Ops (was BAP), GSP · Institution, **GSP · IP Ops** (Kabir Sethi, a pseudonym: the Institution Team's portal), GSP · Finance, **GSP · View Only** (Anaya Iyer, a pseudonym: GSP · Admin's pages, read only), RP Admin, **RP · Branch Admin** (Anita Desai: her branch's students) and **RP · Counsellor** (Karthik Nair: his own students; no counsellor pencil; no Earnings). Each GSP role's menu and edit rights follow its line in the permission matrix (`src/proto/roles.ts`, `src/admin/data/menus.ts`). Every GSP role signs in at the GSP portal.
+
+**Page states** (every Admin page): Loading (5 grey rows), Load error ("We couldn't load <page>…" with Try again), No results ("No <thing> match these filters." with Clear filters), field errors (on leaving a field and on Save; the first error gets the focus), Save error ("We couldn't save your changes. Try again."), Someone else saved (with Reload), Discard changes?, the "Saved." toast (4 seconds), View only ("You can view this page but not change it.", no Add, Edit, row actions or switches), No access and Not found (full pages with Go to Home), and each page's own empty line. The slow and failing ones are review states: **Prototype › Admin page states (slice 1)** in any GSP Admin-portal role.
+
+**The menu:** Home, My work, Mail, then groups that open a small menu beside the sidebar: **User modules** and **Institution** (GSP · Institution's own pages), **User roles** (Create roles, Sales regions, Permission roles, Emails; no Queues page: queues are edited only in **Work › Queues, SLA and escalation**, S4-1), **Recruitment** (BDM assignment), **Course configuration** (Currency exchange, Living costs and fees), **Application configuration** (Application routing, Document configuration), **Other configurations** (Logs, Sign-in security) and **Work**.
+
+- **Home:** "Good morning, <first name>" by IST. Tiles: GSP users ("N not active"), Sales regions ("3 of them system regions"), Application documents ("N switched off"), each opening its page. **Needs a look**, each row with the button that fixes it: a login link expiring within a day or expired (Resend login email), this week's rates not saved or older than 7 days, a user with no sales region, Work's queue warnings, a daily job failing 3 runs in a row; else "Nothing needs a look." **Recent changes**: the last 3, with Open logs.
+- **Create roles (GSP users):** tiles (GSP users, Link sent, Active, Deactivated) that filter; search by name, email or phone; role, sales region and login filters; A to Z, 50 a page; columns Name (email), Phone, Role (title), Sales regions (or "Covers <area>" for Recruitment, read from BDM assignment, S1C-3), Login ("Sent N ago", "Link expired" in red after 7 days, "Signed in N ago", "Deactivated <date>"). **Export as CSV** of what the filters show, logged as a download. **Create user** / **Edit**: name (2–100), email (@upgrad.com only, S1C-2; unique; editable only while Link sent, locked once Active), phone (+91 by default), role (none picked), title (up to 60), sales regions (Global can't sit with others). Row menu: Edit, Resend login email (Link sent), Deactivate or Reactivate, Delete user; the last active Admin can't be deactivated or deleted. Seeded login states: Prakriti Nanda (link sent), Riya Shah (link expires within a day), Khushal Doriya (link expired), Dzung Hoang (deactivated).
+- **Sales regions:** the only list of sales regions: Name, Countries, Admissions contact, Default BDM, Admissions queue (from Work's queues) and Working calendar (Work's working days; the same setting), the PRD's 17 seeded. One time zone, IST. Global, Direct and Rest of world are system regions (no Delete; name and countries fixed). A country sits in one region ("(in <region>)"). Delete only once no RP or open application is in the region. **Nationality map** tab: nationality words ("Indian"), their region and last changed; Edit map; a nationality with no row falls to rule 6, Fallback.
+- **Permission roles:** the matrix, 33 objects × the 9 roles (—, View, Edit), as set on 1 Nov; Edit, then Save; Admin fixed at Edit; each changed cell logged old → new.
+- **Emails (Shared mailboxes):** each mailbox's email (locked after the first save), For, Email sync, Sync from, its queues (members get Can view and Can send) and people added by hand (**Add a person**, Can view or Can send). No delete: switch sync off. The five seeded mailboxes and their queues (gsp.admissions@: every regional Admissions queue and Global Admissions).
+- **BDM assignment:** search and filters; each row: country (or All other countries, the fallback, which can't be deleted), states or cities (with All and Rest of <country>), BDM, note, last changed. A row opens Edit, with Delete row.
+- **Currency exchange:** week picker (this week and past weeks, read only); 1 unit in AUD (up to 4 decimals), 1 unit in INR and Used for worked out; **Get today's rates** and **Fetch with AI** fill a draft (a currency the AI can't find keeps last week's rate and is flagged; each fetch logged); currencies added from the ISO 4217 list.
+- **Living costs and fees:** per destination: currency (from the destination), living expense a year, visa fee (once), health insurance a year, note, last changed; add and delete rows. **Intake timings** below: Late after the deadline (0–60), Deadline soon (1–90, no more than Countdown), Countdown (1–180; only "closes in N days").
+- **Application routing:** runs when an application reaches Pre-screening; the six rules (on or off, order; the Fallback always on and last); **Test a routing** (RP, nationality, where the student lives, destination) with region, BDM, Admissions queue, the rule, and each rule's Matched / No / Not reached; **Regional RP lists** (one per region; an RP on one list only).
+- **Document configuration:** the 10 application document rules (all at New, by the RP; the 8 stages; Program levels; no CoE, CAS, I-20, LOA or Offer of place); a rule an application asked for can only be switched off. Recruitment partner documents: India and Everywhere else, each document Mandatory or Optional.
+- **Logs:** tabs All, Changes, Downloads, Job runs, Emails with counts; role, person, from and to (IST) and search; 50 a page; Export log is logged.
+- **Sign-in security:** 3 wrong passwords (3–10), a 10-minute pause (5–60), 30 seconds before a new code (15–120), the 10-minute code lifetime (not editable), and the four **account emails** (Set up your account, Your code, Password changed, Sign-in paused; from no-reply@gsp.upgrad.com, no Reply-to, can't be turned off).
+- **Profile** (every GSP role): details read only from GSP users, **Change password**, Leave (from and to) and **Email preferences** (the account emails locked on, "Needed to sign in"; the others one switch each).
+- **Sign-in** (GSP portal): "GSP email", wrong passwords counted per typed email ("N tries left before sign-in pauses." from 2 left), the pause, "Your GSP access is turned off…" for a deactivated person, Send code always moves on, wrong / expired / too many codes, the 8–64 rule, the login link opening the new-password step (or "This link has expired…" with Set up with a code), and a reset ending at sign-in with "Password changed" and Sign me out on other devices. Test: any staff email with `upGrad1234`; Prakriti Nanda has no password yet; Dzung Hoang is deactivated; the code is `000000`.
+- Region isolation (model D): Admission and Recruitment see only their own regions; there's no switch to see others (decided 1 Nov).
 
 ## Design decisions: Find courses
 
@@ -542,3 +623,18 @@ What the docs say, and what this design does with it:
 - **Sample data:** campus addresses, websites, founding years, scholarships, other costs and CRICOS codes are illustrative. Visa and health-cover figures are approximate and marked so.
 - **Not yet:** checking eligibility against a student (Eligible, With conditions, Not eligible, Add details), and sending the PDF on WhatsApp.
 
+
+## Design decisions: Operations (slice 4)
+
+Built to match the slice 4 PRD "Operations" (2 Nov, decisions S4-1 to S4-28); the gap list is `prd-gaps/S4.md`. Code: `src/work/` (store, engine, seed, calendars, clock, mail, ui).
+
+- **My work** (every GSP role, first after Home; GSP · Institution has it now too): tiles **Assigned to me**, **Due soon**, **Breached**; tabs **Assigned to me**, **My team** (queue leaders: every open task in the queues they lead, with Reassign) or **All work** (Admin, Global Ops, View Only), and **Waiting on others** (applications On RP or On university, with a timer). No My queues, Watching, Pick up or unassigned tile (S4-8, S4-23, S4-26). Sort by due time, then oldest. **Assign / Reassign** (the queue's leader, any member, Admin, Global Ops) and **bulk Assign** of up to 50 ticked tasks to one person; **Done** for the assignee only; no bulk Done (S4-6). View Only sees it all read-only. A member sees their own tasks; a leader their queues'; a level 2 escalation shows to the Ops queue's members; Admission and Recruitment only in their own sales regions.
+- **Prototype clock** (My work, for testing only): +1 working hour, +1 working day, Back to now. Every SLA, timer, escalation, the bell and the emails-sent log follow it, so a task can be walked from On track to Due soon to Breached and up the ladder.
+- **Queues** (Admin › Work › Queues, SLA and escalation): name (up to 60), leader, members (searchable multi-pick), **how work is shared** (Fewest open, Record owner, To the leader) and what it receives. No type, regions, default SLA or stage handover (S4-24; one officer end to end). Seeded per the PRD: the regional Admissions queues, SEA, **Global Admissions** (the Global Ops team's, S4-20), **RP Ops**, **Institution**, one **Recruitment** queue per sales region (Record owner, led by the region's default BDM until S4-19 is answered), **IP Ops**, **Finance** and the **Admin** queue (was Fallback). Deleting moves open tasks to the Admin queue.
+- **Sharing**: no task is ever unassigned (S4-2). Fewest open skips people on leave, deactivated users and anyone who can't see the record; tie by name. Every application task goes to the application's **officer**, picked once by Fewest open (open applications) when the RP sends the documents and kept until changed (S4-5); a deactivated officer's applications go to the queue's leader (S4-4). On leave: the leader covers, with "Covering while <name> is on leave".
+- **SLAs**: working hours on the record's region's calendar, **in IST** for everything (S4-27); due soon at ≤ min(9, half the SLA); the rule's SLA, else the kind's, else 18; a task keeps the hours it was created with (S4-11); GSP's own application task **pauses** while a request to the RP is open (S4-10). Escalation: level 1 the leader, level 2 the team's Ops queue, level 3 the Admin queue (numbers editable 0–60); the reminder a working day before due only on SLAs of 18 wh or more (S4-18).
+- **Working days**: calendars with days, hours (half-hour picks, IST), holidays and the sales regions on them; a region's own `calendarId` (slice 1's picker) wins. The SLA by status tab is gone (S4-12).
+- **Task rules** (Admin › Work › Task rules): every rule of the PRD, grouped (Applications T1–T57, RPs incl. T58 and T59, Institution, Email, Commission, Admin T50 and T60–T68 as the S4-28 proposal, Escalation T51). Admin and Global Ops edit on/off, task starts after, SLA, RP reminder, queue and sharing; triggers and close conditions are read-only; no New and no Delete (S4-13). The engine reads them; a switched-off rule makes nothing new and its open tasks stay.
+- **Emails and daily jobs** (Admin › Work): the 21 email templates (E1–E21) with the rules every email follows and a preview; **Emails sent**, the log the build keeps, worked out from the work now (E15, E17, E18 for the RP, S4-17; E19 morning email; E20; E21); the nine daily jobs J1–J9 with their IST times and next run. `EMAIL_TEMPLATES` (with `canTurnOff`: all but E1–E4) is exported from `src/work/mail.ts` for Profile › Email preferences.
+- **The bell**: read state saved per person in this browser; 90 days kept, newest 40 with **Show older** (S4-15); no preferences. My work's notifications: a task for you, "Due tomorrow:", "Late:", "Escalated:", "<name> gave you …". The leader gets the officer's application notifications while covering.
+- Every settings change is in the page's **Change history** (with its event, like `queue.edited`) and in Admin's **Logs**.

@@ -20,9 +20,13 @@ export const SUBCATEGORIES: Partial<Record<(typeof ANN_CATEGORIES)[number], stri
   Admission: ['Assessment', 'Process Updates', 'Exception/Exclusion', 'Territory Updates', 'New Courses', 'New Intakes', 'Design Templates'],
   'System Updates': ['New feature', 'Improvement', 'Fix'],
 };
-export const USER_TYPES = ['GSP', 'RP', 'MP'] as const;
-/** Who an announcement can go to (Jovial, 1 Nov, HC37): GSP's nine permission roles from GSP · Admin, and the RP and Master Partner roles. */
-export const PERMISSION_ROLES = [...GSP_PERMISSION_ROLES, 'Master Partner admin', 'RP admin', 'RP branch manager', 'RP counsellor'] as const;
+/** Slice 2 PRD (S2-24): Master Partners have no users, so they're not a recipient. */
+export const USER_TYPES = ['GSP', 'RP'] as const;
+/** Who an announcement can go to (slice 2 PRD): GSP's nine permission roles (slice 1 names) and the three RP roles. No Master Partner (S2-24). */
+export const GSP_ROLES = ['Admin', 'Admission', 'Global Ops', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'Finance', 'View Only'] as const;
+export const RP_ROLES = ['RP Admin', 'Branch Admin', 'Counsellor'] as const;
+export const PERMISSION_ROLES = [...GSP_ROLES, ...RP_ROLES] as const;
+void GSP_PERMISSION_ROLES;
 /** The sales regions (HC38, 1 Nov): GSP · Admin › Sales regions, the only list, read each time it's listed. */
 export const SALES_REGIONS: Iterable<string> = { [Symbol.iterator]: () => salesRegionNames()[Symbol.iterator]() };
 export type AnnCategory = (typeof ANN_CATEGORIES)[number];
@@ -63,6 +67,8 @@ export type Announcement = {
   opened: number;
   /** Who last changed it, and when. */
   updated?: Stamp;
+  /** System information (slice 2 PRD): created on; created by is the author. */
+  createdAt?: string;
 };
 
 export function statusOf(a: Announcement, now = Date.now()): AnnStatus {

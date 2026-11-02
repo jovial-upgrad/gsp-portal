@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { Field, TextInput } from '../../components/forms';
 
 const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'UL', 'OL', 'LI', 'H3', 'P', 'BR', 'DIV', 'A']);
 
@@ -35,6 +37,25 @@ export const textOf = (html: string) => new DOMParser().parseFromString(html, 't
 export function RichText({ id, value, onChange, files, onFiles, invalid, describedBy, disabled }: { id: string; value: string; onChange: (html: string) => void; files: string[]; onFiles: (f: string[]) => void; invalid?: boolean; describedBy?: string; disabled?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const pick = useRef<HTMLInputElement>(null);
+  // the link's address is asked in the portal's own dialog (Jovial, 2 Nov: no browser prompt); the text picked is kept
+  const [link, setLink] = useState<{ url: string; tried: boolean } | null>(null);
+  const range = useRef<Range | null>(null);
+  const linkOk = (u: string) => /^(https?:\/\/\S+|mailto:\S+)$/i.test(u.trim());
+  const addLink = () => {
+    if (!link) return;
+    if (!linkOk(link.url)) return setLink({ ...link, tried: true });
+    const url = link.url.trim();
+    setLink(null);
+    window.setTimeout(() => {
+      box.current?.focus();
+      const sel = window.getSelection();
+      if (range.current && sel) {
+        sel.removeAllRanges();
+        sel.addRange(range.current);
+      }
+      run('createLink', url);
+    }, 30);
+  };
   // the editor owns its content while it's typed in (what's shown elsewhere is cleaned); set from outside when they differ
   useEffect(() => {
     if (box.current && box.current.innerHTML !== value) box.current.innerHTML = value;
@@ -54,8 +75,9 @@ export function RichText({ id, value, onChange, files, onFiles, invalid, describ
       'Link',
       'Link',
       () => {
-        const url = window.prompt('Link to (https://…)');
-        if (url && /^(https?:|mailto:)/i.test(url)) run('createLink', url);
+        const sel = window.getSelection();
+        range.current = sel && sel.rangeCount && box.current?.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null;
+        setLink({ url: 'https://', tried: false });
       },
     ],
   ];
@@ -113,6 +135,22 @@ export function RichText({ id, value, onChange, files, onFiles, invalid, describ
           ))}
         </ul>
       )}
+      <ConfirmDialog open={!!link} title="Add a link" confirm="Add link" onCancel={() => setLink(null)} onConfirm={addLink}>
+        <Field id={`${id}-link`} label="Link to" error={link?.tried && !linkOk(link.url) ? 'Enter a web address starting https://, or mailto:' : null}>
+          <TextInput
+            id={`${id}-link`}
+            type="url"
+            value={link?.url ?? ''}
+            onChange={(e) => setLink((l) => (l ? { ...l, url: e.target.value } : l))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addLink();
+              }
+            }}
+          />
+        </Field>
+      </ConfirmDialog>
     </div>
   );
 }

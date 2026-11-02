@@ -8,7 +8,7 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { update, nameOf, getState } from './store';
 import { can, inScope } from './access';
-import { Page, Card, Tiles, Segmented, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, toast } from './kit';
+import { Page, Card, Tiles, Segmented, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, toast, NumberInput } from './kit';
 import { useCheck, numError } from '../components/validate';
 import { PersonaBar, usePersona, HostContext } from './persona';
 import { addDays, addMonths, nice, money, r2, LEVELS, thursdayOf } from './engine';
@@ -280,7 +280,7 @@ function WhySheet({ x, canEdit, user, onClose }) {
       {canEdit && x.kind === 'pct' && (
         <div className="gspx-inline">
           <Field id="ov" label={`Override the RP’s amount (${x.cur})`} hint="No reason needed; the change is logged with your name." error={v.err('ov')}>
-            <Input id="ov" type="number" value={ov} onBlur={v.blur('ov')} onChange={setOv} />
+            <NumberInput id="ov" value={ov} onBlur={v.blur('ov')} onChange={setOv} />
           </Field>
           <Button kind="primary" disabled={String(ov) === String(was)} onClick={() => save(false)}>Save override</Button>
           {x.ov && <LinkButton onClick={() => save(true)}>Remove override</LinkButton>}

@@ -1,0 +1,32 @@
+/* Page states and slice 1 PRD additions (2 Nov) */
+.cfg__skelbar { display: block; height: 12px; border-radius: 6px; background: var(--surface-2); animation: cfgpulse 1.4s ease-in-out infinite; }
+@keyframes cfgpulse { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .cfg__skelbar { animation: none; } }
+.cfg__state { margin-bottom: var(--sp-8); }
+.cfg__viewonly { margin-top: calc(-1 * var(--sp-8)); font-size: var(--t-label); color: var(--text-3); }
+.cfg__full { display: grid; justify-items: center; align-content: center; gap: var(--sp-16); min-height: 50vh; text-align: center; }
+.cfg__full .page__title { max-width: 32ch; font-size: var(--t-subtitle); line-height: var(--lh-subtitle); }
+.cfg__fullicon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--text-3); }
+.cfg__pager { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-8); padding: var(--sp-12) var(--sp-20); border-top: 1px solid var(--line); }
+.cfg__pager > span { margin-right: auto; font-size: var(--t-label); }
+.cfg__expired { color: var(--bad); font-weight: var(--fw-medium); }
+.cfg__tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfg__lvcell { min-width: 112px; }
+.cfg__matrixwrap { overflow-x: auto; }
+.cfg__fixed { color: var(--text-3); font-size: var(--t-caption); }
+.cfg__emailtpl { display: grid; gap: var(--sp-12); }
+.cfg__emailtpl article { padding: var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-card); display: grid; gap: var(--sp-6); font-size: var(--t-label); }
+.cfg__emailtpl h3 { font-size: var(--t-body); font-weight: var(--fw-semi); }
+.cfg__mailbody { white-space: pre-line; color: var(--text-2); }
+.cfg__recent { list-style: none; display: grid; gap: var(--sp-10); }
+.cfg__recent li { display: grid; gap: 2px; font-size: var(--t-label); }
+.cfg__prefs { list-style: none; display: grid; }
+.cfg__prefs li { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); padding: var(--sp-10) 0; border-bottom: 1px solid var(--line); font-size: var(--t-label); }
+.cfg__prefs li:last-child { border-bottom: 0; }
+.cfg__locked { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3); font-size: var(--t-caption); }
+.cfg__tilebtn { cursor: pointer; }
+.cfg__inline { display: flex; flex-wrap: wrap; gap: var(--sp-8); align-items: center; }
+.cfg__segment { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-pill); overflow: hidden; }
+.cfg__segment button { padding: 4px 10px; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--t-caption); cursor: pointer; }
+.cfg__segment button[aria-pressed='true'] { background: var(--primary); color: var(--on-primary); }
+.cfg__segment button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }

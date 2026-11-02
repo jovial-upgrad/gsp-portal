@@ -15,6 +15,7 @@ import { docsFor, missingRequired } from '../signup/docs';
 import { returnedDocs, stillToReplace } from '../signup/docs';
 import { Home } from './Home';
 import { LaterSection, LockedSection, ProfileSection } from './Sections';
+import { AccountClosed, HeldNote, RpAgreementCard } from './Agreement';
 import { DocumentsSheet } from './DocumentsSheet';
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, type CourseSearch } from '../courses/search';
@@ -36,6 +37,7 @@ import { useLiveApps } from '../../data/live';
 import { useSharedDb } from '../../institution/data/store';
 import { bapDecisions, signupId, syncSignup } from '../../institution/data/rpverify';
 import { setSession } from '../../data/downloads';
+import { rpSees, seesEarnings } from '../../data/rproles';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -117,9 +119,11 @@ export function Portal({
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || TEST_COUNTRY, homeState));
   // students live here too: a new agency starts with none, an established one with its own
   // an RP sees only its own students and applications: GSP's others (with another RP) aren't theirs
-  const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp));
+  // slice 1 Roles (S1-1): a Branch Admin sees their branch's students, a Counsellor only those assigned to them
+  const sees = useMemo(() => rpSees(acc), [acc]);
+  const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp).filter(sees));
   // and applications, for those students; the student list shows each one's applications from here
-  const [apps, setApps] = useState<Application[]>(() => (start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications())).filter((x) => !x.rp));
+  const [apps, setApps] = useState<Application[]>(() => (start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications())).filter((x) => !x.rp).filter((a) => acc.role === 'RP Admin' || !acc.role || students.some((s) => s.id === a.studentId)));
   // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
   useLiveApps(setApps);
   // who's signed in, for the download log (data/downloads.ts)
@@ -177,6 +181,8 @@ export function Portal({
     if (join) syncSignup(join);
   }, [join]);
   const rpRec = join ? db.rps.find((r) => r.id === signupId(join)) : undefined;
+  // the agency's own record: its sign-up, or the prototype's own agency (slice 2 PRD: agreement, held commission, suspension)
+  const myRp = rpRec ?? (!join ? db.rps.find((r) => r.id === 'rp-test') : undefined);
   useEffect(() => {
     if (!join || !rpRec || !set) return;
     const next = bapDecisions(join, rpRec);
@@ -218,7 +224,8 @@ export function Portal({
   const openNote = (t: NoteTarget) => {
     if ('app' in t) jumpTo({ section: 'applications', app: { open: t.app } });
     else if ('student' in t) jumpTo({ section: 'students', open: t.student, tab: 'personal' });
-    else go(t.page);
+    // RP roles have no My work (slice 4 PRD): a task notification never reaches them
+    else go(t.page === 'mywork' ? 'home' : t.page);
   };
 
   const initials = acc.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
@@ -228,7 +235,7 @@ export function Portal({
     <>
       <nav aria-label="Main">
         <ul className="pnav">
-          {NAV.map((n) => {
+          {NAV.filter((n) => n.key !== 'earnings' || seesEarnings(acc)).map((n) => {
             const active = section === n.key;
             const locked = isLocked(n.key);
             const delay = n.locked ? 0.08 * lockIndex++ : 0;
@@ -298,7 +305,7 @@ export function Portal({
     </>
   );
 
-  const tabs = NAV.filter((n) => n.key !== 'profile');
+  const tabs = NAV.filter((n) => n.key !== 'profile' && (n.key !== 'earnings' || seesEarnings(acc)));
   const tabbar = (
     <nav className="tabbar glass" aria-label="Main">
       <GlassRim />
@@ -333,8 +340,13 @@ export function Portal({
   );
 
   const content =
-    section === 'home' ? (
+    myRp && (myRp.status === 'Suspended' || myRp.status === 'Rejected') ? (
+      <AccountClosed r={myRp} />
+    ) : section === 'home' ? (
+      <>
+      {myRp && <RpAgreementCard r={myRp} by={acc.name} canSign={acc.role === 'RP Admin'} />}
       <Home acc={acc} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+      </>
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />
     ) : section === 'profile' ? (
@@ -365,6 +377,7 @@ export function Portal({
         onNewApp={(s, courseId) => jumpTo({ section: 'applications', app: { add: { studentId: s.id, courseId } } })}
         appList={apps}
         onCreateApp={(a) => setApps((l) => [a, ...l])}
+        ownOnly={acc.role === 'Counsellor'}
       />
     ) : section === 'applications' ? (
       <Applications
@@ -380,6 +393,7 @@ export function Portal({
         onOpenStudent={(id, tab) => jumpTo({ section: 'students', open: id, tab: tab ?? 'personal' })}
         nationality={join?.form.country || TEST_COUNTRY}
         onFindCourses={() => go('courses')}
+        ownOnly={acc.role === 'Counsellor'}
       />
     ) : section === 'courses' ? (
       <FindCourses
@@ -394,6 +408,11 @@ export function Portal({
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}
       />
+    ) : section === 'earnings' && myRp && myRp.status === 'Activated' ? (
+      <>
+        <HeldNote />
+        <LaterSection section={section} />
+      </>
     ) : (
       <LaterSection section={section} />
     );

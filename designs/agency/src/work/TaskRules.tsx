@@ -1,110 +1,137 @@
 // @ts-nocheck -- ported from the add-on prototype; typed when the work API is designed.
 /*
- * Task rules (Admin): what creates a task, where it goes, its SLA and when it
- * closes itself. Rules can be created, edited, switched off and deleted.
+ * Admin › Work › Task rules (slice 4 PRD, Every timer). The rules are data the work service reads (S4-13): Admin and
+ * Global Ops change a rule's on or off, when its task starts, its SLA, the RP reminder, its queue and how it's shared.
+ * The trigger ("When"), the task's title and "Closes when" are code: read-only here. There is no New task rule and
+ * no Delete. Rule numbers are the rows of Jovial's Task triggers sheet.
  */
 import React, { useState } from 'react';
-import { useStore, update, queueById, kindById, ASSIGN } from './store';
+import { useStore, update, logChange, queueById, kindById, RULE_SHARE, SHARE } from './store';
 import { can } from '../finance/access';
-import { Page, Card, Segmented, Select, Table, Pill, Button, LinkButton, Sheet, Field, Input, Notice, toast } from '../finance/kit';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { useCheck, numError, dupError } from '../components/validate';
+import { Page, Card, Segmented, Table, Pill, Button, LinkButton, Sheet, Field, Input, Notice, toast, NumberInput } from '../finance/kit';
+import { useCheck, numError } from '../components/validate';
 import { PersonaBar, usePersona } from './persona';
 import { ChangeLog } from './Queues';
+import { RULE_GROUPS } from './seed';
+import { timeText } from './engine';
+import { Pick } from './ui';
+import { now } from './clock';
 
-/*
- * What a rule can watch, per record (Jovial, 1 Nov, HC29): the triggers the rules themselves have, with their own
- * values (48 working hours, 60 days…), never a typed list that could differ from them. In the real build each one
- * maps to an event or a scheduled check.
- */
-export const RECORDS = ['Application', 'RP', 'Institution partner', 'University', 'Course', 'Commission', 'Email', 'Any'];
+export const RECORDS = ['Application', 'RP', 'Institution partner', 'University', 'Course', 'Commission', 'Email', 'Setting', 'Any'];
 export const triggersOf = (rules, record) => [...new Set(rules.filter(r => r.record === record).map(r => r.when))];
 
-const DEST = s => [['region', 'The application’s regional Admissions queue'], ['owner', 'Straight to the record owner (officer, BDM, account manager)'], ...s.queues.filter(q => q.kind === 'team').map(q => [q.id, `${q.name} queue`])];
-const destName = (s, to) => to === 'region' ? 'Regional Admissions queue' : to === 'owner' ? 'Record owner' : (queueById(s, to) || {}).name || 'Queue deleted';
+const UNITS = [['wh', 'working hours'], ['d', 'working days'], ['days', 'calendar days']];
+const destName = (s, to) => to === 'region' ? 'The application’s regional Admissions queue' : to === 'recruitment' ? 'The RP’s region’s Recruitment queue' : to === 'ops' ? 'The team’s Ops queue, then Admin' : (queueById(s, to) || {}).name || 'Queue deleted';
+const shareName = (s, r) => r.share === 'officer' ? 'The application’s officer' : r.share ? RULE_SHARE[r.share] : `${SHARE[(queueById(s, r.queue) || {}).assign] || 'Fewest open'} (the queue’s way)`;
+const whenText = r => String(r.when).replace('<days>', r.days ?? '');
 
 export default function TaskRules() {
   const s = useStore();
   const { user, role } = usePersona();
-  const [rec, setRec] = useState('');
+  const [group, setGroup] = useState('');
   const [edit, setEdit] = useState(null);
   const may = a => can(s.matrix, role.id, 'queues', a);
-  const rows = s.rules.filter(r => !rec || r.record === rec);
+  const groups = RULE_GROUPS.filter(g => !group || g === group);
+  const switchRule = r => {
+    update(d => { const x = d.rules.find(y => y.id === r.id); x.on = !x.on; x.offAt = x.on ? null : now(); });
+    logChange('rule.switched', `${user.name} switched ${r.row} “${r.name}” ${r.on ? 'off' : 'on'}`, user.name);
+    toast(r.on ? `${r.row} is off` : `${r.row} is on`, { text: r.on ? 'It makes no new tasks. Tasks it has open stay until they clear.' : 'It makes tasks again from now.' });
+  };
   return (
     <Page cfg title="Task rules" top={<PersonaBar />}
-      lead="Rules create tasks from the records themselves. Each says what it watches, the task people see, where it goes, its SLA, and when it closes on its own."
-      actions={may('C') && <Button kind="primary" onClick={() => setEdit({})}>New task rule</Button>}>
+      lead="The rules that make every task: what each watches, when its task starts, the task people see, where it goes, its SLA, when the RP is reminded and when it closes on its own. “Task starts after” is how long the condition must hold first. Times are working hours (wh) or working days (d, 9 wh) on the record’s region’s calendar, in IST.">
       {!may('U') && <Notice>{role.name} can see the rules but not change them.</Notice>}
-      <Segmented label="Record" value={rec} onChange={setRec} options={[['', `All (${s.rules.length})`], ...RECORDS.map(k => [k, `${k} (${s.rules.filter(r => r.record === k).length})`])]} />
-      <Card flush>
-        <Table head={['Rule', 'When', 'Task', 'Goes to', 'SLA', 'Closes when', 'On', '']} className="cfg__tab">
-          {rows.map(r => {
-            const missing = r.to !== 'region' && r.to !== 'owner' && !queueById(s, r.to);
-            return (
-              <tr key={r.id} className={r.on ? '' : 'gspx-off'}>
-                <td className="cfg__strong">{r.name}<span className="cfg__sub">{r.record}</span></td>
-                <td>{r.when}</td>
-                <td>{r.task}<span className="cfg__sub">{(kindById(s, r.kind) || {}).name}</span></td>
-                <td>{missing ? <Pill tone="dpill--bad">Queue deleted</Pill> : destName(s, r.to)}<span className="cfg__sub">{ASSIGN[r.who] || ''}</span></td>
-                <td className="num">{r.sla}h</td>
-                <td><span className="cfg__sub gspx-wrap">{r.closes}</span></td>
-                <td><button type="button" role="switch" aria-checked={String(r.on)} aria-label={`${r.name} on`} className="switch__track" disabled={!may('U')}
-                  onClick={() => update(d => { const x = d.rules.find(y => y.id === r.id); x.on = !x.on; }, `${user.name} switched “${r.name}” ${r.on ? 'off' : 'on'}`)}><span className="switch__knob" aria-hidden="true" /></button></td>
-                <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${r.name}`} onClick={() => setEdit(r)}>Edit</LinkButton>}</td>
-              </tr>);
-          })}
-        </Table>
-      </Card>
+      <Notice>Admin and Global Ops can change a rule’s on or off, when its task starts, its SLA, the RP reminder, its queue and how it’s shared. What a rule watches and when it closes are built in. A change applies to new tasks; open tasks keep the SLA they were made with (S4-11).</Notice>
+      <Segmented label="Rules for" value={group} onChange={setGroup} options={[['', `All (${s.rules.length})`], ...RULE_GROUPS.map(g => [g, `${g.split(',')[0]} (${s.rules.filter(r => r.group === g).length})`])]} />
+      {groups.map(g => {
+        const rows = s.rules.filter(r => r.group === g);
+        if (!rows.length) return null;
+        return (
+          <Card flush key={g}>
+            <h2 className="gspx-h3 gspx-pad">{g}{g === 'Applications' ? ' (queue: the application’s regional Admissions queue, assignee the officer, unless it says otherwise)' : g === 'Admin' ? ' (T60 to T68: proposal, S4-28)' : g === 'Commission' ? ' (slice 5 owns what each task does)' : g === 'Email' ? ' (Mail, later slice)' : ''}</h2>
+            <Table head={['#', 'When', 'Task starts after', 'Task', 'Goes to', 'SLA', 'RP reminded', 'Closes when', 'On', '']} className="cfg__tab">
+              {rows.map(r => {
+                const missing = !['region', 'recruitment', 'ops'].includes(r.queue) && !queueById(s, r.queue);
+                return (
+                  <tr key={r.id} className={r.on ? '' : 'gspx-off'}>
+                    <td className="cfg__strong">{r.label || r.row}{r.proposal && <span className="cfg__sub">Proposal</span>}</td>
+                    <td>{whenText(r)}</td>
+                    <td className="num">{timeText(r.after)}</td>
+                    <td>{r.task}<span className="cfg__sub">{(kindById(s, r.kind) || {}).name}</span></td>
+                    <td>{missing ? <Pill tone="dpill--bad">Queue deleted</Pill> : destName(s, r.queue)}{!r.ladder && <span className="cfg__sub">{shareName(s, r)}</span>}</td>
+                    <td className="num">{r.ladder ? '—' : timeText(r.sla)}</td>
+                    <td className="num">{timeText(r.remind)}</td>
+                    <td><span className="cfg__sub gspx-wrap">{r.closes}</span></td>
+                    <td><button type="button" role="switch" aria-checked={String(r.on)} aria-label={`${r.row} ${r.name} on`} className="switch__track" disabled={!may('U')} onClick={() => switchRule(r)}><span className="switch__knob" aria-hidden="true" /></button></td>
+                    <td className="cfg__acts">{may('U') && !r.ladder && <LinkButton aria-label={`Edit ${r.row} ${r.name}`} onClick={() => setEdit(r)}>Edit</LinkButton>}</td>
+                  </tr>);
+              })}
+            </Table>
+          </Card>
+        );
+      })}
       <ChangeLog />
-      {edit && <RuleSheet rule={edit.id ? edit : null} onClose={() => setEdit(null)} by={user} canDelete={may('D')} />}
+      {edit && <RuleSheet rule={edit} onClose={() => setEdit(null)} by={user} />}
     </Page>
   );
 }
 
-function RuleSheet({ rule, onClose, by, canDelete }) {
+/** A time a rule waits or gives: a number and its unit, or none. */
+function TimeField({ id, label, value, onChange, error, none, hint }) {
+  if (value?.text) return <Field id={id} label={label} hint="Built in: the date comes from the record."><p className="cfg__strong" id={id}>{value.text}</p></Field>;
+  return (
+    <div className="gspx-inline">
+      <Field id={id} label={label} error={error} hint={hint}><NumberInput id={id} value={value ? value.n : ''} placeholder={none ? 'None' : ''} onChange={x => onChange(x === '' ? (none ? null : { n: '', u: value?.u || 'wh' }) : { n: x, u: value?.u || 'wh' })} /></Field>
+      <Pick id={`${id}-u`} label={`${label}: unit`} value={value?.u || 'wh'} onChange={u => onChange(value ? { ...value, u } : { n: 1, u })} options={UNITS} />
+    </div>
+  );
+}
+
+function RuleSheet({ rule, onClose, by }) {
   const s = useStore();
-  const init = React.useRef(rule ? { ...rule } : { id: 'r' + Date.now(), on: true, name: '', record: 'Application', when: triggersOf(s.rules, 'Application')[0] || '', task: '', to: 'region', who: 'owner', kind: s.kinds[0].id, sla: 9, closes: '' });
-  const [v, setV] = useState(() => ({ ...init.current }));
-  const [sure, setSure] = useState(false);
+  const init = React.useRef(structuredClone(rule));
+  const [v, setV] = useState(() => structuredClone(rule));
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
+  const bad = (t, what, req) => (t == null ? (req ? `Enter the ${what}.` : null) : numError(t.n, { what, min: t.u === 'days' ? 1 : 0, max: t.u === 'wh' ? 540 : 365, int: true, required: true }));
   const errors = {
-    name: !v.name.trim() ? 'Enter the rule name.' : dupError(v.name, s.rules.filter(r => r.id !== v.id).map(r => r.name), 'There’s already a rule with this name.'),
-    task: !v.task.trim() ? 'Enter the task people see.' : null,
-    sla: numError(v.sla, { what: 'SLA', min: 1, max: 540, int: true, required: true }),
+    after: v.after?.text ? null : bad(v.after, 'time before the task starts', false),
+    sla: bad(v.sla, 'SLA', true),
+    remind: bad(v.remind, 'reminder time', false),
     days: v.days != null ? numError(v.days, { what: 'days before', min: 1, max: 365, int: true, required: true }) : null,
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
+  const dest = [
+    ...(v.record === 'Application' || v.queue === 'region' ? [['region', 'The application’s regional Admissions queue']] : []),
+    ...(v.record === 'RP' ? [['recruitment', 'The RP’s region’s Recruitment queue']] : []),
+    ...s.queues.filter(q => !q.id.startsWith('q-adm-') || q.id === 'q-adm-global').filter(q => !q.id.startsWith('q-rec-')).map(q => [q.id, q.name]),
+  ];
+  const shares = Object.entries(RULE_SHARE).filter(([k]) => (k === 'officer' ? v.queue === 'region' : true)).map(([k, l]) => [k, l]);
   const save = () => {
     if (!c.submit()) return;
-    update(d => { const i = d.rules.findIndex(r => r.id === v.id); if (i >= 0) d.rules[i] = v; else d.rules.push(v); }, `${by.name} ${rule ? 'edited' : 'created'} rule “${v.name}”`);
-    toast(rule ? 'Rule saved' : 'Rule created', { text: rule ? 'Applies to new tasks from now.' : 'It starts checking records now.' }); onClose();
+    update(d => { const i = d.rules.findIndex(r => r.id === v.id); d.rules[i] = v; });
+    const what = ['after', 'sla', 'remind', 'queue', 'share', 'days'].filter(k => JSON.stringify(v[k]) !== JSON.stringify(init.current[k])).join(', ');
+    logChange('rule.edited', `${by.name} edited ${v.row} “${v.name}”: ${what}`, by.name);
+    toast('Rule saved', { text: 'Applies to new tasks from now.' }); onClose();
   };
-  const dup = s.rules.find(r => r.id !== v.id && r.on && r.record === v.record && r.when === v.when);
   return (
-    <>
-    <Sheet wide title={rule ? `Edit “${rule.name}”` : 'New task rule'} onClose={onClose} dirty={dirty} what={rule ? `“${rule.name}”` : 'the new rule'}
-      footer={<>{rule && canDelete && <Button kind="danger-quiet" onClick={() => setSure(true)}>Delete rule</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!!rule && !dirty} onClick={save}>{rule ? 'Save' : 'Create rule'}</Button></>}>
+    <Sheet wide title={`Edit ${v.label || v.row}: ${v.name}`} onClose={onClose} dirty={dirty} what={`${v.row}`}
+      footer={<><span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!dirty} onClick={save}>Save</Button></>}>
+      <dl className="cdl">
+        <div><dt>When (built in)</dt><dd>{whenText(v)}</dd></div>
+        <div><dt>Task people see (built in)</dt><dd>{v.task}</dd></div>
+        <div><dt>Closes when (built in)</dt><dd>{v.closes}</dd></div>
+        <div><dt>Kind of work</dt><dd>{(kindById(s, v.kind) || {}).name}</dd></div>
+      </dl>
       <div className="cfg__form gspx-form2">
-        <Field id="r-name" label="Rule name" required error={c.err('name')}><Input id="r-name" value={v.name} onBlur={c.blur('name')} onChange={x => set('name', x)} placeholder="Like: Branch has no BDM" /></Field>
-        <Select id="r-rec" label="Record it watches" required value={v.record} onChange={x => setV(o => ({ ...o, record: x, when: triggersOf(s.rules, x)[0] || '' }))} options={RECORDS} />
-        {triggersOf(s.rules, v.record).length ? <Select id="r-when" label="When" required value={v.when} onChange={x => set('when', x)} options={[...new Set([...triggersOf(s.rules, v.record), v.when].filter(Boolean))]} />
-          : <Field id="r-when" label="When" required><Input id="r-when" value={v.when} onChange={x => set('when', x)} placeholder="Like: A course is in draft for 7 days" /></Field>}
-        {v.days != null && <Field id="r-days" label="Days before" required error={c.err('days')} hint="The rule’s own value: the Institution Team’s renewal reminders read it."><Input id="r-days" type="number" value={v.days} onChange={x => setV(o => ({ ...o, days: x === '' ? '' : Number(x), when: String(o.when).replace(/^\d+/, x) }))} /></Field>}
-        <Field id="r-task" label="Task people see" required error={c.err('task')} hint="Write [record] where the record’s name goes."><Input id="r-task" value={v.task} onBlur={c.blur('task')} onChange={x => set('task', x)} placeholder="Like: Chase the university for [record]" /></Field>
-        <Select id="r-to" label="Goes to" required value={v.to} onChange={x => set('to', x)} options={DEST(s)} />
-        <Select id="r-who" label="Assigned by" required value={v.who} onChange={x => set('who', x)} options={Object.entries(ASSIGN).filter(([k]) => k !== 'owner')} />
-        <Select id="r-kind" label="Kind of work" required value={v.kind} onChange={x => setV(o => ({ ...o, kind: x, sla: (kindById(s, x) || {}).sla ?? o.sla }))} options={s.kinds.map(k => [k.id, k.name])} />
-        <Field id="r-sla" label="SLA (working hours)" hint="A working day is 9 hours, 9:30 to 18:30." required error={c.err('sla')}><Input id="r-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => set('sla', x)} /></Field>
-        <Field id="r-close" label="Closes itself when" hint="Leave empty if a person closes it with an outcome."><Input id="r-close" value={v.closes} onChange={x => set('closes', x)} placeholder="Like: A decision is recorded" /></Field>
+        {v.days != null && <Field id="r-days" label="Days before the agreement ends" required error={c.err('days')} hint="Slice 2’s renewal reminder reads these days."><NumberInput id="r-days" decimal={false} min={1} steppers value={v.days} onChange={x => set('days', x === '' ? '' : Number(x))} /></Field>}
+        <TimeField id="r-after" label="Task starts after" none value={v.after} error={c.err('after')} onChange={x => set('after', x)} hint="Empty: at once." />
+        <TimeField id="r-sla" label="SLA" value={v.sla} error={c.err('sla')} onChange={x => set('sla', x)} hint="A working day is 9 hours, 9:30 to 18:30 IST." />
+        <TimeField id="r-remind" label="RP reminded after" none value={v.remind} error={c.err('remind')} onChange={x => set('remind', x)} hint="When the RP gets an automatic reminder (bell and email) during the wait. Empty: none." />
+        <Pick id="r-to" label="Goes to" required value={v.queue} onChange={x => setV(o => ({ ...o, queue: x, share: x !== 'region' && o.share === 'officer' ? null : o.share }))} options={dest} />
+        <Pick id="r-share" label="How it’s shared" required value={v.share ?? ''} onChange={x => set('share', x || null)} options={shares} />
       </div>
-      <p className="gspx-sentence"><b>In words: </b>when “{v.when.toLowerCase()}” on {v.record === 'Any' ? 'any record' : `a${/^[AEIOU]/.test(v.record) ? 'n' : ''} ${v.record.toLowerCase()}`}, create “{v.task || '…'}” in {destName(s, v.to)}, due in {v.sla} working hour{v.sla === 1 ? '' : 's'}. {v.closes ? `It closes itself when ${v.closes.charAt(0).toLowerCase() + v.closes.slice(1)}.` : 'Someone closes it with an outcome.'}</p>
-      {dup && <Notice tone="warn">“{dup.name}” already watches the same thing. Both would create a task.</Notice>}
+      <p className="gspx-sentence"><b>In words: </b>when “{whenText(v).toLowerCase()}”{v.after ? `, for ${timeText(v.after)}` : ''}, make “{v.task}” in {destName(s, v.queue).replace(/^The/, 'the')}, shared {shareName(s, v).replace(/^The/, 'to the').toLowerCase()}, due in {timeText(v.sla)}{v.remind ? `; the RP is reminded after ${timeText(v.remind)}` : ''}. It closes when {String(v.closes).charAt(0).toLowerCase() + String(v.closes).slice(1)}.</p>
     </Sheet>
-    <ConfirmDialog open={sure} danger title={`Delete “${v.name}”?`} confirm="Delete rule" onCancel={() => setSure(false)}
-      onConfirm={() => { setSure(false); update(d => { d.rules = d.rules.filter(r => r.id !== v.id); }, `${by.name} deleted rule “${v.name}”`); toast('Rule deleted', { text: 'Open tasks it created stay until they’re done.' }); onClose(); }}>
-      <p>It stops creating tasks. Open tasks it created stay until they’re done. This can’t be undone.</p>
-    </ConfirmDialog>
-    </>
   );
 }

@@ -19,6 +19,7 @@ How this list works: before changing a page, check its section here. When an ite
 - [x] Nesil, 30 Oct, in RP Admin and GSP Team: **Notifications** (System, Chat, Mail) and **Announcements** (updates from universities: Intakes, Courses, Scholarships, Entry) at the top right of every page, each with an unread count and a panel. (30 Oct, commit “Notifications and Announcements at the top right”)
 - [x] Nesil, 30 Oct (later), in every role: the bell and megaphone on **liquid glass like the navigation**, and **they stay put while the page scrolls**; the panels are glass too. **Real notifications while connected**: the other role's chat messages, status changes, requests and uploads land in the bell, with the bottom-left notification and Open. Announcements now use the Institution Team's model and categories (PM data), live ones only. (30 Oct, commit “Glass, sticky bell and megaphone; real notifications while connected; GSP · Institution brought up to date”)
 - [x] Nesil, 30 Oct (later still), in every role: the bell and megaphone are **two separate glass circles**, and **the page no longer scrolls behind them**: on wide screens they sit in a strip at the top that never moves, and the page scrolls in its own area under it, fading out at its edge (as in upGrad's learner home). Phones keep the glass top bar. (30 Oct, commit “Bell and megaphone in their own circles; the page scrolls under the strip, not behind it”)
+- [x] Jovial, 2 Nov: **no system UI**. Every dropdown, date, time, number, upload, tick box, radio, tooltip and prompt is the portal's own, from the design system, in both themes: selects are SelectMenu (a search box over lists of more than ten), dates the portal's calendar (DatePicker), times TimePicker, numbers NumberField (optional − / +, min and max), uploads FileDrop or the portal's own drop zones, tick boxes and radios drawn by the portal, `title` tooltips the portal's tooltip, the link prompt a dialog, and "Change history" sections the portal's chevron. (2 Nov, prd-merge, commit “No system UI: portal-native selects, dates, times, numbers, uploads, ticks, tooltips”)
 - [ ] **Two views: counsellor and admin.** Counsellors see only their own students and applications; admins see everything and rarely counsel. Add a role switch to the Prototype panel to show both. Review the counsellor view first.
   - Nesil, 27 Oct: a **Role** switch now sits beside Prototype with **RP Admin** (the agency portal so far) and **GSP Team** (a copy of it, to become GSP's internal portal). An RP Counsellor role can be added to it for this item.
   - Nesil, 29 Oct: the agency's roles are now named, on RP Admin's Profile: **RP Admin** (everything), **Branch Admin** (their branch) and **Counsellor** (their own students and applications). Each team member has one, and a branch. The views for Branch Admin and Counsellor aren't built yet.
@@ -30,6 +31,8 @@ How this list works: before changing a page, check its section here. When an ite
 No changes from this review.
 
 ## Find courses: search and results
+
+- [x] Jovial, 2 Nov (slice 3 PRD), in every role: five filters only (Tuition fee and Duration as two-handle ranges, Tags, University multi-select, Destination state); four sorts (Recommended by Search priority, Fee high to low, Fee low to high, QS ranking); cards show the total tuition fee with the fee a year, up to two intakes, QS rank or "—"; Compare has the decided fields and tags; GSP's roles use the same page without commission. This replaces the 1 Nov University radio list and the quick filters. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: **Select student** is off until GSP verifies the agency; no **Shortlisted only** filter; results in **pages of 20** (Previous, numbers, Next); the left filters offer only what's in the results, and University is searchable, A to Z, 10 at a time. Open: Best match and Deadline soonest logic, ranking by CSV, search type (sheet, *Walkthrough 1 Nov*). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -53,6 +56,8 @@ No changes from this review.
 - [x] Nesil, 30 Oct, in RP Admin, GSP Team and GSP · Institution: **no offer time anywhere** in Find courses (Course search): not on the cards (“Offer in about 5 days”, still on GSP Team’s and the Institution Team’s), not in the dialog (its fact strip and “Typical offer time”), and no **Offer within 7 days** filter or **Fastest offer** sort. (30 Oct, commit “30 Oct review: course search trimmed, the RP on GSP’s adds, Institution edits”)
 
 ## Course page
+
+- [x] Jovial, 2 Nov (slice 3 PRD): Apply only (no Shortlist in the dialog), days left on intakes, no Top disciplines or Program levels, and the eligibility check with a student picked (Select a student to check their eligibility, without one). (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: no Compare inside the course dialog (Compare stays on the cards; the comparison downloads as PDF and CSV). Open: when the comparison highlights a value. (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -79,11 +84,13 @@ No changes from this review.
 ## Students list
 
 - [ ] **Only admins see the counsellor pencil.** No acceptance step; an admin's change is logged as theirs. (Decision)
-- [ ] Counsellors see only their own students.
+- [x] Counsellors see only their own students. No **All counsellors** filter for a Counsellor (2 Nov). (2 Nov, prd-merge, commit “No system UI: portal-native selects, dates, times, numbers, uploads, ticks, tooltips”)
 
 - [x] Nesil, 27 Oct: the Applications column shows **the number only**, with no "pending" or other status under it.
 
 ## Add a student
+
+- [x] Jovial, 2 Nov (slice 3 PRD, S3C-1 proposal): Highest education is the one list, Grade 10 to Doctorate. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: **passport number required**; the duplicate check is by passport number within the RP only (no email or cross-RP check). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -94,6 +101,8 @@ No changes from this review.
 - [x] Nesil, 30 Oct, in GSP Team and GSP · Institution, not RP Admin: **Recruitment partner** first in Add a student (required): GSP adds students for a recruitment partner. The list is the ones whose agreement is signed. (30 Oct, commit “30 Oct review: course search trimmed, the RP on GSP’s adds, Institution edits”)
 
 ## Student record
+
+- [x] Jovial, 2 Nov (slice 3 PRD): Share with student hidden (S3C-10 proposal); each qualification's grading system comes from Admin › Grade conversion. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: one **Edit** in each section's header; autofill from a document happens **once**, then "Filled in from … Correct any field by hand." Open: profile completeness counts mandatory or optional fields (this page's item above says optional; the walkthrough said mandatory). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -118,7 +127,9 @@ No changes from this review.
 
 ## Applications list
 
-- [ ] Counsellors see only their own applications; admins see all.
+- [x] Jovial, 2 Nov (slice 3 PRD, S3C-14 proposal): the PRD's tiles, filters (GSP: destination, recruitment partner, stage, sales region; RP: counsellor, stage, intake) and columns, Started or Applied, Enrolled, Closed or Withdrawn pills, 25 a page. The progress chips and date range are gone. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
+
+- [x] Counsellors see only their own applications; admins see all. No **All counsellors** filter for a Counsellor (2 Nov). (2 Nov, prd-merge, commit “No system UI: portal-native selects, dates, times, numbers, uploads, ticks, tooltips”)
 
 - [x] Nesil, 27 Oct: **no GSP Assist "Today" brief**; the four tiles are a number and a name only (**All applications, Pending from you, With GSP, With university**); **"Pending from you"** replaces "Needs you" for applications (list, application page, GSP Assist, the student list's application tags).
 - [x] Nesil, 27 Oct: **primary filters** by how far an application has got, read from its status and stage: **New, Applied, Offer received, Deposit paid, Enrolled**; then search, destination, counsellor and intake; then **Advanced filters**: a stage, and a start and end date for when applications started.
@@ -126,6 +137,8 @@ No changes from this review.
 - [x] Nesil, 27 Oct (2nd round): **no lines under the status** (time at the step, "usually N days", "GSP asked"); the CSV drops them too.
 
 ## Add an application
+
+- [x] Jovial, 2 Nov (slice 3 PRD, S3-7, S3-28): an open or Enrolled application for the course blocks; outside the person's regions the message has no ID, status or link; the eligibility check reads the course's Minimum highest education, Grade conversion and English test equivalence. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: one **open** application per student and course (any intake; closed ones don't block); GSP Assist's eligibility check never blocks. (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -161,7 +174,7 @@ No changes from this review.
   - Nesil, 27 Oct: the chat is calm now (a plain card, grey and white bubbles, GSP Assist's mark and name only). The header gradient, the banners and the owner colours are as they were.
 - [x] **Summary / Documents / Chat / Activity:** their purpose was unclear. Restructure once Jovial's research on other portals is in, without tabs inside tabs. (27 Oct)
   - Nesil, 27 Oct, ahead of Jovial's research: no Summary. **Chat** (opens first), **Documents**, **Activity**, with Key details and the GSP contact beside every tab. "What you need to do" and Send to GSP moved to the top of Documents; the offer's dates moved into Key details. Revisit when the research is in.
-- [ ] **Chat** is free text between the RP counsellor and the GSP admissions team. The **document request is the only structured template**, and it also appears in Documents. (Decision)
+- [x] **Chat** is free text between the RP counsellor and the GSP admissions team. The **document request is the only structured template**, and it also appears in Documents. (Decision) Changed by S3-30: two templates, built. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
   - Open question: does GSP Assist still answer first in the chat, or work beside it? Jovial is bringing examples of each chat template to refinement.
   - Nesil, 28 Oct: **no GSP Assist in the RP chat** for now: nothing answers on its own; the GSP contact replies. No attach button; the box says "Ask GSP…".
   - Nesil, 28 Oct (3rd round): **GSP Assist's mark and name head the RP chat**, as in GSP Team. Still nothing answers on its own.
@@ -189,6 +202,8 @@ No changes from this review.
 - [x] Nesil, 27 Oct (3rd round): a **liquid-glass frame** round the chat (the messages stay on a solid panel); **space and a light upright line** between the status and More.
 
 ## GSP Team
+
+- [x] Jovial, 2 Nov (slice 3 PRD), the application page in GSP · Admissions (and the Institution Team and Admin, which now use the same pages): Who has it from what's open; Change status without Waiting for documents or re-upload pending, off until what the status needs is done (reference or No reference ID, the GSP upload, who lodges the visa), close reasons by stage (New: S3-31 proposal); Close and Withdraw post their lines under the assigned officer's name and cancel open requests; Withdraw a request; Key details with the assigned officer (S3C-8 proposal), the reference added later, visa lodged by. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: Change status groups the Application stage into **Before submission** and **After submission**; new status **Additional documents submitted to university**. Queues share work by **Fewest open** or **Record owner** only (round robin gone; SEA Admissions is Fewest open). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -263,8 +278,11 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 - [x] Nesil, 29 Oct (8th round): on a university's **Territory** tab, no "In short: …" summary. (29 Oct, commit “GSP · Institution: no In short line on territory”)
 - [x] Nesil, 30 Oct. **Institution partner:** every **contact** can be edited (Edit beside Remove, the same form), on the university's contacts too. **University:** **Add a campus** is a pop-up with the campus name, country, state, city and Google Maps link (all needed; the setting is optional), and every campus can be edited the same way; renaming one renames it on its courses. A scholarship's **How much** is an **Amount range**: Percentage or Absolute amount, from and to, then “% of tuition” or a currency to pick (AUD by default); the same number twice is a fixed amount. **Courses:** **Intakes, Fees, Academic and English** show what's saved, read-only, with **Edit**; Edit opens the form, and Save or Cancel closes it (a tab with nothing yet opens on the form). **Fees** has no note; **Full course fee** in place of tuition a year (the old full course fee is gone; Course search works out the yearly figure), and the first-year and application fees are optional; what's needed has an asterisk, in Basics too. **English** has one column for the lowest band or section, so every box and Remove sit level. **Announcements:** the pickers line up with the other fields, and “(empty = all)” labels are “(optional)” with “All …” in the box. (30 Oct, commit “30 Oct review: course search trimmed, the RP on GSP’s adds, Institution edits”)
 - [x] Nesil, 30 Oct, when merging (asked on 29 Oct): **the changes made in RP Admin and GSP Team since this role was copied apply here too**: the student profile (Personal details, Documents and Applications with Shortlisted), Add a student (expands, bulk upload), Course search (country chip on the cards, compare up to five and download, shortlist for a student) and the course dialog (Costs with scholarships, entry by the student's country), every notification in the bottom-left corner (this role's confirmations included), and the bell and megaphone. This role's own edits stay: Course search reads the team's catalogue (compare included) and keeps its name. (30 Oct, commit “Glass, sticky bell and megaphone; real notifications while connected; GSP · Institution brought up to date”)
+- [x] Jovial, 2 Nov: **the prototype matches the slice 2 PRD** (supply and partner onboarding; gap list `prd-gaps/S2.md`, 80 gaps). Institution partners: state and city, Agreement ended only by job J1, Decision A (Agreement executed by hand after the end date counts as in date), Closed → Paused universities (S2C-19), documents with Current, Download and Remove, contacts with first and last name and phone, a Change log and System information. Universities: Search priority (was Display priority), logo upload, Go live's five checks, Pause confirm, read-only when Ended. Courses: Add a course with every Basics field and Add draft, CSV import with skipped rows, read-only tabs with Edit, intakes date order, fee year, Minimum highest education required, English ranges, Delete rules. Announcements: no Master Partner recipients. BAP: the RP agreement, Reject/Suspend/Reactivate, Mark training done, Issue a notice, region isolation. Master Partners (GSP · BAP). Admin › Course tags. RP portal: Profile locked until verified, the agreement on Home, Email preferences. Every slice 2 page follows Admin › Permission roles for who edits. (2 Nov, prd-s2: d96a7fd, 895f87b, 00a9dd8, 65d6987)
 
 ## GSP · Admin
+
+- [x] Jovial, 2 Nov (slice 3 PRD, S3-4, S3-15, S3-16, S3-29): Course configuration › **Grade conversion** and **English test equivalence**, with the seed values; the eligibility check reads each course's Minimum highest education required (slice 2's course form, S3-18). (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Nesil, 30 Oct: **a new role, GSP · Admin**, in the Role switch, **replicating GSP · Institution** (the same pages, records, sign-in and design), with **a colour difference**: teal in place of GSP's navy for buttons, links, focus and switches, and in the corner glow and the light behind the sidebar. "GSP Admin" beside the logo; signed in as Ishaan Verma, GSP · Admin. (30 Oct, commit “GSP · Admin: a new role, a copy of GSP · Institution, in teal”)
   - Chosen in the build, for Nesil to confirm: **teal** as Admin's colour (a cool colour that isn't an owner or status colour, and far from GSP's violet and the university blue); the owner and status colours stay the same in every role.
@@ -273,14 +291,17 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - Open question: what does an admin do that the Institution Team doesn't (giving people access, the Admin view and the management dashboards in New pages)? For now it's the Institution Team's portal.
     - Answered, 30 Oct (Nesil): the configuration below.
   - Open question: like GSP · Institution, nothing changed here reaches the other roles. Should it?
+    - Answered by the slice 1 PRD (2 Nov): yes; Admin's settings are one store every role reads (2 Nov, cb40ac9).
 - [x] Nesil, 30 Oct: **the menu in groups**: **User modules** (Course search, Students, Applications) and **Institution** (Recruitment partners, Institution partners, Universities, Courses, Announcements) are **GSP · Institution's own pages**, so a change there shows here too, unless a page gets its own setting here; then **User roles** (Sales regions, Permission roles, Queues), **Recruitment** (BDM assignment), **Course configuration** (Currency exchange, Living costs), **Application configuration** (Application routing, Document configuration) and **Other configurations** (Filters configuration, Logs). Picking a group opens **a small menu beside the sidebar** with its pages (Nesil's reference), not a drop-down. Every change in these settings is logged, and Logs shows them with the download log. (30 Oct, commit “GSP · Admin: configuration pages from the PM prototype; groups open a menu beside the sidebar”)
   - From the PM prototype's Super Admin › Settings: Sales regions (with each region's Admissions contact), Permission roles (the 25 Oct access matrix: 30 objects × 14 roles, No access to Manage), Queues (5 team queues and an Admissions and a Recruitment queue per region; members from people's roles and regions), BDM assignment (its table, matching order and add/edit form), Application routing (the six rules, the test with its trace, regional RP lists, region defaults), Document configuration (the 20 application document rules, and recruitment partner documents by country) and the download log.
   - Not in the PM prototype, so built from this prototype's own figures, **for Jovial to confirm**: **Currency exchange** (course search's rates to INR), **Living costs** (the course dialog's visa figures per destination) and **Filters configuration** (the filters course search, Applications and Students have, to show, hide and order).
   - Chosen in the build, for Nesil to confirm: **Home** (the queue) stays first, above the groups; the PM's **Task rules**, **Portal login access**, **Nationality to region** map and **Document categories** aren't built yet.
   - Open question: the settings here are this role's own (a changed currency rate doesn't change course search in the other roles yet). Should they drive the other roles?
+    - Answered by the slice 1 PRD (2 Nov): yes, other slices only read them (2 Nov, cb40ac9).
 - [x] Nesil, 30 Oct (later), under **User roles**: **Create roles** (name, email, phone, role from Admin, Recruitment, Recruitment Ops, Admission, Admission Ops, Institution, Institution Ops, Finance; title; sales region; the list with filters, Export as CSV, edit and delete, and **Send login link**); **Sales regions** add, edit and delete; **Queues** as a name, a leader (one) and members (several), created, edited and deleted; **Emails**: email groups (email, email sync, sync start date) and their users, each Only view (the default) or Can send. (30 Oct, commit “GSP · Admin: Create roles, sales regions, queues and emails”)
   - Answered, 31 Oct (Jovial): nine roles, three levels (see below).
   - Open question: Create roles has Nesil's eight roles; **Permission roles** still has the PM's fourteen (Admissions, BAP, Data team, IP team…). Should Permission roles move to the eight (plus the RP roles), and which PM role does each map to? In the samples: Admissions → Admission, Admissions Head → Admission Ops, BAP → Recruitment Ops, IP team → Institution, Data team → Institution Ops, Commissions & Finance → Finance, Super Admin → Admin.
+    - Answered by the slice 1 PRD (2 Nov): nine roles named Admin, Admission, Global Ops, Recruitment, RP Ops, Institution, IP Ops, Finance, View Only, in Create roles and Permission roles alike (2 Nov, f2fd1ef).
   - Chosen in the build, for Nesil to confirm: a user has **one** sales region (Global for those who cover all), as the dropdown asked; the PM let GSP users have several. Queues lost the PM's assignment, time to act and away cover; members are picked by hand rather than following roles and regions.
 
 - [x] Jovial, 31 Oct, on the Admin configuration pages (in our own copy, `jovial-upgrad/gsp-portal`; 0d52cf9):
@@ -355,12 +376,16 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
   - **UI:** list names on the role Homes start at the left; one "* Required" note on Add a student.
 - [x] Jovial, 1 Nov (afternoon, in chat). **Decision: the final tuition fee on the application is the only source of the tuition fee.** It starts as the course's fee, Admissions changes it once the offer letter arrives (who and when shown beside it), and every commission works from it: the base commission in Key details, the Commission tab's university instalments and RP payments, and Finance's invoices and payouts. Courses carry no scholarship, so nothing is taken off; the course-level Scholarship row is gone from Key details (university scholarships stay on the university's page). (1 Nov, commit "Final tuition fee is the only tuition source for commission")
 
+- [x] Jovial, 2 Nov: **the slice 1 PRD built**, line by line (gap list in `prd-gaps/S1.md`, 100 items). The role and region names (Global Ops, RP Ops, IP Ops; Indonesia Malaysia & Thailand, Latin America & Europe); 12 roles in the Role menu (S1-1); the permission matrix; page states and their copy; Admin home; GSP users; Profile with Email preferences; GSP sign-in and passwords; Sign-in security and the account emails; Sales regions with every field and the nationality map; routing; BDM assignment; shared mailboxes; currency exchange with Fetch with AI; Living costs and fees; intake timings; Document configuration (10 rules); Logs with every kind. The Queues page under User roles is gone (S4-1); Global Ops and Global Admissions are one queue (S4-20); no quality check (S4-21); no switch to see other regions. (2 Nov, f2fd1ef, cb40ac9, 410ad51, c0b7349)
+  - Against earlier review items, as the PRD says: Logs shows every kind (31 Oct: download log only); Sales regions has a Countries column (31 Oct: none); no "look across every region" switch (1 Nov). None was marked Decision.
+
 ## New pages
 
 - [x] Jovial, 31 Oct: **My work** and **Mail** in the code (`src/work/`). My work (tasks from the task rules, by queue, with working-day SLAs) is in every GSP role; Admin's new **Work** group has **Queues, SLA and escalation** and **Task rules**. (31 Oct, 3970d0a)
   - **Mail, rethought** from today's inbox (31 Oct screenshot): one row per **conversation**, not per email (replies and duplicates fold in); each already **linked to its application**, with how sure and why, and **owned** by the application's officer (no case numbers to assign by hand); a **state** (Needs you, Check the match, Waiting on others with a timer, Done) and an SLA on every row; an **AI summary**, what was read from it, and **one next step** to confirm (change the status, raise a task, pass the RP's answer to the university, answer in the RP chat, send to Finance); a reply **drafted in context**, sent as the mailbox to the right side, after which the conversation waits; **bulk done**; keys j, k, e, r. GSP's own notifications, newsletters, one-time codes, acknowledgements and bounces are **filed on their own**, with their share of the inbox. Phones show the list, then the conversation.
   - GSP · Admissions' menu: Home, **My work**, **Mail**, Applications, Students, Find courses, Profile. Earnings is gone from Admissions (it's the RP's).
   - Open question: My work, Mail and Admin's Queues page keep their own sample data for now (Admin › User roles › Queues edits leaders and members; Work › Queues, SLA and escalation holds SLA and assignment). One queue model when the work API is designed (Rishi).
+    - Answered, 2 Nov (slice 4 PRD, S4-1): one queue editor, Admin › Work › Queues, SLA and escalation; Admin's routing, mailboxes and Home read the same list. (2 Nov, prd-s4 e8a7976)
 - [x] Jovial, 31 Oct: **seven roles** in the Role menu: RP Admin, **GSP · Admissions** (GSP Team renamed), **GSP · Recruitment** (Saurabh: recruitment partners, students, applications, course search, announcements), **GSP · BAP** (Garima: recruitment partners, applications, course search), **GSP · Finance** (Suman), GSP · Institution and GSP · Admin. Recruitment, BAP and Finance use GSP Admin's portal with their own menu (`admin/portal/model.ts`, `VARIANTS`). (31 Oct, 9ff7caf)
 - [x] Jovial, 31 Oct: **commissions in the code** (`src/finance/`, ported from the add-on prototype with the sandbox's engine): GSP · Finance has Home (today's jobs), Applications, **Commissions** (University invoices, RP commission, Payout run, Exceptions, Reports), **Setup** (Commission terms, Finance setup, How Finance works) and Records (Recruitment partners, Universities). Every university line and every RP line opens **How it's worked out**. (31 Oct, 9ff7caf)
   - **A Commission tab on every application**, beside Chat, Documents, Submission and Activity, in every role. GSP roles see both sides, university to GSP and GSP to the RP, each line with its working; **RP Admin sees only its own side** (its rate, its amounts in its payout currency, why), never GSP's commission or the university's rate. Before enrolment every line is an estimate; a university with no terms in Finance yet uses the course record's rate, flagged for GSP.
@@ -371,6 +396,8 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 - [ ] **Admin view.** Nesil and Jovial, by Thu 29 Oct.
   - Nesil, 29 Oct, in RP Admin only: Profile has **Branches** (name, country, state, city, branch BDM set by the system) and **Team** (name, email, phone with country code, role, branch), with adding, editing (moving someone to another branch included) and removing each.
 - [ ] **GSP management dashboards.** Nesil and Jovial, by Thu 29 Oct.
+
+- [x] Slice 4 PRD "Operations", 2 Nov (decisions S4-1 to S4-28): **My work**, **Queues, SLA and escalation**, **Task rules**, a new **Emails and daily jobs** page and **the bell** match the PRD (gap list `prd-gaps/S4.md`; README "Design decisions: Operations"). (2 Nov, prd-s4 e8a7976 and the commit with this line)
 
 ## Others' actions (for context)
 

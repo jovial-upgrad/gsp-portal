@@ -4,7 +4,7 @@
  * In the real build Admin's matrix lives on the server; the UI only reads it.
  */
 
-import { adminCfg } from '../admin/data/store';
+import { levelFor } from '../admin/data/menus';
 import { ROLES as PERMISSION_ROLES, OVERSIGHT_OBJECT } from '../admin/data/config';
 
 /*
@@ -13,16 +13,17 @@ import { ROLES as PERMISSION_ROLES, OVERSIGHT_OBJECT } from '../admin/data/confi
  * View + edit). Region isolation (model D) gives Admission and Recruitment their own regions; the rest see all.
  * The RP's roles aren't GSP's to set there: they stay the agency portal's own, below.
  */
+// each role's main work, as the slice 1 PRD's Roles table has it
 const ABOUT = {
-  Admin: 'Configuration, users and roles. Can do everything.',
-  'View Only': 'Sees everything, changes nothing. For leadership and auditors.',
-  Finance: 'Commission terms, invoices, receipts and payouts.',
-  Institution: 'Account managers for institution partners and universities.',
-  'Institution Ops': 'Keeps course data, intakes and fees current (was Data team).',
-  Recruitment: 'BDMs: own their RPs and branches in their sales regions.',
-  'Recruitment Ops': 'Verifies new recruitment partners and their documents (was BAP).',
-  Admission: 'Admissions officers: work applications in their sales regions.',
-  'Admission Ops': 'Quality checks, announcements and SLA watch across every region.',
+  Admin: 'Users, roles, settings, logs; can do everything.',
+  'View Only': 'Sees everything, changes nothing.',
+  Finance: 'Commission terms, invoices, payouts.',
+  Institution: 'Institution partners, agreements, universities.',
+  'IP Ops': 'Courses, intakes, entry rules, announcements.',
+  Recruitment: 'Their RPs, the RPs’ students and applications.',
+  'RP Ops': 'Verifying new RPs and their documents, RP bank details.',
+  Admission: 'Applications in their regions: verify, submit, offers, visa, enrolment.',
+  'Global Ops': 'Works the Global Admissions queue (Direct, Rest of world and Global applications, unmatched email, escalations from the regional queues); oversight of every queue and mailbox.',
 };
 export const roleId = name => String(name).toLowerCase().replace(/ /g, '-');
 const RP_ROLES = [
@@ -68,11 +69,8 @@ const ACTS = { E: 'CRUD', V: 'R', N: '' };
 const nameOfRole = id => PERMISSION_ROLES.find(n => roleId(n) === id);
 /** A role's level on a line of Admin's matrix: 'E' View + edit, 'V' View, 'N' No access. Admin has everything. */
 export function levelOf(roleIdOrName, object) {
-  const name = nameOfRole(roleIdOrName) || roleIdOrName;
-  if (name === 'Admin') return 'E';
-  let perms = {};
-  try { perms = adminCfg().perms || {}; } catch { perms = {}; }
-  return (perms[object] || {})[name] || 'N';
+  // the one helper (admin/data/menus.ts), by the role's matrix name
+  return levelFor(nameOfRole(roleIdOrName) || roleIdOrName, object);
 }
 /** Roles that see every mailbox and every queue's tasks, not only their own (HC30): Admin's oversight line. */
 export const oversees = id => levelOf(id, OVERSIGHT_OBJECT) !== 'N';

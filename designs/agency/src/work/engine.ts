@@ -1,107 +1,87 @@
 // @ts-nocheck -- typed with the work API.
 /**
- * The application lifecycle's automatic work (Jovial's Pending Questions sheet, 1 Nov: Status triggers, Who has it,
- * Task triggers, Queue assignment).
+ * The application rules' automatic work (slice 4 PRD, Every timer; Jovial's Task triggers sheet).
  *
- * - Statuses never move by themselves, except New to Pre-screening when the RP sends the application. Everything
- *   here creates **tasks**, never statuses.
- * - A task exists while its condition holds: when the officer changes the status (forward, back, or closed), the
- *   task closes itself. The officer can also close it with one click.
- * - Tasks go to the application's officer. Their queue is the application's regional Admissions queue; QC goes to
- *   Admission Ops. When the officer is on leave, the queue's leader covers.
- * - SLAs and waits count working hours on working days, as Work › Working days sets them for the region (9:30 to
- *   18:30; Monday to Friday, Sunday to Thursday in Bangladesh, to start with).
- * In the real build this is the work service, run on every change to an application.
+ * - Statuses never move by themselves. Everything here creates **tasks**, never statuses.
+ * - A task exists while its condition holds: when the status changes (forward, back or closed), the RP answers, or the
+ *   officer opens the application, the task closes itself. The assignee can also close it with Done.
+ * - The rules are **data** (S4-13): each one's on/off, "task starts after", SLA, RP reminder, queue and sharing come
+ *   from Admin › Work › Task rules (work/seed.ts RULES, edited in the store). Only the trigger (`when`) and the title
+ *   are code here, keyed by the rule's number.
+ * - Every application task goes to the application's officer (S4-5); the queue is the application's regional
+ *   Admissions queue. While the officer is on leave, the queue's leader covers.
+ * - Times are working hours on the record's region's calendar, in IST (work/calendars.ts, work/clock.ts).
+ * In the real build this is the work service, run on every change to an application and by job J4 every 15 minutes.
  */
 import { sampleApplications, STATUS, toCheck, openRequests, statusText, courseOf, REUPLOAD_AT, isOpen } from '../data/applications';
 import { sampleStudents } from '../data/students';
 import { withLive, liveFlags } from '../data/live';
 import { intakeState } from '../data/courses';
-import { onLeave } from '../data/leave';
 import { regionQueueId } from './seed';
 import { routeApplication, TEST_AGENCY } from '../data/regions';
 import { destOf } from '../data/applications';
-import { dayOf } from './calendars';
+import { addWorkingHours, workingHoursBetween } from './calendars';
+import { now as clockNow } from './clock';
 
-const H = 36e5;
+export { addWorkingHours, workingHoursBetween };
+const DAY = 864e5;
 export const DAY_START = 9.5;
-/** A working day in SLA terms: 9 hours (an SLA set in days is days × 9). Each calendar's own hours set the clock. */
+/** A working day in SLA terms: 9 hours (9:30 to 18:30 IST); "2 working days" is 18 working hours. */
 export const DAY_HOURS = 9;
 
-/* ---------- working hours ---------- */
-const ymd = (t) => new Date(t).toISOString().slice(0, 10);
-const isWorkingDay = (cal, t) => cal.days.includes(new Date(t).getDay()) && !cal.holidays.some((h) => h[0] === ymd(t));
-const startOfDay = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
-
-/** The moment `hours` working hours after `from`. */
-export function addWorkingHours(cal, from, hours) {
-  let left = hours * H;
-  let t = from;
-  for (let guard = 0; guard < 400; guard++) {
-    const day = startOfDay(t);
-    const w = dayOf(cal);
-    const open = day + w.open * H;
-    const close = open + w.hours * H;
-    if (isWorkingDay(cal, day) && t < close) {
-      const from2 = Math.max(t, open);
-      if (from2 + left <= close) return from2 + left;
-      left -= close - from2;
-    }
-    t = day + 24 * H + 1;
-    t = startOfDay(t);
-  }
-  return t;
-}
-/** Working hours between two moments (negative if b is before a). */
-export function workingHoursBetween(cal, a, b) {
-  if (b < a) return -workingHoursBetween(cal, b, a);
-  let n = 0;
-  for (let day = startOfDay(a); day <= b; day += 24 * H) {
-    const d0 = startOfDay(day + 2 * H); // daylight saving safe
-    if (!isWorkingDay(cal, d0)) continue;
-    const w = dayOf(cal);
-    const open = d0 + w.open * H;
-    const close = open + w.hours * H;
-    n += Math.max(0, Math.min(close, b) - Math.max(open, a));
-  }
-  return n / H;
-}
-/** An SLA as working hours: { h } or { d } (working days of 9 hours). */
-export const slaHours = (sla) => (sla?.h ?? 0) + (sla?.d ?? 0) * DAY_HOURS;
+/* ---------- a rule's times: { n, u } in working hours ('wh'), working days ('d') or calendar days ('days') ---------- */
+export const timeHours = (t) => (!t || t.text ? 0 : t.u === 'd' ? t.n * DAY_HOURS : t.u === 'days' ? t.n * DAY_HOURS : Number(t.n) || 0);
+export const timeText = (t) => (!t ? '—' : t.text ? t.text : t.u === 'd' ? `${t.n} d` : t.u === 'days' ? `${t.n} days` : `${t.n} wh`);
+/** The moment a wait ends: working hours on the calendar, or plain calendar days ("90 days"). */
+export const afterFrom = (cal, from, t) => (!t ? from : t.u === 'days' ? from + t.n * DAY : addWorkingHours(cal, from, timeHours(t)));
+/** An SLA as working hours: { h } or { d }, or a rule time. */
+export const slaHours = (sla) => (sla?.u ? timeHours(sla) : (sla?.h ?? 0) + (sla?.d ?? 0) * DAY_HOURS);
 export const slaText = (sla) => (sla?.d ? `${sla.d} working day${sla.d === 1 ? '' : 's'}` : `${sla.h} working hour${sla.h === 1 ? '' : 's'}`);
+/** Is this rule making tasks for a condition that started at `since`? On, or switched off after it started (its open tasks stay). */
+export const ruleLive = (r, since) => !!r && (r.on || (r.offAt != null && since < r.offAt));
 
-/* ---------- the rules ---------- */
+/* ---------- the application rules: trigger and title (code), by rule number ---------- */
 const RE_UPLOAD = new Set(REUPLOAD_AT.filter(Boolean));
 const uni = (a) => courseOf(a).uni.name;
-/**
- * The application rules (Task triggers T1–T23, Status triggers S1–S27). `when` says whether the task exists now;
- * `after` is how long the application has to be in that state first (a wait before a chase).
- */
-export const APP_RULES = [
-  { id: 'a-verify', row: 'T1', kind: 'k-verify', when: (a) => a.status === 'checking', title: (n) => `Verify the documents for ${n}`, sla: { h: 1 }, closes: 'Status moves on' },
-  { id: 'a-check', row: 'WH5', kind: 'k-verify', when: (a) => !['checking', 'payreview'].includes(a.status) && toCheck(a).length > 0, title: (n, a) => `Check ${toCheck(a).length === 1 ? `the ${toCheck(a)[0].name.toLowerCase()}` : `${toCheck(a).length} documents`} the RP sent for ${n}`, sla: { h: 1 }, closes: 'Every document verified or sent back' },
-  { id: 'a-reupload', row: 'T2', kind: 'k-verify', when: (a) => RE_UPLOAD.has(a.status) && openRequests(a).length > 0, after: { h: 48 }, title: (n) => `Chase the RP: re-upload for ${n} is late`, sla: { h: 6 }, closes: 'The RP re-uploads, or the status changes', remind: { h: 24 } },
-  { id: 'a-qc', row: 'T3', kind: 'k-qc', queue: 'q-adm-ops', who: 'leader-assigns', when: (a) => a.status === 'ready', title: (n) => `Quality-check ${n} before submission`, sla: { h: 1 }, closes: 'Status moves on' },
-  { id: 'a-submit', row: 'T4', kind: 'k-submit', when: (a) => a.status === 'ready', title: (n, a) => `Submit ${n} to ${uni(a)}`, sla: { h: 1 }, closes: 'Status moves to Submitted to university', late: true },
-  { id: 'a-chase-uni', row: 'T5', kind: 'k-chase-uni', when: (a) => a.status === 'lodged', after: { d: 2 }, title: (n, a) => `Chase ${uni(a)} for a decision on ${n}`, sla: { h: 12 }, closes: 'Officer closes it, or the status changes' },
-  { id: 'a-moreinfo', row: 'T7', kind: 'k-chase-uni', when: (a) => a.status === 'moreinfo' && openRequests(a).length > 0, after: { h: 12 }, title: (n) => `Chase the RP: additional documents for ${n} are late`, sla: { h: 12 }, closes: 'The RP uploads, or the status changes', remind: { h: 6 } },
-  { id: 'a-conds', row: 'T9', kind: 'k-uni-mail', when: (a, f) => a.status === 'conditions' && f.condsSent === false, title: (n) => `Send the offer and its conditions to the RP for ${n}`, sla: { h: 12 }, closes: 'Conditions sent to the RP' },
-  { id: 'a-conds-chase', row: 'T9', kind: 'k-uni-mail', when: (a, f) => a.status === 'conditions' && f.condsSent !== false, after: { h: 12 }, title: (n) => `Chase the RP: offer conditions for ${n}`, sla: { h: 12 }, closes: 'Status moves to Conditions submitted', remind: { h: 6 } },
-  { id: 'a-chase-conds', row: 'T10', kind: 'k-chase-uni', when: (a) => a.status === 'condsent', after: { d: 2 }, title: (n, a) => `Chase ${uni(a)} about the conditions for ${n}`, sla: { h: 12 }, closes: 'Officer closes it, or the status changes' },
-  { id: 'a-gsp-check', row: 'T11', kind: 'k-gsp-check', when: (a) => a.status === 'finance', title: (n) => `Do the GSP check for ${n}`, sla: { h: 12 }, closes: 'Officer closes it, or the status changes' },
-  { id: 'a-uol', row: 'T13', kind: 'k-uni-mail', when: (a) => a.status === 'uol', title: (n) => `Send the offer to the RP and ask for the deposit for ${n}`, sla: { h: 4 }, closes: 'Status moves to Tuition or deposit pending' },
-  { id: 'a-deposit', row: 'T14', kind: 'k-payment', when: (a) => a.status === 'deposit' && openRequests(a).length > 0, after: { d: 2 }, title: (n) => `Chase the RP: deposit for ${n} not paid`, sla: { h: 12 }, closes: 'Payment proof uploaded, or the status changes', remind: { d: 1 } },
-  { id: 'a-payment', row: 'T15', kind: 'k-payment', when: (a) => a.status === 'payreview', title: (n) => `Check the payment proof for ${n}`, sla: { h: 4 }, closes: 'Status moves on' },
-  { id: 'a-chase-accept', row: 'T16', kind: 'k-chase-uni', when: (a) => a.status === 'waitad', after: { d: 3 }, title: (n, a) => `Chase ${uni(a)} for the acceptance letter for ${n}`, sla: { h: 12 }, closes: 'Officer closes it, or the status changes' },
-  { id: 'a-visa', row: 'T17', kind: 'k-chase-uni', when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) !== 'gsp' && openRequests(a).length > 0, after: { d: 7 }, title: (n) => `Chase the RP: visa for ${n} not lodged`, sla: { h: 12 }, closes: 'Lodgement proof uploaded, or the status changes', remind: { d: 5 } },
-  { id: 'a-visa-gsp', row: 'WH7', kind: 'k-submit', when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) === 'gsp', title: (n) => `Lodge the student visa for ${n} (GSP lodges this one)`, sla: { d: 7 }, closes: 'Status moves to Visa decision pending' },
-  { id: 'a-late', row: 'T19', kind: 'k-chase-uni', when: (a) => ['checking', 'ready'].includes(a.status) && lateIntake(a), title: (n, a) => `Check ${uni(a)} still accepts ${n} for ${a.intake} (deadline passed)`, sla: { h: 12 }, closes: 'Officer records go ahead, moves the intake, or closes' },
-  { id: 'a-rp-news', row: 'W11', kind: 'k-uni-mail', when: (a, f) => (f.rpNews ?? 0) > (f.rpSeen ?? 0), since: (a, f) => f.rpNews, title: (n, a, f) => `Needs you: the RP sent ${f.rpWhat || 'a message'} on ${n}`, sla: { h: 1 }, closes: 'You open the application' },
-  { id: 'a-enrol', row: 'T20', kind: 'k-enrol', when: (a) => a.status === 'enrolconf', title: (n, a) => `Confirm ${n}’s enrolment with ${uni(a)}`, sla: { d: 3 }, closes: 'Status moves to Student enrolled' },
-];
 const lateIntake = (a) => {
   const i = courseOf(a).intakes?.find((x) => x.month === a.intake);
   return i ? intakeState(i) === 'late' : false;
+};
+/** The course start date: the 1st of the intake's month ("Feb 2027"), for T57. */
+export const startDateOf = (a) => {
+  const t = Date.parse(`1 ${String(a.intake).replace(/^\d{1,2}-/, '').replace(/-/g, ' ')}`);
+  return Number.isNaN(t) ? null : t;
+};
+/**
+ * `chase`: the task chases the RP (its clock is the RP's wait running out), so it never pauses while the RP is asked.
+ * The rest are GSP's own work on the application and pause while a request to the RP is open (S4-10).
+ */
+export const APP_LOGIC = {
+  T1: { when: (a) => a.status === 'checking', title: (n) => `Verify the documents for ${n}` },
+  WH5: { when: (a) => !['checking', 'payreview'].includes(a.status) && toCheck(a).length > 0, title: (n, a) => `Check ${toCheck(a).length === 1 ? `the ${toCheck(a)[0].name.toLowerCase()}` : `${toCheck(a).length} documents`} the RP sent for ${n}` },
+  W11: { when: (a, f) => (f.rpNews ?? 0) > (f.rpSeen ?? 0), since: (a, f) => f.rpNews, title: (n, a, f) => `Needs you: the RP sent ${f.rpWhat || 'a message'} on ${n}` },
+  T2: { chase: true, when: (a) => RE_UPLOAD.has(a.status) && openRequests(a).length > 0, title: (n) => `Chase the RP: re-upload for ${n} is late` },
+  T4: { when: (a) => a.status === 'ready', title: (n, a) => `Submit ${n} to ${uni(a)}` },
+  T19: { when: (a) => ['checking', 'ready'].includes(a.status) && lateIntake(a), title: (n, a) => `Check ${uni(a)} still accepts ${n} for ${a.intake} (deadline passed)` },
+  T5: { when: (a) => a.status === 'lodged', title: (n, a) => `Chase ${uni(a)} for a decision on ${n}` },
+  T7: { chase: true, when: (a) => a.status === 'moreinfo' && openRequests(a).length > 0, title: (n) => `Chase the RP: additional documents for ${n} are late` },
+  T52: { when: (a) => a.status === 'addverify', title: (n) => `Check the additional documents for ${n}` },
+  T53: { when: (a) => a.status === 'addsent', title: (n, a) => `Chase ${uni(a)} about the additional documents for ${n}` },
+  T54: { when: (a) => a.status === 'interview', title: (n, a) => `Chase ${uni(a)} about ${n}’s assessment or interview` },
+  T9: { when: (a, f) => a.status === 'conditions' && f.condsSent === false, title: (n) => `Send the offer and its conditions to the RP for ${n}` },
+  T9b: { chase: true, when: (a, f) => a.status === 'conditions' && f.condsSent !== false, since: (a, f) => (f.condsSent ? f.condsSent : a.since), title: (n) => `Chase the RP: offer conditions for ${n}` },
+  T10: { when: (a) => a.status === 'condsent', title: (n, a) => `Chase ${uni(a)} about the conditions for ${n}` },
+  T11: { when: (a) => a.status === 'finance', title: (n) => `Do the GSP check for ${n}` },
+  T13: { when: (a) => a.status === 'uol', title: (n) => `Send the offer to the RP and ask for the deposit for ${n}` },
+  T14: { chase: true, when: (a) => a.status === 'deposit' && openRequests(a).length > 0, title: (n) => `Chase the RP: deposit for ${n} not paid` },
+  T15: { when: (a) => a.status === 'payreview', title: (n) => `Check the payment proof for ${n}` },
+  T16: { when: (a) => a.status === 'waitad', title: (n, a) => `Chase ${uni(a)} for the acceptance letter for ${n}` },
+  T55: { when: (a) => a.status === 'accrec', title: (n) => `Move ${n} to visa` },
+  T17: { chase: true, when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) !== 'gsp' && openRequests(a).length > 0, title: (n) => `Chase the RP: visa for ${n} not lodged` },
+  WH7: { when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) === 'gsp', title: (n) => `Lodge the student visa for ${n} (GSP lodges this one)` },
+  T56: { when: (a) => a.status === 'visasub', title: (n) => `Chase the visa decision for ${n}` },
+  T57: { when: (a) => a.status === 'startdate', start: (a) => startDateOf(a), title: (n) => `Confirm ${n} has started` },
+  T20: { when: (a) => a.status === 'enrolconf', title: (n, a) => `Confirm ${n}’s enrolment with ${uni(a)}` },
 };
 
 /** Who-has-it labels (Jovial, 1 Nov). */
@@ -115,7 +95,7 @@ export function liveApps(live) {
   const apps = sampleApplications().map((a0) => {
     const a = withLive(a0, live);
     const st = studs.find((x) => x.id === a.studentId);
-    // an application with no sales region yet is routed by Admin's rules (W10, Sales region rules SR4)
+    // an application with no sales region yet is routed by Admin's rules (slice 1's Application routing)
     const routed = a.region ? null : routeApplication({ rp: a.rp, nationality: st?.nationality ?? 'India', livesIn: st?.country ?? 'India', dest: destOf(a) });
     return { ...a, ...(routed ? { region: routed.region, routed } : {}), student: st ? `${st.first} ${st.last}` : a.studentId };
   });
@@ -123,47 +103,61 @@ export function liveApps(live) {
   return apps;
 }
 
-/** The officer who gets a new application: the regional queue's member with the fewest open applications, skipping people on leave (Queue assignment A1). */
-export function pickOfficer(s, apps, region) {
+/**
+ * The first officer (slice 4 PRD, The first officer; S4-5): when the RP sends the documents, the application's
+ * regional Admissions queue picks the member (leader included) with the fewest open applications in the queue,
+ * skipping anyone on leave or deactivated and anyone whose sales regions don't cover the application; a tie goes to
+ * the name first in alphabetical order. Everyone skipped: the leader. The store keeps the pick: it doesn't change
+ * until someone changes the officer on the application.
+ */
+export function pickOfficer(s, apps, region, canTake = () => true, officerOf = (a) => a.officer) {
   const q = s.queues.find((x) => x.id === regionQueueId(region, s.queues)) || s.queues.find((x) => x.id === 'q-adm-global');
   if (!q) return null;
-  const people = [q.leader, ...(q.members || [])].filter((id) => id && !onLeave(id));
+  const people = [q.leader, ...(q.members || [])].filter((id, i, l) => id && l.indexOf(id) === i && canTake(id));
   if (!people.length) return q.leader;
-  const open = (id) => apps.filter((a) => a.officer === id && isOpen(a)).length;
-  return people.sort((x, y) => open(x) - open(y) || x.localeCompare(y))[0];
+  const open = (id) => apps.filter((a) => officerOf(a) === id && isOpen(a)).length;
+  const name = (id) => (s.users.find((u) => u.id === id) || {}).name || id;
+  return people.sort((x, y) => open(x) - open(y) || name(x).localeCompare(name(y)))[0];
 }
 
-/** The tasks the application rules create right now. Closed ones (one click) are in `s.closed`. */
-export function appTasks(s, live, now = Date.now()) {
+/**
+ * The tasks the application rules make right now. `s.officerOf(a)` is the application's officer (store), `s.closed`
+ * the tasks closed with Done (never made again for the same condition), `s.frozen` each task's SLA hours as it was
+ * created with (S4-11).
+ */
+export function appTasks(s, live, now = clockNow()) {
   const flags = liveFlags();
-  const calFor = (region) => s.calendars.find((c) => c.regions.includes(region || 'Global')) || s.calendars[0];
   const out = [];
   const all = liveApps(live);
   for (const a0 of all) {
     if (!isOpen(a0)) continue;
-    // an application nobody owns yet gets one: the regional queue's member with the fewest open (A1)
-    const a = a0.officer ? a0 : { ...a0, officer: pickOfficer(s, all, a0.region || 'Direct') };
+    const officer = s.officerOf ? s.officerOf(a0) : a0.officer;
+    const a = { ...a0, officer };
     const f = flags[a.id] || {};
-    const cal = calFor(a.region);
+    const cal = s.calFor(a.region);
     const queue = regionQueueId(a.region || 'Direct', s.queues);
     const q = s.queues.find((x) => x.id === queue);
-    for (const r of APP_RULES) {
-      if (!r.when(a, f)) continue;
-      const since = r.since ? r.since(a, f) : r.id === 'a-conds-chase' && f.condsSent ? f.condsSent : a.since;
-      const due0 = r.after ? addWorkingHours(cal, since, slaHours(r.after)) : since;
-      if (r.after && now < due0) continue;
-      const id = `A-${a.id}-${r.id}-${since}`;
+    for (const [row, L] of Object.entries(APP_LOGIC)) {
+      const r = s.rules.find((x) => x.row === row);
+      if (!r || !L.when(a, f)) continue;
+      const since = L.since ? L.since(a, f) : a.since;
+      if (!ruleLive(r, since)) continue;
+      const due0 = L.start ? L.start(a) : r.after ? afterFrom(cal, since, r.after) : since;
+      if (due0 == null || now < due0) continue;
+      const id = `A-${a.id}-${row}-${since}`;
       if (s.closed?.[id]) continue;
-      const tq = r.queue || queue;
-      // on leave (A4) or no longer at GSP (A5): the queue's leader covers
-      const gone = a.officer && !s.users.some((u) => u.id === a.officer);
-      const covering = a.officer && (onLeave(a.officer) || gone);
-      const assignee = r.who === 'leader-assigns' ? null : covering ? q?.leader ?? null : a.officer ?? null;
-      const reminded = r.remind ? addWorkingHours(cal, since, slaHours(r.remind)) : null;
+      const tq = r.queue && r.queue !== 'region' && s.queues.some((x) => x.id === r.queue) ? r.queue : queue;
+      const tqq = s.queues.find((x) => x.id === tq) || q;
+      // the officer gets every application task (S4-5), unless Admin set the rule to share another way
+      const assignee = !r.share || r.share === 'officer' ? (officer ?? null) : null;
+      const reminded = r.remind ? afterFrom(cal, since, r.remind) : null;
+      const req = !L.chase ? openRequests(a).find((n) => n.request) : null;
       out.push({
-        id, rule: r.id, row: r.row, kind: r.kind, record: a.id, queue: tq, assignee, created: due0, status: 'open', auto: true,
-        title: r.title(a.student, a, f), slaHours: slaHours(r.sla), cal: cal.id, closes: r.closes,
-        note: [covering ? (gone ? 'Their officer has left GSP: the leader has it' : `Covering while ${(s.users.find((u) => u.id === a.officer) || {}).name || 'the officer'} is on leave`) : null, reminded && now > reminded ? 'The RP was reminded automatically' : null, `Closes when: ${r.closes.toLowerCase()}`].filter(Boolean).join(' · '),
+        id, rule: row, row, kind: r.kind, record: a.id, queue: tq, assignee, share: r.share && r.share !== 'officer' ? r.share : null, created: due0, status: 'open', auto: true,
+        title: L.title(a.student, a, f), slaHours: s.frozen?.[id] ?? timeHours(r.sla), cal: cal.id, closes: r.closes, leader: tqq?.leader,
+        reminded: reminded && now > reminded ? reminded : null,
+        // GSP's own task pauses while the RP is asked for something (S4-10)
+        pausedNow: req ? { from: Math.max(due0, req.request.at), title: req.title } : null,
       });
     }
   }
@@ -173,5 +167,5 @@ export function appTasks(s, live, now = Date.now()) {
 /** The application record My work and Mail show, from the live application. */
 export function appRecord(a) {
   const c = courseOf(a);
-  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region, agency: a.rp || TEST_AGENCY.name, uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, since: a.since, closed: !isOpen(a) };
+  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region, agency: a.rp || TEST_AGENCY.name, uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, since: a.since, closed: !isOpen(a), needs: openRequests(a).map((n) => ({ title: n.title, at: n.request?.at, due: n.due })) };
 }

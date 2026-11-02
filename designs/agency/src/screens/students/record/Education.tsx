@@ -4,8 +4,11 @@ import { Field } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
 import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
+import { systemOf } from '../../../admin/data/eligibility';
 import {
-  GRADING,
+  gradingOptions,
+  scaleMax,
+  scoreOk,
   HIGHEST,
   LANGUAGES,
   LEVEL_NAME,
@@ -164,7 +167,7 @@ function LevelCard({
           onChange={(v) => setLevel(l, { qualification: v })}
           hint={isSchool(l) ? (l === 'g12' ? 'Like PUC, Science (PCMB) or HSC, Commerce.' : 'Like SSLC or Secondary School Certificate.') : 'Like B.Tech, Computer Science.'}
         />
-        <Sel id={id('grading')} label="Grading system" required={required} value={e.grading} read={read('grading')} options={GRADING} onChange={(v) => setLevel(l, { grading: v as Edu['grading'] })} />
+        <Sel id={id('grading')} label="Grading system" required={required} value={e.grading} read={read('grading')} options={gradingOptions(e.grading)} onChange={(v) => setLevel(l, { grading: v as Edu['grading'], score: '' })} hint="From Admin › Grade conversion. The eligibility check converts the score to a percentage." />
         <Txt
           id={id('score')}
           label="Score"
@@ -173,9 +176,9 @@ function LevelCard({
           read={read('score')}
           inputMode="decimal"
           disabled={!e.grading}
-          onChange={(v) => setLevel(l, { score: v.replace(/[^\d.]/g, '') })}
-          hint={!e.grading ? 'Choose the grading system first.' : pct !== null && e.grading !== '100' ? `About ${pct}%` : `Out of ${e.grading}`}
-          error={e.score && e.grading && Number(e.score) > Number(e.grading) ? `${GRADING.find(([k]) => k === e.grading)?.[1]} can’t be more than ${e.grading}.` : null}
+          onChange={(v) => setLevel(l, { score: v.slice(0, 12) })}
+          hint={!e.grading ? 'Choose the grading system first.' : pct !== null && systemOf(e.grading)?.by !== 'As is' ? `About ${pct}%` : scaleMax(e.grading) ? `Out of ${scaleMax(e.grading)}` : `A grade: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}`}
+          error={e.score && e.grading && !scoreOk(e) ? (systemOf(e.grading)?.by === 'Bands' && Number.isNaN(Number(e.score)) ? `Enter one of the grades: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}.` : `Enter a score from 0 to ${scaleMax(e.grading)}.`) : null}
         />
         <Sel id={id('language')} label="Primary language of instruction" required={required} value={e.language} read={read('language')} options={LANGUAGES} onChange={(v) => setLevel(l, { language: v })} hint="English can waive the English test for some universities." />
         {!isSchool(l) && (
