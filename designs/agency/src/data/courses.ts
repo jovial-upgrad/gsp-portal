@@ -520,6 +520,45 @@ for (const a of DATASET.apps) {
   if (like) COURSES.push({ ...like, id: `${a.uni}-n${COURSES.filter((c) => c.uni.id === a.uni).length + 1}`, name: a.course, level: a.level as Level });
 }
 
+/**
+ * The sample's Minimum highest education required on the shared course list (the catalogue's records set the same,
+ * slice 2's sampleCourseRecs): applications read this list, so the eligibility check's level check works there too.
+ */
+COURSES.forEach((c, i) => {
+  if (c.minEducation !== undefined || i % 17 === 5) return;
+  c.minEducation = c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : 'Grade 12';
+});
+
+/* ---------- the course's figures as course search shows them (slice 3 PRD) ---------- */
+
+/** What the Institution Team's record adds to a course (the catalogue's CourseRec): its duration unit and its fees. */
+type Rec = Course & { durUnit?: string; durValue?: number; fullFee?: number; firstYearFee?: number; tags?: string[]; url?: string };
+const rec = (c: Course) => c as Rec;
+/** Whether the course's length is in credits (no length in months: it matches every duration range, S3-3). */
+export const inCredits = (c: Course) => rec(c).durUnit === 'Credits';
+/** The course's total tuition fee (S3-2, S3-20): its `totalFee` (the Full course fee), else worked out from the fee a year. */
+export const totalFeeOf = (c: Course) => {
+  const f = c.totalFee ?? rec(c).fullFee;
+  return f && f > 0 ? f : Math.round(c.tuition * Math.max(1, c.months / 12));
+};
+/** The fee a year: the full course fee ÷ the length in years; a course in credits shows its first-year fee, or the full fee when that's empty. */
+export const feeAYear = (c: Course) => {
+  const r = rec(c);
+  if (inCredits(c)) return r.firstYearFee && r.firstYearFee > 0 ? r.firstYearFee : totalFeeOf(c);
+  return Math.round(totalFeeOf(c) / Math.max(1, c.months / 12));
+};
+/** The course's tags, from its record. */
+export const tagsOf = (c: Course) => rec(c).tags ?? [];
+/** The course's page on the university's website, from its record. */
+export const urlOf = (c: Course) => rec(c).url;
+/** "2 years", "18 months", "36 credits" (slice 2's display rules). */
+export const durationText = (c: Course) => (inCredits(c) ? `${rec(c).durValue ?? ''} credits`.trim() : c.months % 12 === 0 ? `${c.months / 12} ${c.months === 12 ? 'year' : 'years'}` : `${c.months} months`);
+/**
+ * The university's Search priority (S3-1, S3-19): its `searchPriority` (slice 2's field, 0 to 100), 0 when unset.
+ * Display priority is gone since the merge.
+ */
+export const searchPriorityOf = (u: University) => u.searchPriority ?? 0;
+
 /** Base commission in course search: 70% of the university's rate on the course's first-year tuition fee (no scholarship taken off: Jovial, 1 Nov). */
 export const earnOf = (c: Course) => Math.round((c.tuition * c.rate * 0.7) / 100 / 10) * 10;
 

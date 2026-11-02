@@ -48,7 +48,9 @@ If a screen fails anyway, the page says so instead of going blank: **This screen
 | `#courses` | Find courses, before searching |
 | `#courses-results` | Results: master's in data science, Australia |
 | `#courses-renamed` | A misspelt old university name ("univeristy of adelaide") finds Adelaide University |
-| `#courses-none` | Nothing matches the filters |
+| `#courses-none` | Nothing matches the filters ("No courses match these filters", Clear filters) |
+| `#courses-hidden` | Some courses hidden by university territory rules (Punjab) |
+| `#courses-error` | "Courses didn't load. Try again." |
 | `#signup` | Become a partner: empty form |
 | `#signup-filled` | Filled in, with a password |
 | `#signup-errors` | Sent with errors (inline messages) |
@@ -135,6 +137,48 @@ If a screen fails anyway, the page says so instead of going blank: **This screen
 - "How did you find us?" is optional: leave it empty and the details still save. No referral code and no WhatsApp (1 Nov).
 - Email `ananya@horizonoverseas.in` is already registered.
 - Cities Bengaluru, Mumbai, Delhi, Kathmandu, Dhaka and Colombo each pick a named contact.
+
+## Slice 3 PRD (2 Nov)
+
+The prototype follows *GSP portal PRD · Slice 3: Core flow* (the gap list is `prd-gaps/S3.md`). Where a rule waits on a sheet
+row (tab *S3 check*) or on S3-31, the PRD's proposal is built. In every role:
+
+- **Find courses** is one page for RP users and every GSP role (GSP's own copies now render it, without Student view or
+  commission, W26). Five filters and no others: **Tuition fee** (two handles, the total fee, bounds from the results),
+  **Tags** (all the ones picked, S3C-4), **Duration** (two handles, <1 year to 5+ years; courses in credits match every
+  range and show "36 credits"), **University** (any of them; 8, then "Show N more universities") and **Destination state
+  or province**. Four sorts: **Recommended** (the university's Search priority, the soonest open deadline, QS rank,
+  name), **Fee high to low**, **Fee low to high** (total fee), **QS ranking**. Cards show the total tuition fee with the
+  fee a year under it, up to two intakes ("Mar 2027 · Open"), QS rank or "—". The two sliders are the portal's own
+  (`components/RangeSlider.tsx`): arrow keys, Page Up/Down, Home/End, drag.
+- **Course page**: Apply only (no Compare, no Shortlist), intakes with days left, University tab without the
+  disciplines and levels. **Eligibility and documents** starts on the search's student country; with a student
+  picked it shows GSP Assist's check: highest education against the course's **Minimum highest education required**,
+  academics through Grade conversion, backlogs, English (Meets, Below, "Meets (converted from PTE)", May be waived,
+  Expired, Not specified) and the overall verdict (`data/eligibility.ts`).
+- **Compare**: the decided fields in order (Program level, Duration, Intakes, Application deadline, Tuition fee,
+  Application fee, Scholarship, Requirements, QS rank), tags only where 2+ courses differ (ties tag all; "—" never
+  wins; other currencies converted), "Requirements are for students from …". Download: PDF for the student or CSV for
+  internal use (same fields, logged).
+- **GSP · Admin › Course configuration** gains **Grade conversion** (9 seeded systems; add, edit, retire, restore;
+  bands can't overlap) and **English test equivalence** (5 seeded rows, edited in place) (`admin/config/Eligibility.tsx`).
+  The check reads each course's **Minimum highest education required** (`minEducation`, slice 2's course form).
+- **Students**: Highest education is the one list (Grade 10 … Doctorate, S3C-1); a qualification's grading system is
+  picked from Admin's Grade conversion; Share with student is hidden (S3C-10); 25 a page.
+- **Applications**: Who has it follows the PRD's five rules (an open RP request outranks a university status;
+  Assessment is the university's; Visa decision pending is GSP's). Finished applications show **Enrolled**, **Closed**
+  or **Withdrawn**. **Change status**: stage, then status (no Waiting for documents or re-upload pending; a reject is the
+  only way there), then the stage's close reasons (New: S3-31's proposal). It stays off until the status differs and
+  what it needs is done: the university reference or No reference ID (same reference at the same university clashes),
+  the conditional or unconditional offer letter, the Acceptance letter, the visa grant when GSP lodged, who lodges the
+  visa. **Close** posts "Application closed: <reason>"; **Withdraw** (More, RP or Admissions, a required reason) posts
+  "Application withdrawn by <name>: <reason>", both under the assigned officer's name; open requests read "Closed with
+  the application"; the chat goes read-only. GSP can **withdraw a request** ("Withdrawn by <name>"). Key details: the
+  reference (added later after No reference ID), the **assigned officer** (Change: the regional queue's members, S3C-8),
+  visa lodged by, Started or Applied. Add an application blocks an open **or Enrolled** application for the course,
+  without the ID outside the person's regions. Lists: the PRD's tiles, filters and columns, 25 a page.
+- The Institution Team's (and so Admin's) Applications and Students are GSP · Admissions' own modules
+  (`institution/applications`, `institution/students` re-export `gsp/`).
 
 ## What's in it
 

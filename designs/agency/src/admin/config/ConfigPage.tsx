@@ -7,6 +7,7 @@ import { Users } from './Users';
 import { Emails } from './Emails';
 import { Bdm } from './Bdm';
 import { Currency, LivingCosts } from './Course';
+import { EnglishEquivalence, GradeConversion } from './Eligibility';
 import { Routing } from './Routing';
 import { Documents } from './Documents';
 import { Logs, Security } from './Other';
@@ -51,6 +52,8 @@ export function ConfigPage({ section, cfg, setCfg, me, role, canEdit, say, go }:
     bdm: <Bdm {...p} />,
     currency: <Currency {...p} />,
     living: <LivingCosts {...p} />,
+    grades: <GradeConversion {...p} />,
+    english: <EnglishEquivalence {...p} />,
     routing: <Routing {...p} />,
     documents: <Documents {...p} />,
     logs: <Logs {...p} />,

@@ -12,7 +12,7 @@
  * They answer only from the application's own data, and they never change it.
  */
 import { finalFeeOf, flagsOf } from './live';
-import { closeReasons, type EndKind } from './reasons';
+import { closeReasons, isWithdrawal, type EndKind } from './reasons';
 import { uniForms } from './courses';
 import { adminCfg } from '../admin/data/store';
 import { condOf, whenText } from '../admin/data/config';
@@ -20,8 +20,8 @@ import { STAFF, label, staffById } from './staff';
 import { routeApplication } from './regions';
 import { datasetApplications, testAgencyApps, testAgencyStudents } from './dataset';
 import { COURSES, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
-import { englishRuleFor } from './tests';
-import { TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
+import { eligibility } from './eligibility';
+import { TESTS, eduDocKey, fullName, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
 
 export const DAY = 86_400_000;
@@ -41,8 +41,8 @@ export const STAGE_HINT = [
   'Enrolment',
 ];
 
-/** Who has it now. done: enrolled. end: closed early. */
-export type AppOwner = Owner | 'done' | 'end';
+/** Who has it now. done: enrolled. end: closed. wd: withdrawn (S3-27: the three finished pills). */
+export type AppOwner = Owner | 'done' | 'end' | 'wd';
 
 export type StatusKey =
   | 'docs'
@@ -114,28 +114,32 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   reupload: { stage: 1, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit', phase: 'before' },
   lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university', phase: 'after' },
-  moreinfo: { stage: 2, owner: 'you', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true, phase: 'after' },
+  // S3-24: On GSP until the officer sends a request (separately); the status sends nothing
+  moreinfo: { stage: 2, owner: 'gsp', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true, phase: 'after' },
   addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents', phase: 'after' },
   // engineering review, 1 Nov: GSP sends the checked additional documents on to the university
   addsent: { stage: 2, owner: 'uni', text: () => 'Additional documents submitted to university', branch: 'After additional documents', phase: 'after' },
   // a document rejected at this stage is one of the additional documents, so it comes after submission
   reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true, phase: 'after' },
-  conditions: { stage: 3, owner: 'you', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
+  conditions: { stage: 3, owner: 'gsp', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
   condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university' },
   reoffer: { stage: 3, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   finance: { stage: 4, owner: 'gsp', text: () => 'Finance and background check' },
-  interview: { stage: 4, owner: 'you', text: () => 'University assessment or interview', branch: 'If the university assesses or interviews' },
+  // S3-24: the university's
+  interview: { stage: 4, owner: 'uni', text: () => 'University assessment or interview', branch: 'If the university assesses or interviews' },
   uol: { stage: 4, owner: 'gsp', text: () => 'Unconditional offer letter received', doc: { by: 'gsp', name: () => 'Unconditional offer letter' } },
   rever: { stage: 4, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  deposit: { stage: 5, owner: 'you', text: () => 'Tuition or deposit pending', asks: true },
+  // S3-24: On GSP; On RP once the payment proof is requested (separately)
+  deposit: { stage: 5, owner: 'gsp', text: () => 'Tuition or deposit pending', asks: true },
   payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', doc: { by: 'you', name: () => 'Payment proof' } },
   waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
-  // Jovial, 1 Nov: the acceptance letter (CoE, CAS, I-20, LOA…) in, before the visa step
-  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  // S3-23: one Acceptance letter for every destination (no CoE, CAS, I-20, LOA or Offer of place)
+  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: () => 'Acceptance letter' } },
   reacc: { stage: 5, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   // the visa is lodged by the agency or by GSP, never both: these two follow whoever lodges it (see ownerAt)
   visa: { stage: 6, owner: 'you', text: () => 'Visa lodgement pending', asks: true },
-  visasub: { stage: 6, owner: 'you', text: () => 'Visa decision pending', doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
+  // S3-12: On GSP, whoever lodged
+  visasub: { stage: 6, owner: 'gsp', text: () => 'Visa decision pending', doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
   startdate: { stage: 6, owner: 'gsp', text: () => 'Visa granted: waiting for start date', doc: { by: 'lodger', name: () => 'Visa' } },
   revisa: { stage: 6, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   enrolconf: { stage: 7, owner: 'gsp', text: () => 'Enrolment confirmation pending', doc: { by: 'gsp', name: () => 'Proof of enrolment' } },
@@ -216,6 +220,8 @@ export type Msg = {
   useFor?: { need: string; file: string };
   /** A message drafted for the agency to send to the student. */
   draft?: { en: string; hi: string };
+  /** A request card that ended without an answer: withdrawn by GSP ("Withdrawn by <name>") or closed with the application. */
+  ended?: { kind: 'withdrawn' | 'closed'; by?: string; at: number };
 };
 
 export type Offer = {
@@ -277,12 +283,14 @@ export const openRequests = (a: Application) => a.needs.filter((n) => n.request)
  * moves the application to Visa lodgement pending); a conditional offer is GSP's until GSP has sent the conditions to
  * the RP, then the RP's.
  */
-export const ownerAt = (k: StatusKey, a: Pick<Application, 'visaBy'> & { id?: string }): AppOwner => {
+export const ownerAt = (k: StatusKey, a: Pick<Application, 'visaBy'> & { id?: string; end?: Application['end'] }): AppOwner => {
   const f = a.id ? flagsOf(a.id) : {};
-  if (k === 'visa' || k === 'visasub') return f.visaBy ?? a.visaBy ?? 'you';
-  if (k === 'conditions' && f.condsSent === false) return 'gsp';
+  if (k === 'closed' && isWithdrawal(a.end?.kind)) return 'wd';
+  if (k === 'visa') return (f.visaBy ?? a.visaBy ?? 'you') === 'gsp' ? 'gsp' : 'you';
   return STATUS[k].owner;
 };
+/** The five university statuses (slice 3 PRD, Who has it rule 4; University assessment or interview from 2 Nov, S3-24). */
+export const UNI_STATUSES: StatusKey[] = ['lodged', 'addsent', 'condsent', 'interview', 'waitad'];
 /** The agency's documents GSP hasn't checked yet: the latest copy of each, sent and not verified. */
 export function toCheck(a: Application) {
   if (a.status === 'docs') return [];
@@ -297,15 +305,26 @@ export function toCheck(a: Application) {
  * GSP moves the status on. Otherwise the status says who.
  */
 export function ownerOf(a: Application): AppOwner {
+  // a finished application is with no one: Enrolled, Closed or Withdrawn (S3-27)
   if (!isOpen(a)) return ownerAt(a.status, a);
-  if (openRequests(a).length) return 'you';
+  // slice 3 PRD, Who has it comes from what's open, not from the status (decided); the first rule that matches decides:
+  // 1. New: On RP, until the RP sends the documents
+  if (a.status === 'docs') return 'you';
+  // 2. an open request to the RP (a document request, a send-back, a conditions request, the visa lodgement proof):
+  //    On RP; paused and withdrawn requests aren't in `needs`; it outranks a university status (S3-11)
+  if (a.needs.some((n) => !n.profile)) return 'you';
+  // 3. something the RP sent that waits for GSP's review: On GSP
   if (toCheck(a).length) return 'gsp';
-  const o = ownerAt(a.status, a);
-  return o === 'you' && STATUS[a.status].asks && !a.needs.length ? 'gsp' : o;
+  // 4. a university status: On university
+  if (UNI_STATUSES.includes(a.status)) return 'uni';
+  // 5. anything else: On GSP
+  return 'gsp';
 }
 /** Needs the agency: its own statuses, or a document GSP asked for. */
 export const needsYou = (a: Application) => isOpen(a) && ownerOf(a) === 'you';
-export const statusText = (a: Application) => (a.status === 'closed' ? `${a.end?.kind ?? 'Closed'}: ${a.end?.reason ?? ''}`.replace(/: $/, '') : STATUS[a.status].text(destOf(a)));
+/** "Closed: University rejected", "Withdrawn: The student chose another offer", or the status. */
+export const statusText = (a: Application) =>
+  a.status === 'closed' ? (isWithdrawal(a.end?.kind) ? `Withdrawn${a.end?.reason ? `: ${a.end.reason}` : ''}` : `Closed: ${a.end?.kind ?? ''}`.replace(/: $/, '')) : STATUS[a.status].text(destOf(a));
 export const isOpen = (a: Application) => a.status !== 'closed' && a.status !== 'enrolled';
 
 /**
@@ -471,8 +490,9 @@ export function docLines(a: Application, s: Student): DocLine[] {
 
 /* ---------- GSP Assist: eligibility ---------- */
 
-export type Verdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check';
-export type Reason = { ok: 'yes' | 'warn' | 'no' | 'add'; title: string; text: string };
+export type Verdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check' | 'Not specified';
+/** na: not specified by the university; it doesn't count against the student. */
+export type Reason = { ok: 'yes' | 'warn' | 'no' | 'add' | 'na'; title: string; text: string };
 
 /** Checks a student against a course intake, with the reason for each part of the verdict. */
 export function checkFit(s: Student, c: Course, intake: string): { verdict: Verdict; reasons: Reason[] } {
@@ -483,31 +503,11 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
   if (blockedFor(c.uni, s.country, s.state))
     reasons.push({ ok: 'no', title: 'Where they live', text: `${uni} doesn’t take students from ${s.state ? `${s.state}, ` : ''}${s.country} through GSP.` });
   else reasons.push({ ok: 'yes', title: 'Where they live', text: `${uni} takes students from ${s.country}.` });
-  // academics: what the university asks for against what the student has, or the profile to complete first
-  const top = s.edu[s.highest];
-  const pct = top ? pctOf(top) : null;
-  if (pct === null) reasons.push({ ok: 'add', title: 'Academics', text: `Complete the academic details on ${s.first}’s profile to check eligibility.` });
-  else reasons.push({ ok: pct >= c.academic ? 'yes' : 'no', title: 'Academics', text: `${uni} asks for ${c.academic}% and ${s.first} has ${pct}%, ${so(pct >= c.academic)}.` });
-  // English (HC15): every English test on the profile (IELTS, TOEFL, PTE, Duolingo) against the course's rule for it;
-  // the one that meets it decides, otherwise the best of them
-  const english = s.tests.filter((t) => TESTS[t.type].kind === 'English' && t.overall);
-  if (english.length) {
-    const read = english.map((t) => {
-      const rule = englishRuleFor(c, t.type);
-      const def = TESTS[t.type];
-      const parts = def.parts.filter((p) => (t.parts[p.key] ?? '').trim() !== '').map((p) => Number(t.parts[p.key])).filter((n) => !Number.isNaN(n));
-      const low = parts.length ? Math.min(...parts) : Number(t.overall);
-      const fmt = (n: number) => (t.type === 'IELTS' ? n.toFixed(1) : String(n));
-      const part = t.type === 'IELTS' ? 'band' : 'part';
-      if (!rule) return { meets: false, takes: false, said: `${uni} doesn’t list ${def.short} for this course, and ${s.first} has ${def.short} ${fmt(Number(t.overall))}` };
-      const [need, band] = rule;
-      return { meets: Number(t.overall) >= need && low >= band, takes: true, said: `${uni} asks for ${def.short} ${fmt(need)} (no ${part} below ${fmt(band)}) and ${s.first} has ${def.short} ${fmt(Number(t.overall))} (lowest ${part} ${fmt(low)})` };
-    });
-    const best = read.find((x) => x.meets) ?? read.find((x) => x.takes) ?? read[0];
-    if (best.meets) reasons.push({ ok: 'yes', title: 'English', text: `${best.said}, ${so(true)}.` });
-    else if (c.englishFlex) reasons.push({ ok: 'warn', title: 'English', text: `${best.said}, so ${s.first} isn’t eligible yet: the university can offer on condition of a pre-sessional English course.` });
-    else reasons.push({ ok: 'no', title: 'English', text: `${best.said}, ${so(false)}.` });
-  } else reasons.push({ ok: 'add', title: 'English', text: `Complete the English test details on ${s.first}’s profile to check eligibility.` });
+  // academics and English: the eligibility check (slice 3 PRD; data/eligibility.ts), each line with its result
+  void so;
+  const k = eligibility(s, c);
+  for (const l of k.academicLines) reasons.push({ ok: l.ok, title: l.label === 'Highest education' ? 'Academics · highest education' : l.label === 'Backlogs' ? 'Academics · backlogs' : 'Academics', text: `${l.result}: ${l.why}.` });
+  for (const l of k.englishLines) reasons.push({ ok: l.ok, title: 'English', text: `${l.result}: ${l.why}.` });
   // intake
   const i = c.intakes.find((x) => x.month === intake);
   if (i) {
@@ -518,7 +518,9 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
     else if (st === 'likely') reasons.push({ ok: 'warn', title: 'Intake', text: `${intake} usually opens; the university hasn’t confirmed it yet.` });
     else reasons.push({ ok: d <= 21 ? 'warn' : 'yes', title: 'Intake', text: `${intake} is open, closes ${shortDate(new Date(i.deadline))}${d <= 45 ? `: ${d} ${d === 1 ? 'day' : 'days'} left` : ''}.` });
   }
-  const verdict: Verdict = reasons.some((r) => r.ok === 'no') ? 'Not eligible' : reasons.some((r) => r.ok === 'add') ? 'Add details to check' : reasons.some((r) => r.ok === 'warn') ? 'Eligible with conditions' : 'Eligible';
+  // the overall verdict: academics and English as the check has them (neither specified: Not specified), with where they
+  // live and the intake kept beside them (slice 3 PRD, Overall verdict)
+  const verdict: Verdict = reasons.some((r) => r.ok === 'no') ? 'Not eligible' : reasons.some((r) => r.ok === 'add') ? 'Add details to check' : k.verdict === 'Not specified' ? 'Not specified' : reasons.some((r) => r.ok === 'warn') ? 'Eligible with conditions' : 'Eligible';
   return { verdict, reasons };
 }
 

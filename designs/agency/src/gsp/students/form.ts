@@ -2,6 +2,7 @@
 import { phoneError } from '../../components/validate';
 import { countryByName } from '../../data/partners';
 import { emptyEdu, fullName, type Gender, type Level, type Student } from '../../data/students';
+import type { HighestEducation } from '../../data/education';
 import { rpTeam } from '../../data/rpteam';
 
 const rpCounsellor = (rp?: string) => (rp ? (rpTeam(rp).find((m) => m.role === 'Counsellor') ?? rpTeam(rp)[0])?.id : undefined);
@@ -19,6 +20,8 @@ export type AddForm = {
   dial: string;
   phone: string;
   highest: '' | Level;
+  /** Highest education in the one list (S3C-1); `highest` is the record's education level it maps to. */
+  highestEd?: '' | HighestEducation;
   /** Whoever adds the student; an admin can reassign them later. */
   counsellor: string;
   /** The recruitment partner the student is with (30 Oct): GSP adds students for them. Required to add one. */
@@ -122,6 +125,7 @@ export function makeStudent(a: AddState, me: string): Student {
     phone: f.phone.trim(),
     passport: norm(f.passport),
     highest: f.highest || 'ug',
+    highestEd: f.highestEd || undefined,
     gender: x?.gender ?? '',
     dob: x?.dob ?? '',
     passportExpiry: x?.passportExpiry ?? '',

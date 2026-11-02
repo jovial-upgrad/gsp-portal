@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pager } from '../courses/ResultParts';
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -112,6 +113,10 @@ export function Students({
   const counts = { '': list.length, inc: list.filter((s) => !ready.get(s.id)!.complete).length, com: list.filter((s) => ready.get(s.id)!.complete).length };
 
   const ql = q.trim().toLowerCase().replace(/\s+/g, '');
+  // 25 a page, numbered (S3C-14, proposal); a change of tab, search, filter or sort goes back to page 1
+  const PER = 25;
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [q, status, sort, who, apps]);
   const rows = list
     .filter((s) => {
       const r = ready.get(s.id)!;
@@ -220,12 +225,12 @@ export function Students({
             <Icon name="people" size={26} />
           </span>
           <h2 id="sempty-title" className="sempty__title">
-            No students yet
+            No students yet. Add your first student to start applying.
           </h2>
-          <p className="sempty__text">Add your first student. Upload their passport in the form and we fill in the details for you to check.</p>
+          <p className="sempty__text">Upload their passport in the form and we fill in the details for you to check.</p>
           <div className="sempty__acts">
             <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdd({ key: Date.now() })}>
-              Add student
+              Add a student
             </Button>
           </div>
           <ol className="sempty__steps">
@@ -318,8 +323,7 @@ export function Students({
             <div className="snone">
               {filtered ? (
                 <>
-                  <p className="snone__title">No students match</p>
-                  <p className="snone__text">Try another name, or clear the filters.</p>
+                  <p className="snone__title">No students match. Clear the search or filters.</p>
                   <Button variant="secondary" size="sm" onClick={clear}>
                     Clear filters
                   </Button>
@@ -346,7 +350,7 @@ export function Students({
                 </tr>
               </thead>
               <tbody role="rowgroup">
-                {rows.map((s, i) => {
+                {rows.slice((page - 1) * PER, page * PER).map((s, i) => {
                   const r = ready.get(s.id)!;
                   return (
                     <motion.tr
@@ -412,6 +416,7 @@ export function Students({
                 })}
               </tbody>
             </table>
+            <Pager page={page} total={rows.length} onPage={setPage} per={PER} />
             </div>
           )}
         </section>

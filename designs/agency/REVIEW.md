@@ -31,6 +31,8 @@ No changes from this review.
 
 ## Find courses: search and results
 
+- [x] Jovial, 2 Nov (slice 3 PRD), in every role: five filters only (Tuition fee and Duration as two-handle ranges, Tags, University multi-select, Destination state); four sorts (Recommended by Search priority, Fee high to low, Fee low to high, QS ranking); cards show the total tuition fee with the fee a year, up to two intakes, QS rank or "—"; Compare has the decided fields and tags; GSP's roles use the same page without commission. This replaces the 1 Nov University radio list and the quick filters. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
+
 - [x] Engineering walkthrough, 1 Nov: **Select student** is off until GSP verifies the agency; no **Shortlisted only** filter; results in **pages of 20** (Previous, numbers, Next); the left filters offer only what's in the results, and University is searchable, A to Z, 10 at a time. Open: Best match and Deadline soonest logic, ranking by CSV, search type (sheet, *Walkthrough 1 Nov*). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
 - [x] Add **Intake** to the main search bar, next to Destination (there's room). Today it's only in the side filters. Free text like "nursing in Australia, Feb" fills it in. (27 Oct: sixth part of the bar, optional, "Any" by default; out of the side filters)
@@ -53,6 +55,8 @@ No changes from this review.
 - [x] Nesil, 30 Oct, in RP Admin, GSP Team and GSP · Institution: **no offer time anywhere** in Find courses (Course search): not on the cards (“Offer in about 5 days”, still on GSP Team’s and the Institution Team’s), not in the dialog (its fact strip and “Typical offer time”), and no **Offer within 7 days** filter or **Fastest offer** sort. (30 Oct, commit “30 Oct review: course search trimmed, the RP on GSP’s adds, Institution edits”)
 
 ## Course page
+
+- [x] Jovial, 2 Nov (slice 3 PRD): Apply only (no Shortlist in the dialog), days left on intakes, no Top disciplines or Program levels, and the eligibility check with a student picked (Select a student to check their eligibility, without one). (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: no Compare inside the course dialog (Compare stays on the cards; the comparison downloads as PDF and CSV). Open: when the comparison highlights a value. (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -85,6 +89,8 @@ No changes from this review.
 
 ## Add a student
 
+- [x] Jovial, 2 Nov (slice 3 PRD, S3C-1 proposal): Highest education is the one list, Grade 10 to Doctorate. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
+
 - [x] Engineering walkthrough, 1 Nov: **passport number required**; the duplicate check is by passport number within the RP only (no email or cross-RP check). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
 - [ ] Collect **every mandatory field** here, so the profile never shows a mandatory field as pending.
@@ -94,6 +100,8 @@ No changes from this review.
 - [x] Nesil, 30 Oct, in GSP Team and GSP · Institution, not RP Admin: **Recruitment partner** first in Add a student (required): GSP adds students for a recruitment partner. The list is the ones whose agreement is signed. (30 Oct, commit “30 Oct review: course search trimmed, the RP on GSP’s adds, Institution edits”)
 
 ## Student record
+
+- [x] Jovial, 2 Nov (slice 3 PRD): Share with student hidden (S3C-10 proposal); each qualification's grading system comes from Admin › Grade conversion. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: one **Edit** in each section's header; autofill from a document happens **once**, then "Filled in from … Correct any field by hand." Open: profile completeness counts mandatory or optional fields (this page's item above says optional; the walkthrough said mandatory). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -118,6 +126,8 @@ No changes from this review.
 
 ## Applications list
 
+- [x] Jovial, 2 Nov (slice 3 PRD, S3C-14 proposal): the PRD's tiles, filters (GSP: destination, recruitment partner, stage, sales region; RP: counsellor, stage, intake) and columns, Started or Applied, Enrolled, Closed or Withdrawn pills, 25 a page. The progress chips and date range are gone. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
+
 - [ ] Counsellors see only their own applications; admins see all.
 
 - [x] Nesil, 27 Oct: **no GSP Assist "Today" brief**; the four tiles are a number and a name only (**All applications, Pending from you, With GSP, With university**); **"Pending from you"** replaces "Needs you" for applications (list, application page, GSP Assist, the student list's application tags).
@@ -126,6 +136,8 @@ No changes from this review.
 - [x] Nesil, 27 Oct (2nd round): **no lines under the status** (time at the step, "usually N days", "GSP asked"); the CSV drops them too.
 
 ## Add an application
+
+- [x] Jovial, 2 Nov (slice 3 PRD, S3-7, S3-28): an open or Enrolled application for the course blocks; outside the person's regions the message has no ID, status or link; the eligibility check reads the course's Minimum highest education, Grade conversion and English test equivalence. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: one **open** application per student and course (any intake; closed ones don't block); GSP Assist's eligibility check never blocks. (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -161,7 +173,7 @@ No changes from this review.
   - Nesil, 27 Oct: the chat is calm now (a plain card, grey and white bubbles, GSP Assist's mark and name only). The header gradient, the banners and the owner colours are as they were.
 - [x] **Summary / Documents / Chat / Activity:** their purpose was unclear. Restructure once Jovial's research on other portals is in, without tabs inside tabs. (27 Oct)
   - Nesil, 27 Oct, ahead of Jovial's research: no Summary. **Chat** (opens first), **Documents**, **Activity**, with Key details and the GSP contact beside every tab. "What you need to do" and Send to GSP moved to the top of Documents; the offer's dates moved into Key details. Revisit when the research is in.
-- [ ] **Chat** is free text between the RP counsellor and the GSP admissions team. The **document request is the only structured template**, and it also appears in Documents. (Decision)
+- [x] **Chat** is free text between the RP counsellor and the GSP admissions team. The **document request is the only structured template**, and it also appears in Documents. (Decision) Changed by S3-30: two templates, built. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
   - Open question: does GSP Assist still answer first in the chat, or work beside it? Jovial is bringing examples of each chat template to refinement.
   - Nesil, 28 Oct: **no GSP Assist in the RP chat** for now: nothing answers on its own; the GSP contact replies. No attach button; the box says "Ask GSP…".
   - Nesil, 28 Oct (3rd round): **GSP Assist's mark and name head the RP chat**, as in GSP Team. Still nothing answers on its own.
@@ -189,6 +201,8 @@ No changes from this review.
 - [x] Nesil, 27 Oct (3rd round): a **liquid-glass frame** round the chat (the messages stay on a solid panel); **space and a light upright line** between the status and More.
 
 ## GSP Team
+
+- [x] Jovial, 2 Nov (slice 3 PRD), the application page in GSP · Admissions (and the Institution Team and Admin, which now use the same pages): Who has it from what's open; Change status without Waiting for documents or re-upload pending, off until what the status needs is done (reference or No reference ID, the GSP upload, who lodges the visa), close reasons by stage (New: S3-31 proposal); Close and Withdraw post their lines under the assigned officer's name and cancel open requests; Withdraw a request; Key details with the assigned officer (S3C-8 proposal), the reference added later, visa lodged by. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Engineering walkthrough, 1 Nov: Change status groups the Application stage into **Before submission** and **After submission**; new status **Additional documents submitted to university**. Queues share work by **Fewest open** or **Record owner** only (round robin gone; SEA Admissions is Fewest open). (1 Nov, commit "Merge w-*: 1 Nov walkthrough")
 
@@ -266,6 +280,8 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 - [x] Jovial, 2 Nov: **the prototype matches the slice 2 PRD** (supply and partner onboarding; gap list `prd-gaps/S2.md`, 80 gaps). Institution partners: state and city, Agreement ended only by job J1, Decision A (Agreement executed by hand after the end date counts as in date), Closed → Paused universities (S2C-19), documents with Current, Download and Remove, contacts with first and last name and phone, a Change log and System information. Universities: Search priority (was Display priority), logo upload, Go live's five checks, Pause confirm, read-only when Ended. Courses: Add a course with every Basics field and Add draft, CSV import with skipped rows, read-only tabs with Edit, intakes date order, fee year, Minimum highest education required, English ranges, Delete rules. Announcements: no Master Partner recipients. BAP: the RP agreement, Reject/Suspend/Reactivate, Mark training done, Issue a notice, region isolation. Master Partners (GSP · BAP). Admin › Course tags. RP portal: Profile locked until verified, the agreement on Home, Email preferences. Every slice 2 page follows Admin › Permission roles for who edits. (2 Nov, prd-s2: d96a7fd, 895f87b, 00a9dd8, 65d6987)
 
 ## GSP · Admin
+
+- [x] Jovial, 2 Nov (slice 3 PRD, S3-4, S3-15, S3-16, S3-29): Course configuration › **Grade conversion** and **English test equivalence**, with the seed values; the eligibility check reads each course's Minimum highest education required (slice 2's course form, S3-18). (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Nesil, 30 Oct: **a new role, GSP · Admin**, in the Role switch, **replicating GSP · Institution** (the same pages, records, sign-in and design), with **a colour difference**: teal in place of GSP's navy for buttons, links, focus and switches, and in the corner glow and the light behind the sidebar. "GSP Admin" beside the logo; signed in as Ishaan Verma, GSP · Admin. (30 Oct, commit “GSP · Admin: a new role, a copy of GSP · Institution, in teal”)
   - Chosen in the build, for Nesil to confirm: **teal** as Admin's colour (a cool colour that isn't an owner or status colour, and far from GSP's violet and the university blue); the owner and status colours stay the same in every role.

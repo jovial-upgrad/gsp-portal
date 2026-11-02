@@ -317,7 +317,7 @@ export function datasetApplications(): Application[] {
       offer,
       funds: step >= 6 ? Math.round(c.tuition * 1.6) : undefined,
       unread: needs.some((n) => n.request) ? 1 : undefined,
-      ...(a.status === 'closed' ? { end: { kind: 'Student withdrawn' as const, reason: 'Withdrew after enrolling', stage: 7, at: since + DAY } } : {}),
+      ...(a.status === 'closed' ? { end: { kind: 'Withdrawn' as const, reason: 'The student isn’t going to study abroad', stage: 7, at: since + DAY } } : {}),
     };
     return app;
   });

@@ -359,9 +359,21 @@ export type CourseRec = Course & {
 };
 
 const MAJOR = ['Melbourne', 'Sydney', 'Brisbane', 'Perth', 'Adelaide', 'London', 'Birmingham', 'Manchester', 'Toronto', 'Vancouver', 'Dublin', 'Auckland'];
+/** Sample courses for slice 3's English waiver note and slice 2's credit duration (merge, 2 Nov). */
+const firstAt = (uni: string, n = 1) => COURSES.filter((c) => c.uni.id === uni).slice(0, n);
+const WAIVER = new Set([...firstAt('flinders', 2), ...firstAt('leeds')]);
+const MOI = new Set([...firstAt('flinders'), ...firstAt('canberra', 2)]);
+const OWN_TEST = new Set(firstAt('birmingham', 2));
+const NO_INTERVIEW = new Set([...firstAt('abertay', 2), ...firstAt('usf')]);
+/** Credit-based samples: US courses counted in credits ("36 credits"). */
+const CREDITS = new Map<Course, number>([...firstAt('pace').map((c) => [c, 36] as const), ...firstAt('usf').map((c) => [c, 30] as const)]);
 function tagsOf(c: Course): string[] {
   // sample tags; none from offer time, the English test waiting, placement or post-study work (Jovial, 1 Nov, HC2)
   const t: string[] = [];
+  if (WAIVER.has(c)) t.push('English test waiver');
+  if (MOI.has(c)) t.push('MOI acceptable');
+  if (OWN_TEST.has(c)) t.push('University has its own English test');
+  if (NO_INTERVIEW.has(c)) t.push('No interview required');
   if (c.scholarship) t.push('Scholarship available');
   if (c.uni.group === 'Group of Eight') t.push('Group of Eight');
   if (c.uni.group === 'Russell Group') t.push('Russell Group');
@@ -394,10 +406,10 @@ export function sampleCourseRecs(): CourseRec[] {
     ...c,
     status: i % 89 === 29 ? 'Hidden' : i % 400 === 13 ? 'Draft' : 'Live',
     code: c.cricos ?? `${c.uni.id.slice(0, 3).toUpperCase()}-${(4000 + i * 7).toString().slice(-4)}`,
-    durUnit: 'Months',
-    durValue: c.months,
+    durUnit: CREDITS.has(c) ? 'Credits' : 'Months',
+    durValue: CREDITS.get(c) ?? c.months,
     url: `https://${c.uni.website ?? `${c.uni.id}.edu`}/courses/${c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
-    firstYearFee: 0,
+    firstYearFee: CREDITS.has(c) ? c.tuition : 0,
     // 30 Oct: the fee the team enters is the full course fee; tuition a year follows from it
     fullFee: Math.round((c.tuition * c.months) / 12),
     // each intake's dates (Jovial, 31 Oct): the source for course search and the application; start on a Monday, census four weeks on

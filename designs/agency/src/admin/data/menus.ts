@@ -27,6 +27,9 @@ const OBJECT_OF: Record<string, string> = {
   bdm: 'Settings',
   currency: 'Settings',
   living: 'Settings',
+  // slice 3 PRD (S3-4): the eligibility check's two tables
+  grades: 'Settings',
+  english: 'Settings',
   routing: 'Settings',
   documents: 'Settings',
   security: 'Settings',
