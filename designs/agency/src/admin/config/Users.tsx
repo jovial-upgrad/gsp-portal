@@ -70,7 +70,7 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
     say('User reactivated. Login email sent.');
   };
   const deactivate = (u: User) => {
-    change('Create roles', `Deactivated ${u.name}: ${u.status} → Deactivated`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: 'Deactivated', deactivatedAt: Date.now() } : x)) }));
+    change('Create roles', `Deactivated ${u.name}: ${u.status} → Deactivated; sessions ended and login link revoked`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: 'Deactivated', deactivatedAt: Date.now(), sentAt: undefined } : x)) }));
     say('User deactivated.');
   };
   const items = (u: User): MenuItem[] => [

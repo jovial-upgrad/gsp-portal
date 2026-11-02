@@ -16,7 +16,7 @@ import type { SignupState } from '../../screens/signup/model';
 import { docsFor } from '../../screens/signup/docs';
 import { partnerManagerFor } from '../../data/partners';
 import { adminCfg } from '../../admin/data/store';
-import { NATIONALITY } from '../../admin/data/config';
+import { placeRegion } from '../../admin/data/config';
 
 export type RpEventKind = 'signed-up' | 'sent' | 'verified' | 'sent-back' | 'approved' | 'agreement-draft' | 'agreement-sent' | 'agreement-uploaded' | 'agreement-signed' | 'agreement-sent-back' | 'agreement-withdrawn' | 'status' | 'trained';
 export type RpEvent = { kind: RpEventKind; rpId: string; rp: string; doc?: string; note?: string; by?: string; at: number };
@@ -193,7 +193,7 @@ export function syncSignup(s: SignupState) {
     foundUs: f.src,
     bdm: partnerManagerFor(f.country, f.city, f.ref)?.name ?? '',
     // the region's Admissions contact (Admin › Sales regions)
-    admissions: adminCfg().regions.find((g) => g.name === (NATIONALITY[f.country] || f.country))?.contact ?? '',
+    admissions: adminCfg().regions.find((g) => g.name === placeRegion(f.country))?.contact ?? '',
     masterPartner: 'None',
     docs: [],
     activity: [{ at: stampDay(Date.now()), what: 'Signed up in the partner portal' }],

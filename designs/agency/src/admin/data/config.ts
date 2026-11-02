@@ -112,6 +112,14 @@ export const NATIONALITY: Record<string, string> = liveRecord(() => live.cfg?.()
 /** Countries that make up each sales region, as Admin › Sales regions has them now (one map for every country list by region). */
 export const REGION_COUNTRIES: Record<string, string[]> = liveRecord(() => Object.fromEntries((live.cfg?.()?.regions ?? sampleRegions()).map((r) => [r.name, r.countries ?? []])));
 /** The sales region names, as Admin › Sales regions has them now. */
+/**
+ * Where a place is (S1F-2 proposal, 3 Nov): the sales region whose Countries list the country, else Rest of world.
+ * An RP's head office and each branch read this; only a student's nationality reads the Nationality map.
+ */
+export const placeRegion = (country: string): string => {
+  const c = ({ UK: 'United Kingdom', USA: 'United States' } as Record<string, string>)[country] ?? country;
+  return Object.entries(REGION_COUNTRIES).find(([, list]) => list.includes(c))?.[0] ?? 'Rest of world';
+};
 export const salesRegionNames = () => (live.cfg?.()?.regions ?? sampleRegions()).map((r) => r.name);
 /** The regions a queue or a routing can point to (not Global, which only GSP people cover). */
 export const workRegions = (rs: Region[]) => rs.filter((r) => r.name !== 'Global' && r.name !== 'Direct');
@@ -152,6 +160,13 @@ const DAY = 86_400_000;
 export const LINK_DAYS = 7;
 /** A Link sent user's link has run out. */
 export const linkExpired = (u: Pick<User, 'status' | 'sentAt'>, now = Date.now()) => u.status === 'Link sent' && !!u.sentAt && now - u.sentAt > LINK_DAYS * DAY;
+/**
+ * Whether a Set up your account link opens the new-password step (S1C-5): only for a Link sent user whose link is the
+ * latest one sent and hasn't run out. Deactivating someone revokes their link at once (BR-9, NFR-4): it opens the
+ * expired step even after they're reactivated, since Reactivate sends a new link.
+ */
+export const linkWorks = (u: Pick<User, 'status' | 'sentAt'> | undefined, issuedAt?: number, now = Date.now()) =>
+  !!u && u.status === 'Link sent' && !!u.sentAt && (issuedAt == null || issuedAt === u.sentAt) && !linkExpired(u, now);
 /** A seeded day and hour, so the samples read the same every day of the review. */
 const daysAgo = (d: number, h = 10) => Date.now() - d * DAY - (h % 24) * 3_600_000;
 /** Seeded login states, to show each (the rest have signed in): new users waiting, one link about to run out, one run out, one deactivated. */

@@ -14,7 +14,6 @@ import { inSentence, returnedDocs, stillToReplace } from '../signup/docs';
 import { LOCKED_COPY, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { Track, type StepState } from './Track';
 import { adminCfg } from '../../admin/data/store';
-import { NATIONALITY } from '../../admin/data/config';
 import { STAFF, label } from '../../data/staff';
 import { courseOf, isOpen, needsYou, statusText, type Application } from '../../data/applications';
 import { fullName, type Student } from '../../data/students';
@@ -23,7 +22,7 @@ import { hoursText } from '../../work/calendars';
 
 /** The agency's region's Admissions contact (W15): GSP · Admin › Sales regions, as a person from the staff list. */
 export function admissionsContactFor(country: string): Contact | null {
-  const region = NATIONALITY[country] || country;
+  const region = regionOfCountry(country); // the agency's location: the regions' Countries (S1F-2)
   const name = adminCfg().regions.find((g) => g.name === region)?.contact;
   const s = name ? STAFF.find((x) => label(x) === name) : undefined;
   if (!s) return null;

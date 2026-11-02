@@ -18,7 +18,7 @@ import { nameOf, staffIn, label } from '../../data/staff';
 import { partnerManagerFor, businessDocsFor, countryByName } from '../../data/partners';
 import { RPS } from '../../data/dataset';
 import { phoneOf, rpAdmin } from '../../data/rpteam';
-import { NATIONALITY } from '../../admin/data/config';
+import { placeRegion } from '../../admin/data/config';
 import { SYSTEM, atIso, change, type Change, type Created } from './changelog';
 import type { RpAgreementVersion } from './agreements';
 /** An Institution person's name from the staff list, by the start of their email. */
@@ -461,7 +461,7 @@ const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
     });
   })(),
   bdm: partnerManagerFor(r.country, r.city, '')?.name ?? '',
-  admissions: adminCfg().regions.find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
+  admissions: adminCfg().regions.find((g) => g.name === placeRegion(r.country))?.contact ?? '',
 });
 /** Every other RP GSP's applications are with (data/dataset.ts), by Finance's id: signed partners, so their applications link here. */
 const datasetRps = (): RecruitmentPartner[] =>

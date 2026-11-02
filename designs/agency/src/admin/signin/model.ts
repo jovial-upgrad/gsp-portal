@@ -6,7 +6,7 @@
  */
 import { TEST_PASSWORD } from '../../data/testing';
 import { adminCfg, onAdminChange, setAdminCfg } from '../../admin/data/store';
-import { CODE_MINUTES, CODES_PER_HOUR, MAX_WRONG_CODES } from '../data/config';
+import { CODE_MINUTES, CODES_PER_HOUR, MAX_WRONG_CODES, linkWorks, type User } from '../data/config';
 import { STAFF, label } from '../../data/staff';
 
 export type PwStep = 'request' | 'code' | 'new' | 'done' | 'expired';
@@ -237,6 +237,16 @@ export const initialTeamAuth = (id = ''): TeamAuth => ({
 });
 
 const ME = TEAM_MEMBER.email;
+/** The step a login link opens for this person now: the new-password step while it works, else This link has expired. */
+export function linkStep(email: string): PwStep {
+  let u: User | undefined;
+  try {
+    u = adminCfg().users.find((x) => x.email.toLowerCase() === email.toLowerCase());
+  } catch {
+    u = undefined;
+  }
+  return linkWorks(u) ? 'new' : 'expired';
+}
 const NEW = INVITED_MEMBER.email;
 const at = (mode: PwMode, step: PwStep, id: string, viaLink = false): TeamAuth => ({ ...initialTeamAuth(id), view: 'password', flow: flowAt(mode, step, id, viaLink) });
 
@@ -272,6 +282,7 @@ export const TEAM_AUTH_PRESETS: Record<string, { label: string; make: () => Team
   'setup-code': { label: 'Set-up code sent', make: () => at('setup', 'code', NEW) },
   'setup-new': { label: 'Choose your password', make: () => at('setup', 'new', NEW) },
   'setup-done': { label: 'You’re all set', make: () => at('setup', 'done', NEW) },
-  'link-new': { label: 'Login link: choose your password', make: () => at('setup', 'new', NEW, true) },
+  // the link opens the new-password step only while it works (linkWorks): a deactivated user's link is revoked
+  'link-new': { label: 'Login link: choose your password', make: () => at('setup', linkStep(NEW), NEW, true) },
   'link-expired': { label: 'Login link expired', make: () => at('setup', 'expired', NEW, true) },
 };

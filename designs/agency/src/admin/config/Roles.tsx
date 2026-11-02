@@ -357,7 +357,7 @@ function NationalityMap({ cfg, change, say, canEdit }: ConfigProps) {
     <Panel
       flush
       title="Nationality map"
-      note={`${Object.keys(map).length} nationalities mapped. Routing rule 5 (Student’s nationality) reads it; a nationality with no row falls to rule 6, Fallback. It’s separate from each region’s countries.`}
+      note={`${Object.keys(map).length} nationalities mapped. Routing rule 5 (Student’s nationality) reads it; a nationality with no row falls to rule 6, Fallback. Only a student’s nationality reads it: an RP’s and a branch’s region come from each region’s countries.`}
       action={canEdit && <EditBar editing={d.editing} dirty={d.dirty} label="Edit map" name="the nationality map" onEdit={d.start} onCancel={() => (setResult(null), d.stop())} onSave={save} />}
     >
       {d.editing && <SaveBanner result={result} onReload={d.stop} />}
