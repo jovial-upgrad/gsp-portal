@@ -10,7 +10,7 @@ import { salesRegionNames } from '../../admin/data/config';
  * team fills in the rest on its page; a course is added with its basics and its details are entered on its page. The
  * four-weekly check is gone.
  */
-import { COURSES, UNIVERSITIES, type Area, type Campus, type Course, type Level, type Picture, type University } from '../../data/courses';
+import { COURSES, SEARCH_PRIORITY, UNIVERSITIES, type Area, type Campus, type Course, type Level, type Picture, type University } from '../../data/courses';
 import sample1 from '../../assets/campus/sample-1.webp';
 import sample2 from '../../assets/campus/sample-2.webp';
 import sample3 from '../../assets/campus/sample-3.webp';
@@ -84,7 +84,7 @@ export type UniRec = Omit<University, 'campuses'> & {
   studylink: boolean;
   pathway: boolean;
   cricos: string;
-  /** Search priority 0–100, default 0 (S2C-1): Recommended sorts by it first (renamed from Display priority, S3-19). */
+  /** Search priority 1–10, default 5 (Jovial, S2C-1; data/courses.ts SEARCH_PRIORITY): Recommended sorts by it first (renamed from Display priority, S3-19). */
   searchPriority: number;
   /** Pictures (Jovial, 1 Nov, HC11): course search's campus photos, in this order; none, and it shows none. */
   pictures: Picture[];
@@ -177,7 +177,8 @@ function record(u: University, i: number): UniRec {
     studylink: channel === 'StudyLink',
     pathway: PATHWAY.includes(u.id),
     cricos: u.country === 'Australia' ? `${String(100 + i * 37).padStart(5, '0')}${'ABCDEFGHJK'[i % 10]}` : '',
-    searchPriority: u.id === 'flinders' ? 10 : u.priorityFor?.length ? 5 : 0,
+    // sample: Flinders first, the universities with priority markets next, the rest at the default
+    searchPriority: u.id === 'flinders' ? SEARCH_PRIORITY.max : u.priorityFor?.length ? 7 : SEARCH_PRIORITY.default,
     qsYear: u.qs ? 2026 : undefined,
     pictures: u.about && (u.country === 'Australia' || u.country === 'UK') ? SAMPLE_PICTURES.map(([name, src]) => ({ id: nid('pic'), name, src })) : [],
     inactive: [],
@@ -242,7 +243,7 @@ export function newUniRec(f: { name: string; utype: UniType; country: University
   const id = `${f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36).slice(-4)}`;
   const u = record({ id, name: f.name, country: f.country, campuses: [], rate: 15, college: f.utype === 'College' }, 50);
   // only the basics: everything else is filled with Edit profile, and shows "Not set" until then (slice 2 PRD)
-  return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, sector: '' as unknown as UniRec['sector'], studylink: false, pathway: false, website: undefined, founded: undefined, about: undefined, qs: undefined, qsYear: undefined, kind: undefined, searchPriority: 0, cricos: '', pictures: [], logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {}, log: [change(f.by, f.role, 'University created', '—', f.name)], created: { by: f.by, at: Date.now() } };
+  return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, sector: '' as unknown as UniRec['sector'], studylink: false, pathway: false, website: undefined, founded: undefined, about: undefined, qs: undefined, qsYear: undefined, kind: undefined, searchPriority: SEARCH_PRIORITY.default, cricos: '', pictures: [], logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {}, log: [change(f.by, f.role, 'University created', '—', f.name)], created: { by: f.by, at: Date.now() } };
 }
 
 /** A university as Course search reads it: its live campuses and its territory as blocks. */
@@ -315,11 +316,16 @@ export const TAGS = [
 
 export const DURATION_UNITS = ['Months', 'Years', 'Weeks', 'Credits'] as const;
 export type DurationUnit = (typeof DURATION_UNITS)[number];
-export const CURRENCIES = ['AUD', 'GBP', 'NZD', 'CAD', 'EUR', 'USD'] as const;
 export const QUALIFICATIONS = ['Applicable to all', 'Bachelor (3 years)', 'Bachelor (4 years)', 'Bachelor (3 or 4 years)', 'Grade 12', 'Diploma'] as const;
 export type Qualification = (typeof QUALIFICATIONS)[number];
 export const SCALES = ['Percentage', 'GPA 4', 'GPA 10', 'UK class'] as const;
 export type Scale = (typeof SCALES)[number];
+/** The top of each scale (a minimum can't be above it); UK class is 4 First, 3 2:1, 2 2:2, 1 Third. */
+export const SCALE_MAX: Record<Scale, number> = { Percentage: 100, 'GPA 4': 4, 'GPA 10': 10, 'UK class': 4 };
+export const UK_CLASS = ['First', '2:1', '2:2', 'Third'] as const;
+/** A score as the course shows it: "60%", "3 (GPA 4)", "2:1". */
+export const scoreText = (n: number | undefined, scale: string | undefined) =>
+  n === undefined || !scale ? '' : scale === 'UK class' ? UK_CLASS[4 - n] ?? '' : scale === 'Percentage' ? `${n}%` : `${n} (${scale})`;
 /** The English tests a course rule can name: the same names as the student's tests (data/tests.ts, HC15). */
 export const TESTS = ['IELTS Academic', 'TOEFL iBT', 'PTE Academic', 'Duolingo English Test'] as const;
 export type Test = (typeof TESTS)[number];
@@ -351,8 +357,6 @@ export type CourseRec = Course & {
   tags: string[];
   /** Who last changed its status and each tab (basics, intakes, fees, academic, english). */
   stamps: Stamps;
-  /** Which year's fees these are (S2C-6; slice 4's T43 asks for next year's each 1 September). */
-  feeYear: number;
   /** The Change log (S2-13) and System information. */
   log: Change[];
   created: Created;
@@ -427,11 +431,14 @@ export function sampleCourseRecs(): CourseRec[] {
     totalFee: Math.round((c.tuition * c.months) / 12),
     // set on most samples; a few older courses keep it empty until someone edits them (S3-18)
     minEducation: i % 17 === 5 ? undefined : c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : c.level === 'Foundation' ? 'Grade 12' : 'Grade 12',
-    feeYear: 2027,
+    // and its minimum score (S2C-3), with it: the sample's academic minimum, as a percentage
+    minScore: i % 17 === 5 ? undefined : c.academic || undefined,
+    minScoreScale: i % 17 === 5 || !c.academic ? undefined : 'Percentage',
+    minBacklogs: i % 17 === 5 ? undefined : c.backlogs,
     log: [],
     // a draft was added recently (Institution Home's "Finish draft courses" counts from it); the rest in June 2025
     created: { by: IN('catherine.wilson'), at: draft(i) ? atIso(inDays(-(2 + (i % 9)))) : atIso('2025-06-01') },
-    // the 2027 fees Catherine Wilson entered for Flinders
+    // the fees Catherine Wilson last updated for Flinders
     stamps: c.uni.id === 'flinders' ? { fees: { by: IN('catherine.wilson'), at: inDays(-8) } } : {},
   }));
 }
@@ -455,3 +462,13 @@ export function withSearchFields(c: CourseRec): CourseRec {
 /** Course search shows live courses at live universities. */
 export const searchable = (c: CourseRec) => c.status === 'Live';
 export const coursesOf = <T extends Course>(courses: T[], uniId: string) => courses.filter((c) => c.uni.id === uniId);
+
+/* ---------- the QS ranking CSV (S2-2, Jovial S2C-17): every university's ranking in one go, from Universities ---------- */
+
+/** The ranking the CSV updates: only rows naming it change a university's QS rank (other rankings are skipped). */
+export const QS_SOURCE = 'QS';
+/** The template's columns, in order. `rank` empty or "—" means unranked (shown as "—", sorted last). */
+export const QS_CSV_COLUMNS = ['university', 'ranking', 'rank', 'year'] as const;
+/** The lowest rank QS publishes, for the CSV's check. */
+export const QS_MAX_RANK = 2000;
+

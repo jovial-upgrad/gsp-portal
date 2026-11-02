@@ -60,7 +60,7 @@ export default function TaskRules() {
                     <td>{r.task}<span className="cfg__sub">{(kindById(s, r.kind) || {}).name}</span></td>
                     <td>{missing ? <Pill tone="dpill--bad">Queue deleted</Pill> : destName(s, r.queue)}{!r.ladder && <span className="cfg__sub">{shareName(s, r)}</span>}</td>
                     <td className="num">{r.ladder ? '—' : timeText(r.sla)}</td>
-                    <td className="num">{timeText(r.remind)}</td>
+                    <td className="num">{r.remind2 !== undefined ? `${timeText(r.remind)}, ${timeText(r.remind2)}` : timeText(r.remind)}</td>
                     <td><span className="cfg__sub gspx-wrap">{r.closes}</span></td>
                     <td><button type="button" role="switch" aria-checked={String(r.on)} aria-label={`${r.row} ${r.name} on`} className="switch__track" disabled={!may('U')} onClick={() => switchRule(r)}><span className="switch__knob" aria-hidden="true" /></button></td>
                     <td className="cfg__acts">{may('U') && !r.ladder && <LinkButton aria-label={`Edit ${r.row} ${r.name}`} onClick={() => setEdit(r)}>Edit</LinkButton>}</td>
@@ -97,6 +97,7 @@ function RuleSheet({ rule, onClose, by }) {
     after: v.after?.text ? null : bad(v.after, 'time before the task starts', false),
     sla: bad(v.sla, 'SLA', true),
     remind: bad(v.remind, 'reminder time', false),
+    remind2: v.remind2 !== undefined ? bad(v.remind2, 'second reminder time', false) : null,
     days: v.days != null ? numError(v.days, { what: 'days before', min: 1, max: 365, int: true, required: true }) : null,
   };
   const c = useCheck(errors);
@@ -110,7 +111,7 @@ function RuleSheet({ rule, onClose, by }) {
   const save = () => {
     if (!c.submit()) return;
     update(d => { const i = d.rules.findIndex(r => r.id === v.id); d.rules[i] = v; });
-    const what = ['after', 'sla', 'remind', 'queue', 'share', 'days'].filter(k => JSON.stringify(v[k]) !== JSON.stringify(init.current[k])).join(', ');
+    const what = ['after', 'sla', 'remind', 'remind2', 'queue', 'share', 'days'].filter(k => JSON.stringify(v[k]) !== JSON.stringify(init.current[k])).join(', ');
     logChange('rule.edited', `${by.name} edited ${v.row} “${v.name}”: ${what}`, by.name);
     toast('Rule saved', { text: 'Applies to new tasks from now.' }); onClose();
   };
@@ -128,6 +129,7 @@ function RuleSheet({ rule, onClose, by }) {
         <TimeField id="r-after" label="Task starts after" none value={v.after} error={c.err('after')} onChange={x => set('after', x)} hint="Empty: at once." />
         <TimeField id="r-sla" label="SLA" value={v.sla} error={c.err('sla')} onChange={x => set('sla', x)} hint="A working day is 9 hours, 9:30 to 18:30 IST." />
         <TimeField id="r-remind" label="RP reminded after" none value={v.remind} error={c.err('remind')} onChange={x => set('remind', x)} hint="When the RP gets an automatic reminder (bell and email) during the wait. Empty: none." />
+        {v.remind2 !== undefined && <TimeField id="r-remind2" label="RP reminded again after" none value={v.remind2} error={c.err('remind2')} onChange={x => set('remind2', x)} hint="A second reminder, counted from the same start. Empty: none." />}
         <Pick id="r-to" label="Goes to" required value={v.queue} onChange={x => setV(o => ({ ...o, queue: x, share: x !== 'region' && o.share === 'officer' ? null : o.share }))} options={dest} />
         <Pick id="r-share" label="How it’s shared" required value={v.share ?? ''} onChange={x => set('share', x || null)} options={shares} />
       </div>

@@ -69,7 +69,6 @@ export const KINDS = [
   { id: 'k-rp-change', name: 'RP lifecycle change', record: 'RP', sla: 27 },
   { id: 'k-renew', name: 'Renew an agreement', record: 'Institution partner', sla: 270 },
   { id: 'k-rp-train', name: 'Train a new RP', record: 'RP', sla: 45 },
-  { id: 'k-rp-notice', name: 'Notice issue', record: 'RP', sla: 27 },
   { id: 'k-golive', name: 'Get a university live', record: 'University', sla: 126 },
   { id: 'k-course', name: 'Course data update', record: 'Course', sla: 45 },
   { id: 'k-announce', name: 'Publish an announcement or review a newsletter', record: 'Announcement', sla: 9 },
@@ -140,7 +139,7 @@ export const QUEUES = [
   regional('China', 'u-jo-qiu'),
   regional('Latin America & Europe', 'u-valentina-castillo'),
   { ...regional('Global', 'u-tasha-tandon', withRole('Global Ops')), name: 'Global Admissions', kinds: [...APP_KINDS, 'k-mail', 'k-announce', 'k-escalation'] },
-  queue('q-rp-ops', 'RP Ops', 'u-garima-bhardwaj', withRole('RP Ops'), 'fewest-open', ['k-rp-verify', 'k-rp-change', 'k-rp-train', 'k-rp-notice']),
+  queue('q-rp-ops', 'RP Ops', 'u-garima-bhardwaj', withRole('RP Ops'), 'fewest-open', ['k-rp-verify', 'k-rp-change', 'k-rp-train']),
   queue('q-institution', 'Institution', 'u-matt-beazley', withRole('Institution'), 'record-owner', ['k-renew', 'k-golive']),
   ...Object.keys(REC_LEADS).map(recruitment),
   queue('q-inst-ops', 'IP Ops', 'u-gauri-bhardwaj', withRole('IP Ops'), 'fewest-open', ['k-course']),
@@ -210,7 +209,9 @@ export const RULES = [
   R('T33', 'RPs', { record: 'RP', name: 'RP signed up, not activated', when: 'Signed up, not activated', after: d(2), task: 'Help <RP> finish sign-up', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'Activated' }),
   R('T34', 'RPs', { record: 'RP', name: 'RP documents sent back', when: 'Onboarding documents sent back', after: d(7), task: 'Chase <RP> for its documents', queue: 'q-rp-ops', kind: 'k-rp-change', sla: wh(18), remind: d(3), closes: 'Re-uploaded' }),
   R('T36', 'RPs', { record: 'RP', name: 'RP lifecycle change', when: 'Recruitment asks for a suspension, termination or tier change', task: 'Approve and make the change to <RP>', queue: 'q-rp-ops', share: 'to-leader', kind: 'k-rp-change', sla: wh(12), closes: 'Approved or rejected' }),
-  R('T59', 'RPs', { record: 'RP', name: 'Notice follow-up', when: 'RP Ops issues a notice to an RP', task: 'Follow up the notice to <RP>', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-notice', sla: d(3), closes: 'Done (S4-22)' }),
+  // L-5 (Jovial, 2 Nov): an agreement sent and not signed reminds the RP Admins (bell and email E22) after 3 and 7
+  // working days, and gives RP Ops a task after 10. T59 (notice follow-up) is removed with Issue a notice (S2C-12).
+  R('T69', 'RPs', { record: 'RP', name: 'Agreement not signed', when: 'An agreement was sent to the RP and no signed copy is uploaded yet (Sent)', after: d(10), task: 'Chase <RP> for its signed agreement', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-change', sla: wh(18), remind: d(3), remind2: d(7), closes: 'A signed copy is uploaded, or the agreement is withdrawn' }),
   R('T37', 'RPs', { record: 'RP', name: 'RP inactive', when: 'No new application', after: days(90), task: 'Check in with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(45), closes: 'An application is added, or the Recruitment contact notes why' }),
   R('W23', 'RPs', { record: 'RP', name: 'New RP assigned', when: 'A new RP is assigned to a Recruitment user', task: 'Get in touch with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'The BDM logs the first call' }),
   R('T35', 'RPs', { record: 'RP', name: 'New bank details', when: 'The RP sends new bank details (payouts held)', task: 'Check the new bank details for <RP>', queue: 'q-finance', share: 'not-maker', kind: 'k-check', sla: wh(6), closes: 'Approved or rejected' }),
@@ -219,7 +220,10 @@ export const RULES = [
   R('T40', IPG, { record: 'University', name: 'University not live', when: 'Go-live checks incomplete 14 days after the university was created', task: 'Get <university> live', queue: 'q-institution', share: 'record-owner', kind: 'k-golive', sla: d(14), closes: 'The university is Live' }),
   R('T41', IPG, { record: 'Course', name: 'Draft courses', when: 'A course in draft for 7 days', task: 'Finish and publish <course>', queue: 'q-inst-ops', share: 'fewest-open', kind: 'k-course', sla: d(5), closes: 'Published' }),
   R('T42', IPG, { record: 'Course', name: 'No open intake', when: 'The last intake’s deadline passed and there’s no next intake', task: 'Add the next intake for <course>', queue: 'q-inst-ops', kind: 'k-course', sla: d(5), closes: 'An intake is added' }),
-  R('T43', IPG, { record: 'Course', name: 'Next year’s fees missing', when: '1 September, for courses without next year’s fees', task: 'Add next year’s fees for <course>', queue: 'q-inst-ops', kind: 'k-course', sla: d(10), closes: 'Fees added' }),
+  // no fee year (S2C-6): fees are updated when the team updates them, so T43 (next year's fees) is removed.
+  // S2C-19: a Closed institution partner reopened by hand leaves its universities as they are; IP Ops gets a task to
+  // activate each one.
+  R('T70', IPG, { record: 'University', name: 'University to activate after reopening', when: 'Its institution partner was Closed and is reopened by hand, and the university isn’t Live', task: 'Activate <university>: <partner> was reopened', queue: 'q-inst-ops', share: 'fewest-open', kind: 'k-golive', sla: d(5), closes: 'The university is Live, or Done' }),
 
   // Mail (later slice) keeps the same clock and states
   R('T6', 'Email', { record: 'Email', name: 'University email on an application', when: 'An email is matched to an application (90% or more)', task: 'Act on the email for <student>', queue: 'region', share: 'officer', kind: 'k-uni-mail', sla: wh(1), closes: 'The officer files or dismisses the email' }),
@@ -296,7 +300,6 @@ export const RECORDS = [
   { id: 'ip-newcastle', type: 'Institution partner', label: 'University of Newcastle (ends 31 Dec 2026)', owner: 'u-lalaine-dizon' },
   { id: 'ip-une', type: 'Institution partner', label: 'University of New England (ends 3 Dec 2026)', owner: 'u-matt-beazley' },
   { id: 'uni-jcub', type: 'University', label: 'James Cook University Brisbane', owner: 'u-catherine-wilson' },
-  { id: 'c-murdoch-it', type: 'Course', label: 'Bachelor of Information Technology · Murdoch University (2027 fees)' },
   { id: 'c-flinders-nursing', type: 'Course', label: 'Bachelor of Nursing · Flinders University (draft)' },
   { id: 'c-torrens-mba', type: 'Course', label: 'Master of Business Administration · Torrens University (intakes)' },
   { id: 'an-113', type: 'Announcement', label: 'AN-113 Coventry: tuition deposit lowered to GBP 3,000' },
@@ -324,7 +327,6 @@ export const TASKS = [
   ...SAMPLE.tasks.filter((x) => x.kind === 'k-uni-mail').map((x) => ({ ...x, rule: 'T6', record: OLD_ID[x.record] ?? x.record, assignee: null, created: ago(x.createdDays) })),
   t('T-1009', 'T32', 'k-rp-verify', 'rp-legal', 'q-rp-ops', ago(3)),
   t('T-1010', 'T32', 'k-rp-verify', 'rp-tutee', 'q-rp-ops', ago(2)),
-  t('T-1032', 'T59', 'k-rp-notice', 'rp-visaterminal', 'q-rp-ops', ago(4)),
   t('T-1033', 'T34', 'k-rp-change', 'rp-visaterminal', 'q-rp-ops', ago(11)),
   t('T-1011', 'T37', 'k-rp-change', 'rp-isv', 'q-rec-india', ago(5)),
   t('T-1034', 'W23', 'k-rp-change', 'rp-tutee', 'q-rec-bangladesh', ago(0, 6)),
@@ -336,7 +338,6 @@ export const TASKS = [
   t('T-1027', 'T38', 'k-renew', 'ip-une', 'q-institution', ago(30)),
   t('T-1015', 'T40', 'k-golive', 'uni-jcub', 'q-institution', ago(6)),
   t('T-1016', 'T41', 'k-course', 'c-flinders-nursing', 'q-inst-ops', ago(9)),
-  t('T-1017', 'T43', 'k-course', 'c-murdoch-it', 'q-inst-ops', ago(4)),
   t('T-1018', 'T42', 'k-course', 'c-torrens-mba', 'q-inst-ops', ago(2)),
   t('T-1019', 'T31', 'k-announce', 'an-113', 'q-adm-global', ago(0, 8)),
   t('T-1020', 'T39', 'k-terms', 'cm-legal', 'q-finance', ago(3)),
@@ -347,7 +348,6 @@ export const TASKS = [
   t('T-1024', 'T27', 'k-mail', 'mail-2', 'q-adm-global', ago(1, 2)),
   t('T-1040', 'T60', 'k-admin', 'set-fx', 'q-admin', ago(0, 5), { title: 'Add an exchange rate for NPR from 1 Nov 2026' }),
   t('T-1041', 'T61', 'k-admin', 'set-routing', 'q-admin', ago(1), { title: 'Add a routing rule: Lwazi Dube from South Africa wasn’t routed' }),
-  t('T-1042', 'T62', 'k-admin', 'set-nationality', 'q-admin', ago(2), { title: 'Map Mongolian to a sales region' }),
   t('T-1043', 'T65', 'k-admin', 'set-jobs', 'q-admin', ago(0, 3), { title: 'Daily job J3 Date rules failed on 2 Nov 2026' }),
   t('T-1044', 'T68', 'k-admin', 'set-docs', 'q-admin', ago(4), { title: 'Add document rules for Diploma / Ireland' }),
 ];

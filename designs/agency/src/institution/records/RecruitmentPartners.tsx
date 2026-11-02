@@ -1,7 +1,7 @@
 import { RpCommission } from '../../components/CommissionSummary';
 import { byRegion, getScope, isIsolated } from '../../data/scope';
 import { regionOfCountry } from '../../data/regions';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -18,8 +18,8 @@ import { RP_STATUSES, RP_STATUS_TONE, dateText, type RecruitmentPartner, type Rp
 import { activeAgreement, agreementActivity, agreementLine, commissionHeld, openAgreement, signedOf, versionsOf } from '../data/agreements';
 import { AgreementSection, sendOffWhy, useAgreementActions } from './RpAgreements';
 import { atIso } from '../data/changelog';
-import { canApprove, docsVerified, editRp, issueNotice, markTrained, readyForAgreement, rpActions, sendBackRpDoc, setRpStatus, verifyRpDoc } from '../data/rpverify';
-import { acceptOf, audit, checkFile, dateTimeText } from '../data/changelog';
+import { canApprove, docsVerified, editRp, markTrained, readyForAgreement, rpActions, sendBackRpDoc, setRpStatus, verifyRpDoc } from '../data/rpverify';
+import { audit, dateTimeText } from '../data/changelog';
 import { mpRegion } from '../data/masters';
 import { Facts, Gone, NoMatch, PageHead, Pick, Pill, RecordHead, RecordTabs, Section, TabPanel, Tiles, downloadCsv, usePager, useRecord, type Tone } from './parts';
 import { OBJ, canEdit, canSee, type PageProps } from '../portal/model';
@@ -175,7 +175,8 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
   const editProfile = canEdit(props, OBJ.rp);
   const checkDocs = canEdit(props, OBJ.rpDocs);
   const seeDocs = canSee(props, OBJ.rpDocs);
-  const issueDocs = canEdit(props, OBJ.rpIssued) && role !== 'Finance';
+  // the RP agreement: Finance, RP Ops and Admin all edit it (Jovial, S2C-10), as the matrix's Documents issued to RPs says
+  const issueDocs = canEdit(props, OBJ.rpIssued);
   const editTeam = canEdit(props, OBJ.rpTeam);
   const editMp = canEdit(props, OBJ.mps);
   const [tab, setTab] = useState<Tab>(start === 'documents' || start === 'activity' || start === 'commission' ? start : checkDocs && r.docs.some((d) => d.state === 'With BAP') ? 'documents' : 'overview');
@@ -185,7 +186,6 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
   const [ask, setAsk] = useState<Ask>(null);
   const [editing, setEditing] = useState(false);
   const [branching, setBranching] = useState(false);
-  const [noticing, setNoticing] = useState(false);
   const [linking, setLinking] = useState(false);
   const toCheck = r.docs.filter((d) => d.state === 'With BAP').length;
   const verified = docsVerified(r);
@@ -213,7 +213,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
           </>
         }
       >
-        {(acts.length > 0 || (checkDocs && r.status === 'Agreement signed' && !r.trained) || issueDocs) && (
+        {(acts.length > 0 || (checkDocs && r.status === 'Agreement signed' && !r.trained)) && (
           <div className="istatus">
             <p className="istatus__note">
               {r.status === 'Suspended'
@@ -228,11 +228,6 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
               {checkDocs && r.status === 'Agreement signed' && !r.trained && (
                 <Button size="sm" variant="secondary" onClick={() => setAsk({ kind: 'trained' })}>
                   Mark training done
-                </Button>
-              )}
-              {issueDocs && !['Rejected'].includes(r.status) && (
-                <Button size="sm" variant="secondary" onClick={() => setNoticing(true)}>
-                  Issue a notice
                 </Button>
               )}
               {acts.map((a) => (
@@ -418,25 +413,6 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                 </ul>
               )}
             </Section>
-            {(r.notices ?? []).length > 0 && (
-              <Section title="Notices" id="irp-notices">
-                <ul className="ilist">
-                  {r.notices!.map((n) => (
-                    <li key={n.id} className="ilist__item">
-                      <Icon name="mail" size={18} />
-                      <span className="ilist__t">
-                        {n.subject}
-                        <span className="irow__sub">
-                          {n.by} · {dateTimeText(n.at)}
-                          {n.file ? ` · ${n.file}` : ''}
-                        </span>
-                        <span className="irow__sub">{n.message}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            )}
           </>
         )}
         {tab === 'commission' && (
@@ -566,7 +542,6 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
       {agr.ui}
       <EditRp open={editing} r={r} onCancel={() => setEditing(false)} onSave={(f) => (editRp(r.id, (x) => ({ ...x, ...f }), f.country !== r.country ? `Details changed; country ${r.country} → ${f.country}, sales region re-routed to ${regionOfCountry(f.country)}` : 'Details changed', me), setEditing(false), say(`${f.name} saved.`))} />
       <AddBranch open={branching} r={r} taken={(n) => branches.some((b) => b.name.toLowerCase() === n.trim().toLowerCase())} onCancel={() => setBranching(false)} onSave={(b) => (editRp(r.id, (x) => ({ ...x, branches: [...(x.branches ?? []), b] }), `Branch ${b.name} added`, me), setBranching(false), say(`${b.name} added.`))} />
-      <Notice open={noticing} onCancel={() => setNoticing(false)} onSave={(n) => (issueNotice(r.id, n, me), audit('Recruitment partners', `rp.notice_issued: ${r.name}, ${n.subject} (T59)`, me, role), setNoticing(false), say('Notice issued: it goes to the RP’s bell and its RP Admins by email.'))} />
       <LinkMp open={linking} r={r} mps={db.mps.filter((m) => m.status === 'Active' && (!isIsolated() || byRegion([m], mpRegion).length))} onCancel={() => setLinking(false)} onSave={(mpId) => {
         const m = db.mps.find((x) => x.id === mpId)!;
         props.set((d) => ({ ...d, mps: d.mps.map((x) => (x.id === mpId ? { ...x, rps: [...x.rps, { rpId: r.id, at: Date.now(), by: me }] } : x)), rps: d.rps.map((x) => (x.id === r.id ? { ...x, masterPartner: m.name, activity: [{ at: new Date().toISOString().slice(0, 10), what: `Linked to Master Partner ${m.name} (${me})` }, ...x.activity] } : x)) }));
@@ -708,60 +683,6 @@ export function AddBranch({ open, r, taken, onCancel, onSave }: { open: boolean;
         </Field>
         <Field id="iab-bdm" label="Branch recruitment contact" hint="Set by the system from Recruitment assignment.">
           <TextInput id="iab-bdm" value={bdm ?? '—'} readOnly />
-        </Field>
-      </div>
-    </Sheet>
-  );
-}
-
-/** Issue a notice (proposal S2C-12): subject, message, optional PDF up to 20 MB. */
-function Notice({ open, onCancel, onSave }: { open: boolean; onCancel: () => void; onSave: (n: { subject: string; message: string; file?: string }) => void }) {
-  const [v, setV] = useState({ subject: '', message: '', file: '' });
-  const [err, setErr] = useState<string | null>(null);
-  const [tried, setTried] = useState(false);
-  const pick = useRef<HTMLInputElement>(null);
-  const e = { subject: !v.subject.trim() ? 'Enter the subject.' : null, message: !v.message.trim() ? 'Enter the message.' : null };
-  return (
-    <Sheet
-      open={open}
-      onClose={onCancel}
-      center
-      className="iform"
-      title="Issue a notice"
-      sub="It goes to the RP’s bell and its RP Admins by email, shows on its Activity, and starts the task “Follow up the notice” (T59, 3 working days)."
-      footer={
-        <div className="asf">
-          <div className="asf__acts">
-            <Button variant="secondary" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button onClick={() => (setTried(true), !e.subject && !e.message && !err && (onSave({ subject: v.subject.trim(), message: v.message.trim(), file: v.file || undefined }), setV({ subject: '', message: '', file: '' }), setTried(false)))}>Issue notice</Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="iform__grid">
-        <Field id="irn-subject" label="Subject" required error={tried ? e.subject : null} className="iform__wide">
-          <TextInput id="irn-subject" value={v.subject} maxLength={120} invalid={tried && !!e.subject} onChange={(x) => setV({ ...v, subject: x.target.value })} />
-        </Field>
-        <Field id="irn-message" label="Message" required error={tried ? e.message : null} className="iform__wide">
-          <div className="control iform__area">
-            <textarea id="irn-message" className="control__input" rows={4} maxLength={2000} value={v.message} onChange={(x) => setV({ ...v, message: x.target.value })} />
-          </div>
-        </Field>
-        <Field id="irn-file" label="PDF" optional error={err} hint="Up to 20 MB." className="iform__wide">
-          <button id="irn-file" type="button" className="ipick" onClick={() => pick.current?.click()}>
-            <Icon name={v.file ? 'file' : 'upload'} size={18} />
-            <span className="ipick__t">{v.file || 'Choose a PDF'}</span>
-          </button>
-          <input ref={pick} type="file" accept={acceptOf(['pdf'])} className="vh" tabIndex={-1} aria-hidden="true" onChange={(ev) => {
-            const f = ev.target.files?.[0];
-            ev.target.value = '';
-            if (!f) return;
-            const bad = checkFile(f, ['pdf'], 20);
-            setErr(bad);
-            setV((x) => ({ ...x, file: bad ? '' : f.name }));
-          }} />
         </Field>
       </div>
     </Sheet>

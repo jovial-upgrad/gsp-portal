@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CodeInput } from '../../components/CodeInput';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { type SignupState } from './model';
+import { SIGNUP_CODE, type SignupState } from './model';
 
 import { TEST_CODE } from '../../data/testing';
 
@@ -15,8 +15,8 @@ export function sendCode(set: SetState, then?: () => void) {
     set((p) => ({
       ...p,
       stage: 'code',
-      // a new code voids the old one: it works for 10 minutes and allows 5 wrong tries (S2C-16)
-      email: { status: 'sent', code: '', codeError: null, sentTo: p.form.email.trim(), resendAt: Date.now() + 30_000, sentAt: Date.now(), wrong: 0 },
+      // a new code voids the old one: it works for 10 minutes and allows 5 wrong tries (S2C-16, SIGNUP_CODE)
+      email: { status: 'sent', code: '', codeError: null, sentTo: p.form.email.trim(), resendAt: Date.now() + SIGNUP_CODE.resendSeconds * 1000, sentAt: Date.now(), wrong: 0 },
     }));
     then?.();
   }, 700);
@@ -44,16 +44,16 @@ export function EmailCode({ s, set, onCreated, onBack }: { s: SignupState; set: 
     if (status === 'sent') window.setTimeout(() => codeRef.current?.focus(), 80);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const wait = Math.min(30, Math.max(0, Math.ceil((em.resendAt - now) / 1000)));
+  const wait = Math.min(SIGNUP_CODE.resendSeconds, Math.max(0, Math.ceil((em.resendAt - now) / 1000)));
 
   const check = (code: string) => {
     set((p) => ({ ...p, email: { ...p.email, status: 'checking', codeError: null } }));
     timer.current = window.setTimeout(() => {
-      const dead = (s.email.wrong ?? 0) >= 5 || (!!s.email.sentAt && Date.now() - s.email.sentAt > 10 * 60_000);
+      const dead = (s.email.wrong ?? 0) >= SIGNUP_CODE.maxWrong || (!!s.email.sentAt && Date.now() - s.email.sentAt > SIGNUP_CODE.minutes * 60_000);
       if (code !== TEST_CODE || dead) {
         set((p) => {
           const wrong = (p.email.wrong ?? 0) + (dead ? 0 : 1);
-          return { ...p, email: { ...p.email, status: 'sent', code: '', wrong, codeError: wrong >= 5 ? 'That code has stopped working after 5 wrong tries. Send a new one.' : 'That code isn’t right. Check it, or send a new one.' } };
+          return { ...p, email: { ...p.email, status: 'sent', code: '', wrong, codeError: wrong >= SIGNUP_CODE.maxWrong ? `That code has stopped working after ${SIGNUP_CODE.maxWrong} wrong tries. Send a new one.` : 'That code isn’t right. Check it, or send a new one.' } };
         });
         window.setTimeout(() => codeRef.current?.focus(), 60);
         return;
@@ -119,7 +119,7 @@ export function EmailCode({ s, set, onCreated, onBack }: { s: SignupState; set: 
               <span>{em.codeError}</span>
             </>
           ) : (
-            <span>The code works for 10 minutes. Not there? Check your spam folder.</span>
+            <span>The code works for {SIGNUP_CODE.minutes} minutes. Not there? Check your spam folder.</span>
           )}
         </p>
         {!creating && (

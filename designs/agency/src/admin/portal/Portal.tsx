@@ -34,6 +34,7 @@ import { InstitutionPartners } from '../../institution/records/InstitutionPartne
 import { RecruitmentPartners } from '../../institution/records/RecruitmentPartners';
 import { MasterPartners } from '../../institution/records/MasterPartners';
 import { CourseTags } from '../../institution/records/CourseTags';
+import { ProgramLists } from '../../institution/records/ProgramLists';
 import { Announcements } from '../../institution/records/Announcements';
 import { StaffProfile } from '../../gsp/portal/StaffPages';
 import { RoleHome } from './RoleHome';
@@ -310,7 +311,7 @@ export function Portal({
   const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin', role: PERM };
   const content =
     WORK_SECTIONS.includes(section as WorkSection) ? (
-      <WorkPage section={section as WorkSection} role={roleOfVariant(variant)} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} openRp={(id) => openRecord({ section: 'rps', id })} />
+      <WorkPage section={section as WorkSection} role={roleOfVariant(variant)} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} openRp={(id) => openRecord({ section: 'rps', id })} openUni={(id) => openRecord({ section: 'universities', id })} />
     ) : variant === 'finance' && (section === 'home' || FIN_SECTIONS.includes(section as FinSection)) ? (
       <FinancePage section={section as FinSection | 'home'} go={(k) => go(k as Section)} />
     ) : section === 'home' ? (
@@ -380,6 +381,8 @@ export function Portal({
       <MasterPartners {...page} />
     ) : section === 'tags' ? (
       <CourseTags db={db} set={setDb} me={ME.name} say={say} role={page.role} />
+    ) : section === 'levels' ? (
+      <ProgramLists db={db} set={setDb} me={ME.name} say={say} role={page.role} />
     ) : CONFIG.includes(section as ConfigSection) ? (
       <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={ME.name} role={PERM} canEdit={canEditIn(PERM, section)} say={say} go={(k) => go(k as Section)} />
     ) : (

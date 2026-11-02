@@ -54,7 +54,6 @@ export function PartnerPage(props: PageProps & { p: InstitutionPartner; tab?: st
   const [tab, setTab] = useState<Tab>(tabs.includes(start as Tab) ? (start as Tab) : 'overview');
   const [status, setStatus] = useState<PartnerStatus>(p.status);
   const [ending, setEnding] = useState<{ to: PartnerStatus; end: boolean } | null>(null);
-  const [reason, setReason] = useState('');
   const [changing, setChanging] = useState(false);
   const [editing, setEditing] = useState(false);
   const unis = db.unis.filter((u) => u.ip === p.id);
@@ -66,31 +65,31 @@ export function PartnerPage(props: PageProps & { p: InstitutionPartner; tab?: st
   /** Saves the partner, stamps the part, and writes the Change log. */
   const save = (part: string, fn: (x: InstitutionPartner) => InstitutionPartner, extra: Change[] = []) => set((d) => ({ ...d, ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...fn(x), stamps: { ...x.stamps, [part]: stampBy(me) } }, me, role, extra)) }));
 
-  /** A status set by hand: Closed asks first; Closed → not Closed brings its Ended universities back as Paused (S2C-19). */
+  /**
+   * A status set by hand: Closed asks first. Closed → not Closed changes none of its universities (S2C-19): the
+   * reopen is stamped on the partner (`reopenedAt`), and work rule T70 gives IP Ops a task to activate each one.
+   */
   const saveStatus = (s: PartnerStatus) => {
     if (isClosed(s) && !isClosed(p.status) && active.length) return setEnding({ to: s, end: false });
     const reopen = isClosed(p.status) && !isClosed(s);
     set((d) => ({
       ...d,
-      ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...x, status: s, stamps: { ...x.stamps, status: stampBy(me) } }, me, role)),
-      unis: reopen ? d.unis.map((u) => (u.ip === p.id && u.status === 'Ended' ? withLog(UNI_SPEC, u, { ...u, status: 'Paused', stamps: { ...u.stamps, status: stampBy(me) } }, me, role) : u)) : d.unis,
+      ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...x, status: s, ...(reopen ? { reopenedAt: Date.now() } : {}), stamps: { ...x.stamps, status: stampBy(me) } }, me, role)),
     }));
-    audit('Institution partners', `ip.status_changed: ${p.name}, ${p.status} → ${s}`, me, role);
+    audit('Institution partners', `ip.status_changed: ${p.name}, ${p.status} → ${s}${reopen ? '; reopened, universities unchanged' : ''}`, me, role);
     setChanging(false);
-    say(reopen && unis.some((u) => u.status === 'Ended') ? `Status saved: ${s}. Its ended universities are Paused, ready to resume.` : `Status saved: ${s}.`);
+    say(reopen && unis.some((u) => u.status !== 'Live') ? `Status saved: ${s}. IP Ops gets a task to activate each of its universities.` : `Status saved: ${s}.`);
   };
-  /** End partnership, or a Closed status picked by hand: its universities become Ended and leave course search. */
+  /** End partnership (a confirmation, no reason: S2C-8), or a Closed status picked by hand: its universities become Ended and leave course search. */
   const endWith = (s: PartnerStatus) => {
-    const why = reason.trim();
     set((d) => ({
       ...d,
-      ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...x, status: s, closedNote: why || x.closedNote, stamps: { ...x.stamps, status: stampBy(me) } }, me, role, why ? [change(me, role, 'Partner · End partnership · Reason', '—', why)] : [])),
+      ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...x, status: s, reopenedAt: undefined, stamps: { ...x.stamps, status: stampBy(me) } }, me, role)),
       unis: d.unis.map((u) => (u.ip === p.id && u.status !== 'Ended' ? withLog(UNI_SPEC, u, { ...u, status: 'Ended', stamps: { ...u.stamps, status: stampBy(me) } }, me, role) : u)),
     }));
     audit('Institution partners', `ip.status_changed: ${p.name}, ${p.status} → ${s}; ${active.length} universities ended`, me, role);
     setStatus(s);
     setEnding(null);
-    setReason('');
     setChanging(false);
     say(`${p.name}: ${s}. Its universities have ended.`);
   };
@@ -288,7 +287,6 @@ export function PartnerPage(props: PageProps & { p: InstitutionPartner; tab?: st
         onConfirm={() => ending && endWith(ending.to)}
         onCancel={() => {
           setEnding(null);
-          setReason('');
           setStatus(p.status);
         }}
       >
@@ -300,13 +298,6 @@ export function PartnerPage(props: PageProps & { p: InstitutionPartner; tab?: st
           <p>
             Its {active.length} {active.length === 1 ? 'university becomes' : 'universities become'} Ended and leave course search.
           </p>
-        )}
-        {ending?.end && (
-          <Field id="ipe-reason" label="Reason" optional hint="Written to the Change log. Not shown outside GSP.">
-            <div className="control iform__area">
-              <textarea id="ipe-reason" className="control__input" rows={2} maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} />
-            </div>
-          </Field>
         )}
       </ConfirmDialog>
 
