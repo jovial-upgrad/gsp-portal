@@ -14,22 +14,23 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { countryByName, partnerManagerFor } from '../../data/partners';
 import { rpBranches, rpTeam } from '../../data/rpteam';
 import { staffIn, label } from '../../data/staff';
-import { RP_STATUSES, dateText, type RecruitmentPartner, type RpDoc, type RpStatus } from '../data/records';
-import { acceptRpAgreement, approveRp, canApprove, docsVerified, editRp, issueNotice, markTrained, rpActions, sendBackRpAgreement, sendBackRpDoc, setRpStatus, uploadRpAgreement, verifyRpDoc } from '../data/rpverify';
+import { RP_STATUSES, RP_STATUS_TONE, dateText, type RecruitmentPartner, type RpDoc, type RpStatus } from '../data/records';
+import { activeAgreement, agreementActivity, agreementLine, commissionHeld, openAgreement, signedOf, versionsOf } from '../data/agreements';
+import { AgreementSection, sendOffWhy, useAgreementActions } from './RpAgreements';
+import { atIso } from '../data/changelog';
+import { canApprove, docsVerified, editRp, issueNotice, markTrained, readyForAgreement, rpActions, sendBackRpDoc, setRpStatus, verifyRpDoc } from '../data/rpverify';
 import { acceptOf, audit, checkFile, dateTimeText } from '../data/changelog';
 import { mpRegion } from '../data/masters';
 import { Facts, Gone, NoMatch, PageHead, Pick, Pill, RecordHead, RecordTabs, Section, TabPanel, Tiles, downloadCsv, usePager, useRecord, type Tone } from './parts';
-import { downloadFile } from './PartnerPage';
 import { OBJ, canEdit, canSee, type PageProps } from '../portal/model';
 
-const TONE: Record<RpStatus, Tone> = { 'Not activated': 'you', Verifying: 'gsp', 'Documents sent back': 'you', Activated: 'uni', 'Agreement signed': 'ok', Rejected: 'bad', Suspended: 'bad', Dormant: 'grey' };
-export const RpPill = ({ s }: { s: RpStatus }) => <Pill tone={TONE[s]}>{s}</Pill>;
+export const RpPill = ({ s }: { s: RpStatus }) => <Pill tone={RP_STATUS_TONE[s] as Tone}>{s}</Pill>;
 const DOC_TONE: Record<RpDoc['state'], Tone> = { 'With BAP': 'gsp', Verified: 'ok', 'Sent back': 'you', Missing: 'grey' };
 const TILES: { key: RpStatus; label: string; tone: Tone }[] = [
   { key: 'Verifying', label: 'Waiting for BAP', tone: 'gsp' },
   { key: 'Not activated', label: 'Not activated', tone: 'you' },
   { key: 'Documents sent back', label: 'Sent back', tone: 'you' },
-  { key: 'Activated', label: 'Not signed yet', tone: 'uni' },
+  { key: 'Agreement sent', label: 'Agreement sent', tone: 'uni' },
   { key: 'Agreement signed', label: 'Agreement signed', tone: 'ok' },
 ];
 const missingOf = (r: RecruitmentPartner) => r.docs.filter((d) => d.state === 'Missing').length;
@@ -144,7 +145,7 @@ export function RecruitmentPartners(props: PageProps) {
                       <td>{miss ? <span className="is-warn">{miss === 1 ? '1 document missing' : `${miss} documents missing`}</span> : 'All in'}</td>
                       <td>
                         <RpPill s={r.status} />
-                        {r.status === 'Activated' && r.agreement && <span className="irow__sub">Agreement: {r.agreement.state}</span>}
+                        {agreementLine(r) && <span className="irow__sub">{agreementLine(r)}</span>}
                       </td>
                     </tr>
                   );
@@ -160,7 +161,7 @@ export function RecruitmentPartners(props: PageProps) {
 }
 
 type Tab = 'overview' | 'documents' | 'commission' | 'activity';
-type Ask = { kind: 'reject' | 'suspend' | 'reactivate' | 'approve' | 'accept' | 'trained' | 'unlink' } | null;
+type Ask = { kind: 'reject' | 'suspend' | 'reactivate' | 'trained' | 'unlink' } | null;
 
 /**
  * An RP's record (slice 2 PRD): Overview (details, GSP contacts and mapping, Branches and team), Commission (terms
@@ -182,8 +183,6 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
   const [backDoc, setBackDoc] = useState<RpDoc | null>(null);
   const [note, setNote] = useState('');
   const [ask, setAsk] = useState<Ask>(null);
-  const [agrBack, setAgrBack] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [branching, setBranching] = useState(false);
   const [noticing, setNoticing] = useState(false);
@@ -191,11 +190,14 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
   const toCheck = r.docs.filter((d) => d.state === 'With BAP').length;
   const verified = docsVerified(r);
   const ready = canApprove(r);
+  const agr = useAgreementActions({ r, me, role, say });
+  const open = openAgreement(r);
+  const toReview = open?.status === 'Signed copy uploaded' ? open : null;
   const acts = editProfile ? rpActions(r.status) : [];
   const mp = db.mps.find((m) => m.rps.some((l) => l.rpId === r.id));
   const branches = [...rpBranches(r.name), ...(r.branches ?? [])];
   const team = rpTeam(r.name);
-  const banner = checkDocs && (toCheck > 0 || verified || r.agreement?.state === 'Signed copy received');
+  const banner = checkDocs && (toCheck > 0 || !!toReview || (!r.approved && (verified || !!open)));
 
   return (
     <div className="ipage irecord">
@@ -207,7 +209,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
         status={
           <>
             <RpPill s={r.status} />
-            {r.status === 'Activated' && r.agreement && <span className="irhead__k">Agreement: {r.agreement.state === 'Sent' ? 'Sent (waiting for the RP)' : r.agreement.state === 'Signed copy received' ? 'Signed copy received (waiting for BAP)' : r.agreement.state === 'Sent back' ? 'Sent back (waiting for the RP)' : r.agreement.state}</span>}
+            {agreementLine(r) && <span className="irhead__k">{agreementLine(r)}</span>}
           </>
         }
       >
@@ -218,8 +220,8 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                 ? 'Suspended: every user of this RP has lost access and can’t sign in. GSP carries on with its applications in progress; their commission is paid.'
                 : r.status === 'Rejected'
                   ? 'Rejected: final. Its users can’t sign in.'
-                  : r.status === 'Activated'
-                    ? 'Commission on enrolments is held until the agreement is signed.'
+                  : r.status === 'Agreement sent' && commissionHeld(r)
+                    ? 'Commission on enrolments is held until the signed agreement is accepted.'
                     : ' '}
             </p>
             <div className="istatus__acts">
@@ -245,13 +247,13 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
       {banner && (
         <div className="card irsec">
           <p className="irsec__note">
-            {r.agreement?.state === 'Signed copy received'
-              ? 'The RP uploaded its signed agreement. Preview it, then accept it or send it back.'
-              : ready
-                ? 'Every required document is verified and the agreement is uploaded. Approve the partner to activate it and send it the agreement.'
-                : verified
-                  ? 'Every required document is verified. Upload the RP agreement on Documents, then approve the partner.'
-                  : `${toCheck === 1 ? '1 document' : `${toCheck} documents`} to check. Verify each one, or send it back with a reason.`}
+            {toReview
+              ? `${r.contact.name || 'The RP'} uploaded the signed copy of ${toReview.version}. Preview it, then accept it${r.approved ? '' : ' to approve the partner'} or send it back.`
+              : toCheck > 0
+                ? `${toCheck === 1 ? '1 document' : `${toCheck} documents`} to check. Verify each one, or send it back with a reason.`
+                : open
+                  ? `${open.version} is with the RP to sign and upload. Approve partner turns on once its signed copy is in.`
+                  : 'Every required document is verified. Send the agreement: the RP signs it and uploads the signed copy, and accepting that approves the partner.'}
           </p>
           <div className="irowacts">
             {tab !== 'documents' && (
@@ -259,9 +261,32 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                 Documents
               </Button>
             )}
-            <Button size="sm" disabled={!ready} title={!ready ? 'On once every required document is verified and the agreement is uploaded.' : undefined} onClick={() => setAsk({ kind: 'approve' })}>
-              Approve partner
-            </Button>
+            {toReview && (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => setDoc({ name: `Signed copy of ${toReview.version}`, file: signedOf(toReview)!.file })}>
+                  Preview signed copy
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => agr.sendBack(toReview)}>
+                  Send back
+                </Button>
+              </>
+            )}
+            {readyForAgreement(r) && issueDocs && (
+              <Button variant="secondary" size="sm" disabled={!!sendOffWhy(r)} title={sendOffWhy(r) ?? undefined} onClick={agr.upload}>
+                Send agreement
+              </Button>
+            )}
+            {toReview && r.approved ? (
+              <Button size="sm" onClick={() => agr.accept(toReview)}>
+                Accept
+              </Button>
+            ) : (
+              !r.approved && (
+                <Button size="sm" disabled={!ready} title={!ready ? 'Approval comes with the signed agreement: this turns on once the RP uploads its signed copy, and accepting it approves the partner.' : undefined} onClick={() => toReview && agr.accept(toReview)}>
+                  Approve partner
+                </Button>
+              )
+            )}
           </div>
         </div>
       )}
@@ -274,8 +299,8 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
           [
             { key: 'overview', label: 'Overview' },
             { key: 'commission', label: 'Commission' },
-            { key: 'documents', label: 'Documents', n: r.docs.length + (r.agreement ? 1 : 0) },
-            { key: 'activity', label: 'Activity', n: r.activity.length },
+            { key: 'documents', label: 'Documents', n: r.docs.length + versionsOf(r).length },
+            { key: 'activity', label: 'Activity', n: r.activity.length + agreementActivity(r).length },
           ] as { key: Tab; label: string; n?: number }[]
         ).filter((t) => t.key !== 'documents' || seeDocs)}
       />
@@ -418,7 +443,8 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
           <Section title="Commission" id="irp-commission" note="Terms are set by Finance in Commissions (read only here).">
             {/* Jovial, 1 Nov: read-only terms; RP Ops and Finance can change the bank details */}
             <RpCommission name={r.name} canBank={['RP Ops', 'Finance', 'Admin'].includes(role) || ['gsp-bap', 'gsp-finance', 'gsp-admin'].includes(getScope().viewer)} />
-            {r.status !== 'Agreement signed' && <p className="irsec__note">Commission on applications enrolled before the agreement is signed is held, and paid once it is (S2-11).</p>}
+            {commissionHeld(r) && <p className="irsec__note">No agreement is active yet: commission on applications enrolled now is held, and paid once the signed agreement is accepted (S2-11).</p>}
+            {activeAgreement(r) && openAgreement(r) && <p className="irsec__note">A new agreement is with the RP; {activeAgreement(r)!.version} stays active, so nothing is held.</p>}
           </Section>
         )}
         {tab === 'documents' && seeDocs && (
@@ -454,59 +480,20 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                 ))}
               </ul>
             </Section>
-            <Section
-              title="RP agreement"
-              id="irp-agreement"
-              note="RP Ops uploads it before approving; approval sends it to the RP, in its portal and by email. The RP Admin uploads the signed copy; BAP accepts it or sends it back."
-              action={
-                issueDocs && !r.approved ? (
-                  <Button variant="secondary" size="sm" disabled={!verified} title={!verified ? 'Turns on once every required document is verified.' : undefined} iconLeft={<Icon name="upload" size={16} />} onClick={() => setUploading(true)}>
-                    {r.agreement ? 'Replace' : 'Upload agreement'}
-                  </Button>
-                ) : undefined
-              }
-            >
-              {r.agreement ? (
-                <>
-                  <Facts
-                    items={[
-                      ['Agreement file', <span key="f" className="irowacts"><span className="ifile"><Icon name="file" size={16} />{r.agreement.file}</span><button type="button" className="btn btn--link" onClick={() => downloadFile(r.agreement!.file)}>Download</button></span>],
-                      ['Version or date', r.agreement.version],
-                      ['Uploaded', `${r.agreement.by}, ${dateTimeText(r.agreement.uploadedAt)}`],
-                      ['Sent on', r.agreement.sentAt ? dateTimeText(r.agreement.sentAt) : 'Not yet: sent when the partner is approved'],
-                      ['State', r.agreement.state],
-                      ['Signed copy', r.agreement.signed ? <span key="s" className="irowacts">{r.agreement.signed.file}<button type="button" className="btn btn--link" onClick={() => setDoc({ name: 'Signed agreement', file: r.agreement!.signed!.file })}>Preview</button></span> : null],
-                      ['Signed on', r.agreement.signed ? dateText(r.agreement.signed.on) : null],
-                      ...(r.agreement.reason ? ([['Send-back reason', r.agreement.reason]] as [string, string][]) : []),
-                      ['Checked by', r.agreement.checked ? `${r.agreement.checked.by}, ${dateTimeText(r.agreement.checked.at)}` : null],
-                    ]}
-                  />
-                  {issueDocs && r.agreement.state === 'Signed copy received' && (
-                    <div className="irowacts">
-                      <Button size="sm" onClick={() => setAsk({ kind: 'accept' })}>
-                        Accept
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => (setNote(''), setAgrBack(true))}>
-                        Send back
-                      </Button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="iempty">No agreement uploaded yet.{issueDocs && !verified ? ' Upload turns on once every required document is verified.' : ''}</p>
-              )}
-            </Section>
+            <AgreementSection r={r} act={agr} canAct={issueDocs} onPreview={(name, file) => setDoc({ name, file })} />
           </>
         )}
         {tab === 'activity' && (
           <Section title="Activity" id="irp-activity">
             <ol className="ilog">
-              {r.activity.map((e, i) => (
-                <li key={i} className="ilog__item">
-                  <span className="ilog__at num">{dateText(e.at)}</span>
-                  <span className="ilog__what">{e.what}</span>
-                </li>
-              ))}
+              {[...r.activity.map((e) => ({ t: e.time ?? atIso(e.at, 0), time: e.time, at: e.at, what: e.what })), ...agreementActivity(r).map((e) => ({ t: e.at, time: e.at, at: '', what: e.what }))]
+                .sort((a, b) => b.t - a.t)
+                .map((e, i) => (
+                  <li key={i} className="ilog__item">
+                    <span className="ilog__at num">{e.time ? dateTimeText(e.time) : dateText(e.at)}</span>
+                    <span className="ilog__what">{e.what}</span>
+                  </li>
+                ))}
             </ol>
           </Section>
         )}
@@ -532,52 +519,21 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
         </Field>
       </ConfirmDialog>
       <ConfirmDialog
-        open={agrBack}
-        title="Send back the signed copy?"
-        confirm="Send back"
-        onCancel={() => setAgrBack(false)}
-        onConfirm={() => {
-          if (!note.trim()) return;
-          sendBackRpAgreement(r.id, note.trim(), me);
-          audit('Recruitment partners', `rp.agreement_sent_back: ${r.name} (E9)`, me, role);
-          say('Signed copy sent back to the RP.');
-          setAgrBack(false);
-        }}
-      >
-        <Field id="irp-agr-note" label="Send-back reason" required hint="Shown to the RP on Home and in E9." error={!note.trim() ? 'Enter the send-back reason.' : null}>
-          <div className="control iform__area">
-            <textarea id="irp-agr-note" className="control__input" rows={3} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-        </Field>
-      </ConfirmDialog>
-      <ConfirmDialog
         open={!!ask}
         title={
-          ask?.kind === 'approve'
-            ? `Approve ${r.name}?`
-            : ask?.kind === 'accept'
-              ? 'Accept the signed agreement?'
-              : ask?.kind === 'trained'
+          ask?.kind === 'trained'
                 ? 'Mark the portal training done?'
                 : ask?.kind === 'unlink'
                   ? `Unlink ${r.name} from ${mp?.name}?`
                   : `${ask?.kind === 'reject' ? 'Reject' : ask?.kind === 'suspend' ? 'Suspend' : 'Reactivate'} ${r.name}?`
         }
-        confirm={ask?.kind === 'approve' ? 'Approve partner' : ask?.kind === 'accept' ? 'Accept' : ask?.kind === 'trained' ? 'Mark done' : ask?.kind === 'unlink' ? 'Unlink' : ask?.kind === 'reject' ? 'Reject' : ask?.kind === 'suspend' ? 'Suspend' : 'Reactivate'}
+        confirm={ask?.kind === 'trained' ? 'Mark done' : ask?.kind === 'unlink' ? 'Unlink' : ask?.kind === 'reject' ? 'Reject' : ask?.kind === 'suspend' ? 'Suspend' : 'Reactivate'}
         danger={ask?.kind === 'reject' || ask?.kind === 'suspend' || ask?.kind === 'unlink'}
         onCancel={() => setAsk(null)}
         onConfirm={() => {
           const k = ask?.kind;
           setAsk(null);
-          if (k === 'approve') {
-            approveRp(r.id, me);
-            audit('Recruitment partners', `rp.approved and rp.agreement_sent: ${r.name} (E8)`, me, role);
-            say(`${r.name} approved: Activated, and the agreement went to the RP.`);
-          } else if (k === 'accept') {
-            acceptRpAgreement(r.id, me);
-            audit('Recruitment partners', `rp.agreement_signed: ${r.name} (E10, T58 "Train ${r.name} on the portal")`, me, role);
-            say(`${r.name}: Agreement signed. Commissions start.`);
-          } else if (k === 'trained') {
+          if (k === 'trained') {
             markTrained(r.id, me);
             say('Training marked done.');
           } else if (k === 'unlink' && mp) {
@@ -593,11 +549,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
         }}
       >
         <p>
-          {ask?.kind === 'approve'
-            ? 'Every required document is verified and the agreement is uploaded. The partner is Activated, its portal opens fully, and the agreement goes to it on its Home and by email.'
-            : ask?.kind === 'accept'
-              ? 'The RP becomes Agreement signed and earns commission. Held commission is paid.'
-              : ask?.kind === 'trained'
+          {ask?.kind === 'trained'
                 ? 'Closes the task "Train the RP on the portal" (T58).'
                 : ask?.kind === 'unlink'
                   ? 'Applications created from now on don’t pay the Master Partner. Earlier ones stay as they were.'
@@ -611,7 +563,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
       <Sheet open={!!doc} onClose={() => setDoc(null)} center className="iform" title={doc?.name ?? ''} sub={doc?.file}>
         {doc && <Paper d={{ name: doc.name, file: doc.file }} />}
       </Sheet>
-      <AgreementUpload open={uploading} onCancel={() => setUploading(false)} onSave={(file, version) => (uploadRpAgreement(r.id, file, version, me), audit('Recruitment partners', `RP agreement uploaded for ${r.name} (${version})`, me, role), setUploading(false), say('Agreement uploaded.'))} />
+      {agr.ui}
       <EditRp open={editing} r={r} onCancel={() => setEditing(false)} onSave={(f) => (editRp(r.id, (x) => ({ ...x, ...f }), f.country !== r.country ? `Details changed; country ${r.country} → ${f.country}, sales region re-routed to ${regionOfCountry(f.country)}` : 'Details changed', me), setEditing(false), say(`${f.name} saved.`))} />
       <AddBranch open={branching} r={r} taken={(n) => branches.some((b) => b.name.toLowerCase() === n.trim().toLowerCase())} onCancel={() => setBranching(false)} onSave={(b) => (editRp(r.id, (x) => ({ ...x, branches: [...(x.branches ?? []), b] }), `Branch ${b.name} added`, me), setBranching(false), say(`${b.name} added.`))} />
       <Notice open={noticing} onCancel={() => setNoticing(false)} onSave={(n) => (issueNotice(r.id, n, me), audit('Recruitment partners', `rp.notice_issued: ${r.name}, ${n.subject} (T59)`, me, role), setNoticing(false), say('Notice issued: it goes to the RP’s bell and its RP Admins by email.'))} />
@@ -646,55 +598,6 @@ function BdmPick({ r, me, say }: { r: RecruitmentPartner; me: string; say: (m: s
         Save
       </Button>
     </span>
-  );
-}
-
-function AgreementUpload({ open, onCancel, onSave }: { open: boolean; onCancel: () => void; onSave: (file: string, version: string) => void }) {
-  const [file, setFile] = useState('');
-  const [version, setVersion] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [tried, setTried] = useState(false);
-  const pick = useRef<HTMLInputElement>(null);
-  const e = { file: err ?? (!file ? 'Choose a file.' : null), version: !version.trim() ? 'Enter the version or date.' : null };
-  return (
-    <Sheet
-      open={open}
-      onClose={onCancel}
-      center
-      className="iform"
-      title="Upload the RP agreement"
-      sub="PDF, up to 20 MB. It goes to the RP when the partner is approved."
-      footer={
-        <div className="asf">
-          <div className="asf__acts">
-            <Button variant="secondary" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button onClick={() => (setTried(true), !e.file && !e.version && (onSave(file, version.trim()), setFile(''), setVersion(''), setTried(false)))}>Upload</Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="iform__grid">
-        <Field id="irp-agr-file" label="Agreement file" required error={tried || err ? e.file : null}>
-          <button id="irp-agr-file" type="button" className={`ipick ${(tried || err) && e.file ? 'is-invalid' : ''}`} onClick={() => pick.current?.click()}>
-            <Icon name={file ? 'file' : 'upload'} size={18} />
-            <span className="ipick__t">{file || 'Choose a file'}</span>
-          </button>
-          <input ref={pick} type="file" accept={acceptOf(['pdf'])} className="vh" tabIndex={-1} aria-hidden="true" data-testid="irp-agr-input" onChange={(ev) => {
-            const f = ev.target.files?.[0];
-            ev.target.value = '';
-            if (!f) return;
-            const bad = checkFile(f, ['pdf'], 20);
-            setErr(bad);
-            setFile(bad ? '' : f.name);
-          }} />
-        </Field>
-        <Field id="irp-agr-ver" label="Version or date" required error={tried ? e.version : null} hint="Like “v3” or “Oct 2026”.">
-          <TextInput id="irp-agr-ver" value={version} maxLength={40} invalid={tried && !!e.version} onChange={(x) => setVersion(x.target.value)} />
-        </Field>
-      </div>
-    </Sheet>
   );
 }
 

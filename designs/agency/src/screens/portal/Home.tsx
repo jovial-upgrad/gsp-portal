@@ -1,7 +1,7 @@
 import { RP_OWNER_WORD } from '../../data/owners';
 import { regionOfCountry } from '../../data/regions';
 import { TEST_COUNTRY } from '../../data/rpteam';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { ContactCard } from '../../components/ContactCard';
@@ -59,7 +59,10 @@ export function Home({
   apps = [],
   students = [],
   onOpenApp,
+  pending,
 }: {
+  /** Something the agency has to do first (its agreement to sign): at the top of Home. */
+  pending?: ReactNode;
   /** The agency's applications and students, for what's pending on it (W24). */
   apps?: Application[];
   students?: Student[];
@@ -96,11 +99,12 @@ export function Home({
 
       <div className="home__grid">
         <div className="home__main">
+          {pending}
           {setup ? (
             <Setup key={startKey} join={setup} set={set!} scrollTop={scrollTop} />
           ) : verifying ? (
             <>
-              {phase === 'sent-back' ? <ReturnCard join={join} onDocs={onDocs} reduce={reduce} /> : <VerifyCard join={join} onDocs={onDocs} reduce={reduce} />}
+              {phase === 'sent-back' ? <ReturnCard join={join} onDocs={onDocs} reduce={reduce} /> : pending ? null : <VerifyCard join={join} onDocs={onDocs} reduce={reduce} />}
               <motion.section className="home__sec" aria-labelledby="after-title" {...rise(reduce, 2)}>
                 <h2 id="after-title" className="home__h2">
                   Opens after verification

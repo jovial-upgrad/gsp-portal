@@ -6,6 +6,27 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 2 Nov, evening: the RP agreement (Jovial)
+
+Jovial: "RP Agreement should be uploaded by BAP, and should go to RP to be signed and reuploaded, that is when we can unlock or approve the RP to unlock all modules for him. Do it in a way, we can upload a new contract in the future also." Later (19:25): signing and uploading is the only way an RP acknowledges an agreement; no "Accept in portal". Built on branch `rp-agreement`, prototype only (README "Design decisions: the RP agreement").
+
+### Everywhere
+- [x] **One set of RP statuses and agreement labels**, from `src/institution/data/agreements.ts` and `records.ts`: Not activated → Verifying → Documents sent back → **Agreement sent** (was Activated) → **Agreement signed** (approved, every module open); agreement versions Draft, Sent, Signed copy uploaded, Accepted (active), Sent back, Superseded, Withdrawn. Same words on the RP list, the RP record, RP Home, BAP's Home, My work, the bell and the emails. (2 Nov, commit “RP agreement: …”)
+- [x] **Commission held** only while an RP has no active agreement; a new version waiting holds nothing (Finance's engine reads the active agreement). (2 Nov, commit “RP agreement: …”)
+
+### Recruitment partners: an RP's record (GSP · RP Ops, GSP · Admin)
+- [x] RP Ops uploads the agreement (PDF, version, optional effective date, notes) and **sends** it, or saves a draft; one open at a time; **Withdraw** before it's accepted; **Send new agreement** any time after approval, the current one staying active until the new one is accepted. (2 Nov, commit “RP agreement: …”)
+- [x] **Approve partner** is disabled, with a tooltip, until a signed copy is in; accepting the first signed copy is the approval. Accept or **Send back** with a reason. (2 Nov, commit “RP agreement: …”)
+- [x] Documents › RP agreement shows every version (status, sent, signed copy, decision, effective from); Activity logs every step with who and when, worked out from the versions. (2 Nov, commit “RP agreement: …”)
+
+### GSP · RP Ops Home and My work
+- [x] Tiles To verify, **Agreement to send**, **Signed copy to review**, Sent back, Not activated, in RP Ops' own sales regions. Tasks RPA (signed copy to check) and T58 (train the RP) are worked out from the RP records by the task rules and close themselves; My work opens the RP's record. (2 Nov, commit “RP agreement: …”)
+
+### RP portal: Home and Profile (RP Admin)
+- [x] **The agreement card, redesigned** (Jovial: "not the best UI"): status chip, title and one line; the agreement as a document row with Download; Download · Sign · Upload; one drop zone and a compact **Signed on**; **Send signed copy** at the bottom right; then "Signed copy sent · we're reviewing it" with Replace; sent back shows the reason; the held-commission or "current agreement stays active" note small and muted. (2 Nov, commit “RP agreement: …”)
+- [x] Modules (Applications, Students, Earnings, Profile, Select student) open only when the signed agreement is accepted. **Profile › Agreement** (RP Admin only): the active agreement, the one to sign, the history. The bell: an agreement to sign, sent back, accepted, withdrawn; emails E8, E9, E10. (2 Nov, commit “RP agreement: …”)
+- Open question: no task rule reminds anyone when an RP hasn't signed (T34 covers documents only). Add one (for RP Ops, and an E13-style reminder to the RP)? For Jovial (Pending Questions sheet).
+
 ## 2 Nov dev briefs (Jovial)
 
 Jovial's decisions of 2 Nov and the day's dev briefs, by page, built in every role that shows the page. Not changed, as Jovial asked: mail compose, and commission visibility beyond Key details. Answered by Jovial the same evening and built: the acknowledgement's wording, Pending with agent, Deposit refund pending, sales region access, Recruitment for BDM; item 14 (disable More after enrolment) cancelled.

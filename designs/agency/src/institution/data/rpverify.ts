@@ -11,13 +11,14 @@
  */
 import { getDb, patch, setSharedDb } from './store';
 import type { RecruitmentPartner, RpDoc, RpStatus } from './records';
+import { activeAgreement, agreementName, openAgreement, todayIso, versionsOf, type RpAgreementVersion } from './agreements';
 import type { SignupState } from '../../screens/signup/model';
 import { docsFor } from '../../screens/signup/docs';
 import { partnerManagerFor } from '../../data/partners';
 import { adminCfg } from '../../admin/data/store';
 import { NATIONALITY } from '../../admin/data/config';
 
-export type RpEventKind = 'signed-up' | 'sent' | 'verified' | 'sent-back' | 'approved' | 'agreement-uploaded' | 'agreement-signed' | 'agreement-sent-back' | 'status' | 'notice' | 'trained';
+export type RpEventKind = 'signed-up' | 'sent' | 'verified' | 'sent-back' | 'approved' | 'agreement-draft' | 'agreement-sent' | 'agreement-uploaded' | 'agreement-signed' | 'agreement-sent-back' | 'agreement-withdrawn' | 'status' | 'notice' | 'trained';
 export type RpEvent = { kind: RpEventKind; rpId: string; rp: string; doc?: string; note?: string; by?: string; at: number };
 const listeners = new Set<(e: RpEvent) => void>();
 /** Listen for RP onboarding events (sign-up, documents sent, a document verified or sent back, approved). Returns the unsubscribe. */
@@ -30,23 +31,35 @@ export function onRpEvent(f: (e: RpEvent) => void) {
 const emit = (e: RpEvent) => listeners.forEach((f) => f(e));
 
 const stampDay = (t: number) => new Date(t).toISOString().slice(0, 10);
-/** What the status is, from the documents: BAP still has some (Verifying), some went back, or all verified (still Verifying until approved). */
-function statusFrom(r: RecruitmentPartner): RpStatus {
+/**
+ * What the status is (Jovial, 2 Nov): from the documents (BAP still has some: Verifying; some went back: Documents
+ * sent back), then the agreement (sent to the RP, or its signed copy with RP Ops: Agreement sent), then approved
+ * (its first signed agreement accepted: Agreement signed, every module open).
+ */
+export function statusFrom(r: RecruitmentPartner): RpStatus {
   // GSP's own decisions (Reject, Suspend; Dormant from job J2) aren't worked out from the documents
   if (['Rejected', 'Suspended', 'Dormant'].includes(r.status)) return r.status;
-  if (r.approved) return r.status === 'Agreement signed' ? r.status : 'Activated';
+  if (r.approved) return 'Agreement signed';
   if (r.docs.every((d) => d.state === 'Missing')) return 'Not activated';
   if (r.docs.some((d) => d.state === 'With BAP')) return 'Verifying';
   if (r.docs.some((d) => d.state === 'Sent back')) return 'Documents sent back';
+  if (openAgreement(r)) return 'Agreement sent';
   return 'Verifying';
 }
 const required = (r: RecruitmentPartner) => r.docs.filter((d) => !d.optional);
-/** Every required document is verified (Upload agreement turns on), and the partner isn't approved yet. */
-export const docsVerified = (r: RecruitmentPartner) => !r.approved && ['Verifying', 'Not activated', 'Documents sent back'].includes(r.status) && required(r).length > 0 && required(r).every((d) => d.state === 'Verified');
-/** Approve partner: every required document verified and the RP agreement uploaded (slice 2 PRD). */
-export const canApprove = (r: RecruitmentPartner) => docsVerified(r) && !!r.agreement;
-/** The partners waiting for BAP: documents to check. */
-export const rpsToVerify = () => getDb().rps.filter((r) => r.docs.some((d) => d.state === 'With BAP') || canApprove(r));
+/** Every required document is verified, and the partner isn't approved yet. */
+export const docsVerified = (r: RecruitmentPartner) => !r.approved && ['Verifying', 'Not activated', 'Documents sent back', 'Agreement sent'].includes(r.status) && required(r).length > 0 && required(r).every((d) => d.state === 'Verified');
+/** Ready for the agreement: documents verified, nothing sent yet (a draft may be waiting). */
+export const readyForAgreement = (r: RecruitmentPartner) => docsVerified(r) && !openAgreement(r) && !activeAgreement(r);
+/** RP Ops can send an agreement: the first once the documents are verified, a new one any time after; one open at a time. */
+export const canSendAgreement = (r: RecruitmentPartner) => !['Rejected', 'Suspended'].includes(r.status) && (docsVerified(r) || !!r.approved) && !openAgreement(r);
+/**
+ * Approval is accepting the first signed agreement (Jovial, 2 Nov): there's no separate step. "Approve partner"
+ * turns on only while a first signed copy waits for RP Ops, and accepts it.
+ */
+export const canApprove = (r: RecruitmentPartner) => !r.approved && openAgreement(r)?.status === 'Signed copy uploaded';
+/** The partners waiting for BAP: documents to check, or a signed copy to review. */
+export const rpsToVerify = () => getDb().rps.filter((r) => r.docs.some((d) => d.state === 'With BAP') || openAgreement(r)?.status === 'Signed copy uploaded');
 
 function decide(rpId: string, docName: string, fn: (d: RpDoc) => RpDoc, what: string, ev: Omit<RpEvent, 'rpId' | 'rp' | 'at'>) {
   const at = Date.now();
@@ -66,54 +79,75 @@ export const verifyRpDoc = (rpId: string, doc: string, by: string) => decide(rpI
 /** BAP sends a document back to the RP, with a note saying what to upload instead. */
 export const sendBackRpDoc = (rpId: string, doc: string, note: string, by: string) =>
   decide(rpId, doc, (d) => ({ ...d, state: 'Sent back', note }), `${doc} sent back by ${by}: ${note}`, { kind: 'sent-back', doc, note, by });
-/**
- * BAP approves the partner once every required document is verified and the agreement is uploaded: it's Activated,
- * its portal opens fully, and the agreement goes to the RP on its Home and by email (rp.approved, rp.agreement_sent, E8).
- */
-export function approveRp(rpId: string, by: string) {
-  const at = Date.now();
-  let name = '';
-  setSharedDb((db) => ({
-    ...db,
-    rps: patch(db.rps, rpId, (r) => {
-      name = r.name;
-      return { ...r, approved: { at, by }, status: 'Activated', agreement: r.agreement ? { ...r.agreement, state: 'Sent', sentAt: at } : r.agreement, activity: [{ at: stampDay(at), what: `Approved by ${by}: Activated; the agreement went to the RP on its Home and by email (E8)` }, ...r.activity] };
-    }),
-  }));
-  emit({ kind: 'approved', rpId, rp: name, by, at });
-}
-
 /** Changes the RP's record and adds a line to its Activity. */
-function rpChange(rpId: string, fn: (r: RecruitmentPartner) => RecruitmentPartner, what: string, ev: Omit<RpEvent, 'rpId' | 'rp' | 'at'>) {
+function rpChange(rpId: string, fn: (r: RecruitmentPartner) => RecruitmentPartner, what: string | null, ev: Omit<RpEvent, 'rpId' | 'rp' | 'at'>) {
   const at = Date.now();
   let name = '';
-  setSharedDb((db) => ({ ...db, rps: patch(db.rps, rpId, (r) => ((name = r.name), { ...fn(r), activity: [{ at: stampDay(at), what }, ...r.activity] })) }));
+  setSharedDb((db) => ({ ...db, rps: patch(db.rps, rpId, (r) => ((name = r.name), { ...fn(r), activity: what ? [{ at: stampDay(at), what, time: at }, ...r.activity] : r.activity })) }));
   emit({ ...ev, rpId, rp: name, at });
 }
-/** RP Ops uploads the RP agreement (and its version or date) once every required document is verified; Replace until approved. */
-export const uploadRpAgreement = (rpId: string, file: string, version: string, by: string) =>
-  rpChange(rpId, (r) => ({ ...r, agreement: { file, version, uploadedAt: Date.now(), by, state: 'Uploaded' } }), `RP agreement uploaded by ${by} (${version})`, { kind: 'agreement-uploaded', by });
-/** The RP Admin uploads the signed copy with the date it was signed (rp.agreement_uploaded: "Check <RP>'s signed agreement", 12 wh). */
-export const uploadSignedCopy = (rpId: string, file: string, on: string, by: string) =>
-  rpChange(rpId, (r) => ({ ...r, agreement: r.agreement && { ...r.agreement, state: 'Signed copy received', signed: { file, on, at: Date.now() }, reason: undefined } }), `Signed agreement uploaded by ${by}`, { kind: 'agreement-uploaded', by });
-/** BAP accepts the signed copy: Agreement signed (rp.agreement_signed, E10; T58 "Train <RP> on the portal"). */
-export const acceptRpAgreement = (rpId: string, by: string) =>
-  rpChange(rpId, (r) => ({ ...r, status: 'Agreement signed', agreement: r.agreement && { ...r.agreement, state: 'Accepted', checked: { by, at: Date.now() } } }), `Signed agreement accepted by ${by}: Agreement signed`, { kind: 'agreement-signed', by });
-/** BAP sends the signed copy back with a reason, shown to the RP on Home and in E9. */
-export const sendBackRpAgreement = (rpId: string, reason: string, by: string) =>
-  rpChange(rpId, (r) => ({ ...r, agreement: r.agreement && { ...r.agreement, state: 'Sent back', reason } }), `Signed agreement sent back by ${by}: ${reason}`, { kind: 'agreement-sent-back', by, note: reason });
+/*
+ * The RP agreement's versions (Jovial, 2 Nov; data/agreements.ts). Each step changes the version; its Activity line
+ * is worked out from the version (agreementActivity), so nothing here writes one.
+ */
+const onVersion = (rpId: string, id: string, fn: (v: RpAgreementVersion, r: RecruitmentPartner) => RpAgreementVersion, extra: (r: RecruitmentPartner) => Partial<RecruitmentPartner>, ev: Omit<RpEvent, 'rpId' | 'rp' | 'at'>) =>
+  rpChange(rpId, (r) => {
+    const next = { ...r, agreements: versionsOf(r).map((v) => (v.id === id ? fn(v, r) : v)) };
+    const out = { ...next, ...extra(next) };
+    return { ...out, status: statusFrom(out) };
+  }, null, ev);
+export type NewAgreement = { file: string; size: number; version: string; effectiveFrom?: string; notes?: string };
+/** RP Ops uploads an agreement: kept as a draft, or sent to the RP straight away (its Home, its bell and E8). */
+export function addAgreement(rpId: string, a: NewAgreement, send: boolean, by: string) {
+  const at = Date.now();
+  const id = `${rpId}-a${at.toString(36)}`;
+  rpChange(rpId, (r) => {
+    // a draft waiting is replaced by the new upload
+    const keep = versionsOf(r).filter((v) => v.status !== 'Draft');
+    const v: RpAgreementVersion = { id, version: a.version, file: a.file, size: a.size, uploadedAt: at, uploadedBy: by, status: send ? 'Sent' : 'Draft', ...(send ? { sentAt: at, sentBy: by } : {}), ...(a.effectiveFrom ? { effectiveFrom: a.effectiveFrom } : {}), ...(a.notes ? { notes: a.notes } : {}) };
+    const next = { ...r, agreements: [...keep, v] };
+    return { ...next, status: statusFrom(next) };
+  }, null, { kind: send ? 'agreement-sent' : 'agreement-draft', by, note: a.version });
+  return id;
+}
+/** RP Ops sends a draft to the RP. */
+export const sendAgreement = (rpId: string, id: string, by: string) => onVersion(rpId, id, (v) => ({ ...v, status: 'Sent', sentAt: Date.now(), sentBy: by }), () => ({}), { kind: 'agreement-sent', by });
+/** The RP Admin uploads the signed copy with the date it was signed (RPA "Check <RP>'s signed agreement"). Again to replace it until RP Ops decides. */
+export const uploadSignedCopy = (rpId: string, id: string, c: { file: string; size: number; on: string }, by: string) =>
+  onVersion(rpId, id, (v) => ({ ...v, status: 'Signed copy uploaded', copies: [...(v.copies ?? []), { ...c, at: Date.now(), by }] }), () => ({}), { kind: 'agreement-uploaded', by });
+/**
+ * RP Ops accepts the signed copy: the version is Accepted, effective from its date or today. The first one is the
+ * approval: Agreement signed, every module opens (E10; T58 "Train <RP> on the portal"). A later one takes over from
+ * its effective date; the one it replaces reads Superseded from then.
+ */
+export const acceptSignedCopy = (rpId: string, id: string, by: string) => {
+  const at = Date.now();
+  onVersion(
+    rpId,
+    id,
+    (v) => ({ ...v, status: 'Accepted', accepted: { by, at }, effectiveFrom: v.effectiveFrom && v.effectiveFrom > todayIso() ? v.effectiveFrom : todayIso() }),
+    (r) => (r.approved ? {} : { approved: { at, by } }),
+    { kind: 'agreement-signed', by },
+  );
+};
+/** RP Ops sends the signed copy back with a reason, shown to the RP on Home, in its bell and in E9. */
+export const sendBackSignedCopy = (rpId: string, id: string, reason: string, by: string) =>
+  onVersion(rpId, id, (v) => ({ ...v, status: 'Sent back', returns: [...(v.returns ?? []), { by, at: Date.now(), reason }] }), () => ({}), { kind: 'agreement-sent-back', by, note: reason });
+/** RP Ops withdraws a version before it's accepted: the RP has nothing to sign. */
+export const withdrawAgreement = (rpId: string, id: string, by: string) => onVersion(rpId, id, (v) => ({ ...v, status: 'Withdrawn', withdrawn: { by, at: Date.now() } }), () => ({}), { kind: 'agreement-withdrawn', by });
+export { agreementName };
 /** Reject, Suspend and Reactivate (S2-26, S2C-9): Admin, Recruitment and RP Ops; no reason is asked. */
 export function setRpStatus(rpId: string, action: 'Reject' | 'Suspend' | 'Reactivate', by: string) {
   rpChange(
     rpId,
-    (r) => (action === 'Reject' ? { ...r, status: 'Rejected' } : action === 'Suspend' ? { ...r, status: 'Suspended', before: r.status } : { ...r, status: r.before ?? 'Agreement signed', before: undefined }),
+    (r) => (action === 'Reject' ? { ...r, status: 'Rejected' } : action === 'Suspend' ? { ...r, status: 'Suspended', before: r.status } : { ...r, status: r.before ?? statusFrom({ ...r, status: 'Verifying' }), before: undefined }),
     action === 'Reject' ? `Rejected by ${by}` : action === 'Suspend' ? `Suspended by ${by}: every user loses access` : `Reactivated by ${by}: every user's access is back`,
     { kind: 'status', by, note: action },
   );
 }
 /** Where each action is offered (proposal, S2C-9). */
 export const rpActions = (s: RpStatus): ('Reject' | 'Suspend' | 'Reactivate')[] =>
-  ['Not activated', 'Verifying', 'Documents sent back'].includes(s) ? ['Reject'] : ['Activated', 'Agreement signed', 'Dormant'].includes(s) ? ['Suspend'] : s === 'Suspended' ? ['Reactivate'] : [];
+  ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'].includes(s) ? ['Reject'] : ['Agreement signed', 'Dormant'].includes(s) ? ['Suspend'] : s === 'Suspended' ? ['Reactivate'] : [];
 /** RP Ops marks the portal training done (T58 closes, S4-22). */
 export const markTrained = (rpId: string, by: string) => rpChange(rpId, (r) => ({ ...r, trained: { at: Date.now(), by } }), `Portal training marked done by ${by} (T58)`, { kind: 'trained', by });
 /** RP Ops issues a notice (proposal S2C-12): to the RP's bell and its RP Admins by email; starts T59. */

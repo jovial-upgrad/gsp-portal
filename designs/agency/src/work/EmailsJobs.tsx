@@ -13,6 +13,8 @@ import { EMAIL_TEMPLATES, EMAIL_RULES, EMAIL_FOOTER, EMAIL_PLACEHOLDERS, JOBS, J
 import { now, istStamp, istYmd, istAt, istWeekday } from './clock';
 import { calendarOf, isWorkingDay } from './calendars';
 import { Pick } from './ui';
+import { getDb } from '../institution/data/store';
+import { agreementEmails, fill } from '../institution/data/agreements';
 
 const DAY = 864e5;
 /** The next time a job runs, IST. */
@@ -47,6 +49,8 @@ function sentNow(s) {
     if (k.rule === 'T38') out.push({ tpl: 'E20', to: nameOf(s, rec.owner || k.assignee), record: rec.id, at: k.created, subject: `The agreement with ${String(rec.label).split(' (')[0]} ends soon` });
     if (k.esc?.level === 3) for (const u of s.users.filter((x) => x.role === 'admin')) out.push({ tpl: 'E21', to: u.name, record: rec.id, at: slaOf(s, k).due + 5 * DAY, subject: `Late by 5 working days: ${k.title}` });
   }
+  // E8, E9, E10: each RP agreement step, from the RPs' agreement versions (data/agreements.ts)
+  for (const rp of getDb().rps) for (const m of agreementEmails(rp)) out.push({ tpl: m.tpl, to: `${rp.name} (business email, RP Admins)`, record: rp.id, at: m.at, subject: fill(tpl(m.tpl)?.subject ?? '', m.values) });
   // E18: each agency's daily update at 09:00 IST, when something happened in the 24 hours before
   const today9 = istAt(istYmd(t), '09:00');
   const last9 = t >= today9 ? today9 : today9 - DAY;

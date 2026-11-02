@@ -101,7 +101,7 @@ takeAdminFx();
 function takeInstitution() {
   if (!state) return;
   const cfg = withInstitution(structuredClone(state.comm.cfg));
-  if (JSON.stringify(cfg.unis) === JSON.stringify(state.comm.cfg.unis)) return;
+  if (JSON.stringify(cfg.unis) === JSON.stringify(state.comm.cfg.unis) && JSON.stringify(cfg.rps) === JSON.stringify(state.comm.cfg.rps)) return;
   state = { ...state, comm: { ...state.comm, cfg } };
   save();
   listeners.forEach((f) => f());

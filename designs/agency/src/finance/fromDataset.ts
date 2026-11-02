@@ -16,6 +16,7 @@ import { settingsOf } from './defaults';
 import { withLive, finalFeeOf } from '../data/live';
 import { getDb } from '../institution/data/store';
 import { agreementOf, statusNow } from '../institution/data/records';
+import { activeAgreement, commissionHeld } from '../institution/data/agreements';
 
 /**
  * One source for each university's agreement and territory (W8, 1 Nov): the Institution Team's records. Finance's
@@ -39,6 +40,16 @@ export function withInstitution(cfg) {
     fu.territory = terr + (t.blocked.length ? `, not ${t.blocked.map((b) => `${b.state} (${b.country})`).join(', ')}` : '');
     // the open points that came from the terms sheet's own dates and territory are the records' now
     if (/^Territory:|Contract end date has passed/.test(fu.flag || '')) fu.flag = a && a.end < new Date().toISOString().slice(0, 10) ? 'Agreement ended: renewal needed (Institution partner record)' : '';
+  }
+  // the RP's own agreement (S2-11; Jovial, 2 Nov): commission is held while it has no active agreement. A new version
+  // waiting for its signature holds nothing: the active one still applies.
+  for (const fr of cfg.rps) {
+    const rec = db.rps.find((x) => x.id === (fr.id === 'R-TEST' ? 'rp-test' : `rp-${String(fr.id).toLowerCase()}`));
+    if (!rec) { delete fr.agreementHeld; continue; }
+    const act = activeAgreement(rec);
+    fr.rpAgreement = act ? { version: act.version, from: act.effectiveFrom } : null;
+    if (commissionHeld(rec)) fr.agreementHeld = true;
+    else delete fr.agreementHeld;
   }
   return cfg;
 }
