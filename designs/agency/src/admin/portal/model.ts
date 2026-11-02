@@ -14,7 +14,7 @@ import { PERM_ROLE, type Role } from '../../proto/roles';
  * configuration** (Application routing, Document configuration) and **Other configurations** (Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
-export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'visa' | 'routing' | 'documents' | 'logs' | 'security';
+export type ConfigSection = 'users' | 'regions' | 'permissions' | 'queues' | 'emails' | 'bdm' | 'currency' | 'living' | 'visa' | 'grades' | 'english' | 'routing' | 'documents' | 'logs' | 'security';
 export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how';
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules';
 export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
@@ -73,6 +73,9 @@ export const GROUPS: NavGroup[] = [
       { key: 'currency', label: 'Currency exchange', short: 'Currency', icon: 'wallet' },
       { key: 'living', label: 'Living costs', short: 'Living', icon: 'home' },
       { key: 'visa', label: 'Visa and health fees', short: 'Visa fees', icon: 'globe' },
+      // slice 3 PRD (S3-4): the eligibility check's two tables
+      { key: 'grades', label: 'Grade conversion', short: 'Grades', icon: 'cap' },
+      { key: 'english', label: 'English test equivalence', short: 'English', icon: 'chat' },
     ],
   },
   {

@@ -16,6 +16,8 @@ import { Facts, RecordHead, RecordTabs, Section, TabPanel, toggle } from './part
 import { CoursePill } from './pills';
 import { money } from '../../data/courses';
 import { MultiPick } from './MultiPick';
+import { SelectMenu } from '../../components/SelectMenu';
+import { MIN_EDUCATION, type MinEducation } from '../../data/education';
 import { missingOf } from './CourseForm';
 import type { PageProps } from '../portal/model';
 
@@ -571,13 +573,15 @@ function Fees({ c, save }: { c: CourseRec; save: Save }) {
 
 function Academic({ c, save }: { c: CourseRec; save: Save }) {
   const [rows, setRows] = useState<AcademicRule[]>(c.academicRules);
+  // slice 3 PRD (S3-18): Minimum highest education required, asked for here, next to the academic rules; required
+  const [minEd, setMinEd] = useState<string>(c.minHighestEducation ?? '');
   const [tried, setTried] = useState(false);
   const filled = c.academicRules.length > 0;
   const ed = useEditing(filled);
-  const changed = JSON.stringify(rows) !== JSON.stringify(c.academicRules);
+  const changed = JSON.stringify(rows) !== JSON.stringify(c.academicRules) || minEd !== (c.minHighestEducation ?? '');
   const upd = (id: string, p: Partial<AcademicRule>) => setRows((l) => l.map((r) => (r.id === id ? { ...r, ...p } : r)));
-  const error = rows.some((r) => !(r.min > 0)) ? 'Each rule needs its minimum.' : null;
-  const cancel = () => (setRows(c.academicRules), setTried(false), ed.close());
+  const error = !minEd ? 'Choose the minimum highest education required.' : rows.some((r) => !(r.min > 0)) ? 'Each rule needs its minimum.' : null;
+  const cancel = () => (setRows(c.academicRules), setMinEd(c.minHighestEducation ?? ''), setTried(false), ed.close());
   return (
     <Section
       title="Academic"
@@ -587,6 +591,10 @@ function Academic({ c, save }: { c: CourseRec; save: Save }) {
       action={!ed.editing ? <EditButton onClick={ed.open} what="academic rules" /> : undefined}
     >
       {!ed.editing ? (
+        <>
+        <p className="inote">
+          <strong>Minimum highest education required:</strong> {c.minHighestEducation ?? 'Not set: the eligibility check’s level check shows Not specified until it is.'}
+        </p>
         <div className="stab-wrap">
           <table className="itab itab--view">
             <thead>
@@ -615,8 +623,14 @@ function Academic({ c, save }: { c: CourseRec; save: Save }) {
             </tbody>
           </table>
         </div>
+        </>
       ) : (
         <>
+          <div className="ifield-row">
+            <Field id="ica-mined" label="Minimum highest education required" required error={tried && !minEd ? 'Choose the minimum highest education required.' : null}>
+              <SelectMenu id="ica-mined" label="Minimum highest education required" value={minEd} placeholder="Choose" invalid={tried && !minEd} options={MIN_EDUCATION.map((x) => ({ value: x, label: x }))} onChange={setMinEd} />
+            </Field>
+          </div>
           {rows.length ? (
             <div className="stab-wrap">
               <table className="itab itab--form">
@@ -696,7 +710,7 @@ function Academic({ c, save }: { c: CourseRec; save: Save }) {
             onSave={() => {
               setTried(true);
               if (error) return;
-              save((x) => ({ ...x, academicRules: rows }), 'Academic rules saved.');
+              save((x) => ({ ...x, academicRules: rows, minHighestEducation: minEd as MinEducation }), 'Academic rules saved.');
               setTried(false);
               ed.close();
             }}

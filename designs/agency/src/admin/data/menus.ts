@@ -26,6 +26,8 @@ const OBJECT_OF: Record<string, string> = {
   currency: 'Settings',
   living: 'Settings',
   visa: 'Settings',
+  grades: 'Settings',
+  english: 'Settings',
   routing: 'Settings',
   documents: 'Settings',
   security: 'Settings',
