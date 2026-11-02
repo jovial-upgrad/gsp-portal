@@ -604,7 +604,7 @@ export type Scholarship = { name: string; amount: string; from: 'university'; fo
 export type IntakeDates = { deposit: string; accept: string; start: string; census: string };
 export type Submission = { channel: string; link: string; username?: string; secret?: string };
 let intakeDatesOf: (courseId: string, month: string) => IntakeDates | undefined = () => undefined;
-let submissionOf: (uniId: string) => Submission | undefined = () => undefined;
+let submissionOf: (uniId: string, region?: string) => Submission | undefined = () => undefined;
 /** The university's own application forms (Institution › Submission and contacts), each with who it's for. */
 export type UniForm = { name: string; file: string; for: string };
 let formsOf: (uniId: string) => UniForm[] = () => [];
@@ -623,7 +623,8 @@ export const setCatalogueReaders = (dates: typeof intakeDatesOf, sub: typeof sub
 /** An intake's start, census and deposit dates, from the catalogue. */
 export const intakeDates = (courseId: string, month: string) => intakeDatesOf(courseId, month);
 /** How the university takes applications, from the catalogue. */
-export const submission = (uniId: string) => submissionOf(uniId);
+/** `region`: the application's sales region, for its own login (StudyLink has one per sales region, Jovial 2 Nov). */
+export const submission = (uniId: string, region?: string) => submissionOf(uniId, region);
 
 /** A university's scholarships as the Institution Team keeps them (set by institution/data/store.ts, to keep the modules apart). */
 type UniScholarship = { name: string; amountType: string; low: number; high: number; currency: string; from: string[]; levels: string[]; areas: string[]; conditions: string };

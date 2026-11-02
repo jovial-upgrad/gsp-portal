@@ -50,14 +50,12 @@ export type StatusKey =
   | 'reupload'
   | 'ready'
   | 'lodged'
-  | 'moreinfo'
-  | 'addverify'
-  | 'addsent'
   | 'reapp'
   | 'conditions'
   | 'condsent'
   | 'reoffer'
   | 'finance'
+  | 'bgdocs'
   | 'interview'
   | 'uol'
   | 'rever'
@@ -66,10 +64,12 @@ export type StatusKey =
   | 'waitad'
   | 'accrec'
   | 'reacc'
+  | 'refundacc'
   | 'visa'
   | 'visasub'
   | 'startdate'
   | 'revisa'
+  | 'refundvisa'
   | 'enrolconf'
   | 'reenrol'
   | 'enrolled'
@@ -114,17 +114,16 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   reupload: { stage: 1, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit', phase: 'before' },
   lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university', phase: 'after' },
-  // S3-24: On GSP until the officer sends a request (separately); the status sends nothing
-  moreinfo: { stage: 2, owner: 'gsp', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true, phase: 'after' },
-  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents', phase: 'after' },
-  // engineering review, 1 Nov: GSP sends the checked additional documents on to the university
-  addsent: { stage: 2, owner: 'uni', text: () => 'Additional documents submitted to university', branch: 'After additional documents', phase: 'after' },
+  // Jovial, 2 Nov: Submitted to university is the only status after submission (no Additional documents requested,
+  // Verifying additional documents or Additional documents submitted to university); more documents are requested in the chat
   // a document rejected at this stage is one of the additional documents, so it comes after submission
   reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true, phase: 'after' },
   conditions: { stage: 3, owner: 'gsp', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
   condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university' },
   reoffer: { stage: 3, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   finance: { stage: 4, owner: 'gsp', text: () => 'Finance and background check' },
+  // Jovial, 2 Nov: On GSP; On RP while a document request is open (Who has it rule 2)
+  bgdocs: { stage: 4, owner: 'gsp', text: () => 'Background/finance documents upload pending', branch: 'If GSP asks for background or finance documents', asks: true },
   // S3-24: the university's
   interview: { stage: 4, owner: 'uni', text: () => 'University assessment or interview', branch: 'If the university assesses or interviews' },
   uol: { stage: 4, owner: 'gsp', text: () => 'Unconditional offer letter received', doc: { by: 'gsp', name: () => 'Unconditional offer letter' } },
@@ -136,12 +135,16 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   // S3-23: one Acceptance letter for every destination (no CoE, CAS, I-20, LOA or Offer of place)
   accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: () => 'Acceptance letter' } },
   reacc: { stage: 5, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
+  // Jovial, 2 Nov: the university refunds the deposit; it doesn't close the application by itself
+  refundacc: { stage: 5, owner: 'uni', text: () => 'Deposit refund pending', branch: 'If the university refunds the deposit' },
   // the visa is lodged by the agency or by GSP, never both: these two follow whoever lodges it (see ownerAt)
   visa: { stage: 6, owner: 'you', text: () => 'Visa lodgement pending', asks: true },
   // S3-12: On GSP, whoever lodged
   visasub: { stage: 6, owner: 'gsp', text: () => 'Visa decision pending', doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
-  startdate: { stage: 6, owner: 'gsp', text: () => 'Visa granted: waiting for start date', doc: { by: 'lodger', name: () => 'Visa' } },
+  // Jovial, 2 Nov: one status, Visa granted, which asks for the course start date (no sub-statuses)
+  startdate: { stage: 6, owner: 'gsp', text: () => 'Visa granted', doc: { by: 'lodger', name: () => 'Visa' } },
   revisa: { stage: 6, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
+  refundvisa: { stage: 6, owner: 'uni', text: () => 'Deposit refund pending', branch: 'If the university refunds the deposit' },
   enrolconf: { stage: 7, owner: 'gsp', text: () => 'Enrolment confirmation pending', doc: { by: 'gsp', name: () => 'Proof of enrolment' } },
   reenrol: { stage: 7, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   enrolled: { stage: 7, owner: 'done', text: () => 'Student enrolled' },
@@ -198,7 +201,8 @@ export type CondSet = { id: string; title: string; by: string; at: number; sent:
 export type AppFile = { name: string; file: string; from: 'you' | 'gsp' | 'uni'; at: number; status: 'uploaded' | 'checking' | 'verified'; via?: 'chat' | 'request' | 'profile' | 'mail'; /** The request it answered. */ req?: string };
 
 export type Who = 'you' | 'gsp' | 'uni' | 'ai' | 'system';
-export type Event = { at: number; who: Who; text: string; by?: string };
+/** `kind`: what the line is about (data/activity.ts), for who sees it; read from the text when it isn't set. */
+export type Event = { at: number; who: Who; text: string; by?: string; kind?: import('./activity').ActivityKind };
 export type Msg = {
   id: string;
   at: number;
@@ -290,7 +294,7 @@ export const ownerAt = (k: StatusKey, a: Pick<Application, 'visaBy'> & { id?: st
   return STATUS[k].owner;
 };
 /** The five university statuses (slice 3 PRD, Who has it rule 4; University assessment or interview from 2 Nov, S3-24). */
-export const UNI_STATUSES: StatusKey[] = ['lodged', 'addsent', 'condsent', 'interview', 'waitad'];
+export const UNI_STATUSES: StatusKey[] = ['lodged', 'condsent', 'interview', 'waitad', 'refundacc', 'refundvisa'];
 /** The agency's documents GSP hasn't checked yet: the latest copy of each, sent and not verified. */
 export function toCheck(a: Application) {
   if (a.status === 'docs') return [];
@@ -653,10 +657,9 @@ export const earnFor = (a: Application) => {
 export const NEXT_AFTER_YOU: Partial<Record<StatusKey, StatusKey>> = { docs: 'checking' };
 
 /** What the agency has to do at a status it arrives at: documents (which GSP asks for in the chat) or something to confirm. */
-export function needsAt(k: StatusKey, a: Application): Need[] {
-  const c = courseOf(a);
-  // the payment proof is asked for by GSP, by hand, in the chat (Jovial, 1 Nov): nothing automatic at the deposit
-  if (k === 'visa' && a.visaBy !== 'gsp') return [{ id: 'visa', title: 'Visa lodgement proof', why: `Lodge the ${VISA_NAME[c.uni.country]}, then upload the lodgement receipt here.` }];
+// Jovial, 2 Nov: a status change never asks for a document by itself (not the visa lodgement proof, not the payment
+// proof): the officer asks from the chat with Request a document. GSP's own uploads a status needs stay in Change status.
+export function needsAt(_k: StatusKey, _a: Application): Need[] {
   return [];
 }
 

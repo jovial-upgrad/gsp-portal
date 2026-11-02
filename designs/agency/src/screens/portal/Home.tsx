@@ -1,3 +1,4 @@
+import { RP_OWNER_WORD } from '../../data/owners';
 import { regionOfCountry } from '../../data/regions';
 import { TEST_COUNTRY } from '../../data/rpteam';
 import { useState } from 'react';
@@ -403,7 +404,7 @@ function PendingCard({ apps, students, onOpen, go, reduce }: { apps: Application
     <motion.section className="card side-card pend" aria-labelledby="pend-title" {...rise(reduce, 1)}>
       <div className="pend__head">
         <h2 id="pend-title" className="home__h2">
-          Pending on you
+          {RP_OWNER_WORD.you}
         </h2>
         <Button variant="secondary" size="sm" onClick={() => go('applications')}>
           All applications

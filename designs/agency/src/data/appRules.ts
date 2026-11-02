@@ -3,7 +3,7 @@
  * Admin): who an automatic chat line is from, the university reference's format and uniqueness, the GSP uploads
  * some statuses need, the duplicate-application block, and who counts as Admissions.
  */
-import { courseOf, isOpen, STATUS, type Application, type StatusKey } from './applications';
+import { ENROL_DOC, ENROL_DOC_LONG, courseOf, destOf, isOpen, STATUS, type Application, type StatusKey } from './applications';
 import { officerOf } from './dataset';
 import { label } from './staff';
 import { getScope, isMine } from './scope';
@@ -65,6 +65,29 @@ export function mandatoryUpload(k: StatusKey, visaBy: 'you' | 'gsp' | undefined)
   if (k === 'startdate' && visaBy === 'gsp') return 'Visa grant';
   return undefined;
 }
+
+/**
+ * The mandatory upload already in Documents (Jovial, 2 Nov, the Acceptance letter bug): a GSP or university copy filed
+ * from Mail or uploaded in Documents counts, under the status's name or the destination's own name for it (CoE, CAS).
+ */
+export function uploadOnFile(a: Pick<Application, 'files' | 'courseId'>, doc: string | undefined) {
+  if (!doc) return undefined;
+  const d = destOf(a);
+  const names = [doc, ...(doc === 'Acceptance letter' ? [ENROL_DOC_LONG[d], ENROL_DOC[d]] : [])].map((n) => n.toLowerCase());
+  return [...a.files].reverse().find((f) => f.from !== 'you' && names.includes(f.name.toLowerCase()));
+}
+
+/* ---------- the RP's Withdraw (Jovial, 2 Nov) ---------- */
+
+/** Submitted to the university: past Ready to submit (Application stage onwards), or closed after it had a reference. */
+export const submittedToUni = (a: Pick<Application, 'status' | 'uniRef'>) =>
+  a.status === 'closed' ? !!a.uniRef : STATUS[a.status].stage > 2 || (STATUS[a.status].stage === 2 && a.status !== 'ready');
+/**
+ * The RP can withdraw up to and including Ready to submit; from Submitted to university on, its Withdraw is off with
+ * this reason (GSP can still close at any stage).
+ */
+export const RP_WITHDRAW_OFF = 'Submitted to the university. Ask your GSP contact in chat to withdraw.';
+export const rpCanWithdraw = (a: Pick<Application, 'status' | 'uniRef'>) => isOpen(a as Application) && !submittedToUni(a);
 
 /* ---------- uniqueness (S3-7, S3-28) ---------- */
 

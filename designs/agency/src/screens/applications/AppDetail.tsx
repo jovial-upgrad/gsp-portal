@@ -1,8 +1,9 @@
 import { RP_OWNER_TAG as OWNER_TAG } from '../../data/owners';
 import { isWithdrawal } from '../../data/reasons';
-import { WithdrawDialog, appliedAt } from '../../gsp/applications/AppDetail';
-import { autoName } from '../../data/appRules';
-import { isSubmitted } from '../../gsp/applications/Submission';
+import { KeyGroup, WithdrawDialog, appliedAt } from '../../gsp/applications/AppDetail';
+import { RP_WITHDRAW_OFF, autoName, rpCanWithdraw } from '../../data/appRules';
+import { uploadAckLine } from '../../data/chat';
+import { activityFor } from '../../data/activity';
 import { UPLOAD } from '../../data/uploads';
 import { setLiveStatus, setLiveFlags, useLiveAll, finalFeeOf } from '../../data/live';
 import { NameDialog } from '../../gsp/applications/NameDialog';
@@ -153,10 +154,12 @@ export function AppDetail({
       ...x,
       needs: x.needs.filter((y) => y.id !== n.id),
       files: [...x.files, { name: n.title, file, from: 'you', at: now, status: 'checking', via: 'request', req: n.id }],
+      // the automatic acknowledgement (Jovial, 2 Nov), from the chat templates, under the officer's name (S3-13)
+      chat: [...x.chat, { id: `m${now}-ack`, at: now + 1, from: 'gsp' as const, name: autoName(x, gsp.name), text: uploadAckLine(n.title) }],
       history: [...x.history, { at: now, who: 'you', text: `Uploaded the ${named(n.title)} GSP asked for`, by: me }, ...(note ? [{ at: now, who: 'ai' as const, text: `GSP Assist read it first: ${note}` }] : [])],
     }));
     setLiveFlags(a.id, { rpNews: now, rpWhat: `the ${named(n.title)}` });
-    // no made-up reply from GSP (HC26): Activity has the upload, and GSP answers in the chat themselves
+    // the acknowledgement is the chat template's; anything more GSP answers in the chat themselves (HC26)
     say(`${n.title} sent to ${n.request?.by ?? 'GSP'}.`);
   };
 
@@ -370,7 +373,8 @@ export function AppDetail({
               items={[
                 { id: 'student', label: 'Student profile', icon: 'user', onPick: () => onOpenStudent(s.id) },
                 ...(chaseable ? [{ id: 'chase', label: `Ask GSP to chase ${c.uni.name}`, icon: 'refresh' as IconName, onPick: chase }] : []),
-                ...(isOpen(a) ? [{ id: 'withdraw', label: 'Withdraw application', icon: 'close' as IconName, danger: true, onPick: () => setWithdraw(true) }] : []),
+                // up to Ready to submit; after submission it's off, with the reason (Jovial, 2 Nov)
+                ...(isOpen(a) ? [{ id: 'withdraw', label: 'Withdraw application', icon: 'close' as IconName, danger: true, disabled: !rpCanWithdraw(a), reason: rpCanWithdraw(a) ? undefined : RP_WITHDRAW_OFF, onPick: () => setWithdraw(true) }] : []),
               ]}
             />
           </div>
@@ -384,7 +388,7 @@ export function AppDetail({
           <motion.section
             key="needs"
             className="aneed"
-            aria-label="Pending on you"
+            aria-label={OWNER_TAG.you}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -395,7 +399,7 @@ export function AppDetail({
             </span>
             <div className="aneed__t">
               <p className="aneed__title">
-                Pending on you: {open.length === 1 ? '1 thing to do' : `${open.length} things to do`}
+                {OWNER_TAG.you}: {open.length === 1 ? '1 thing to do' : `${open.length} things to do`}
                 {open.some((n) => n.due) && <span className="aneed__due"> · due {dueDate(Math.min(...open.filter((n) => n.due).map((n) => n.due!)))}</span>}
               </p>
               <p className="aneed__text">{open.map((n) => n.title).join(' · ')}</p>
@@ -561,11 +565,12 @@ export function AppDetail({
               </div>
             </dl>
           </section>
+          {/* Key details in three groups (Jovial, 2 Nov): sections with headings, not tabs; an empty field isn't shown */}
           <section className="card acard">
             <h2 className="acard__title">Key details</h2>
-            <dl className="cdl">
+            <KeyGroup title="Application details">
               <Row k="Application" v={<span className="num">{a.id}</span>} />
-              {isSubmitted(a) && <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : 'No reference ID'} />}
+              <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : null} />
               <Row k="Intake" v={a.intake} />
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Duration" v={durationText(c)} />
@@ -584,18 +589,27 @@ export function AppDetail({
                   <Row k="Deposit" v={<span className="num">{money(offer.deposit, c.currency)}</span>} />
                 </>
               )}
+              <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />
+            </KeyGroup>
+            <KeyGroup title="GSP details">
+              <Row k="Admissions" v={gsp.name} />
+              {stageOf(a) >= 6 && a.status !== 'closed' && <Row k="Visa lodged by" v={a.visaBy === 'gsp' ? 'GSP' : 'Your agency'} />}
+            </KeyGroup>
+            <KeyGroup title="RP details">
               <Row
                 k="Counsellor"
                 v={
-                  <span>
-                    {counsellor?.name}
-                    {counsellor?.id === 'me' ? <span className="cdl__soft"> (you)</span> : ''}
-                  </span>
+                  counsellor ? (
+                    <span>
+                      {counsellor.name}
+                      {counsellor.id === 'me' ? <span className="cdl__soft"> (you)</span> : ''}
+                    </span>
+                  ) : null
                 }
               />
+              {/* the RP sees only its own commission */}
               <Row k="Base commission" v={<span className="num">{earn.text}</span>} />
-              <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />
-            </dl>
+            </KeyGroup>
           </section>
         </aside>
       </div>
@@ -612,7 +626,9 @@ function stageDates(a: Application): (number | undefined)[] {
   return [a.created, at(/checked the documents|Sent to GSP/i), at(/^Submitted to/i), at(/conditional offer/i), at(/Verified the financial|unconditional offer/i), at(/Deposit/i), at(/uploaded the (CoE|CAS|I-20|LOA)|Visa/i), undefined];
 }
 
+/** A Key details line; an empty value hides it (Jovial, 2 Nov). */
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
+  if (v === null || v === undefined || v === '') return null;
   return (
     <div className="cdl__row">
       <dt>{k}</dt>
@@ -866,7 +882,7 @@ function DocsTab({
           {empty && (
             <p className="adocs__empty">
               {tab === 'pending'
-                ? 'Nothing pending on you.'
+                ? `Nothing ${OWNER_TAG.you.toLowerCase()}.`
                 : tab === 'review'
                   ? 'Nothing with GSP right now.'
                   : tab === 'approved'
@@ -1005,13 +1021,14 @@ const WHO: Record<string, [string, IconName]> = { you: ['Your agency', 'user'], 
 
 function Activity({ a }: { a: Application }) {
   const reduce = useReducedMotion();
-  const list = [...a.history].sort((x, y) => y.at - x.at);
+  // the RP sees chat, documents and commission activity only (Jovial, 2 Nov)
+  const list = activityFor('rp', [...a.history]).sort((x, y) => y.at - x.at);
   return (
     <section className="card acard" aria-labelledby="aact-title">
       <h2 id="aact-title" className="acard__title">
         What has happened
       </h2>
-      <p className="acard__text">Every step, including the automatic ones, with who or what did it.</p>
+      <p className="acard__text">The chat, documents and commission on this application, with who or what did each.</p>
       <ol className="aact">
         {list.map((e, i) => (
           <motion.li

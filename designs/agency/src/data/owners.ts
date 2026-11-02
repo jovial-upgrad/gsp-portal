@@ -12,5 +12,6 @@ export const OWNER_TAG = OWNER_WORD;
  * The RP's own portal says it from the RP's side (Jovial, 1 Nov, Who has it WH1: "The RP sees it in Pending on you"):
  * Pending on you, With GSP, With university.
  */
-export const RP_OWNER_WORD: Record<OwnerKey, string> = { you: 'Pending on you', gsp: 'With GSP', uni: 'With university', done: 'Enrolled', end: 'Closed', wd: 'Withdrawn' };
+// Jovial, 2 Nov: "Pending with agent" (was Pending on you); GSP's own wording is unchanged
+export const RP_OWNER_WORD: Record<OwnerKey, string> = { you: 'Pending with agent', gsp: 'With GSP', uni: 'With university', done: 'Enrolled', end: 'Closed', wd: 'Withdrawn' };
 export const RP_OWNER_TAG = RP_OWNER_WORD;

@@ -60,10 +60,12 @@ setUniScholarships((uniId) => getDb().unis.find((u) => u.id === uniId)?.scholars
 // intake dates and submission channels, for course pages, applications, GSP's submission card and Finance
 setCatalogueReaders(
   (courseId, month) => getDb().courses.find((c) => c.id === courseId)?.dates[month],
-  (uniId) => {
+  (uniId, region) => {
     const u = getDb().unis.find((x) => x.id === uniId);
     if (!u || !u.channel) return undefined;
-    const l = u.logins[0];
+    // logins only for Own portal and StudyLink (Jovial, 2 Nov): the region's own, else All regions, else the first
+    if (u.channel === 'Email') return { channel: u.channel, link: u.link };
+    const l = u.logins.find((x) => x.region === region) ?? u.logins.find((x) => /^all/i.test(x.region)) ?? u.logins[0];
     return { channel: u.channel, link: u.link, username: l?.username, secret: l?.secret };
   },
 );

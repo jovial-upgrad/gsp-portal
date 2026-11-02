@@ -29,7 +29,7 @@ export type Mail = {
 
 /** Where the application goes in: by mail to an address, or through StudyLink or the university's own portal. */
 export type Channel = { via: 'mail'; email: string } | { via: 'studylink' | 'portal'; url: string; username: string; password: string };
-export const CHANNEL_NAME: Record<Channel['via'], string> = { mail: 'Through mail', studylink: 'Through StudyLink', portal: 'Through the university portal' };
+export const CHANNEL_NAME: Record<Channel['via'], string> = { mail: 'Through mail', studylink: 'Through StudyLink', portal: 'Through university portal' };
 
 /** `dismissed`: university documents in the mail GSP chose not to add to Documents. */
 export type Desk = { mails: Mail[]; channel: Channel; census: number; fee: number; dismissed?: string[] };
@@ -42,7 +42,7 @@ export const longDate = (t: number) => `${shortDate(new Date(t))} ${new Date(t).
 /** How the university takes applications from GSP: the Institution Team's university record (Jovial, 31 Oct). */
 function channelFor(a: Application): Channel {
   const u = courseOf(a).uni;
-  const sub = submission(u.id);
+  const sub = submission(u.id, a.region);
   if (!sub || sub.channel === 'Email') return { via: 'mail', email: sub?.link || `international@${u.website ?? `${u.id}.edu`}` };
   if (sub.channel === 'StudyLink') return { via: 'studylink', url: `https://www.studylink.com/${u.id}`, username: sub.username ?? '', password: sub.secret ?? '' };
   return { via: 'portal', url: `https://${sub.link}`, username: sub.username ?? '', password: sub.secret ?? '' };
@@ -104,19 +104,6 @@ function mailsFor(a: Application, s: Student): Mail[] {
         ...(o.conditions.length ? [`${o.conditions.length === 1 ? '1 condition' : `${o.conditions.length} conditions`}: ${o.conditions.map((x) => x.doc ?? x.text).join('; ')}.`] : []),
         `Accept and pay the ${money(o.deposit, c.currency)} deposit by ${longDate(o.acceptBy)}.`,
       ],
-    });
-  }
-  if (a.status === 'moreinfo') {
-    out.push({
-      id: `${a.id}-m4`,
-      at: a.since,
-      from: admissions,
-      to: [gspMail],
-      subject: `More information needed: ${name} (${a.uniRef})`,
-      body: `Dear ${g.first},\n\nTo complete our assessment of ${name}'s application, please send a short statement explaining the gap in study since the last qualification.\n\nPlease reply to this email within 7 days.\n\nKind regards,\nInternational Admissions\n${u.name}`,
-      box: 'in',
-      read: false,
-      summary: [`${u.name} needs a gap statement from ${s.first} to finish assessing.`, 'Reply within 7 days.'],
     });
   }
   const doc = statusMail(a, s, a.status, Date.now() - 2 * 3_600_000);

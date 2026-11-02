@@ -124,3 +124,7 @@
 .acctmenu .mmenu__item:focus-visible { background: rgba(255, 255, 255, 0.55); }
 :root[data-theme='dark'] .acctmenu .mmenu__item:hover,
 :root[data-theme='dark'] .acctmenu .mmenu__item:focus-visible { background: rgba(255, 255, 255, 0.08); }
+
+/* an item that can't be picked now: greyed out, its reason in the tooltip (Jovial, 2 Nov) */
+.mmenu__item.is-off { opacity: 0.5; cursor: not-allowed; }
+.mmenu__item.is-off:hover { background: none; }

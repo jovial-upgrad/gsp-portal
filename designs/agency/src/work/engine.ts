@@ -64,9 +64,6 @@ export const APP_LOGIC = {
   T4: { when: (a) => a.status === 'ready', title: (n, a) => `Submit ${n} to ${uni(a)}` },
   T19: { when: (a) => ['checking', 'ready'].includes(a.status) && lateIntake(a), title: (n, a) => `Check ${uni(a)} still accepts ${n} for ${a.intake} (deadline passed)` },
   T5: { when: (a) => a.status === 'lodged', title: (n, a) => `Chase ${uni(a)} for a decision on ${n}` },
-  T7: { chase: true, when: (a) => a.status === 'moreinfo' && openRequests(a).length > 0, title: (n) => `Chase the RP: additional documents for ${n} are late` },
-  T52: { when: (a) => a.status === 'addverify', title: (n) => `Check the additional documents for ${n}` },
-  T53: { when: (a) => a.status === 'addsent', title: (n, a) => `Chase ${uni(a)} about the additional documents for ${n}` },
   T54: { when: (a) => a.status === 'interview', title: (n, a) => `Chase ${uni(a)} about ${n}’s assessment or interview` },
   T9: { when: (a, f) => a.status === 'conditions' && f.condsSent === false, title: (n) => `Send the offer and its conditions to the RP for ${n}` },
   T9b: { chase: true, when: (a, f) => a.status === 'conditions' && f.condsSent !== false, since: (a, f) => (f.condsSent ? f.condsSent : a.since), title: (n) => `Chase the RP: offer conditions for ${n}` },
@@ -80,7 +77,7 @@ export const APP_LOGIC = {
   T17: { chase: true, when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) !== 'gsp' && openRequests(a).length > 0, title: (n) => `Chase the RP: visa for ${n} not lodged` },
   WH7: { when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) === 'gsp', title: (n) => `Lodge the student visa for ${n} (GSP lodges this one)` },
   T56: { when: (a) => a.status === 'visasub', title: (n) => `Chase the visa decision for ${n}` },
-  T57: { when: (a) => a.status === 'startdate', start: (a) => startDateOf(a), title: (n) => `Confirm ${n} has started` },
+  T57: { when: (a) => a.status === 'startdate', start: (a, f) => f?.start ?? startDateOf(a), title: (n) => `Confirm ${n} has started` },
   T20: { when: (a) => a.status === 'enrolconf', title: (n, a) => `Confirm ${n}’s enrolment with ${uni(a)}` },
 };
 
@@ -142,7 +139,7 @@ export function appTasks(s, live, now = clockNow()) {
       if (!r || !L.when(a, f)) continue;
       const since = L.since ? L.since(a, f) : a.since;
       if (!ruleLive(r, since)) continue;
-      const due0 = L.start ? L.start(a) : r.after ? afterFrom(cal, since, r.after) : since;
+      const due0 = L.start ? L.start(a, f) : r.after ? afterFrom(cal, since, r.after) : since;
       if (due0 == null || now < due0) continue;
       const id = `A-${a.id}-${row}-${since}`;
       if (s.closed?.[id]) continue;
