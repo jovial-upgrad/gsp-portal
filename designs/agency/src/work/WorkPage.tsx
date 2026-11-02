@@ -6,6 +6,7 @@ import Queues from './Queues';
 import TaskRules from './TaskRules';
 import EmailsJobs from './EmailsJobs';
 import '../finance/finance.css';
+import './work.css';
 
 /** My work, Mail and the work settings (Jovial, 31 Oct), in any portal. */
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-mail';

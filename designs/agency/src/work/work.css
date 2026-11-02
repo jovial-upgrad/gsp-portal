@@ -1,0 +1,14 @@
+/* Slice 4: small fixes for the work pages. */
+/* the tick column in My work stays narrow */
+.gspx-page .itab--queue th:first-child:has(.check),
+.gspx-page .itab--queue td:first-child:has(.check) { width: 44px; padding-right: 0; }
+.gspx-page .itab--queue td:first-child:empty { width: 44px; }
+.gspx-page .itab--queue .check__label > span:last-child:has(.vh) { display: contents; }
+/* a multi-pick inside a two-column form never overflows its column */
+.gspx-form2 > .field { min-width: 0; }
+.gspx-form2 .imp, .gspx-form2 .imp__btn { max-width: 100%; min-width: 0; }
+.gspx-form2 .imp__v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the morning email's time inside a sentence */
+.gspx-inline-pick { display: inline-block; min-width: 140px; vertical-align: middle; }
+/* an email preview */
+.gspx-mailprev { border: 1px solid var(--line, #e3e3e8); border-radius: 12px; padding: 16px; display: grid; gap: 8px; }

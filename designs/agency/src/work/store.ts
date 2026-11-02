@@ -48,13 +48,6 @@ function fresh() {
   return st;
 }
 
-let state;
-try { state = JSON.parse(localStorage.getItem(KEY)) || null; } catch { state = null; }
-if (!state || !state.mail || !state.mail.threads || !state.rules?.[0]?.group) state = fresh();
-for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses']) state[k] = state[k] || {};
-state.gave = state.gave || [];
-const listeners = new Set();
-
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full or blocked */ } }
 
 /* ---------- one queue editor (S4-1): Admin's queue list (routing, mailboxes, Admin Home) is this one ---------- */
@@ -68,7 +61,6 @@ function syncAdminQueues() {
     setAdminCfg((x) => ({ ...x, queues: want, regionQueue }));
   } catch { /* Admin's settings not loaded */ }
 }
-syncAdminQueues();
 
 /* ---------- people ---------- */
 /**
@@ -124,6 +116,16 @@ function hoursFor(s, t) {
   const k = s.kinds.find((x) => x.id === t.kind);
   return k?.sla ?? NO_HOURS;
 }
+
+/* ---------- the stored lists (after the helpers fresh() uses) ---------- */
+let state;
+try { state = JSON.parse(localStorage.getItem(KEY)) || null; } catch { state = null; }
+if (!state || !state.mail || !state.mail.threads || !state.rules?.[0]?.group) state = fresh();
+for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses']) state[k] = state[k] || {};
+state.gave = state.gave || [];
+const listeners = new Set();
+
+syncAdminQueues();
 
 /* ---------- escalation (T51): level 1 the leader, level 2 the team's Ops queue, level 3 the Admin queue ---------- */
 /** The team's Ops queue for level 2 (slice 4 PRD): Global Admissions for Admissions, RP Ops for RP Ops and Recruitment, IP Ops for Institution and IP Ops, Finance for Finance, else Admin. */
@@ -199,6 +201,12 @@ function derive() {
     let t = t0x;
     if (t.status !== 'open') { list.push(t); continue; }
     const rec = base.records.find((r) => r.id === t.record) || {};
+    // the title, from the rule, with the student's name or the record's (slice 4 PRD, What a task is)
+    if (!t.title) {
+      const r = ruleOf(base, t);
+      const name = rec.type === 'Application' ? rec.student : String(rec.label || t.record).replace(/ \(.*\)$/, '');
+      t = { ...t, title: r ? r.task.replace(/<[^>]+>/, name).replace(/ \(“.*$/, '') : `${(base.kinds.find((k) => k.id === t.kind) || {}).name || 'Task'}: ${name}` };
+    }
     // S4-2: never unassigned; the pick is kept (as the service would store it)
     if (!t.assignee) {
       const who = shareTo(base, t, rec, list);

@@ -10,7 +10,6 @@ import { useSyncExternalStore } from 'react';
 import { CALENDARS } from './seed';
 import { regionOfCountry, TEST_AGENCY } from '../data/regions';
 import { salesRegionNames, live } from '../admin/data/config';
-import { setAdminCfg } from '../admin/data/store';
 import { istDayStart, istWeekday, istYmd } from './clock';
 
 export type Calendar = { id: string; name: string; days: number[]; start: string; end: string; holidays: [string, string][]; regions: string[] };
@@ -81,11 +80,10 @@ export function putRegionsOn(calId: string, regions: string[]) {
     });
     return x;
   });
-  try {
-    setAdminCfg((c) => ({ ...c, regions: c.regions.map((r) => (regions.includes(r.name) ? { ...r, calendarId: calId } : (r as { calendarId?: string }).calendarId === calId ? { ...r, calendarId: undefined } : r)) }));
-  } catch {
-    /* Admin's settings not loaded */
-  }
+  // Admin's store imports the courses, which read these calendars: loaded when needed, not at the start
+  void import('../admin/data/store')
+    .then((m) => m.setAdminCfg((c) => ({ ...c, regions: c.regions.map((r) => (regions.includes(r.name) ? { ...r, calendarId: calId } : (r as { calendarId?: string }).calendarId === calId ? { ...r, calendarId: undefined } : r)) })))
+    .catch(() => undefined);
 }
 
 /** The calendar a sales region (or a country) works on; no region: the one listing Global; else the first. */

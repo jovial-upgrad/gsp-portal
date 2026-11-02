@@ -148,6 +148,8 @@ export function Portal({
     role: 'gsp',
     access: 'all',
     agency: acc.agency,
+    // slice 4: the signed-in person's own My work notifications, and only the applications they're the officer on
+    me: ME,
     country,
     apps,
     students,
