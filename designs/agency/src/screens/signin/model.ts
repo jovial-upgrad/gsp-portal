@@ -1,3 +1,4 @@
+import { adminCfg, onAdminChange } from '../../admin/data/store';
 /** Sign-in and forgot-password state. Prototype rules are listed in the Prototype panel. */
 import { TEST_PASSWORD } from '../../data/testing';
 import { TEST_AGENCY, rpTeam } from '../../data/rpteam';
@@ -66,8 +67,12 @@ export function verify(id: string, pw: string): Account | null {
   return acc && pw === (changed.get(acc.email) ?? TEST_PASSWORD) ? acc : null;
 }
 
-export const MAX_ATTEMPTS = 5;
-export const LOCK_MINUTES = 15;
+// both portals read Admin › Sign-in security at every sign-in (PRD slice 1): 3 wrong passwords, a 10-minute pause
+export let MAX_ATTEMPTS = adminCfg().security.maxAttempts;
+export let LOCK_MINUTES = adminCfg().security.lockMinutes;
+onAdminChange(() => {
+  ({ maxAttempts: MAX_ATTEMPTS, lockMinutes: LOCK_MINUTES } = adminCfg().security);
+});
 
 export function maskEmail(email: string) {
   const [user, domain] = email.split('@');
@@ -117,6 +122,11 @@ export const AUTH_PRESETS: Record<string, { label: string; make: () => AuthState
       submitted: true,
       error: 'That username and password don’t match. Check both, or reset your password.',
     }),
+  },
+  // an RP person whose RP is Suspended (slice 2), with the right password (PRD slice 1)
+  'signin-agency-paused': {
+    label: 'Agency paused',
+    make: () => ({ ...initialAuth(DEMO), submitted: true, error: 'Your agency’s access is paused. Your partner manager can tell you more.' }),
   },
   'signin-locked': {
     label: 'Sign-in paused',

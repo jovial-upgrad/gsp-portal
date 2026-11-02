@@ -18,6 +18,17 @@ export const setSim = (s: Sim) => {
   subs.forEach((f) => f());
 };
 export const getSim = () => sim;
+/** The Prototype panel's review states for the page states (PRD slice 1), each opening an Admin page. */
+export const ADMIN_STATES: Record<string, { label: string; sim: Sim; section: string }> = {
+  'state-ready': { label: 'Loaded (no review state)', sim: null, section: 'users' },
+  'state-loading': { label: 'Loading', sim: 'loading', section: 'users' },
+  'state-load-error': { label: 'Load error', sim: 'load-error', section: 'users' },
+  'state-save-error': { label: 'Save error (try any save)', sim: 'save-error', section: 'regions' },
+  'state-conflict': { label: 'Someone else saved (try any save)', sim: 'conflict', section: 'regions' },
+  'state-view-only': { label: 'View only', sim: 'view-only', section: 'regions' },
+  'state-no-access': { label: 'No access', sim: 'no-access', section: 'users' },
+  'state-not-found': { label: 'Not found', sim: 'not-found', section: 'users' },
+};
 export const useSim = () => useSyncExternalStore((f) => (subs.add(f), () => void subs.delete(f)), () => sim);
 
 /**

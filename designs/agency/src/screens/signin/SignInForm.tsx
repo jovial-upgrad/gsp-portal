@@ -74,7 +74,7 @@ export function SignInForm({
           error: lockedUntil
             ? null
             : tries <= 2
-              ? `That username and password don’t match. ${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses for ${LOCK_MINUTES} minutes.`
+              ? `That username and password don’t match. Check both, or reset your password. ${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses.`
               : 'That username and password don’t match. Check both, or reset your password.',
         }));
         window.setTimeout(() => {
@@ -211,7 +211,7 @@ export function SignInForm({
                   transition={{ duration: 0.16 }}
                 >
                   <Icon name="capslock" size={16} />
-                  <span>Caps Lock is on</span>
+                  <span>Caps Lock is on.</span>
                 </motion.p>
               )}
             </AnimatePresence>
