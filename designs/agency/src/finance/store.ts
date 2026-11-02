@@ -11,7 +11,11 @@ import { getState as workState } from '../work/store';
 import { STAFF, label } from '../data/staff';
 import { withDatasetTerms, datasetFinanceApps, withInstitution } from './fromDataset';
 import { settingsOf } from './defaults';
-import { onDbChange } from '../institution/data/store';
+import { onDbChange, getDb } from '../institution/data/store';
+import { registerSource } from '../work/sources';
+import { compute } from './engine';
+import { UNI_TERMS } from '../data/dataset';
+import { agreementOf } from '../institution/data/records';
 import { adminCfg, onAdminChange } from '../admin/data/store';
 import { onLiveChange } from '../data/live';
 
@@ -85,6 +89,34 @@ export function getState() {
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 onLiveChange(joinEnrolled);
 joinEnrolled();
+/*
+ * What the task rules read from Finance (work/recordRules.ts: T39, T45 to T49, T60): the commission lines as the
+ * engine prices them today, the changes waiting for a checker, the payout runs, the currencies the terms use, and the
+ * live universities under an executed agreement that have no terms yet. Worked out once per change.
+ */
+let commCache = { key: null, val: null };
+registerSource('commission', () => {
+  const key = [state, adminTick, getDb()];
+  if (commCache.key && commCache.key.every((k, i) => k === key[i])) return commCache.val;
+  const c = state.comm;
+  const res = compute(c.cfg, c.apps, c.today);
+  const db = getDb();
+  const termed = new Set(c.cfg.unis.map((u) => u.id));
+  const missingTerms = db.unis.filter((u) => u.status === 'Live' && !termed.has(UNI_TERMS[u.id] ?? u.id)).map((u) => {
+    const p = db.ips.find((x) => x.id === u.ip);
+    const a = p && p.status === 'Agreement executed' ? agreementOf(p) : null;
+    return a ? { id: u.id, name: u.name, since: Date.parse(`${a.start}T10:00:00+05:30`) } : null;
+  }).filter(Boolean);
+  const val = {
+    checks: (c.checks || []).map((k) => ({ ...k, title: k.title || k.what || k.id })),
+    lines: res.ip.map((x) => ({ uniId: x.u?.id, uniName: x.u?.name, date: x.l.date, st: x.l.st })),
+    exc: res.exc, runs: c.runs || [], currencies: [...new Set(c.cfg.unis.map((u) => u.cur).filter(Boolean))], missingTerms,
+    since: Date.parse(`${c.today}T10:00:00+05:30`),
+  };
+  commCache = { key, val };
+  return val;
+});
+
 /** Admin's rates reach Finance as soon as they're saved. */
 function takeAdminFx() {
   if (!state) return;

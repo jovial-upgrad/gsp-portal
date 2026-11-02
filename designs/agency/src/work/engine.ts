@@ -100,7 +100,9 @@ export function liveApps(live) {
     const st = studs.find((x) => x.id === a.studentId);
     // an application with no sales region yet is routed by Admin's rules (slice 1's Application routing)
     const routed = a.region ? null : routeApplication({ rp: a.rp, nationality: st?.nationality ?? 'India', livesIn: st?.country ?? 'India', dest: destOf(a) });
-    return { ...a, ...(routed ? { region: routed.region, routed } : {}), student: st ? `${st.first} ${st.last}` : a.studentId };
+    // T61: routing found no rule (the fallback, rule 6, or nothing at all): Admin is asked to add one
+    const how = routed ? { ...routed, fallback: !routed.rule || /Nothing above matched/.test(routed.why || ''), nationality: st?.nationality ?? '', livesIn: st?.country ?? '' } : null;
+    return { ...a, ...(how ? { region: how.region, routed: how } : {}), student: st ? `${st.first} ${st.last}` : a.studentId };
   });
   cache = { key: live, apps };
   return apps;
@@ -173,5 +175,5 @@ export function appTasks(s, live, now = clockNow()) {
 /** The application record My work and Mail show, from the live application. */
 export function appRecord(a) {
   const c = courseOf(a);
-  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region, agency: a.rp || TEST_AGENCY.name, uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, since: a.since, closed: !isOpen(a), needs: openRequests(a).map((n) => ({ title: n.title, at: n.request?.at, due: n.due })) };
+  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region, agency: a.rp || TEST_AGENCY.name, uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, has: STATUS[a.status]?.owner, since: a.since, closed: !isOpen(a), needs: openRequests(a).map((n) => ({ title: n.title, at: n.request?.at, due: n.due })) };
 }

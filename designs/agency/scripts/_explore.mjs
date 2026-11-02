@@ -1,0 +1,25 @@
+import { build } from 'esbuild';
+import path from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+const root = process.cwd();
+const mem = {};
+globalThis.localStorage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+globalThis.__glob = () => ({});
+globalThis.window = { addEventListener() {}, removeEventListener() {}, setTimeout, clearTimeout, location: { search: '', hash: '' } };
+globalThis.document = { addEventListener() {}, removeEventListener() {} };
+const out = await build({ stdin: { contents: "import './src/finance/store.ts'; export * as W from './src/work/store.ts';", resolveDir: root, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', write: false, logLevel: 'error', jsx: 'automatic', resolveExtensions: ['.ts', '.tsx', '.js', '.json'], define: { 'import.meta.glob': 'globalThis.__glob', 'import.meta.env.MODE': '"test"' }, loader: { '.webp': 'empty', '.png': 'empty', '.jpg': 'empty', '.svg': 'empty', '.css': 'empty' } });
+const dir = path.join(root, 'node_modules', '.cache'); mkdirSync(dir, { recursive: true });
+const f = path.join(dir, 'explore.mjs'); writeFileSync(f, out.outputFiles[0].text);
+const { W } = await import(pathToFileURL(f).href);
+await new Promise((r) => setTimeout(r, 50));
+const s = W.getState();
+const by = {};
+for (const t of s.tasks) by[t.rule] = (by[t.rule] || 0) + 1;
+console.log(s.tasks.length, JSON.stringify(by));
+for (const r of Object.keys(by)) { const t = s.tasks.find((x) => x.rule === r); console.log(r, '|', t.title, '|', t.queue, '|', t.assignee); }
+W.simulateJobFailure('J3', 3);
+W.simulateBounces('u-ramish-jafery');
+await new Promise((r) => setTimeout(r, 50));
+const s2 = W.getState();
+console.log('after sim', s2.tasks.filter((t) => ['T65', 'T66'].includes(t.rule)).map((t) => [t.rule, t.title, t.assignee]));

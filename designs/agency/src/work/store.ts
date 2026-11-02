@@ -13,12 +13,17 @@ import * as mail from './mail';
 import { liveAll, liveFlags, onLiveChange } from '../data/live';
 import { onLeave, subscribeLeave } from '../data/leave';
 import { adminCfg, onAdminChange, setAdminCfg } from '../admin/data/store';
-import { liveApps, appRecord, appTasks, addWorkingHours, workingHoursBetween, DAY_HOURS, pickOfficer, timeHours } from './engine';
+import { liveApps, appRecord, appTasks, addWorkingHours, workingHoursBetween, DAY_HOURS, pickOfficer, timeHours, afterFrom } from './engine';
 import { regionQueueId, recruitmentQueueId, sameRole } from './seed';
 import { now, subscribeClock, istDate, istTime, istYmd } from './clock';
 import { WORK_KEY } from './renewal';
 import { getDb as rpDb, onDbChange } from '../institution/data/store';
 import { rpTasks, rpRecord, ipTasks, uniRecord, nationalityTasks } from './rpRules';
+import { recordTasks } from './recordRules';
+import { emailLog } from './emailLog';
+import { ruleLive } from './engine';
+import { readSource } from './sources';
+import { runTimes } from './jobs';
 import { sampleStudents } from '../data/students';
 
 const KEY = WORK_KEY; // v6: the slice 4 PRD's queues, rules and kinds (2 Nov)
@@ -36,18 +41,14 @@ function fresh() {
   const st = {
     users: seed.USERS,
     queues: seed.QUEUES, kinds: seed.KINDS, rules: seed.RULES, escalation: seed.ESCALATION,
-    records: [...seed.RECORDS, ...mail.MAIL_RECORDS], tasks: [...mail.MAIL_TASKS, ...seed.TASKS],
+    // nothing seeded (Jovial, 2 Nov: nothing hard-coded): every task comes from a rule (engine.ts, rpRules.ts,
+    // recordRules.ts); `tasks` holds none until the build's Mail makes some, and `records` only what an action adds
+    records: [], tasks: [],
     persona: null, log: [], closed: {}, overrides: {}, officers: {}, frozen: {}, pauses: {}, gave: [],
+    // testing aids (the Prototype panel): job runs made to fail, emails made to bounce
+    jobs: { fail: {} }, bounces: {},
     mail: { threads: mail.THREADS, filed: mail.FILED, mailboxes: mail.MAILBOXES, filters: mail.FILTERS, intents: mail.INTENTS, settings: mail.MAIL_SETTINGS },
   };
-  // no task is ever unassigned (S4-2): each seeded task is shared out by its rule's or queue's way, in order
-  const base = { ...st, regions: seed.regionsNow(), roles: gspRoles(), calendars: getCalendars(), users: usersNow(st) };
-  const done = [];
-  for (const t of st.tasks) {
-    if (!t.assignee) t.assignee = shareTo(base, t, st.records.find((r) => r.id === t.record) || {}, done);
-    t.slaHours = t.slaHours ?? hoursFor(base, t);
-    done.push(t);
-  }
   return st;
 }
 
@@ -125,6 +126,8 @@ function hoursFor(s, t) {
 let state;
 try { state = JSON.parse(localStorage.getItem(KEY)) || null; } catch { state = null; }
 if (!state || !state.mail || !state.mail.threads || !state.rules?.[0]?.group) state = fresh();
+state.jobs = state.jobs || { fail: {} };
+state.bounces = state.bounces || {};
 for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses', 'appQueue']) state[k] = state[k] || {};
 state.gave = state.gave || [];
 const listeners = new Set();
@@ -141,7 +144,6 @@ export const opsQueueOf = (qid) => (!qid ? ADMIN_Q : qid.startsWith('q-adm-') ? 
  * officer picked, a task's SLA hours, a pause starting or ending, a new task's assignee) are kept here the first time
  * they're seen, so they don't drift.
  */
-const SEED_RECS = Object.fromEntries(seed.RECORDS.filter((r) => r.type === 'Application').map((r) => [r.id, r]));
 let view = null, vkey = [];
 let pending = new Map();
 let flushing = false;
@@ -171,7 +173,18 @@ function derive() {
   if (view && vkey[0] === state && vkey[1] === live && vkey[2] === fl && vkey[3] === leaveSnap && vkey[4] === minute && vkey[5] === cals && vkey[6] === adminTick && vkey[7] === rdb) return view;
   const t0 = now();
   const apps = liveApps(live);
-  const recs = apps.map((a) => ({ ...SEED_RECS[a.id], ...appRecord(a), ...(SEED_RECS[a.id]?.waitingOn && SEED_RECS[a.id].status === appRecord(a).status ? {} : { waitingOn: undefined }) }));
+  // Waiting on others, from Who has it (slice 4 PRD, proposal): an open request is On RP (its title and due date); a
+  // university status is On university, due when the rule that chases it would start
+  const recs = apps.map((a) => {
+    const r = appRecord(a);
+    if (r.closed) return r;
+    const need = r.needs.find((n) => n.at);
+    if (need) return { ...r, waitingOn: 'RP', waitingFor: need.title, due: need.due ?? undefined };
+    if (r.has !== 'uni') return r;
+    const timer = seed.STATUS_SLA.find((x) => x.status === r.status) || seed.STATUS_SLA.find((x) => r.status.startsWith(x.status));
+    const rule = timer && state.rules.find((y) => y.row === timer.row);
+    return { ...r, waitingOn: 'University', waitingFor: r.status, due: rule?.after ? afterFrom(calendarOf(r.region || 'Global'), r.since, rule.after) : undefined };
+  });
   const appIds = new Set(recs.map((r) => r.id));
   const closedApp = new Set(recs.filter((r) => r.closed).map((r) => r.id));
   // one source each: the sales regions (Admin), the roles (Admin › Permission roles), the calendars (Working days)
@@ -218,7 +231,22 @@ function derive() {
   };
   const officerNote = (a) => { const o = state.officers[a.id]; return o?.why === 'left' && o.from === (a.officer || null) ? 'Their officer has left GSP: the leader has it' : null; };
 
-  const auto = [...appTasks(base, live, t0), ...rpTasks(base, rdb.rps, t0), ...ipTasks(base, rdb.ips, rdb.unis, t0), ...nationalityTasks(base, (studsCache ??= sampleStudents('')), t0)].map((t) => ({ ...t, ...(state.overrides?.[t.id] || {}) }));
+  // the record rules (recordRules.ts): RPs, partners, universities, courses, mail, commission, Admin's settings and jobs
+  let cfgNow = null;
+  try { cfgNow = adminCfg(); } catch { cfgNow = null; }
+  const rr = cfgNow ? recordTasks(base, {
+    s: base, rdb, apps, now: t0, cfg: cfgNow, cals, threads: state.mail.threads, filed: state.mail.filed || [], mailCfg: state.mail.settings,
+    comm: readSource('commission'), jobs: state.jobs, bounces: state.bounces,
+    studentOf: (id) => recs.find((r) => r.id === id)?.student ?? id,
+    queueOfApp: (id) => regionQueueId(apps.find((a) => a.id === id)?.region || 'Direct', base.queues),
+    officerOfApp: (id) => { const a = apps.find((y) => y.id === id); return a ? base.officerOf(a) : null; },
+  }, t0) : { tasks: [], records: [] };
+  for (const r of rr.records) {
+    const had = base.records.find((y) => y.id === r.id);
+    if (had) Object.assign(had, Object.fromEntries(Object.entries(r).filter(([k, v]) => v != null && had[k] == null)));
+    else base.records.push(r);
+  }
+  const auto = [...appTasks(base, live, t0), ...rpTasks(base, rdb.rps, t0), ...ipTasks(base, rdb.ips, rdb.unis, t0), ...nationalityTasks(base, (studsCache ??= sampleStudents('')), t0), ...rr.tasks].map((t) => ({ ...t, ...(state.overrides?.[t.id] || {}) }));
   const manual = state.tasks.map((t) => (t.status === 'open' && closedApp.has(t.record) ? { ...t, status: 'done', doneAt: t0, doneBy: null, outcome: 'Closed with the application' } : t));
   const list = [];
   for (const t0x of [...manual, ...auto]) {
@@ -271,6 +299,21 @@ function derive() {
       : { level: 1, to: t.queue, text: `${q?.leader ? nameOfIn(base, q.leader) : 'The leader'} (leader) told` };
     return { ...t, esc };
   });
+  // T66 (S4-28): an address that bounced 3 times in 7 days, from the email log the work makes (work/emailLog.ts)
+  const t66 = base.rules.find((r) => r.row === 'T66');
+  if (t66 && Object.keys(state.bounces || {}).length) {
+    const sent = emailLog({ ...base, tasks }, t0);
+    for (const [who, b] of Object.entries(state.bounces)) {
+      const n = sent.filter((m) => m.toId === who && m.result === 'Bounced' && m.at > t0 - 7 * 864e5).sort((a, b2) => a.at - b2.at);
+      if (n.length < 3 || !ruleLive(t66, n[2].at)) continue;
+      const id = `R-set-users-${who}-T66-${b.email}`;
+      if (state.closed?.[id]) continue;
+      const lead = (base.queues.find((q) => q.id === t66.queue) || {}).leader;
+      const recId = `set-users-${who}`;
+      if (!base.records.some((r) => r.id === recId)) base.records.push({ id: recId, type: 'Setting', label: 'GSP users', page: 'users' });
+      tasks.push({ id, rule: 'T66', row: 'T66', kind: t66.kind, record: recId, queue: t66.queue, assignee: (state.overrides?.[id] || {}).assignee || lead, created: n[2].at, status: 'open', auto: true, title: t66.task.replace('<person>', nameOfIn(base, who)).replace('<n>', String(n.length)), slaHours: state.frozen?.[id] ?? timeHours(t66.sla), closes: t66.closes });
+    }
+  }
   // the six statuses' usual times, from the rules that time them (S4-12): data/applications.ts reads these
   const statusSla = seed.STATUS_SLA.map((x) => { const r = base.rules.find((y) => y.row === x.row); return { ...x, days: r ? timeHours(r.after) || timeHours(r.sla) : 0 }; });
   view = { ...base, tasks, statusSla };
@@ -380,6 +423,23 @@ export function raiseRpTask(row, rp, at = now()) {
     d.tasks.push({ id, rule: row, kind: r.kind, record: rp.id, queue, assignee: null, created: at, status: 'open', title, slaHours: timeHours(r.sla) });
   }, `Task ${row}: ${title}`, 'task.created');
   return id;
+}
+
+/* ---------- testing aids (the Prototype bar on Emails and daily jobs): external events, not product actions ---------- */
+/** Make a job's latest `n` runs fail (as an outage would): T65 and Admin Home's warning follow from the runs. */
+export function simulateJobFailure(job, n = 1) {
+  const runs = runTimes(job, now(), n);
+  update((d) => { d.jobs = d.jobs || { fail: {} }; d.jobs.fail[job] = [...new Set([...(d.jobs.fail[job] || []), ...runs])]; }, `Prototype: ${job}'s last ${n === 1 ? 'run' : `${n} runs`} made to fail`, 'prototype.job_failed');
+}
+/** Mark a person's address as bouncing from 7 days ago (as SES would report): their emails since then bounce. */
+export function simulateBounces(userId) {
+  const u = getState().users.find((x) => x.id === userId);
+  if (!u) return;
+  update((d) => { d.bounces = { ...(d.bounces || {}), [userId]: { email: u.email, from: now() - 7 * 864e5 } }; }, `Prototype: emails to ${u.name} bounce`, 'prototype.email_bounced');
+}
+/** Clear every simulated failure and bounce. */
+export function clearSimulations() {
+  update((d) => { d.jobs = { fail: {} }; d.bounces = {}; }, 'Prototype: simulated failures and bounces cleared', 'prototype.cleared');
 }
 
 /* ---------- lookups ---------- */

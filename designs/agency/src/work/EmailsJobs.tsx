@@ -6,7 +6,8 @@
  * an email off is slice 1's Profile › Email preferences, which reads EMAIL_TEMPLATES.
  */
 import React, { useMemo, useState } from 'react';
-import { useStore, recordById, nameOf, slaOf } from './store';
+import { useStore, simulateJobFailure, simulateBounces, clearSimulations } from './store';
+import { jobRuns, JOB_NAME, JOB_RULES_OF } from './jobs';
 import { Page, Card, Tabs, Table, Pill, LinkButton, Sheet, Notice } from '../finance/kit';
 import { PersonaBar } from './persona';
 import { EMAIL_TEMPLATES, EMAIL_RULES, EMAIL_FOOTER, EMAIL_PLACEHOLDERS, JOBS, JOB_RULES } from './mail';
@@ -16,6 +17,7 @@ import { Pick } from './ui';
 import { getDb } from '../institution/data/store';
 import { agreementEmails, fill } from '../institution/data/agreements';
 import { agreementReminders } from './rpRules';
+import { emailLog } from './emailLog';
 
 const DAY = 864e5;
 /** The next time a job runs, IST. */
@@ -30,52 +32,45 @@ function nextRun(j, t = now()) {
   }
   return null;
 }
-const sesId = (s) => '0100' + Math.abs([...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(16).padStart(8, '0') + '-ses';
+/** Which templates each job sends, for a run's "emails sent". */
+const JOB_SENDS = { J3: ['E20'], J4: ['E13', 'E17', 'E21', 'E22'], J6: ['E19'], J7: ['E18'], J9: ['E14'], J2: ['E11'] };
+/** The latest runs of every job, newest first: what each found, made and sent since the run before. */
+function runLog(s, sent) {
+  const t = now();
+  const rows = [];
+  for (const j of JOBS) {
+    const runs = jobRuns(j.id, t, s.jobs, j.every.minutes ? 4 : 3);
+    runs.forEach((r, i) => {
+      const prev = runs[i + 1]?.at ?? r.at - (j.every.minutes ? j.every.minutes * 60000 : DAY);
+      const rules = JOB_RULES_OF[j.id] || [];
+      const changed = r.error ? 0 : s.tasks.filter((k) => rules.includes(k.rule) && k.created > prev && k.created <= r.at).length;
+      const mails = r.error ? 0 : sent.filter((m) => (JOB_SENDS[j.id] || []).includes(m.tpl) && m.at > prev && m.at <= r.at).length;
+      const checked = j.id === 'J4' ? s.tasks.filter((k) => k.status === 'open' && k.created <= r.at).length : rules.length ? s.records.length : s.records.filter((x) => x.type === (j.id === 'J7' || j.id === 'J2' ? 'RP' : 'Application')).length;
+      rows.push({ ...r, checked, changed, sent: mails });
+    });
+  }
+  return rows.sort((a, b) => b.at - a.at).slice(0, 40);
+}
 
 /**
- * The emails the portal would have sent by now, from the work as it stands (the prototype sends none: this is what
- * the build's email log shows). E15 per open request, E17 at each RP reminder time, E18 each RP's daily update,
- * E19 each GSP person's morning email, E20 per renewal task (T38), E21 per level 3 escalation.
+ * Prototype only (testing aids, not the product): simulate the external events the Admin task rules wait for, a
+ * daily job that fails (T65, and Admin Home's warning after 3 failed runs) and an address that bounces (T66).
  */
-function sentNow(s) {
-  const t = now();
-  const out = [];
-  const tpl = (id) => EMAIL_TEMPLATES.find((x) => x.id === id);
-  for (const r of s.records.filter((x) => x.type === 'Application' && !x.closed)) {
-    for (const n of r.needs || []) if (n.at) out.push({ tpl: 'E15', to: `${r.agency} (counsellor, Branch Admin, RP Admins)`, record: r.id, at: n.at, subject: `GSP needs ${n.title} for ${r.student}` });
-  }
-  for (const k of s.tasks.filter((x) => x.status === 'open')) {
-    const rec = recordById(s, k.record) || {};
-    if (k.reminded) out.push({ tpl: 'E17', to: rec.agency || 'The RP', record: rec.id, at: k.reminded, subject: `Reminder: ${k.title.replace(/^Chase the RP: /, '')}` });
-    if (k.rule === 'T38') out.push({ tpl: 'E20', to: nameOf(s, rec.owner || k.assignee), record: rec.id, at: k.created, subject: `The agreement with ${String(rec.label).split(' (')[0]} ends soon` });
-    if (k.esc?.level === 3) for (const u of s.users.filter((x) => x.role === 'admin')) out.push({ tpl: 'E21', to: u.name, record: rec.id, at: slaOf(s, k).due + 5 * DAY, subject: `Late by 5 working days: ${k.title}` });
-  }
-  // E8, E9, E10: each RP agreement step, from the RPs' agreement versions (data/agreements.ts)
-  for (const rp of getDb().rps) for (const m of agreementEmails(rp)) out.push({ tpl: m.tpl, to: `${rp.name} (business email, RP Admins)`, record: rp.id, at: m.at, subject: fill(tpl(m.tpl)?.subject ?? '', m.values) });
-  // E22: T69's agreement reminders (L-5), at the rule's RP reminder times
-  for (const rp of getDb().rps) for (const m of agreementReminders(rp, s.rules, t)) out.push({ tpl: 'E22', to: `${rp.name} (RP Admins)`, record: rp.id, at: m.at, subject: fill(tpl('E22')?.subject ?? '', { agency: rp.name, version: m.version }) });
-  // E18: each agency's daily update at 09:00 IST, when something happened in the 24 hours before
-  const today9 = istAt(istYmd(t), '09:00');
-  const last9 = t >= today9 ? today9 : today9 - DAY;
-  const byRp = new Map();
-  for (const r of s.records.filter((x) => x.type === 'Application' && x.since > last9 - DAY && x.since <= last9)) byRp.set(r.agency, (byRp.get(r.agency) || 0) + 1);
-  for (const [rp, n] of byRp) out.push({ tpl: 'E18', to: rp, record: null, at: last9, subject: `${n} update${n === 1 ? '' : 's'} on your applications` });
-  // E19: 08:30 IST on their working days, to each GSP person with something due today, tomorrow or late
-  const cal = calendarOf('Global');
-  const digest = s.escalation?.digestTime || '08:30';
-  let day = t; for (let k = 0; k < 7 && (!isWorkingDay(cal, day) || istAt(istYmd(day), digest) > t); k++) day -= DAY;
-  const sendAt = istAt(istYmd(day), digest);
-  const per = new Map();
-  for (const k of s.tasks.filter((x) => x.status === 'open' && x.created <= sendAt)) {
-    const st = slaOf(s, k);
-    const late = st.due < sendAt, soon = st.due - sendAt < 2 * DAY;
-    if (!late && !soon) continue;
-    const p = per.get(k.assignee) || { due: 0, late: 0 };
-    if (late) p.late += 1; else p.due += 1;
-    per.set(k.assignee, p);
-  }
-  for (const [id, p] of per) out.push({ tpl: 'E19', to: nameOf(s, id), record: null, at: sendAt, subject: `Your work today: ${p.due} due, ${p.late} late` });
-  return out.filter((x) => x.at <= t).sort((a, b) => b.at - a.at).map((x) => ({ ...x, name: tpl(x.tpl)?.name, id: sesId(`${x.tpl}${x.to}${x.at}${x.record}`) }));
+function SimBar({ s }) {
+  const [job, setJob] = useState('J3');
+  const [who, setWho] = useState('');
+  const people = s.users.filter((u) => u.email && s.roles.some((r) => r.id === u.role && r.side === 'GSP'));
+  return (
+    <div className="gspx-persona" role="group" aria-label="Prototype: simulate">
+      <span className="gspx-persona__k">Prototype: simulate</span>
+      <Pick id="sim-job" label="Job" hideLabel value={job} onChange={setJob} options={JOBS.map((j) => [j.id, `${j.id} ${j.name}`])} />
+      <LinkButton onClick={() => simulateJobFailure(job, 1)}>Fail its last run</LinkButton>
+      <LinkButton onClick={() => simulateJobFailure(job, 3)}>Fail its last 3 runs</LinkButton>
+      <Pick id="sim-who" label="Person" hideLabel value={who} placeholder="Pick a person" onChange={setWho} options={people.map((u) => [u.id, u.name])} />
+      <LinkButton disabled={!who} onClick={() => who && simulateBounces(who)}>Their emails bounce</LinkButton>
+      {(Object.keys(s.jobs?.fail || {}).length > 0 || Object.keys(s.bounces || {}).length > 0) && <LinkButton onClick={clearSimulations}>Clear</LinkButton>}
+    </div>
+  );
 }
 
 export default function EmailsJobs() {
@@ -83,7 +78,7 @@ export default function EmailsJobs() {
   const [tab, setTab] = useState('emails');
   const [show, setShow] = useState(null);
   const [tplF, setTplF] = useState('');
-  const sent = useMemo(() => sentNow(s), [s]);
+  const sent = useMemo(() => emailLog(s, now()), [s]);
   const list = tplF ? sent.filter((x) => x.tpl === tplF) : sent;
   return (
     <Page cfg title="Emails and daily jobs" top={<PersonaBar />}
@@ -121,7 +116,7 @@ export default function EmailsJobs() {
           <Table head={['When (IST)', 'Template', 'To', 'Record', 'Subject', 'SES message ID', 'Result']} className="cfg__tab">
             {list.slice(0, 80).map((x) => (
               <tr key={x.id + x.at}>
-                <td className="num">{istStamp(x.at)}</td><td>{x.tpl} {x.name}</td><td>{x.to}</td><td>{x.record || '—'}</td><td>{x.subject}</td><td className="num">{x.id}</td><td><Pill tone="dpill--verified">Delivered</Pill></td>
+                <td className="num">{istStamp(x.at)}</td><td>{x.tpl} {x.name}</td><td>{x.to}</td><td>{x.record || '—'}</td><td>{x.subject}</td><td className="num">{x.id}</td><td><Pill tone={x.result === "Bounced" ? "dpill--bad" : "dpill--verified"}>{x.result}</Pill></td>
               </tr>
             ))}
           </Table>
@@ -129,18 +124,35 @@ export default function EmailsJobs() {
       )}
       {tab === 'jobs' && (
         <>
-          <Notice>The daily jobs run at 01:00 IST and “today” means today’s date in IST (S4-9, S4-27). Jobs that reach a person (the morning email, the RP’s daily update) run every 30 minutes and pick the people whose send time, in IST, has just been reached. The prototype has no jobs: it works every timer out again each minute while a page is open (and when the Prototype clock on My work moves on).</Notice>
+          <Notice>The daily jobs run at 01:00 IST and “today” means today’s date in IST (S4-9, S4-27). Jobs that reach a person (the morning email, the RP’s daily update) run every 30 minutes and pick the people whose send time, in IST, has just been reached. In the prototype they run on its clock (My work › Prototype clock moves it on): each run below is worked out from the work as it was then.</Notice>
           <Card flush>
-            <Table head={['#', 'Job', 'Runs (IST)', 'What it checks', 'What it changes', 'Writes', 'Next run']} className="cfg__tab">
-              {JOBS.map((j) => (
-                <tr key={j.id}>
-                  <td className="cfg__strong">{j.id}<span className="cfg__sub">Slice {j.slice}</span></td>
-                  <td>{j.name}</td><td>{j.runs}</td><td>{j.checks}</td><td>{j.changes}</td><td>{j.writes}</td>
-                  <td className="num">{nextRun(j) ? istStamp(nextRun(j)) : '—'}</td>
+            <Table head={['#', 'Job', 'Runs (IST)', 'What it checks', 'What it changes', 'Writes', 'Last run', 'Next run']} className="cfg__tab">
+              {JOBS.map((j) => {
+                const last = jobRuns(j.id, now(), s.jobs, 1)[0];
+                return (
+                  <tr key={j.id}>
+                    <td className="cfg__strong">{j.id}<span className="cfg__sub">Slice {j.slice}</span></td>
+                    <td>{j.name}</td><td>{j.runs}</td><td>{j.checks}</td><td>{j.changes}</td><td>{j.writes}</td>
+                    <td className="num">{last ? <>{istStamp(last.at)}<span className="cfg__sub">{last.error ? <Pill tone="dpill--bad">Failed</Pill> : <Pill tone="dpill--verified">Done</Pill>}</span></> : '—'}</td>
+                    <td className="num">{nextRun(j) ? istStamp(nextRun(j)) : '—'}</td>
+                  </tr>
+                );
+              })}
+            </Table>
+          </Card>
+          <Card flush>
+            <div className="gspx-pad"><h2 className="gspx-h3">Runs (the log line each run writes)</h2></div>
+            <Table head={['Job', 'Start (IST)', 'End (IST)', 'Records checked', 'Records changed', 'Emails sent', 'Result']} className="cfg__tab">
+              {runLog(s, sent).map((r) => (
+                <tr key={r.job + r.at}>
+                  <td className="cfg__strong">{r.job} {JOB_NAME[r.job]}</td><td className="num">{istStamp(r.at)}</td><td className="num">{istStamp(r.end)}</td>
+                  <td className="num">{r.checked}</td><td className="num">{r.changed}</td><td className="num">{r.sent}</td>
+                  <td>{r.error ? <><Pill tone="dpill--bad">Failed</Pill><span className="cfg__sub">{r.error}</span></> : <Pill tone="dpill--verified">Done</Pill>}</td>
                 </tr>
               ))}
             </Table>
           </Card>
+          <SimBar s={s} />
           <Card flush>
             <Table head={['Rule for every job', '']} className="cfg__tab">
               {JOB_RULES.map(([k, v]) => <tr key={k}><td className="cfg__strong">{k}</td><td>{v}</td></tr>)}

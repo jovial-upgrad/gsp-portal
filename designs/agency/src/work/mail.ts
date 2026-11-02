@@ -216,11 +216,7 @@ export const FILED = [
   { id: 'F-9', filter: 'f-marketing', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18), outcome: 'Newsletter. Sent to Global Admissions.' },
 ];
 
-/* Conversations no record was found for raise a task in the Unmatched mail queue. */
-export const MAIL_RECORDS = THREADS.filter((t) => !t.record && t.state === 'match').map((t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}` }));
-export const MAIL_TASKS = THREADS.filter((t) => !t.record && t.state === 'match').map((t, i) => ({
-  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-adm-global', rule: 'T27', title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
-}));
+/* Conversations no record was found for raise a task (T26, T27, T28): work/recordRules.ts works them out. */
 
 /* ---------- the portal's emails (slice 4 PRD, Emails) ---------- */
 /**

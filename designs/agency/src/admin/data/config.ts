@@ -419,12 +419,15 @@ const CUR_NAME: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound
 /** Course search's old rupee rates, for the currencies Finance's weekly table didn't have (CAD, EUR). */
 const SEED_INR: Record<string, number> = { CAD: 62, EUR: 95 };
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
-/** Finance's weekly table from its sheet, with CAD and EUR added, carried a month past today (each new week a copy of the last). */
+/**
+ * Finance's weekly table from its sheet, with CAD and EUR added, carried up to this week (each week a copy of the
+ * last, as the saved weeks would be). Nothing is saved for next week: Admin enters it, and on Friday T50 asks if not.
+ */
 export const sampleFxWeeks = (): FxWeek[] => {
   const rows = (COMM.cfg.settings.fx as FxWeek[]).map((w) => ({ ...w, AUD: 1, ...Object.fromEntries(Object.entries(SEED_INR).map(([c, inr]) => [c, Math.round(inr * Number(w.INR) * 10000) / 10000])) }));
-  const end = isoDay(Date.now() + 28 * DAY);
+  const today = isoDay(Date.now());
   let last = rows[rows.length - 1];
-  while (last.week < end) {
+  while (isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) <= today) {
     last = { ...last, week: isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) };
     rows.push(last);
   }
@@ -654,39 +657,8 @@ export const sampleFilters = (): FilterSet[] => [
 ];
 
 /* ---------- logs (PRD slice 1, Audit: change log and download log) ---------- */
-const at = (daysAgo: number, h: number, m: number) => {
-  // IST clock times on a day `daysAgo` before today
-  const ist = new Date(Date.now() + 5.5 * 3_600_000 - daysAgo * DAY);
-  return Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), h, m) - 5.5 * 3_600_000;
-};
-const J = (id: string, d: number, h: number, m: number, job: string, mins: number, checked: number, changed: number, sent: number, error = ''): LogEntry => ({
-  id, at: at(d, h, m), who: 'System', area: 'Daily jobs', text: job, kind: 'job', end: at(d, h, m) + mins * 60_000, checked, changed, sent, error: error || undefined,
-});
-const E = (id: string, d: number, h: number, m: number, template: string, to: string, record: string, ok = true): LogEntry => ({
-  id, at: at(d, h, m), who: 'System', area: 'Emails', text: template, kind: 'email', to, record, ses: `0109019a${id.replace(/\D/g, '').padStart(4, '0')}-6c1f-4e2b-9d0a-${(9_000_000_000 + Number(id.replace(/\D/g, '')) * 7919).toString(16)}`, delivered: ok,
-});
-export const sampleLog = (): LogEntry[] => [
-  { id: 'l1', at: Date.now() - 3 * 3_600_000, who: N('jovial.lejo'), area: 'Recruitment assignment', text: `India · Kerala: Recruitment ${N('saikat.bhowmik')} → ${N('mayank.kansal')}`, kind: 'change', role: 'Admin' },
-  { id: 'l2', at: at(1, 12, 41), who: N('ramish.jafery'), area: 'Applications', text: 'Applications list', kind: 'download', role: 'Admission', filters: 'India · Status: With university', size: '312 rows', format: 'CSV' },
-  { id: 'l3', at: at(1, 11, 2), who: N('saurabh.chaudhary'), area: 'Course search', text: 'Course shortlist', kind: 'download', role: 'Recruitment', filters: 'Australia · Master’s · Data science', size: '8 rows', format: 'CSV' },
-  { id: 'l4', at: at(2, 18, 20), who: N('lav.likhi'), area: 'Commissions', text: 'RP ledger', kind: 'download', role: 'Finance', filters: 'Oct 2026', size: '1,204 rows', format: 'CSV' },
-  { id: 'l5', at: at(2, 15, 5), who: N('jovial.lejo'), area: 'Application routing', text: 'Rule order: “Student in Australia, applying to Australia” 3 → 4', kind: 'change', role: 'Admin' },
-  { id: 'l6', at: at(2, 10, 15), who: N('lalaine.dizon'), area: 'Universities', text: 'Universities', kind: 'download', role: 'Institution', filters: 'Country: Australia', size: '86 rows', format: 'CSV' },
-  { id: 'l7', at: at(3, 16, 40), who: N('kamrun.nahar'), area: 'Students', text: 'Students', kind: 'download', role: 'Admission', filters: 'Bangladesh · Added in October', size: '214 rows', format: 'CSV' },
-  { id: 'l8', at: at(4, 9, 55), who: N('suman1.verma'), area: 'Commissions', text: 'University ledger', kind: 'download', role: 'Finance', filters: 'Status: Payment overdue', size: '37 rows', format: 'CSV' },
-  { id: 'l9', at: at(6, 14, 30), who: N('garima.bhardwaj'), area: 'Recruitment partners', text: 'Recruitment partners', kind: 'download', role: 'RP Ops', filters: 'Status: Verification pending', size: '52 rows', format: 'CSV' },
-  { id: 'l10', at: at(9, 17, 10), who: N('myleeta.williams'), area: 'Applications', text: 'Applications list', kind: 'download', role: 'View Only', filters: 'None', size: '41,805 rows', format: 'CSV' },
-  { id: 'l11', at: at(6, 11, 20), who: N('jovial.lejo'), area: 'Create roles', text: `Created ${N('riya1.shah')}: Recruitment, India; login email sent`, kind: 'change', role: 'Admin' },
-  { id: 'l12', at: at(9, 10, 5), who: N('jovial.lejo'), area: 'Create roles', text: `Deactivated ${N('dzung.hoang')}`, kind: 'change', role: 'Admin' },
-  // slice 4's daily jobs (J1 to J9, from 01:00 IST) and the emails sent: sample rows until the work service writes them
-  J('j1', 0, 1, 0, 'J1 Agreement ended', 2, 214, 1, 3),
-  J('j2', 0, 1, 5, 'J2 Intake closed', 1, 1862, 12, 0),
-  J('j3', 0, 1, 10, 'J3 SLA reminders', 4, 3406, 41, 38),
-  J('j8', 0, 1, 30, 'J8 Next week’s exchange rates', 1, 11, 0, 0),
-  J('j9', 1, 1, 35, 'J9 Daily RP update', 7, 640, 0, 412, 'Bounced: 2 (ops@educonnect-sample.in, admin@pathfinder-sample.lk)'),
-  E('m1', 0, 9, 12, 'Set up your account', 'prakriti.nanda@upgrad.com', 'User u-prakriti-nanda'),
-  E('m2', 0, 10, 2, 'Your code', 'r••••@upgrad.com', 'Password reset'),
-  E('m3', 1, 16, 44, 'Password changed', 'k••••@upgrad.com', 'Password reset'),
-  E('m4', 2, 13, 30, 'Sign-in paused', 's••••@upgrad.com', 'Sign-in'),
-  E('m5', 9, 10, 0, 'Set up your account', 'khushal.doriya@upgrad.com', 'User u-khushal-doriya', false),
-];
+/**
+ * The log starts empty (Jovial, 2 Nov: nothing hard-coded): Change history entries are written by saves, download
+ * entries by exports (data/downloads.ts), and the daily jobs' runs are worked out on Work › Emails and daily jobs.
+ */
+export const sampleLog = (): LogEntry[] => [];

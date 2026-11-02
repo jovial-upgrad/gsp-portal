@@ -436,6 +436,12 @@ export type RecruitmentPartner = {
   before?: RpStatus;
   /** T58 "Train <RP> on the portal" marked done by RP Ops (S4-22). */
   trained?: { at: number; by: string };
+  /** W23 (slice 4): the Recruitment contact logged the first call with the new RP. */
+  firstCall?: { at: number; by: string };
+  /** T36 (slice 4): Recruitment asked RP Ops for a suspension, termination or tier change. */
+  lifecycleRequest?: { at: number; by: string; what: string; state: 'open' | 'approved' | 'rejected' };
+  /** T35 (slice 4): the RP sent new bank details; Finance checks them (payouts held). */
+  bankChange?: { at: number; by: string; state: 'open' | 'approved' | 'rejected' };
   /** Branches GSP added from the RP's record (Recruitment, RP Ops, Admin; matrix RP branches and team). */
   branches?: { id: string; name: string; country: string; state: string; city: string; main?: boolean; bdm?: string }[];
 };

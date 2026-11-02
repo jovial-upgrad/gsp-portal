@@ -1,4 +1,5 @@
 import { RpCommission } from '../../components/CommissionSummary';
+import { fmtDate } from '../../data/format';
 import { byRegion, getScope, isIsolated } from '../../data/scope';
 import { regionOfCountry } from '../../data/regions';
 import { useMemo, useState } from 'react';
@@ -342,6 +343,18 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                     <span key="b" className="irowacts">
                       {r.bdm || <span className="muted">Not set</span>}
                       {editProfile && <BdmPick r={r} me={me} say={say} />}
+                    </span>,
+                  ],
+                  // W23 (slice 4): the Recruitment contact's first call with a new RP; logging it closes the task
+                  [
+                    'First call',
+                    <span key="fc" className="irowacts">
+                      {r.firstCall ? `${fmtDate(r.firstCall.at)} · ${r.firstCall.by}` : <span className="muted">Not logged yet</span>}
+                      {editProfile && !r.firstCall && (
+                        <button type="button" className="btn btn--link" onClick={() => (editRp(r.id, (x) => ({ ...x, firstCall: { at: Date.now(), by: me } }), 'First call logged', me), say('First call logged.'))}>
+                          Log the first call
+                        </button>
+                      )}
                     </span>,
                   ],
                   ['Admissions contact', r.admissions],
