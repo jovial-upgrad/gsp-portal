@@ -6,6 +6,27 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 3 Nov, overnight alignment with the PRDs (Jovial's brief)
+
+The four engineering-ready PRDs (slices 1 to 4) and the *Final questions S1-S3* proposals, built on branch `overnight-align`, prototype only (README "Overnight alignment with the PRDs").
+
+### Everywhere
+- [x] **Nothing hard-coded:** no seeded task, record, log line or future exchange rate; every task from a rule (`work/recordRules.ts`); option lists moved to data modules; `npm run test:derived` and `npm run scan:hardcoded`. (3 Nov, commits “Every task from a rule…” and “Tests: test:derived…”)
+- [x] Dates, times and greetings in IST (NFR-1); a record outside the person's regions opens as Not found (BR-19); region-isolation copy says only Admin sees every region. (3 Nov, commits “Copy: …” and “Commission tab from the matrix…”)
+
+### GSP · Admin
+- [x] Routing tags "Recruitment contact:", Recruitment assignment's Last changed names who saved, Admin Home's job row opens Work › Emails and daily jobs; RP and branch regions from the regions' Countries (S1F-2); deactivating revokes the login link. (3 Nov, commits “Copy: …” and “S1F-2: …”)
+- [x] Daily jobs run on the prototype clock, with their runs log and Prototype: simulate (job failure, bounces). (3 Nov, commit “Every task from a rule…”)
+
+### Application page
+- [x] From a shared mailbox, subject "<GSP ID> · <university reference>" (S3F-1); one reference rule; Offer, Accept by, Deposit hidden while empty (S3F-2); no "Keep it" on a flagged upload (BR-50); Commission tab from the matrix (X-1). (3 Nov, commits “Clarity check…”, “Slice 3: …”, “Commission tab from the matrix…”)
+
+### Find courses
+- [x] GSP people start with no Student's country (S3F-3); destinations from live universities (S3F-4). (3 Nov, commit “Slice 3: …”)
+
+### Recruitment partners
+- [x] "Recruitment contact saved." and "Recruitment contact:" on the closed-account page; Log the first call closes W23. (3 Nov)
+
 ## 2 Nov, lock answers: slices 1 and 2 (Jovial)
 
 Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet, rows L-5, S1C-1 to S1C-14 and S2C-1 to S2C-19 ("aligned with proposed" builds the proposal). Built on branch `lock-s1s2`, prototype only (README "Lock answers, slices 1 and 2"). Slice 3's rows are built on `lock-s3`.
