@@ -185,7 +185,7 @@ export function ProfileSection({
             </div>
             <div>
               <dt>Role</dt>
-              <dd>{team?.team.find((m) => m.id === 'me')?.role ?? acc.role}</dd>
+              <dd>{acc.role ?? team?.team.find((m) => m.id === 'me')?.role ?? 'RP Admin'}</dd>
             </div>
           </dl>
           <Button variant="secondary" size="sm" iconLeft={<Icon name="logout" size={16} />} onClick={onSignOut}>

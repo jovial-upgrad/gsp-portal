@@ -6,6 +6,7 @@ import { Field, TextInput } from '../../components/forms';
 import { audit } from '../data/changelog';
 import { PageHead, Pill, Section } from './parts';
 import type { CourseTag, Db, SetDb } from '../data/store';
+import { canEditObject } from '../../admin/data/menus';
 
 /**
  * GSP · Admin › Course tags (slice 2 PRD, S2-16): Admin owns the list of tags partners see on courses in course
@@ -21,11 +22,13 @@ export function CourseTags({ db, set, me, say, role = 'Admin' }: { db: Db; set: 
   const taken = (n: string, self?: string) => db.tags.some((t) => t.id !== self && t.name.toLowerCase() === n.trim().toLowerCase());
   const err = !name.trim() ? 'Enter the tag name.' : taken(name) ? 'This tag is already on the list.' : null;
   const renameErr = !to.trim() ? 'Enter the tag name.' : taken(to, renaming?.id) ? 'This tag is already on the list.' : null;
+  // the matrix's Settings row (admin/data/menus.ts): View Only and other View roles see the list without actions
+  const may = canEditObject(role, 'Settings');
   const uses = (t: CourseTag) => db.courses.filter((c) => c.tags.includes(t.name)).length;
   return (
     <div className="ipage">
       <PageHead title="Course tags" lead="The tags the Institution team picks for each course by hand. Partners see them on the course in course search, and they’re quick filters there." />
-      <Section title="Add a tag" id="ctag-add">
+      {may && <Section title="Add a tag" id="ctag-add">
         <div className="ipicker__row">
           <Field id="ctag-name" label="Tag name" required error={tried ? err : null}>
             <TextInput id="ctag-name" value={name} maxLength={60} invalid={tried && !!err} onChange={(e) => setName(e.target.value)} />
@@ -45,7 +48,7 @@ export function CourseTags({ db, set, me, say, role = 'Admin' }: { db: Db; set: 
             Add tag
           </Button>
         </div>
-      </Section>
+      </Section>}
       <Section title="Tags" id="ctag-list">
         <div className="stab-wrap">
           <table className="itab">
@@ -90,7 +93,7 @@ export function CourseTags({ db, set, me, say, role = 'Admin' }: { db: Db; set: 
                   <td className="num">{uses(t)}</td>
                   <td>{t.retired ? <Pill tone="grey">Retired</Pill> : <Pill tone="ok">In use</Pill>}</td>
                   <td>
-                    <span className="irowacts">
+                    {may && <span className="irowacts">
                       {!t.retired && renaming?.id !== t.id && (
                         <button type="button" className="btn btn--link" onClick={() => (setRenaming(t), setTo(t.name))}>
                           Rename<span className="vh"> {t.name}</span>
@@ -113,7 +116,7 @@ export function CourseTags({ db, set, me, say, role = 'Admin' }: { db: Db; set: 
                           Retire<span className="vh"> {t.name}</span>
                         </button>
                       )}
-                    </span>
+                    </span>}
                   </td>
                 </tr>
               ))}

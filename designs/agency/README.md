@@ -492,6 +492,18 @@ The agency is "You" in the tags (product rule: plain words, no internal labels);
 
 **Not yet:** the student's own view, bulk actions (assign, chase), Earnings, and the GSP side that creates document requests.
 
+## Slices 1 to 4 merged (2 Nov)
+
+The four slice branches (prd-s1, prd-s2, prd-s4, prd-s3) are one prototype on `prd-merge`; each slice's gap list stays in `prd-gaps/S<n>.md`. Where they overlapped there is now one source:
+
+- **Names:** only slice 1's: the roles Global Ops, RP Ops, IP Ops (no old-name aliases left) and the regions Indonesia Malaysia & Thailand, Latin America & Europe.
+- **Permissions:** one helper, `canEditObject` / `canSeeObject` / `canEditNow` in `src/admin/data/menus.ts`, on Admin › Permission roles. Slice 2's `canEdit` / `canSee`, Finance and Work's `can()` and the shared Students and Applications pages read it, so **GSP · View Only** sees no Add, Edit, status or row actions in slices 1 to 4 (Course tags, Grade conversion and English test equivalence included). Roles with View on Students or Applications (Recruitment, RP Ops, Institution, IP Ops, Finance) no longer see Add student or Add application, as the matrix says.
+- **Emails:** `EMAIL_TEMPLATES` in `src/work/mail.ts` (E1 to E21, with `canTurnOff` and `who`: GSP, RP or Both) is the only list: GSP Profile › Email preferences and the RP's Profile › Email preferences both read it; E1 to E4 use slice 1's wording (`src/admin/data/emails.ts`).
+- **Working calendar:** a sales region's calendar is one setting: its `calendarId` and the calendar's list of regions, set from either Sales regions or Work › Working days.
+- **Work:** slice 4's engine with slice 1's Global Admissions (`q-adm-global`), no quality check, and the personas Rhea Menon (Global Ops), Kabir Sethi (IP Ops), Anaya Iyer (View Only), Anita Desai (Branch Admin) and Karthik Nair (Counsellor). The User roles › Queues editor is gone.
+- **Course search:** Search priority reads `searchPriority` only; the Tags filter lists Admin's active tags that at least one course has. Samples: courses tagged English test waiver and MOI acceptable ("May be waived"), and two US master's courses in credits (Pace, 36; South Florida, 30).
+- **Saved data:** `gsp-admin-v7`, `gsp-work-v7`, `gsp-work-calendars-v2`, so older saved settings don't load.
+
 ## Design decisions: GSP Team
 
 The **GSP Team** role (Role, beside Prototype) is GSP's own team. It starts as a copy of the agency portal in `src/gsp/`, sharing the data, components and styles, and changes there don't touch RP Admin. So far (27 Oct):

@@ -1,3 +1,4 @@
+import { canEditNow } from '../../admin/data/menus';
 import { routeApplication } from '../../data/regions';
 import { PriorityChip } from '../../components/PriorityChip';
 import { useEffect, useState } from 'react';
@@ -167,9 +168,11 @@ export function AppList({
           <Button variant="secondary" iconLeft={<Icon name="download" size={16} />} onClick={exportCsv} disabled={!rows.length}>
             Download
           </Button>
-          <Button iconLeft={<Icon name="plus" size={18} />} onClick={onAdd}>
-            Add application
-          </Button>
+          {canEditNow('Applications') && (
+            <Button iconLeft={<Icon name="plus" size={18} />} onClick={onAdd}>
+              Add application
+            </Button>
+          )}
         </div>
       </header>
 

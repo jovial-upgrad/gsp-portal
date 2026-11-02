@@ -19,7 +19,7 @@ const valuesOf = (g: GradingSystem) =>
  * score and the course's minimum in percentages. Seeded with 9 systems. Admin adds, edits, retires and restores them;
  * every save is logged. A retired system leaves the picker on the student record; entries already on it keep it (S3C-18).
  */
-export function GradeConversion({ cfg, change, say }: ConfigProps) {
+export function GradeConversion({ cfg, change, say, canEdit }: ConfigProps) {
   const list = gradesOf(cfg);
   const [form, setForm] = useState<GradingSystem | null>(null);
   const save = (g: GradingSystem) => {
@@ -35,9 +35,11 @@ export function GradeConversion({ cfg, change, say }: ConfigProps) {
   return (
     <>
       <PageHead title="Grade conversion" lead="How each grading system converts to a percentage. The eligibility check compares a student’s score with a course’s minimum in percentages; a score that meets only after conversion counts as plain Meets.">
-        <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setForm({ id: `gs-${Date.now().toString(36)}`, name: '', usedIn: '', by: 'Multiplier', mult: undefined, bands: [], status: 'Active' })}>
-          Add a grading system
-        </Button>
+        {canEdit && (
+          <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setForm({ id: `gs-${Date.now().toString(36)}`, name: '', usedIn: '', by: 'Multiplier', mult: undefined, bands: [], status: 'Active' })}>
+            Add a grading system
+          </Button>
+        )}
       </PageHead>
       <Panel flush>
         <div className="stab-wrap">
@@ -63,6 +65,7 @@ export function GradeConversion({ cfg, change, say }: ConfigProps) {
                   <td className="num">{valuesOf(g)}</td>
                   <td>{g.status}</td>
                   <td className="cfg__acts">
+                    {canEdit && (<>
                     <Button size="sm" variant="ghost" onClick={() => setForm(g)} aria-label={`Edit ${g.name}`}>
                       Edit
                     </Button>
@@ -75,6 +78,7 @@ export function GradeConversion({ cfg, change, say }: ConfigProps) {
                         Restore
                       </Button>
                     )}
+                    </>)}
                   </td>
                 </tr>
               ))}
@@ -213,7 +217,7 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
  * Edit, then Cancel or Save; + Add a row, Remove. Every cell required and within its test's range and steps; scores
  * go up row by row in every column; at least 2 rows. Logged.
  */
-export function EnglishEquivalence({ cfg, change, say }: ConfigProps) {
+export function EnglishEquivalence({ cfg, change, say, canEdit }: ConfigProps) {
   const saved = equivOf(cfg);
   const d = useDraft<EquivRow[]>(saved, 'the English test equivalence');
   const [typed, setTyped] = useState<Record<string, string>>({});
@@ -249,7 +253,7 @@ export function EnglishEquivalence({ cfg, change, say }: ConfigProps) {
         flush
         title="Equivalent scores"
         note="Find the score in its test’s column, take the row at or below it, and read across. Each section uses the same rows; TOEFL iBT sections are ×4 first."
-        action={<EditBar name="English test equivalence" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (v.reset(), setTyped({}), d.stop())} onSave={save} />}
+        action={canEdit && <EditBar name="English test equivalence" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (v.reset(), setTyped({}), d.stop())} onSave={save} />}
       >
         <div className="stab-wrap">
           <table className="itab cfg__tab">

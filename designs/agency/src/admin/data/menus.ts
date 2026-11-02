@@ -4,6 +4,7 @@
  * the same matrix for their edit actions, finance/access.ts). Each item is a line of Admin's matrix.
  */
 import { adminCfg } from './store';
+import { PERM_ROLE, currentRole } from '../../proto/roles';
 
 /** The permission object each menu item opens. Items not here (Home, Profile, How Finance works) are always there. */
 const OBJECT_OF: Record<string, string> = {
@@ -61,6 +62,8 @@ export function levelFor(permRole: string | null | undefined, object: string): '
  */
 export const canEditObject = (permRole: string | null | undefined, object: string) => levelFor(permRole, object) === 'E';
 export const canSeeObject = (permRole: string | null | undefined, object: string) => levelFor(permRole, object) !== 'N';
+/** The same for whoever the prototype shows now (shared pages that don't get a role passed in). RP roles: always Edit. */
+export const canEditNow = (object: string) => canEditObject(PERM_ROLE[currentRole()], object);
 /** Whether a role's menu shows this item. */
 export const canOpen = (permRole: string | null | undefined, key: string) => !OBJECT_OF[key] || levelFor(permRole, OBJECT_OF[key]) !== 'N';
 /** Whether the role can change what this item opens. */

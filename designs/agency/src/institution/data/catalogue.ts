@@ -366,7 +366,8 @@ const MOI = new Set([...firstAt('flinders'), ...firstAt('canberra', 2)]);
 const OWN_TEST = new Set(firstAt('birmingham', 2));
 const NO_INTERVIEW = new Set([...firstAt('abertay', 2), ...firstAt('usf')]);
 /** Credit-based samples: US courses counted in credits ("36 credits"). */
-const CREDITS = new Map<Course, number>([...firstAt('pace').map((c) => [c, 36] as const), ...firstAt('usf').map((c) => [c, 30] as const)]);
+const mastersAt = (uni: string) => COURSES.filter((c) => c.uni.id === uni && c.level === 'Master’s degree').slice(0, 1);
+const CREDITS = new Map<Course, number>([...mastersAt('pace').map((c) => [c, 36] as const), ...mastersAt('usf').map((c) => [c, 30] as const)]);
 function tagsOf(c: Course): string[] {
   // sample tags; none from offer time, the English test waiting, placement or post-study work (Jovial, 1 Nov, HC2)
   const t: string[] = [];
@@ -401,10 +402,11 @@ function datesFor(month: string, deadline: string, uniId: string): IntakeDates {
   return { deposit: plusDays(deadline, 30), accept: '', start, census: plusDays(start, 28) };
 }
 
+const draft = (i: number) => i % 89 !== 29 && i % 400 === 13;
 export function sampleCourseRecs(): CourseRec[] {
   return COURSES.map((c, i) => ({
     ...c,
-    status: i % 89 === 29 ? 'Hidden' : i % 400 === 13 ? 'Draft' : 'Live',
+    status: i % 89 === 29 ? 'Hidden' : draft(i) ? 'Draft' : 'Live',
     code: c.cricos ?? `${c.uni.id.slice(0, 3).toUpperCase()}-${(4000 + i * 7).toString().slice(-4)}`,
     durUnit: CREDITS.has(c) ? 'Credits' : 'Months',
     durValue: CREDITS.get(c) ?? c.months,
@@ -427,7 +429,8 @@ export function sampleCourseRecs(): CourseRec[] {
     minEducation: i % 17 === 5 ? undefined : c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : c.level === 'Foundation' ? 'Grade 12' : 'Grade 12',
     feeYear: 2027,
     log: [],
-    created: { by: IN('catherine.wilson'), at: atIso('2025-06-01') },
+    // a draft was added recently (Institution Home's "Finish draft courses" counts from it); the rest in June 2025
+    created: { by: IN('catherine.wilson'), at: draft(i) ? atIso(inDays(-(2 + (i % 9)))) : atIso('2025-06-01') },
     // the 2027 fees Catherine Wilson entered for Flinders
     stamps: c.uni.id === 'flinders' ? { fees: { by: IN('catherine.wilson'), at: inDays(-8) } } : {},
   }));

@@ -1,3 +1,4 @@
+import { canEditNow } from '../../admin/data/menus';
 import { studentRegion } from '../../data/regions';
 import { RegionBar } from '../../components/RegionBar';
 import { useScope } from '../../data/scope';
@@ -233,7 +234,7 @@ export function Students({
           <h1 className="page__title">Students</h1>
           <p className="stu__lead">Every RP’s students, with their profiles and applications.</p>
         </div>
-        {list.length > 0 && (
+        {list.length > 0 && canEditNow('Students') && (
           <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdd({ key: Date.now() })}>
             Add student
           </Button>

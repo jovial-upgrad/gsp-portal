@@ -1,3 +1,4 @@
+import { canEditNow } from '../../admin/data/menus';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -123,7 +124,7 @@ export function StudentRecord({
   onFindCourses,
   onCounsellor: _onCounsellor,
   onOpenApp,
-  onNewApp,
+  onNewApp: onNewAppIn,
   say,
 }: {
   s: Student;
@@ -154,6 +155,9 @@ export function StudentRecord({
   }, [linkCopied]);
   const panel = useRef<HTMLDivElement>(null);
   // sections open for editing, and their unsaved drafts (kept while switching tabs, until Save or Cancel)
+  // a role with View on the matrix's Students row (View Only) sees the record without any action (merge, 2 Nov)
+  const ro = !canEditNow('Students');
+  const onNewApp = ro ? undefined : onNewAppIn;
   const [editing, setEditing] = useState<Partial<Record<Editable, boolean>>>({});
   const [drafts, setDrafts] = useState<Partial<Record<Editable, Student>>>({});
   useEffect(() => {
@@ -200,7 +204,7 @@ export function StudentRecord({
     document.getElementById(`rsub-${tabs[to][0]}`)?.focus();
   };
   const sec = isEditable(tab) ? tab : null;
-  const mode = sec ? (editing[sec] || !hasData(sec, s) ? 'edit' : 'view') : null;
+  const mode = sec ? (!ro && (editing[sec] || !hasData(sec, s)) ? 'edit' : 'view') : null;
   const shown = (sec && drafts[sec]) || s;
   const draftUpdate: Update = (fn) => sec && setDrafts((d) => ({ ...d, [sec]: fn(d[sec] ?? s) }));
   const sectionUpdate: Update = mode === 'edit' ? draftUpdate : () => undefined;
@@ -485,8 +489,8 @@ export function StudentRecord({
                       {LABEL[sec]}
                     </h3>
                     <div className="rpanel__acts">
-                      {adder(sec)}
-                      {mode === 'view' && (
+                      {!ro && adder(sec)}
+                      {mode === 'view' && !ro && (
                         <Button data-edit variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => startEdit(sec)}>
                           Edit<span className="vh"> {LABEL[sec].toLowerCase()}</span>
                         </Button>
@@ -513,7 +517,9 @@ export function StudentRecord({
                   </fieldset>
                   </RevealErrors.Provider>
                 ) : tab === 'documents' ? (
-                  <Documents s={s} update={save} />
+                  <fieldset disabled={ro} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+                    <Documents s={s} update={save} />
+                  </fieldset>
                 ) : tab === 'shortlist' ? (
                   <Shortlisted s={s} list={shortlist} onFindCourses={onFindCourses} onNewApp={onNewApp} onRemove={(id) => save((p) => ({ ...p, shortlist: (p.shortlist ?? []).filter((x) => x !== id) }))} />
                 ) : (

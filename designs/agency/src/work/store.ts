@@ -57,7 +57,8 @@ function syncAdminQueues() {
     const want = state.queues.map((q) => ({ id: q.id, name: q.name, lead: q.leader || '', members: [...(q.members || [])] }));
     if (JSON.stringify(c.queues) === JSON.stringify(want)) return;
     const nameOf = (id) => c.queues.find((q) => q.id === id)?.name;
-    const regionQueue = Object.fromEntries(Object.entries(c.regionQueue || {}).map(([r, id]) => [r, want.find((q) => q.id === id)?.id ?? want.find((q) => q.name === nameOf(id))?.id ?? 'q-adm-global']));
+    // a region's queue may be stored by id or (slice 1's Sales regions) by name: either finds it
+    const regionQueue = Object.fromEntries(Object.entries(c.regionQueue || {}).map(([r, v]) => [r, want.find((q) => q.id === v)?.id ?? want.find((q) => q.name === v)?.id ?? want.find((q) => q.name === nameOf(v))?.id ?? 'q-adm-global']));
     setAdminCfg((x) => ({ ...x, queues: want, regionQueue }));
   } catch { /* Admin's settings not loaded */ }
 }
