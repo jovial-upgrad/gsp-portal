@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { SelectMenu } from '../../components/SelectMenu';
+import { Pager } from '../courses/ResultParts';
+import { appliedAt } from '../../gsp/applications/AppDetail';
+import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { DateInput, SelectInput } from '../../components/forms';
+import { SelectInput } from '../../components/forms';
 
 const isIso = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
-import { FLAG } from '../../data/courses';
+
 import { fullName, type Member, type Student } from '../../data/students';
 import { shortDate } from '../../data/dates';
 import {
@@ -100,24 +103,24 @@ export function AppList({
     // what's pending from the agency first, then the rest by the latest change
     .sort((a, b) => Number(needsYou(b)) - Number(needsYou(a)) || Number(isOpen(b)) - Number(isOpen(a)) || b.since - a.since);
   const advanced = (st.stage ? 1 : 0) + (st.from || st.to ? 1 : 0);
+  // 25 a page, numbered (S3C-14); any change of filter goes back to page 1
+  const PER = 25;
+  const [page, setPage] = useState(1);
+  const sig = JSON.stringify(st);
+  useEffect(() => setPage(1), [sig]);
   const filtered = !!(ql || st.dest || st.who || st.intake || st.progress || advanced);
   const narrowed = filtered || !!st.owner;
   const clear = () => set((p) => ({ ...p, q: '', dest: '', who: '', intake: '', progress: '', stage: '', from: '', to: '' }));
-  const dests = [...new Set(apps.map(destOf))].sort();
   const intakes = [...new Set(apps.map((a) => a.intake))];
-  // the advanced filters open when one is set, and stay where the agency left them
-  const [advOpen, setAdvOpen] = useState(advanced > 0);
-  const badRange = !!(isIso(st.from) && isIso(st.to) && st.from > st.to);
-  const badDate = (st.from.length >= 10 && !isIso(st.from)) || (st.to.length >= 10 && !isIso(st.to));
 
   // the table as it stands (its filters and order) as a CSV file, one row per application, the same columns
   const exportCsv = () => {
-    const head = ['Application', 'Applied', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Who has it', 'Status'];
+    const head = ['Application', 'Applied', 'Student', 'Course', 'University', 'Intake', 'Counsellor', 'Stage', 'Who has it', 'Status'];
     const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = rows.map((a) => {
       const c = courseOf(a);
       const s = stu(a);
-      return [a.id, isoDay(a.created), s ? fullName(s) : '', c.name, c.uni.name, a.intake, destOf(a), counsellorOf(a)?.name ?? '', STAGES[stageOf(a)], OWNER_WORD[ownerOf(a)], statusText(a)]
+      return [a.id, isoDay(appliedAt(a)), s ? fullName(s) : '', c.name, c.uni.name, a.intake, counsellorOf(a)?.name ?? '', `${STAGES[stageOf(a)]} ${stageOf(a) + 1}/8`, OWNER_WORD[ownerOf(a)], statusText(a)]
         .map(cell)
         .join(',');
     });
@@ -179,27 +182,13 @@ export function AppList({
 
       <section className="card stable atable" aria-labelledby="atable-count">
         <div className="stools">
-          {/* the primary filters: how far each application has got */}
-          <div className="amiles" role="group" aria-label="How far it has got">
-            {PROGRESS.map(([k, label, hint, test]) => (
-              <button key={k} type="button" className="amile" title={hint} aria-pressed={st.progress === k} onClick={() => set((p) => ({ ...p, progress: p.progress === k ? '' : k }))}>
-                {label} <span className="num">{apps.filter(test).length}</span>
-              </button>
-            ))}
-          </div>
+          {/* slice 3 PRD, Applications list (RP): filters counsellor, stage, intake; no others */}
           <div className="stools__row atools__row">
             <label className="ssearch">
               <Icon name="search" size={18} />
               <span className="vh">Search applications</span>
               <input id="ap-q" type="search" placeholder="Student, passport, ID or course" value={st.q} onChange={(e) => set((p) => ({ ...p, q: e.target.value }))} />
             </label>
-            <SelectInput id="ap-dest" aria-label="Destination" value={st.dest} placeholder="All destinations" allowEmpty onChange={(e) => set((p) => ({ ...p, dest: e.target.value }))}>
-              {dests.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </SelectInput>
             <SelectInput id="ap-who" aria-label="Counsellor" value={st.who} placeholder="All counsellors" allowEmpty onChange={(e) => set((p) => ({ ...p, who: e.target.value }))}>
               {team.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -214,63 +203,10 @@ export function AppList({
                 </option>
               ))}
             </SelectInput>
-            <button type="button" className={`aadv__toggle ${advanced ? 'is-set' : ''}`} aria-expanded={advOpen} aria-controls="ap-adv" onClick={() => setAdvOpen((o) => !o)}>
-              <Icon name="sliders" size={18} />
-              Advanced filters
-              {advanced > 0 && <span className="aadv__n num">{advanced}</span>}
-              <Icon name="chevronDown" size={16} className="aadv__chev" />
-            </button>
+            <span className="astage-pick">
+              <SelectMenu id="ap-stage" label="Stage" value={st.stage} placeholder="All stages" options={[{ value: '', label: 'All stages' }, ...STAGES.map((x, i) => ({ value: String(i), label: `${i + 1}. ${x}` }))]} onChange={(v) => set((p) => ({ ...p, stage: v }))} />
+            </span>
           </div>
-          {/* the advanced filters: a stage, and a date range for when the applications started */}
-          <AnimatePresence initial={false}>
-            {advOpen && (
-              <motion.div
-                id="ap-adv"
-                className="aadv"
-                role="group"
-                aria-label="Advanced filters"
-                initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                animate={reduce ? { opacity: 1 } : { opacity: 1, height: 'auto' }}
-                exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                transition={{ duration: 0.22, ease }}
-              >
-                <div className="aadv__in">
-                  <label className="aadv__field" htmlFor="ap-stage">
-                    <span className="aadv__label">Stage</span>
-                    <SelectInput id="ap-stage" value={st.stage} placeholder="Any stage" allowEmpty onChange={(e) => set((p) => ({ ...p, stage: e.target.value }))}>
-                      {STAGES.map((s, i) => (
-                        <option key={s} value={String(i)}>
-                          {i + 1}. {s}
-                        </option>
-                      ))}
-                    </SelectInput>
-                  </label>
-                  <div className="aadv__field aadv__dates" role="group" aria-labelledby="ap-dates-label" aria-describedby={badRange ? 'ap-dates-err' : undefined}>
-                    <span className="aadv__label" id="ap-dates-label">
-                      Applied between
-                    </span>
-                    <div className="aadv__range">
-                      <DateInput id="ap-from" aria-label="Start date" value={st.from} invalid={badRange || (st.from.length >= 10 && !isIso(st.from))} aria-describedby={badRange || badDate ? 'ap-dates-err' : undefined} onChange={(from) => set((p) => ({ ...p, from }))} />
-                      <span className="aadv__and" aria-hidden="true">
-                        and
-                      </span>
-                      <DateInput id="ap-to" aria-label="End date" value={st.to} invalid={badRange || (st.to.length >= 10 && !isIso(st.to))} aria-describedby={badRange || badDate ? 'ap-dates-err' : undefined} onChange={(to) => set((p) => ({ ...p, to }))} />
-                    </div>
-                    {(badRange || badDate) && (
-                      <p className="aadv__err" id="ap-dates-err" role="alert">
-                        {badDate ? 'Enter the dates as DD/MM/YYYY, like 05/11/2026.' : 'The end date has to be after the start date.'}
-                      </p>
-                    )}
-                  </div>
-                  {advanced > 0 && (
-                    <button type="button" className="btn btn--link aadv__clear" onClick={() => set((p) => ({ ...p, stage: '', from: '', to: '' }))}>
-                      Clear these
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
           <p className="stools__count" id="atable-count" role="status">
             <span>
               <span className="num">{narrowed ? `${rows.length} of ${apps.length}` : apps.length}</span> {apps.length === 1 ? 'application' : 'applications'}
@@ -287,8 +223,7 @@ export function AppList({
           <div className="snone">
             {filtered ? (
               <>
-                <p className="snone__title">No applications match</p>
-                <p className="snone__text">Try another name or ID, or clear the filters.</p>
+                <p className="snone__title">No applications match. Clear the search or filters.</p>
                 <Button variant="secondary" size="sm" onClick={clear}>
                   Clear filters
                 </Button>
@@ -305,7 +240,7 @@ export function AppList({
             <table className="atab" role="table" aria-label="Applications">
               <thead role="rowgroup">
                 <tr role="row">
-                  {['Application', 'Student', 'Course', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Status'].map((h) => (
+                  {['Application', 'Student', 'Course', 'Intake', 'Counsellor', 'Stage', 'Status'].map((h) => (
                     <th key={h} role="columnheader" scope="col">
                       {h}
                     </th>
@@ -313,7 +248,7 @@ export function AppList({
                 </tr>
               </thead>
               <tbody role="rowgroup">
-                {rows.map((a, i) => {
+                {rows.slice((page - 1) * PER, page * PER).map((a, i) => {
                   const s = stu(a);
                   const c = courseOf(a);
                   const o = ownerOf(a);
@@ -333,7 +268,7 @@ export function AppList({
                           {a.id}
                         </button>
                         <span className="arow__sub">
-                          {`Applied ${shortDate(new Date(a.created), true)}`}
+                          {a.status === 'docs' ? `Started ${shortDate(new Date(a.created), true)}` : `Applied ${shortDate(new Date(appliedAt(a)), true)}`}
                         </span>
                       </td>
                       <td role="cell" className="arow__stu">
@@ -347,12 +282,6 @@ export function AppList({
                       </td>
                       <td role="cell" className="arow__intake">
                         {a.intake}
-                      </td>
-                      <td role="cell" className="arow__dest">
-                        <span className="arow__flag" aria-hidden="true">
-                          {FLAG[c.uni.country]}
-                        </span>
-                        {c.uni.country}
                       </td>
                       <td role="cell" className="arow__who">
                         <span>{who ? who.id === 'me' ? <>{who.name.split(' ')[0]} <span className="muted">(you)</span></> : who.name : '—'}</span>
@@ -374,6 +303,7 @@ export function AppList({
                 })}
               </tbody>
             </table>
+            <Pager page={page} total={rows.length} onPage={setPage} per={PER} />
           </div>
         )}
       </section>

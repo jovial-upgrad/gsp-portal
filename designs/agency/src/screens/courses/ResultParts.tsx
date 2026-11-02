@@ -21,7 +21,7 @@ function pagesAround(page: number, pages: number): (number | '…')[] {
 }
 
 /** Previous, page numbers and Next under the results. */
-export function Pager({ page, total, onPage }: { page: number; total: number; onPage: (p: number) => void }) {
+export function Pager({ page, total, onPage, per: PER_PAGE = 20 }: { page: number; total: number; onPage: (p: number) => void; /** Rows a page: 20 for course results, 25 for the lists (S3C-14). */ per?: number }) {
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   if (pages < 2) return null;
   const from = (page - 1) * PER_PAGE + 1;
