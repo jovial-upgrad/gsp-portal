@@ -11,6 +11,7 @@
  * checking a document before GSP sees it, checking eligibility, forecasting dates and drafting messages.
  * They answer only from the application's own data, and they never change it.
  */
+import { CLARITY, isClear } from './clarity';
 import { finalFeeOf, flagsOf } from './live';
 import { closeReasons, endName, isWithdrawal, type EndKind } from './reasons';
 import { uniForms } from './courses';
@@ -583,7 +584,8 @@ export const kindOf = (text: string) => KINDS.find(([re]) => re.test(text))?.[1]
 export function readFile(file: string, want: string, s: Student): { ok: boolean; note: string } {
   const wanted = kindOf(want);
   const got = kindOf(file);
-  if (/blur|dark|photo_?\d|whatsapp/i.test(file)) return { ok: false, note: 'Part of the page is too blurred to read. A scan or a sharp photo of the whole page works best.' };
+  // BR-50: below the clarity pass mark the file isn't kept and is uploaded again (data/clarity.ts)
+  if (!isClear(file)) return { ok: false, note: CLARITY.unclear };
   if (wanted && got && wanted !== got) return { ok: false, note: `This looks like ${got}, not ${wanted}. Check you picked the right file.` };
   const name = fullName(s);
   if (wanted === 'a bank statement') return { ok: true, note: `Bank statement, State Bank of India: 6 months, May to October 2026. Name matches ${name}.` };
@@ -612,7 +614,7 @@ export type DocIssue = 'unclear' | 'wrong' | 'name';
 /** A document's name inside a sentence: "the statement of purpose", "the CV", "the English test score report". */
 export const named = (n: string) => (/^(English|IELTS|PTE|TOEFL|Duolingo)\b/.test(n) ? n : n.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase()));
 export function readDoc(file: string, d: Pick<AppDoc, 'name' | 'level'>, s: Student): { ok: boolean; note: string; issue?: DocIssue } {
-  if (/blur|dark|unclear|photo_?\d|whatsapp/i.test(file)) return { ok: false, issue: 'unclear', note: 'The attached document is not clear.' };
+  if (!isClear(file)) return { ok: false, issue: 'unclear', note: CLARITY.unclear };
   if (d.level) {
     const got = MARK_LEVEL.find(([re]) => re.test(file))?.[1];
     if (got && got !== d.level) return { ok: false, issue: 'wrong', note: `The document uploaded is not the ${d.name}.` };

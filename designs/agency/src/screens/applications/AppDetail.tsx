@@ -197,10 +197,7 @@ export function AppDetail({
     );
   };
   const onFile = (n: Need, f: File | null) => f && takeFile(n, f.name);
-  const keepAnyway = (n: Need) => {
-    if (n.request && n.file) return fulfil(n, n.file);
-    update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, check: 'ok', note: 'Kept as uploaded. GSP checks it next.' } : y)) }));
-  };
+  // BR-50: a flagged upload (not clear, the wrong document, another person's name) can't be kept: Replace it
   const removeFile = (n: Need) => update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, file: undefined, check: undefined, note: undefined } : y)) }));
   const confirmAction = (n: Need) => update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, check: 'ok', note: `Marked as done ${shortDate(new Date())}` } : y)) }));
 
@@ -315,7 +312,6 @@ export function AppDetail({
       met={needMet(n, s)}
       onFile={(f) => onFile(n, f)}
       onRemove={() => removeFile(n)}
-      onKeep={() => keepAnyway(n)}
       onAction={() => confirmAction(n)}
       onForm={() => setAnswering(n)}
     />
@@ -649,7 +645,6 @@ function NeedRow({
   met,
   onFile,
   onRemove,
-  onKeep,
   onAction,
   onForm,
 }: {
@@ -658,7 +653,6 @@ function NeedRow({
   met: boolean;
   onFile: (f: File | null) => void;
   onRemove: () => void;
-  onKeep: () => void;
   onAction: () => void;
   /** An offer's conditions: the form opens. */
   onForm: () => void;
@@ -724,11 +718,6 @@ function NeedRow({
           )
         ) : state === 'reading' ? null : n.file ? (
           <>
-            {state === 'flag' && (
-              <Button variant="ghost" size="sm" onClick={onKeep}>
-                Keep it
-              </Button>
-            )}
             <label className="btn btn--secondary btn--sm nrow__pick" htmlFor={id}>
               Replace
             </label>
