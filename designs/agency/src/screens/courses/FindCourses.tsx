@@ -436,16 +436,12 @@ export function FindCourses({
         agency={agency}
         onApply={() => open && onApply(open)}
         onPick={setOpen}
+        student={student}
       />
       <CompareSheet
         open={comparing}
         list={pickedCourses}
-        agent={!s.studentView}
-        canApply={canApply}
-        isShort={isShort}
-        onApply={onApply}
-        onShort={onStar}
-        shortOff={shortOff}
+        country={s.need.country}
         onClose={() => setComparing(false)}
         onRemove={(id) => {
           setPicked((l) => l.filter((x) => x !== id));
@@ -460,7 +456,7 @@ export function FindCourses({
       <DownloadSheet
         open={!!downloading}
         list={pickedCourses}
-        agent={!s.studentView}
+        country={s.need.country}
         compare={!!downloading?.compare}
         from={from ?? { org: agency, name: '', email: '' }}
         onClose={() => {

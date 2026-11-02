@@ -347,6 +347,11 @@ function tagsOf(c: Course): string[] {
   if (c.scholarship) t.push('Scholarship available');
   if (MAJOR.includes(c.campus.city)) t.push('Major city');
   if (c.campus.regional) t.push('Regional university (Australia)');
+  // slice 3 (S3-6): the two tags that make English "May be waived", and a few more for the Tags filter (sample)
+  if (c.uni.id === 'coventry' || c.uni.id === 'ulster' || c.uni.id === 'herts') t.push('MOI acceptable');
+  if (c.level === 'Foundation' || c.uni.id === 'cqu') t.push('English test waiver');
+  if (c.uni.group === 'Russell Group') t.push('Russell Group (UK)');
+  if (c.uni.sector !== 'Private' && !c.uni.college && (c.uni.country === 'Australia' || c.uni.country === 'UK')) t.push('Post-study work visa');
   return t;
 }
 const plusDays = (iso: string, n: number) => {

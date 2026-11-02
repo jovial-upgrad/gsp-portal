@@ -1,6 +1,8 @@
 import { Icon } from '../../components/Icon';
 import { SelectMenu } from '../../components/SelectMenu';
-import type { Course } from '../../data/courses';
+import { tagsOf, type Course } from '../../data/courses';
+import { fullName, type Student } from '../../data/students';
+import { eligibility, verdictTone, type Line } from '../../data/eligibility';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
 import { TEST_MIN, type AcademicRule, type EnglishRule } from '../../institution/data/catalogue';
 import { courseDocs, type CourseDoc } from '../../admin/data/store';
@@ -41,12 +43,13 @@ const englishFor = (rows: EnglishRule[], country: string) =>
  * every country when it has none of its own); **All countries** lays every row side by side. Backlogs are part of
  * the academic rule. Then the documents, from GSP · Admin's document rules.
  */
-export function EntryTab({ c, country, onCountry }: { c: Course; country: string; onCountry: (c: string) => void }) {
+export function EntryTab({ c, country, onCountry, student }: { c: Course; country: string; onCountry: (c: string) => void; student?: Student }) {
   const { academic, english } = rulesOf(c);
   const named = [...academic, ...english].flatMap((r) => r.countries);
-  const countries = [...new Set([...TOP_MARKETS, ...named])];
+  const countries = [...new Set([...TOP_MARKETS, ...named, ...(country !== ALL_COUNTRIES ? [country] : [])])];
   return (
     <div className="cm-stack">
+      <Verdicts c={c} student={student} />
       <div className="cm-cpick">
         <label htmlFor="cm-cpick" className="cm-cpick__k">
           Requirements for students from
@@ -122,8 +125,52 @@ function OneCountry({ c, country, academic, english }: { c: Course; country: str
           <p className="cnote">No English rule added for this course yet.</p>
         )}
         <Notes rows={english} />
+        <Waiver c={c} />
       </Box>
     </>
+  );
+}
+
+/** Waivers (S3-6): a course tagged "English test waiver" or "MOI acceptable" may waive the English test. */
+function Waiver({ c }: { c: Course }) {
+  const t = tagsOf(c).filter((x) => x === 'English test waiver' || x === 'MOI acceptable');
+  if (!t.length) return null;
+  return (
+    <p className="cnote">
+      <strong>May be waived:</strong> {c.uni.name} may waive the English test for this course ({t.join(', ')}).
+    </p>
+  );
+}
+
+/**
+ * The eligibility check for the student picked in the search (slice 3 PRD, Eligibility check): each part's verdict
+ * and why (highest education, academics, backlogs, English), then the overall verdict. It's a soft check: it never
+ * blocks applying. With no student picked, the rules show without verdicts.
+ */
+function Verdicts({ c, student }: { c: Course; student?: Student }) {
+  if (!student)
+    return (
+      <p className="cnote" role="status">
+        Select a student to check their eligibility.
+      </p>
+    );
+  const k = eligibility(student, c);
+  const pill = (l: Pick<Line, 'ok' | 'result'>) => <span className={`cs-verdict cs-verdict--${l.ok}`}>{l.result}</span>;
+  return (
+    <Box id="cs-elig" icon="checkCircle" title={`Eligibility check for ${fullName(student)}`} meta={pill({ ok: verdictTone(k.verdict), result: k.verdict })}>
+      <ul className="cs-checks">
+        {k.lines.map((l) => (
+          <li key={l.label + l.why} className="cs-check">
+            <span className="cs-check__k">{l.label}</span>
+            <span className="cs-check__line">
+              {pill(l)}
+              <span className="cs-check__why">{l.why}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="cnote">For students from {student.country || student.nationality}. A soft check: it never blocks applying.</p>
+    </Box>
   );
 }
 
