@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { destinations } from '../../data/reference';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Field, Switch } from '../../components/forms';
 import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
-import { DESTINATIONS, regionQueueName, route, type RouteRule } from '../data/config';
+import { regionQueueName, route, type RouteRule } from '../data/config';
 import { routingRps } from '../../data/regions';
 import { COUNTRIES } from '../../data/partners';
 import { nationalityWord } from '../data/nationalities';
@@ -102,7 +103,7 @@ export function Routing({ cfg, change, say, canEdit }: ConfigProps) {
                       <p className="cfg__sub">Matches when: {x.when}</p>
                       <p className="cfg__rulesets">
                         <span className="cfg__tag cfg__tag--soft">Region: {x.region}</span>
-                        <span className="cfg__tag cfg__tag--soft">BDM: {x.bdm}</span>
+                        <span className="cfg__tag cfg__tag--soft">Recruitment contact: {x.bdm}</span>
                       </p>
                     </div>
                     <div className="cfg__ruleacts">
@@ -149,7 +150,7 @@ export function Routing({ cfg, change, say, canEdit }: ConfigProps) {
                 <Pick id="rt-now" label="Where the student lives" value={t.now} placeholder="Pick a country" options={countries} invalid={!!testErr('now')} onChange={(now) => setT((x) => ({ ...x, now }))} />
               </Field>
               <Field id="rt-dest" label="Destination" required error={testErr('dest')}>
-                <Pick id="rt-dest" label="Destination" value={t.dest} placeholder="Pick a country" options={DESTINATIONS} invalid={!!testErr('dest')} onChange={(dest) => setT((x) => ({ ...x, dest }))} />
+                <Pick id="rt-dest" label="Destination" value={t.dest} placeholder="Pick a country" options={destinations().map((d) => ({ UK: 'United Kingdom', USA: 'United States' })[d] ?? d)} invalid={!!testErr('dest')} onChange={(dest) => setT((x) => ({ ...x, dest }))} />
               </Field>
             </div>
             {t.nationality && t.now && t.dest && r.hit ? (

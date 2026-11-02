@@ -112,6 +112,14 @@ export const NATIONALITY: Record<string, string> = liveRecord(() => live.cfg?.()
 /** Countries that make up each sales region, as Admin › Sales regions has them now (one map for every country list by region). */
 export const REGION_COUNTRIES: Record<string, string[]> = liveRecord(() => Object.fromEntries((live.cfg?.()?.regions ?? sampleRegions()).map((r) => [r.name, r.countries ?? []])));
 /** The sales region names, as Admin › Sales regions has them now. */
+/**
+ * Where a place is (S1F-2 proposal, 3 Nov): the sales region whose Countries list the country, else Rest of world.
+ * An RP's head office and each branch read this; only a student's nationality reads the Nationality map.
+ */
+export const placeRegion = (country: string): string => {
+  const c = ({ UK: 'United Kingdom', USA: 'United States' } as Record<string, string>)[country] ?? country;
+  return Object.entries(REGION_COUNTRIES).find(([, list]) => list.includes(c))?.[0] ?? 'Rest of world';
+};
 export const salesRegionNames = () => (live.cfg?.()?.regions ?? sampleRegions()).map((r) => r.name);
 /** The regions a queue or a routing can point to (not Global, which only GSP people cover). */
 export const workRegions = (rs: Region[]) => rs.filter((r) => r.name !== 'Global' && r.name !== 'Direct');
@@ -124,7 +132,9 @@ export type GspRole = (typeof GSP_ROLES)[number];
  * Login status (PRD slice 1, GSP users): Link sent (created; the login email's link works for 7 days), Active (has
  * signed in at least once), Deactivated (can't sign in; kept for history).
  */
-export type UserStatus = 'Link sent' | 'Active' | 'Deactivated';
+/** A GSP user's login status (slice 1). */
+export const USER_STATUSES = ['Link sent', 'Active', 'Deactivated'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
 /**
  * A GSP user (PRD slice 1). `id` is stable (never the email). `role` is '' only while a new user is being created.
  * No Area field (Jovial, S1C-3): every Recruitment user has just their sales regions; where someone is the default
@@ -152,6 +162,13 @@ const DAY = 86_400_000;
 export const LINK_DAYS = 7;
 /** A Link sent user's link has run out. */
 export const linkExpired = (u: Pick<User, 'status' | 'sentAt'>, now = Date.now()) => u.status === 'Link sent' && !!u.sentAt && now - u.sentAt > LINK_DAYS * DAY;
+/**
+ * Whether a Set up your account link opens the new-password step (S1C-5): only for a Link sent user whose link is the
+ * latest one sent and hasn't run out. Deactivating someone revokes their link at once (BR-9, NFR-4): it opens the
+ * expired step even after they're reactivated, since Reactivate sends a new link.
+ */
+export const linkWorks = (u: Pick<User, 'status' | 'sentAt'> | undefined, issuedAt?: number, now = Date.now()) =>
+  !!u && u.status === 'Link sent' && !!u.sentAt && (issuedAt == null || issuedAt === u.sentAt) && !linkExpired(u, now);
 /** A seeded day and hour, so the samples read the same every day of the review. */
 const daysAgo = (d: number, h = 10) => Date.now() - d * DAY - (h % 24) * 3_600_000;
 /** Seeded login states, to show each (the rest have signed in): new users waiting, one link about to run out, one run out, one deactivated. */
@@ -323,6 +340,26 @@ export const sampleEmails = (users: User[]): EmailGroup[] => {
   });
 };
 
+/**
+ * The shared mailboxes a person can send from (S3F-1 proposal; slice 1 AC-40): those where Admin gave them View and
+ * send. The Admissions mailbox (the first seeded, application conversations) comes first, then the rest in Admin's order.
+ */
+export function sendableMailboxes(c: { emails: EmailGroup[]; users: User[] }, email: string): EmailGroup[] {
+  const u = c.users.find((x) => x.email.toLowerCase() === email.toLowerCase());
+  if (!u) return [];
+  const mine = c.emails.filter((m) => m.users.some((x) => x.id === u.id && x.perm === 'send'));
+  const first = MAILBOX_SEED[0][0];
+  return [...mine.filter((m) => m.email === first), ...mine.filter((m) => m.email !== first)];
+}
+/** A person's access to one shared mailbox by its address (B-6: per person, View or View and send), or null. */
+export function mailboxAccess(c: { emails: EmailGroup[]; users: User[] }, email: string, address: string): EmailPerm | null {
+  const u = c.users.find((x) => x.email.toLowerCase() === String(email || '').toLowerCase());
+  const m = c.emails.find((x) => x.email.toLowerCase() === address.toLowerCase());
+  return (u && m?.users.find((x) => x.id === u.id)?.perm) || null;
+}
+/** A new mail's subject to a university (S3F-1 proposal, as the 1 pm brief): "<GSP ID> · <university reference>". */
+export const uniMailSubject = (a: { id: string; uniRef?: string }) => [a.id, a.uniRef].filter(Boolean).join(' · ');
+
 /* ---------- Recruitment assignment (PRD slice 1, Recruitment assignment) ---------- */
 /**
  * A row: a country (or "All other countries", the fallback row only), its states or cities ("All", "Rest of
@@ -384,12 +421,15 @@ const CUR_NAME: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound
 /** Course search's old rupee rates, for the currencies Finance's weekly table didn't have (CAD, EUR). */
 const SEED_INR: Record<string, number> = { CAD: 62, EUR: 95 };
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
-/** Finance's weekly table from its sheet, with CAD and EUR added, carried a month past today (each new week a copy of the last). */
+/**
+ * Finance's weekly table from its sheet, with CAD and EUR added, carried up to this week (each week a copy of the
+ * last, as the saved weeks would be). Nothing is saved for next week: Admin enters it, and on Friday T50 asks if not.
+ */
 export const sampleFxWeeks = (): FxWeek[] => {
   const rows = (COMM.cfg.settings.fx as FxWeek[]).map((w) => ({ ...w, AUD: 1, ...Object.fromEntries(Object.entries(SEED_INR).map(([c, inr]) => [c, Math.round(inr * Number(w.INR) * 10000) / 10000])) }));
-  const end = isoDay(Date.now() + 28 * DAY);
+  const today = isoDay(Date.now());
   let last = rows[rows.length - 1];
-  while (last.week < end) {
+  while (isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) <= today) {
     last = { ...last, week: isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) };
     rows.push(last);
   }
@@ -503,7 +543,6 @@ export const regionQueueName = (region: string) => {
 export type RoutingRp = { name: string; region: string; auBranch: boolean; bdm: string };
 /** The regional RP lists at the start: real RPs from the records (seeded: Vietnam, Latin America & Europe, Philippines). */
 export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Edunetwork Australia', 'IEMC Global Pty Ltd'], 'Latin America & Europe': ['Latin Education and Migration'], Philippines: ['Pathway To Aus'] });
-export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United States', 'New Zealand', 'Ireland'];
 
 /** One rule in the test's trace: Matched, No, Not reached, or Off. */
 export type TraceState = 'Matched' | 'No' | 'Not reached' | 'Off';
@@ -590,7 +629,9 @@ export const sampleDocRules = (): DocRule[] => {
 };
 /** A recruitment partner document: its name and whether it's needed. */
 export type RpDoc = { name: string; setting: 'Mandatory' | 'Optional' };
-export type RpDocRule = { id: string; name?: string; applies: 'Only these countries' | 'All countries except' | 'All countries'; countries: string[]; docs: RpDoc[] };
+/** How an RP document rule's countries apply. */
+export const RP_DOC_APPLIES = ['Only these countries', 'All countries except', 'All countries'] as const;
+export type RpDocRule = { id: string; name?: string; applies: (typeof RP_DOC_APPLIES)[number]; countries: string[]; docs: RpDoc[] };
 /** Older saved rules kept documents as plain names ("GST certificate (if registered)" was the optional one). */
 export const rpDocsOf = (r: { docs: (RpDoc | string)[] }): RpDoc[] => r.docs.map((x) => (typeof x === 'string' ? { name: x.replace(/\s*\(if [^)]*\)/i, ''), setting: /\(if /i.test(x) ? 'Optional' : 'Mandatory' } : x));
 export const sampleRpDocs = (): RpDocRule[] => [
@@ -620,39 +661,8 @@ export const sampleFilters = (): FilterSet[] => [
 ];
 
 /* ---------- logs (PRD slice 1, Audit: change log and download log) ---------- */
-const at = (daysAgo: number, h: number, m: number) => {
-  // IST clock times on a day `daysAgo` before today
-  const ist = new Date(Date.now() + 5.5 * 3_600_000 - daysAgo * DAY);
-  return Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), h, m) - 5.5 * 3_600_000;
-};
-const J = (id: string, d: number, h: number, m: number, job: string, mins: number, checked: number, changed: number, sent: number, error = ''): LogEntry => ({
-  id, at: at(d, h, m), who: 'System', area: 'Daily jobs', text: job, kind: 'job', end: at(d, h, m) + mins * 60_000, checked, changed, sent, error: error || undefined,
-});
-const E = (id: string, d: number, h: number, m: number, template: string, to: string, record: string, ok = true): LogEntry => ({
-  id, at: at(d, h, m), who: 'System', area: 'Emails', text: template, kind: 'email', to, record, ses: `0109019a${id.replace(/\D/g, '').padStart(4, '0')}-6c1f-4e2b-9d0a-${(9_000_000_000 + Number(id.replace(/\D/g, '')) * 7919).toString(16)}`, delivered: ok,
-});
-export const sampleLog = (): LogEntry[] => [
-  { id: 'l1', at: Date.now() - 3 * 3_600_000, who: N('jovial.lejo'), area: 'Recruitment assignment', text: `India · Kerala: Recruitment ${N('saikat.bhowmik')} → ${N('mayank.kansal')}`, kind: 'change', role: 'Admin' },
-  { id: 'l2', at: at(1, 12, 41), who: N('ramish.jafery'), area: 'Applications', text: 'Applications list', kind: 'download', role: 'Admission', filters: 'India · Status: With university', size: '312 rows', format: 'CSV' },
-  { id: 'l3', at: at(1, 11, 2), who: N('saurabh.chaudhary'), area: 'Course search', text: 'Course shortlist', kind: 'download', role: 'Recruitment', filters: 'Australia · Master’s · Data science', size: '8 rows', format: 'CSV' },
-  { id: 'l4', at: at(2, 18, 20), who: N('lav.likhi'), area: 'Commissions', text: 'RP ledger', kind: 'download', role: 'Finance', filters: 'Oct 2026', size: '1,204 rows', format: 'CSV' },
-  { id: 'l5', at: at(2, 15, 5), who: N('jovial.lejo'), area: 'Application routing', text: 'Rule order: “Student in Australia, applying to Australia” 3 → 4', kind: 'change', role: 'Admin' },
-  { id: 'l6', at: at(2, 10, 15), who: N('lalaine.dizon'), area: 'Universities', text: 'Universities', kind: 'download', role: 'Institution', filters: 'Country: Australia', size: '86 rows', format: 'CSV' },
-  { id: 'l7', at: at(3, 16, 40), who: N('kamrun.nahar'), area: 'Students', text: 'Students', kind: 'download', role: 'Admission', filters: 'Bangladesh · Added in October', size: '214 rows', format: 'CSV' },
-  { id: 'l8', at: at(4, 9, 55), who: N('suman1.verma'), area: 'Commissions', text: 'University ledger', kind: 'download', role: 'Finance', filters: 'Status: Payment overdue', size: '37 rows', format: 'CSV' },
-  { id: 'l9', at: at(6, 14, 30), who: N('garima.bhardwaj'), area: 'Recruitment partners', text: 'Recruitment partners', kind: 'download', role: 'RP Ops', filters: 'Status: Verification pending', size: '52 rows', format: 'CSV' },
-  { id: 'l10', at: at(9, 17, 10), who: N('myleeta.williams'), area: 'Applications', text: 'Applications list', kind: 'download', role: 'View Only', filters: 'None', size: '41,805 rows', format: 'CSV' },
-  { id: 'l11', at: at(6, 11, 20), who: N('jovial.lejo'), area: 'Create roles', text: `Created ${N('riya1.shah')}: Recruitment, India; login email sent`, kind: 'change', role: 'Admin' },
-  { id: 'l12', at: at(9, 10, 5), who: N('jovial.lejo'), area: 'Create roles', text: `Deactivated ${N('dzung.hoang')}`, kind: 'change', role: 'Admin' },
-  // slice 4's daily jobs (J1 to J9, from 01:00 IST) and the emails sent: sample rows until the work service writes them
-  J('j1', 0, 1, 0, 'J1 Agreement ended', 2, 214, 1, 3),
-  J('j2', 0, 1, 5, 'J2 Intake closed', 1, 1862, 12, 0),
-  J('j3', 0, 1, 10, 'J3 SLA reminders', 4, 3406, 41, 38),
-  J('j8', 0, 1, 30, 'J8 Next week’s exchange rates', 1, 11, 0, 0),
-  J('j9', 1, 1, 35, 'J9 Daily RP update', 7, 640, 0, 412, 'Bounced: 2 (ops@educonnect-sample.in, admin@pathfinder-sample.lk)'),
-  E('m1', 0, 9, 12, 'Set up your account', 'prakriti.nanda@upgrad.com', 'User u-prakriti-nanda'),
-  E('m2', 0, 10, 2, 'Your code', 'r••••@upgrad.com', 'Password reset'),
-  E('m3', 1, 16, 44, 'Password changed', 'k••••@upgrad.com', 'Password reset'),
-  E('m4', 2, 13, 30, 'Sign-in paused', 's••••@upgrad.com', 'Sign-in'),
-  E('m5', 9, 10, 0, 'Set up your account', 'khushal.doriya@upgrad.com', 'User u-khushal-doriya', false),
-];
+/**
+ * The log starts empty (Jovial, 2 Nov: nothing hard-coded): Change history entries are written by saves, download
+ * entries by exports (data/downloads.ts), and the daily jobs' runs are worked out on Work › Emails and daily jobs.
+ */
+export const sampleLog = (): LogEntry[] => [];

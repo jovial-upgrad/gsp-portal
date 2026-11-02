@@ -71,6 +71,18 @@ export function refClashError(clash: Application, students: Student[]) {
   return `This reference is already on another application at ${uni} (${clash.id}${st ? `, ${fullName(st)}` : ''}). Check it against the university’s portal.`;
 }
 
+/**
+ * The one university-reference rule (S3-8, S3-22): the Submitted to university popup, the Submission tab and Key
+ * details all ask this. Empty, the wrong format, or the same reference on another application at the same university.
+ */
+export function refError(all: Application[], a: Application, value: string, students: Student[]): string | null {
+  const clean = value.trim().toUpperCase();
+  if (!clean) return 'Enter the university reference ID.';
+  if (!refFormat(clean)) return REF_FORMAT_ERROR;
+  const clash = refClash(all, a, clean);
+  return clash ? refClashError(clash, students) : null;
+}
+
 /* ---------- GSP's mandatory uploads on a status change (S3-9, S3-23) ---------- */
 
 /**

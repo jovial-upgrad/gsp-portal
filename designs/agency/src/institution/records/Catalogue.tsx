@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { DESTINATIONS, money } from '../../data/courses';
+import { money } from '../../data/courses';
 import { COURSE_STATUSES, type CourseRec, type CourseStatus } from '../data/catalogue';
 import { dateText } from '../data/records';
 import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, usePager, useRecord } from './parts';
@@ -91,7 +91,7 @@ export function Catalogue(props: PageProps) {
               <span className="vh">Search courses</span>
               <input id="icrs-q" type="search" placeholder="Course, university, city or code" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <Pick id="icrs-country" label="Country" value={country} all="All countries" options={DESTINATIONS} onChange={setCountry} />
+            <Pick id="icrs-country" label="Country" value={country} all="All countries" options={[...new Set(db.unis.map((u) => u.country))].sort()} onChange={setCountry} />
             <Pick id="icrs-uni" label="University" value={uni} all="All universities" options={db.unis.filter((u) => !country || u.country === country).map((u) => ({ value: u.id, label: u.name }))} onChange={setUni} />
             <Pick id="icrs-level" label="Program level" value={level} all="All levels" options={db.levels.map((l) => l.name)} onChange={setLevel} />
           </div>

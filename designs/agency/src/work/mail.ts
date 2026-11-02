@@ -13,12 +13,13 @@ const at = (h) => Date.now() - h * H;
 import { ACCOUNT_EMAILS } from '../admin/data/emails';
 
 export const MAILBOXES = [
-  // Jovial's Inbox tab (31 Oct): five mailboxes, each feeding its queues; everyone in them can see and send for now; Admin sees all
-  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-global', see: ['admission', 'global-ops', 'admin', 'view-only'], sendAs: ['admission', 'global-ops'], ytd: 164952 },
-  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-admin', see: ['admin', 'view-only'], sendAs: ['admin'], ytd: 1190 }, // S1C-14: mail to admin.gsp@ is the Admin queue's (T29); Admin forwards anything for RP Ops
-  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 4847 },
-  { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
-  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['ip-ops', 'admin', 'view-only'], sendAs: ['ip-ops'], ytd: 28 },
+  // the five seeded mailboxes as Mail shows them (name, address, the queue unmatched mail goes to); who can view or
+  // send is per person, in Admin › Shared mailboxes (B-6), not here
+  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-global', ytd: 164952 },
+  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-admin', ytd: 1190 }, // S1C-14: mail to admin.gsp@ is the Admin queue's (T29); Admin forwards anything for RP Ops
+  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', ytd: 4847 },
+  { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', ytd: 67 },
+  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', ytd: 28 },
 ];
 
 /* Mail that never reaches a person. Share = of all mail, Jan–Oct 2026. */
@@ -215,11 +216,7 @@ export const FILED = [
   { id: 'F-9', filter: 'f-marketing', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18), outcome: 'Newsletter. Sent to Global Admissions.' },
 ];
 
-/* Conversations no record was found for raise a task in the Unmatched mail queue. */
-export const MAIL_RECORDS = THREADS.filter((t) => !t.record && t.state === 'match').map((t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}` }));
-export const MAIL_TASKS = THREADS.filter((t) => !t.record && t.state === 'match').map((t, i) => ({
-  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-adm-global', rule: 'T27', title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
-}));
+/* Conversations no record was found for raise a task (T26, T27, T28): work/recordRules.ts works them out. */
 
 /* ---------- the portal's emails (slice 4 PRD, Emails) ---------- */
 /**

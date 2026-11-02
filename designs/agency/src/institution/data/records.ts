@@ -18,7 +18,7 @@ import { nameOf, staffIn, label } from '../../data/staff';
 import { partnerManagerFor, businessDocsFor, countryByName } from '../../data/partners';
 import { RPS } from '../../data/dataset';
 import { phoneOf, rpAdmin } from '../../data/rpteam';
-import { NATIONALITY } from '../../admin/data/config';
+import { placeRegion } from '../../admin/data/config';
 import { SYSTEM, atIso, change, type Change, type Created } from './changelog';
 import type { RpAgreementVersion } from './agreements';
 /** An Institution person's name from the staff list, by the start of their email. */
@@ -404,6 +404,8 @@ export function agreementJob<U extends { id: string; ip: string; status: string;
  */
 /** Agreement sent: every document verified and the agreement with the RP (to sign, or its signed copy with RP Ops). Agreement signed: its first agreement accepted, so it's approved and every module is open (Jovial, 2 Nov). */
 export const RP_STATUSES = ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent', 'Agreement signed', 'Rejected', 'Suspended', 'Dormant'] as const;
+/** The statuses of an RP still being taken on (slice 2): before its first agreement is signed. */
+export const RP_ONBOARDING: RpStatus[] = ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'];
 /** Each status's colour (GSP owner colours: amber with the RP, violet with GSP). */
 export const RP_STATUS_TONE: Record<RpStatus, 'you' | 'gsp' | 'uni' | 'ok' | 'bad' | 'grey'> = { 'Not activated': 'you', Verifying: 'gsp', 'Documents sent back': 'you', 'Agreement sent': 'uni', 'Agreement signed': 'ok', Rejected: 'bad', Suspended: 'bad', Dormant: 'grey' };
 export type RpStatus = (typeof RP_STATUSES)[number];
@@ -436,6 +438,12 @@ export type RecruitmentPartner = {
   before?: RpStatus;
   /** T58 "Train <RP> on the portal" marked done by RP Ops (S4-22). */
   trained?: { at: number; by: string };
+  /** W23 (slice 4): the Recruitment contact logged the first call with the new RP. */
+  firstCall?: { at: number; by: string };
+  /** T36 (slice 4): Recruitment asked RP Ops for a suspension, termination or tier change. */
+  lifecycleRequest?: { at: number; by: string; what: string; state: 'open' | 'approved' | 'rejected' };
+  /** T35 (slice 4): the RP sent new bank details; Finance checks them (payouts held). */
+  bankChange?: { at: number; by: string; state: 'open' | 'approved' | 'rejected' };
   /** Branches GSP added from the RP's record (Recruitment, RP Ops, Admin; matrix RP branches and team). */
   branches?: { id: string; name: string; country: string; state: string; city: string; main?: boolean; bdm?: string }[];
 };
@@ -461,7 +469,7 @@ const staffed = (r: RecruitmentPartner): RecruitmentPartner => ({
     });
   })(),
   bdm: partnerManagerFor(r.country, r.city, '')?.name ?? '',
-  admissions: adminCfg().regions.find((g) => g.name === (NATIONALITY[r.country] || r.country))?.contact ?? '',
+  admissions: adminCfg().regions.find((g) => g.name === placeRegion(r.country))?.contact ?? '',
 });
 /** Every other RP GSP's applications are with (data/dataset.ts), by Finance's id: signed partners, so their applications link here. */
 const datasetRps = (): RecruitmentPartner[] =>

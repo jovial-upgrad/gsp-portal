@@ -1,18 +1,18 @@
 /**
  * Sales regions, locked (Jovial's Sales region rules, 1 Nov).
  *
- * - **One map, country to sales region**, for a student's nationality, an RP's head office and each branch. Admin's
- *   nationality map (Admin › Application routing) plus the destination countries.
- * - **RP:** its head office's country, through the map, unless the RP is on a regional list, which wins.
- * - **RP branch:** its own country, through the map (an Indian RP's Dhaka branch is Bangladesh), with its own BDM.
+ * - **Two lists (S1F-2 proposal, 3 Nov):** a place (an RP's head office, a branch) reads the regions' Countries
+ *   (Admin › Sales regions); a student's nationality reads the Nationality map, and nothing else does.
+ * - **RP:** its head office's country, through the regions' Countries, unless the RP is on a regional list, which wins.
+ * - **RP branch:** its own country, through the regions' Countries (an Indian RP's Dhaka branch is Bangladesh).
  * - **Student:** the sales region of the RP branch that added them; a student who came to GSP directly is Direct.
  * - **Application:** the routing rules, run once when it reaches Pre-screening; "the RP" is the branch that created
  *   it. It changes only when the officer changes the RP, the nationality or where the student lives.
- * - **Region isolation** (model D): Admission and Recruitment see their own regions in lists, dashboards and My work;
- *   searching every region is read-only and logged. Everyone else sees every region.
+ * - **Region isolation** (model D): only Admin sees every region (Regression 31); every other GSP role
+ *   sees the sales regions on the person, in lists, dashboards and My work. There is no switch to see other regions.
  * In the real build the server sets and enforces these.
  */
-import { NATIONALITY, REGION_BDM, route, type RoutingRp } from '../admin/data/config';
+import { NATIONALITY, REGION_BDM, placeRegion, route, type RoutingRp } from '../admin/data/config';
 import { adminCfg } from '../admin/data/store';
 import { getDb } from '../institution/data/store';
 import { RPS, TEST_RP, rpByName } from './dataset';
@@ -21,16 +21,25 @@ import { STAFF } from './staff';
 /** The catalogue's short names for some countries, as the nationality map names them. */
 const ALIAS: Record<string, string> = { UK: 'United Kingdom', USA: 'United States' };
 /**
- * Country to sales region (HC42, 1 Nov): Admin's nationality map (Admin › Sales regions), as it is now, with the
- * catalogue's short names (UK, USA) read as the map's. Anything not in it is Rest of world.
+ * A student's nationality to sales region (HC42, 1 Nov; S1F-2 proposal, 3 Nov): Admin's Nationality map (Admin ›
+ * Sales regions), as it is now, with the catalogue's short names (UK, USA) read as the map's. Only a student's
+ * nationality reads this map; anything not in it gives undefined (routing falls to rule 6 and T62 asks Admin to map it).
  */
-export const COUNTRY_REGION: Record<string, string> = new Proxy({} as Record<string, string>, {
+export const NATIONALITY_REGION: Record<string, string> = new Proxy({} as Record<string, string>, {
   get: (_, k) => (typeof k === 'string' ? NATIONALITY[ALIAS[k] ?? k] : undefined),
   has: (_, k) => typeof k === 'string' && (ALIAS[k] ?? k) in NATIONALITY,
   ownKeys: () => Reflect.ownKeys(NATIONALITY),
   getOwnPropertyDescriptor: (_, k) => (typeof k === 'string' && k in NATIONALITY ? { value: NATIONALITY[k], enumerable: true, configurable: true, writable: false } : undefined),
 });
-export const regionOfCountry = (country: string) => COUNTRY_REGION[country] ?? 'Rest of world';
+export const regionOfNationality = (nationality: string): string | undefined => NATIONALITY_REGION[nationality];
+/**
+ * Where a place is (S1F-2 proposal, 3 Nov): the sales region whose Countries list the country (Admin › Sales regions ›
+ * Countries), else Rest of world. An RP's head office, each branch, a Master Partner and a working calendar's place
+ * read this, never the Nationality map: an RP's location decides its region.
+ */
+export const regionOfPlace = (country: string): string => placeRegion(country);
+/** For places (RPs, branches, partners, calendars): the regions' Countries. Kept under its old name for its callers. */
+export const regionOfCountry = regionOfPlace;
 
 /**
  * Every recruitment partner as the routing rules see it (HC49, 1 Nov): the RP records (GSP · Institution ›
@@ -54,7 +63,8 @@ export function routingRps(): RoutingRp[] {
     if (seen.has(r.name)) continue;
     seen.add(r.name);
     const data = rpByName(r.name) ?? rpByName(`Sample: ${r.name}`);
-    const region = rpRegion(r.name, data?.region ?? regionOfCountry(r.country));
+    // S1F-2: the RP's location (its head office's country, through the regions' Countries) decides its region
+    const region = rpRegion(r.name, r.country ? regionOfPlace(r.country) : data?.region);
     out.push({ name: r.name, region, auBranch: r.country === 'Australia', bdm: r.bdm || REGION_BDM[region] || '' });
   }
   for (const d of RPS) if (!seen.has(d.name) && !seen.has(d.name.replace(/^Sample: /, ''))) out.push({ name: d.name, region: rpRegion(d.name, d.region), auBranch: d.region === 'Australia', bdm: REGION_BDM[d.region] ?? '' });
@@ -83,7 +93,7 @@ export function rpRegion(rp?: string, own?: string) {
   const listed = Object.entries(lists).find(([, l]) => l.includes(rp))?.[0];
   return listed ?? own ?? rpByName(rp)?.region ?? 'Rest of world';
 }
-/** A branch's sales region: its own country, through the map. */
+/** A branch's sales region: its own country, through the regions' Countries (S1F-2). */
 export const branchRegion = (branch: { country: string }) => regionOfCountry(branch.country);
 
 /** A student's sales region: the RP branch that added them, or Direct. */

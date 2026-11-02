@@ -1,3 +1,4 @@
+import { istParts } from '../../data/dates';
 import { regionOfCountry } from '../../data/regions';
 import { TEST_COUNTRY } from '../../data/rpteam';
 import { useState } from 'react';
@@ -19,7 +20,7 @@ const rise = (reduce: boolean | null, i: number) =>
   reduce ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.32, ease, delay: 0.06 + i * 0.07 } };
 
 const greeting = () => {
-  const h = new Date().getHours();
+  const h = istParts(Date.now()).h;
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 

@@ -4,6 +4,7 @@
  * universities with their live courses, territory and active campuses. Shared across roles in this window; a reload
  * starts from the sample again (the catalogue is too large to keep in the browser).
  */
+import { setUniversitiesReader } from '../../data/reference';
 import { fmtDate } from '../../data/format';
 import { useSyncExternalStore } from 'react';
 import { AREAS, LEVELS, setCatalogueReaders, setFormLevelReader, setFormsReader, setUniScholarships, type Course, type University } from '../../data/courses';
@@ -61,6 +62,8 @@ let DB: Db | null = null;
 const subs = new Set<() => void>();
 /** The catalogue and records now. */
 export const getDb = (): Db => (DB ??= sampleDb());
+// reference data (S3F-4): destinations are the countries of live universities, read from here
+setUniversitiesReader(() => getDb().unis);
 /** Change them; every role sees it. */
 export const setSharedDb: SetDb = (fn) => {
   DB = fn(getDb());

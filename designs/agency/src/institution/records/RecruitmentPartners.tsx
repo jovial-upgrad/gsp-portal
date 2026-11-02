@@ -1,5 +1,7 @@
 import { RpCommission } from '../../components/CommissionSummary';
-import { byRegion, getScope, isIsolated } from '../../data/scope';
+import { canEditObject } from '../../admin/data/menus';
+import { fmtDate } from '../../data/format';
+import { byRegion, isIsolated } from '../../data/scope';
 import { regionOfCountry } from '../../data/regions';
 import { useMemo, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
@@ -41,8 +43,8 @@ export const rpRegion = (r: Pick<RecruitmentPartner, 'country'>) => regionOfCoun
 /**
  * Recruitment partners (slice 2 PRD, BAP and RP records): tiles Waiting for BAP, Not activated, Sent back, Not signed
  * yet, Agreement signed; search by name, city, code or contact; filters status, country, BDM; Export as CSV (logged as
- * a download). Admission and Recruitment see only RPs in their own sales regions (S4-24), in lists, counts, exports and
- * direct links. Every other role with View reads the same list and record.
+ * a download). Every GSP role but Admin sees only RPs in its own sales regions (Regression 31), in lists, counts, exports
+ * and direct links.
  */
 export function RecruitmentPartners(props: PageProps) {
   const { db, focus, navKey, open, scrollTop, say, me } = props;
@@ -71,7 +73,7 @@ export function RecruitmentPartners(props: PageProps) {
 
   if (cur) {
     const shown = rps.find((r) => r.id === cur.id);
-    if (!shown) return <Gone denied={db.rps.some((r) => r.id === cur.id)} back={cur.back?.label ?? 'Recruitment partners'} onBack={back} />;
+    if (!shown) return <Gone back={cur.back?.label ?? 'Recruitment partners'} onBack={back} />;
     return <RpPage key={shown.id} r={shown} tab={cur.tab} onBack={back} {...props} />;
   }
 
@@ -344,6 +346,18 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                       {editProfile && <BdmPick r={r} me={me} say={say} />}
                     </span>,
                   ],
+                  // W23 (slice 4): the Recruitment contact's first call with a new RP; logging it closes the task
+                  [
+                    'First call',
+                    <span key="fc" className="irowacts">
+                      {r.firstCall ? `${fmtDate(r.firstCall.at)} · ${r.firstCall.by}` : <span className="muted">Not logged yet</span>}
+                      {editProfile && !r.firstCall && (
+                        <button type="button" className="btn btn--link" onClick={() => (editRp(r.id, (x) => ({ ...x, firstCall: { at: Date.now(), by: me } }), 'First call logged', me), say('First call logged.'))}>
+                          Log the first call
+                        </button>
+                      )}
+                    </span>,
+                  ],
                   ['Admissions contact', r.admissions],
                   ['Sales region', rpRegion(r)],
                   [
@@ -418,7 +432,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
         {tab === 'commission' && (
           <Section title="Commission" id="irp-commission" note="Terms are set by Finance in Commissions (read only here).">
             {/* Jovial, 1 Nov: read-only terms; RP Ops and Finance can change the bank details */}
-            <RpCommission name={r.name} canBank={['RP Ops', 'Finance', 'Admin'].includes(role) || ['gsp-bap', 'gsp-finance', 'gsp-admin'].includes(getScope().viewer)} />
+            <RpCommission name={r.name} canBank={canEditObject(role, 'RP bank details')} />
             {commissionHeld(r) && <p className="irsec__note">No agreement is active yet: commission on applications enrolled now is held, and paid once the signed agreement is accepted (S2-11).</p>}
             {activeAgreement(r) && openAgreement(r) && <p className="irsec__note">A new agreement is with the RP; {activeAgreement(r)!.version} stays active, so nothing is held.</p>}
           </Section>
@@ -569,7 +583,7 @@ function BdmPick({ r, me, say }: { r: RecruitmentPartner; me: string; say: (m: s
       <Button size="sm" variant="secondary" onClick={() => setOn(false)}>
         Cancel
       </Button>
-      <Button size="sm" disabled={!v || v === r.bdm} onClick={() => (editRp(r.id, (x) => ({ ...x, bdm: v }), `Recruitment ${r.bdm || '—'} → ${v}`, me), setOn(false), say('BDM saved.'))}>
+      <Button size="sm" disabled={!v || v === r.bdm} onClick={() => (editRp(r.id, (x) => ({ ...x, bdm: v }), `Recruitment ${r.bdm || '—'} → ${v}`, me), setOn(false), say('Recruitment contact saved.'))}>
         Save
       </Button>
     </span>

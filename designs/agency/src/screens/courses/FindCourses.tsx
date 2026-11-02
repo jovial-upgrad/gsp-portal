@@ -1,4 +1,5 @@
 import { TOP_MARKETS } from '../../data/partners';
+import { destinations } from '../../data/reference';
 import { fmtDate } from '../../data/format';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -18,7 +19,6 @@ import { HOME_RP } from '../../institution/rps';
 import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, totalFeeOf, type Course } from '../../data/courses';
 import {
   ANY_DUR,
-  DESTINATIONS,
   DUR_STOPS,
   NEED_LABEL,
   NO_FILTERS,
@@ -253,7 +253,7 @@ export function FindCourses({
         {/* the five things the brief needs before results mean anything, as one slim bar */}
         <fieldset className={`fseg ${ready && !editNeed ? 'is-folded' : ''}`}>
           <legend className="vh">Who the course is for (destination, student’s country, program level and study area are needed; state or province and intake are optional)</legend>
-          <Segment id="fc-dest" label="Destination" value={s.need.dest} options={[...DESTINATIONS]} onChange={(v) => setNeed('dest', v)} error={tried && !s.need.dest} />
+          <Segment id="fc-dest" label="Destination" value={s.need.dest} options={destinations()} onChange={(v) => setNeed('dest', v)} error={tried && !s.need.dest} />
           <Segment
             id="fc-country"
             label="Student’s country"

@@ -181,7 +181,7 @@ function KindSheet({ kind, onClose, by, canDelete }) {
         <Button kind="primary" disabled={!!kind && !dirty} onClick={save}>{kind ? 'Save' : 'Add kind of work'}</Button></>}>
       <div className="cfg__form">
         <Field id="k-name" label="Name" required error={c.err('name')}><Input id="k-name" value={v.name} onBlur={c.blur('name')} onChange={x => setV({ ...v, name: x })} /></Field>
-        <Pick id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV({ ...v, record: x })} options={['Application', 'RP', 'Institution partner', 'University', 'Course', 'Announcement', 'Commission', 'Email', 'Setting', 'Any']} />
+        <Pick id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV({ ...v, record: x })} options={[...new Set([...s.kinds.map((k) => k.record), ...s.rules.map((r) => r.record)].filter(Boolean))]} />
         <Field id="k-sla" label="SLA (whole working hours, 1 to 540)" required error={c.err('sla')} hint="A working day is 9 hours, 9:30 to 18:30 IST."><NumberInput id="k-sla" decimal={false} min={1} max={540} steppers value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
         {used && <p className="field__msg" id="k-used">A queue or task rule uses it, so it can’t be deleted.</p>}
       </div>

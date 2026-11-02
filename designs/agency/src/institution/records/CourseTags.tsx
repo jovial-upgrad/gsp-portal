@@ -9,7 +9,7 @@ import type { CourseTag, Db, SetDb } from '../data/store';
 import { canEditObject } from '../../admin/data/menus';
 
 /**
- * GSP · Admin › Course tags (slice 2 PRD, S2-16): Admin owns the list of tags partners see on courses in course
+ * GSP · Admin › Course configuration › Course tags (slice 2 PRD, S2-16): Admin owns the list of tags partners see on courses in course
  * search (and use as quick filters). Add, rename, retire; a retired tag isn't offered and leaves every course; a
  * retired tag can be restored (proposal S2C-13). Seeded with today's tags; no Regional university tag (S2-27).
  */

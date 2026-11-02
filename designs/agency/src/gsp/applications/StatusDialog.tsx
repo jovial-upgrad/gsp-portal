@@ -6,7 +6,7 @@ import { Icon } from '../../components/Icon';
 import { Checkbox, DateInput, Field, TextInput } from '../../components/forms';
 import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
 import { CLOSE_AT, REUPLOAD_AT, STAGES, STATUS, STATUS_ORDER, destOf, phaseOf, stageOf, startOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
-import { REF_FORMAT_ERROR, mandatoryUpload, refClash, refClashError, refFormat, uploadOnFile } from '../../data/appRules';
+import { mandatoryUpload, refError, uploadOnFile } from '../../data/appRules';
 import { UPLOAD, sizeText, uploadError } from '../../data/uploads';
 import type { Student } from '../../data/students';
 
@@ -71,8 +71,9 @@ export function StatusDialog({ open, a, all = [], students = [], onCancel, onCon
   const onFile = uploadOnFile(a, need);
   const doc = onFile ? undefined : need;
   const refText = ref.trim().toUpperCase();
-  const clash = key === 'lodged' && !noRef && refFormat(refText) ? refClash(all, a, refText) : undefined;
-  const refErr = key !== 'lodged' || noRef ? null : !refText ? 'Enter the university reference ID, or tick No reference ID.' : !refFormat(refText) ? REF_FORMAT_ERROR : clash ? refClashError(clash, students) : null;
+  // the one reference rule (data/appRules.ts), as the Submission tab and Key details; here "No reference ID" is offered too
+  const refErr0 = key !== 'lodged' || noRef ? null : refError(all, a, refText, students);
+  const refErr = refErr0 && !refText.trim() ? 'Enter the university reference ID, or tick No reference ID.' : refErr0;
   const docErr = doc && !file ? `Upload the ${doc.charAt(0).toLowerCase()}${doc.slice(1)} to change the status.` : null;
   const visaErr = key === 'visa' && !visaBy ? 'Pick who lodges the visa.' : null;
   const statusErr = !k ? 'Pick a status.' : null;

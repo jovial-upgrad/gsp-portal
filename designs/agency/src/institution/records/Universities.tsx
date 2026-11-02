@@ -92,7 +92,7 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
               <span className="vh">Search universities</span>
               <input id="iuni-q" type="search" placeholder="University, partner or city" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <Pick id="iuni-country" label="Country" value={country} all="All countries" options={DESTINATIONS} onChange={setCountry} />
+            <Pick id="iuni-country" label="Country" value={country} all="All countries" options={[...new Set(db.unis.map((u) => u.country))].sort()} onChange={setCountry} />
             <Pick id="iuni-ip" label="Institution partner" value={ip} all="All partners" options={db.ips.filter((p) => unis.some((u) => u.ip === p.id)).map((p) => ({ value: p.id, label: p.name }))} onChange={setIp} />
             <Pick id="iuni-status" label="Status" value={status} all="All statuses" options={UNI_STATUSES} onChange={(v) => setStatus(v as UniStatus | '')} />
           </div>

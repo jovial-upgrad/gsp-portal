@@ -25,7 +25,7 @@ export function taskTitle(s, t) {
 
 /**
  * Who sees a task (slice 4 PRD, What lands in a person's list): their role has View on My work and tasks; the
- * record is in their sales regions (Admission and Recruitment); and they are the assignee, lead the task's queue, are
+ * record is in their sales regions (every role but Admin, Regression 31); and they are the assignee, lead the task's queue, are
  * in the queue a level 2 escalation went to, or their role has oversight (Admin, Global Ops, View Only).
  */
 export function visibleTasks(s, user, role) {

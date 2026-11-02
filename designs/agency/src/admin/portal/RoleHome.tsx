@@ -1,3 +1,7 @@
+import { istParts } from '../../data/dates';
+import { RP_ONBOARDING } from '../../institution/data/records';
+import { jobRuns, JOB_NAME } from '../../work/jobs';
+import { now as workNow } from '../../work/clock';
 import type { ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -17,7 +21,7 @@ import type { Db } from '../../institution/data/store';
 import type { Section as PortalSection, Target, Variant } from './model';
 
 const greeting = () => {
-  const h = new Date().getHours();
+  const h = istParts(Date.now()).h;
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 const DAY = 86_400_000;
@@ -73,7 +77,7 @@ const where = (r: RecruitmentPartner) => [r.city, r.country].filter(Boolean).joi
 /** Recruitment (a BDM): the RPs they look after, the new ones assigned to them, and the ones gone quiet. */
 function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
   const mine = db.rps.filter((r) => r.bdm === me);
-  const fresh = mine.filter((r) => ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'].includes(r.status));
+  const fresh = mine.filter((r) => RP_ONBOARDING.includes(r.status));
   const openBy = new Map<string, number>();
   apps.filter(isOpen).forEach((a) => openBy.set(a.rp ?? 'GSP test agency', (openBy.get(a.rp ?? 'GSP test agency') ?? 0) + 1));
   const signed = mine.filter((r) => r.status === 'Agreement signed');
@@ -163,7 +167,7 @@ type Warn = { id: string; title: string; text: string; go: PortalSection; action
  */
 function AdminHome({ first, go, variant }: Props) {
   const cfg = useAdmin();
-  const work = useStore() as { tasks: { queue: string; status: string }[]; queues: { id: string; name: string; leader: string; members: string[] }[] };
+  const work = useStore() as { tasks: { queue: string; status: string }[]; queues: { id: string; name: string; leader: string; members: string[] }[]; jobs?: { fail?: Record<string, number[]> } };
   const canEdit = variant !== 'viewonly';
   const now = Date.now();
   const today = istDay(now);
@@ -198,11 +202,10 @@ function AdminHome({ first, go, variant }: Props) {
   if (onlyLeader.length) warns.push({ id: 'q-lead', title: `${onlyLeader.length === 1 ? '1 queue has' : `${onlyLeader.length} queues have`} only a leader`, text: `${onlyLeader.map((q) => q.name).join(', ')}: every task goes to the leader.`, go: 'work-sla', action: 'Queues' });
   const inAdmin = work.tasks.filter((t) => t.queue === 'q-admin' && t.status === 'open');
   if (inAdmin.length) warns.push({ id: 'q-admin', title: `${inAdmin.length === 1 ? '1 task' : `${inAdmin.length} tasks`} in the Admin queue`, text: 'Work that no queue took, or that escalated to Admin.', go: 'mywork', action: 'My work' });
-  // a daily job that failed 3 runs in a row (slice 4's job runs, in Logs)
-  const jobs = [...new Set(cfg.log.filter((l) => l.kind === 'job').map((l) => l.text))];
-  for (const j of jobs) {
-    const runs = cfg.log.filter((l) => l.kind === 'job' && l.text === j).sort((a, b) => b.at - a.at).slice(0, 3);
-    if (runs.length === 3 && runs.every((r) => r.error)) warns.push({ id: `job-${j}`, title: `${j} failed 3 runs in a row`, text: runs[0].error ?? '', go: 'logs', action: 'Logs' });
+  // a daily job that failed 3 runs in a row (slice 4's job runs, in Admin › Work › Emails and daily jobs; Logs is downloads only, S1C-9)
+  for (const j of Object.keys(JOB_NAME)) {
+    const runs = jobRuns(j, workNow(), work.jobs, 3);
+    if (runs.length === 3 && runs.every((r) => r.error)) warns.push({ id: `job-${j}`, title: `${j} ${JOB_NAME[j]} failed 3 runs in a row`, text: runs[0].error ?? '', go: 'work-mail', action: 'Emails and daily jobs' });
   }
   const notActive = cfg.users.filter((u) => u.status !== 'Active').length;
   const off = cfg.docRules.filter((r) => !r.on).length;

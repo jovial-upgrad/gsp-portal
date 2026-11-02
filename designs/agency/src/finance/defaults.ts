@@ -18,3 +18,7 @@ export const settingsOf = cfg => {
 };
 /** The payout currency for an RP in a sales region (HC44): Finance setup's table, AUD where it has none. */
 export const payoutCurOf = (cfg, region) => settingsOf(cfg).payoutCur[region] || 'AUD';
+
+/** A commission notice's source document, and the student types an estimate prices (Finance's vocabulary). */
+export const NOTICE_SOURCES = ['Notice', 'Addendum', 'Flyer', 'Email approval'] as const;
+export const STUDENT_TYPES = ['New', 'Continuing', 'Transfer'] as const;

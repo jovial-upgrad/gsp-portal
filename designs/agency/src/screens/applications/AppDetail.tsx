@@ -1,4 +1,5 @@
 import { RP_OWNER_TAG as OWNER_TAG } from '../../data/owners';
+import { requestCategories } from '../../data/chat';
 import { isWithdrawal } from '../../data/reasons';
 import { KeyGroup, WithdrawDialog, appliedAt } from '../../gsp/applications/AppDetail';
 import { RP_WITHDRAW_OFF, autoName, rpCanWithdraw } from '../../data/appRules';
@@ -197,10 +198,7 @@ export function AppDetail({
     );
   };
   const onFile = (n: Need, f: File | null) => f && takeFile(n, f.name);
-  const keepAnyway = (n: Need) => {
-    if (n.request && n.file) return fulfil(n, n.file);
-    update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, check: 'ok', note: 'Kept as uploaded. GSP checks it next.' } : y)) }));
-  };
+  // BR-50: a flagged upload (not clear, the wrong document, another person's name) can't be kept: Replace it
   const removeFile = (n: Need) => update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, file: undefined, check: undefined, note: undefined } : y)) }));
   const confirmAction = (n: Need) => update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, check: 'ok', note: `Marked as done ${shortDate(new Date())}` } : y)) }));
 
@@ -299,8 +297,9 @@ export function AppDetail({
   };
 
   // the offer's facts sit in Key details until the deposit is paid; its conditions are needs, in Documents
-  const offer = a.offer && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
-  const acceptLeft = offer ? Math.max(0, Math.ceil((offer.acceptBy - Date.now()) / 86_400_000)) : 0;
+  // S3F-2: Offer, Accept by and Deposit show only what GSP Assist read from the letter; hidden while empty
+  const offer = a.offer?.read && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
+  const acceptLeft = offer?.read?.acceptBy ? Math.max(0, Math.ceil((offer.read.acceptBy - Date.now()) / 86_400_000)) : 0;
   const chaseable = isOpen(a) && STATUS[a.status].owner === 'uni' && clock(a).late && !a.chased;
   // older applications may still carry profile details as to-dos: they don't show, and don't hold Send to GSP
   const sendable = isOpen(a) && !!NEXT_AFTER_YOU[a.status] && a.needs.some((n) => !n.request);
@@ -315,7 +314,6 @@ export function AppDetail({
       met={needMet(n, s)}
       onFile={(f) => onFile(n, f)}
       onRemove={() => removeFile(n)}
-      onKeep={() => keepAnyway(n)}
       onAction={() => confirmAction(n)}
       onForm={() => setAnswering(n)}
     />
@@ -581,16 +579,16 @@ export function AppDetail({
               <Row k="Final tuition fee" v={<span className="num">{money(finalFeeOf(a.id, c.tuition), c.currency)}</span>} />
               {offer && (
                 <>
-                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
+                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.read!.at))}`} />
                   <Row
                     k="Accept by"
                     v={
-                      <span>
-                        {shortDate(new Date(offer.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
+                      offer.read?.acceptBy && <span>
+                        {shortDate(new Date(offer.read.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
                       </span>
                     }
                   />
-                  <Row k="Deposit" v={<span className="num">{money(offer.deposit, c.currency)}</span>} />
+                  <Row k="Deposit" v={offer.read?.deposit != null ? <span className="num">{money(offer.read.deposit, c.currency)}</span> : null} />
                 </>
               )}
               <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />
@@ -649,7 +647,6 @@ function NeedRow({
   met,
   onFile,
   onRemove,
-  onKeep,
   onAction,
   onForm,
 }: {
@@ -658,7 +655,6 @@ function NeedRow({
   met: boolean;
   onFile: (f: File | null) => void;
   onRemove: () => void;
-  onKeep: () => void;
   onAction: () => void;
   /** An offer's conditions: the form opens. */
   onForm: () => void;
@@ -724,11 +720,6 @@ function NeedRow({
           )
         ) : state === 'reading' ? null : n.file ? (
           <>
-            {state === 'flag' && (
-              <Button variant="ghost" size="sm" onClick={onKeep}>
-                Keep it
-              </Button>
-            )}
             <label className="btn btn--secondary btn--sm nrow__pick" htmlFor={id}>
               Replace
             </label>
@@ -1014,7 +1005,7 @@ function ExtraDoc({ onAdd }: { onAdd: (name: string, file: string) => void }) {
         <Icon name="upload" size={16} /> Upload a document
       </Button>
       <input ref={input} type="file" hidden accept={UPLOAD.accept} onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
-      <NameDialog file={file} usual={['Gap explanation letter', 'Experience letter', 'Sponsor letter', 'Name change affidavit']} onCancel={() => setFile(null)} onAdd={(n) => { if (file) onAdd(n, file.name); setFile(null); }} />
+      <NameDialog file={file} usual={requestCategories()} onCancel={() => setFile(null)} onAdd={(n) => { if (file) onAdd(n, file.name); setFile(null); }} />
     </section>
   );
 }
@@ -1048,7 +1039,7 @@ function Activity({ a, commission }: { a: Application; commission: boolean }) {
             <span className="aact__t">
               <span className="aact__text">{e.text}</span>
               <span className="aact__meta">
-                {e.by ?? WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                {e.by ?? WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true })}
               </span>
             </span>
           </motion.li>

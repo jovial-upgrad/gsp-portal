@@ -1,3 +1,4 @@
+import { canSeeNow } from '../../admin/data/menus';
 import { withdrawReasons } from '../../data/reasons';
 import { UPLOAD } from '../../data/uploads';
 import { PriorityChip } from '../../components/PriorityChip';
@@ -43,7 +44,7 @@ import { regionQueueName } from '../../admin/data/config';
 import { officerOf } from '../../data/dataset';
 import { staffById } from '../../data/staff';
 import { StatusDialog, type StatusPick } from './StatusDialog';
-import { REF_FORMAT_ERROR, autoName, canChangeOfficer, isAdmissions, refClash, refClashError, refFormat } from '../../data/appRules';
+import { autoName, canChangeOfficer, isAdmissions, refError } from '../../data/appRules';
 import { changeOfficer, moveThreadsByRef } from '../../work/store';
 import { isWithdrawal } from '../../data/reasons';
 import { adminCfg } from '../../admin/data/store';
@@ -72,6 +73,11 @@ const TABS: [AppTab, string, IconName][] = [
   ['commission', 'Commission', 'wallet'],
   ['activity', 'Activity', 'clock'],
 ];
+/**
+ * The tabs this person sees (X-1 proposal, 3 Nov): Commission only for roles with View on slice 1's matrix row
+ * "Commission lines" (Admin, Finance, View Only as seeded, and any role Admin ticks); the rest don't see it.
+ */
+const tabsNow = () => TABS.filter(([k]) => k !== 'commission' || canSeeNow('Commission lines'));
 /** The one tag in the header's corner: who has the application now, as GSP sees it, never two at once. */
 const HEAD_TAG: Record<AppOwner, string> = OWNER_TAG;
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -193,6 +199,7 @@ export function AppDetail({
   };
 
   const onTabKey = (e: KeyboardEvent) => {
+    const TABS = tabsNow();
     const i = TABS.findIndex(([k]) => k === tab);
     const n = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
     if (n < 0) return;
@@ -249,8 +256,8 @@ export function AppDetail({
   const setRef = (ref: string, was?: string) => {
     const now = Date.now();
     // the same check as the Submitted to university popup (S3-8, S3-22): university + reference
-    const clash = refClash(all, a, ref);
-    if (clash) return say(refClashError(clash, students));
+    const err = refError(all, a, ref, students);
+    if (err) return say(err);
     // the mail conversations matched on this reference move with it (S3C-19)
     const moved = moveThreadsByRef(ref, a.id, gsp.name);
     update((x) => ({ ...x, uniRef: ref, history: [...x.history, { at: now, who: 'gsp', text: was ? `Changed the university reference from ${was} to ${ref}` : `Added the university reference ${ref}`, by: gsp.name }, ...(moved ? [{ at: now, who: 'gsp' as const, text: `${moved === 1 ? '1 mail conversation' : `${moved} mail conversations`} matched on ${ref} moved to this application`, by: gsp.name }] : [])] }));
@@ -408,8 +415,9 @@ export function AppDetail({
   const admissions = isAdmissions() && isMine(a.region);
 
   // the offer's facts sit in Key details until the deposit is paid; its conditions are needs, in Documents
-  const offer = a.offer && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
-  const acceptLeft = offer ? Math.max(0, Math.ceil((offer.acceptBy - Date.now()) / 86_400_000)) : 0;
+  // S3F-2: Offer, Accept by and Deposit show only what GSP Assist read from the letter; hidden while empty
+  const offer = a.offer?.read && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
+  const acceptLeft = offer?.read?.acceptBy ? Math.max(0, Math.ceil((offer.read.acceptBy - Date.now()) / 86_400_000)) : 0;
 
   return (
     <div className="record aapp gapp">
@@ -608,7 +616,7 @@ export function AppDetail({
       </AnimatePresence>
 
       <div className="atabs" role="tablist" aria-label="Application" onKeyDown={onTabKey}>
-        {TABS.map(([k, label, icon]) => (
+        {tabsNow().map(([k, label, icon]) => (
           <button
             key={k}
             type="button"
@@ -677,8 +685,8 @@ export function AppDetail({
                 canAct={admissions && !finished}
               />
             )}
-            {tab === 'submission' && <SubmissionTab a={a} desk={desk} onRef={(r, was) => (finished ? say('This application is finished: it’s read-only.') : setRef(r, was))} say={say} />}
-            {tab === 'commission' && <AppCommission a={a} agency={agency} side="both" />}
+            {tab === 'submission' && <SubmissionTab a={a} all={all} students={students} desk={desk} onRef={(r, was) => (finished ? say('This application is finished: it’s read-only.') : setRef(r, was))} say={say} />}
+            {tab === 'commission' && canSeeNow('Commission lines') && <AppCommission a={a} agency={agency} side="both" />}
             {tab === 'activity' && <Activity a={a} agency={agency} />}
           </motion.div>
         </AnimatePresence>
@@ -749,16 +757,16 @@ export function AppDetail({
               /> : <Row k="Final tuition fee" v={<span className="num">{money(fee, c.currency)}</span>} />}
               {offer && (
                 <>
-                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
+                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.read!.at))}`} />
                   <Row
                     k="Accept by"
                     v={
-                      <span>
-                        {shortDate(new Date(offer.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
+                      offer.read?.acceptBy && <span>
+                        {shortDate(new Date(offer.read.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
                       </span>
                     }
                   />
-                  <Row k="Deposit" v={<span className="num">{money(offer.deposit, c.currency)}</span>} />
+                  <Row k="Deposit" v={offer.read?.deposit != null ? <span className="num">{money(offer.read.deposit, c.currency)}</span> : null} />
                 </>
               )}
               {/* Applied: when the RP sent the New documents; "Started" while it's New */}
@@ -814,7 +822,7 @@ export function AppDetail({
       />
       <NameDialog
         file={naming}
-        usual={['Conditional offer letter', 'Unconditional offer letter', 'Acceptance letter', 'Visa grant', 'Proof of enrolment']}
+        usual={adminCfg().docRules.filter((r) => r.by === 'GSP').map((r) => r.doc)}
         onCancel={() => setNaming(null)}
         onAdd={(name) => {
           if (naming) addFile(naming.name, undefined, name);
@@ -1334,7 +1342,7 @@ function Activity({ a, agency }: { a: Application; agency: string }) {
             <span className="aact__t">
               <span className="aact__text">{e.text}</span>
               <span className="aact__meta">
-                {e.by ? (e.who === 'you' ? `${e.by}, ${agency}` : e.by) : e.who === 'you' ? agency : WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                {e.by ? (e.who === 'you' ? `${e.by}, ${agency}` : e.by) : e.who === 'you' ? agency : WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true })}
               </span>
             </span>
           </motion.li>
@@ -1426,8 +1434,7 @@ function RefRow({ a, all, students, onSave }: { a: Application; all: Application
   const [tried, setTried] = useState(false);
   const [asking, setAsking] = useState(false);
   const clean = v.trim().toUpperCase();
-  const clash = refFormat(clean) ? refClash(all, a, clean) : undefined;
-  const err = !clean ? 'Enter the university reference ID.' : !refFormat(clean) ? REF_FORMAT_ERROR : clash ? refClashError(clash, students) : null;
+  const err = refError(all, a, clean, students);
   return (
     <div className={`cdl__row gedit ${editing ? 'is-editing' : ''}`}>
       <dt>{editing ? <label htmlFor="gedit-ref">University reference</label> : 'University reference'}</dt>

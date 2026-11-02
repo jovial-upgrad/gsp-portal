@@ -5,6 +5,7 @@
  * The Change log is written by the system on every save: when, who, their role, what (record · part · field) and the
  * value before and after. Nobody adds notes; no entry is edited or deleted. "System" is the daily job.
  */
+import { istParts } from '../../data/dates';
 import { setAdminCfg } from '../../admin/data/store';
 
 export type Change = { id: string; at: number; who: string; role: string; what: string; from: string; to: string };
@@ -92,10 +93,10 @@ export function audit(area: string, text: string, who: string, role: string, kin
 /* ---------- dates and times ---------- */
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-/** "2 Nov 2026, 16:40", in the viewer's time zone. */
+/** "2 Nov 2026, 16:40", in IST (slice 1 NFR-1). */
 export const dateTimeText = (t: number) => {
-  const d = new Date(t);
-  return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const d = istParts(t);
+  return `${d.d} ${MON[d.m]} ${d.y}, ${String(d.h).padStart(2, '0')}:${String(d.min).padStart(2, '0')}`;
 };
 /** A sample time from an ISO date, at 10:00. */
 export const atIso = (iso: string, h = 10) => new Date(`${iso.slice(0, 10)}T${String(h).padStart(2, '0')}:00:00`).getTime();

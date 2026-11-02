@@ -5,8 +5,8 @@ import { Box } from './parts';
 
 /**
  * The course dialog's Costs, in every role (Jovial, 1 Nov; 2 Nov: the figures at the top are for one year). It opens
- * with the first year: tuition a year, living costs a year (GSP · Admin › Living costs), visa and health cover for
- * the year (Admin's Visa and health fees) and what's paid once, the application fee. A course shorter than a year
+ * with the first year: tuition a year, living costs a year (GSP · Admin › Course configuration › Living costs and fees), visa and health cover for
+ * the year (the same Living costs and fees table) and what's paid once, the application fee. A course shorter than a year
  * shows its whole length; one in credits shows a year and says so. Under it, for a course longer than a year, the
  * whole course's total, the same four parts for its full length. Then the scholarships: only the university
  * record's that fit this course (Jovial, 1 Nov, HC9), as the record has them.

@@ -113,7 +113,8 @@ export function Portal({
   const reduce = useReducedMotion();
   const [section, setSection] = useState<Section>(start?.section ?? 'home');
   // the course search lives here, so leaving Find courses and coming back keeps it
-  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || TEST_COUNTRY, join?.form.state || ''));
+  // S3F-3: for GSP people, Student's country starts empty and is required until a student or a country is picked
+  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch('', ''));
   // students live here too: a new agency starts with none, an established one with its own
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? (join ? [] : sampleStudents(acc.name)));
   // and applications, for those students; the student list shows each one's applications from here
@@ -188,7 +189,7 @@ export function Portal({
   useEffect(() => {
     if (was.current !== phase) {
       // the details are in now: course search starts from the agency's own country and state
-      if (was.current === 'setup' && join) setSearch(newSearch(join.form.country || TEST_COUNTRY, join.form.state || ''));
+      if (was.current === 'setup' && join) setSearch(newSearch('', ''));
       if (phase === 'setup') setAnnounce('');
       else if (phase === 'verified') setAnnounce(`GSP verified ${acc.agency}. Students, applications and earnings are open.`);
       else if (phase === 'sent-back') setAnnounce(`GSP couldn’t verify ${back === 1 ? '1 document' : `${back} documents`}. Replace ${back === 1 ? 'it' : 'them'} to finish verification.`);
@@ -378,7 +379,7 @@ export function Portal({
         agency={acc.agency}
         onApply={(c) => jumpTo({ section: 'applications', app: { add: { courseId: c.id, studentId: search.studentId } } })}
         students={access === 'all' ? studentsView : []}
-        home={{ country: join?.form.country || TEST_COUNTRY, state: join?.form.state || '' }}
+        home={{ country: '', state: '' }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: 'upGrad GSP', name: GSP_USER.name, email: GSP_USER.email }}

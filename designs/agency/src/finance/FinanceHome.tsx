@@ -4,6 +4,8 @@
  * Today's jobs (from the recurring jobs list on Finance setup) with live counts,
  * what's waiting on this person, and the week ahead.
  */
+import { adminCfg } from '../admin/data/store';
+import { istParts } from '../data/dates';
 import React, { useContext } from 'react';
 import { update, nameOf } from './store';
 import { Page, Card, Tiles, Table, Pill, Button, LinkButton, Empty, toast } from './kit';
@@ -22,7 +24,7 @@ export default function FinanceHome() {
 
   /* Live numbers behind each job */
   const fxWeek = [...cfg.settings.fx].sort((a, b) => a.week < b.week ? -1 : 1).filter(w => w.week <= today).pop();
-  const fxMissing = fxWeek ? ['GBP', 'NZD', 'USD', 'INR', 'NPR', 'BDT', 'LKR', 'VND'].filter(k => fxWeek[k] == null || fxWeek[k] === '') : ['all'];
+  const fxMissing = fxWeek ? adminCfg().rates.map(r => r.code).filter(k => k !== 'AUD').filter(k => fxWeek[k] == null || fxWeek[k] === '') : ['all'];
   const ready = res.ip.filter(x => x.l.st[0] === 'Ready to invoice');
   const overdue = res.ip.filter(x => /overdue|Invoiced/.test(x.l.st[0]));
   const checks = c.checks.filter(k => k.status === 'waiting');
@@ -50,7 +52,7 @@ export default function FinanceHome() {
   const week = [];
   for (let i = 1; i <= 7; i++) { const d = addDays(today, i); ops.jobs.filter(j => j.freq !== 'daily' && jobDue(cfg, j, d)).forEach(j => week.push([d, j])); }
   const myTasks = s.tasks.filter(t => t.status === 'open' && t.queue === 'q-finance' && (!t.assignee || t.assignee === user.id));
-  const hour = new Date().getHours();
+  const hour = istParts(Date.now()).h;
   const go = (page, f) => { nav.filter = f || null; openPage && openPage(page); };
 
   const tiles = [

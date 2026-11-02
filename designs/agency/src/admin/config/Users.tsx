@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { USER_STATUSES } from '../data/config';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
@@ -15,7 +16,7 @@ import { History } from './parts';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { Loaded, NoResults, PAGE_SIZE, Pager, Pick, SaveBanner, ViewOnlyNote, ago, istDate, trySave, type SaveResult } from './states';
 
-const STATUSES: UserStatus[] = ['Link sent', 'Active', 'Deactivated'];
+const STATUSES: UserStatus[] = [...USER_STATUSES];
 
 /** What the Login column says under the status (PRD slice 1, Login status). */
 function loginLine(u: User, now = Date.now()) {
@@ -70,7 +71,7 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
     say('User reactivated. Login email sent.');
   };
   const deactivate = (u: User) => {
-    change('Create roles', `Deactivated ${u.name}: ${u.status} → Deactivated`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: 'Deactivated', deactivatedAt: Date.now() } : x)) }));
+    change('Create roles', `Deactivated ${u.name}: ${u.status} → Deactivated; sessions ended and login link revoked`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: 'Deactivated', deactivatedAt: Date.now(), sentAt: undefined } : x)) }));
     say('User deactivated.');
   };
   const items = (u: User): MenuItem[] => [

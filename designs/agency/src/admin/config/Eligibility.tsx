@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CONVERT_BY } from '../data/eligibility';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
@@ -148,7 +149,7 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
             <TextInput id="gs-used" maxLength={120} value={x.usedIn} onChange={(e) => set({ usedIn: e.target.value })} />
           </Field>
           <Field id="gs-by" label="Converts to a percentage by" required>
-            <SelectMenu id="gs-by" label="Converts to a percentage by" value={x.by} options={(['As is', 'Multiplier', 'Bands'] as ConvertBy[]).map((k) => ({ value: k, label: k }))} onChange={(k) => set({ by: k as ConvertBy, bands: k === 'Bands' && !x.bands.length ? [{ from: '', to: '', pct: 0 }] : x.bands })} />
+            <SelectMenu id="gs-by" label="Converts to a percentage by" value={x.by} options={CONVERT_BY.map((k) => ({ value: k, label: k }))} onChange={(k) => set({ by: k as ConvertBy, bands: k === 'Bands' && !x.bands.length ? [{ from: '', to: '', pct: 0 }] : x.bands })} />
           </Field>
           {x.by === 'Multiplier' && (
             <Field id="gs-mult" label="Multiplier" required hint="Up to 100, 2 decimals. A converted score above 100% counts as 100%." error={tried ? multErr : null}>

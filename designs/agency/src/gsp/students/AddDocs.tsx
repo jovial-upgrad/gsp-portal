@@ -1,4 +1,5 @@
 import { UPLOAD } from '../../data/uploads';
+import { CLARITY, isClear } from '../../data/clarity';
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -13,7 +14,8 @@ export type BulkFile = { name: string; sorting: boolean };
 export type Failed = { name: string; error: string };
 
 /** Why a file can't be uploaded, or nothing. */
-export const fileError = (f: File) => (!OK_TYPES.test(f.name) ? `not a ${UPLOAD.types}` : f.size > MAX_SIZE ? `over ${UPLOAD.maxMB} MB` : '');
+/** Why a bulk file isn't kept: its type, its size, or a clarity score below the pass mark (BR-50: upload it again). */
+export const fileError = (f: File) => (!OK_TYPES.test(f.name) ? `not a ${UPLOAD.types}` : f.size > MAX_SIZE ? `over ${UPLOAD.maxMB} MB` : !isClear(f.name) ? `${CLARITY.unclear} Upload it again.` : '');
 
 /**
  * Documents, at the end of Add a student: **Bulk upload**, with "Or upload them individually from the student's

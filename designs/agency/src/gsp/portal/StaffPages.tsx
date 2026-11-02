@@ -1,3 +1,4 @@
+import { istParts } from '../../data/dates';
 import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -9,7 +10,7 @@ import { Pill, Section, Tiles } from '../../institution/records/parts';
 import { OWNER_WORD } from '../applications/owners';
 
 const greeting = () => {
-  const h = new Date().getHours();
+  const h = istParts(Date.now()).h;
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 

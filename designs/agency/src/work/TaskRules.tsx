@@ -17,7 +17,8 @@ import { timeText } from './engine';
 import { Pick } from './ui';
 import { now } from './clock';
 
-export const RECORDS = ['Application', 'RP', 'Institution partner', 'University', 'Course', 'Commission', 'Email', 'Setting', 'Any'];
+/** The record types the rules are about, from the rules themselves (no fixed list). */
+export const recordTypes = (rules) => [...new Set(rules.map((r) => r.record).filter(Boolean))];
 export const triggersOf = (rules, record) => [...new Set(rules.filter(r => r.record === record).map(r => r.when))];
 
 const UNITS = [['wh', 'working hours'], ['d', 'working days'], ['days', 'calendar days']];

@@ -262,7 +262,7 @@ export function AccountClosed({ r }: { r: RecruitmentPartner }) {
       <section className="card locked" role="alert">
         <h1 className="page__title">{r.status === 'Rejected' ? 'This partner account is closed.' : 'This partner account is suspended.'}</h1>
         <p>{r.status === 'Rejected' ? 'This partner account is closed. Contact your Recruitment contact at GSP.' : 'GSP has suspended this partner account: every user has lost access and can’t sign in until GSP reactivates it. Applications in progress carry on. Contact your Recruitment contact at GSP.'}</p>
-        {r.bdm && <p>Partner manager: {r.bdm}</p>}
+        {r.bdm && <p>Recruitment contact: {r.bdm}</p>}
       </section>
     </div>
   );

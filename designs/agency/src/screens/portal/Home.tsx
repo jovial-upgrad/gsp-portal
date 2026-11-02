@@ -1,3 +1,4 @@
+import { istParts } from '../../data/dates';
 import { RP_OWNER_WORD } from '../../data/owners';
 import { regionOfCountry } from '../../data/regions';
 import { TEST_COUNTRY } from '../../data/rpteam';
@@ -14,7 +15,6 @@ import { inSentence, returnedDocs, stillToReplace } from '../signup/docs';
 import { LOCKED_COPY, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { Track, type StepState } from './Track';
 import { adminCfg } from '../../admin/data/store';
-import { NATIONALITY } from '../../admin/data/config';
 import { STAFF, label } from '../../data/staff';
 import { courseOf, isOpen, needsYou, statusText, type Application } from '../../data/applications';
 import { fullName, type Student } from '../../data/students';
@@ -23,7 +23,7 @@ import { hoursText } from '../../work/calendars';
 
 /** The agency's region's Admissions contact (W15): GSP · Admin › Sales regions, as a person from the staff list. */
 export function admissionsContactFor(country: string): Contact | null {
-  const region = NATIONALITY[country] || country;
+  const region = regionOfCountry(country); // the agency's location: the regions' Countries (S1F-2)
   const name = adminCfg().regions.find((g) => g.name === region)?.contact;
   const s = name ? STAFF.find((x) => label(x) === name) : undefined;
   if (!s) return null;
@@ -35,7 +35,7 @@ const rise = (reduce: boolean | null, i: number) =>
   reduce ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.32, ease, delay: 0.06 + i * 0.07 } };
 
 const greeting = () => {
-  const h = new Date().getHours();
+  const h = istParts(Date.now()).h;
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 

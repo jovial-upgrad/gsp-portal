@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { RP_DOC_APPLIES } from '../data/config';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
@@ -189,7 +190,7 @@ function RpDocs({ ed, rules, errors, set }: { ed: boolean; rules: RpDocRule[]; e
               <p className="cfg__strong">{r.name ?? `Rule ${i + 1}`}</p>
               {ed ? (
                 <>
-                  <Pick id={`rpa-${r.id}`} label={`${r.name ?? `Rule ${i + 1}`}: type`} value={r.applies} options={['Only these countries', 'All countries except', 'All countries']} onChange={(x) => upd(r.id, { applies: x as RpDocRule['applies'] })} />
+                  <Pick id={`rpa-${r.id}`} label={`${r.name ?? `Rule ${i + 1}`}: type`} value={r.applies} options={[...RP_DOC_APPLIES]} onChange={(x) => upd(r.id, { applies: x as RpDocRule['applies'] })} />
                   {r.applies !== 'All countries' && (
                     <button type="button" className="icon-btn" aria-label={`Delete ${r.name ?? `rule ${i + 1}`}`} onClick={() => set((l) => l.filter((x) => x.id !== r.id))}>
                       <Icon name="close" size={16} />

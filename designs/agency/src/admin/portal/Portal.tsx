@@ -126,7 +126,7 @@ export function Portal({
   // a group's pages open in a small menu beside the sidebar
   const [fly, setFly] = useState<{ key: string; el: HTMLElement } | null>(null);
   const country = join?.form.country || 'India';
-  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(country, join?.form.state || ''));
+  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch('', ''));
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? sampleStudents(acc.name));
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));
   // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
@@ -364,7 +364,7 @@ export function Portal({
         agency={acc.agency}
         onApply={(c) => jumpTo({ section: 'applications', app: { add: { courseId: c.id, studentId: search.studentId } } })}
         students={studentsView}
-        home={{ country, state: join?.form.state || '' }}
+        home={{ country: '', state: '' }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: 'upGrad GSP', name: ME.name, email: ME.email }}
