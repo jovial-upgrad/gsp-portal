@@ -6,7 +6,9 @@ import { Checkbox, Field, Form, SelectInput, TextInput, describedBy } from '../.
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { countryByName } from '../../data/partners';
-import { HIGHEST, readPassport, type Level, type Member, type Student } from '../../data/students';
+import { readPassport, type Member, type Student } from '../../data/students';
+import { SelectMenu } from '../../components/SelectMenu';
+import { HIGHEST_EDUCATION, levelOfEd, type HighestEducation } from '../../data/education';
 import { FIELD_ORDER, isDirty, makeStudent, newAdd, sameStudent, validate, type AddForm, type AddState, type FieldKey } from './form';
 import { ReadBox, readMs } from './ReadBox';
 import { addedLabel } from './parts';
@@ -308,21 +310,17 @@ export function AddStudentSheet({
             />
           </Field>
           <Field id="as-highest" required label="Highest education" error={show('highest')}>
-            <SelectInput
+            {/* the one list (S3C-1), in the level check's order; the record's education level follows from it */}
+            <SelectMenu
               id="as-highest"
-              value={f.highest}
+              label="Highest education"
+              value={f.highestEd ?? ''}
               placeholder="Choose"
               invalid={!!show('highest')}
-              aria-describedby={describedBy('as-highest', show('highest'))}
-              onChange={(e) => up({ highest: e.target.value as Level })}
-              onBlur={() => touch('highest')}
-            >
-              {HIGHEST.map(([k, label]) => (
-                <option key={k} value={k}>
-                  {label}
-                </option>
-              ))}
-            </SelectInput>
+              describedBy={describedBy('as-highest', show('highest'))}
+              options={HIGHEST_EDUCATION.map((x) => ({ value: x, label: x }))}
+              onChange={(v) => (up({ highestEd: v as HighestEducation, highest: levelOfEd(v) }), touch('highest'))}
+            />
           </Field>
           {/* GSP adds for an RP (W12): the student goes to the RP's counsellor, whom the RP can change */}
           <Field id="as-counsellor" label="Counsellor" hint="The RP’s counsellor. The RP can reassign the student.">

@@ -10,3 +10,6 @@ export const HIGHEST_EDUCATION = ['Grade 10', 'Grade 12', 'Diploma', 'Bachelorâ€
 export type HighestEducation = (typeof HIGHEST_EDUCATION)[number];
 /** Where a value sits in the one order (Grade 10 lowest, Doctorate highest). */
 export const eduRank = (v: string) => HIGHEST_EDUCATION.indexOf(v as HighestEducation);
+
+/** The student record's education level for a Highest education: Grade 10, Grade 12, a diploma or bachelor's (ug), a master's or doctorate (pg). */
+export const levelOfEd = (v: string): 'g10' | 'g12' | 'ug' | 'pg' => (v === 'Grade 10' ? 'g10' : v === 'Grade 12' ? 'g12' : v === 'Masterâ€™s' || v === 'Doctorate' ? 'pg' : 'ug');

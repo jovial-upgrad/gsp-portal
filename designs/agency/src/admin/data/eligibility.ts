@@ -107,3 +107,37 @@ export const EQUIV_COLS: { key: keyof EquivRow; name: string; min: number; max: 
   { key: 'pte', name: 'PTE Academic', min: 10, max: 90, step: 1 },
   { key: 'duolingo', name: 'Duolingo English Test', min: 10, max: 160, step: 5 },
 ];
+/* ---------- grade conversion ---------- */
+
+/** The student's grading system, from Admin's list: a system's name, or an older record's scale key. */
+const OLD_KEYS: Record<string, string> = { '100': 'Percentage', '10': 'CGPA out of 10', '4': 'GPA out of 4', '5': 'GPA out of 5' };
+export function systemOf(name: string): GradingSystem | undefined {
+  const n = OLD_KEYS[name] ?? name;
+  return grades().find((x) => x.name === n || x.id === n);
+}
+/** A course rule's scale (slice 2's four) as a grading system (S3-15). */
+export const RULE_SCALE: Record<string, string> = { Percentage: 'Percentage', 'GPA 4': 'GPA out of 4', 'GPA 10': 'CGPA out of 10', 'UK class': 'UK degree class' };
+export const UK_CODE: Record<string, string> = { '1': 'First', '2.1': '2:1', '2.2': '2:2', '3': 'Third' };
+
+/**
+ * A score on a grading system as a percentage, or null when it can't be read. A converted score above 100% counts as
+ * 100%. Bands: the band it falls in; below the lowest band, 0%; in a gap between bands, the band below (S3C-18).
+ * A retired system still converts the entries already on it.
+ */
+export function toPct(sys: GradingSystem | undefined, score: string): number | null {
+  if (!sys || score.trim() === '') return null;
+  const v = Number(score);
+  if (sys.by === 'As is') return Number.isNaN(v) ? null : Math.min(100, v);
+  if (sys.by === 'Multiplier') return Number.isNaN(v) ? null : Math.min(100, Math.round(v * (sys.mult ?? 1) * 100) / 100);
+  const label = score.trim().toLowerCase();
+  const named = sys.bands.find((x) => x.from.trim().toLowerCase() === label || x.to.trim().toLowerCase() === label);
+  if (named) return named.pct;
+  if (Number.isNaN(v)) return null;
+  const nums = sys.bands.map((x) => ({ from: Number(x.from), to: Number(x.to), pct: x.pct })).filter((x) => !Number.isNaN(x.from) && !Number.isNaN(x.to));
+  if (!nums.length) return null;
+  const inBand = nums.find((x) => v >= x.from && v <= x.to);
+  if (inBand) return inBand.pct;
+  const below = nums.filter((x) => x.to < v).sort((a, b) => b.to - a.to)[0];
+  return below ? below.pct : 0;
+}
+
