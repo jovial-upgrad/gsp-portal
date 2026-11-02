@@ -6,7 +6,8 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { gspContact, type Application, type Msg, type Need } from '../../data/applications';
+import { gspContact, isOpen, type Application, type Msg, type Need } from '../../data/applications';
+import { isWithdrawal } from '../../data/reasons';
 import { DocButtons } from '../../components/DocView';
 import { AssistLabel, Thinking } from './parts';
 
@@ -128,7 +129,7 @@ export function Assist({
                       <DocButtons d={{ name: f, file: f }} s={s} />
                     </span>
                   ))}
-                  {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} onFile={onNeedFile} onForm={onForm} />}
+                  {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} ended={m.ended} onFile={onNeedFile} onForm={onForm} />}
                 </div>
               </div>
             </motion.li>
@@ -155,6 +156,10 @@ export function Assist({
         )}
       </ol>
 
+      {/* a finished application's chat is read-only (slice 3 PRD) */}
+      {!isOpen(a) ? (
+        <p className="achat__ro">This application is {a.status === 'enrolled' ? 'enrolled' : a.end && isWithdrawal(a.end.kind) ? 'withdrawn' : 'closed'}. The chat is read-only.</p>
+      ) : (
       <form
         className="achat__compose"
         onSubmit={(e) => {
@@ -170,6 +175,7 @@ export function Assist({
           rows={1}
           value={text}
           placeholder="Ask GSP…"
+          maxLength={2000}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -182,13 +188,28 @@ export function Assist({
           Send
         </Button>
       </form>
+      )}
     </section>
   );
 }
 
 /** GSP's document request, answered in place: upload here, or see that it's done (or no longer needed). An offer's conditions come as a form. */
-function RequestCard({ a, s, id, name, onFile, onForm }: { a: Application; s: Student; id: string; name?: string; onFile: (n: Need, file: string) => void; onForm: (n: Need) => void }) {
+function RequestCard({ a, s, id, name, ended, onFile, onForm }: { a: Application; s: Student; id: string; name?: string; ended?: Msg['ended']; onFile: (n: Need, file: string) => void; onForm: (n: Need) => void }) {
   const n = a.needs.find((x) => x.id === id);
+  // withdrawn by GSP ("Withdrawn by <name>") or cancelled when the application closed
+  if (ended && !n)
+    return (
+      <div className="areq is-done">
+        <span className="areq__ic" aria-hidden="true">
+          <Icon name="close" size={16} />
+        </span>
+        <div className="areq__t">
+          <p className="areq__k">Request</p>
+          <p className="areq__title">{name ?? 'Document'}</p>
+          <p className="areq__ended">{ended.kind === 'withdrawn' ? `Withdrawn by ${ended.by}` : 'Closed with the application'}</p>
+        </div>
+      </div>
+    );
   const done = !n ? a.files.find((f) => f.req === id) : undefined;
   const answered = !n ? a.conds?.find((x) => x.id === id) : undefined;
   const inputId = `req-${id}`;

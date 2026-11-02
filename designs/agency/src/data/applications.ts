@@ -20,8 +20,8 @@ import { STAFF, label, staffById } from './staff';
 import { routeApplication } from './regions';
 import { datasetApplications, testAgencyApps, testAgencyStudents } from './dataset';
 import { COURSES, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
-import { englishRuleFor } from './tests';
-import { TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
+import { eligibility } from './eligibility';
+import { TESTS, eduDocKey, fullName, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
 
 export const DAY = 86_400_000;
@@ -490,8 +490,9 @@ export function docLines(a: Application, s: Student): DocLine[] {
 
 /* ---------- GSP Assist: eligibility ---------- */
 
-export type Verdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check';
-export type Reason = { ok: 'yes' | 'warn' | 'no' | 'add'; title: string; text: string };
+export type Verdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check' | 'Not specified';
+/** na: not specified by the university; it doesn't count against the student. */
+export type Reason = { ok: 'yes' | 'warn' | 'no' | 'add' | 'na'; title: string; text: string };
 
 /** Checks a student against a course intake, with the reason for each part of the verdict. */
 export function checkFit(s: Student, c: Course, intake: string): { verdict: Verdict; reasons: Reason[] } {
@@ -502,31 +503,11 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
   if (blockedFor(c.uni, s.country, s.state))
     reasons.push({ ok: 'no', title: 'Where they live', text: `${uni} doesn’t take students from ${s.state ? `${s.state}, ` : ''}${s.country} through GSP.` });
   else reasons.push({ ok: 'yes', title: 'Where they live', text: `${uni} takes students from ${s.country}.` });
-  // academics: what the university asks for against what the student has, or the profile to complete first
-  const top = s.edu[s.highest];
-  const pct = top ? pctOf(top) : null;
-  if (pct === null) reasons.push({ ok: 'add', title: 'Academics', text: `Complete the academic details on ${s.first}’s profile to check eligibility.` });
-  else reasons.push({ ok: pct >= c.academic ? 'yes' : 'no', title: 'Academics', text: `${uni} asks for ${c.academic}% and ${s.first} has ${pct}%, ${so(pct >= c.academic)}.` });
-  // English (HC15): every English test on the profile (IELTS, TOEFL, PTE, Duolingo) against the course's rule for it;
-  // the one that meets it decides, otherwise the best of them
-  const english = s.tests.filter((t) => TESTS[t.type].kind === 'English' && t.overall);
-  if (english.length) {
-    const read = english.map((t) => {
-      const rule = englishRuleFor(c, t.type);
-      const def = TESTS[t.type];
-      const parts = def.parts.filter((p) => (t.parts[p.key] ?? '').trim() !== '').map((p) => Number(t.parts[p.key])).filter((n) => !Number.isNaN(n));
-      const low = parts.length ? Math.min(...parts) : Number(t.overall);
-      const fmt = (n: number) => (t.type === 'IELTS' ? n.toFixed(1) : String(n));
-      const part = t.type === 'IELTS' ? 'band' : 'part';
-      if (!rule) return { meets: false, takes: false, said: `${uni} doesn’t list ${def.short} for this course, and ${s.first} has ${def.short} ${fmt(Number(t.overall))}` };
-      const [need, band] = rule;
-      return { meets: Number(t.overall) >= need && low >= band, takes: true, said: `${uni} asks for ${def.short} ${fmt(need)} (no ${part} below ${fmt(band)}) and ${s.first} has ${def.short} ${fmt(Number(t.overall))} (lowest ${part} ${fmt(low)})` };
-    });
-    const best = read.find((x) => x.meets) ?? read.find((x) => x.takes) ?? read[0];
-    if (best.meets) reasons.push({ ok: 'yes', title: 'English', text: `${best.said}, ${so(true)}.` });
-    else if (c.englishFlex) reasons.push({ ok: 'warn', title: 'English', text: `${best.said}, so ${s.first} isn’t eligible yet: the university can offer on condition of a pre-sessional English course.` });
-    else reasons.push({ ok: 'no', title: 'English', text: `${best.said}, ${so(false)}.` });
-  } else reasons.push({ ok: 'add', title: 'English', text: `Complete the English test details on ${s.first}’s profile to check eligibility.` });
+  // academics and English: the eligibility check (slice 3 PRD; data/eligibility.ts), each line with its result
+  void so;
+  const k = eligibility(s, c);
+  for (const l of k.academicLines) reasons.push({ ok: l.ok, title: l.label === 'Highest education' ? 'Academics · highest education' : l.label === 'Backlogs' ? 'Academics · backlogs' : 'Academics', text: `${l.result}: ${l.why}.` });
+  for (const l of k.englishLines) reasons.push({ ok: l.ok, title: 'English', text: `${l.result}: ${l.why}.` });
   // intake
   const i = c.intakes.find((x) => x.month === intake);
   if (i) {
@@ -537,7 +518,9 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
     else if (st === 'likely') reasons.push({ ok: 'warn', title: 'Intake', text: `${intake} usually opens; the university hasn’t confirmed it yet.` });
     else reasons.push({ ok: d <= 21 ? 'warn' : 'yes', title: 'Intake', text: `${intake} is open, closes ${shortDate(new Date(i.deadline))}${d <= 45 ? `: ${d} ${d === 1 ? 'day' : 'days'} left` : ''}.` });
   }
-  const verdict: Verdict = reasons.some((r) => r.ok === 'no') ? 'Not eligible' : reasons.some((r) => r.ok === 'add') ? 'Add details to check' : reasons.some((r) => r.ok === 'warn') ? 'Eligible with conditions' : 'Eligible';
+  // the overall verdict: academics and English as the check has them (neither specified: Not specified), with where they
+  // live and the intake kept beside them (slice 3 PRD, Overall verdict)
+  const verdict: Verdict = reasons.some((r) => r.ok === 'no') ? 'Not eligible' : reasons.some((r) => r.ok === 'add') ? 'Add details to check' : k.verdict === 'Not specified' ? 'Not specified' : reasons.some((r) => r.ok === 'warn') ? 'Eligible with conditions' : 'Eligible';
   return { verdict, reasons };
 }
 

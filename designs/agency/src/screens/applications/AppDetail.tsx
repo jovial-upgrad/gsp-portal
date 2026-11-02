@@ -1,5 +1,8 @@
 import { RP_OWNER_TAG as OWNER_TAG } from '../../data/owners';
-import { withdrawReasons } from '../../data/reasons';
+import { isWithdrawal } from '../../data/reasons';
+import { WithdrawDialog, appliedAt } from '../../gsp/applications/AppDetail';
+import { autoName } from '../../data/appRules';
+import { isSubmitted } from '../../gsp/applications/Submission';
 import { UPLOAD } from '../../data/uploads';
 import { setLiveStatus, setLiveFlags, useLiveAll, finalFeeOf } from '../../data/live';
 import { NameDialog } from '../../gsp/applications/NameDialog';
@@ -8,9 +11,8 @@ import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
-import { FLAG, money } from '../../data/courses';
+import { FLAG, durationText, money } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { eduDocName, fullName, readiness, TESTS, type Member, type Student } from '../../data/students';
 import {
@@ -39,7 +41,7 @@ import {
   type EndKind,
   type Need,
 } from '../../data/applications';
-import { campusLabel, duration, UniMark } from '../courses/parts';
+import { campusLabel, UniMark } from '../courses/parts';
 import { Avatar, CopyButton } from '../students/parts';
 import { DocButtons } from '../../components/DocView';
 import { Celebrate } from '../../components/Celebrate';
@@ -265,9 +267,28 @@ export function AppDetail({
     say(`GSP will lodge ${s.first}’s visa.`);
   };
 
+  /**
+   * Withdraw (More › Withdraw application, S3-26): ends at Withdrawn with the reason; every open request is cancelled
+   * ("Closed with the application"); the chat says "Application withdrawn by <name>: <reason>" under the assigned
+   * officer's name (S3-14); GSP gets a bell. The application goes read-only.
+   */
   const close = (kind: EndKind, reason: string) => {
     const now = Date.now();
-    update((x) => ({ ...x, status: 'closed', since: now, needs: [], end: { kind, reason, stage: stageOf(x), at: now }, history: [...x.history, { at: now, who: 'you', text: `${kind}: ${reason}`, by: me }] }));
+    update((x) => {
+      const open = new Set(x.needs.map((n) => n.id));
+      return {
+        ...x,
+        status: 'closed',
+        since: now,
+        needs: [],
+        parked: [],
+        end: { kind, reason, stage: stageOf(x), at: now },
+        chat: [...x.chat.map((m) => (m.request && open.has(m.request) ? { ...m, ended: { kind: 'closed' as const, at: now } } : m)), { id: `m${now}`, at: now, from: 'gsp' as const, name: autoName(x, me), text: `Application withdrawn by ${me}: ${reason}` }],
+        history: [...x.history, { at: now, who: 'you', text: `Withdrew the application: ${reason}`, by: me }],
+      };
+    });
+    setLiveStatus(a.id, { status: 'closed', at: now, by: me, end: kind, note: reason, via: 'rp' });
+    setLiveFlags(a.id, { rpNews: now, rpWhat: `the withdrawal of ${s.first}’s application` });
     say(`${a.id} withdrawn.`);
   };
 
@@ -305,6 +326,17 @@ export function AppDetail({
         <div className="ahead__top">
           <Avatar s={s} big />
           <div className="ahead__names">
+            {/* the application ID, and the university reference once submitted, both copyable (slice 3 PRD, Application page) */}
+            <p className="ahead__kicker num">
+              {a.id}
+              <CopyButton text={a.id} what="Application ID" onDone={say} />
+              {a.uniRef && (
+                <>
+                  <span className="ahead__dot" aria-hidden="true">·</span> University reference {a.uniRef}
+                  <CopyButton text={a.uniRef} what="University reference" onDone={say} />
+                </>
+              )}
+            </p>
             <h1 className="ahead__title">
               <button type="button" className="ahead__stu" onClick={() => onOpenStudent(s.id)} title={`Open ${s.first}’s profile`}>
                 {fullName(s)}
@@ -388,9 +420,9 @@ export function AppDetail({
               <Icon name="close" size={20} />
             </span>
             <div className="aneed__t">
-              <p className="aneed__title">{a.end.kind}</p>
+              <p className="aneed__title">{isWithdrawal(a.end.kind) ? 'Withdrawn' : `Closed: ${a.end.kind}`}</p>
               <p className="aneed__text">
-                {a.end.reason ? `${a.end.reason}. ` : ''}Closed at {STAGES[a.end.stage]} on {shortDate(new Date(a.end.at))}. The documents stay on {s.first}’s profile for other applications.
+                {isWithdrawal(a.end.kind) && a.end.reason ? `${a.end.reason}. ` : ''}{isWithdrawal(a.end.kind) ? 'Withdrawn' : 'Closed'} at {STAGES[a.end.stage]} on {shortDate(new Date(a.end.at))}. It’s read-only. The documents stay on {s.first}’s profile for other applications.
               </p>
             </div>
           </motion.section>
@@ -534,9 +566,10 @@ export function AppDetail({
             <h2 className="acard__title">Key details</h2>
             <dl className="cdl">
               <Row k="Application" v={<span className="num">{a.id}</span>} />
-              {a.uniRef && <Row k="University reference" v={<span className="num">{a.uniRef}</span>} />}
+              {isSubmitted(a) && <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : 'No reference ID'} />}
               <Row k="Intake" v={a.intake} />
-              <Row k="Duration" v={duration(c.months)} />
+              <Row k="Campus" v={campusLabel(c.campus)} />
+              <Row k="Duration" v={durationText(c)} />
               <Row k="Final tuition fee" v={<span className="num">{money(finalFeeOf(a.id, c.tuition), c.currency)}</span>} />
               {offer && (
                 <>
@@ -562,13 +595,13 @@ export function AppDetail({
                 }
               />
               <Row k="Base commission" v={<span className="num">{earn.text}</span>} />
-              <Row k="Applied" v={shortDate(new Date(a.created), true)} />
+              <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />
             </dl>
           </section>
         </aside>
       </div>
 
-      <WithdrawDialog open={withdraw} a={a} s={s} onCancel={() => setWithdraw(false)} onConfirm={(r) => (setWithdraw(false), close('Student withdrawn', r))} />
+      <WithdrawDialog open={withdraw} a={a} s={s} onCancel={() => setWithdraw(false)} onConfirm={(r) => (setWithdraw(false), close('Withdrawn', r))} />
       <CondForm n={answering} s={s} onClose={() => setAnswering(null)} onSend={sendConds} />
     </div>
   );
@@ -1005,26 +1038,3 @@ function Activity({ a }: { a: Application }) {
   );
 }
 
-/* ---------- withdrawing ---------- */
-
-/** Why it's withdrawn: one list, data/reasons.ts (HC23). */
-const REASONS = { get list() { return withdrawReasons(); } };
-
-function WithdrawDialog({ open, a, s, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; onCancel: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState(REASONS.list[0]);
-  const c = courseOf(a);
-  return (
-    <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
-      <p>GSP tells {c.uni.name}, and the application closes. {s.first}’s documents stay on the profile for other applications.</p>
-      <fieldset className="wreasons">
-        <legend className="wreasons__legend">Why?</legend>
-        {REASONS.list.map((r) => (
-          <label key={r} className="wreason">
-            <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
-            <span>{r}</span>
-          </label>
-        ))}
-      </fieldset>
-    </ConfirmDialog>
-  );
-}
