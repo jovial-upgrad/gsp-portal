@@ -127,7 +127,7 @@ export function MasterPartners(props: PageProps) {
         taken={(n) => [...db.mps.map((m) => m.name), ...db.rps.map((r) => r.name)].some((x) => x.toLowerCase() === n.trim().toLowerCase())}
         onCancel={() => setAdding(false)}
         onSave={(f) => {
-          const role = props.role ?? 'Recruitment Ops';
+          const role = props.role ?? 'RP Ops';
           const m: MasterPartner = { id: `mp-${Date.now().toString(36)}`, code: nextMpCode(db.mps), ...f, status: 'Active', docs: [], rps: [], log: [change(me, role, 'Master Partner created', '—', f.name)], created: { by: me, at: Date.now() } };
           set((d) => ({ ...d, mps: [m, ...d.mps] }));
           audit('Master Partners', `master_partner.created: ${m.code} ${m.name}`, me, role);
@@ -145,7 +145,7 @@ type Fields = Pick<MasterPartner, 'name' | 'country' | 'state' | 'city' | 'conta
 
 function MpPage(props: PageProps & { m: MasterPartner; tab?: string; onBack: () => void; backLabel: string }) {
   const { m, tab: start, onBack, backLabel, db, set, say, me, open } = props;
-  const role = props.role ?? 'Recruitment Ops';
+  const role = props.role ?? 'RP Ops';
   const edit = canEdit(props, OBJ.mps);
   const [tab, setTab] = useState<Tab>((['overview', 'rps', 'documents', 'commission', 'log'] as Tab[]).includes(start as Tab) ? (start as Tab) : 'overview');
   const [editing, setEditing] = useState(false);

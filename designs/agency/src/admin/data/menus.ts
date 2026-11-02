@@ -40,6 +40,7 @@ const OBJECT_OF: Record<string, string> = {
   'fin-setup': 'Commission terms',
   'work-sla': 'Queues, task rules and SLA',
   'work-rules': 'Queues, task rules and SLA',
+  'work-mail': 'Queues, task rules and SLA',
 };
 export const menuObjectOf = (key: string) => OBJECT_OF[key];
 /** A permission role's level on an object: E View + edit, V View, N No access. Admin has everything. */
@@ -51,6 +52,12 @@ export function levelFor(permRole: string | null | undefined, object: string): '
     return 'E';
   }
 }
+/**
+ * The one permission helper (merge, 2 Nov): every slice's page asks these, by matrix row. Edit shows Add, Edit and
+ * row actions; View shows the page read only (View Only sees no actions anywhere); No access hides it.
+ */
+export const canEditObject = (permRole: string | null | undefined, object: string) => levelFor(permRole, object) === 'E';
+export const canSeeObject = (permRole: string | null | undefined, object: string) => levelFor(permRole, object) !== 'N';
 /** Whether a role's menu shows this item. */
 export const canOpen = (permRole: string | null | undefined, key: string) => !OBJECT_OF[key] || levelFor(permRole, OBJECT_OF[key]) !== 'N';
 /** Whether the role can change what this item opens. */

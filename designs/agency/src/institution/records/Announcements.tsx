@@ -19,13 +19,11 @@ import { MultiPick } from './MultiPick';
 import { RichText, cleanHtml, textOf } from './RichText';
 import { OBJ, canEdit, type PageProps } from '../portal/model';
 
-/** The matrix's names for GSP roles while slice 1 renames them. */
-const STAFF_ROLE: Record<string, string> = { 'Global Ops': 'Admission Ops', 'RP Ops': 'Recruitment Ops', 'IP Ops': 'Institution Ops' };
 /** "Reaches about N people": GSP users and RP users the recipients pick out (sales region narrows both, RP country narrows RP users). */
 export function reachOf(v: { userTypes: string[]; roles: string[]; countries: string[]; regions: string[] }) {
   let n = 0;
   if (v.userTypes.includes('GSP')) {
-    const roles = v.roles.filter((r) => (GSP_ROLES as readonly string[]).includes(r)).map((r) => STAFF_ROLE[r] ?? r);
+    const roles = v.roles.filter((r) => (GSP_ROLES as readonly string[]).includes(r));
     n += STAFF.filter((x) => (!v.roles.length || roles.includes(x.role)) && (!v.regions.length || x.regions.some((g) => v.regions.includes(g)))).length;
   }
   if (v.userTypes.includes('RP')) {

@@ -27,6 +27,7 @@ import { GSP_USER } from '../user';
 import { useSharedDb } from '../data/store';
 import { forSearch, searchable } from '../data/catalogue';
 import { TeamHome } from '../records/Home';
+import { WorkPage } from '../../work/WorkPage';
 import { Universities } from '../records/Universities';
 import { Catalogue } from '../records/Catalogue';
 import { InstitutionPartners } from '../records/InstitutionPartners';
@@ -40,6 +41,7 @@ import '../institution.css';
 import { useLiveApps } from '../../data/live';
 import { setSession } from '../../data/downloads';
 import { setScope } from '../../data/scope';
+import { PERM_ROLE, currentRole } from '../../proto/roles';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -114,6 +116,8 @@ export function Portal({
     role: 'gsp',
     access: 'all',
     agency: acc.agency,
+    // slice 4: the signed-in person's own My work notifications, and only the applications they're the officer on
+    me: GSP_USER,
     country,
     apps,
     students,
@@ -226,10 +230,12 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name, role: 'Institution' };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name, role: PERM_ROLE[currentRole()] ?? 'Institution' };
   const content =
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
+    ) : section === 'mywork' ? (
+      <WorkPage section="mywork" role={currentRole()} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'profile' ? (
       <StaffProfile email={GSP_USER.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (

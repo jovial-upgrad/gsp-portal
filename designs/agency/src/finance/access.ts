@@ -4,7 +4,7 @@
  * In the real build Admin's matrix lives on the server; the UI only reads it.
  */
 
-import { adminCfg } from '../admin/data/store';
+import { levelFor } from '../admin/data/menus';
 import { ROLES as PERMISSION_ROLES, OVERSIGHT_OBJECT } from '../admin/data/config';
 
 /*
@@ -69,11 +69,8 @@ const ACTS = { E: 'CRUD', V: 'R', N: '' };
 const nameOfRole = id => PERMISSION_ROLES.find(n => roleId(n) === id);
 /** A role's level on a line of Admin's matrix: 'E' View + edit, 'V' View, 'N' No access. Admin has everything. */
 export function levelOf(roleIdOrName, object) {
-  const name = nameOfRole(roleIdOrName) || roleIdOrName;
-  if (name === 'Admin') return 'E';
-  let perms = {};
-  try { perms = adminCfg().perms || {}; } catch { perms = {}; }
-  return (perms[object] || {})[name] || 'N';
+  // the one helper (admin/data/menus.ts), by the role's matrix name
+  return levelFor(nameOfRole(roleIdOrName) || roleIdOrName, object);
 }
 /** Roles that see every mailbox and every queue's tasks, not only their own (HC30): Admin's oversight line. */
 export const oversees = id => levelOf(id, OVERSIGHT_OBJECT) !== 'N';

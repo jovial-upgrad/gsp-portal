@@ -12,7 +12,7 @@ import { LEVELS, LEVEL_SHORT, OBJECTS, REGION_MEANS, ROLES, isSystemRegion, type
 import { nationalityWord } from '../data/nationalities';
 import { COUNTRIES } from '../../data/partners';
 import { useStore } from '../../work/store';
-import { setCalendars, useCalendars } from '../../work/calendars';
+import { calendarIdOf, putRegionsOn, useCalendars } from '../../work/calendars';
 import { sampleApplications, isOpen } from '../../data/applications';
 import { routingRps } from '../../data/regions';
 import type { ConfigProps } from './ConfigPage';
@@ -55,8 +55,9 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
   const [removing, setRemoving] = useState<Region | null>(null);
   const work = useStore() as { queues: { id: string; name: string }[] };
   const cals = useCalendars();
-  const queueNames = (work.queues ?? []).filter((q) => q.id !== 'q-fallback').map((q) => q.name);
-  const calOf = (r: string) => cals.find((c) => c.regions.includes(r))?.name ?? cals[0]?.name ?? '';
+  const queueNames = (work.queues ?? []).filter((q) => q.id !== 'q-fallback' && q.id !== 'q-admin').map((q) => q.name);
+  // the region's calendar is work/calendars.ts's: its own calendarId first, then the calendar listing it (one setting, S4-25)
+  const calOf = (r: string) => cals.find((c) => c.id === calendarIdOf(r))?.name ?? cals[0]?.name ?? '';
   const queueOf = (r: string) => {
     const v = cfg.regionQueue[r];
     const name = cfg.queues.find((q) => q.id === v)?.name ?? v;
@@ -149,7 +150,7 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
         onSave={(r) => {
           const was = edit === 'new' ? null : edit;
           const cal = cals.find((c) => c.name === r.calendar);
-          const region: Region = { name: r.name, contact: r.contact, countries: r.countries };
+          const region: Region = { name: r.name, contact: r.contact, countries: r.countries, ...(cal ? { calendarId: cal.id } : {}) };
           if (!was) {
             change('Sales regions', `Added ${r.name}: ${r.countries.length} countries; contact ${r.contact}; BDM ${r.bdm}; queue ${r.queue}; calendar ${r.calendar}`, (c) => {
               const at = c.regions.findIndex((x) => isSystemRegion(x.name));
@@ -184,14 +185,10 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
             }));
           }
           // a region is on exactly one calendar; picking it here or on Working days is the same setting
-          if (cal)
-            setCalendars((list) => {
-              list.forEach((c) => {
-                c.regions = c.regions.filter((x) => x !== r.name && x !== was?.name);
-                if (c.id === cal.id) c.regions.push(r.name);
-              });
-              return list;
-            });
+          if (cal) {
+            const on = cals.find((c) => c.id === cal.id)?.regions.filter((x) => x !== was?.name && x !== r.name) ?? [];
+            putRegionsOn(cal.id, [...on, r.name]);
+          }
           say('Saved.');
           setEdit(null);
         }}

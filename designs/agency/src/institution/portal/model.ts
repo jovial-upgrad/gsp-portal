@@ -1,6 +1,6 @@
 import type { IconName } from '../../components/Icon';
 import type { Db, SetDb } from '../data/store';
-import { levelFor, liveKeys, liveMenu } from '../../admin/data/menus';
+import { canEditObject, canSeeObject, levelFor, liveKeys, liveMenu } from '../../admin/data/menus';
 import { PERM_ROLE, currentRole } from '../../proto/roles';
 /** IP Ops reuses this portal (S1-1): the menu follows whichever role is on show. */
 const permNow = () => (currentRole() === 'gsp-ip-ops' ? PERM_ROLE['gsp-ip-ops'] : PERM_ROLE['institution-partner']);
@@ -11,10 +11,12 @@ const permNow = () => (currentRole() === 'gsp-ip-ops' ? PERM_ROLE['gsp-ip-ops'] 
  * courses. 29 Oct (2nd round), from the PM prototype's IP team: Announcements, after Courses; Home is the team's
  * queue. `profile` is the account page, opened from the initials on phones.
  */
-export type Section = 'home' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'mps' | 'profile';
+export type Section = 'home' | 'mywork' | 'students' | 'applications' | 'courses' | 'rps' | 'ips' | 'universities' | 'catalogue' | 'announcements' | 'mps' | 'profile';
 
 const ALL_NAV: { key: Section; label: string; short: string; icon: IconName }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home' },
+  // slice 4 PRD: My work is in every GSP role's menu, first after Home
+  { key: 'mywork', label: 'My work', short: 'My work', icon: 'checkCircle' },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
   { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search' },
@@ -58,17 +60,11 @@ export type PageProps = {
   role?: string;
 };
 
-/** Slice 1 renames three roles; the matrix may hold either name while the slices merge. */
-const ALIAS: Record<string, string> = { 'RP Ops': 'Recruitment Ops', 'IP Ops': 'Institution Ops', 'Global Ops': 'Admission Ops', 'Recruitment Ops': 'RP Ops', 'Institution Ops': 'IP Ops', 'Admission Ops': 'Global Ops' };
-/** A role's level on a matrix row: E edit, V view, N no access (slice 1). */
-export function levelOf(role: string | undefined, object: string): 'E' | 'V' | 'N' {
-  const a = levelFor(role, object);
-  if (a !== 'N' || !role || !ALIAS[role]) return a;
-  return levelFor(ALIAS[role], object);
-}
+/** A role's level on a matrix row: E edit, V view, N no access (slice 1's one helper, admin/data/menus.ts). */
+export const levelOf = (role: string | undefined, object: string): 'E' | 'V' | 'N' => levelFor(role, object);
 /** Slice 2 Owner rules: the roles with Edit on a row create, edit and delete; the rest only read; No access doesn't see it. */
-export const canEdit = (p: { role?: string }, object: string) => levelOf(p.role, object) === 'E';
-export const canSee = (p: { role?: string }, object: string) => levelOf(p.role, object) !== 'N';
+export const canEdit = (p: { role?: string }, object: string) => canEditObject(p.role, object);
+export const canSee = (p: { role?: string }, object: string) => canSeeObject(p.role, object);
 /** The matrix rows slice 2 reads. */
 export const OBJ = {
   ips: 'Institution partners',

@@ -187,11 +187,11 @@ function AdminHome({ first, go, variant }: Props) {
   for (const u of cfg.users.filter((x) => x.status !== 'Deactivated' && !x.regions.length)) warns.push({ id: `nr-${u.id}`, title: `${u.name} has no sales region`, text: `${u.role}: sees no records until given one.`, go: 'users', action: 'Edit' });
   // slice 4's queue warnings, from Admin › Work's queues
   const qs = work.queues ?? [];
-  const noMembers = qs.filter((q) => q.id !== 'q-fallback' && !q.leader && !q.members.length);
-  const onlyLeader = qs.filter((q) => q.id !== 'q-fallback' && q.leader && !q.members.length);
+  const noMembers = qs.filter((q) => q.id !== 'q-admin' && !q.leader && !q.members.length);
+  const onlyLeader = qs.filter((q) => q.id !== 'q-admin' && q.leader && !q.members.length);
   if (noMembers.length) warns.push({ id: 'q-empty', title: `${noMembers.length === 1 ? '1 queue has' : `${noMembers.length} queues have`} no members`, text: noMembers.map((q) => q.name).join(', '), go: 'work-sla', action: 'Queues' });
   if (onlyLeader.length) warns.push({ id: 'q-lead', title: `${onlyLeader.length === 1 ? '1 queue has' : `${onlyLeader.length} queues have`} only a leader`, text: `${onlyLeader.map((q) => q.name).join(', ')}: every task goes to the leader.`, go: 'work-sla', action: 'Queues' });
-  const inAdmin = work.tasks.filter((t) => t.queue === 'q-fallback' && t.status === 'open');
+  const inAdmin = work.tasks.filter((t) => t.queue === 'q-admin' && t.status === 'open');
   if (inAdmin.length) warns.push({ id: 'q-admin', title: `${inAdmin.length === 1 ? '1 task' : `${inAdmin.length} tasks`} in the Admin queue`, text: 'Work that no queue took, or that escalated to Admin.', go: 'mywork', action: 'My work' });
   // a daily job that failed 3 runs in a row (slice 4's job runs, in Logs)
   const jobs = [...new Set(cfg.log.filter((l) => l.kind === 'job').map((l) => l.text))];

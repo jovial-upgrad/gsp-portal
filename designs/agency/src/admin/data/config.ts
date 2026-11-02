@@ -46,7 +46,8 @@ export type LogEntry = {
  * anywhere, and each region keeps the countries it's made of (editable there). Every country list by region in the
  * prototype reads this one.
  */
-export type Region = { name: string; contact: string; countries: string[] };
+/** `calendarId`: the region's working calendar (Admin › Work › Working days, work/calendars.ts); the same setting as Sales regions' Working calendar picker. */
+export type Region = { name: string; contact: string; countries: string[]; calendarId?: string };
 /** The three system regions (PRD slice 1): no Delete; their names and countries are fixed. */
 export const SYSTEM_REGIONS = ['Rest of world', 'Direct', 'Global'];
 export const isSystemRegion = (name: string) => SYSTEM_REGIONS.includes(name);

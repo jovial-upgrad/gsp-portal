@@ -1,21 +1,10 @@
 import { useState } from 'react';
 import { Switch } from '../../components/forms';
+import { EMAIL_TEMPLATES } from '../../work/mail';
 
-/** Slice 1's account emails: they can't be turned off (S4-16). */
-const ACCOUNT = ['Your code (sign-up and sign-in)', 'Set up your account', 'Reset your password', 'New sign-in to your account'];
-/** The emails an RP user gets in slice 2 (slice 4's templates), each of which they can turn off. */
-const RP_EMAILS: [string, string][] = [
-  ['E5', 'Welcome, and what’s next'],
-  ['E6', 'Documents received'],
-  ['E7', 'A document was sent back'],
-  ['E13', 'Reminder: documents to replace'],
-  ['E8', 'You’re verified: sign your agreement'],
-  ['E9', 'Your signed agreement was sent back'],
-  ['E10', 'Your agreement is signed: commissions start'],
-  ['E11', 'Your partner account’s status changed'],
-  ['E12', 'Linked to or unlinked from a Master Partner'],
-  ['E14', 'Announcements from GSP'],
-];
+/** The emails an RP user gets, from slice 4's one template list (work/mail.ts): the account emails can't be turned off (S4-16). */
+const ACCOUNT = EMAIL_TEMPLATES.filter((e) => !e.canTurnOff && e.who !== 'GSP').map((e) => e.name);
+const RP_EMAILS: [string, string][] = EMAIL_TEMPLATES.filter((e) => e.canTurnOff && e.who !== 'GSP').map((e) => [e.id, e.name]);
 const KEY = 'gsp-rp-email-prefs';
 const load = (): string[] => {
   try {

@@ -247,7 +247,7 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
                 q.members = q.members.filter((m) => m !== u.id);
                 if (q.leader === u.id) q.leader = '';
               });
-            }, `${u.name} was deleted in Admin › GSP users and taken off every queue`);
+            }, `${u.name} was deleted in Admin › GSP users and taken off every queue`, 'queue.edited');
           } catch {
             /* work store not loaded */
           }

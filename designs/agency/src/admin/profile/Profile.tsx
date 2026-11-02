@@ -11,7 +11,11 @@ import { setAdminCfg, useAdmin } from '../data/store';
 import { leaveOf, setLeave, useLeave, type Leave } from '../../data/leave';
 import { TEST_CODE } from '../../data/testing';
 import { Facts, Pill, Section } from '../../institution/records/parts';
-import { ACCOUNT_EMAILS, WORK_EMAILS } from '../data/emails';
+import { EMAIL_TEMPLATES } from '../../work/mail';
+
+/** GSP's Email preferences read slice 4's one template list: the account emails locked on, the rest one switch each. */
+const ACCOUNT_EMAILS = EMAIL_TEMPLATES.filter((e) => !e.canTurnOff && e.who !== 'RP');
+const WORK_EMAILS = EMAIL_TEMPLATES.filter((e) => e.canTurnOff && e.who !== 'RP').map((e) => ({ id: e.id, name: e.name, what: e.when }));
 import { checkPassword, maskEmail } from '../signin/model';
 import { istDay } from '../config/states';
 

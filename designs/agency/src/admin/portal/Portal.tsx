@@ -154,6 +154,8 @@ export function Portal({
     role: 'gsp',
     access: 'all',
     agency: acc.agency,
+    // slice 4: the signed-in person's own My work notifications, and only the applications they're the officer on
+    me: ME,
     country,
     apps,
     students,
@@ -305,10 +307,10 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin', role: ({ admin: 'Admin', recruitment: 'Recruitment', bap: 'RP Ops', finance: 'Finance', viewonly: 'View Only' } as const)[variant] };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin', role: PERM };
   const content =
     WORK_SECTIONS.includes(section as WorkSection) ? (
-      <WorkPage section={section as WorkSection} role={`gsp-${variant}`} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+      <WorkPage section={section as WorkSection} role={roleOfVariant(variant)} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : variant === 'finance' && (section === 'home' || FIN_SECTIONS.includes(section as FinSection)) ? (
       <FinancePage section={section as FinSection | 'home'} go={(k) => go(k as Section)} />
     ) : section === 'home' ? (

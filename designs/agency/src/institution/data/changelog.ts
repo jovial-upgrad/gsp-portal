@@ -15,9 +15,8 @@ export const SYSTEM = 'System';
 let seq = 0;
 export const change = (who: string, role: string, what: string, from: string, to: string, at = Date.now()): Change => ({ id: `chg-${at.toString(36)}-${(++seq).toString(36)}`, at, who, role, what, from, to });
 
-/** The PRD's names for the matrix's roles. */
-const ROLE_NAME: Record<string, string> = { 'Recruitment Ops': 'RP Ops', 'Institution Ops': 'IP Ops', 'Admission Ops': 'Global Ops' };
-export const roleName = (r: string) => ROLE_NAME[r] ?? r;
+/** The PRD's names for the matrix's roles: since the merge the matrix holds slice 1's names, so a role shows as it is. */
+export const roleName = (r: string) => r;
 
 /** A value as the Change log shows it. */
 export function shown(v: unknown): string {

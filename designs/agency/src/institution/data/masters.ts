@@ -56,7 +56,7 @@ export const sampleMps = (): MasterPartner[] => {
       notes: 'Brings agencies in Hanoi and the south. Onboarded in person in Ho Chi Minh City.',
       docs: [{ id: 'mpd-1', name: 'Business registration', file: 'Mekong_business_registration.pdf', by, at: atIso('2025-03-20') }],
       rps: [{ rpId: 'rp-hanoi', at: atIso('2025-04-21'), by }],
-      log: [change(by, 'Recruitment Ops', 'RPs · Lotus Study Abroad', '—', 'Linked', atIso('2025-04-21')), change(by, 'Recruitment Ops', 'Master Partner created', '—', 'Mekong Education Network', atIso('2025-03-20'))],
+      log: [change(by, 'RP Ops', 'RPs · Lotus Study Abroad', '—', 'Linked', atIso('2025-04-21')), change(by, 'RP Ops', 'Master Partner created', '—', 'Mekong Education Network', atIso('2025-03-20'))],
       created: { by, at: atIso('2025-03-20') },
     },
     {
@@ -73,7 +73,7 @@ export const sampleMps = (): MasterPartner[] => {
       notes: '',
       docs: [],
       rps: [],
-      log: [change(by, 'Recruitment Ops', 'Master Partner created', '—', 'South Asia Study Alliance', atIso(inDays(-14)))],
+      log: [change(by, 'RP Ops', 'Master Partner created', '—', 'South Asia Study Alliance', atIso(inDays(-14)))],
       created: { by, at: atIso(inDays(-14)) },
     },
     {
@@ -90,7 +90,7 @@ export const sampleMps = (): MasterPartner[] => {
       notes: 'Paused while its own agreements are reviewed.',
       docs: [],
       rps: [],
-      log: [change(by, 'Recruitment Ops', 'Master Partner · Status', 'Active', 'Inactive', atIso(inDays(-30))), change(by, 'Recruitment Ops', 'Master Partner created', '—', 'Bengal Delta Partners', atIso('2025-08-01'))],
+      log: [change(by, 'RP Ops', 'Master Partner · Status', 'Active', 'Inactive', atIso(inDays(-30))), change(by, 'RP Ops', 'Master Partner created', '—', 'Bengal Delta Partners', atIso('2025-08-01'))],
       created: { by, at: atIso('2025-08-01') },
     },
   ];
