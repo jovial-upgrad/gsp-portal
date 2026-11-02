@@ -1,3 +1,4 @@
+import { canSeeNow } from '../../admin/data/menus';
 import { withdrawReasons } from '../../data/reasons';
 import { UPLOAD } from '../../data/uploads';
 import { PriorityChip } from '../../components/PriorityChip';
@@ -72,6 +73,11 @@ const TABS: [AppTab, string, IconName][] = [
   ['commission', 'Commission', 'wallet'],
   ['activity', 'Activity', 'clock'],
 ];
+/**
+ * The tabs this person sees (X-1 proposal, 3 Nov): Commission only for roles with View on slice 1's matrix row
+ * "Commission lines" (Admin, Finance, View Only as seeded, and any role Admin ticks); the rest don't see it.
+ */
+const tabsNow = () => TABS.filter(([k]) => k !== 'commission' || canSeeNow('Commission lines'));
 /** The one tag in the header's corner: who has the application now, as GSP sees it, never two at once. */
 const HEAD_TAG: Record<AppOwner, string> = OWNER_TAG;
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -193,6 +199,7 @@ export function AppDetail({
   };
 
   const onTabKey = (e: KeyboardEvent) => {
+    const TABS = tabsNow();
     const i = TABS.findIndex(([k]) => k === tab);
     const n = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
     if (n < 0) return;
@@ -609,7 +616,7 @@ export function AppDetail({
       </AnimatePresence>
 
       <div className="atabs" role="tablist" aria-label="Application" onKeyDown={onTabKey}>
-        {TABS.map(([k, label, icon]) => (
+        {tabsNow().map(([k, label, icon]) => (
           <button
             key={k}
             type="button"
@@ -679,7 +686,7 @@ export function AppDetail({
               />
             )}
             {tab === 'submission' && <SubmissionTab a={a} all={all} students={students} desk={desk} onRef={(r, was) => (finished ? say('This application is finished: it’s read-only.') : setRef(r, was))} say={say} />}
-            {tab === 'commission' && <AppCommission a={a} agency={agency} side="both" />}
+            {tab === 'commission' && canSeeNow('Commission lines') && <AppCommission a={a} agency={agency} side="both" />}
             {tab === 'activity' && <Activity a={a} agency={agency} />}
           </motion.div>
         </AnimatePresence>
@@ -1335,7 +1342,7 @@ function Activity({ a, agency }: { a: Application; agency: string }) {
             <span className="aact__t">
               <span className="aact__text">{e.text}</span>
               <span className="aact__meta">
-                {e.by ? (e.who === 'you' ? `${e.by}, ${agency}` : e.by) : e.who === 'you' ? agency : WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                {e.by ? (e.who === 'you' ? `${e.by}, ${agency}` : e.by) : e.who === 'you' ? agency : WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true })}
               </span>
             </span>
           </motion.li>

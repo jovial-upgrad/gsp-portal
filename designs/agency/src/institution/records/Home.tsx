@@ -1,3 +1,4 @@
+import { istParts } from '../../data/dates';
 import { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Icon } from '../../components/Icon';
@@ -9,7 +10,7 @@ import type { PageProps } from '../portal/model';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const greeting = () => {
-  const h = new Date().getHours();
+  const h = istParts(Date.now()).h;
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 

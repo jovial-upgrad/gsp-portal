@@ -28,8 +28,22 @@ export function parseMonth(v: string) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** "14 Oct", or "18 Sep 2032" with the year (en-GB would say "Sept"). */
-export const shortDate = (d: Date, year = false) => `${d.getDate()} ${MONTHS[d.getMonth()]}${year ? ` ${d.getFullYear()}` : ''}`;
-export const monthLabel = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+/**
+ * A moment's calendar parts in IST (slice 1 NFR-1: one time zone, Asia/Kolkata, for every date and time shown),
+ * whatever the viewer's own zone. IST is UTC+5:30 all year.
+ */
+export function istParts(d: Date | number) {
+  const x = new Date((typeof d === 'number' ? d : d.getTime()) + 5.5 * 3_600_000);
+  return { y: x.getUTCFullYear(), m: x.getUTCMonth(), d: x.getUTCDate(), h: x.getUTCHours(), min: x.getUTCMinutes(), wd: x.getUTCDay() };
+}
+export const shortDate = (d: Date, year = false) => {
+  const p = istParts(d);
+  return `${p.d} ${MONTHS[p.m]}${year ? ` ${p.y}` : ''}`;
+};
+export const monthLabel = (d: Date) => {
+  const p = istParts(d);
+  return `${MONTHS[p.m]} ${p.y}`;
+};
 
 /* No passport-validity rule here (HC17, Jovial 1 Nov): how long a passport must still run is the visa's rule, not ours. */
 

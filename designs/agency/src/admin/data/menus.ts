@@ -69,6 +69,8 @@ export const canEditObject = (permRole: string | null | undefined, object: strin
 export const canSeeObject = (permRole: string | null | undefined, object: string) => levelFor(permRole, object) !== 'N';
 /** The same for whoever the prototype shows now (shared pages that don't get a role passed in). RP roles: always Edit. */
 export const canEditNow = (object: string) => canEditObject(PERM_ROLE[currentRole()], object);
+/** Whether whoever the prototype shows now can see an object at all (View or Edit). */
+export const canSeeNow = (object: string) => canSeeObject(PERM_ROLE[currentRole()], object);
 /** Whether a role's menu shows this item. */
 export const canOpen = (permRole: string | null | undefined, key: string) => !OBJECT_OF[key] || levelFor(permRole, OBJECT_OF[key]) !== 'N';
 /** Whether the role can change what this item opens. */

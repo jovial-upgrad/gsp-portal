@@ -203,7 +203,7 @@ export function sentDocs(s: SignupState) {
 /* ---------- Dates, in the partner's terms ---------- */
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-const time = (d: Date) => d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
+const time = (d: Date) => d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true });
 const day = (d: Date) => fmtDate(d, { year: false });
 
 /** "today, 10:42 am" or "24 Oct, 10:42 am" */
@@ -215,5 +215,5 @@ export function whenLabel(ts?: number) {
 
 /** The date to expect GSP's verification by (HC32): the next working day in GSP's calendar for the agency's country. */
 export function expectedBy(ts?: number, country = '') {
-  return nextWorkingDay(ts ?? Date.now(), country).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return nextWorkingDay(ts ?? Date.now(), country).toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short' });
 }

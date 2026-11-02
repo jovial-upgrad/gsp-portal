@@ -71,7 +71,7 @@ export function RecruitmentPartners(props: PageProps) {
 
   if (cur) {
     const shown = rps.find((r) => r.id === cur.id);
-    if (!shown) return <Gone denied={db.rps.some((r) => r.id === cur.id)} back={cur.back?.label ?? 'Recruitment partners'} onBack={back} />;
+    if (!shown) return <Gone back={cur.back?.label ?? 'Recruitment partners'} onBack={back} />;
     return <RpPage key={shown.id} r={shown} tab={cur.tab} onBack={back} {...props} />;
   }
 

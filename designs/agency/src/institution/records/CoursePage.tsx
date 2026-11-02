@@ -288,7 +288,7 @@ function Basics({ c, u, courses, tags, save, edit }: { c: CourseRec; u?: UniRec;
           <p className="irsec__note">The university can’t change after the course is created.</p>
           <div className="iblock itagblock">
             <h3 className="iblock__title">Tags</h3>
-            <p className="irsec__note">From Admin’s Course tags list. Partners see them on the course in course search, and they’re quick filters there.</p>
+            <p className="irsec__note">From Admin › Course configuration › Course tags. Partners see them on the course in course search, and they’re quick filters there.</p>
             <div className="ichecks__list itaglist">
               {[...new Set([...tags, ...v.tags.filter((t) => !tags.includes(t))])].map((t) => (
                 <button key={t} type="button" className="ichip" aria-pressed={v.tags.includes(t)} onClick={() => set({ tags: toggle(v.tags, t) })}>

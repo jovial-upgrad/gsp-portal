@@ -4,6 +4,7 @@
  * Today's jobs (from the recurring jobs list on Finance setup) with live counts,
  * what's waiting on this person, and the week ahead.
  */
+import { istParts } from '../data/dates';
 import React, { useContext } from 'react';
 import { update, nameOf } from './store';
 import { Page, Card, Tiles, Table, Pill, Button, LinkButton, Empty, toast } from './kit';
@@ -50,7 +51,7 @@ export default function FinanceHome() {
   const week = [];
   for (let i = 1; i <= 7; i++) { const d = addDays(today, i); ops.jobs.filter(j => j.freq !== 'daily' && jobDue(cfg, j, d)).forEach(j => week.push([d, j])); }
   const myTasks = s.tasks.filter(t => t.status === 'open' && t.queue === 'q-finance' && (!t.assignee || t.assignee === user.id));
-  const hour = new Date().getHours();
+  const hour = istParts(Date.now()).h;
   const go = (page, f) => { nav.filter = f || null; openPage && openPage(page); };
 
   const tiles = [

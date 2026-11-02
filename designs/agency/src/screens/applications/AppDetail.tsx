@@ -1038,7 +1038,7 @@ function Activity({ a, commission }: { a: Application; commission: boolean }) {
             <span className="aact__t">
               <span className="aact__text">{e.text}</span>
               <span className="aact__meta">
-                {e.by ?? WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                {e.by ?? WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true })}
               </span>
             </span>
           </motion.li>

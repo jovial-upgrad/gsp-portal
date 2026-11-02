@@ -17,7 +17,7 @@ import { longDate, summaryOf, type Desk, type Mail } from './desk';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const time = (t: number) =>
-  new Date(t).toLocaleTimeString('en-GB', {
+  new Date(t).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', 
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,

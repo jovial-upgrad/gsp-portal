@@ -12,7 +12,7 @@ import { Button } from './Button';
 
 const LEVEL = { UG: 'Undergraduate', PG: 'Postgraduate', DIP: 'Diploma', VET: 'VET', SA: 'Study Abroad', ELICOS: 'English (ELICOS)', RES: 'Research', FDN: 'Foundation' };
 const TRIG = { census: 'At the census date', enrolment: 'At enrolment', invoice: 'When invoiced' };
-const nice = (d) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const nice = (d) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
 /** The universities under an institution partner, each with Finance's terms. */
 export function IpCommission({ unis }: { unis: { id: string; name: string }[] }) {

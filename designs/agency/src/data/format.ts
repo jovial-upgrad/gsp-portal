@@ -1,3 +1,4 @@
+import { istParts } from './dates';
 /**
  * One way to show money and dates everywhere (QC, 1 Nov, rule 5).
  * Money: INR with Indian grouping and no paise ("INR 6,69,598"); every other currency with two decimals
@@ -44,15 +45,16 @@ export function fmtDate(d: string | number | Date | null | undefined, o: { list?
   if (d === null || d === undefined) return '';
   const x = toDate(d);
   if (!x) return '';
-  const year = o.year === false ? false : o.list ? x.getFullYear() !== new Date().getFullYear() : true;
-  return `${x.getDate()} ${MONTHS[x.getMonth()]}${year ? ` ${x.getFullYear()}` : ''}`;
+  const p = istParts(x);
+  const year = o.year === false ? false : o.list ? p.y !== istParts(Date.now()).y : true;
+  return `${p.d} ${MONTHS[p.m]}${year ? ` ${p.y}` : ''}`;
 }
 
 /** "Today, 14:05" or "5 Nov, 14:05": when something happened, for logs. */
 export function fmtWhen(at: number) {
-  const d = new Date(at);
-  const today = new Date().toDateString() === d.toDateString();
-  return `${today ? 'Today' : fmtDate(d, { list: true })}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const p = istParts(at), n = istParts(Date.now());
+  const today = p.y === n.y && p.m === n.m && p.d === n.d;
+  return `${today ? 'Today' : fmtDate(at, { list: true })}, ${String(p.h).padStart(2, '0')}:${String(p.min).padStart(2, '0')}`;
 }
 
 /** An ISO day as typed: "2026-11-05" → "05/11/2026". */

@@ -1,3 +1,4 @@
+import { istParts } from '../../data/dates';
 import type { ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -17,7 +18,7 @@ import type { Db } from '../../institution/data/store';
 import type { Section as PortalSection, Target, Variant } from './model';
 
 const greeting = () => {
-  const h = new Date().getHours();
+  const h = istParts(Date.now()).h;
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 const DAY = 86_400_000;

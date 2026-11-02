@@ -52,7 +52,7 @@ export function MasterPartners(props: PageProps) {
 
   if (cur) {
     const m = mps.find((x) => x.id === cur.id);
-    if (!m) return <Gone denied={db.mps.some((x) => x.id === cur.id)} back={cur.back?.label ?? 'Master Partners'} onBack={back} />;
+    if (!m) return <Gone back={cur.back?.label ?? 'Master Partners'} onBack={back} />;
     return <MpPage key={m.id} m={m} tab={cur.tab} onBack={back} backLabel={cur.back?.label ?? 'Master Partners'} {...props} />;
   }
   return (
