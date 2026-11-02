@@ -40,6 +40,7 @@ const OBJECT_OF: Record<string, string> = {
   'fin-run': 'Payout runs and statements',
   'fin-exc': 'Commission lines',
   'fin-reports': 'Commission lines',
+  'fin-scen': 'Commission lines',
   'fin-terms': 'Commission terms',
   'fin-setup': 'Commission terms',
   'work-sla': 'Queues, task rules and SLA',

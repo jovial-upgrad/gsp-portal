@@ -15,7 +15,7 @@ import { PERM_ROLE, type Role } from '../../proto/roles';
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
 export type ConfigSection = 'users' | 'regions' | 'permissions' | 'emails' | 'bdm' | 'currency' | 'living' | 'grades' | 'english' | 'routing' | 'documents' | 'logs' | 'security' | 'tags';
-export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how';
+export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how' | 'fin-scen';
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-mail';
 export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
 
@@ -148,7 +148,7 @@ const SPECS: Record<Variant, VariantSpec> = {
     home: HOME,
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('applications', 'Applications', 'Applications', 'doc')],
     groups: [
-      { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'Payout run', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download')] },
+      { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'Payout run', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download'), it('fin-scen', 'Commission scenarios', 'Scenarios', 'checkCircle')] },
       { key: 'fin-setup', label: 'Setup', icon: 'sliders', items: [it('fin-terms', 'Commission terms', 'Terms', 'key'), it('fin-setup', 'Finance setup', 'Setup', 'sliders'), it('fin-how', 'How Finance works', 'How', 'info')] },
       { key: 'fin-records', label: 'Records', icon: 'building', items: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('universities', 'Universities', 'Universities', 'building')] },
     ],

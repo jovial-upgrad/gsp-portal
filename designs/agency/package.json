@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "build:artifact": "vite build --mode artifact && node scripts/artifact.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:commissions": "node scripts/test-commissions.mjs",
+    "build:sandbox": "node scripts/build-sandbox.mjs"
   },
   "dependencies": {
     "motion": "^12.23.12",

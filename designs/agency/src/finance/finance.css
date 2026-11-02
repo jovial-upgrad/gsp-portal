@@ -121,3 +121,6 @@
 .sheet__foot .asf__acts > .btn--danger-quiet:first-child { margin-right: auto; }
 .gspx-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .gspx-stack { display: grid; gap: var(--sp-16); }
+
+/* Commission scenarios (commissions-26) */
+.gspx-case{margin:14px 0 6px}
