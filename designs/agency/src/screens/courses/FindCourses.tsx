@@ -233,7 +233,7 @@ export function FindCourses({
         {ready && (
           <div className={`fneed__summary ${editNeed ? 'is-hidden' : ''}`}>
             <p className="fneed__sum-text">
-              {[s.need.dest, `${s.need.state}, ${s.need.country}`, s.need.level, s.need.area, s.filters.intake ? `${s.filters.intake} intake` : 'Any intake'].join(' · ')}
+              {[s.need.dest, s.need.state ? `${s.need.state}, ${s.need.country}` : s.need.country, s.need.level, s.need.area, s.filters.intake ? `${s.filters.intake} intake` : 'Any intake'].join(' · ')}
             </p>
             <button type="button" className="btn btn--link" aria-expanded={editNeed} onClick={() => setEditNeed(true)}>
               Change
@@ -242,7 +242,7 @@ export function FindCourses({
         )}
         {/* the five things the brief needs before results mean anything, as one slim bar */}
         <fieldset className={`fseg ${ready && !editNeed ? 'is-folded' : ''}`}>
-          <legend className="vh">Who the course is for (the first five are needed; the intake is optional)</legend>
+          <legend className="vh">Who the course is for (destination, student’s country, program level and study area are needed; state or province and intake are optional)</legend>
           <Segment id="fc-dest" label="Destination" value={s.need.dest} options={[...DESTINATIONS]} onChange={(v) => setNeed('dest', v)} error={tried && !s.need.dest} />
           <Segment
             id="fc-country"
@@ -258,8 +258,8 @@ export function FindCourses({
             value={s.need.state}
             options={statesOf(s.need.country)}
             onChange={(v) => setNeed('state', v)}
-            error={tried && !s.need.state}
             disabled={!s.need.country}
+            optional
           />
           <Segment id="fc-level" label="Program Level" value={s.need.level} options={[...LEVELS]} onChange={(v) => setNeed('level', v)} error={tried && !s.need.level} />
           <Segment id="fc-area" label="Study Area" value={s.need.area} options={[...AREAS]} onChange={(v) => setNeed('area', v)} error={tried && !s.need.area} />
