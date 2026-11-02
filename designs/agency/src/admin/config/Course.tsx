@@ -5,8 +5,7 @@ import { TextInput } from '../../components/forms';
 import { FLAG } from '../../data/courses';
 import { PageHead } from '../../institution/records/parts';
 import { DEST_CURRENCY, inrPerFrom, type FxWeek, type Living, type Rate } from '../data/config';
-import { intakeTimesOf, withIntakeTimes } from '../data/store';
-import type { IntakeTimes } from '../../data/courses';
+import { intakeTimes, type IntakeTimes } from '../../data/courses';
 import type { ConfigProps } from './ConfigPage';
 import { CellError, EditBar, History, Panel, useDraft, when } from './parts';
 import { useCheck } from '../../components/validate';
@@ -37,14 +36,14 @@ const weekStart = (t = Date.now()) => {
 
 /**
  * Currency exchange (PRD slice 1; Admin › Course configuration): one unit of each currency in AUD (Finance's base),
- * one set of rates per IST week. 1 unit in INR and Used for are worked out. Get today's rates and Fetch with AI each
- * fill a draft that Admin saves; a currency the AI can't find keeps last week's rate and is flagged, and each fetch
+ * one set of rates per IST week. 1 unit in INR and Used for are worked out. Fetch with AI (the only fetch, S1C-10)
+ * fills a draft that Admin saves; a currency the AI can't find keeps last week's rate and is flagged, and each fetch
  * is logged. The week picker shows this week and every past week, read only. A week with no saved rate carries the
  * week before's.
  */
 export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
   const d = useDraft<Rate[]>(cfg.rates, 'the exchange rates');
-  const [fetched, setFetched] = useState<{ at: number; how: 'rates' | 'ai'; missed: string[] } | null>(null);
+  const [fetched, setFetched] = useState<{ at: number; missed: string[] } | null>(null);
   const [typed, setTyped] = useState<Record<number, string>>({});
   const [adding, setAdding] = useState('');
   const [result, setResult] = useState<SaveResult | null>(null);
@@ -63,14 +62,14 @@ export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
   const upd = (i: number, p: Partial<Rate>) => d.set((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
   // Used for: the destinations in Living costs and fees that use this currency, or course search's lakh budgets for INR
   const usedFor = (code: string) => (code === 'INR' ? 'Course search budgets in lakhs' : cfg.living.filter((l) => l.currency === code).map((l) => `Course search: ${DEST_NAME[l.country] ?? l.country}`).join('; ') || '—');
-  const fill = (how: 'rates' | 'ai') => {
+  const fill = () => {
     if (!ed) d.start();
     // the AI can't always find a rate: that row keeps last week's and is flagged (the prototype misses the dong)
-    const missed = how === 'ai' ? ['VND'].filter((c) => d.value.some((r) => r.code === c)) : [];
+    const missed = ['VND'].filter((c) => d.value.some((r) => r.code === c));
     d.set((l) => l.map((x) => (x.code === 'AUD' || missed.includes(x.code) ? x : { ...x, aud: nudge4(x.aud || 1, 0.012), updated: Date.now() })));
-    setFetched({ at: Date.now(), how, missed });
-    if (how === 'ai') change('Currency exchange', `Fetch with AI run: ${d.value.length - 1 - missed.length} rates drafted${missed.length ? `; not found: ${missed.join(', ')}` : ''}`, (c) => c);
-    say(how === 'ai' ? 'Rates drafted. Check them, then Save.' : 'Today’s rates are filled in. Check them, then Save.');
+    setFetched({ at: Date.now(), missed });
+    change('Currency exchange', `Fetch with AI run: ${d.value.length - 1 - missed.length} rates drafted${missed.length ? `; not found: ${missed.join(', ')}` : ''}`, (c) => c);
+    say('Rates drafted. Check them, then Save.');
   };
   const save = () => {
     if (!v.submit()) return;
@@ -98,10 +97,8 @@ export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
         <Pick id="fx-week" label="Week of" value={week} options={weeks.map((w) => [w, `Week of ${fmtDate(w)}${w === thisWeek ? ' (this week)' : ''}`] as [string, string])} onChange={(w) => (setWeek(w), w !== thisWeek && d.stop())} />
         {canEdit && !past && (
           <>
-            <Button variant="secondary" iconLeft={<Icon name="refresh" size={18} />} onClick={() => fill('rates')}>
-              Get today’s rates
-            </Button>
-            <Button variant="secondary" iconLeft={<Icon name="sparkle" size={18} />} onClick={() => fill('ai')}>
+            {/* only Fetch with AI (S1C-10): it drafts every rate and flags any it can't find */}
+            <Button variant="secondary" iconLeft={<Icon name="sparkle" size={18} />} onClick={() => fill()}>
               Fetch with AI
             </Button>
             <EditBar name="exchange rates" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (setFetched(null), setTyped({}), setResult(null), v.reset(), d.stop())} onSave={save} />
@@ -112,7 +109,7 @@ export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
       {ed && <SaveBanner result={result} onReload={d.stop} />}
       {fetched && (
         <p className="cfg__warnbox cfg__editing">
-          {fetched.how === 'ai' ? 'Fetched with AI' : 'Today’s rates filled in'} {when(fetched.at)}. Nothing is saved until you review it and click Save.
+          Fetched with AI {when(fetched.at)}. Nothing is saved until you review it and click Save.
           {fetched.missed.length ? ` Not found: ${fetched.missed.join(', ')} (keeps last week’s rate).` : ''}
         </p>
       )}
@@ -226,7 +223,7 @@ export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
  * where Admin found the figures, and when it was last changed. Rows can be added and deleted. The course page's
  * Costs uses these for the course's length (1 year when the length is in credits). Intake timings sit below.
  */
-export function LivingCosts({ cfg, change, say, canEdit, me, role }: ConfigProps) {
+export function LivingCosts({ cfg, change, say, canEdit, me }: ConfigProps) {
   const d = useDraft<Living[]>(cfg.living, 'the living costs and fees');
   const [adding, setAdding] = useState('');
   const [result, setResult] = useState<SaveResult | null>(null);
@@ -357,92 +354,50 @@ export function LivingCosts({ cfg, change, say, canEdit, me, role }: ConfigProps
         </Panel>
       </Loaded>
       <History log={cfg.log} area="Living costs and fees" />
-      <IntakeTimings cfg={cfg} change={change} say={say} canEdit={canEdit} me={me} role={role} />
+      <IntakeTimings />
     </>
   );
 }
 
 /* ---------- intake timings (PRD slice 1, Course configuration) ---------- */
 
-const TIMES: [keyof IntakeTimes, string, string, [number, number]][] = [
-  ['lateDays', 'Late after the deadline', 'An intake still shows, as “Late: likelihood is low”, for this long after its application deadline. Then it’s closed.', [0, 60]],
-  ['warnDays', 'Deadline soon', 'An open intake is marked as closing soon.', [1, 90]],
-  ['countdownDays', 'Countdown', 'An intake shows “closes in N days” once its deadline is this many days away.', [1, 180]],
+const TIMES: [keyof IntakeTimes, string, string][] = [
+  ['lateDays', 'Late after the deadline', 'An intake still shows, as “Late: likelihood is low”, for this long after its application deadline. Then it’s closed.'],
+  ['warnDays', 'Deadline soon', 'An open intake is marked as closing soon.'],
+  ['countdownDays', 'Countdown', 'An intake shows “closes in N days” once its deadline is this many days away.'],
 ];
 
 /**
  * Intake timings: how course search times each intake, in whole calendar days counted on IST dates. Read by course
- * search (slice 3) and the course pages (slice 2). Read only until Edit; changes are logged.
+ * search (slice 3) and the course pages (slice 2). Pre-decided values, not configurable in Admin (Jovial, S1C-11):
+ * shown read only; the values live in data/courses.ts (INTAKE_TIMES).
  */
-function IntakeTimings({ cfg, change, say, canEdit }: ConfigProps) {
-  const saved = intakeTimesOf(cfg);
-  const d = useDraft<IntakeTimes>(saved, 'the intake timings');
-  const [result, setResult] = useState<SaveResult | null>(null);
-  const ed = d.editing;
-  const errors: Record<string, string | null> = {};
-  for (const [k, , , [lo, hi]] of TIMES) {
-    const n = d.value[k];
-    errors[`it-${k}`] = !Number.isInteger(n) || n < lo || n > hi ? (k === 'warnDays' ? 'Enter a whole number from 1 to 90, no more than Countdown.' : `Enter a whole number from ${lo} to ${hi}.`) : null;
-  }
-  if (!errors['it-warnDays'] && !errors['it-countdownDays'] && d.value.warnDays > d.value.countdownDays) errors['it-warnDays'] = 'Enter a whole number from 1 to 90, no more than Countdown.';
-  const v = useCheck(errors);
-  const save = () => {
-    if (!v.submit()) return;
-    const res = trySave();
-    if (res !== 'ok') return setResult(res);
-    const t = d.value;
-    const diffs = TIMES.filter(([k]) => saved[k] !== t[k]).map(([k, label]) => `${label} ${saved[k]} → ${t[k]} days`);
-    change('Intake timings', diffs.join('; ') || 'No changes', (c) => withIntakeTimes(c, t));
-    say('Saved.');
-    setResult(null);
-    v.reset();
-    d.stop();
-  };
+function IntakeTimings() {
+  const t = intakeTimes();
   return (
-    <>
-      <Panel
-        flush
-        title="Intake timings"
-        note="How course search times each intake, in calendar days counted on IST dates."
-        action={canEdit && <EditBar name="intake timings" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (setResult(null), v.reset(), d.stop())} onSave={save} />}
-      >
-        {ed && <SaveBanner result={result} onReload={d.stop} />}
-        <div className="stab-wrap">
-          <table className="itab cfg__tab">
-            <thead>
-              <tr>
-                <th scope="col">Setting</th>
-                <th scope="col">Days</th>
-                <th scope="col">Allowed</th>
-                <th scope="col">Means</th>
+    <Panel flush title="Intake timings" note="How course search times each intake, in calendar days counted on IST dates. These are decided values and can’t be changed here.">
+      <div className="stab-wrap">
+        <table className="itab cfg__tab">
+          <thead>
+            <tr>
+              <th scope="col">Setting</th>
+              <th scope="col">Days</th>
+              <th scope="col">Means</th>
+            </tr>
+          </thead>
+          <tbody>
+            {TIMES.map(([k, label, what]) => (
+              <tr key={k}>
+                <td className="cfg__strong">{label}</td>
+                <td>
+                  <span className="num">{t[k]} days</span>
+                </td>
+                <td className="cfg__muted">{what}</td>
               </tr>
-            </thead>
-            <tbody>
-              {TIMES.map(([k, label, what, [lo, hi]]) => (
-                <tr key={k}>
-                  <td className="cfg__strong">{label}</td>
-                  <td>
-                    {ed ? (
-                      <>
-                        <NumberField id={`it-${k}`} min={lo} max={hi} steppers aria-label={`${label}, in days`} className="cfg__cellinput cfg__num" value={Number.isNaN(d.value[k]) ? '' : String(d.value[k])} invalid={!!v.err(`it-${k}`)} aria-describedby={v.err(`it-${k}`) ? `it-${k}-error` : undefined} onBlur={v.blur(`it-${k}`)} onChange={(_t) => d.set((x) => ({ ...x, [k]: _t === '' ? NaN : Number(_t.replace(/[^\d]/g, '')) }))} />
-                        <CellError id={`it-${k}`}>{v.err(`it-${k}`)}</CellError>
-                      </>
-                    ) : (
-                      <span className="num">{saved[k]} days</span>
-                    )}
-                  </td>
-                  <td className="cfg__muted num">
-                    {lo} to {hi}
-                    {k === 'warnDays' ? ', no more than Countdown' : ''}
-                  </td>
-                  <td className="cfg__muted">{what}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-      <History log={cfg.log} area="Intake timings" />
-    </>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   );
 }

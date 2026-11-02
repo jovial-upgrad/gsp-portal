@@ -15,6 +15,7 @@ import { calendarOf, isWorkingDay } from './calendars';
 import { Pick } from './ui';
 import { getDb } from '../institution/data/store';
 import { agreementEmails, fill } from '../institution/data/agreements';
+import { agreementReminders } from './rpRules';
 
 const DAY = 864e5;
 /** The next time a job runs, IST. */
@@ -51,6 +52,8 @@ function sentNow(s) {
   }
   // E8, E9, E10: each RP agreement step, from the RPs' agreement versions (data/agreements.ts)
   for (const rp of getDb().rps) for (const m of agreementEmails(rp)) out.push({ tpl: m.tpl, to: `${rp.name} (business email, RP Admins)`, record: rp.id, at: m.at, subject: fill(tpl(m.tpl)?.subject ?? '', m.values) });
+  // E22: T69's agreement reminders (L-5), at the rule's RP reminder times
+  for (const rp of getDb().rps) for (const m of agreementReminders(rp, s.rules, t)) out.push({ tpl: 'E22', to: `${rp.name} (RP Admins)`, record: rp.id, at: m.at, subject: fill(tpl('E22')?.subject ?? '', { agency: rp.name, version: m.version }) });
   // E18: each agency's daily update at 09:00 IST, when something happened in the 24 hours before
   const today9 = istAt(istYmd(t), '09:00');
   const last9 = t >= today9 ? today9 : today9 - DAY;

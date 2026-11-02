@@ -16,7 +16,9 @@ import { returnedDocs, stillToReplace } from '../signup/docs';
 import { Home } from './Home';
 import { LaterSection, LockedSection, ProfileSection } from './Sections';
 import { AccountClosed, HeldNote, RpAgreementCard, RpAgreementProfile } from './Agreement';
-import { agreementNotes, commissionHeld, openAgreement, rpCardCopy } from '../../institution/data/agreements';
+import { agreementName, agreementNotes, commissionHeld, openAgreement, rpCardCopy } from '../../institution/data/agreements';
+import { agreementReminders } from '../../work/rpRules';
+import { useStore as useWork } from '../../work/store';
 import { DocumentsSheet } from './DocumentsSheet';
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, type CourseSearch } from '../courses/search';
@@ -38,7 +40,7 @@ import { useLiveApps } from '../../data/live';
 import { useSharedDb } from '../../institution/data/store';
 import { bapDecisions, signupId, syncSignup } from '../../institution/data/rpverify';
 import { setSession } from '../../data/downloads';
-import { rpSees, seesEarnings } from '../../data/rproles';
+import { rpSees, seesCommission, seesEarnings } from '../../data/rproles';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -138,7 +140,14 @@ export function Portal({
   const rpRec = join ? db.rps.find((r) => r.id === signupId(join)) : undefined;
   const myRp = rpRec ?? (!join ? db.rps.find((r) => r.id === 'rp-test') : undefined);
   const isRpAdmin = !acc.role || acc.role === 'RP Admin';
-  const agrNotes = useMemo(() => (myRp && isRpAdmin ? agreementNotes(myRp).map((n) => ({ ...n, kind: 'system' as const, to: { page: 'home' as const } })) : []), [myRp, isRpAdmin]);
+  // T69's reminders (L-5): 3 and 7 working days after the agreement was sent, from Admin › Work › Task rules
+  const workRules = useWork((w: { rules: unknown[] }) => w.rules);
+  const agrNotes = useMemo(() => {
+    if (!myRp || !isRpAdmin) return [];
+    const open = openAgreement(myRp);
+    const reminders = agreementReminders(myRp, workRules).map((m: { id: string; at: number }) => ({ id: m.id, title: 'Reminder: sign your agreement', text: `${open ? agreementName(open) : 'Your agreement'} is still waiting for your signed copy. Download it, sign it, and upload it on Home.`, at: m.at }));
+    return [...agreementNotes(myRp), ...reminders].map((n) => ({ ...n, kind: 'system' as const, to: { page: 'home' as const } }));
+  }, [myRp, isRpAdmin, workRules]);
   const inbox = useInbox({
     extra: agrNotes,
     role: 'rp',
@@ -373,7 +382,8 @@ export function Portal({
         onDocs={openDocs}
         onSignOut={onSignOut}
         agreement={myRp && isRpAdmin ? <RpAgreementProfile r={myRp} by={acc.name} /> : undefined}
-        team={{ agency: acc.agency, bdm: manager, team, setTeam, branches, setBranches, students, setStudents }}
+        // RP Admin manages the whole team; a Branch Admin their branch's Counsellors (S2C-14); a Counsellor sees none
+        team={acc.role === 'Counsellor' ? undefined : { agency: acc.agency, bdm: manager, team, setTeam, branches, setBranches, students, setStudents, viewer: { role: acc.role, email: acc.email } }}
       />
     ) : section === 'students' ? (
       <Students
@@ -411,6 +421,7 @@ export function Portal({
         nationality={join?.form.country || TEST_COUNTRY}
         onFindCourses={() => go('courses')}
         ownOnly={acc.role === 'Counsellor'}
+        commission={seesCommission(acc)}
       />
     ) : section === 'courses' ? (
       <FindCourses
@@ -424,6 +435,7 @@ export function Portal({
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}
+        commission={seesCommission(acc)}
       />
     ) : section === 'earnings' && myRp && commissionHeld(myRp) ? (
       <>

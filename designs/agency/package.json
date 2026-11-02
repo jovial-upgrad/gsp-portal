@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test:commissions": "node scripts/test-commissions.mjs",
     "build:sandbox": "node scripts/build-sandbox.mjs",
-    "test:agreements": "node scripts/test-rp-agreements.mjs"
+    "test:agreements": "node scripts/test-rp-agreements.mjs",
+    "test:lock-rules": "node scripts/test-lock-rules.mjs"
   },
   "dependencies": {
     "motion": "^12.23.12",

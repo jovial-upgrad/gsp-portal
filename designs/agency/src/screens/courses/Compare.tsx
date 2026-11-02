@@ -6,7 +6,8 @@ import { Sheet } from '../../components/Sheet';
 import { durationText, feeAYear, intakeState, money, scholarshipsOf, totalFeeOf, urlOf, type Course } from '../../data/courses';
 import { UniMark } from './parts';
 import { campusState, convert } from './search';
-import { academicRulesFor, englishRulesFor } from '../../data/eligibility';
+import { englishRulesFor, minScoreOf } from '../../data/eligibility';
+import { scoreText } from '../../institution/data/catalogue';
 
 /** Up to this many courses are compared or downloaded together (slice 3 PRD). */
 export const MAX_PICK = 5;
@@ -38,9 +39,10 @@ const deadlineOf = (c: Course) => {
 const hasScholarship = (c: Course, country: string) => scholarshipsOf(c).some((x) => !x.forCountries?.length || x.forCountries.includes(country));
 /** Requirements for the student's country: minimum highest education, academic minimum and English overall. */
 function requirements(c: Course, country: string) {
-  const a = academicRulesFor(c, country)[0];
+  // the academic minimum is the course's minimum score in its Minimum highest education (S3C-2)
+  const a = minScoreOf(c);
   const e = englishRulesFor(c, country);
-  const min = a ? (a.scale === 'Percentage' ? `${a.min}%` : `${a.min} (${a.scale})`) : '—';
+  const min = a ? scoreText(a.min, a.scale) || '—' : '—';
   const eng = e.length ? e.map((r) => `${r.test.replace(/ (Academic|iBT|English Test)$/, '')} ${r.overall}`).join(', ') : '—';
   return `Minimum highest education: ${c.minEducation ?? '—'} · Academic minimum: ${min} · English overall: ${eng}`;
 }

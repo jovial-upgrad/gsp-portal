@@ -5,13 +5,13 @@ import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { Field, Switch, TextInput } from '../../components/forms';
-import { DESTINATIONS, LEVELS, type Destination } from '../../data/courses';
+import { DESTINATIONS, SEARCH_PRIORITY, type Destination } from '../../data/courses';
 import { UniMark, campusLabel } from '../courses/parts';
 import { countryByName } from '../../data/partners';
 import { COURSE_STATUSES, UNI_TYPES, coursesOf, searchable, type CampusRec, type CourseRec, type UniRec, type UniType } from '../data/catalogue';
 import { EXECUTED, agreementOf, canGoLive, dateText, executedByHand, isClosed, stampBy } from '../data/records';
 import { acceptOf, audit, checkFile, withLog, type Change, type LogSpec } from '../data/changelog';
-import { patch } from '../data/store';
+import { getDb, patch } from '../data/store';
 import { AddButton, ChangeLog, ErrorText, Facts, NoMatch, Pick, RecordHead, RecordTabs, Section, SystemInfo, TabPanel, usePager } from './parts';
 import { SearchPick } from './SearchPick';
 import { CourseForm, blankCourse, newCourse, type CourseDraft } from './CourseForm';
@@ -72,7 +72,10 @@ export const profileMissing = (u: UniRec) =>
 export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; backLabel: string; onBack: () => void; appsByUni?: Record<string, number> }) {
   const { u, tab: start, backLabel, onBack, db, set, open, say, me } = props;
   const role = props.role ?? 'Institution';
-  const ended = u.status === 'Ended';
+  const p = db.ips.find((x) => x.id === u.ip);
+  // an Ended university whose partner was reopened (S2C-19) isn't read-only: IP Ops activates it on its own
+  const reopened = u.status === 'Ended' && !!p && !isClosed(p.status);
+  const ended = u.status === 'Ended' && !reopened;
   const edit = canEdit(props, OBJ.unis) && !ended;
   const seeCampuses = canSee(props, OBJ.campuses);
   const editCampuses = canEdit(props, OBJ.campuses) && !ended;
@@ -91,7 +94,6 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
   const [pausing, setPausing] = useState(false);
   const [moving, setMoving] = useState(false);
   const [ipTo, setIpTo] = useState(u.ip);
-  const p = db.ips.find((x) => x.id === u.ip);
   const a = p ? agreementOf(p) : null;
   const courses = coursesOf(db.courses, u.id);
   const live = courses.filter(searchable);
@@ -135,11 +137,12 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
           </>
         }
       >
-        {u.status === 'Setting up' || u.status === 'Paused' ? (
+        {u.status === 'Setting up' || u.status === 'Paused' || reopened ? (
           <div className="igolive">
-            {!ready && <p className="istatus__note">{u.status === 'Paused' ? 'It can’t be resumed yet:' : 'It can’t go Live yet:'}</p>}
+            {reopened && <p className="istatus__note">Ended with its partnership. {p?.name} was reopened: activate this university when it’s ready. Nothing changes on its own.</p>}
+            {!ready && <p className="istatus__note">{u.status === 'Paused' ? 'It can’t be resumed yet:' : reopened ? 'It can’t be activated yet:' : 'It can’t go Live yet:'}</p>}
             {u.status === 'Paused' && ready && <p className="istatus__note">Paused: out of course search until it’s resumed. Applications already made carry on. Nothing resumes on its own.</p>}
-            <ul className="igolive__list" aria-label={u.status === 'Paused' ? 'To resume' : 'To go Live'}>
+            <ul className="igolive__list" aria-label={u.status === 'Paused' ? 'To resume' : reopened ? 'To activate' : 'To go Live'}>
               {needs.map(([k, ok]) => (
                 <li key={k} className={`igolive__item ${ok ? 'is-done' : ''}`}>
                   <Icon name={ok ? 'checkCircle' : 'clock'} size={16} />
@@ -148,8 +151,8 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
               ))}
             </ul>
             {canEdit(props, OBJ.unis) && (
-              <Button size="sm" disabled={!ready} onClick={() => setStatus('Live', u.status === 'Paused' ? 'resumed' : 'went live')}>
-                {u.status === 'Paused' ? 'Resume' : 'Go live'}
+              <Button size="sm" disabled={!ready} onClick={() => setStatus('Live', u.status === 'Paused' ? 'resumed' : reopened ? 'activated' : 'went live')}>
+                {u.status === 'Paused' ? 'Resume' : reopened ? 'Activate' : 'Go live'}
               </Button>
             )}
           </div>
@@ -599,7 +602,7 @@ function UniCourses({ u, courses, edit, onOpen, onAdd, onImport }: { u: UniRec; 
               <span className="vh">Search this university’s courses</span>
               <input type="search" placeholder="Course, code or CRICOS" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <Pick id="iuc-level-f" label="Level" value={level} all="All levels" options={LEVELS} onChange={setLevel} />
+            <Pick id="iuc-level-f" label="Level" value={level} all="All levels" options={getDb().levels.map((l) => l.name)} onChange={setLevel} />
             <Pick id="iuc-status-f" label="Status" value={status} all="All statuses" options={COURSE_STATUSES} onChange={setStatus} />
           </div>
           {rows.length ? (
@@ -655,10 +658,10 @@ const LOGO_KINDS = ['png', 'jpg', 'svg', 'webp'] as const;
 
 /**
  * Edit profile (slice 2 PRD): every field is required except CRICOS (Australia only) and About. QS world ranking is
- * read-only here: it comes from Admin's QS ranking CSV (S2-2). Search priority 0–100, default 0 (S2C-1).
+ * read-only here: it comes from the Universities page's QS ranking CSV (S2-2, S2C-17). Search priority 1–10, default 5 (S2C-1).
  */
 function EditProfile({ u, taken, onCancel, onSave }: { u: UniRec | null; taken: (n: string) => boolean; onCancel: () => void; onSave: (f: Profile) => void }) {
-  const first = (x: UniRec): ProfileDraft => ({ name: x.name, utype: x.utype, sector: x.sector ?? '', website: x.website ? `https://${x.website.replace(/^https?:\/\//, '')}` : '', cricos: x.cricos, searchPriority: String(x.searchPriority ?? 0), studylink: x.studylink, pathway: x.pathway, founded: x.founded ? String(x.founded) : '', about: x.about ?? '', logo: x.logo, country: x.country });
+  const first = (x: UniRec): ProfileDraft => ({ name: x.name, utype: x.utype, sector: x.sector ?? '', website: x.website ? `https://${x.website.replace(/^https?:\/\//, '')}` : '', cricos: x.cricos, searchPriority: String(x.searchPriority ?? SEARCH_PRIORITY.default), studylink: x.studylink, pathway: x.pathway, founded: x.founded ? String(x.founded) : '', about: x.about ?? '', logo: x.logo, country: x.country });
   const [v, setV] = useState<ProfileDraft | null>(null);
   const [tried, setTried] = useState(false);
   const [logoErr, setLogoErr] = useState<string | null>(null);
@@ -669,7 +672,7 @@ function EditProfile({ u, taken, onCancel, onSave }: { u: UniRec | null; taken: 
     setTried(false);
     setLogoErr(null);
   }, [u]); // eslint-disable-line react-hooks/exhaustive-deps
-  const x = v ?? ({ name: '', utype: '', sector: '', website: '', cricos: '', searchPriority: '0', studylink: false, pathway: false, founded: '', about: '', country: '' } as ProfileDraft);
+  const x = v ?? ({ name: '', utype: '', sector: '', website: '', cricos: '', searchPriority: String(SEARCH_PRIORITY.default), studylink: false, pathway: false, founded: '', about: '', country: '' } as ProfileDraft);
   const set = (f: Partial<ProfileDraft>) => setV((y) => (y ? { ...y, ...f } : y));
   const year = new Date().getFullYear();
   const au = x.country === 'Australia';
@@ -682,7 +685,7 @@ function EditProfile({ u, taken, onCancel, onSave }: { u: UniRec | null; taken: 
     website: !/^https:\/\/\S+\.\S+/.test(x.website.trim()) ? 'Enter the whole web address, starting with https://.' : null,
     cricos: au ? (!x.cricos.trim() ? 'Enter the CRICOS provider code.' : !/^\d{5}[A-Z]$/.test(x.cricos.trim().toUpperCase()) ? 'Use 5 digits and a letter, like 00114A.' : null) : null,
     founded: !x.founded ? 'Enter the founded year.' : !/^\d{4}$/.test(x.founded) || Number(x.founded) > year ? `A year of 4 digits, not after ${year}.` : null,
-    searchPriority: !/^\d{1,3}$/.test(sp) || Number(sp) > 100 ? 'Enter a whole number from 0 to 100.' : null,
+    searchPriority: !/^\d{1,2}$/.test(sp) || Number(sp) < SEARCH_PRIORITY.min || Number(sp) > SEARCH_PRIORITY.max ? `Enter a whole number from ${SEARCH_PRIORITY.min} to ${SEARCH_PRIORITY.max}.` : null,
     logo: logoErr ?? (!x.logo && !u?.mark ? 'Upload a logo.' : null),
   };
   const bad = Object.values(err).some(Boolean);
@@ -740,10 +743,10 @@ function EditProfile({ u, taken, onCancel, onSave }: { u: UniRec | null; taken: 
         <Field id="iup-founded" label="Founded" required error={show('founded')}>
           <NumberField id="iup-founded" value={x.founded} invalid={!!show('founded')} onChange={(_t) => set({ founded: _t.replace(/\D/g, '').slice(0, 4) })} placeholder="Like: 1966" />
         </Field>
-        <Field id="iup-priority" label="Search priority" required error={show('searchPriority')} hint="0 to 100. Course search’s Recommended sort orders by it first, highest first.">
-          <NumberField id="iup-priority" value={x.searchPriority} invalid={!!show('searchPriority')} onChange={(_t) => set({ searchPriority: _t.replace(/\D/g, '').slice(0, 3) })} />
+        <Field id="iup-priority" label="Search priority" required error={show('searchPriority')} hint={`A whole number from ${SEARCH_PRIORITY.min} to ${SEARCH_PRIORITY.max}; ${SEARCH_PRIORITY.default} by default. Course search’s Recommended sort orders by it first, highest first.`}>
+          <NumberField id="iup-priority" min={SEARCH_PRIORITY.min} max={SEARCH_PRIORITY.max} steppers value={x.searchPriority} invalid={!!show('searchPriority')} onChange={(_t) => set({ searchPriority: _t.replace(/\D/g, '').slice(0, 2) })} />
         </Field>
-        <Field id="iup-qs" label="QS world ranking" hint="Read-only: from Admin’s QS ranking CSV.">
+        <Field id="iup-qs" label="QS world ranking" hint="Read-only: from the QS ranking CSV on the Universities page.">
           <TextInput id="iup-qs" value={u?.qs ? `#${u.qs} · QS ${u.qsYear ?? 2026}` : '—'} readOnly />
         </Field>
         <Field id="iup-logo" label="Logo" required error={show('logo')} hint="PNG, JPG, SVG or WebP, up to 5 MB. Shown on course cards and the university’s page." className="iform__wide">

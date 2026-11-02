@@ -157,6 +157,8 @@ export type InstitutionPartner = {
   created: Created;
   /** The end date job J1 last acted on: it acts once per end date (Decision A, S2-28). */
   endedFor?: string;
+  /** When it was last reopened by hand from a Closed status (S2C-19): work rule T70 asks IP Ops to activate each university. */
+  reopenedAt?: number;
 };
 
 /** The agreement as it stands: the New agreement or Renewal that ends last sets the dates. */
@@ -434,12 +436,9 @@ export type RecruitmentPartner = {
   before?: RpStatus;
   /** T58 "Train <RP> on the portal" marked done by RP Ops (S4-22). */
   trained?: { at: number; by: string };
-  /** Notices RP Ops issued (proposal S2C-12; starts T59). */
-  notices?: RpNotice[];
   /** Branches GSP added from the RP's record (Recruitment, RP Ops, Admin; matrix RP branches and team). */
   branches?: { id: string; name: string; country: string; state: string; city: string; main?: boolean; bdm?: string }[];
 };
-export type RpNotice = { id: string; subject: string; message: string; file?: string; at: number; by: string };
 
 /** An RP's documents: the ones GSP · Admin's rules ask an agency in its country for (data/partners.ts). */
 let docsCountry = 'India';
@@ -496,7 +495,7 @@ export const sampleRps = (): RecruitmentPartner[] => [...rpRows(), ...datasetRps
  * The samples' RP agreements (Jovial, 2 Nov), as records: versions with their files, who sent them and when, the
  * signed copies and the decisions. Everything they show (statuses, Activity, tasks, the bell, emails, held
  * commission) is worked out from these. Malabar Overseas (India) and Kathmandu wait for their signed copies; Bright Future's signed copy waits for RP
- * Ops; the GSP test agency (RP Admin's own) has v3 active and v4 sent to sign; Horizon, Saigon and Capital Career
+ * Ops; the GSP test agency (RP Admin's own) has v1 active and v2 sent 6 days ago to sign (T69's first reminder is due); Horizon, Saigon and Capital Career
  * show a history (superseded, withdrawn, sent back once). Every other signed RP has one accepted agreement.
  */
 function withAgreement(r: RecruitmentPartner): RecruitmentPartner {
@@ -520,7 +519,7 @@ function withAgreement(r: RecruitmentPartner): RecruitmentPartner {
   const sent = since > r.since ? isoOf(new Date(atIso(since) - 5 * DAY)) : since;
   r = { ...r, activity: r.activity.filter((x) => x.what !== 'Agreement signed' && x.what !== 'Activated') };
   let agreements: RpAgreementVersion[] = [ver(1, `v1 · ${my(sent)}`, sent, { ...ok(since), copies: [copy('v1', since)] })];
-  if (r.id === 'rp-test') agreements = [...agreements, ver(2, `v2 · ${my(inDays(-3))}`, inDays(-3), { notes: 'Revised commission schedule and data-protection clause.' })];
+  if (r.id === 'rp-test') agreements = [...agreements, ver(2, `v2 · ${my(inDays(-6))}`, inDays(-6), { notes: 'Revised commission schedule and data-protection clause.' })];
   if (r.id === 'rp-horizon') agreements = [...agreements, ver(2, 'v2 · Oct 2026', '2026-10-06', { ...ok('2026-10-09'), copies: [copy('v2', '2026-10-08')] })];
   if (r.id === 'rp-saigon') agreements = [...agreements, ver(2, 'v2 · Oct 2026', '2026-10-12', { status: 'Withdrawn', withdrawn: { by: RO, at: atIso('2026-10-14', 11) }, notes: 'Sent with the wrong annexure.' })];
   if (r.id === 'rp-delhi')

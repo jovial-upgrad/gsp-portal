@@ -12,6 +12,7 @@ import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, usePager, useRecord } from
 import { SearchPick } from './SearchPick';
 import { UNI_TONE, UniPill } from './pills';
 import { UniversityPage } from './UniversityPage';
+import { QsImport } from './QsImport';
 import { OBJ, canEdit, type PageProps } from '../portal/model';
 
 const SUB: Record<UniStatus, string> = { Live: 'In course search', 'Setting up': 'Not live yet', Paused: 'Out of search for now', Ended: 'Its partnership ended' };
@@ -19,7 +20,8 @@ const SUB: Record<UniStatus, string> = { Live: 'In course search', 'Setting up':
 /**
  * Universities (slice 2 PRD): tiles Live, Setting up, Paused, Ended (a tile filters; again clears); search by
  * university, partner or city; filters Country, Institution partner, Status; sorted by name, 25 a page. Add a
- * university shows to Institution, IP Ops and Admin (matrix: Universities); every other role views.
+ * university and Update QS rankings (a CSV for every university at once, S2C-17) show to Institution, IP Ops and
+ * Admin (matrix: Universities); every other role views. An unranked university shows "—".
  */
 export function Universities(props: PageProps & { appsByUni?: Record<string, number> }) {
   const { db, set, focus, navKey, open, say, scrollTop, me } = props;
@@ -30,6 +32,7 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
   const [ip, setIp] = useState('');
   const [status, setStatus] = useState<UniStatus | ''>('');
   const [adding, setAdding] = useState(false);
+  const [ranking, setRanking] = useState(false);
 
   const unis = useMemo(() => [...db.unis].sort((a, b) => a.name.localeCompare(b.name)), [db.unis]);
   const ipOf = useMemo(() => new Map(db.ips.map((p) => [p.id, p])), [db.ips]);
@@ -67,9 +70,15 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
     <div className="ipage">
       <PageHead title="Universities" lead="Each university sits under one institution partner and goes live on its own. Course search shows the live ones.">
         {edit && (
-          <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdding(true)}>
-            Add a university
-          </Button>
+          <>
+            {/* every university's QS rank in one go (S2C-17) */}
+            <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setRanking(true)}>
+              Update QS rankings
+            </Button>
+            <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdding(true)}>
+              Add a university
+            </Button>
+          </>
         )}
       </PageHead>
 
@@ -137,6 +146,7 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
                       <td>
                         <span className="num">{live}</span> live · <span className="num">{all}</span> in all
                       </td>
+                      {/* unranked: "—" (S2C-17) */}
                       <td className="num">{u.qs ? `#${u.qs}` : '—'}</td>
                       <td>
                         <UniPill s={u.status} />
@@ -150,6 +160,18 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
         )}
         {pager}
       </section>
+
+      <QsImport
+        open={ranking}
+        unis={db.unis}
+        me={me}
+        role={props.role ?? 'Institution'}
+        onClose={() => setRanking(false)}
+        onApply={(next) => {
+          set((d) => ({ ...d, unis: next }));
+          say('QS rankings updated.');
+        }}
+      />
 
       <AddUniversity
         open={adding}

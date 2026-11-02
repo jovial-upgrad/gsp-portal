@@ -64,6 +64,9 @@ export const APP_LOGIC = {
   T4: { when: (a) => a.status === 'ready', title: (n, a) => `Submit ${n} to ${uni(a)}` },
   T19: { when: (a) => ['checking', 'ready'].includes(a.status) && lateIntake(a), title: (n, a) => `Check ${uni(a)} still accepts ${n} for ${a.intake} (deadline passed)` },
   T5: { when: (a) => a.status === 'lodged', title: (n, a) => `Chase ${uni(a)} for a decision on ${n}` },
+  // L-1 (2 Nov): back with their statuses; T53 stays gone with Additional documents submitted to university
+  T7: { chase: true, when: (a) => a.status === 'moreinfo' && openRequests(a).length > 0, title: (n) => `Chase the RP: additional documents for ${n} are late` },
+  T52: { when: (a) => a.status === 'addverify', title: (n) => `Check the additional documents for ${n}` },
   T54: { when: (a) => a.status === 'interview', title: (n, a) => `Chase ${uni(a)} about ${n}’s assessment or interview` },
   T9: { when: (a, f) => a.status === 'conditions' && f.condsSent === false, title: (n) => `Send the offer and its conditions to the RP for ${n}` },
   T9b: { chase: true, when: (a, f) => a.status === 'conditions' && f.condsSent !== false, since: (a, f) => (f.condsSent ? f.condsSent : a.since), title: (n) => `Chase the RP: offer conditions for ${n}` },
@@ -79,6 +82,9 @@ export const APP_LOGIC = {
   T56: { when: (a) => a.status === 'visasub', title: (n) => `Chase the visa decision for ${n}` },
   T57: { when: (a) => a.status === 'startdate', start: (a, f) => f?.start ?? startDateOf(a), title: (n) => `Confirm ${n} has started` },
   T20: { when: (a) => a.status === 'enrolconf', title: (n, a) => `Confirm ${n}’s enrolment with ${uni(a)}` },
+  // lock answer S3C-9 (2 Nov): GSP closed (or withdrew) the application after it went to the university. The close
+  // event records whether it had been submitted (end.submitted); older closes without that record make no task.
+  T71: { closed: true, when: (a) => a.status === 'closed' && a.end?.submitted === true, title: (n, a) => `Tell ${uni(a)} that ${n} withdrew` },
 };
 
 /** Who-has-it labels (Jovial, 1 Nov). */
@@ -127,7 +133,9 @@ export function appTasks(s, live, now = clockNow()) {
   const out = [];
   const all = liveApps(live);
   for (const a0 of all) {
-    if (!isOpen(a0)) continue;
+    // a closed application only has the rules made for a close (T71); an enrolled one none
+    const shut = !isOpen(a0);
+    if (shut && a0.status !== 'closed') continue;
     const officer = s.officerOf ? s.officerOf(a0) : a0.officer;
     const a = { ...a0, officer };
     const f = flags[a.id] || {};
@@ -135,6 +143,7 @@ export function appTasks(s, live, now = clockNow()) {
     const queue = regionQueueId(a.region || 'Direct', s.queues);
     const q = s.queues.find((x) => x.id === queue);
     for (const [row, L] of Object.entries(APP_LOGIC)) {
+      if (!!L.closed !== shut) continue;
       const r = s.rules.find((x) => x.row === row);
       if (!r || !L.when(a, f)) continue;
       const since = L.since ? L.since(a, f) : a.since;

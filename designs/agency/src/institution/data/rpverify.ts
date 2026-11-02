@@ -18,7 +18,7 @@ import { partnerManagerFor } from '../../data/partners';
 import { adminCfg } from '../../admin/data/store';
 import { NATIONALITY } from '../../admin/data/config';
 
-export type RpEventKind = 'signed-up' | 'sent' | 'verified' | 'sent-back' | 'approved' | 'agreement-draft' | 'agreement-sent' | 'agreement-uploaded' | 'agreement-signed' | 'agreement-sent-back' | 'agreement-withdrawn' | 'status' | 'notice' | 'trained';
+export type RpEventKind = 'signed-up' | 'sent' | 'verified' | 'sent-back' | 'approved' | 'agreement-draft' | 'agreement-sent' | 'agreement-uploaded' | 'agreement-signed' | 'agreement-sent-back' | 'agreement-withdrawn' | 'status' | 'trained';
 export type RpEvent = { kind: RpEventKind; rpId: string; rp: string; doc?: string; note?: string; by?: string; at: number };
 const listeners = new Set<(e: RpEvent) => void>();
 /** Listen for RP onboarding events (sign-up, documents sent, a document verified or sent back, approved). Returns the unsubscribe. */
@@ -150,9 +150,6 @@ export const rpActions = (s: RpStatus): ('Reject' | 'Suspend' | 'Reactivate')[] 
   ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'].includes(s) ? ['Reject'] : ['Agreement signed', 'Dormant'].includes(s) ? ['Suspend'] : s === 'Suspended' ? ['Reactivate'] : [];
 /** RP Ops marks the portal training done (T58 closes, S4-22). */
 export const markTrained = (rpId: string, by: string) => rpChange(rpId, (r) => ({ ...r, trained: { at: Date.now(), by } }), `Portal training marked done by ${by} (T58)`, { kind: 'trained', by });
-/** RP Ops issues a notice (proposal S2C-12): to the RP's bell and its RP Admins by email; starts T59. */
-export const issueNotice = (rpId: string, n: { subject: string; message: string; file?: string }, by: string) =>
-  rpChange(rpId, (r) => ({ ...r, notices: [{ id: `nt-${Date.now().toString(36)}`, ...n, at: Date.now(), by }, ...(r.notices ?? [])] }), `Notice issued by ${by}: ${n.subject} (T59)`, { kind: 'notice', by, note: n.subject });
 /** GSP edits the RP's record (RP Ops, Recruitment, Admin), with a line in its Activity. */
 export const editRp = (rpId: string, fn: (r: RecruitmentPartner) => RecruitmentPartner, what: string, by: string) => rpChange(rpId, fn, `${what} (${by})`, { kind: 'status', by, note: what });
 

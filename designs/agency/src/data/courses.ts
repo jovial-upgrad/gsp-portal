@@ -88,11 +88,12 @@ export type University = {
   /** Colleges award diplomas and certificates, not degrees. */
   college?: boolean;
   /**
-   * Search priority (slice 2 PRD, S2C-1; renamed from Display priority, S3-1/S3-19): 0 to 100, default 0, set by
-   * Institution or IP Ops on the university. Course search's Recommended sort orders by it first, highest first.
+   * Search priority (slice 2 PRD; renamed from Display priority, S3-1/S3-19): a whole number from 1 to 10, default 5
+   * (Jovial, S2C-1: SEARCH_PRIORITY), set by Institution or IP Ops on the university. Course search's Recommended
+   * sort orders by it first, highest first.
    */
   searchPriority?: number;
-  /** The QS ranking's year, from Admin's QS ranking CSV (S2-2): "#415 · QS 2026". */
+  /** The QS ranking's year, from the QS ranking CSV on Universities (S2-2, S2C-17): "#415 · QS 2026". */
   qsYear?: number;
 };
 
@@ -303,10 +304,22 @@ export type Course = {
    * existed; slice 3's eligibility check shows the level check as Not specified until it's filled.
    */
   minEducation?: string;
+  /**
+   * The minimum score in that highest education (Jovial, S2C-3): required with `minEducation` on the course's
+   * Academic tab, on the scale in `minScoreScale` (the catalogue's SCALES: Percentage, GPA 4, GPA 10, UK class, where
+   * UK class is 4 First … 1 Third). Slice 3's eligibility compares the student's highest qualification with these two.
+   */
+  minScore?: number;
+  minScoreScale?: string;
+  /** Optional, with the minimum score: the most backlogs accepted in that highest education; empty for no limit. */
+  minBacklogs?: number;
 };
 
-/** The values of Minimum highest education required (slice 2 PRD, S3-18). */
-export const MIN_EDUCATION = ['Grade 12', 'Diploma', 'Bachelor’s (3 years)', 'Bachelor’s (4 years)', 'Master’s'] as const;
+/**
+ * The values of Minimum highest education required (slice 2 PRD, S3-18): since the lock answers (S3C-1, 2 Nov) the
+ * one ordered Highest education list Admin edits (data/education.ts), the same the students use.
+ */
+export { HIGHEST_EDUCATION as MIN_EDUCATION } from './education';
 
 /* ---------- generated, the same every time ---------- */
 
@@ -524,9 +537,11 @@ for (const a of DATASET.apps) {
  * The sample's Minimum highest education required on the shared course list (the catalogue's records set the same,
  * slice 2's sampleCourseRecs): applications read this list, so the eligibility check's level check works there too.
  */
-COURSES.forEach((c, i) => {
-  if (c.minEducation !== undefined || i % 17 === 5) return;
-  c.minEducation = c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : 'Grade 12';
+COURSES.forEach((c) => {
+  // every course has its minimum highest education and its minimum score (required since S2C-3; eligibility reads
+  // only these, S3C-2): the sample's academic minimum, as a percentage
+  if (c.minEducation === undefined) c.minEducation = c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : 'Grade 12';
+  if (c.minScore === undefined) (c.minScore = c.academic), (c.minScoreScale = 'Percentage'), (c.minBacklogs = c.backlogs);
 });
 
 /* ---------- the course's figures as course search shows them (slice 3 PRD) ---------- */
@@ -554,10 +569,22 @@ export const urlOf = (c: Course) => rec(c).url;
 /** "2 years", "18 months", "36 credits" (slice 2's display rules). */
 export const durationText = (c: Course) => (inCredits(c) ? `${rec(c).durValue ?? ''} credits`.trim() : c.months % 12 === 0 ? `${c.months / 12} ${c.months === 12 ? 'year' : 'years'}` : `${c.months} months`);
 /**
- * The university's Search priority (S3-1, S3-19): its `searchPriority` (slice 2's field, 0 to 100), 0 when unset.
- * Display priority is gone since the merge.
+ * The application form level a Program level counts as (S2C-13: Admin › Program levels and study areas). The
+ * institution store sets the reader; until then a level counts as itself.
  */
-export const searchPriorityOf = (u: University) => u.searchPriority ?? 0;
+let formLevelReader: (level: string) => string = (l) => l;
+export const setFormLevelReader = (f: (level: string) => string) => {
+  formLevelReader = f;
+};
+export const formLevelOf = (level: string) => formLevelReader(level);
+
+/** Search priority's range and default (Jovial, S2C-1): a whole number from 1 to 10; a new university starts at 5. */
+export const SEARCH_PRIORITY = { min: 1, max: 10, default: 5 } as const;
+/**
+ * The university's Search priority (S3-1, S3-19): its `searchPriority` (slice 2's field, 1 to 10), the default
+ * when unset. Display priority is gone since the merge.
+ */
+export const searchPriorityOf = (u: University) => u.searchPriority ?? SEARCH_PRIORITY.default;
 
 /** Base commission in course search: 70% of the university's rate on the course's first-year tuition fee (no scholarship taken off: Jovial, 1 Nov). */
 export const earnOf = (c: Course) => Math.round((c.tuition * c.rate * 0.7) / 100 / 10) * 10;

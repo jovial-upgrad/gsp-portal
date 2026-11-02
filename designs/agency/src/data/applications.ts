@@ -19,7 +19,7 @@ import { condOf, whenText } from '../admin/data/config';
 import { STAFF, label, staffById } from './staff';
 import { routeApplication } from './regions';
 import { datasetApplications, testAgencyApps, testAgencyStudents } from './dataset';
-import { COURSES, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
+import { COURSES, formLevelOf, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
 import { eligibility, groupsOf } from './eligibility';
 import { TESTS, eduDocKey, fullName, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
@@ -50,6 +50,8 @@ export type StatusKey =
   | 'reupload'
   | 'ready'
   | 'lodged'
+  | 'moreinfo'
+  | 'addverify'
   | 'reapp'
   | 'conditions'
   | 'condsent'
@@ -114,8 +116,10 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   reupload: { stage: 1, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit', phase: 'before' },
   lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university', phase: 'after' },
-  // Jovial, 2 Nov: Submitted to university is the only status after submission (no Additional documents requested,
-  // Verifying additional documents or Additional documents submitted to university); more documents are requested in the chat
+  // Lock answers L-1 (Jovial, 2 Nov): Additional documents requested (On GSP; On RP while a request is open, Who has it
+  // rule 2) and Verifying additional documents (On GSP) are back; Additional documents submitted to university stays removed
+  moreinfo: { stage: 2, owner: 'gsp', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true, phase: 'after' },
+  addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents', phase: 'after' },
   // a document rejected at this stage is one of the additional documents, so it comes after submission
   reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true, phase: 'after' },
   conditions: { stage: 3, owner: 'gsp', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
@@ -266,7 +270,8 @@ export type Application = {
   offer?: Offer;
   /** The financial documents' total, once GSP verified them (in the destination's currency). */
   funds?: number;
-  end?: { kind: EndKind; reason: string; stage: number; at: number };
+  /** `submitted`: closed after it went to the university (S3C-9: the officer tells the university). */
+  end?: { kind: EndKind; reason: string; stage: number; at: number; submitted?: boolean };
   /** GSP chased the university about a late decision. */
   chased?: number;
   /** Unread chat messages for the agency. */
@@ -409,8 +414,9 @@ export type AppDoc = {
   template?: { name: string; file: string };
 };
 
+/** The application form's postgraduate levels; a Program level Admin added counts as its Application form level (S2C-13). */
 const PG_LEVELS: string[] = ['Master’s degree', 'Postgraduate diploma', 'PhD or research'];
-export const isPgCourse = (c: Pick<Course, 'level'>) => PG_LEVELS.includes(c.level);
+export const isPgCourse = (c: Pick<Course, 'level'>) => PG_LEVELS.includes(formLevelOf(c.level));
 const MARKS: Record<EduLevel, [string, string]> = {
   g10: ['10th marksheet', 'Class 10 board exam marksheet'],
   g12: ['12th marksheet', 'Class 12 board exam marksheet'],
@@ -445,7 +451,8 @@ const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 
  */
 export function docsFor(s: Student, c: Course): AppDoc[] {
   const out: AppDoc[] = [];
-  const level = RULE_LEVEL[c.level] ?? 'Postgraduate';
+  // a Program level Admin added counts as its Application form level (S2C-13)
+  const level = RULE_LEVEL[formLevelOf(c.level)] ?? 'Postgraduate';
   const inDest = s.country === c.uni.country || (s.country === 'United Kingdom' && c.uni.country === 'UK');
   const add = (d: AppDoc) => { if (!out.some((x) => x.key === d.key)) out.push(d); };
   for (const r of adminCfg().docRules) {
@@ -642,6 +649,15 @@ export function startOf(a: Pick<Application, 'courseId' | 'intake'>) {
 export function censusOf(a: Pick<Application, 'courseId' | 'intake'>) {
   const d = intakeDates(a.courseId, a.intake);
   return d?.census ? Date.parse(d.census + 'T00:00:00Z') : startOf(a) + 28 * DAY;
+}
+/**
+ * The census date the application starts with (lock answer S3C-13, Jovial, 2 Nov): Admissions fills it on the
+ * application; the intake's census date (Institution › Courses › Intakes) pre-fills it when it's set. Null when the
+ * intake has none: the field starts empty.
+ */
+export function intakeCensusOf(a: Pick<Application, 'courseId' | 'intake'>): number | null {
+  const d = intakeDates(a.courseId, a.intake);
+  return d?.census ? Date.parse(d.census + 'T00:00:00Z') : null;
 }
 export function intakeStart(intake: string) {
   const [m, y] = intake.split(' ');

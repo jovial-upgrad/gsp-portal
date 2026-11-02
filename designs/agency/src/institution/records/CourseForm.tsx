@@ -2,19 +2,20 @@ import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { DateInput, Field, TextInput } from '../../components/forms';
-import { AREAS, CURRENCY, LEVELS, MIN_EDUCATION, type Area, type Course, type Destination, type Level, type StudyMode } from '../../data/courses';
+import { CURRENCY, MIN_EDUCATION, type Area, type Course, type Destination, type Level, type StudyMode } from '../../data/courses';
 import { campusLabel } from '../courses/parts';
 import { DURATION_UNITS, SOURCES, type CourseRec, type DurationUnit, type Source, type UniRec } from '../data/catalogue';
 import { todayIso } from '../data/records';
 import { change } from '../data/changelog';
 import { ErrorText, Pick } from './parts';
+import { getDb, liveAreas, liveLevels } from '../data/store';
 import { NumberField } from '../../components/NumberField';
 
 /**
  * Add a course (slice 2 PRD): opens on the university with the Basics fields (not Tags) and **Add draft** saves it
  * as a Draft and opens its page. The same checks run on Basics Edit and on every CSV import row.
  */
-export type CourseDraft = { uni: string; campus: string; name: string; code: string; cricos: string; level: Level | ''; area: Area | ''; mode: StudyMode | ''; durUnit: DurationUnit | ''; durValue: string; url: string; checked: string; source: Source | ''; minEducation?: string };
+export type CourseDraft = { uni: string; campus: string; name: string; code: string; cricos: string; level: Level | ''; area: Area | ''; mode: StudyMode | ''; durUnit: DurationUnit | ''; durValue: string; url: string; checked: string; source: Source | ''; minEducation?: string; minScore?: number; minScoreScale?: string };
 export const blankCourse: CourseDraft = { uni: '', campus: '', name: '', code: '', cricos: '', level: '', area: '', mode: '', durUnit: '', durValue: '', url: '', checked: '', source: 'Added by hand' };
 export const MODES: StudyMode[] = ['Full time', 'Part time', 'Blended', 'Online'];
 
@@ -48,13 +49,14 @@ export function basicsErrors(v: CourseDraft, u: UniRec | undefined, courses: Cou
 
 /**
  * What a course still needs before it can be published (slice 2 PRD): an intake with an application deadline, and
- * Minimum highest education required (proposal, S2C-3).
+ * Minimum highest education required with its minimum score (Jovial, S2C-3).
  */
 export const missingOf = (c: CourseRec) =>
   (
     [
       [c.intakes.some((i) => !!i.deadline), 'an intake with an application deadline'],
       [!!c.minEducation, 'the minimum highest education (Academic tab)'],
+      [c.minScore !== undefined && c.minScore > 0 && !!c.minScoreScale, 'the minimum score in the highest education (Academic tab)'],
     ] as [boolean, string][]
   )
     .filter(([ok]) => !ok)
@@ -93,7 +95,6 @@ export function newCourse(f: CourseDraft, unis: UniRec[], courses: CourseRec[], 
     fullFee: 0,
     totalFee: 0,
     appFee: 0,
-    feeYear: new Date().getFullYear(),
     academic: 0,
     backlogs: undefined,
     academicRules: [],
@@ -108,6 +109,8 @@ export function newCourse(f: CourseDraft, unis: UniRec[], courses: CourseRec[], 
     scholarshipName: undefined,
     cricos: f.cricos.trim() ? f.cricos.trim().toUpperCase() : undefined,
     minEducation: f.minEducation || undefined,
+    minScore: f.minScore,
+    minScoreScale: f.minScoreScale,
     rate: u.rate,
     checked: f.checked,
     status: 'Draft',
@@ -144,10 +147,10 @@ export function BasicsFields({ v, set, u, unis, err, show, lockUni, idp }: { v: 
         <Pick id={`${idp}-campus`} label="Campus" value={v.campus} placeholder="Pick a campus" invalid={!!e('campus')} options={campuses.map((c) => ({ value: c.name, label: campusLabel(c) }))} onChange={(campus) => set({ campus })} />
       </Field>
       <Field id={`${idp}-level`} label="Program level" required error={e('level')}>
-        <Pick id={`${idp}-level`} label="Program level" value={v.level} placeholder="Pick a level" invalid={!!e('level')} options={LEVELS} onChange={(level) => set({ level: level as Level })} />
+        <Pick id={`${idp}-level`} label="Program level" value={v.level} placeholder="Pick a level" invalid={!!e('level')} options={liveLevels(getDb(), v.level)} onChange={(level) => set({ level: level as Level })} />
       </Field>
       <Field id={`${idp}-area`} label="Study area" required error={e('area')}>
-        <Pick id={`${idp}-area`} label="Study area" value={v.area} placeholder="Pick an area" invalid={!!e('area')} options={AREAS} onChange={(area) => set({ area: area as Area })} />
+        <Pick id={`${idp}-area`} label="Study area" value={v.area} placeholder="Pick an area" invalid={!!e('area')} options={liveAreas(getDb(), v.area)} onChange={(area) => set({ area: area as Area })} />
       </Field>
       <Field id={`${idp}-mode`} label="Study mode" required error={e('mode')}>
         <Pick id={`${idp}-mode`} label="Study mode" value={v.mode} placeholder="Pick a mode" invalid={!!e('mode')} options={MODES} onChange={(mode) => set({ mode: mode as StudyMode })} />

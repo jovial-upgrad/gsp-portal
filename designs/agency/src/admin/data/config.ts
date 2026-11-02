@@ -56,7 +56,8 @@ const SEED_REGION_NAMES = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam
 /**
  * Countries that make up a region, where it isn't the country itself, as the PRD's seed table lists them (named as
  * the country list names them: Cape Verde, Cote D'Ivoire (Ivory Coast), Swaziland, The Gambia, Czech Republic,
- * Sao Tome and Principe). Where non-EU Europe, the Caribbean and North Africa belong is open (S1C-6).
+ * Sao Tome and Principe). Non-EU Europe (UK, Switzerland, Norway…) is in Latin America & Europe; the Caribbean stays Rest of world;
+ * North Africa stays Africa (S1C-6).
  */
 const SEED_COUNTRIES: Record<string, string[]> = {
   'Indonesia Malaysia & Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
@@ -64,6 +65,8 @@ const SEED_COUNTRIES: Record<string, string[]> = {
   'Latin America & Europe': [
     'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Costa Rica', 'Cuba', 'Dominican Republic', 'Ecuador', 'El Salvador', 'Guatemala', 'Haiti', 'Honduras', 'Mexico', 'Nicaragua', 'Panama', 'Paraguay', 'Peru', 'Uruguay', 'Venezuela',
     'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden',
+    // non-EU Europe (S1C-6)
+    'United Kingdom', 'Switzerland', 'Norway', 'Iceland', 'Liechtenstein', 'Andorra', 'Monaco', 'San Marino', 'Vatican City State (Holy See)', 'Albania', 'Bosnia and Herzegovina', 'Kosovo', 'Macedonia', 'Montenegro', 'Serbia', 'Moldova', 'Ukraine', 'Belarus',
   ],
   // every country not in another region; students who apply without an RP; GSP people who cover every region
   'Rest of world': [],
@@ -124,7 +127,8 @@ export type GspRole = (typeof GSP_ROLES)[number];
 export type UserStatus = 'Link sent' | 'Active' | 'Deactivated';
 /**
  * A GSP user (PRD slice 1). `id` is stable (never the email). `role` is '' only while a new user is being created.
- * `area` is no longer stored on the user (S1C-3): a Recruitment user's area is read from Recruitment assignment.
+ * No Area field (Jovial, S1C-3): every Recruitment user has just their sales regions; where someone is the default
+ * recruitment contact for a state or city is a setting (Admin › Recruitment assignment), not part of the user.
  */
 export type User = {
   id: string;
@@ -136,7 +140,6 @@ export type User = {
   title: string;
   region: string;
   regions: string[];
-  area: string;
   status: UserStatus;
   /** When the current login email went out (Link sent). */
   sentAt?: number;
@@ -164,7 +167,7 @@ export const sampleUsers = (): User[] =>
     const seed = SEED_STATE[s.email] ?? {};
     const status = seed.status ?? 'Active';
     return {
-      id: s.id, name: label(s), email: s.email, dial: s.dial, phone: s.phone, role: s.role, title: s.title, region: s.regions.join(', '), regions: s.regions, area: s.area, status,
+      id: s.id, name: label(s), email: s.email, dial: s.dial, phone: s.phone, role: s.role, title: s.title, region: s.regions.join(', '), regions: s.regions, status,
       createdAt: status === 'Link sent' ? seed.sentAt : Date.parse('2026-10-31T18:00:00+05:30') - (i % 40) * DAY,
       lastSignIn: status === 'Active' ? daysAgo(i % 9, 9 + (i % 8)) : status === 'Deactivated' ? Date.parse('2026-10-22T16:40:00+05:30') : undefined,
       ...seed,
@@ -229,10 +232,12 @@ export const samplePerms = (): Perms =>
 
 /* ---------- sign-in security (Jovial, 1 Nov, HC52): every GSP sign-in reads it ---------- */
 export type Security = { maxAttempts: number; lockMinutes: number; resendSeconds: number };
-/** Decided 1 Nov (S1-6): 3 wrong passwords, a 10-minute pause, 30 seconds before a new code. */
-export const sampleSecurity = (): Security => ({ maxAttempts: 3, lockMinutes: 10, resendSeconds: 30 });
-/** The ranges Admin may set (proposal S1C-11). */
-export const SECURITY_RANGE: Record<keyof Security, [number, number]> = { maxAttempts: [3, 10], lockMinutes: [5, 60], resendSeconds: [15, 120] };
+/**
+ * Decided 1 Nov (S1-6): 3 wrong passwords, a 10-minute pause, 30 seconds before a new code. Pre-decided values, not
+ * configurable in Admin (Jovial, S1C-11): Admin › Sign-in security shows them read only.
+ */
+export const SECURITY: Readonly<Security> = Object.freeze({ maxAttempts: 3, lockMinutes: 10, resendSeconds: 30 });
+export const sampleSecurity = (): Security => ({ ...SECURITY });
 /** A code works for this long, and once (S1-6: engineering's; not editable). */
 export const CODE_MINUTES = 10;
 /** Wrong codes before a code stops working; codes an hour per account (proposal). */
@@ -269,6 +274,7 @@ export const sampleQueues = (users: User[]): Queue[] => {
       ['Institution', N('matt.beazley'), role('Institution')],
       ['IP Ops', N('gauri.bhardwaj'), role('IP Ops')],
       ['Finance', N('suman1.verma'), role('Finance')],
+      ['Admin', N('jovial.lejo'), role('Admin')],
     ] as [string, string, string[]][]
   ).map(([name, lead, members], i) => {
     const leadId = byName(users, [lead])[0] ?? '';
@@ -288,11 +294,11 @@ export type EmailPerm = 'view' | 'send';
 export type EmailGroup = { id: string; email: string; for: string; sync: boolean; since: string; queues: string[]; users: { id: string; perm: EmailPerm }[]; savedAt?: number };
 /** The queue names that stand for "every regional Admissions queue" (all but Global Admissions). */
 export const isRegionalAdmissions = (name: string) => / Admissions$/.test(name) && name !== 'Global Admissions';
-/** The seeded mailboxes, as the PRD lists them: what each is for and its queues (S1C-8: admin.gsp@ stays with RP Ops). */
+/** The seeded mailboxes, as the PRD lists them: what each is for and its queues (S1C-14: admin.gsp@ is the Admin queue's; Admin forwards anything for RP Ops). */
 export const MAILBOX_SEED: [string, string, string[] | 'admissions'][] = [
   ['gsp.admissions@upgrad.com', 'Application conversations with RPs and universities', 'admissions'],
   ['bap.gsp@upgrad.com', 'Partner onboarding', ['RP Ops']],
-  ['admin.gsp@upgrad.com', 'New users, role changes, admin requests', ['RP Ops']],
+  ['admin.gsp@upgrad.com', 'New users, role changes, admin requests', ['Admin']],
   ['commissions.gsp@upgrad.com', 'Commission conversations', ['Finance']],
   ['data-team.gsp@upgrad.com', 'Course update requests', ['IP Ops']],
 ];

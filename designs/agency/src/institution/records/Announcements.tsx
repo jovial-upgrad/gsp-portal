@@ -8,13 +8,14 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Checkbox, Field, TextInput, DateInput } from '../../components/forms';
 import { STAFF } from '../../data/staff';
 import { allRpMembers } from '../../data/rpteam';
-import { audit } from '../data/changelog';
-import { AREAS, LEVELS, type Area, type Level } from '../../data/courses';
+import { audit, change, withLog, type LogSpec } from '../data/changelog';
+import { type Area, type Level } from '../../data/courses';
+import { getDb, liveAreas, liveLevels } from '../data/store';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
 import { ANN_CATEGORIES, ANN_STATUSES, GSP_ROLES, PERMISSION_ROLES, RP_ROLES, SALES_REGIONS, SUBCATEGORIES, USER_TYPES, statusOf, type AnnCategory, type AnnStatus, type Announcement } from '../data/announcements';
 import { dateText, inDays, stampBy, todayIso } from '../data/records';
 import { patch } from '../data/store';
-import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, Updated, usePager, useRecord, type Tone } from './parts';
+import { ChangeLog, Empty, Gone, NoMatch, PageHead, Pick, Tiles, Updated, usePager, useRecord, type Tone } from './parts';
 import { MultiPick } from './MultiPick';
 import { RichText, cleanHtml, textOf } from './RichText';
 import { OBJ, canEdit, type PageProps } from '../portal/model';
@@ -38,13 +39,20 @@ export function reachOf(v: { userTypes: string[]; roles: string[]; countries: st
 const TONE: Record<AnnStatus, Tone> = { Draft: 'gsp', Scheduled: 'uni', Live: 'ok', Expired: 'grey', Withdrawn: 'grey' };
 const PILL: Record<Tone, string> = { ok: 'dpill--verified', gsp: 'dpill--checking', uni: 'dpill--uni', you: 'dpill--missing', bad: 'dpill--bad', grey: 'idpill--grey' };
 const SUB: Record<AnnStatus, string> = { Draft: 'Not published', Scheduled: 'Publishes on its date', Live: 'Partners see it now', Expired: 'Past its end date', Withdrawn: 'Taken down early' };
+/** What an announcement's Change log writes (S2C-15), field by field. */
+const ANN_SPEC: LogSpec<Announcement & { log: NonNullable<Announcement['log']> }> = {
+  record: 'Announcement',
+  fields: { title: 'Title', category: 'Category', subcategory: 'Subcategory', unis: 'Universities', levels: 'Program levels', areas: 'Study areas', publish: 'Publish on', expires: 'Expires', body: 'Description', files: 'Attachments', email: 'Send as email', userTypes: 'Recipients · User types', roles: 'Recipients · Roles', countries: 'Recipients · RP countries', regions: 'Recipients · Sales regions', draft: 'Draft', withdrawn: 'Withdrawn' },
+  fmt: { body: () => 'Edited' },
+};
 const COUNTRY_LIST = [...TOP_MARKETS, ...COUNTRIES.map((c) => c.name).filter((n) => !TOP_MARKETS.includes(n))];
 
 /**
  * Announcements (29 Oct; 6th round, as in the PM prototype's IP team): news for recruitment partners about the
  * universities, shown in their portal's top bar, on matching course cards and on the university's page from its
- * publish date until it expires, and by email if asked. The PM's fields only, and no change log. In this prototype
- * they stay in the Institution Team's portal. 29 Oct (7th round): Publish on is a date, with no time.
+ * publish date until it expires, and by email if asked. In this prototype they stay in the Institution Team's
+ * portal. 29 Oct (7th round): Publish on is a date, with no time. S2C-15: Scheduled and Live ones can be edited; each
+ * edit goes in its Change log; only "N sent" is shown.
  */
 export function Announcements(props: PageProps) {
   const { db, set, focus, navKey, open, say, scrollTop, me } = props;
@@ -87,7 +95,10 @@ export function Announcements(props: PageProps) {
           edit={edit}
           unis={db.unis.filter((u) => u.status !== 'Ended')}
           onBack={back}
-          onSave={(x, what) => {
+          onSave={(x0, what) => {
+            const role = props.role ?? 'Institution';
+            // every save writes the Change log (S2C-15): "Announcement created" first, then each changed field
+            const x = a ? withLog(ANN_SPEC, { ...a, log: a.log ?? [] }, { ...x0, log: a.log ?? [] }, me, role) : { ...x0, log: [change(me, role, 'Announcement created', '—', x0.draft ? 'Draft' : statusOf(x0))] };
             set((d) => ({ ...d, anns: d.anns.some((y) => y.id === x.id) ? patch(d.anns, x.id, () => x) : [x, ...d.anns] }));
             const st = statusOf(x);
             if (st === 'Live' && (!a || statusOf(a) !== 'Live')) audit('Announcements', `announcement.published: ${x.id} ${x.title}${x.email ? ' (E14 to the recipients)' : ''}`, me, props.role ?? 'Institution');
@@ -233,9 +244,8 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
     author: a?.author ?? me,
     draft,
     withdrawn: a?.withdrawn ?? false,
-    reached: a?.reached ?? 0,
     sent: a?.sent ?? 0,
-    opened: a?.opened ?? 0,
+    log: a?.log,
     updated: stampBy(me),
     createdAt: a?.createdAt ?? a?.publish ?? todayIso(),
   });
@@ -283,15 +293,15 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
                 {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }), !!show('unis'))}
               </Field>
               <Field id="ian-levels" label="Program level" optional>
-                <MultiPick id="ian-levels" label="Program level" value={v.levels} options={[...LEVELS]} onChange={(x) => set({ levels: x as Level[] })} empty="All levels" all="All levels" />
+                <MultiPick id="ian-levels" label="Program level" value={v.levels} options={liveLevels(getDb())} onChange={(x) => set({ levels: x as Level[] })} empty="All levels" all="All levels" />
               </Field>
               <Field id="ian-areas" label="Study area" optional>
-                <MultiPick id="ian-areas" label="Study area" value={v.areas} options={[...AREAS]} onChange={(x) => set({ areas: x as Area[] })} empty="All areas" all="All areas" search />
+                <MultiPick id="ian-areas" label="Study area" value={v.areas} options={liveAreas(getDb())} onChange={(x) => set({ areas: x as Area[] })} empty="All areas" all="All areas" search />
               </Field>
-              <Field id="ian-pub" label="Publish on" required error={show('publishDay')}>
+              <Field id="ian-pub" label="Publish on" required error={show('publishDay')} hint="It goes live just after midnight IST on this date.">
                 <DateInput id="ian-pub" value={v.publishDay} onChange={(publishDay) => set({ publishDay })} />
               </Field>
-              <Field id="ian-exp" label="Expires on" required error={show('expires')}>
+              <Field id="ian-exp" label="Expires on" required error={show('expires')} hint="It shows through the end of this date (IST).">
                 <DateInput id="ian-exp" value={v.expires} onChange={(expires) => set({ expires })} />
               </Field>
               <Field id="ian-body" label="Description" required error={show('body')} className="iform__wide">
@@ -375,6 +385,7 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
           </section>
         </aside>
       </div>
+      {a && <ChangeLog log={a.log ?? []} id="ian-log" />}
 
       <Sheet open={preview} onClose={() => setPreview(false)} center className="iform" title="How partners see it" sub="In the top bar of their portal, on matching course cards and on the university’s page.">
         <article className="ianprev">

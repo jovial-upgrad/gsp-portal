@@ -6,6 +6,86 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 2 Nov, lock answers: slices 1 and 2 (Jovial)
+
+Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet, rows L-5, S1C-1 to S1C-14 and S2C-1 to S2C-19 ("aligned with proposed" builds the proposal). Built on branch `lock-s1s2`, prototype only (README "Lock answers, slices 1 and 2"). Slice 3's rows are built on `lock-s3`.
+
+### Everywhere
+- [x] Task rules: **T43** (next year's fees) and **T59** (notice follow-up) removed; **T69** (agreement not signed: RP Admin reminded in the bell and by email E22 after 3 and 7 working days, RP Ops task after 10, L-5) and **T70** (IP Ops: activate each university of a reopened partner, S2C-19) added; **T62** worked out from the students (S1C-13). `npm run test:lock-rules`. (2 Nov, commit “Lock answers S1–S2: …”)
+  - Merged with `lock-s3` (2 Nov): slice 3's "Tell <university> that <student> withdrew" (S3C-9), also built as T69, is **T71**; T69 stays the agreement reminders and T70 the reopened partner's universities. `test:lock-rules` checks every rule id is used once. (2 Nov, commit “Lock merge: …”)
+
+### GSP · Admin
+- [x] GSP users: any valid email (S1C-2); no Area, the Sales regions column only, no "Covers …" (S1C-3). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Logs: the download log only; settings pages keep their Change history (S1C-9). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Sign-in security and Intake timings: decided values, read only, from `SECURITY` and `INTAKE_TIMES` (S1C-11). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Currency exchange: Fetch with AI only (S1C-10). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Sales regions: non-EU Europe in Latin America & Europe; Caribbean Rest of world; North Africa Africa (S1C-6); the nationality map follows (S1C-13). (2 Nov, commit “Lock answers S1–S2: …”)
+  - Chosen in the build, for Jovial to confirm: Russia and Turkey are left in Rest of world (not added to Latin America & Europe).
+- [x] admin.gsp@ is the Admin queue's (S1C-14). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Program levels and study areas: add, retire, restore; a level's required Application form level (S2C-13). (2 Nov, commit “Lock answers S1–S2: …”)
+  - Since the merge (2 Nov): Find courses' Program Level and Study Area, Add an application's level and area filters, and the application's postgraduate check and document rules read Admin's lists too (an added level counts as its Application form level). Course minimums pick from the Highest education list. (2 Nov, commit “Lock merge: …”)
+- [x] Re-routing to another Admissions queue picks a new officer (Fewest open); open tasks follow; logged (S1C-7). (2 Nov, commit “Lock answers S1–S2: …”)
+- Already built as proposed, checked: S1C-1 (access levels), S1C-4 and S1C-5 (sign-in copy; the suspended RP's message says "Recruitment contact", as BDM was renamed on 2 Nov), S1C-12 (delete rules).
+
+### GSP · Institution: universities, courses, partners, announcements
+- [x] Search priority: a whole number 1 to 10, 5 by default (S2C-1). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Update QS rankings on Universities: template of every university, upload (portal drop zone), updated / unchanged / skipped with reasons; only QS rows; unranked "—", sorted last (S2C-17). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Course Academic: Minimum highest education with its minimum score and grading scale required (to save and to publish), optional backlogs allowed (`minEducation`, `minScore`, `minScoreScale`, `minBacklogs`); CSV columns too (S2C-3). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] No fee year (S2C-6). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] End partnership: a confirmation, no reason (S2C-8). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Reopening a Closed partner changes no university; IP Ops gets T70 for each; an Ended university under it can be activated (S2C-19). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Announcements: Scheduled and Live editable, each save in the Change log; only "N sent" (S2C-15); live just after midnight IST, through the expiry date (S2C-18). (2 Nov, commit “Lock answers S1–S2: …”)
+- Already built as proposed, checked: S2C-2 (Go live's fifth check), S2C-4 (Source), S2C-5 (currency list, first-year fee), S2C-7 (Remove an IP document), S2C-11.
+
+### Recruitment partners and the RP portal
+- [x] No Issue a notice (S2C-12); Finance, RP Ops and Admin all edit the RP agreement (S2C-10). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] RP team: a Branch Admin sees their branch, invites and deactivates its Counsellors; a Counsellor has no team (S2C-14). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Sign-up code rules in one place (`SIGNUP_CODE`); unverified sign-ups deleted after 30 days by job J10 (S2C-16). (2 Nov, commit “Lock answers S1–S2: …”)
+- Already built as proposed, checked: S2C-9 (Reject, Suspend, Reactivate by status).
+
+## 2 Nov, lock answers (Jovial, slice 3)
+
+Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet: L-1 to L-4, L-6 and S3C-1 to S3C-22 ("aligned with proposed" builds the proposal; otherwise his answer). Prototype only, on branch `lock-s3` (README "2 Nov, lock answers for slice 3"). Slice 1–2 rows are applied separately (branch `lock-s1s2`).
+
+### Everywhere
+- [x] **Commission figures for RP Admin only** (S3C-7): Branch Admin and Counsellor see no Base commission on course cards or the course page, no Student view switch, no Commission tab, no Base commission in Key details and no commission lines in Activity (`data/rproles.ts` `seesCommission`). (2 Nov, commit “Lock answers S3: …”)
+- [x] **One ordered Highest education list, editable by Admin** (S3C-1: "should be editable"): Grade 10, Grade 12, Diploma, Bachelor’s (3 years), Bachelor’s (4 years), Master’s, Doctorate, for students and courses alike; its order is the level check. (2 Nov, commit “Lock answers S3: …”)
+
+### Find courses: search and results
+- [x] GSP roles pick from **their own regions' students, each with its RP** (S3C-6). (2 Nov, commit “Lock answers S3: …”)
+- [x] As built, confirmed: tags are AND (S3C-4); fees, sorts and Compare in the destination's currency (S3C-5); search as built, semantic later (S3C-20). (2 Nov, commit “Lock answers S3: …”)
+
+### Course page
+- [x] **Costs:** the first-year headline keeps the one-time costs, labelled "one-time" (L-4). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Eligibility, Academics:** only the highest qualification against the course's Minimum highest education and its minimum score; backlogs only when the course states a limit (S3C-2 with S2C-3). Rows stay grouped (Highest education, Score, Backlogs). (2 Nov, commit “Lock answers S3: …”)
+  - Field names: `minEducation`; the minimum score is the course's `minScore` / `minScoreScale` (and `minBacklogs`) when the slice 1–2 course form adds them, else its Academic row for the student's country, else for every country (`data/eligibility.ts` `minScoreOf`).
+    - Since the merge with `lock-s1s2` (2 Nov): every course has `minEducation`, `minScore` and `minScoreScale` (required to save and publish, S2C-3; seeded on every sample course), so eligibility and Compare read only the course's minimum; the Academic-row fallback is gone. (2 Nov, commit “Lock merge: …”)
+- [x] As built, confirmed: TOEFL sections ×4 (S3C-3); Compare's Scholarship Yes rule (S3C-12); grade conversion edge cases (S3C-18). (2 Nov, commit “Lock answers S3: …”)
+
+### Add a student and the student record
+- [x] Highest education from the one list, on Add a student and on the record's Academics (S3C-1). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Profile completeness counts only required fields**, no documents (S3C-17). (2 Nov, commit “Lock answers S3: …”)
+- [x] As built, confirmed: Share with student hidden (S3C-10); the student fields (S3C-16). (2 Nov, commit “Lock answers S3: …”)
+
+### Applications list
+- [x] **New** counts the New stage only (L-2). 25 a page with numbered pages and the sorts, Students and Applications (S3C-14). (2 Nov, commit “Lock answers S3: …”)
+
+### Application page
+- [x] **Additional documents requested** (On RP while a request is open) and **Verifying additional documents** (On GSP) are back after Submitted to university, with task rules T7 and T52; Additional documents submitted to university stays removed (L-1). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Activity (RP):** status changes show too (L-3). (2 Nov, commit “Lock answers S3: …”)
+- [x] GSP can close at any stage, New included (L-6, as built). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Assigned officer › Change** for the queue's leader, Admin and Global Ops only; open tasks move; logged (S3C-8). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Closing or withdrawing from Submitted to university onwards** gives the officer task T71 "Tell <university> that <student> withdrew", 9 working hours (S3C-9). (2 Nov, commit “Lock answers S3: …”)
+- [x] **After enrolment** only Final tuition fee and Census date stay editable, each logged old → new (S3C-11). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Census date** pre-filled from the intake when it's set, else empty (S3C-13). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Wrong university reference:** fixing it moves the mail conversations matched on it (S3C-19). (2 Nov, commit “Lock answers S3: …”)
+- [x] Student, course and intake fixed after Start; a later intake is close as Deferred and re-apply (S3C-22, confirmed; T19's "intake moved" wording removed). (2 Nov, commit “Lock answers S3: …”)
+- [x] As built, confirmed: the automatic chat lines (S3C-15). (2 Nov, commit “Lock answers S3: …”)
+
+### GSP · Admin
+- [x] Course configuration › **Highest education** (S3C-1): Edit, then Save; add, rename, move up or down, retire, restore; each level names the profile section it fills; Change history. (2 Nov, commit “Lock answers S3: …”)
+- [x] Application configuration › **Reasons** (S3C-21): Close reasons by stage and Withdraw reasons, up to 60 characters, unique per list; removing stops it being offered, applications keep theirs; Change history. Send-back reasons fixed. (2 Nov, commit “Lock answers S3: …”)
+
 ## 2 Nov, evening: the RP agreement (Jovial)
 
 Jovial: "RP Agreement should be uploaded by BAP, and should go to RP to be signed and reuploaded, that is when we can unlock or approve the RP to unlock all modules for him. Do it in a way, we can upload a new contract in the future also." Later (19:25): signing and uploading is the only way an RP acknowledges an agreement; no "Accept in portal". Built on branch `rp-agreement`, prototype only (README "Design decisions: the RP agreement").
@@ -25,7 +105,7 @@ Jovial: "RP Agreement should be uploaded by BAP, and should go to RP to be signe
 ### RP portal: Home and Profile (RP Admin)
 - [x] **The agreement card, redesigned** (Jovial: "not the best UI"): status chip, title and one line; the agreement as a document row with Download; Download · Sign · Upload; one drop zone and a compact **Signed on**; **Send signed copy** at the bottom right; then "Signed copy sent · we're reviewing it" with Replace; sent back shows the reason; the held-commission or "current agreement stays active" note small and muted. (2 Nov, commit “RP agreement: …”)
 - [x] Modules (Applications, Students, Earnings, Profile, Select student) open only when the signed agreement is accepted. **Profile › Agreement** (RP Admin only): the active agreement, the one to sign, the history. The bell: an agreement to sign, sent back, accepted, withdrawn; emails E8, E9, E10. (2 Nov, commit “RP agreement: …”)
-- Open question: no task rule reminds anyone when an RP hasn't signed (T34 covers documents only). Add one (for RP Ops, and an E13-style reminder to the RP)? For Jovial (Pending Questions sheet).
+- [x] ~~Open question: no task rule reminds anyone when an RP hasn't signed.~~ Answered by Jovial (L-5): T69, see "2 Nov, lock answers" above. (2 Nov, commit “Lock answers S1–S2: …”)
 
 ## 2 Nov dev briefs (Jovial)
 
@@ -42,6 +122,7 @@ Jovial's decisions of 2 Nov and the day's dev briefs, by page, built in every ro
 ### Applications list
 - [x] Status chips All, New, Offer received, Enrolled, Closed with counts, greyed out at 0 (`data/listChips.ts`). (2 Nov, commit “2 Nov dev briefs: …”)
   - Chosen in the build, for Jovial to confirm: **New** counts the New stage (Waiting for documents), not Pre-screening.
+    - Answered, 2 Nov (lock answers, L-2): yes, New stage only.
 - [x] Search by application number or student name only (no passport). (2 Nov, commit “2 Nov dev briefs: …”)
 - [x] No "Showing your sales region" line. (2 Nov, commit “2 Nov dev briefs: …”)
 - [x] GSP: All RPs multi-select, paged (20 at a time); Advanced filters: Applied date between and Stage, each with its own Clear; Clear all clears everything. (2 Nov, commit “2 Nov dev briefs: …”)
@@ -56,6 +137,7 @@ Jovial's decisions of 2 Nov and the day's dev briefs, by page, built in every ro
 - [x] University reference: Admissions edit it at any time from Key details, with a confirmation; logged in Activity. (2 Nov, commit “2 Nov dev briefs: …”)
 - [x] Application stage: Submitted to university is the only status after submission (Additional documents requested, Verifying additional documents and Additional documents submitted to university removed, with tasks T7, T52, T53). (2 Nov, commit “2 Nov dev briefs: …”)
   - Read as written ("the only status after submission"); Document re-upload pending stays, as rejecting a document sets it.
+  - Answered, 2 Nov (lock answers, L-1): Additional documents requested and Verifying additional documents come back, with T7 and T52; the third stays removed. (2 Nov, commit “Lock answers S3: …”)
 - [x] Change status: no helper text (the conditional offer note and the others). (2 Nov, commit “2 Nov dev briefs: …”)
 - [x] No automatic document request on any status change (the visa lodgement proof and payment proof included); GSP's own mandatory uploads stay. (2 Nov, commit “2 Nov dev briefs: …”)
 - [x] RP Withdraw up to Ready to submit; after submission greyed out with "Submitted to the university. Ask your GSP contact in chat to withdraw." GSP can close at any stage. (2 Nov, commit “2 Nov dev briefs: …”)
@@ -66,6 +148,7 @@ Jovial's decisions of 2 Nov and the day's dev briefs, by page, built in every ro
 - [x] Acceptance letter received: Change status no longer stays off when the acceptance letter is already in Documents (filed from Mail); uploading it in the popup turns it on. (2 Nov, commit “2 Nov dev briefs: …”)
 - [x] Activity: the RP sees only chat, documents and commission lines; mail, submission and status lines are GSP's (`data/activity.ts`). (2 Nov, commit “2 Nov dev briefs: …”)
   - Chosen in the build, for Jovial to confirm: status moves count as GSP-only (the RP sees the status in the header).
+    - Answered, 2 Nov (lock answers, L-3): the RP sees status changes too. (2 Nov, commit “Lock answers S3: …”)
 - [x] Submission: logins only for Own portal and StudyLink (StudyLink one per sales region); "username and password"; email shows the address only; "Through university portal" is a chip. (2 Nov, commit “2 Nov dev briefs: …”)
 
 ### GSP · Admin
@@ -186,6 +269,7 @@ No changes from this review.
   - Nesil, 29 Oct (later): no note on the profile saying where bulk-uploaded documents went; the "added" banner says "Complete the student's profile." and goes after a few seconds; **Documents shows only what's uploaded** (a part with nothing isn't listed), with one **Upload a document** that sorts it into its part. (29 Oct, commit “Find courses: shortlist for a student, compare up to five, download PDF or CSV; profile documents only as uploaded”)
   - Nesil, 29 Oct, reversing the bulk upload part of this agreed item: **no bulk upload on the profile**. It moved to Add a student, the only place to upload in bulk; each section of the profile uploads its own documents. The profile opens with a note saying where the documents uploaded while adding went. Raise it at the next review. (29 Oct, commit “Add a student: expands, and takes every document at once; no bulk upload on the profile”)
 - [ ] **Profile completeness counts only non-mandatory fields.**
+  - Answered, 2 Nov (lock answers, S3C-17, Jovial): **only required fields** count, no documents. Built (2 Nov, commit “Lock answers S3: …”). This reverses the item as worded; it wasn't marked Decision.
   - Nesil, 27 Oct: built the other way round. Completion counts only the mandatory fields and sections (Personal details and Education, with the passport copy and the highest level’s marksheet or transcript); the optional sections don’t move it. Confirm at the next review.
 - [ ] **Education:** allow more than one entry per level (two bachelor's, say), each with its **own country**. Today there's one "Country of education" and one entry per level.
   - 27 Oct: the "Country of education" at the top is gone; each level has its own country. Still one entry per level.

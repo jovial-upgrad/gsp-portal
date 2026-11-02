@@ -6,9 +6,9 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { downloadDoc } from '../../components/DocView';
 import { Field, SelectInput } from '../../components/forms';
-import { AREAS, COURSES, DESTINATIONS, FLAG, LEVELS, UNIVERSITIES, daysTo, intakeState, money, type Course } from '../../data/courses';
+import { COURSES, DESTINATIONS, FLAG, UNIVERSITIES, daysTo, intakeState, money, type Course } from '../../data/courses';
 import { shortDate } from '../../data/dates';
-import { LEVEL_NAME, eduDocName, fullName, type Member, type Student } from '../../data/students';
+import { eduDocName, fullName, type Member, type Student } from '../../data/students';
 import {
   STATUS,
   checkFit,
@@ -33,6 +33,10 @@ import { readMs } from '../students/ReadBox';
 import type { RecordTab } from '../students/StudentRecord';
 import { AssistLabel, AssistMark, StageTrack, Thinking } from './parts';
 import { RPS, rpLabel, rpOf } from '../rps';
+import { getDb, liveAreas, liveLevels } from '../../institution/data/store';
+import { scoreText } from '../../institution/data/catalogue';
+import { highestEdOf, minScoreOf } from '../../data/eligibility';
+import { eduName } from '../../data/education';
 
 export type NewSeed = { studentId?: string; courseId?: string; intake?: string };
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -438,7 +442,7 @@ export function NewApplication({
                     </Field>
                     <Field id="na-level" label="Program Level">
                       <SelectInput id="na-level" value={level} placeholder="Any level" allowEmpty onChange={(e) => setLevel(e.target.value)}>
-                        {LEVELS.map((l) => (
+                        {liveLevels(getDb()).map((l) => (
                           <option key={l} value={l}>
                             {l}
                           </option>
@@ -447,7 +451,7 @@ export function NewApplication({
                     </Field>
                     <Field id="na-area" label="Study Area">
                       <SelectInput id="na-area" value={area} placeholder="Any area" allowEmpty onChange={(e) => setArea(e.target.value)}>
-                        {AREAS.map((x) => (
+                        {liveAreas(getDb()).map((x) => (
                           <option key={x} value={x}>
                             {x}
                           </option>
@@ -742,7 +746,11 @@ const verdictKey = (v: Verdict) => (v === 'Eligible' ? 'yes' : v === 'Eligible w
 function checkingLine(k: string, s: Student, c: Course, intake: string) {
   const uni = c.uni.name.replace(/^University of (the )?/, '');
   if (k === 'Where they live') return `Does ${uni} take students from ${s.country}?`;
-  if (k === 'Academics') return `${s.first}’s ${LEVEL_NAME[s.highest].toLowerCase()} result against the ${c.academic}% ${uni} asks for`;
+  if (k === 'Academics') {
+    // the highest qualification against the course's own minimum (S3C-2)
+    const m = minScoreOf(c);
+    return `${s.first}’s ${eduName(highestEdOf(s))} result against ${m ? `the ${scoreText(m.min, m.scale)}` : 'what'} ${uni} asks for`;
+  }
   if (k === 'English') return `${s.first}’s English test against IELTS ${c.ielts[0].toFixed(1)} or PTE ${c.pte[0]}`;
   return `Is the ${intake} intake open?`;
 }

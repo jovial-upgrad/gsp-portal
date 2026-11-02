@@ -11,14 +11,15 @@ import { MultiPick } from '../../institution/records/MultiPick';
 import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
-import { searchCatalogue } from '../../institution/data/store';
+import { liveAreas, liveLevels, searchCatalogue, useSharedDb } from '../../institution/data/store';
+import { byRegion, useScope } from '../../data/scope';
+import { studentRegion } from '../../data/regions';
+import { HOME_RP } from '../../institution/rps';
 import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, totalFeeOf, type Course } from '../../data/courses';
 import {
   ANY_DUR,
-  AREAS,
   DESTINATIONS,
   DUR_STOPS,
-  LEVELS,
   NEED_LABEL,
   NO_FILTERS,
   POPULAR,
@@ -69,6 +70,7 @@ export function FindCourses({
   onOpenShortlist,
   from,
   gsp = false,
+  commission = true,
 }: {
   s: CourseSearch;
   set: SetSearch;
@@ -88,10 +90,18 @@ export function FindCourses({
   from?: Sender;
   /** A GSP role: no Student view and no commission (W26); universities hidden from an RP still show. */
   gsp?: boolean;
+  /** Whether this person sees commission figures: the RP Admin only (S3C-7); never a GSP role (W26). */
+  commission?: boolean;
 }) {
   const reduce = useReducedMotion();
-  // GSP's people see the page as Student view would: no commission anywhere (W26)
-  if (gsp && !s.studentView) s = { ...s, studentView: true };
+  // Program level and Study area: Admin's lists (Admin › Course configuration › Program levels and study areas, S2C-13)
+  const [db] = useSharedDb();
+  // GSP's people, and the RP's Branch Admin and Counsellor (S3C-7), see the page as Student view would: no commission
+  const noCommission = gsp || !commission;
+  // GSP's people pick from the students in their own sales regions, each shown with its RP (lock answer S3C-6)
+  useScope();
+  if (gsp) students = byRegion(students, (x) => studentRegion(x));
+  if (noCommission && !s.studentView) s = { ...s, studentView: true };
   const r = useMemo(() => results(s, !gsp), [s, gsp]);
   const cur = currencyOf(s.need);
   const [open, setOpen] = useState<Course | null>(null);
@@ -164,7 +174,7 @@ export function FindCourses({
           <h1 className="page__title">Find courses</h1>
           <p className="find__lead">Search courses your student can be offered.</p>
         </div>
-        {!gsp && <div className="find__view">
+        {!noCommission && <div className="find__view">
           <Switch id="fc-view" checked={s.studentView} onChange={(v) => set((p) => ({ ...p, studentView: v }))}>
             Student view
           </Switch>
@@ -196,7 +206,7 @@ export function FindCourses({
                 { value: '', label: 'Select student' },
                 // with none to pick, the list still opens and says why
                 ...(canApply && !students.length ? [{ value: 'none', label: 'No students yet: add them in Students', disabled: true }] : []),
-                ...students.map((st) => ({ value: st.id, label: `${fullName(st)} · ${st.state ? `${st.state}, ` : ''}${st.country || st.nationality}` })),
+                ...students.map((st) => ({ value: st.id, label: `${fullName(st)} · ${gsp ? `${st.rp ?? HOME_RP} · ` : ''}${st.state ? `${st.state}, ` : ''}${st.country || st.nationality}` })),
               ]}
               render={(o) => <span className="smenu__value">{o && o.value ? o.label : 'Select student'}</span>}
             />
@@ -261,8 +271,8 @@ export function FindCourses({
             disabled={!s.need.country}
             optional
           />
-          <Segment id="fc-level" label="Program Level" value={s.need.level} options={[...LEVELS]} onChange={(v) => setNeed('level', v)} error={tried && !s.need.level} />
-          <Segment id="fc-area" label="Study Area" value={s.need.area} options={[...AREAS]} onChange={(v) => setNeed('area', v)} error={tried && !s.need.area} />
+          <Segment id="fc-level" label="Program Level" value={s.need.level} options={liveLevels(db, s.need.level)} onChange={(v) => setNeed('level', v)} error={tried && !s.need.level} />
+          <Segment id="fc-area" label="Study Area" value={s.need.area} options={liveAreas(db, s.need.area)} onChange={(v) => setNeed('area', v)} error={tried && !s.need.area} />
           <Segment id="fc-intake" label="Intake" value={s.filters.intake} options={s.filters.intake && !months.includes(s.filters.intake) ? [s.filters.intake, ...months] : months} onChange={(v) => setFilter('intake', v)} optional />
         </fieldset>
       </Form>

@@ -10,7 +10,7 @@ import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
 import { sampleApplications } from '../../data/applications';
 import { adminCfg } from '../../admin/data/store';
 import { UniMark, campusLabel } from '../courses/parts';
-import { QUALIFICATIONS, SCALES, TESTS, TEST_MIN, newRuleId, withSearchFields, type AcademicRule, type CourseRec, type EnglishRule, type IntakeDates, type Qualification, type Scale, type Test, type UniRec } from '../data/catalogue';
+import { QUALIFICATIONS, SCALES, SCALE_MAX, UK_CLASS, scoreText, TESTS, TEST_MIN, newRuleId, withSearchFields, type AcademicRule, type CourseRec, type EnglishRule, type IntakeDates, type Qualification, type Scale, type Test, type UniRec } from '../data/catalogue';
 import { dateText, daysTo, stampBy } from '../data/records';
 import { audit, change, withLog, type LogSpec } from '../data/changelog';
 import { liveTags, patch } from '../data/store';
@@ -35,8 +35,8 @@ const SPEC: LogSpec<CourseRec> = {
   fields: {
     code: 'Basics · Course code', cricos: 'Basics · CRICOS course code', name: 'Basics · Course name', campus: 'Basics · Campus', level: 'Basics · Program level', area: 'Basics · Study area', mode: 'Basics · Study mode', durValue: 'Basics · Duration', durUnit: 'Basics · Unit', url: 'Basics · Course page', tags: 'Basics · Tags', checked: 'Basics · Last checked', source: 'Basics · Source',
     intakes: 'Intakes · Intake', dates: 'Intakes · Dates',
-    currency: 'Fees · Currency', fullFee: 'Fees · Full course fee', firstYearFee: 'Fees · First-year fee', appFee: 'Fees · Application fee', feeYear: 'Fees · Fee year',
-    minEducation: 'Academic · Minimum highest education required', academicRules: 'Academic · Row', englishRules: 'English · Row', status: 'Status',
+    currency: 'Fees · Currency', fullFee: 'Fees · Full course fee', firstYearFee: 'Fees · First-year fee', appFee: 'Fees · Application fee',
+    minEducation: 'Academic · Minimum highest education required', minScore: 'Academic · Minimum score in it', minScoreScale: 'Academic · Its grading scale', minBacklogs: 'Academic · Backlogs allowed in it', academicRules: 'Academic · Row', englishRules: 'English · Row', status: 'Status',
   },
   fmt: { campus: (v) => (v as { name: string }).name, dates: () => 'Intake dates' },
 };
@@ -519,12 +519,11 @@ const money2 = (s: string) => /^\d+(\.\d{1,2})?$/.test(s.trim());
 /**
  * Fees (slice 2 PRD): currency from Admin's Currency exchange list (default the university country's, S2C-5); the
  * full course fee is the total tuition fee, with the fee a year under it; first-year fee required for Credits (S2C-5);
- * application fee (empty is free); fee year (S2C-6).
+ * application fee (empty is free). No fee year (Jovial, S2C-6): fees are updated when the team updates them.
  */
 function Fees({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
   const currencies = useMemo(() => [...new Set([...adminCfg().rates.map((r) => r.code), c.currency])], [c.currency]);
-  const yearNow = new Date().getFullYear();
-  const first = () => ({ currency: c.currency || CURRENCY[c.uni.country as Destination], full: c.fullFee > 0 ? c.fullFee.toFixed(2) : '', firstYear: c.firstYearFee > 0 ? c.firstYearFee.toFixed(2) : '', appFee: c.appFee > 0 ? c.appFee.toFixed(2) : '', feeYear: String(c.feeYear || yearNow) });
+  const first = () => ({ currency: c.currency || CURRENCY[c.uni.country as Destination], full: c.fullFee > 0 ? c.fullFee.toFixed(2) : '', firstYear: c.firstYearFee > 0 ? c.firstYearFee.toFixed(2) : '', appFee: c.appFee > 0 ? c.appFee.toFixed(2) : '' });
   const [v, setV] = useState(first);
   const [tried, setTried] = useState(false);
   const ed = useEditing();
@@ -535,7 +534,6 @@ function Fees({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
     full: !v.full.trim() ? 'Enter the full course fee.' : !money2(v.full) || !(Number(v.full) > 0) ? 'An amount above 0, with up to 2 decimals.' : null,
     firstYear: !v.firstYear.trim() ? (credits ? 'Enter the first-year fee.' : null) : !money2(v.firstYear) || !(Number(v.firstYear) > 0) ? 'An amount above 0, with up to 2 decimals.' : Number(v.firstYear) > Number(v.full) ? 'Not more than the full course fee.' : null,
     appFee: v.appFee.trim() && !money2(v.appFee) ? 'An amount with up to 2 decimals.' : null,
-    feeYear: !v.feeYear ? 'Pick a fee year.' : null,
   };
   const bad = Object.values(err).some(Boolean);
   const cancel = () => (setV(first()), setTried(false), ed.close());
@@ -565,7 +563,6 @@ function Fees({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
               ],
               ['First-year fee', shown(c.firstYearFee)],
               ['Application fee', c.appFee > 0 ? money(c.appFee, c.currency) : 'Free'],
-              ['Fee year', c.feeYear ? <span key="y" className="num">{c.feeYear}</span> : null],
             ]}
           />
           <p className="irsec__note">Course search shows the full course fee as the total tuition fee, with the fee a year under it. The application’s final tuition fee starts from the full course fee.</p>
@@ -579,9 +576,6 @@ function Fees({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
             {amount('icf-full', 'Full course fee', 'full', true, 'The tuition for the whole course.')}
             {amount('icf-first', 'First-year fee', 'firstYear', credits, credits ? 'Needed for a Credits course: it’s the fee a year in search.' : 'Not more than the full course fee.')}
             {amount('icf-app', 'Application fee', 'appFee', false, 'Empty means free.')}
-            <Field id="icf-year" label="Fee year" required error={tried ? err.feeYear : null} hint="Which year’s fees these are.">
-              <Pick id="icf-year" label="Fee year" value={v.feeYear} options={[String(yearNow), String(yearNow + 1), ...(Number(v.feeYear) < yearNow ? [v.feeYear] : [])]} onChange={(feeYear) => set({ feeYear })} />
-            </Field>
           </div>
           <SaveBar
             show
@@ -591,7 +585,7 @@ function Fees({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
             onSave={() => {
               setTried(true);
               if (bad) return;
-              save((x) => ({ ...x, currency: v.currency, fullFee: Number(v.full), firstYearFee: Number(v.firstYear) || 0, appFee: Number(v.appFee) || 0, feeYear: Number(v.feeYear) }), 'Fees saved.');
+              save((x) => ({ ...x, currency: v.currency, fullFee: Number(v.full), firstYearFee: Number(v.firstYear) || 0, appFee: Number(v.appFee) || 0 }), 'Fees saved.');
               setTried(false);
               ed.close();
             }}
@@ -602,10 +596,8 @@ function Fees({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
   );
 }
 
-const SCALE_MAX: Record<Scale, number> = { Percentage: 100, 'GPA 4': 4, 'GPA 10': 10, 'UK class': 4 };
-const UK_CLASS = ['First', '2:1', '2:2', 'Third'];
 const ukName = (n: number) => UK_CLASS[4 - n] ?? '';
-const ukNum = (s: string) => 4 - UK_CLASS.indexOf(s);
+const ukNum = (s: string) => 4 - (UK_CLASS as readonly string[]).indexOf(s);
 /** The rows' errors (slice 2 PRD): the minimum on its scale; two rows with the same countries, qualification and board. */
 function academicError(rows: AcademicRule[]) {
   for (const [i, r] of rows.entries()) {
@@ -619,19 +611,27 @@ function academicError(rows: AcademicRule[]) {
 }
 
 /**
- * Academic eligibility (slice 2 PRD): Minimum highest education required at the top (one per course, required to
- * save, S3-18; "Not set" until filled), then one row per student country and qualification (Grade 12: one per board).
+ * Academic eligibility (slice 2 PRD): Minimum highest education required at the top (one per course), with the
+ * minimum score in it and its grading scale (Jovial, S2C-3: all three required to save this tab and to publish;
+ * "Not set" until filled). Slice 3's eligibility compares the student's highest qualification with these. Then one
+ * row per student country and qualification (Grade 12: one per board).
  */
 function Academic({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
   const [rows, setRows] = useState<AcademicRule[]>(c.academicRules);
-  const [minEd, setMinEd] = useState(c.minEducation ?? '');
+  const minOf = () => ({ ed: c.minEducation ?? '', score: c.minScore !== undefined ? String(c.minScore) : '', scale: (c.minScoreScale ?? '') as Scale | '', backlogs: c.minBacklogs !== undefined && c.minBacklogs !== null ? String(c.minBacklogs) : '' });
+  const [min, setMin] = useState(minOf);
+  const setM = (p: Partial<ReturnType<typeof minOf>>) => setMin((x) => ({ ...x, ...p }));
   const [tried, setTried] = useState(false);
   const ed = useEditing();
-  const changed = JSON.stringify(rows) !== JSON.stringify(c.academicRules) || minEd !== (c.minEducation ?? '');
+  const changed = JSON.stringify(rows) !== JSON.stringify(c.academicRules) || JSON.stringify(min) !== JSON.stringify(minOf());
   const upd = (id: string, p: Partial<AcademicRule>) => setRows((l) => l.map((r) => (r.id === id ? { ...r, ...p } : r)));
-  const minErr = !minEd ? 'Pick the minimum highest education.' : null;
-  const error = minErr ?? academicError(rows);
-  const cancel = () => (setRows(c.academicRules), setMinEd(c.minEducation ?? ''), setTried(false), ed.close());
+  const n = Number(min.score);
+  const minErr = !min.ed ? 'Pick the minimum highest education.' : null;
+  const scaleErr = !min.scale ? 'Pick the grading scale of the minimum score.' : null;
+  const scoreErr = !min.score.trim() ? 'Enter the minimum score in it.' : !(n > 0) ? 'A number greater than 0.' : min.scale && n > SCALE_MAX[min.scale] ? `Up to ${SCALE_MAX[min.scale]} on this scale.` : null;
+  const error = minErr ?? scaleErr ?? scoreErr ?? academicError(rows);
+  const open = () => (setRows(c.academicRules), setMin(minOf()), ed.open());
+  const cancel = () => (setRows(c.academicRules), setMin(minOf()), setTried(false), ed.close());
   const minText = (r: AcademicRule) => (r.scale === 'UK class' ? ukName(r.min) : r.min);
   return (
     <Section
@@ -639,11 +639,17 @@ function Academic({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }
       id="ic-academic"
       updated={c.stamps.academic}
       note="Partners see the rows that list their student’s country and the rows with no countries. Backlogs allowed: empty means no limit, 0 means none."
-      action={edit && !ed.editing ? <EditButton onClick={() => (setRows(c.academicRules), setMinEd(c.minEducation ?? ''), ed.open())} what="academic eligibility" /> : undefined}
+      action={edit && !ed.editing ? <EditButton onClick={open} what="academic eligibility" /> : undefined}
     >
       {!ed.editing ? (
         <>
-          <Facts items={[['Minimum highest education required', c.minEducation || <span key="ns" className="muted">Not set</span>]]} />
+          <Facts
+            items={[
+              ['Minimum highest education required', c.minEducation || <span key="ns" className="muted">Not set</span>],
+              ['Minimum score in it', c.minScore !== undefined && c.minScoreScale ? scoreText(c.minScore, c.minScoreScale) : <span key="ns2" className="muted">Not set</span>],
+              ['Backlogs allowed in it', c.minBacklogs !== undefined && c.minBacklogs !== null ? String(c.minBacklogs) : 'No limit'],
+            ]}
+          />
           {c.academicRules.length ? (
             <div className="stab-wrap">
               <table className="itab itab--view">
@@ -681,7 +687,20 @@ function Academic({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }
         <>
           <div className="iaddform__grid">
             <Field id="ica-min" label="Minimum highest education required" required error={tried ? minErr : null} hint="One value for the course. Required to save this tab and to publish.">
-              <Pick id="ica-min" label="Minimum highest education required" value={minEd} placeholder="Pick one" invalid={tried && !!minErr} options={MIN_EDUCATION} onChange={setMinEd} />
+              <Pick id="ica-min" label="Minimum highest education required" value={min.ed} placeholder="Pick one" invalid={tried && !!minErr} options={MIN_EDUCATION} onChange={(x) => setM({ ed: x })} />
+            </Field>
+            <Field id="ica-scale" label="Its grading scale" required error={tried ? scaleErr : null}>
+              <Pick id="ica-scale" label="Grading scale of the minimum score" value={min.scale} placeholder="Pick a scale" invalid={tried && !!scaleErr} options={SCALES} onChange={(x) => setM({ scale: x as Scale, score: '' })} />
+            </Field>
+            <Field id="ica-score" label="Minimum score in it" required error={tried ? scoreErr : null} hint="The lowest score the course takes in that highest education.">
+              {min.scale === 'UK class' ? (
+                <Pick id="ica-score" label="Minimum score in it" value={min.score ? ukName(Number(min.score)) : ''} placeholder="Pick a class" invalid={tried && !!scoreErr} options={[...UK_CLASS]} onChange={(x) => setM({ score: String(ukNum(x)) })} />
+              ) : (
+                <NumberField id="ica-score" decimal min={0} max={min.scale ? SCALE_MAX[min.scale] : undefined} value={min.score} invalid={tried && !!scoreErr} onChange={(t) => setM({ score: t.replace(/[^\d.]/g, '') })} />
+              )}
+            </Field>
+            <Field id="ica-backlogs" label="Backlogs allowed in it" optional hint="Empty means no limit; 0 means none.">
+              <NumberField id="ica-backlogs" min={0} value={min.backlogs} placeholder="No limit" onChange={(t) => setM({ backlogs: t.replace(/\D/g, '') })} />
             </Field>
           </div>
           {rows.length ? (
@@ -758,7 +777,7 @@ function Academic({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }
             onSave={() => {
               setTried(true);
               if (error) return;
-              save((x) => ({ ...x, academicRules: rows, minEducation: minEd }), 'Academic eligibility saved.');
+              save((x) => ({ ...x, academicRules: rows, minEducation: min.ed, minScore: Number(min.score), minScoreScale: min.scale || undefined, minBacklogs: min.backlogs === '' ? undefined : Number(min.backlogs) }), 'Academic eligibility saved.');
               setTried(false);
               ed.close();
             }}

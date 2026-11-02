@@ -4,10 +4,12 @@
  * - **close**: how an application can close at each stage (GSP's status list);
  * - **withdraw**: why an application is withdrawn;
  * - **sendBack**: why GSP sends a document back, to start the explanation from.
- * `REASON_DEFAULTS` is the starting point for an Admin setting: when GSP · Admin keeps its own lists (adminCfg().reasons,
- * same shape), they're used instead.
+ * Lock answer S3C-21 (Jovial, 2 Nov): **close and withdraw reasons are Admin's**, edited in Admin › Application
+ * configuration › Reasons (admin/data/lists.ts); `REASON_DEFAULTS` is only where they start. Removing one stops it
+ * being offered; applications closed with it keep it. **Send-back reasons are fixed** (not editable).
  */
 import { adminCfg } from '../admin/data/store';
+import { reasonListsOf } from '../admin/data/lists';
 
 /**
  * How an application ends (slice 3 PRD, Closing). The close reasons by stage; **Withdrawn**, the end of a withdrawal
@@ -15,6 +17,8 @@ import { adminCfg } from '../admin/data/store';
  * 'Student withdrawn' is the old name of Withdrawn, kept only to read older saved applications.
  */
 export type EndKind =
+  /** Admin's own close reasons (S3C-21): any text on its list. */
+  | (string & {})
   | 'Not eligible'
   | 'Student not eligible'
   | 'Created by mistake or duplicate'
@@ -52,15 +56,15 @@ export const REASON_DEFAULTS: Reasons = {
   sendBack: ['Blurred or hard to read', 'Pages are missing', 'It’s the wrong document', 'The name doesn’t match the passport', 'It has expired'],
 };
 
-/** The lists as they are now: Admin's, where it keeps them, else the defaults. */
+/** The lists as they are now: Admin's close and withdraw reasons (S3C-21), and the fixed send-back reasons. */
 export function reasons(): Reasons {
-  let own: Partial<Reasons> | undefined;
+  let own: { close: string[][]; withdraw: string[] } | undefined;
   try {
-    own = (adminCfg() as { reasons?: Partial<Reasons> }).reasons;
+    own = reasonListsOf(adminCfg(), REASON_DEFAULTS);
   } catch {
     own = undefined;
   }
-  return { close: own?.close?.length ? own.close : REASON_DEFAULTS.close, withdraw: own?.withdraw?.length ? own.withdraw : REASON_DEFAULTS.withdraw, sendBack: own?.sendBack?.length ? own.sendBack : REASON_DEFAULTS.sendBack };
+  return { close: (own?.close ?? REASON_DEFAULTS.close) as EndKind[][], withdraw: own?.withdraw ?? REASON_DEFAULTS.withdraw, sendBack: REASON_DEFAULTS.sendBack };
 }
 export const closeReasons = (stage: number) => reasons().close[stage] ?? [];
 export const withdrawReasons = () => reasons().withdraw;

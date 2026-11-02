@@ -18,7 +18,8 @@ import { regionQueueId, recruitmentQueueId, sameRole } from './seed';
 import { now, subscribeClock, istDate, istTime, istYmd } from './clock';
 import { WORK_KEY } from './renewal';
 import { getDb as rpDb, onDbChange } from '../institution/data/store';
-import { rpTasks, rpRecord } from './rpRules';
+import { rpTasks, rpRecord, ipTasks, uniRecord, nationalityTasks } from './rpRules';
+import { sampleStudents } from '../data/students';
 
 const KEY = WORK_KEY; // v6: the slice 4 PRD's queues, rules and kinds (2 Nov)
 const ADMIN_Q = 'q-admin';
@@ -124,7 +125,7 @@ function hoursFor(s, t) {
 let state;
 try { state = JSON.parse(localStorage.getItem(KEY)) || null; } catch { state = null; }
 if (!state || !state.mail || !state.mail.threads || !state.rules?.[0]?.group) state = fresh();
-for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses']) state[k] = state[k] || {};
+for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses', 'appQueue']) state[k] = state[k] || {};
 state.gave = state.gave || [];
 const listeners = new Set();
 
@@ -160,6 +161,9 @@ function flush() {
   });
 }
 
+let studsCache = null;
+/** The universities under a reopened partner (T70's records), as My work shows them. */
+const reopenedUnis = (rdb) => (rdb.ips || []).filter((p) => p.reopenedAt).flatMap((p) => (rdb.unis || []).filter((u) => u.ip === p.id).map((u) => uniRecord(u, p)));
 function derive() {
   const live = liveAll(), fl = liveFlags(), minute = Math.floor(now() / 60000);
   const cals = getCalendars();
@@ -174,7 +178,7 @@ function derive() {
   const base = {
     ...state, regions: seed.regionsNow(), roles: gspRoles(), calendars: cals, users: usersNow(state),
     // the RPs as the Institution Team's records have them (their tasks come from rpRules.ts)
-    records: [...recs, ...rdb.rps.map(rpRecord), ...state.records.filter((r) => (r.type !== 'Application' || !appIds.has(r.id)) && !rdb.rps.some((x) => x.id === r.id))],
+    records: [...recs, ...rdb.rps.map(rpRecord), ...reopenedUnis(rdb), ...state.records.filter((r) => (r.type !== 'Application' || !appIds.has(r.id)) && !rdb.rps.some((x) => x.id === r.id))],
     calFor: (region) => calendarOf(region || 'Global'),
   };
   // the application's officer: set by routing when the RP sends the documents, kept until changed (S4-5); a
@@ -185,6 +189,21 @@ function derive() {
     const own = a.officer || null;
     let cur = o && o.from === own ? o.officer : own;
     if (!cur && (a.status === 'docs' || !a.since)) return null; // no officer while New
+    // re-routing (S1C-7): an edit that sends the application to another Admissions queue has that queue pick a new
+    // officer (Fewest open), and the open tasks move with it (they follow the officer); the same queue keeps the
+    // officer. The queue each application was last worked in is kept, and the move is logged.
+    const qNow = regionQueueId(a.region || 'Direct', base.queues);
+    const qWas = (state.appQueue || {})[a.id];
+    if (!qWas) later(`aq-${a.id}`, (d) => { d.appQueue[a.id] = d.appQueue[a.id] || qNow; });
+    else if (cur && qWas !== qNow) {
+      const prev = cur;
+      const next = pickOfficer(base, apps, a.region || 'Direct', (id) => canTake(base, id, { region: a.region }), (x) => (state.officers[x.id]?.from === (x.officer || null) ? state.officers[x.id].officer : x.officer));
+      const qn = (id) => (base.queues.find((q) => q.id === id) || {}).name || id;
+      if (next) {
+        later(`off-${a.id}`, (d) => { d.officers[a.id] = { officer: next, from: own, why: 'rerouted', queue: qNow, at: t0 }; d.appQueue[a.id] = qNow; }, { event: 'application.officer_changed', text: `${a.id} re-routed from ${qn(qWas)} to ${qn(qNow)}: ${nameOfIn(base, next)} is the officer (Fewest open), was ${nameOfIn(base, prev)}; open tasks moved` });
+        cur = next;
+      }
+    }
     if (!cur) {
       cur = pickOfficer(base, apps, a.region || 'Direct', (id) => canTake(base, id, { region: a.region }), (x) => (state.officers[x.id]?.from === (x.officer || null) ? state.officers[x.id].officer : x.officer));
       if (cur) later(`off-${a.id}`, (d) => { if (d.officers[a.id]?.from === own) return; d.officers[a.id] = { officer: cur, from: own, why: 'routing', at: t0 }; }, { event: 'application.officer_set', text: `Routing made ${nameOfIn(base, cur)} the officer on ${a.id} (Fewest open)` });
@@ -199,7 +218,7 @@ function derive() {
   };
   const officerNote = (a) => { const o = state.officers[a.id]; return o?.why === 'left' && o.from === (a.officer || null) ? 'Their officer has left GSP: the leader has it' : null; };
 
-  const auto = [...appTasks(base, live, t0), ...rpTasks(base, rdb.rps, t0)].map((t) => ({ ...t, ...(state.overrides?.[t.id] || {}) }));
+  const auto = [...appTasks(base, live, t0), ...rpTasks(base, rdb.rps, t0), ...ipTasks(base, rdb.ips, rdb.unis, t0), ...nationalityTasks(base, (studsCache ??= sampleStudents('')), t0)].map((t) => ({ ...t, ...(state.overrides?.[t.id] || {}) }));
   const manual = state.tasks.map((t) => (t.status === 'open' && closedApp.has(t.record) ? { ...t, status: 'done', doneAt: t0, doneBy: null, outcome: 'Closed with the application' } : t));
   const list = [];
   for (const t0x of [...manual, ...auto]) {
@@ -277,7 +296,7 @@ export function useStore(select = (s) => s) { return select(useSyncExternalStore
 /* update(draft => { ...change draft... }, 'What changed, for the log', 'event.name') */
 export function update(fn, logText, event) {
   const next = structuredClone(state);
-  for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses']) next[k] = next[k] || {};
+  for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses', 'appQueue']) next[k] = next[k] || {};
   const before = JSON.stringify(state.queues);
   fn(next);
   if (logText) next.log = [{ at: now(), who: next.persona, text: logText, event }, ...next.log].slice(0, 300);
@@ -293,6 +312,28 @@ export function logChange(event, text, by) {
 }
 
 export function resetAll() { state = fresh(); save(); view = null; listeners.forEach((l) => l()); syncAdminQueues(); }
+
+/**
+ * Key details › Assigned officer › Change (lock answer S3C-8): the application's officer becomes `to`; its open
+ * tasks follow, since every application task goes to the officer (S4-5). `from` is the officer the application's
+ * record has, so the change holds until the record itself changes. Logged as application.officer_changed.
+ */
+export function changeOfficer(appId, recordOfficer, to, by, toName) {
+  update((d) => { d.officers[appId] = { officer: to, from: recordOfficer || null, why: 'changed', by, at: now() }; }, `${by} made ${toName || to} the officer on ${appId}; its open tasks moved to them`, 'application.officer_changed');
+}
+
+/**
+ * A university reference fixed on an application (lock answer S3C-19): the mail conversations matched on that
+ * reference move with it to the application that now has it. Logged as mail.thread_moved.
+ */
+export function moveThreadsByRef(ref, appId, by) {
+  const key = String(ref || '').trim().toUpperCase();
+  if (!key) return 0;
+  const hits = (state.mail?.threads || []).filter((t) => String(t.fields?.['University reference'] || '').trim().toUpperCase() === key && t.record !== appId);
+  if (!hits.length) return 0;
+  update((d) => { for (const t of d.mail.threads) if (hits.some((h) => h.id === t.id)) t.record = appId; }, `${by} moved ${hits.length === 1 ? '1 mail conversation' : `${hits.length} mail conversations`} matched on reference ${key} to ${appId}`, 'mail.thread_moved');
+  return hits.length;
+}
 
 /* ---------- task actions ---------- */
 const titleOf = (id) => (getState().tasks.find((t) => t.id === id) || {}).title || id;
@@ -322,8 +363,8 @@ export function assignTasks(ids, who, by) {
   }, list.length === 1 ? `${nameOf(s, by)} gave ${list[0].title || list[0].id} to ${nameOf(s, who)}` : `${nameOf(s, by)} gave ${list.length} tasks to ${nameOf(s, who)}`, 'task.reassigned');
 }
 /**
- * A task from an RP event (slice 2's RP page calls this): T58 when the RP's agreement is executed, T59 when RP Ops
- * issues a notice, T32 when the documents are sent, RPA when the signed agreement is uploaded. Same record and rule
+ * A task from an RP event (slice 2's RP page calls this): T58 when the RP's agreement is executed, T32 when the
+ * documents are sent, RPA when the signed agreement is uploaded. Same record and rule
  * twice: one task (idempotent).
  */
 export function raiseRpTask(row, rp, at = now()) {

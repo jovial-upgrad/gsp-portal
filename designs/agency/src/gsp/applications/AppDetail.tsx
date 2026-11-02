@@ -25,6 +25,7 @@ import {
   statusText,
   type Application,
   type AppOwner,
+  sampleApplications,
   type EndKind,
   type Need,
 } from '../../data/applications';
@@ -37,12 +38,13 @@ import { MailTab } from './Mail';
 import { SubmissionTab, isSubmitted } from './Submission';
 import { setLiveStatus, setLiveFlags, flagsOf, finalFeeOf, useLiveAll } from '../../data/live';
 import { routeApplication } from '../../data/regions';
-import { isMine } from '../../data/scope';
+import { getScope, isMine } from '../../data/scope';
 import { regionQueueName } from '../../admin/data/config';
 import { officerOf } from '../../data/dataset';
 import { staffById } from '../../data/staff';
 import { StatusDialog, type StatusPick } from './StatusDialog';
-import { REF_FORMAT_ERROR, autoName, isAdmissions, refClash, refClashError, refFormat } from '../../data/appRules';
+import { REF_FORMAT_ERROR, autoName, canChangeOfficer, isAdmissions, refClash, refClashError, refFormat } from '../../data/appRules';
+import { changeOfficer, moveThreadsByRef } from '../../work/store';
 import { isWithdrawal } from '../../data/reasons';
 import { adminCfg } from '../../admin/data/store';
 import { staffByEmail, label as staffLabel } from '../../data/staff';
@@ -249,12 +251,16 @@ export function AppDetail({
     // the same check as the Submitted to university popup (S3-8, S3-22): university + reference
     const clash = refClash(all, a, ref);
     if (clash) return say(refClashError(clash, students));
-    update((x) => ({ ...x, uniRef: ref, history: [...x.history, { at: now, who: 'gsp', text: was ? `Changed the university reference from ${was} to ${ref}` : `Added the university reference ${ref}`, by: gsp.name }] }));
+    // the mail conversations matched on this reference move with it (S3C-19)
+    const moved = moveThreadsByRef(ref, a.id, gsp.name);
+    update((x) => ({ ...x, uniRef: ref, history: [...x.history, { at: now, who: 'gsp', text: was ? `Changed the university reference from ${was} to ${ref}` : `Added the university reference ${ref}`, by: gsp.name }, ...(moved ? [{ at: now, who: 'gsp' as const, text: `${moved === 1 ? '1 mail conversation' : `${moved} mail conversations`} matched on ${ref} moved to this application`, by: gsp.name }] : [])] }));
   };
 
+  // logged old → new (S3C-11)
   const setCensus = (t: number) => {
+    const was = desk.census;
     setDesk((x) => ({ ...x, census: t }));
-    log(`Set the census date to ${longDate(t)}`);
+    log(was ? `Changed the census date from ${longDate(was)} to ${longDate(t)}` : `Set the census date to ${longDate(t)}`);
     say(`Census date set to ${longDate(t)}.`);
   };
   // the final tuition fee: the course's until Admissions changes it; Finance prices commission on it (Jovial, 1 Nov)
@@ -262,8 +268,9 @@ export function AppDetail({
   const feeFlag = flagsOf(a.id);
   const fee = finalFeeOf(a.id, c.tuition);
   const setFee = (n: number) => {
+    const was = fee;
     setLiveFlags(a.id, { fee: n, feeBy: gsp.name, feeAt: Date.now() });
-    log(`Set the final tuition fee to ${money(n, c.currency)}`);
+    log(`Changed the final tuition fee from ${money(was, c.currency)} to ${money(n, c.currency)}`);
     say(`Final tuition fee set to ${money(n, c.currency)}.`);
   };
 
@@ -372,13 +379,13 @@ export function AppDetail({
         since: now,
         needs: [],
         parked: [],
-        end: { kind, reason: wd ? reason : '', stage, at: now },
+        end: { kind, reason: wd ? reason : '', stage, at: now, submitted: isSubmitted(a) },
         chat: [...x.chat.map((m) => (m.request && open.has(m.request) ? { ...m, ended: { kind: 'closed' as const, at: now } } : m)), { id: `m${now}`, at: now, from: 'gsp' as const, name: autoName(x, gsp.name), text: line }],
         unread: (x.unread ?? 0) + 1,
         history: [...x.history, { at: now, who: 'gsp', text: wd ? `Withdrew the application: ${reason}` : `Closed the application: ${kind}, at ${STAGES[stage]}`, by: gsp.name }, ...(open.size ? [{ at: now, who: 'gsp' as const, text: `${open.size === 1 ? '1 open request' : `${open.size} open requests`} cancelled with the application`, by: gsp.name }] : [])],
       };
     });
-    setLiveStatus(a.id, { status: 'closed', at: now, by: gsp.name, end: kind, note: wd ? reason : kind, via: 'portal' });
+    setLiveStatus(a.id, { status: 'closed', at: now, by: gsp.name, end: kind, note: wd ? reason : kind, via: 'portal', endStage: stage, submitted: isSubmitted(a) });
     say(wd ? `${a.id} withdrawn. Its open tasks closed too.` : `${a.id} closed: ${kind}. Its open tasks closed too.`);
   };
 
@@ -388,7 +395,12 @@ export function AppDetail({
   const setOfficer = (staffId: string) => {
     const now = Date.now();
     const to = staffById(staffId);
-    update((x) => ({ ...x, officer: staffId, history: [...x.history, { at: now, who: 'gsp', text: `Changed the officer from ${officer ? staffLabel(officer) : 'nobody'} to ${to ? staffLabel(to) : staffId}`, by: gsp.name }] }));
+    // logged under whoever changed it (S3C-8)
+    const meNow = staffByEmail(getScope().email);
+    const by = meNow ? staffLabel(meNow) : gsp.name;
+    update((x) => ({ ...x, officer: staffId, history: [...x.history, { at: now, who: 'gsp', text: `Changed the officer from ${officer ? staffLabel(officer) : 'nobody'} to ${to ? staffLabel(to) : staffId}`, by }] }));
+    // the work store's officer, so My work's open tasks move with it (S3C-8); the record's own officer is the seed's
+    changeOfficer(a.id, sampleApplications().find((x) => x.id === a.id)?.officer ?? null, staffId, by, to ? staffLabel(to) : staffId);
     say(`${to ? staffLabel(to) : 'The new officer'} is the officer now. The open tasks moved to them.`);
     setOfficering(false);
   };
@@ -714,12 +726,13 @@ export function AppDetail({
             <KeyGroup title="Application details">
               <Row k="Application" v={<span className="num">{a.id}</span>} />
               {/* Admissions edit it at any time, after a confirmation, logged in Activity (Jovial, 2 Nov); others see it once there is one */}
-              {admissions ? <RefRow a={a} all={all} students={students} onSave={(r) => setRef(r, a.uniRef)} /> : <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : null} />}
+              {/* after Student enrolled only the census date and final tuition fee stay editable (S3C-11) */}
+              {admissions && isOpen(a) ? <RefRow a={a} all={all} students={students} onSave={(r) => setRef(r, a.uniRef)} /> : <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : null} />}
               <Row k="Intake" v={a.intake} />
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Length" v={durationText(c)} />
               {/* after Student enrolled only these two stay editable; Closed and Withdrawn are fully read-only (S3C-11) */}
-              {admissions && a.status !== 'closed' ? <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={longDate(desk.census)} onSave={setCensus} /> : <Row k="Census date" v={desk.census ? longDate(desk.census) : null} />}
+              {admissions && a.status !== 'closed' ? <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={desk.census ? longDate(desk.census) : <span className="cdl__soft">Not filled in yet</span>} onSave={setCensus} /> : <Row k="Census date" v={desk.census ? longDate(desk.census) : null} />}
               {admissions && a.status !== 'closed' ? <EditRow
                 id="fee"
                 k="Final tuition fee"
@@ -758,7 +771,7 @@ export function AppDetail({
                   officer ? (
                     <span className="gedit__val">
                       {staffLabel(officer)}
-                      {admissions && !finished && (
+                      {canChangeOfficer(a) && !finished && (
                         <button type="button" className="scopy gedit__pen" aria-label="Change the assigned officer" title="Change the assigned officer" onClick={() => setOfficering(true)}>
                           <Icon name="edit" size={14} />
                         </button>
@@ -861,7 +874,7 @@ function EditRow({ id, k, kind, value, shown, currency, onSave }: { id: string; 
   const ref = useRef<HTMLInputElement>(null);
   const pencil = useRef<HTMLButtonElement>(null);
   const begin = () => {
-    setV(kind === 'date' ? isoDate(value) : value ? String(value) : '');
+    setV(kind === 'date' ? (value ? isoDate(value) : '') : value ? String(value) : '');
     setBad(false);
     setEditing(true);
     window.setTimeout(() => ref.current?.focus(), 30);

@@ -3,11 +3,15 @@
  * about its universities, shown in the RP portal's top bar, on matching course cards and on the university's page.
  * Each has a publish date and an expiry; it can go out by email too. In this prototype what the team publishes stays in
  * its portal; RP Admin's and GSP Team's megaphone (30 Oct) read this model, each its own copy of the samples. 29 Oct (6th round): the PM prototype's fields only (a subcategory, the
- * recipients by user type, role, country and sales region, a formatted description with images or PDFs), and no log.
+ * recipients by user type, role, country and sales region, a formatted description with images or PDFs).
  * 29 Oct (7th round): it publishes on a date, with no time, and says who last changed it, and when.
+ * Jovial, 2 Nov (S2C-15): a Scheduled or Live announcement can be edited, and every edit is written to its Change
+ * log; only the emails sent are counted ("N sent"), not opens. S2C-18: it goes live at the first job run (J9) on its
+ * publish date, just after midnight IST, and shows through its expiry date (IST).
  */
 import type { Area, Level } from '../../data/courses';
 import { inDays, type Stamp } from './records';
+import type { Change } from './changelog';
 import { nameOf } from '../../data/staff';
 import { ROLES as GSP_PERMISSION_ROLES, salesRegionNames } from '../../admin/data/config';
 /** An Institution person's name from the staff list, by the start of their email. */
@@ -61,10 +65,10 @@ export type Announcement = {
   author: string;
   draft: boolean;
   withdrawn: boolean;
-  /** Recruitment partners who've seen it, and emails sent and opened, once it's out. */
-  reached: number;
+  /** Emails sent, once it's out (S2C-15: only "N sent" is shown; opens aren't tracked). */
   sent: number;
-  opened: number;
+  /** Its Change log (S2C-15): every save of a Scheduled or Live announcement, field by field. */
+  log?: Change[];
   /** Who last changed it, and when. */
   updated?: Stamp;
   /** System information (slice 2 PRD): created on; created by is the author. */
@@ -74,8 +78,9 @@ export type Announcement = {
 export function statusOf(a: Announcement, now = Date.now()): AnnStatus {
   if (a.draft) return 'Draft';
   if (a.withdrawn) return 'Withdrawn';
-  if (new Date(`${a.expires}T23:59:59`).getTime() < now) return 'Expired';
-  if (new Date(`${a.publish.slice(0, 10)}T00:00:00`).getTime() > now) return 'Scheduled';
+  // IST days (S2C-18): live from the first job run on the publish date, just after midnight IST; through the expiry date
+  if (new Date(`${a.expires}T23:59:59+05:30`).getTime() < now) return 'Expired';
+  if (new Date(`${a.publish.slice(0, 10)}T00:00:00+05:30`).getTime() > now) return 'Scheduled';
   return 'Live';
 }
 
@@ -100,9 +105,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     author: IN('kevin.mcewan'),
     draft: false,
     withdrawn: false,
-    reached: 214,
     sent: 186,
-    opened: 121,
     updated: { by: IN('kevin.mcewan'), at: inDays(-3) },
   },
   {
@@ -125,9 +128,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     author: IN('catherine.wilson'),
     draft: false,
     withdrawn: false,
-    reached: 162,
     sent: 0,
-    opened: 0,
   },
   {
     id: 'AN-109',
@@ -148,9 +149,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     author: IN('kevin.mcewan'),
     draft: false,
     withdrawn: false,
-    reached: 301,
     sent: 254,
-    opened: 190,
   },
   {
     id: 'AN-112',
@@ -171,9 +170,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     author: IN('kevin.mcewan'),
     draft: false,
     withdrawn: false,
-    reached: 0,
     sent: 0,
-    opened: 0,
   },
   {
     id: 'AN-113',
@@ -194,9 +191,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     author: IN('namita.nath'),
     draft: true,
     withdrawn: false,
-    reached: 0,
     sent: 0,
-    opened: 0,
   },
   {
     id: 'AN-104',
@@ -218,9 +213,7 @@ export const sampleAnnouncements = (): Announcement[] => [
     author: IN('lalaine.dizon'),
     draft: false,
     withdrawn: false,
-    reached: 288,
     sent: 240,
-    opened: 171,
   },
   {
     id: 'AN-107',
@@ -241,8 +234,6 @@ export const sampleAnnouncements = (): Announcement[] => [
     author: IN('catherine.wilson'),
     draft: false,
     withdrawn: true,
-    reached: 95,
     sent: 0,
-    opened: 0,
   },
 ];

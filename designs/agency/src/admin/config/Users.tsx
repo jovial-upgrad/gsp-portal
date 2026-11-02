@@ -17,10 +17,6 @@ import { Loaded, NoResults, PAGE_SIZE, Pager, Pick, SaveBanner, ViewOnlyNote, ag
 
 const STATUSES: UserStatus[] = ['Link sent', 'Active', 'Deactivated'];
 
-/** A Recruitment user's area (S1C-3): the states and cities of the Recruitment assignment rows where they're the BDM. */
-export const areaOf = (u: Pick<User, 'name' | 'role'>, bdm: ConfigProps['cfg']['bdm']) =>
-  u.role !== 'Recruitment' ? '' : [...new Set(bdm.filter((r) => r.bdm === u.name && !r.fallback).map((r) => (r.area === 'All' ? r.country : r.area)))].join(', ');
-
 /** What the Login column says under the status (PRD slice 1, Login status). */
 function loginLine(u: User, now = Date.now()) {
   if (u.status === 'Link sent') return linkExpired(u, now) ? <span className="cfg__sub cfg__expired">Link expired</span> : <span className="cfg__sub">Sent {ago(u.sentAt, now)}</span>;
@@ -160,7 +156,6 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
                 </thead>
                 <tbody>
                   {shown.map((u) => {
-                    const area = areaOf(u, cfg.bdm);
                     return (
                       <tr key={u.id} className={u.status === 'Deactivated' ? 'is-off' : undefined}>
                         <td>
@@ -172,7 +167,8 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
                           {u.role}
                           {u.title && <span className="cfg__sub">{u.title}</span>}
                         </td>
-                        <td className="cfg__muted">{u.role === 'Recruitment' && area ? `Covers ${area}` : u.regions.join(', ') || 'No sales region'}</td>
+                        {/* sales regions only, for every role (S1C-3): where a Recruitment user is the default contact is Admin › Recruitment assignment, not the user */}
+                        <td className="cfg__muted">{u.regions.join(', ') || 'No sales region'}</td>
                         <td>
                           <span className={`cfg__login cfg__login--${u.status.replace(' ', '-').toLowerCase()}`}>{u.status}</span>
                           {loginLine(u, now)}
@@ -276,7 +272,7 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
 
 /** Create or edit a user (PRD slice 1, GSP users › Fields). */
 function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boolean; user: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User) => void }) {
-  const blank = (): User => ({ id: `u-${Date.now().toString(36)}`, name: '', email: '', dial: '+91', phone: '', role: '' as GspRole, title: '', region: '', regions: [], area: '', status: 'Link sent' });
+  const blank = (): User => ({ id: `u-${Date.now().toString(36)}`, name: '', email: '', dial: '+91', phone: '', role: '' as GspRole, title: '', region: '', regions: [], status: 'Link sent' });
   const [v, setV] = useState<User>(blank);
   const [start, setStart] = useState<User>(blank);
   const [result, setResult] = useState<SaveResult | null>(null);
@@ -288,8 +284,9 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
     name: v.name.trim().length < 2 || v.name.trim().length > 100 ? 'Enter their full name.' : null,
     email: emailLocked
       ? null
-      : !email || email.length > 254 || !isEmail(email) || !email.endsWith('@upgrad.com')
-        ? 'Enter a valid email, like name@upgrad.com.'
+      : // any valid email, no domain rule (Jovial, S1C-2)
+        !email || email.length > 254 || !isEmail(email)
+        ? 'Enter a valid email, like name@example.com.'
         : users.some((x) => x.id !== v.id && x.email.toLowerCase() === email)
           ? 'Someone already has this email.'
           : null,
