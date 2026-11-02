@@ -1,13 +1,17 @@
 /**
- * Working days (Jovial, 1 Nov, HC31): the calendars every SLA clock counts on, editable in Work › Queues, SLA and
- * escalation › Working days. Each has a name, its working days, its hours (9:30 to 18:30 unless set), its holidays
- * and the sales regions that use it (from GSP · Admin › Sales regions). RP Home's "working hours" read them too.
+ * Working calendars (slice 4 PRD, S4-25, S4-27): the calendars every SLA clock counts on, in Admin › Work › Queues,
+ * SLA and escalation › Working days. Each has a name, its working days, the day's start and end, its holidays and the
+ * sales regions on it. A sales region is on exactly one calendar: its `calendarId` (slice 1's Working calendar picker
+ * on the sales region) when set, else the calendar that lists it here. A record with no region uses the calendar that
+ * lists Global. One time zone for every calendar: IST (work/clock.ts). RP Home's "working hours" read them too.
  * Kept in this browser; in the real build, the work service.
  */
 import { useSyncExternalStore } from 'react';
 import { CALENDARS } from './seed';
 import { regionOfCountry, TEST_AGENCY } from '../data/regions';
-import { salesRegionNames } from '../admin/data/config';
+import { salesRegionNames, live } from '../admin/data/config';
+import { setAdminCfg } from '../admin/data/store';
+import { istDayStart, istWeekday, istYmd } from './clock';
 
 export type Calendar = { id: string; name: string; days: number[]; start: string; end: string; holidays: [string, string][]; regions: string[] };
 export const DEFAULT_START = '09:30';
@@ -55,11 +59,77 @@ export const dayOf = (cal: Partial<Calendar>) => {
   return { open, hours: Math.max(0.5, close - open) };
 };
 
-/** The calendar a sales region (or a country) works on: the first that lists it, else the first. */
+/** The calendar a sales region picked on its own record (slice 1: `calendarId`), if it names one that exists. */
+const pickedOn = (region: string) => {
+  const r = (live.cfg?.()?.regions ?? []).find((x) => x.name === region) as { calendarId?: string } | undefined;
+  return r?.calendarId && state.some((c) => c.id === r.calendarId) ? r.calendarId : undefined;
+};
+/** The id of the calendar a sales region is on: its own pick first, then the calendar that lists it. */
+export function calendarIdOf(region: string): string | undefined {
+  return pickedOn(region) ?? state.find((c) => c.regions.includes(region))?.id;
+}
+/** The sales regions on a calendar (each region on exactly one). */
+export const regionsOn = (cal: Calendar, regions = salesRegionNames()) => regions.filter((r) => calendarIdOf(r) === cal.id);
+/**
+ * Put sales regions on a calendar (and take them off any other): the calendars' own lists, and each region's
+ * `calendarId`, so slice 1's picker on the sales region shows the same.
+ */
+export function putRegionsOn(calId: string, regions: string[]) {
+  setCalendars((x) => {
+    x.forEach((c) => {
+      c.regions = c.id === calId ? [...regions] : c.regions.filter((r) => !regions.includes(r));
+    });
+    return x;
+  });
+  try {
+    setAdminCfg((c) => ({ ...c, regions: c.regions.map((r) => (regions.includes(r.name) ? { ...r, calendarId: calId } : (r as { calendarId?: string }).calendarId === calId ? { ...r, calendarId: undefined } : r)) }));
+  } catch {
+    /* Admin's settings not loaded */
+  }
+}
+
+/** The calendar a sales region (or a country) works on; no region: the one listing Global; else the first. */
 export function calendarOf(where?: string): Calendar {
   const names = salesRegionNames();
-  const region = !where ? regionOfCountry(TEST_AGENCY.country) : names.includes(where) ? where : regionOfCountry(where);
-  return state.find((c) => c.regions.includes(region)) ?? state.find((c) => c.regions.includes('Global')) ?? state[0];
+  const region = !where ? regionOfCountry(TEST_AGENCY.country) : names.includes(where) || where === 'Global' ? where : regionOfCountry(where);
+  const id = calendarIdOf(region);
+  return state.find((c) => c.id === id) ?? state.find((c) => c.regions.includes('Global')) ?? state[0];
+}
+
+/* ---------- working hours, in IST ---------- */
+const H = 36e5;
+const DAY = 864e5;
+export const isWorkingDay = (cal: Calendar, t: number) => cal.days.includes(istWeekday(t)) && !cal.holidays.some((h) => h[0] === istYmd(t));
+/** The moment `hours` working hours after `from`, on a calendar (its days, hours and holidays, in IST). */
+export function addWorkingHours(cal: Calendar, from: number, hours: number) {
+  let left = hours * H;
+  let t = from;
+  const w = dayOf(cal);
+  for (let guard = 0; guard < 800; guard++) {
+    const day = istDayStart(t);
+    const open = day + w.open * H;
+    const close = open + w.hours * H;
+    if (isWorkingDay(cal, day + 12 * H) && t < close) {
+      const start = Math.max(t, open);
+      if (start + left <= close) return start + left;
+      left -= close - start;
+    }
+    t = day + DAY;
+  }
+  return t;
+}
+/** Working hours between two moments (negative if b is before a). */
+export function workingHoursBetween(cal: Calendar, a: number, b: number): number {
+  if (b < a) return -workingHoursBetween(cal, b, a);
+  const w = dayOf(cal);
+  let n = 0;
+  for (let day = istDayStart(a); day <= b; day += DAY) {
+    if (!isWorkingDay(cal, day + 12 * H)) continue;
+    const open = day + w.open * H;
+    const close = open + w.hours * H;
+    n += Math.max(0, Math.min(close, b) - Math.max(open, a));
+  }
+  return n / H;
 }
 
 const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

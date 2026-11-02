@@ -3,7 +3,7 @@
  * ("Agreement ending", Admin › Work › Task rules) has now. No imports, so the Institution Team's records can read it
  * without loading the work store: it reads what the work store saved (work/store.ts KEY), else the rule's seed.
  */
-export const WORK_KEY = 'gsp-work-v5';
+export const WORK_KEY = 'gsp-work-v6';
 export const RENEWAL_SEED_DAYS = 60;
 export function renewalDays(): number {
   try {
