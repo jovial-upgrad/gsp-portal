@@ -86,11 +86,25 @@ export function memberFor(id: string): Member | null {
   return members().find((m) => m.email === v || m.email.split('@')[0] === v) ?? null;
 }
 
+/**
+ * The auth events (PRD slice 1, Events this slice produces) go to the audit log: auth.sign_in_failed (typed email,
+ * reason), auth.locked, auth.signed_in, auth.password_code_sent and auth.password_set.
+ */
+export function audit(event: string, who: string, text: string) {
+  try {
+    const m = memberFor(who);
+    setAdminCfg((c) => ({ ...c, log: [{ id: `a${Date.now()}${Math.random().toString(36).slice(2, 6)}`, at: Date.now(), who: m?.name ?? who.trim().toLowerCase(), role: m?.role ?? '', area: 'Sign-in', text: `${event}: ${text}`, kind: 'change' }, ...c.log] }));
+  } catch {
+    /* Admin not loaded */
+  }
+}
+
 /** Passwords set or changed on this visit; a reload goes back to the test password. */
 const passwords = new Map<string, string>();
 export const hasPassword = (m: Member) => passwords.has(m.email) || m.set;
 export function setPassword(m: Member, pw: string) {
   passwords.set(m.email, pw);
+  audit('auth.password_set', m.email, 'password set; Password changed email sent');
   // a first setup makes the user Active in GSP users; a reset sets their wrong-password count back to 0
   tries.delete(m.email);
   try {
@@ -109,6 +123,7 @@ export function verify(id: string, pw: string): Member | null {
 /** A successful sign-in: the count back to 0, and Last sign-in in GSP users. */
 export function signedInNow(m: Member) {
   tries.delete(m.email);
+  audit('auth.signed_in', m.email, 'signed in');
   try {
     setAdminCfg((c) => ({ ...c, users: c.users.map((u) => (u.email.toLowerCase() === m.email ? { ...u, lastSignIn: Date.now() } : u)) }));
   } catch {
@@ -135,6 +150,8 @@ export const wrongPassword = (id: string) => {
   const n = triesFor(k).n + 1;
   const until = n >= MAX_ATTEMPTS ? Date.now() + LOCK_MINUTES * 60_000 : 0;
   tries.set(k, { n, until });
+  audit('auth.sign_in_failed', k, `${k}, wrong password (${n} in a row)`);
+  if (until) audit('auth.locked', k, `sign-in paused for ${LOCK_MINUTES} minutes; Sign-in paused email sent`);
   return { n, until };
 };
 
@@ -156,6 +173,8 @@ export function sendCode(id: string) {
   const recent = (sends.get(k) ?? []).filter((t) => Date.now() - t < 3_600_000);
   if (recent.length >= CODES_PER_HOUR) return false;
   sends.set(k, [...recent, Date.now()]);
+  // no email goes out for an unknown email, but the screen moves on all the same
+  if (memberFor(k)) audit('auth.password_code_sent', k, 'Your code email sent');
   return true;
 }
 

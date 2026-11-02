@@ -343,6 +343,11 @@ function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boo
       }
     >
       <SaveBanner result={result} onReload={onClose} />
+      {user && (
+        <p className="cfg__note">
+          User ID {user.id} (never changes) · Login {user.status} · Created {user.createdAt ? istDate(user.createdAt) : '–'} · Last sign-in {user.lastSignIn ? istDate(user.lastSignIn) : '–'}
+        </p>
+      )}
       <div className="iform__grid">
         <Field id="us-name" label="Name" required error={c.err('name')}>
           <TextInput id="us-name" value={v.name} maxLength={100} autoComplete="off" invalid={!!c.err('name')} onBlur={c.blur('name')} onChange={(e) => set({ name: e.target.value })} />

@@ -131,7 +131,7 @@ const SPECS: Record<Variant, VariantSpec> = {
     user: me('saurabh.chaudhary'),
   },
   bap: {
-    brand: 'BAP',
+    brand: 'RP Ops',
     home: HOME,
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search')],
     groups: [],

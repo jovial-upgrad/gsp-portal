@@ -114,7 +114,7 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
                       {usersIn(r.name)} {usersIn(r.name) === 1 ? 'user' : 'users'}
                     </span>
                   </td>
-                  <td className="cfg__muted">{r.countries.length ? (r.countries.length === 1 ? r.countries[0] : `${r.countries.length} countries: ${r.countries.slice(0, 3).join(', ')}…`) : REGION_MEANS[r.name] ?? 'None'}</td>
+                  <td className="cfg__muted">{r.countries.length ? (r.countries.length <= 3 ? r.countries.join(', ') : `${r.countries.length} countries: ${r.countries.slice(0, 3).join(', ')}…`) : REGION_MEANS[r.name] ?? 'None'}</td>
                   <td>{r.contact || <span className="cfg__warn">Not set</span>}</td>
                   <td>{r.bdm || <span className="cfg__warn">Not set</span>}</td>
                   <td>{r.queue}</td>

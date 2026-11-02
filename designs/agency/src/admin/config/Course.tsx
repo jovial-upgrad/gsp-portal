@@ -10,7 +10,7 @@ import type { IntakeTimes } from '../../data/courses';
 import type { ConfigProps } from './ConfigPage';
 import { CellError, EditBar, History, Panel, useDraft, when } from './parts';
 import { useCheck } from '../../components/validate';
-import { fmtAmount, fmtDate } from '../../data/format';
+import { fmtDate } from '../../data/format';
 import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, istDay, trySave, type SaveResult } from './states';
 
 const num = (v: string) => Number(v.replace(/[^\d.]/g, ''));
@@ -272,7 +272,7 @@ export function LivingCosts({ cfg, change, say, canEdit, me, role }: ConfigProps
       </>
     ) : (
       <span className="num">
-        {d.value[i].currency} {fmtAmount(d.value[i][k], d.value[i].currency)}
+        {d.value[i].currency} {Number(d.value[i][k]).toLocaleString('en-GB')}
       </span>
     );
   return (

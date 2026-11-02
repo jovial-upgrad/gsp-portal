@@ -32,6 +32,7 @@ import {
   type PwMode,
   type PwStep,
   type TeamAuth,
+  audit,
 } from './model';
 import { signInAs } from '../user';
 import '../../screens/signin/signin.css';
@@ -163,7 +164,10 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
     timer.current = window.setTimeout(() => {
       const ok = verify(a.id, a.pw);
       // a deactivated person with the right password (proposal S1C-4); with a wrong one, the normal message
-      if (ok && ok.off) return set((p) => ({ ...p, status: 'idle', off: true }));
+      if (ok && ok.off) {
+        audit('auth.sign_in_failed', a.id, `${a.id.trim().toLowerCase()}, access turned off`);
+        return set((p) => ({ ...p, status: 'idle', off: true }));
+      }
       if (!ok) {
         const w = wrongPassword(a.id);
         const tries = MAX_ATTEMPTS - w.n;
