@@ -1,3 +1,4 @@
+import { MasterPartners } from '../records/MasterPartners';
 import { TEST_COUNTRY } from '../../data/rpteam';
 import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -225,7 +226,7 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name, role: 'Institution' };
   const content =
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
@@ -285,6 +286,8 @@ export function Portal({
       <Universities {...page} appsByUni={appsByUni} />
     ) : section === 'catalogue' ? (
       <Catalogue {...page} />
+    ) : section === 'mps' ? (
+      <MasterPartners {...page} />
     ) : section === 'ips' ? (
       <InstitutionPartners {...page} appsByUni={appsByUni} />
     ) : section === 'announcements' ? (

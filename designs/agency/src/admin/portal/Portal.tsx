@@ -32,6 +32,8 @@ import { Universities } from '../../institution/records/Universities';
 import { Catalogue } from '../../institution/records/Catalogue';
 import { InstitutionPartners } from '../../institution/records/InstitutionPartners';
 import { RecruitmentPartners } from '../../institution/records/RecruitmentPartners';
+import { MasterPartners } from '../../institution/records/MasterPartners';
+import { CourseTags } from '../../institution/records/CourseTags';
 import { Announcements } from '../../institution/records/Announcements';
 import { StaffProfile } from '../../gsp/portal/StaffPages';
 import { RoleHome } from './RoleHome';
@@ -303,7 +305,7 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin' };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin', role: ({ admin: 'Admin', recruitment: 'Recruitment', bap: 'RP Ops', finance: 'Finance', viewonly: 'View Only' } as const)[variant] };
   const content =
     WORK_SECTIONS.includes(section as WorkSection) ? (
       <WorkPage section={section as WorkSection} role={`gsp-${variant}`} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
@@ -372,6 +374,10 @@ export function Portal({
       <InstitutionPartners {...page} appsByUni={appsByUni} />
     ) : section === 'announcements' ? (
       <Announcements {...page} />
+    ) : section === 'mps' ? (
+      <MasterPartners {...page} />
+    ) : section === 'tags' ? (
+      <CourseTags db={db} set={setDb} me={ME.name} say={say} role={page.role} />
     ) : CONFIG.includes(section as ConfigSection) ? (
       <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={ME.name} role={PERM} canEdit={canEditIn(PERM, section)} say={say} go={(k) => go(k as Section)} />
     ) : (

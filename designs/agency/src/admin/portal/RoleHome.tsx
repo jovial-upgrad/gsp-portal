@@ -8,7 +8,7 @@ import { GSP_USER } from '../user';
 import { useStore } from '../../work/store';
 import { isOpen, type Application } from '../../data/applications';
 import { Pill, Section, Tiles, type Tone } from '../../institution/records/parts';
-import { canApprove } from '../../institution/data/rpverify';
+import { canApprove, docsVerified } from '../../institution/data/rpverify';
 import type { RecruitmentPartner } from '../../institution/data/records';
 import type { Db } from '../../institution/data/store';
 import type { Section as PortalSection, Target, Variant } from './model';
@@ -111,9 +111,12 @@ function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
 /** BAP (RP Ops): the new RPs to verify, and the ones whose documents went back to them. */
 function BapHome({ first, db, open, go }: Props) {
   const toCheck = db.rps.filter((r) => r.docs.some((d) => d.state === 'With BAP'));
-  const toApprove = db.rps.filter(canApprove);
+  // slice 2 PRD: Ready to approve once every document is verified (BAP then uploads the agreement and approves)
+  const toApprove = db.rps.filter(docsVerified);
+  const signedCopy = db.rps.filter((r) => r.agreement?.state === 'Signed copy received');
   const back = db.rps.filter((r) => r.status === 'Documents sent back' || r.docs.some((d) => d.state === 'Sent back' && r.status !== 'Rejected'));
   const notYet = db.rps.filter((r) => r.status === 'Not activated');
+  const waiting = db.rps.filter((r) => r.status === 'Documents sent back' || r.agreement?.state === 'Sent' || r.agreement?.state === 'Sent back');
   return (
     <div className="ipage ihome">
       <Head first={first} lead="New recruitment partners to verify: check each document, send back what isn’t right, and approve them.">
@@ -128,16 +131,17 @@ function BapHome({ first, db, open, go }: Props) {
         items={[
           { key: 'check', label: 'To verify', sub: 'Documents waiting for BAP', tone: 'gsp', n: toCheck.length },
           { key: 'approve', label: 'Ready to approve', sub: 'Every document verified', tone: 'ok', n: toApprove.length },
+          { key: 'signed', label: 'Signed copy to check', sub: 'The RP signed its agreement', tone: 'uni', n: signedCopy.length },
           { key: 'back', label: 'Sent back', sub: 'Waiting for the RP', tone: 'you', n: back.length },
           { key: 'new', label: 'Not activated', sub: 'Signed up, documents not sent', tone: 'grey', n: notYet.length },
         ]}
       />
       <div className="shome__grid">
         <Section title="RPs to verify" note="Oldest first." id="bh-check">
-          <RpList rps={[...toApprove, ...toCheck.filter((r) => !toApprove.includes(r))].sort((a, b) => (a.since < b.since ? -1 : 1))} open={open} empty="Nothing to verify." sub={(r) => (canApprove(r) ? 'Every document verified: approve it' : `${((n) => (n === 1 ? '1 document' : `${n} documents`))(r.docs.filter((d) => d.state === 'With BAP').length)} to check · ${where(r)}`)} />
+          <RpList rps={[...signedCopy, ...toApprove, ...toCheck.filter((r) => !toApprove.includes(r))].filter((r, i, l) => l.indexOf(r) === i).sort((a, b) => (a.since < b.since ? -1 : 1))} open={open} empty="Nothing to verify." sub={(r) => (r.agreement?.state === 'Signed copy received' ? 'Signed copy to check: accept it or send it back' : canApprove(r) ? 'Agreement uploaded: approve the partner' : docsVerified(r) ? 'Every document verified: upload the agreement, then approve' : `${((n) => (n === 1 ? '1 document' : `${n} documents`))(r.docs.filter((d) => d.state === 'With BAP').length)} to check · ${where(r)}`)} />
         </Section>
-        <Section title="Documents sent back" note="The RP uploads a new file; it comes back here to check." id="bh-back">
-          <RpList rps={back} open={open} empty="No documents with RPs." sub={(r) => r.docs.filter((d) => d.state === 'Sent back').map((d) => d.name).join(', ') || where(r)} />
+        <Section title="Waiting on the RP" note="Documents sent back, or the agreement to sign." id="bh-back">
+          <RpList rps={waiting} open={open} empty="Nothing with RPs." sub={(r) => (r.agreement?.state === 'Sent' ? 'Agreement sent: waiting for the signed copy' : r.agreement?.state === 'Sent back' ? `Signed copy sent back: ${r.agreement.reason ?? ''}` : r.docs.filter((d) => d.state === 'Sent back').map((d) => d.name).join(', ') || where(r))} />
         </Section>
       </div>
     </div>

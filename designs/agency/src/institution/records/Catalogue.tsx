@@ -1,15 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { SelectInput } from '../../components/forms';
 import { DESTINATIONS, LEVELS, money } from '../../data/courses';
 import { COURSE_STATUSES, type CourseRec, type CourseStatus } from '../data/catalogue';
 import { dateText } from '../data/records';
-import { NoMatch, PAGE, PageHead, Tiles, useRecord } from './parts';
+import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, usePager, useRecord } from './parts';
 import { COURSE_TONE, CoursePill } from './pills';
 import { CoursePage } from './CoursePage';
-import { CourseForm, blankCourse, newCourse, type CourseDraft } from './CourseForm';
-import type { PageProps } from '../portal/model';
+import { CsvImport } from './CsvImport';
+import { OBJ, canEdit, type PageProps } from '../portal/model';
+
+/** The soonest intake that isn't Closed, as the lists show it ("—" if none). */
+export const nextIntake = (c: CourseRec) => {
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const key = (m: string) => {
+    const [mo, y] = m.split(' ');
+    return Number(y) * 12 + MON.indexOf(mo);
+  };
+  return [...c.intakes].filter((i) => i.status !== 'closed').sort((a, b) => key(a.month) - key(b.month))[0]?.month ?? '—';
+};
+/** "55% · IELTS 6.5": the summary academic minimum and IELTS Academic overall. */
+export const entryText = (c: CourseRec) => (c.academic > 0 || c.ielts[0] > 0 ? [c.academic > 0 ? `${c.academic}%` : '', c.ielts[0] > 0 ? `IELTS ${c.ielts[0]}` : ''].filter(Boolean).join(' · ') : '');
 
 const SUB: Record<CourseStatus, string> = { Live: 'In Course search', Draft: 'Not in search yet', Hidden: 'Taken out of search' };
 
@@ -20,18 +31,16 @@ const SUB: Record<CourseStatus, string> = { Live: 'In Course search', Draft: 'No
  * basics, as a draft, and filled in on its page. A long list, so it shows 40 at a time.
  */
 export function Catalogue(props: PageProps) {
-  const { db, set, focus, navKey, open, say, scrollTop } = props;
+  const { db, set, focus, navKey, open, scrollTop, me } = props;
   const { cur, show, back } = useRecord(focus, navKey, scrollTop, open);
+  const edit = canEdit(props, OBJ.courses);
+  const [importing, setImporting] = useState(false);
   const [q, setQ] = useState('');
   const [uni, setUni] = useState('');
   const [level, setLevel] = useState('');
   const [country, setCountry] = useState('');
   const [status, setStatus] = useState<CourseStatus | ''>('');
-  const [shownN, setShownN] = useState(PAGE);
-  const [form, setForm] = useState<CourseDraft | null>(null);
-  useEffect(() => setShownN(PAGE), [q, uni, level, country, status]);
-
-  const courses = db.courses;
+  const courses = useMemo(() => [...db.courses].sort((a, b) => a.name.localeCompare(b.name)), [db.courses]);
   const byId = useMemo(() => new Map(db.unis.map((u) => [u.id, u])), [db.unis]);
   const live = (c: CourseRec): CourseRec => ({ ...c, uni: byId.get(c.uni.id) ?? c.uni });
   const rows = useMemo(
@@ -47,7 +56,7 @@ export function Catalogue(props: PageProps) {
       }),
     [courses, q, uni, level, country, status],
   );
-  const page = rows.slice(0, shownN);
+  const { page, pager } = usePager(rows, [q, uni, level, country, status]);
   const clear = () => {
     setQ('');
     setUni('');
@@ -56,26 +65,20 @@ export function Catalogue(props: PageProps) {
     setStatus('');
   };
 
-  const shown = cur ? courses.find((c) => c.id === cur.id) : undefined;
-
-  const save = (f: CourseDraft) => {
-    const rec = newCourse(f, db.unis, courses);
-    set((d) => ({ ...d, courses: [rec, ...d.courses] }));
-    setForm(null);
-    clear();
-    say(`${rec.name} saved as a draft. Fill in its intakes, fees, academic and English, then publish it.`);
-    show(rec.id);
-  };
-
-  const formSheet = <CourseForm f={form} unis={db.unis} courses={courses} onCancel={() => setForm(null)} onSave={save} />;
-  if (cur && shown) return <CoursePage key={shown.id} c={live(shown)} tab={cur.tab} backLabel={cur.back?.label ?? 'Courses'} onBack={back} {...props} />;
+  if (cur) {
+    const shown = db.courses.find((c) => c.id === cur.id);
+    if (!shown) return <Gone back={cur.back?.label ?? 'Courses'} onBack={back} />;
+    return <CoursePage key={shown.id} c={live(shown)} tab={cur.tab} backLabel={cur.back?.label ?? 'Courses'} onBack={back} {...props} />;
+  }
 
   return (
     <div className="ipage">
-      <PageHead title="Courses" lead="Every course, where its details came from, and its status. Open one to edit it.">
-        <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setForm({ ...blankCourse, uni })}>
-          Add a course
-        </Button>
+      <PageHead title="Courses" lead="Every course, where its details came from, and its status. Add a course from its university’s Courses tab.">
+        {edit && (
+          <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setImporting(true)}>
+            Import CSV
+          </Button>
+        )}
       </PageHead>
 
       <Tiles label="Where each course is" value={status} onPick={setStatus} items={COURSE_STATUSES.map((s) => ({ key: s, label: s, sub: SUB[s], tone: COURSE_TONE[s], n: courses.filter((c) => c.status === s).length }))} />
@@ -88,29 +91,9 @@ export function Catalogue(props: PageProps) {
               <span className="vh">Search courses</span>
               <input id="icrs-q" type="search" placeholder="Course, university, city or code" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <SelectInput id="icrs-country" aria-label="Country" value={country} placeholder="All countries" allowEmpty onChange={(e) => setCountry(e.target.value)}>
-              {DESTINATIONS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </SelectInput>
-            <SelectInput id="icrs-uni" aria-label="University" value={uni} placeholder="All universities" allowEmpty onChange={(e) => setUni(e.target.value)}>
-              {db.unis
-                .filter((u) => !country || u.country === country)
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-            </SelectInput>
-            <SelectInput id="icrs-level" aria-label="Program level" value={level} placeholder="All levels" allowEmpty onChange={(e) => setLevel(e.target.value)}>
-              {LEVELS.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </SelectInput>
+            <Pick id="icrs-country" label="Country" value={country} all="All countries" options={DESTINATIONS} onChange={setCountry} />
+            <Pick id="icrs-uni" label="University" value={uni} all="All universities" options={db.unis.filter((u) => !country || u.country === country).map((u) => ({ value: u.id, label: u.name }))} onChange={setUni} />
+            <Pick id="icrs-level" label="Program level" value={level} all="All levels" options={LEVELS} onChange={setLevel} />
           </div>
           <p className="stools__count" id="icrs-count" role="status">
             <span>
@@ -118,8 +101,10 @@ export function Catalogue(props: PageProps) {
             </span>
           </p>
         </div>
-        {rows.length === 0 ? (
-          <NoMatch what="courses" onClear={clear} />
+        {courses.length === 0 ? (
+          <Empty text="No courses yet. Add one from its university’s Courses tab, or import a CSV." />
+        ) : rows.length === 0 ? (
+          <NoMatch onClear={clear} />
         ) : (
           <>
             <div className="stab-wrap">
@@ -144,12 +129,12 @@ export function Catalogue(props: PageProps) {
                             {c.name}
                           </button>
                           <span className="irow__sub">
-                            {c.uni.name} · {c.campus.city}
+                            {c.uni.name} · {c.campus.name}
                           </span>
                         </td>
-                        <td className="num">{c.tuition > 0 ? money(c.tuition, c.currency) : <span className="muted">Not added</span>}</td>
-                        <td>{c.intakes[0]?.month ?? <span className="muted">Not added</span>}</td>
-                        <td className="num">{c.academic > 0 && c.ielts[0] > 0 ? `${c.academic}% · IELTS ${c.ielts[0]}` : <span className="muted">Not added</span>}</td>
+                        <td className="num">{c.tuition > 0 ? money(c.tuition, c.currency) : <span className="muted">Not set</span>}</td>
+                        <td>{nextIntake(c)}</td>
+                        <td className="num">{entryText(c) || <span className="muted">Not set</span>}</td>
                         <td>
                           {c.source}
                           <span className="irow__sub">Checked {dateText(c.checked)}</span>
@@ -163,21 +148,20 @@ export function Catalogue(props: PageProps) {
                 </tbody>
               </table>
             </div>
-            {rows.length > shownN && (
-              <div className="imore">
-                <Button variant="secondary" onClick={() => setShownN((n) => n + PAGE)}>
-                  Show {Math.min(PAGE, rows.length - shownN)} more
-                </Button>
-                <span className="imore__n">
-                  Showing <span className="num">{shownN}</span> of <span className="num">{rows.length.toLocaleString('en-GB')}</span>
-                </span>
-              </div>
-            )}
+            {pager}
           </>
         )}
       </section>
 
-      {formSheet}
+      <CsvImport
+        open={importing}
+        unis={db.unis}
+        courses={db.courses}
+        me={me}
+        role={props.role ?? 'Institution'}
+        onClose={() => setImporting(false)}
+        onLoad={(recs) => recs.length && set((d) => ({ ...d, courses: [...recs, ...d.courses] }))}
+      />
     </div>
   );
 }

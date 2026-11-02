@@ -18,6 +18,7 @@ import sample4 from '../../assets/campus/sample-4.webp';
 import sample5 from '../../assets/campus/sample-5.webp';
 import { COUNTRIES } from '../../data/partners';
 import { inDays, partnerIdOf, type Contact, type InstitutionPartner, type Stamps } from './records';
+import { atIso, change, type Change, type Created } from './changelog';
 import { nameOf } from '../../data/staff';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
@@ -83,8 +84,8 @@ export type UniRec = Omit<University, 'campuses'> & {
   studylink: boolean;
   pathway: boolean;
   cricos: string;
-  /** Display priority: a number that breaks ties in search; '' when not set. */
-  priority: string;
+  /** Search priority 0–100, default 0 (S2C-1): Recommended sorts by it first (renamed from Display priority, S3-19). */
+  searchPriority: number;
   /** Pictures (Jovial, 1 Nov, HC11): course search's campus photos, in this order; none, and it shows none. */
   pictures: Picture[];
   /** Campuses made inactive: their courses leave Course search; applications already made carry on. */
@@ -100,6 +101,9 @@ export type UniRec = Omit<University, 'campuses'> & {
   added: string;
   /** Who last changed its status, partner, profile, campuses, scholarships, territory, forms, submission, logins and contacts. */
   stamps: Stamps;
+  /** The Change log (S2-13) and System information. */
+  log: Change[];
+  created: Created;
 };
 
 let n = 0;
@@ -173,7 +177,8 @@ function record(u: University, i: number): UniRec {
     studylink: channel === 'StudyLink',
     pathway: PATHWAY.includes(u.id),
     cricos: u.country === 'Australia' ? `${String(100 + i * 37).padStart(5, '0')}${'ABCDEFGHJK'[i % 10]}` : '',
-    priority: u.priorityFor?.length ? '10' : '',
+    searchPriority: u.id === 'flinders' ? 10 : u.priorityFor?.length ? 5 : 0,
+    qsYear: u.qs ? 2026 : undefined,
     pictures: u.about && (u.country === 'Australia' || u.country === 'UK') ? SAMPLE_PICTURES.map(([name, src]) => ({ id: nid('pic'), name, src })) : [],
     inactive: [],
     scholarships: scholarshipsOf(u),
@@ -181,10 +186,12 @@ function record(u: University, i: number): UniRec {
     channel,
     link: channel === 'StudyLink' ? 'studylink.com' : channel === 'Email' ? `${part}@${domain}` : `${part}.${domain}`,
     forms: [],
-    contacts: [{ id: nid('ct'), name: 'International admissions', title: 'Admissions team', for: 'Admissions', email: `international@${domain}` }],
+    contacts: [{ id: nid('ct'), name: 'Admissions Office', first: 'Admissions', last: 'Office', title: 'International admissions', for: 'Admissions', email: `international@${domain}` }],
     logins: channel === 'Email' ? [] : [{ id: nid('lg'), region: 'All regions', username: `gsp.${u.id}`, secret: 'Kq7#mT2v!pL9', added: '2025-09-01', by: IN('catherine.wilson') }],
     added: '2025-01-01',
     stamps: {},
+    log: [change(IN('catherine.wilson'), 'Institution', 'University created', '—', u.name, atIso('2025-01-01'))],
+    created: { by: IN('catherine.wilson'), at: atIso('2025-01-01') },
   };
 }
 
@@ -231,18 +238,21 @@ export function sampleUniRecs(): UniRec[] {
 }
 
 /** A new university, with its basic details: set up, out of Course search, and the rest entered on its page. */
-export function newUniRec(f: { name: string; utype: UniType; country: University['country']; website: string; ip: string }): UniRec {
+export function newUniRec(f: { name: string; utype: UniType; country: University['country']; ip: string; by: string; role: string }): UniRec {
   const id = `${f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36).slice(-4)}`;
-  const u = record({ id, name: f.name, country: f.country, campuses: [], website: f.website || undefined, rate: 15, college: f.utype === 'College' }, 50);
-  return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, priority: '', cricos: '', logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {} };
+  const u = record({ id, name: f.name, country: f.country, campuses: [], rate: 15, college: f.utype === 'College' }, 50);
+  // only the basics: everything else is filled with Edit profile, and shows "Not set" until then (slice 2 PRD)
+  return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, sector: '' as unknown as UniRec['sector'], studylink: false, pathway: false, website: undefined, founded: undefined, about: undefined, qs: undefined, qsYear: undefined, kind: undefined, searchPriority: 0, cricos: '', pictures: [], logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {}, log: [change(f.by, f.role, 'University created', '—', f.name)], created: { by: f.by, at: Date.now() } };
 }
 
 /** A university as Course search reads it: its live campuses and its territory as blocks. */
 export function forSearch(u: UniRec, _p?: InstitutionPartner): University {
   const t = u.territory;
   const states = new Map<string, string[]>();
-  t.blocked.forEach((b) => states.set(b.country, [...(states.get(b.country) ?? []), b.state]));
-  const out = t.mode === 'except' ? t.countries : t.mode === 'only' ? COUNTRIES.map((c) => c.name).filter((c) => !t.countries.includes(c)) : [];
+  t.blocked.filter((b) => b.state).forEach((b) => states.set(b.country, [...(states.get(b.country) ?? []), b.state]));
+  // a blocked country with no state blocks the whole country (slice 2 PRD)
+  const whole = t.blocked.filter((b) => !b.state).map((b) => b.country);
+  const out = [...new Set([...(t.mode === 'except' ? t.countries : t.mode === 'only' ? COUNTRIES.map((c) => c.name).filter((c) => !t.countries.includes(c)) : []), ...whole])];
   return {
     ...u,
     campuses: u.campuses.filter((c) => !u.inactive.includes(c.name)),
@@ -270,7 +280,12 @@ export const COURSE_STATUSES = ['Live', 'Draft', 'Hidden'] as const;
 export type CourseStatus = (typeof COURSE_STATUSES)[number];
 export const SOURCES = ['University website', 'StudyLink', 'Email', 'Added by hand'] as const;
 export type Source = (typeof SOURCES)[number];
-/** Shown to partners on the course in search, and quick filters there. Only a GSP admin adds a new tag to the list. */
+/**
+ * Course tags (S2-16, S2-27): Admin owns the list (GSP · Admin › Course tags: add, rename, retire), seeded with
+ * today's tags. The team picks each course's tags by hand from it. No Regional university tag (S2-27).
+ */
+export const SEED_TAGS = ['Scholarship available', 'English test waiver', 'No interview required', 'Russell Group', 'MOI acceptable', 'University has its own English test', 'Post-study work visa', 'Ivy League', 'Group of Eight'] as const;
+/** The PM prototype's older list (kept for readers that still name it). */
 export const TAGS = [
   'Faster offer TAT',
   'Scholarship available',
@@ -336,6 +351,11 @@ export type CourseRec = Course & {
   tags: string[];
   /** Who last changed its status and each tab (basics, intakes, fees, academic, english). */
   stamps: Stamps;
+  /** Which year's fees these are (S2C-6; slice 4's T43 asks for next year's each 1 September). */
+  feeYear: number;
+  /** The Change log (S2-13) and System information. */
+  log: Change[];
+  created: Created;
 };
 
 const MAJOR = ['Melbourne', 'Sydney', 'Brisbane', 'Perth', 'Adelaide', 'London', 'Birmingham', 'Manchester', 'Toronto', 'Vancouver', 'Dublin', 'Auckland'];
@@ -343,8 +363,10 @@ function tagsOf(c: Course): string[] {
   // sample tags; none from offer time, the English test waiting, placement or post-study work (Jovial, 1 Nov, HC2)
   const t: string[] = [];
   if (c.scholarship) t.push('Scholarship available');
-  if (MAJOR.includes(c.campus.city)) t.push('Major city');
-  if (c.campus.regional) t.push('Regional university (Australia)');
+  if (c.uni.group === 'Group of Eight') t.push('Group of Eight');
+  if (c.uni.group === 'Russell Group') t.push('Russell Group');
+  if (c.uni.country === 'UK' || c.uni.country === 'Australia') t.push('Post-study work visa');
+  void MAJOR;
   return t;
 }
 const plusDays = (iso: string, n: number) => {
@@ -388,6 +410,12 @@ export function sampleCourseRecs(): CourseRec[] {
     ],
     source: i % 10 === 3 ? 'Added by hand' : i % 5 === 1 ? 'StudyLink' : 'University website',
     tags: tagsOf(c),
+    totalFee: Math.round((c.tuition * c.months) / 12),
+    // set on most samples; a few older courses keep it empty until someone edits them (S3-18)
+    minEducation: i % 17 === 5 ? undefined : c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : c.level === 'Foundation' ? 'Grade 12' : 'Grade 12',
+    feeYear: 2027,
+    log: [],
+    created: { by: IN('catherine.wilson'), at: atIso('2025-06-01') },
     // the 2027 fees Catherine Wilson entered for Flinders
     stamps: c.uni.id === 'flinders' ? { fees: { by: IN('catherine.wilson'), at: inDays(-8) } } : {},
   }));
@@ -403,8 +431,10 @@ export function withSearchFields(c: CourseRec): CourseRec {
   };
   const back = c.academicRules.find((r) => r.backlogs !== '');
   // Course search shows tuition a year: the full course fee over the years it takes (one, for a course under a year)
-  const tuition = c.fullFee > 0 ? Math.round(c.fullFee / Math.max(1, months / 12)) : c.tuition;
-  return { ...c, months, tuition, academic: pct?.min ?? 0, backlogs: back ? Number(back.backlogs) : undefined, ielts: test('IELTS Academic', c.ielts), toefl: test('TOEFL iBT', c.toefl), pte: test('PTE Academic', c.pte), duolingo: test('Duolingo English Test', c.duolingo ?? [0, 0]) };
+  // the fee a year: the full course fee over the course's years, or the first-year fee for a Credits course (S3-20)
+  const years = c.durUnit === 'Credits' ? 1 : Math.max(1, months / 12);
+  const tuition = c.durUnit === 'Credits' && c.firstYearFee > 0 ? c.firstYearFee : c.fullFee > 0 ? Math.round(c.fullFee / years) : c.tuition;
+  return { ...c, months, tuition, totalFee: c.fullFee > 0 ? c.fullFee : c.totalFee, academic: pct?.min ?? 0, backlogs: back ? Number(back.backlogs) : undefined, ielts: test('IELTS Academic', c.ielts), toefl: test('TOEFL iBT', c.toefl), pte: test('PTE Academic', c.pte), duolingo: test('Duolingo English Test', c.duolingo ?? [0, 0]) };
 }
 
 /** Course search shows live courses at live universities. */

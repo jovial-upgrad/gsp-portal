@@ -30,7 +30,7 @@ export function checkFile(f: DocFile): string | null {
   const ext = (f.name.split('.').pop() ?? '').toLowerCase();
   if (!FILE_RULES.exts.includes(ext)) return `“${f.name}” is a .${ext || 'unknown'} file. Upload a PDF, JPG or PNG.`;
   if (f.size === 0) return 'This file is empty. Choose another one.';
-  if (f.size > FILE_RULES.maxMB * 1024 * 1024) return `This file is ${fmtSize(f.size)}. Upload one under ${FILE_RULES.maxMB} MB, or a clear photo instead of a scan.`;
+  if (f.size > FILE_RULES.maxMB * 1024 * 1024) return `This file is over ${FILE_RULES.maxMB} MB.`;
   return null;
 }
 

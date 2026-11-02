@@ -14,6 +14,9 @@ const OBJECT_OF: Record<string, string> = {
   courses: 'Courses, intakes and entry rules',
   catalogue: 'Courses, intakes and entry rules',
   rps: 'Recruitment partner profile and status',
+  // slice 2 PRD: Master Partners (S2-21) and Admin's Course tags (S2-16)
+  mps: 'Master Partners',
+  tags: 'Settings',
   ips: 'Institution partners',
   universities: 'Universities',
   announcements: 'Announcements',

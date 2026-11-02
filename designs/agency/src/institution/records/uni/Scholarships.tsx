@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Sheet } from '../../../components/Sheet';
 import { Button } from '../../../components/Button';
-import { Field, SelectInput, TextInput } from '../../../components/forms';
+import { Field, TextInput } from '../../../components/forms';
+import { adminCfg } from '../../../admin/data/store';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AREAS, LEVELS, type Area, type Level } from '../../../data/courses';
 import { COUNTRIES } from '../../../data/partners';
-import { AMOUNT_TYPES, CURRENCIES, type AmountType, type Scholarship, type UniRec } from '../../data/catalogue';
-import { AddButton, ErrorText, Section } from '../parts';
+import { type AmountType, type Scholarship, type UniRec } from '../../data/catalogue';
+import { AddButton, ErrorText, Pick, Section } from '../parts';
 import { MultiPick } from '../MultiPick';
 import type { Stamp } from '../../data/records';
 import type { UniUpd } from '../UniversityPage';
@@ -17,8 +18,9 @@ const COUNTRY_NAMES = COUNTRIES.map((c) => c.name);
 const num = (n: number) => n.toLocaleString('en-GB');
 /** "15% to 25% of tuition", "20% of tuition", "AUD 5,000 to 10,000", "AUD 10,000". */
 export const amountText = (s: Scholarship) => {
-  const range = s.low === s.high ? num(s.high) : `${num(s.low)} to ${num(s.high)}`;
-  return s.amountType === 'Percentage' ? (s.low === s.high ? `${s.high}% of tuition` : `${s.low}% to ${s.high}% of tuition`) : `${s.currency} ${range}`;
+  // the same number twice is a fixed amount: "AUD 5,000 (fixed)" (slice 2 PRD)
+  if (s.low === s.high) return s.amountType === 'Percentage' ? `${s.high}% (fixed)` : `${s.currency} ${num(s.high)} (fixed)`;
+  return s.amountType === 'Percentage' ? `${s.low}% to ${s.high}%` : `${s.currency} ${num(s.low)} to ${num(s.high)}`;
 };
 
 /**
@@ -26,11 +28,11 @@ export const amountText = (s: Scholarship) => {
  * round): who it's for is picked from dropdowns, and nothing says whether it comes with the offer. 30 Oct: how much is a
  * range, a percentage of tuition or an amount in a currency picked here.
  */
-export function Scholarships({ u, upd, say, updated }: { u: UniRec; upd: UniUpd; say: (m: string) => void; updated?: Stamp }) {
+export function Scholarships({ u, upd, say, updated, edit = true }: { u: UniRec; upd: UniUpd; say: (m: string) => void; updated?: Stamp; edit?: boolean }) {
   const [form, setForm] = useState<Scholarship | 'new' | null>(null);
   const [removing, setRemoving] = useState<Scholarship | null>(null);
   return (
-    <Section title="Scholarships" id="iu-sch" updated={updated} note="Each shows as a card on the university’s page that partners see." action={<AddButton onClick={() => setForm('new')}>Add a scholarship</AddButton>}>
+    <Section title="Scholarships" id="iu-sch" updated={updated} note="Each shows as a card on the university’s page that partners see." action={edit ? <AddButton onClick={() => setForm('new')}>Add a scholarship</AddButton> : undefined}>
       {u.scholarships.length ? (
         <ul className="ischs">
           {u.scholarships.map((s) => (
@@ -52,14 +54,14 @@ export function Scholarships({ u, upd, say, updated }: { u: UniRec; upd: UniUpd;
                 </div>
               </dl>
               {s.conditions && <p className="isch__cond">{s.conditions}</p>}
-              <div className="isch__acts">
+              {edit && <div className="isch__acts">
                 <button type="button" className="btn btn--link" onClick={() => setForm(s)}>
                   Edit<span className="vh"> {s.name}</span>
                 </button>
                 <button type="button" className="btn btn--link idanger" onClick={() => setRemoving(s)}>
                   Remove<span className="vh"> {s.name}</span>
                 </button>
-              </div>
+              </div>}
             </li>
           ))}
         </ul>
@@ -112,8 +114,8 @@ function ScholarshipForm({ s, onCancel, onSave }: { s: Scholarship | 'new' | nul
   const lo = Number(low);
   const hi = Number(high);
   const err = {
-    name: !v.name.trim() ? 'Enter its name.' : null,
-    amount: !low || !high ? 'Enter both numbers: the same in both for a fixed amount.' : hi < lo ? 'The second number can’t be less than the first.' : pct && hi > 100 ? 'A percentage goes up to 100.' : !(hi > 0) ? 'Enter how much it’s worth.' : null,
+    name: !v.name.trim() ? 'Enter the name.' : null,
+    amount: !low || !high ? 'Enter how much.' : !(lo > 0) || !(hi > 0) ? 'Numbers greater than 0.' : hi < lo ? 'To can’t be less than From.' : pct && hi > 100 ? 'A percentage is at most 100.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   return (
@@ -146,31 +148,21 @@ function ScholarshipForm({ s, onCancel, onSave }: { s: Scholarship | 'new' | nul
         <Field id="isch-name" label="Name" required error={show('name')} className="iform__wide">
           <TextInput id="isch-name" value={v.name} invalid={!!show('name')} onChange={(e) => set({ name: e.target.value })} placeholder="Like: International Excellence Scholarship" />
         </Field>
-        <Field id="isch-type" label="Amount range" required error={show('amount')} hint="Use the same number in both boxes for a fixed amount." className="iform__wide">
+        <Field id="isch-type" label="How much" required error={show('amount')} hint="A range From and To. The same number twice is a fixed amount." className="iform__wide">
           <div className="irange">
-            <SelectInput id="isch-type" value={v.amountType} onChange={(e) => set({ amountType: e.target.value as AmountType })}>
-              {AMOUNT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </SelectInput>
+            <Pick id="isch-type" label="Amount or Percentage" value={v.amountType === 'Absolute amount' ? 'Amount' : 'Percentage'} options={['Amount', 'Percentage']} onChange={(t) => set({ amountType: (t === 'Amount' ? 'Absolute amount' : 'Percentage') as AmountType })} />
             <label className="irange__k" htmlFor="isch-low">
               From
             </label>
             <TextInput id="isch-low" inputMode="decimal" value={low} invalid={!!show('amount') && !low} onChange={(e) => setLow(e.target.value.replace(/[^\d.]/g, ''))} />
             <label className="irange__k" htmlFor="isch-high">
-              to
+              To
             </label>
             <TextInput id="isch-high" inputMode="decimal" value={high} invalid={!!show('amount') && (!high || hi < lo)} onChange={(e) => setHigh(e.target.value.replace(/[^\d.]/g, ''))} />
             {pct ? (
-              <span className="irange__unit">% of tuition</span>
+              <span className="irange__unit">%</span>
             ) : (
-              <SelectInput id="isch-cur" aria-label="Currency" value={v.currency} onChange={(e) => set({ currency: e.target.value })}>
-                {CURRENCIES.map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </SelectInput>
+              <Pick id="isch-cur" label="Currency" value={v.currency} options={[...new Set([...adminCfg().rates.map((r) => r.code), v.currency])]} onChange={(currency) => set({ currency })} />
             )}
           </div>
         </Field>

@@ -198,7 +198,7 @@ function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
     { title: 'Account created', state: 'done' },
     { title: again ? 'Documents sent again' : 'Details and documents sent', note: whenLabel(join.sentAt), state: 'done' },
     { title: 'Verification', state: 'now' },
-    { title: 'All Access', state: 'end' },
+    { title: 'All access', state: 'end' },
   ];
 
   return (
@@ -272,7 +272,7 @@ function ReturnCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
     { title: 'Documents sent', note: whenLabel(join.sentAt), state: 'done' },
     { title: one ? 'Replace document' : 'Replace documents', state: 'back' },
     { title: 'Verification', state: 'wait' },
-    { title: 'All Access', state: 'end' },
+    { title: 'All access', state: 'end' },
   ];
   const action = left.length === 0 ? 'Send to GSP again' : one ? 'Replace document' : 'Replace documents';
 

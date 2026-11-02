@@ -53,7 +53,8 @@ export type Stage = 'form' | 'code' | 'creating' | 'details' | 'sending' | 'sent
 
 export type SignupState = {
   form: SignupForm;
-  email: { status: EmailStatus; code: string; codeError: string | null; sentTo: string; resendAt: number };
+  /** `sentAt`: when the code went (it works for 10 minutes); `wrong`: wrong tries on it (after 5 it stops working, S2C-16). */
+  email: { status: EmailStatus; code: string; codeError: string | null; sentTo: string; resendAt: number; sentAt?: number; wrong?: number };
   touched: Partial<Record<keyof SignupForm | 'code', boolean>>;
   submitted: boolean;
   /** Counts failed submit attempts, so focus moves to the first field to fix each time. */
@@ -174,7 +175,7 @@ export const PRESETS: Record<string, { label: string; make: () => SignupState }>
       email: {
         status: 'sent',
         code: '',
-        codeError: 'That code doesn’t match. Check the latest email from GSP, or send a new code.',
+        codeError: 'That code isn’t right. Check it, or send a new one.',
         sentTo: SAMPLE_REGISTER.email,
         resendAt: 0,
       },
@@ -207,16 +208,16 @@ export function validateRegister(s: SignupState): Errors {
   if (!f.biz.trim()) e.biz = 'Enter your business name as it appears on your registration certificate.';
   if (!countryByName(f.country)) e.country = 'Choose your country from the list.';
   if (!f.email.trim()) e.email = 'Enter your business email.';
-  else if (!isEmail(f.email)) e.email = 'Enter a full email address, like you@youragency.com.';
-  else if (emailInUse(f.email)) e.email = 'This email already has a GSP account.';
+  else if (!isEmail(f.email)) e.email = 'Enter a valid email, like you@youragency.com.';
+  else if (emailInUse(f.email)) e.email = 'This email already has a partner account. Sign in instead.';
   const pw = checkPassword(f.pw, f.email);
   if (!f.pw) e.pw = 'Choose a password.';
   else if (!pw.meetsHint) e.pw = PASSWORD_RULE;
   else if (pw.usesName) e.pw = 'Don’t use your email name in your password.';
-  if (!e.pw && f.pw2 !== f.pw) e.pw2 = f.pw2 ? 'The two passwords don’t match yet.' : 'Type your password again.';
+  if (!e.pw && f.pw2 !== f.pw) e.pw2 = f.pw2 ? 'The passwords don’t match.' : 'Enter the password again.';
   return e;
 }
-export const PASSWORD_RULE = 'Use at least 8 characters, with upper and lowercase letters and a number.';
+export const PASSWORD_RULE = 'At least 8 characters, with upper- and lowercase letters and a number.';
 
 /** In the portal: the business details, all of them as before registration was split. */
 export function validateDetails(s: SignupState): Errors {
@@ -229,7 +230,7 @@ export function validateDetails(s: SignupState): Errors {
   if ((countryByName(f.country)?.states.length ?? 0) > 0 && !f.state) e.state = 'Choose your state or province.';
   if (!f.city.trim()) e.city = 'Enter the city your office is in.';
   if (!f.phone.trim()) e.phone = 'Enter a mobile number.';
-  else if (digits(f.phone) < 7 || digits(f.phone) > 13) e.phone = 'Enter a mobile number with 7 to 13 digits.';
+  else if (digits(f.phone) < 7 || digits(f.phone) > 13) e.phone = '7 to 13 digits.';
   if (!f.ownerSame) {
     if (!f.ownerName.trim()) e.ownerName = 'Enter the owner’s full name.';
     if (!isEmail(f.ownerEmail)) e.ownerEmail = 'Enter the owner’s email.';

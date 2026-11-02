@@ -15,6 +15,7 @@ import { docsFor, missingRequired } from '../signup/docs';
 import { returnedDocs, stillToReplace } from '../signup/docs';
 import { Home } from './Home';
 import { LaterSection, LockedSection, ProfileSection } from './Sections';
+import { AccountClosed, HeldNote, RpAgreementCard } from './Agreement';
 import { DocumentsSheet } from './DocumentsSheet';
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, type CourseSearch } from '../courses/search';
@@ -180,6 +181,8 @@ export function Portal({
     if (join) syncSignup(join);
   }, [join]);
   const rpRec = join ? db.rps.find((r) => r.id === signupId(join)) : undefined;
+  // the agency's own record: its sign-up, or the prototype's own agency (slice 2 PRD: agreement, held commission, suspension)
+  const myRp = rpRec ?? (!join ? db.rps.find((r) => r.id === 'rp-test') : undefined);
   useEffect(() => {
     if (!join || !rpRec || !set) return;
     const next = bapDecisions(join, rpRec);
@@ -336,8 +339,13 @@ export function Portal({
   );
 
   const content =
-    section === 'home' ? (
+    myRp && (myRp.status === 'Suspended' || myRp.status === 'Rejected') ? (
+      <AccountClosed r={myRp} />
+    ) : section === 'home' ? (
+      <>
+      {myRp && <RpAgreementCard r={myRp} by={acc.name} canSign={acc.role === 'RP Admin'} />}
       <Home acc={acc} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+      </>
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />
     ) : section === 'profile' ? (
@@ -397,6 +405,11 @@ export function Portal({
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}
       />
+    ) : section === 'earnings' && myRp && myRp.status === 'Activated' ? (
+      <>
+        <HeldNote />
+        <LaterSection section={section} />
+      </>
     ) : (
       <LaterSection section={section} />
     );
