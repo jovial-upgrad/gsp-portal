@@ -145,12 +145,12 @@ Jovial's 2 Nov decisions and the day's dev briefs, in every role that shows each
 - **Student record:** one **Add application** button, at the top (blue). No Find courses button, and none in the Applications part.
 - **Applications list:** status chips **All, New, Offer received** (conditional or unconditional offer letter received), **Enrolled** and **Closed** (every closed or withdrawn one), each with its count; a chip with none is greyed out. The chips are one list, `src/data/listChips.ts`. Search is by **application number or student name** only. GSP's list: **All RPs** picks several RPs, 20 at a time; **Advanced filters** has **Applied date between** and **Stage**, each with its own Clear; **Clear all** clears every filter, the chip and the advanced ones included. No "Showing your sales region" line (a person with no region is still told why the list is empty).
 - **Who has it, RP side:** "Pending with agent" (was Pending on you), from `src/data/owners.ts`. GSP's wording is unchanged.
-- **Statuses** (`src/data/applications.ts`): after submission only **Submitted to university** (Additional documents requested, Verifying additional documents and Additional documents submitted to university are gone, with their task rules T7, T52, T53); Verification adds **Background/finance documents upload pending** (On RP while a request is open); University assessment or interview is On university; **Deposit refund pending** in Acceptance and in Visa (On university; it doesn't close the application); **Visa granted** is one status and asks for the **course start date** (T57 counts from it); **Visa rejected** replaces Visa refused as the close reason.
+- **Statuses** (`src/data/applications.ts`): after submission only **Submitted to university** (Additional documents requested, Verifying additional documents and Additional documents submitted to university are gone, with their task rules T7, T52, T53; the first two came back with the lock answers, L-1); Verification adds **Background/finance documents upload pending** (On RP while a request is open); University assessment or interview is On university; **Deposit refund pending** in Acceptance and in Visa (On university; it doesn't close the application); **Visa granted** is one status and asks for the **course start date** (T57 counts from it); **Visa rejected** replaces Visa refused as the close reason.
 - **Change status:** no blue helper notes; no status asks the RP for a document by itself (no visa lodgement proof, no payment proof): the officer uses Request a document. GSP's own uploads (the offer letters, the acceptance letter, the visa grant when GSP lodged, the university reference) stay. A mandatory upload already in Documents (filed from Mail) counts, so Acceptance letter received isn't held off.
 - **Chat:** **Request a document** asks for several documents at once, each from **Request categories** (GSP · Admin › Document configuration; seeded ITR, Loan, Marriage Certificate, Visa Lodgement Proof, Visa, Acceptance Letter (CoE, CAS, I-20), Bank Statement) or **Other** with its name typed; each becomes its own request and its own item in Documents. When the RP uploads a requested document, the chat says "Thanks for uploading <document>. We’re reviewing it and will update you here." under the officer's name (template in `src/data/chat.ts`). The RP types text only and uploads only against a request; attach, Request a document and Request conditions (at every stage) are GSP's.
 - **Key details:** three headed groups for everyone, **Application details**, **GSP details**, **RP details** (no tabs); GSP's RP details add the **recruitment partner** and **RP branch**; empty fields aren't shown. GSP has no Base commission row; the RP keeps its own. Admissions add or change the **university reference** at any time from Key details, after a confirmation, logged in Activity.
 - **Withdraw (RP):** up to and including Ready to submit; from Submitted to university on, More › Withdraw is greyed out with the reason in the portal's tooltip: "Submitted to the university. Ask your GSP contact in chat to withdraw." GSP can still close at any stage. After Student enrolled, More shows only Student profile.
-- **Activity:** the RP sees only chat, documents and commission activity; mail, submission and status lines are GSP's (`src/data/activity.ts`).
+- **Activity:** the RP sees only chat, documents and commission activity; mail, submission and status lines are GSP's (`src/data/activity.ts`). Status lines are the RP's too since the lock answers (L-3).
 - **Submission:** logins only for Own portal and StudyLink, one per sales region (the application's region's login, else All regions); "username and password"; email submission shows the address only; "Through university portal" is a chip.
 - **Admin › Create roles:** phone required; email read-only once created; Title optional free text.
 - **Admin › Sales regions:** countries already in another region aren't offered; Working calendar optional (Work › Working days takes any set of days, Sunday to Thursday included); the nationality map has no "Last changed" column.
@@ -179,6 +179,55 @@ Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet (rows L-
 - **RP team (Profile):** a Branch Admin sees their own branch, invites Counsellors to it and deactivates or reactivates them; a Counsellor has no team (S2C-14).
 - **RP sign-up code:** 10 minutes, 5 wrong tries, resend after 30 seconds, unverified sign-ups deleted after 30 days by job J10 (`SIGNUP_CODE`, S2C-16).
 - **Task rules:** T43 and T59 removed; T69 and T70 added; T62 worked out from the students. `npm run test:lock-rules` checks every one of them is made only by its rule from a record.
+
+## 2 Nov, lock answers for slice 3 (Jovial)
+
+Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet (rows L-1 to L-4, L-6 and S3C-1 to S3C-22), in
+every role that shows each page. They settle the slice 3 proposals that were built "until answered".
+
+- **Statuses (L-1):** after Submitted to university, **Additional documents requested** (On GSP; On RP while a request is
+  open) and **Verifying additional documents** (On GSP) are back, with task rules **T7** (chase the RP, 12 wh) and **T52**
+  (check them, 9 wh). Additional documents submitted to university stays removed (and T53 with it).
+- **Applications list (L-2):** the New chip counts the New stage only; Pre-screening is under All.
+- **Activity (L-3):** the RP sees status changes too, beside chat, documents and commission (`data/activity.ts`).
+- **Course page › Costs (L-4):** the first-year headline keeps the one-time costs, labelled: "First year (a year’s costs
+  and one-time costs)", "Application fee, one-time", a one-off visa fee "one-time".
+- **Close at New (L-6):** GSP closes at any stage, New included (as built).
+- **Highest education (S3C-1):** one ordered list, Grade 10, Grade 12, Diploma, Bachelor’s (3 years), Bachelor’s (4 years),
+  Master’s, Doctorate, for students (Add a student, the record's Academics) and courses (Minimum highest education).
+  **Admin edits it**: GSP · Admin › Course configuration › **Highest education** (Edit, then Save: add, rename, move up or
+  down, retire, restore; each level names the profile section it fills; Change history). Its order is the level check.
+  A retired level isn't offered; records on it keep it. A renamed level keeps its old name for records saved under it
+  (`data/education.ts`, `admin/data/lists.ts`, `admin/config/Lists.tsx`).
+- **Eligibility, Academics (S3C-2 with S2C-3):** only the **highest qualification**: the student's highest education and
+  its score (converted through Grade conversion) against the course's **Minimum highest education** (`minEducation`) and
+  its **minimum score** (the course's `minScore` and `minScoreScale` when it has them, else its Academic row for the
+  student's country, else for every country). No other row or qualification is matched. **Backlogs** only when the
+  course states a limit. The row stays grouped: Highest education, Score, Backlogs (`data/eligibility.ts`).
+- **Commission (S3C-7):** only **RP Admin** sees commission figures. Branch Admin and Counsellor get no Base commission
+  on cards or the course page, no Student view switch (nothing to hide), no Commission tab and no Base commission in
+  Key details, and no commission lines in Activity (`data/rproles.ts` `seesCommission`).
+- **Assigned officer (S3C-8):** Key details › Assigned officer › Change for the application's queue leader, Admin and
+  Global Ops only (`data/appRules.ts` `canChangeOfficer`); the open tasks move to the new officer (`work/store.ts`
+  `changeOfficer`); logged in Activity under who changed it, and in the work log.
+- **Withdrawal after submission (S3C-9):** GSP closing or withdrawing from Submitted to university onwards gives the
+  officer task **T69** "Tell <university> that <student> withdrew" (9 working hours), from the task rules.
+- **After enrolment (S3C-11):** Admissions can still change only the **Final tuition fee** and the **Census date**,
+  each logged old → new; the university reference is read-only once enrolled.
+- **Census date (S3C-13):** pre-filled from the intake's census date when it's set; otherwise empty until Admissions
+  fills it.
+- **GSP's Find courses (S3C-6):** the student picker lists the person's own regions' students, each with its RP.
+- **Profile completeness (S3C-17):** only required fields count; no documents.
+- **Wrong university reference (S3C-19):** fixing it in Key details moves the mail conversations matched on that
+  reference to the application, logged.
+- **Reasons (S3C-21):** close and withdraw reasons are Admin's: GSP · Admin › Application configuration › **Reasons**
+  (Close reasons by stage, Withdraw reasons; up to 60 characters, unique in a list; removing stops it being offered,
+  applications keep theirs; Change history). Send-back reasons stay fixed.
+- **Fixed student, course and intake (S3C-22):** none changes after Start; a later intake is a close (Deferred) and a
+  new application.
+- As built and confirmed: TOEFL sections ×4 (S3C-3), tags AND (S3C-4), destination currency (S3C-5), Share with student
+  hidden (S3C-10), Compare's Scholarship Yes (S3C-12), 25 a page and the sorts (S3C-14), the chat lines and student fields
+  (S3C-15, S3C-16), grade conversion edge cases (S3C-18), search (S3C-20).
 
 ## Slice 3 PRD (2 Nov)
 

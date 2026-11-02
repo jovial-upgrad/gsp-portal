@@ -14,7 +14,7 @@ import { PERM_ROLE, type Role } from '../../proto/roles';
  * configuration** (Application routing, Document configuration) and **Other configurations** (Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
-export type ConfigSection = 'users' | 'regions' | 'permissions' | 'emails' | 'bdm' | 'currency' | 'living' | 'grades' | 'english' | 'routing' | 'documents' | 'logs' | 'security' | 'tags' | 'levels';
+export type ConfigSection = 'users' | 'regions' | 'permissions' | 'emails' | 'bdm' | 'currency' | 'living' | 'grades' | 'english' | 'routing' | 'documents' | 'logs' | 'security' | 'tags' | 'levels' | 'education' | 'reasons';
 export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how' | 'fin-scen';
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-mail';
 export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
@@ -80,6 +80,8 @@ export const GROUPS: NavGroup[] = [
       // slice 3 PRD (S3-4): the eligibility check's two tables
       { key: 'grades', label: 'Grade conversion', short: 'Grades', icon: 'cap' },
       { key: 'english', label: 'English test equivalence', short: 'English', icon: 'chat' },
+      // lock answer S3C-1 (2 Nov): the one ordered Highest education list, editable
+      { key: 'education', label: 'Highest education', short: 'Education', icon: 'cap' },
     ],
   },
   {
@@ -89,6 +91,8 @@ export const GROUPS: NavGroup[] = [
     items: [
       { key: 'routing', label: 'Application routing', short: 'Routing', icon: 'share' },
       { key: 'documents', label: 'Document configuration', short: 'Documents', icon: 'folder' },
+      // lock answer S3C-21 (2 Nov): close and withdraw reasons
+      { key: 'reasons', label: 'Reasons', short: 'Reasons', icon: 'doc' },
     ],
   },
   {

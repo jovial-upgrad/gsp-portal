@@ -5,11 +5,12 @@ import { CountryCombobox } from '../../../components/CountryCombobox';
 import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
 import { systemOf } from '../../../admin/data/eligibility';
+import { activeEducation, levelOfEd } from '../../../data/education';
+import { highestEdOf } from '../../../data/eligibility';
 import {
   gradingOptions,
   scaleMax,
   scoreOk,
-  HIGHEST,
   LANGUAGES,
   LEVEL_NAME,
   STUDY_LEVELS,
@@ -53,12 +54,13 @@ export function Education({ s, update }: { s: Student; update: Update }) {
           id="re-highest"
           label="Highest education"
           required
-          value={s.highest}
-          options={HIGHEST}
+          value={highestEdOf(s)}
+          options={[...activeEducation(), ...(activeEducation().includes(highestEdOf(s)) ? [] : [highestEdOf(s)])]}
           hint="The highest education is required. Other levels are optional."
           onChange={(v) => {
-            const h = v as Level;
-            update((p) => ({ ...p, highest: h, edu: { ...p.edu, [h]: p.edu[h] ?? emptyEdu(p.eduCountry) } }));
+            // the one list (S3C-1, Admin › Course configuration › Highest education); its level names the section
+            const h = levelOfEd(v);
+            update((p) => ({ ...p, highestEd: v, highest: h, edu: { ...p.edu, [h]: p.edu[h] ?? emptyEdu(p.eduCountry) } }));
           }}
         />
       </div>

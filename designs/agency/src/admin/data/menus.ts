@@ -33,6 +33,9 @@ const OBJECT_OF: Record<string, string> = {
   grades: 'Settings',
   english: 'Settings',
   routing: 'Settings',
+  // lock answers S3C-1 and S3C-21
+  education: 'Settings',
+  reasons: 'Settings',
   documents: 'Settings',
   security: 'Settings',
   logs: 'Download log and audit logs',

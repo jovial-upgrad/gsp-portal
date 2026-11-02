@@ -20,7 +20,7 @@ export function CostsTab({ c }: { c: Course }) {
       <section className="cm-total" aria-labelledby="cs-total">
         <div className="cm-total__head">
           <h3 id="cs-total" className="cm-total__k">
-            {short ? `Total, for ${span}` : 'First year (a year’s costs)'}
+            {short ? `Total, for ${span}` : 'First year (a year’s costs and one-time costs)'}
           </h3>
           <p className="cm-total__v">
             <span className="cm-unit">≈ </span>
@@ -32,7 +32,7 @@ export function CostsTab({ c }: { c: Course }) {
               ? `This course’s length is in credits${credit ? ` (${credit})` : ''}, so these are for 1 year.`
               : short
                 ? `For one student, for the whole course (${span}): tuition, living costs, visa and health cover, and the application fee.`
-                : 'For one student, for the first year: tuition and living costs a year, visa and health cover, and the one-time application fee.'}
+                : 'For one student, for the first year: tuition and living costs a year, visa and health cover, and the one-time costs (the application fee and any one-time visa fee).'}
           </p>
         </div>
         <CostBar parts={yearParts} total={yearTotal} cur={c.currency} totalLabel={short ? 'Total' : 'First year'} />

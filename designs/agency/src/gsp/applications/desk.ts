@@ -3,7 +3,7 @@ import { phoneOf } from '../../data/rpteam';
 import { money, submission, type Destination } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { fullName, type Student } from '../../data/students';
-import { ENROL_DOC, ENROL_DOC_LONG, VISA_NAME, censusOf, courseOf, destOf, gspContact, stageOf, type Application, type StatusKey } from '../../data/applications';
+import { ENROL_DOC, ENROL_DOC_LONG, VISA_NAME, intakeCensusOf, courseOf, destOf, gspContact, stageOf, type Application, type StatusKey } from '../../data/applications';
 
 /**
  * What only GSP's team keeps for an application: the university's mail about it, where and how it's
@@ -193,7 +193,8 @@ export function statusMail(a: Application, s: Student, k: StatusKey, at: number)
 }
 /** Census date: the catalogue's, for this intake. Final tuition fee: empty until Admissions adds it from the offer (Jovial, 1 Nov). */
 export function deskFor(a: Application, s: Student): Desk {
-  return { mails: mailsFor(a, s), channel: channelFor(a), census: censusOf(a), fee: 0 };
+  // S3C-13: pre-filled from the intake's census date when it's set, else empty (0) until Admissions fills it
+  return { mails: mailsFor(a, s), channel: channelFor(a), census: intakeCensusOf(a) ?? 0, fee: 0 };
 }
 
 /** GSP Assist's summary of a mail: the written one, or its first few sentences. */

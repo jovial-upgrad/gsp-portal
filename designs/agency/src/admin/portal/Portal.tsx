@@ -71,7 +71,7 @@ export type PortalStart = {
 /** GSP · Institution's own signed-in person, before any of these roles stood in for it. */
 let INSTITUTION_OWN: typeof INSTITUTION_USER | null = null;
 const lensSpring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
-const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'emails', 'bdm', 'currency', 'living', 'grades', 'english', 'routing', 'documents', 'logs', 'security'];
+const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'emails', 'bdm', 'currency', 'living', 'grades', 'english', 'routing', 'documents', 'logs', 'security', 'education', 'reasons'];
 const sectionOf = (s?: PortalStart['section']): Section => (!s || s === 'earnings' ? 'home' : s);
 
 export type { Focus };

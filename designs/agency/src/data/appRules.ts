@@ -7,6 +7,8 @@ import { ENROL_DOC, ENROL_DOC_LONG, courseOf, destOf, isOpen, STATUS, type Appli
 import { officerOf } from './dataset';
 import { label } from './staff';
 import { getScope, isMine } from './scope';
+import { adminCfg } from '../admin/data/store';
+import { regionQueueName } from '../admin/data/config';
 import { fullName, type Student } from './students';
 
 /**
@@ -27,6 +29,24 @@ export function isAdmissions() {
   const s = getScope();
   // the GSP · Admissions portal signs in as an Admission user; an unknown role there counts as Admissions
   return ADMISSIONS_ROLES.includes(s.role) || (s.viewer === 'gsp-admissions' && !s.role) || s.viewer === 'gsp-admin';
+}
+
+/**
+ * Who changes an application's assigned officer (lock answer S3C-8, Jovial, 2 Nov): the leader of the application's
+ * Admissions queue (Admin › Work › Queues), Admin and Global Ops. Everyone else sees the officer without Change.
+ */
+export const OFFICER_CHANGERS = ['Admin', 'Global Ops'];
+export function canChangeOfficer(a: Pick<Application, 'region'>) {
+  const s = getScope();
+  if (OFFICER_CHANGERS.includes(s.role) || s.viewer === 'gsp-admin') return true;
+  try {
+    const cfg = adminCfg();
+    const q = cfg.queues.find((x) => x.name === regionQueueName(a.region ?? ''));
+    const lead = q ? cfg.users.find((u) => u.id === q.lead) : undefined;
+    return !!lead && !!s.email && lead.email.toLowerCase() === s.email.toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 /* ---------- the university reference (S3-8, S3-22) ---------- */

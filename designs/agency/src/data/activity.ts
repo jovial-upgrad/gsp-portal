@@ -1,6 +1,6 @@
 /**
- * Activity by kind, and who sees which (Jovial, 2 Nov): RP roles see only chat, documents and commission activity;
- * mail and submission activity (and the status moves GSP makes) are GSP's. Every line of an application's history
+ * Activity by kind, and who sees which (Jovial, 2 Nov; lock answer L-3): RP roles see chat, documents, commission and
+ * status changes; mail and submission activity are GSP's (commission lines only for RP Admin, S3C-7). Every line of an application's history
  * has one kind: its own `kind` when it was written with one, else read from what it says.
  */
 import type { Event } from './applications';
@@ -8,7 +8,7 @@ import type { Event } from './applications';
 export type ActivityKind = 'chat' | 'documents' | 'commission' | 'mail' | 'submission' | 'status';
 /** Who sees which kinds. GSP roles see every kind. */
 export const ACTIVITY_SEEN_BY: Record<'rp' | 'gsp', ActivityKind[]> = {
-  rp: ['chat', 'documents', 'commission'],
+  rp: ['chat', 'documents', 'commission', 'status'],
   gsp: ['chat', 'documents', 'commission', 'mail', 'submission', 'status'],
 };
 /** How a line without its own kind is read, first match wins. */

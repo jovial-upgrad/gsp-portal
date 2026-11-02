@@ -351,7 +351,7 @@ export function StudentRecord({
           <Icon name="arrowLeft" size={18} />
           Students
         </button>
-        {/* Share with student: not in v1 (S3C-10's proposal, open): nothing behind it is specified, so it's hidden */}
+        {/* Share with student: not in v1 (S3C-10, Jovial 2 Nov): hidden */}
         {SHARE_WITH_STUDENT && (
           <Button
             variant="secondary"

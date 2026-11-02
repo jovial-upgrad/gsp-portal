@@ -313,6 +313,28 @@ export function logChange(event, text, by) {
 
 export function resetAll() { state = fresh(); save(); view = null; listeners.forEach((l) => l()); syncAdminQueues(); }
 
+/**
+ * Key details › Assigned officer › Change (lock answer S3C-8): the application's officer becomes `to`; its open
+ * tasks follow, since every application task goes to the officer (S4-5). `from` is the officer the application's
+ * record has, so the change holds until the record itself changes. Logged as application.officer_changed.
+ */
+export function changeOfficer(appId, recordOfficer, to, by, toName) {
+  update((d) => { d.officers[appId] = { officer: to, from: recordOfficer || null, why: 'changed', by, at: now() }; }, `${by} made ${toName || to} the officer on ${appId}; its open tasks moved to them`, 'application.officer_changed');
+}
+
+/**
+ * A university reference fixed on an application (lock answer S3C-19): the mail conversations matched on that
+ * reference move with it to the application that now has it. Logged as mail.thread_moved.
+ */
+export function moveThreadsByRef(ref, appId, by) {
+  const key = String(ref || '').trim().toUpperCase();
+  if (!key) return 0;
+  const hits = (state.mail?.threads || []).filter((t) => String(t.fields?.['University reference'] || '').trim().toUpperCase() === key && t.record !== appId);
+  if (!hits.length) return 0;
+  update((d) => { for (const t of d.mail.threads) if (hits.some((h) => h.id === t.id)) t.record = appId; }, `${by} moved ${hits.length === 1 ? '1 mail conversation' : `${hits.length} mail conversations`} matched on reference ${key} to ${appId}`, 'mail.thread_moved');
+  return hits.length;
+}
+
 /* ---------- task actions ---------- */
 const titleOf = (id) => (getState().tasks.find((t) => t.id === id) || {}).title || id;
 /** Done (the assignee): the task closes now, logged "<name> completed <task>". */

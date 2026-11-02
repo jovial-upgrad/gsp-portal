@@ -1,17 +1,78 @@
 /**
- * One ordered education list for slice 3's eligibility check (S3C-1's proposal, built until it's answered): the
- * student's **Highest education** is Grade 10, then slice 2's **Minimum highest education required** values
- * (MIN_EDUCATION in data/courses.ts, S3-18) in their order, then Doctorate. So the level check compares like with
- * like: Grade 10 is below every course minimum; Doctorate meets every one. Fixed in code (the order matters).
+ * The one ordered **Highest education** list (lock answer S3C-1, Jovial, 2 Nov): Grade 10, Grade 12, Diploma,
+ * Bachelor's (3 years), Bachelor's (4 years), Master's, Doctorate, used by students (Add a student, the record's
+ * Academics) and by courses (Minimum highest education required). **Admin edits it** in Admin › Course configuration
+ * › Highest education: add, rename, reorder, retire and restore. Its order drives the eligibility check's level check
+ * (a student meets a course's minimum when their level sits at or after it).
+ *
+ * The list lives in Admin's settings store (admin/data/education.ts sets the reader below); the seed is only where
+ * it starts. Each level names the profile section it fills on the student's record (Grade 10, Grade 12,
+ * Undergraduate or Postgraduate, data/students.ts LEVEL_NAME). A renamed level keeps its old names in `was`, so
+ * students and courses saved under an old name still read it; a retired one isn't offered for new picks, and
+ * records already on it keep it and its place in the order.
  */
-import { MIN_EDUCATION } from './courses';
+import type { Level } from './students';
 
-export { MIN_EDUCATION };
-export type MinEducation = (typeof MIN_EDUCATION)[number];
-export const HIGHEST_EDUCATION = ['Grade 10', ...MIN_EDUCATION, 'Doctorate'] as const;
-export type HighestEducation = (typeof HIGHEST_EDUCATION)[number];
-/** Where a value sits in the one order (Grade 10 lowest, Doctorate highest); -1 for a value not in it. */
-export const eduRank = (v: string) => HIGHEST_EDUCATION.indexOf(v as HighestEducation);
+export type EducationLevel = { id: string; name: string; /** The record's education section it fills. */ record: Level; retired?: boolean; /** Earlier names. */ was?: string[] };
 
-/** The student record's education level for a Highest education: Grade 10, Grade 12, a diploma or bachelor's (ug), a master's or doctorate (pg). */
-export const levelOfEd = (v: string): 'g10' | 'g12' | 'ug' | 'pg' => (v === 'Grade 10' ? 'g10' : v === 'Grade 12' ? 'g12' : v === 'Master’s' || v === 'Doctorate' ? 'pg' : 'ug');
+/** Where the list starts (S3C-1's seven, in order). */
+export const SEED_EDUCATION: EducationLevel[] = [
+  { id: 'ed-g10', name: 'Grade 10', record: 'g10' },
+  { id: 'ed-g12', name: 'Grade 12', record: 'g12' },
+  { id: 'ed-dip', name: 'Diploma', record: 'ug' },
+  { id: 'ed-ba3', name: 'Bachelor’s (3 years)', record: 'ug' },
+  { id: 'ed-ba4', name: 'Bachelor’s (4 years)', record: 'ug' },
+  { id: 'ed-ma', name: 'Master’s', record: 'pg' },
+  { id: 'ed-phd', name: 'Doctorate', record: 'pg' },
+];
+
+let read: () => EducationLevel[] = () => SEED_EDUCATION;
+/** Admin's settings store hands its list here once it's loaded (admin/data/education.ts). */
+export const setEducationReader = (f: () => EducationLevel[]) => {
+  read = f;
+};
+/** The whole list, retired levels included, in order. */
+export const educationLevels = (): EducationLevel[] => {
+  try {
+    return read();
+  } catch {
+    return SEED_EDUCATION;
+  }
+};
+/** The level a saved value names, under its name now or an earlier one. */
+export const eduItem = (v?: string) => (v ? educationLevels().find((x) => x.name === v || x.was?.includes(v)) : undefined);
+/** A saved value under its name now. */
+export const eduName = (v?: string) => eduItem(v)?.name ?? v ?? '';
+/** Where a value sits in the one order (first lowest); -1 for a value not on the list. */
+export const eduRank = (v?: string) => {
+  const it = eduItem(v);
+  return it ? educationLevels().indexOf(it) : -1;
+};
+/** Whether a value is the last level on the list (so "or higher" says nothing). */
+export const isTopEducation = (v?: string) => {
+  const l = educationLevels();
+  return eduRank(v) === l.length - 1;
+};
+/** The names offered for a new pick: every level not retired, in order. */
+export const activeEducation = () => educationLevels().filter((x) => !x.retired).map((x) => x.name);
+
+/**
+ * The offered names as an array that is always the list now (the same array everywhere it's read: map, filter,
+ * includes, join), for pickers and CSV checks.
+ */
+const liveNames = (): string[] =>
+  new Proxy([] as string[], {
+    get(_t, k) {
+      return Reflect.get(activeEducation(), k);
+    },
+    has(_t, k) {
+      return Reflect.has(activeEducation(), k);
+    },
+  });
+/** Highest education's options (students) and Minimum highest education's (courses): one list. */
+export const HIGHEST_EDUCATION: readonly string[] = liveNames();
+export type HighestEducation = string;
+export type MinEducation = string;
+
+/** The student record's education section for a Highest education. */
+export const levelOfEd = (v: string): Level => eduItem(v)?.record ?? 'ug';
