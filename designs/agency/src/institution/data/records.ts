@@ -15,12 +15,14 @@ import { renewalDays } from '../../work/renewal';
  */
 import { UNIVERSITIES, type Destination } from '../../data/courses';
 import { nameOf, staffIn, label } from '../../data/staff';
-import { partnerManagerFor, businessDocsFor } from '../../data/partners';
+import { partnerManagerFor, businessDocsFor, countryByName } from '../../data/partners';
 import { RPS } from '../../data/dataset';
 import { phoneOf, rpAdmin } from '../../data/rpteam';
 import { NATIONALITY } from '../../admin/data/config';
+import { SYSTEM, atIso, change, type Change, type Created } from './changelog';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
+/** The Change log role of the sample's Institution people. */
 
 
 const DAY = 86_400_000;
@@ -103,21 +105,27 @@ export const BEFORE = ['Prospect', 'Met with', 'Proposal sent', 'Application sub
 export const EXECUTED = 'Agreement executed';
 /** W30 (1 Nov): an executed agreement whose end date has passed, not renewed. */
 export const ENDED = 'Agreement ended';
-export const CLOSED = ['Not interested', 'Did not proceed', 'Terminated by GSP', 'Terminated by the institution', 'Merged with another partner'] as const;
+export const CLOSED = ['Not interested', 'Did not proceed', 'Terminated by GSP', 'Terminated by the institution', 'Merged with another IP'] as const;
 export const PARTNER_STATUSES = [...BEFORE, EXECUTED, ENDED, ...CLOSED] as const;
 export type PartnerStatus = (typeof PARTNER_STATUSES)[number];
 export const isClosed = (s: PartnerStatus) => (CLOSED as readonly string[]).includes(s);
 export const isBefore = (s: PartnerStatus) => (BEFORE as readonly string[]).includes(s);
+/** The statuses Change offers (slice 2 PRD): every one except Agreement ended, which only job J1 sets. */
+export const PICKABLE = PARTNER_STATUSES.filter((s) => s !== ENDED);
 
 export const DOC_TYPES = ['New agreement', 'Renewal', 'Commission change', 'Territory expansion', 'Sector expansion', 'Campus expansion'] as const;
 export type DocType = (typeof DOC_TYPES)[number];
 /** Only these carry the agreement's dates. */
 export const DATED: DocType[] = ['New agreement', 'Renewal'];
-export type PartnerDoc = { id: string; type: DocType; file: string; start: string; end: string; added: string; by: string };
+/** `at`: when it was uploaded (date and time); `added` is its day. */
+export type PartnerDoc = { id: string; type: DocType; file: string; start: string; end: string; added: string; by: string; at?: number };
 
 export const CONTACT_FOR = ['Agreement and renewal', 'Finance and invoices', 'Marketing', 'Admissions'] as const;
 export type ContactFor = (typeof CONTACT_FOR)[number];
-export type Contact = { id: string; name: string; title: string; for: ContactFor; email: string };
+/** Slice 2 PRD: first and last name, title, what they're for, phone (with its country code) and email. `name` is the two together. */
+export type Contact = { id: string; name: string; first?: string; last?: string; title: string; for: ContactFor; email: string; phone?: string };
+/** A contact's first and last name, for older samples that kept one name. */
+export const splitName = (c: Contact) => ({ first: c.first ?? c.name.split(' ')[0] ?? '', last: c.last ?? c.name.split(' ').slice(1).join(' ') });
 
 /** Set up from the agreement by Commissions and Finance; a second person activates it. */
 export type Commission = { rate: number; bonus: string; invoicing: string; state: 'Active' | 'Waiting for Finance' };
@@ -126,9 +134,12 @@ export type InstitutionPartner = {
   id: string;
   name: string;
   type: PartnerType;
-  /** Where it's based. */
+  /** Where it's based: any country, its state (where the country has states) and city (slice 2 PRD). */
   country: string;
-  website: string;
+  state: string;
+  city: string;
+  /** Not a PRD field: kept for older readers, not shown or edited. */
+  website?: string;
   /** Its relationship manager, from the team. */
   rm: string;
   status: PartnerStatus;
@@ -140,6 +151,11 @@ export type InstitutionPartner = {
   closedNote?: string;
   /** Who last changed its status, details, documents and contacts. */
   stamps: Stamps;
+  /** The Change log (S2-14) and System information. */
+  log: Change[];
+  created: Created;
+  /** The end date job J1 last acted on: it acts once per end date (Decision A, S2-28). */
+  endedFor?: string;
 };
 
 /** The agreement as it stands: the New agreement or Renewal that ends last sets the dates. */
@@ -156,33 +172,57 @@ export function stagesOf(p: InstitutionPartner): Stage[] {
   const a = agreementOf(p);
   if (!a) return ['executed'];
   const n = daysTo(a.end);
-  return n < 0 ? ['ended'] : n <= renewalDays() ? ['executed', 'ending'] : ['executed'];
+  // Decision A (S2-28): Agreement executed set by hand after the end date counts as in date
+  return n >= 0 && n <= renewalDays() ? ['executed', 'ending'] : ['executed'];
 }
-/** The status as it reads now (W30): an executed agreement past its end date has ended. */
-export const statusNow = (p: InstitutionPartner): PartnerStatus => {
+/** The status as it stands: job J1 sets Agreement ended (once per end date), so the status is what's stored. */
+export const statusNow = (p: InstitutionPartner): PartnerStatus => p.status;
+/**
+ * Its universities can go Live or be resumed while the partner is Agreement executed: in date, or set by hand after
+ * the end date (Decision A, S2-28).
+ */
+export const canGoLive = (p: InstitutionPartner | undefined) => !!p && p.status === EXECUTED;
+/** Executed by hand after its agreement's end date (Decision A): in date, and J1 leaves it alone for that end date. */
+export const executedByHand = (p: InstitutionPartner) => {
   const a = agreementOf(p);
-  return p.status === EXECUTED && a && daysTo(a.end) < 0 ? ENDED : p.status;
+  return p.status === EXECUTED && !!a && daysTo(a.end) < 0;
 };
-/** Its universities can go live only while its agreement is executed and in date. */
-export const canGoLive = (p: InstitutionPartner | undefined) => !!p && p.status === EXECUTED && (agreementOf(p) ? daysTo(agreementOf(p)!.end) >= 0 : false);
 
 let n = 0;
 const nid = (p: string) => `${p}-${(++n).toString(36)}`;
-const doc = (type: DocType, file: string, start: string, end: string, added: string, by = IN('kevin.mcewan')): PartnerDoc => ({ id: nid('doc'), type, file, start, end, added, by });
-const contact = (name: string, title: string, f: ContactFor, email: string): Contact => ({ id: nid('ct'), name, title, for: f, email });
+
+/** The country list's names (ISO 3166) for the destinations the catalogue names shortly. */
+export const GEO_NAME: Record<string, string> = { UK: 'United Kingdom', USA: 'United States' };
+const AU: Record<string, string> = { SA: 'South Australia', VIC: 'Victoria', NSW: 'New South Wales', QLD: 'Queensland', WA: 'Western Australia', ACT: 'Australian Capital Territory', TAS: 'Tasmania', NT: 'Northern Territory' };
+const US: Record<string, string> = { NY: 'New York', FL: 'Florida', KS: 'Kansas' };
+/** A sample's state, from its campus address or city (the country list's states). */
+export function stateFor(country: string, city: string, address = ''): string {
+  const geo = countryByName(GEO_NAME[country] ?? country);
+  const states = geo?.states ?? [];
+  if (!states.length) return '';
+  const au = address.match(/\b(SA|VIC|NSW|QLD|WA|ACT|TAS|NT)\b/);
+  if (country === 'Australia' && au) return AU[au[1]];
+  const us = address.match(/\b(NY|FL|KS)\b/);
+  if (us) return US[us[1]];
+  const named = states.find((st) => address.includes(st)) ?? states.find((st) => st === city || st.startsWith(`${city} `) || st === `County ${city}`) ?? states.find((st) => city && st.includes(city));
+  return named ?? '';
+}
+const doc = (type: DocType, file: string, start: string, end: string, added: string, by = IN('kevin.mcewan')): PartnerDoc => ({ id: nid('doc'), type, file, start: DATED.includes(type) ? start : '', end: DATED.includes(type) ? end : '', added, by });
+const contact = (name: string, title: string, f: ContactFor, email: string): Contact => ({ id: nid('ct'), name, first: name.split(' ')[0], last: name.split(' ').slice(1).join(' '), title, for: f, email });
 const uni = (id: string) => UNIVERSITIES.find((x) => x.id === id)!;
 const fileName = (name: string) => name.replace(/^University of /, '').replace(/ University$/, '').replace(/[^A-Za-z]+/g, '_');
 
 /** A university's own agreement with GSP. */
-function direct(id: string, rm: string, start: string, end: string, contacts: Contact[], extra: Partial<InstitutionPartner> = {}): InstitutionPartner {
+function direct(id: string, rm: string, start: string, end: string, contacts: Contact[], extra: Partial<InstitutionPartner> = {}): RawPartner {
   const u = uni(id);
   const file = `${fileName(u.name)}_GSP_agreement_${start.slice(0, 4)}.pdf`;
   return {
     id: `ip-${id}`,
     name: u.name,
     type: 'Direct',
-    country: u.country,
-    website: u.website ?? '',
+    country: GEO_NAME[u.country] ?? u.country,
+    state: stateFor(u.country, u.campuses[0]?.city ?? '', u.campuses[0]?.address),
+    city: u.campuses[0]?.city ?? '',
     rm,
     status: EXECUTED,
     docs: [doc('New agreement', file, start, end, start)],
@@ -190,6 +230,8 @@ function direct(id: string, rm: string, start: string, end: string, contacts: Co
     contacts,
     added: start,
     stamps: {},
+    log: [],
+    created: { by: rm, at: atIso(start) },
     ...extra,
   };
 }
@@ -199,7 +241,19 @@ function direct(id: string, rm: string, start: string, end: string, contacts: Co
  * cover several each. A few are still being agreed, and one didn't go ahead. Dates that matter for the tiles (an
  * agreement ending soon, one that ended) are set from today.
  */
-export const samplePartners = (): InstitutionPartner[] => [
+export const samplePartners = (): InstitutionPartner[] => partnerRows().map(filled);
+/** Fills what older sample rows leave out: country list name, state, city, Change log and System information. */
+const SAMPLE_CITY: Record<string, string> = { 'ip-southbridge': 'Perth', 'ip-northgate': 'London', 'ip-campusconnect': 'Toronto', 'ip-utas': 'Hobart', 'ip-kingsway': 'Manchester', 'ip-edvance': 'Sydney', 'ip-harbour': 'Auckland' };
+const SAMPLE_STATE: Record<string, string> = { 'ip-southbridge': 'Western Australia', 'ip-campusconnect': 'Ontario', 'ip-utas': 'Tasmania', 'ip-edvance': 'New South Wales', 'ip-harbour': 'Auckland Region' };
+type RawPartner = Omit<InstitutionPartner, 'state' | 'city' | 'log' | 'created'> & Partial<Pick<InstitutionPartner, 'state' | 'city' | 'log' | 'created'>>;
+function filled(p: RawPartner): InstitutionPartner {
+  const city = p.city || SAMPLE_CITY[p.id] || '';
+  const country = GEO_NAME[p.country] ?? p.country;
+  const created: Created = p.created ?? { by: p.rm, at: atIso(p.added) };
+  const log: Change[] = p.log ?? [];
+  return { ...p, country, city, state: p.state || SAMPLE_STATE[p.id] || stateFor(p.country, city), created, log: log.length ? log : [change(created.by, 'Institution', 'Partner created', '—', p.name, created.at)], docs: p.docs.map((d) => ({ ...d, at: d.at ?? atIso(d.added, 11) })) };
+}
+const partnerRows = (): RawPartner[] => [
   direct('flinders', IN('kevin.mcewan'), '2025-01-01', '2027-12-31', [contact('Sarah Lim', 'International partnerships', 'Agreement and renewal', 'partnerships@flinders.edu.au')], {
     docs: [doc('New agreement', 'Flinders_GSP_agreement_2025.pdf', '2025-01-01', '2027-12-31', '2025-01-01'), doc('Commission change', 'Flinders_rate_variation_2027.pdf', '2027-01-01', '', inDays(-12), IN('catherine.wilson'))],
     stamps: { documents: { by: IN('catherine.wilson'), at: inDays(-12) }, contacts: { by: IN('kevin.mcewan'), at: inDays(-30) } },
@@ -221,9 +275,24 @@ export const samplePartners = (): InstitutionPartner[] => [
   direct('windsor', IN('namita.nath'), '2025-05-01', '2027-04-30', [contact('Marc Tremblay', 'International recruitment', 'Agreement and renewal', 'partnerships@uwindsor.ca')]),
   direct('fanshawe', IN('namita.nath'), '2026-01-01', '2028-12-31', [contact('Sarah Kim', 'Agent relations', 'Agreement and renewal', 'partnerships@fanshawec.ca')]),
   // ended, not renewed: its university is paused
-  direct('massey', IN('lalaine.dizon'), '2023-03-01', inDays(-243), [contact('Aroha Ngata', 'International office', 'Agreement and renewal', 'partnerships@massey.ac.nz')], { status: ENDED }),
+  // job J1 set it Agreement ended the day after its end date, and paused its university (S2-15)
+  direct('massey', IN('lalaine.dizon'), '2023-03-01', inDays(-243), [contact('Aroha Ngata', 'International office', 'Agreement and renewal', 'partnerships@massey.ac.nz')], {
+    status: ENDED,
+    endedFor: inDays(-243),
+    log: [change(SYSTEM, SYSTEM, 'Partner · Status', EXECUTED, ENDED, atIso(inDays(-242), 1)), change(IN('lalaine.dizon'), 'Institution', 'Partner created', '—', 'Massey University', atIso('2023-03-01'))],
+  }),
   direct('waikato', IN('lalaine.dizon'), '2025-02-01', '2028-01-31', [contact('Ben Walker', 'International partnerships', 'Agreement and renewal', 'partnerships@waikato.ac.nz')]),
-  direct('lincoln', IN('lalaine.dizon'), '2025-02-01', '2028-01-31', [contact('Hana Sato', 'Agent relations', 'Agreement and renewal', 'partnerships@lincoln.ac.nz')]),
+  // Decision A (S2-28): its agreement ended 12 days ago; job J1 set Agreement ended, then Institution set Agreement
+  // executed by hand while the renewal is signed. It counts as in date, and J1 leaves it alone for that end date.
+  direct('lincoln', IN('lalaine.dizon'), '2024-02-01', inDays(-12), [contact('Hana Sato', 'Agent relations', 'Agreement and renewal', 'partnerships@lincoln.ac.nz')], {
+    endedFor: inDays(-12),
+    stamps: { status: { by: IN('lalaine.dizon'), at: inDays(-10) } },
+    log: [
+      change(IN('lalaine.dizon'), 'Institution', 'Partner · Status', ENDED, EXECUTED, atIso(inDays(-10), 15)),
+      change(SYSTEM, SYSTEM, 'Partner · Status', EXECUTED, ENDED, atIso(inDays(-11), 1)),
+      change(IN('lalaine.dizon'), 'Institution', 'Partner created', '—', 'Lincoln University', atIso('2024-02-01')),
+    ],
+  }),
   direct('griffith', IN('catherine.wilson'), '2025-09-01', '2027-08-31', [contact('Ciaran Doyle', 'International office', 'Agreement and renewal', 'partnerships@griffith.ie')]),
   direct('dbs', IN('catherine.wilson'), '2025-09-01', '2027-08-31', [contact('Aoife Kelly', 'Agent relations', 'Agreement and renewal', 'partnerships@dbs.ie')]),
   direct('ul', IN('catherine.wilson'), '2025-09-01', '2027-08-31', [contact('Ciara Byrne', 'International partnerships', 'Agreement and renewal', 'partnerships@ul.ie')]),
@@ -303,6 +372,26 @@ export const PARTNER_OF: Record<string, string> = {
   usf: 'ip-campusconnect',
 };
 export const partnerIdOf = (uniId: string) => PARTNER_OF[uniId] ?? `ip-${uniId}`;
+
+/* ---------- job J1 (01:00 Asia/Kolkata): agreements that ended ---------- */
+
+/**
+ * Job J1 (S2-15, Decision A): the first day after the current agreement's end date, an Agreement executed partner
+ * becomes Agreement ended and its Live universities become Paused, all stamped "System". It acts once per end date,
+ * so a partner Institution then sets to Agreement executed by hand, with no Renewal, is left alone.
+ */
+export function agreementJob<U extends { id: string; ip: string; status: string; log: Change[]; stamps: Stamps }>(ips: InstitutionPartner[], unis: U[]): { ips: InstitutionPartner[]; unis: U[]; ended: string[] } {
+  const ended: string[] = [];
+  const at = Date.now();
+  const out = ips.map((p) => {
+    const a = agreementOf(p);
+    if (p.status !== EXECUTED || !a || daysTo(a.end) >= 0 || p.endedFor === a.end) return p;
+    ended.push(p.id);
+    return { ...p, status: ENDED as PartnerStatus, endedFor: a.end, stamps: { ...p.stamps, status: { by: SYSTEM, at: todayIso() } }, log: [change(SYSTEM, SYSTEM, 'Partner · Status', EXECUTED, ENDED, at), ...p.log] };
+  });
+  const u2 = unis.map((u) => (ended.includes(u.ip) && u.status === 'Live' ? { ...u, status: 'Paused', stamps: { ...u.stamps, status: { by: SYSTEM, at: todayIso() } }, log: [change(SYSTEM, SYSTEM, 'University · Status', 'Live', 'Paused', at), ...u.log] } : u));
+  return { ips: out, unis: u2, ended };
+}
 
 /* ---------- recruitment partners: the agencies that send students ---------- */
 
@@ -397,7 +486,7 @@ const rpRows = (): RecruitmentPartner[] => [
   rp('rp-horizon', 1003, 'Horizon Overseas', 'Mumbai', 'India', 'Agreement signed', '2024-08-04', { name: 'Ananya Rao', email: 'ananya@horizonoverseas.in', phone: '+91 98200 11873' }, 'GSP team member', '', '', docs('Verified'), [{ at: '2024-08-19', what: 'Agreement signed' }, { at: '2024-08-12', what: 'Activated' }, { at: '2024-08-04', what: 'Signed up' }]),
   rp('rp-saigon', 1011, 'Saigon Bridge Education', 'Ho Chi Minh City', 'Vietnam', 'Agreement signed', '2025-01-19', { name: 'Lan Tran', email: 'lan@saigonbridge.vn', phone: '+84 90 811 2044' }, 'Event or fair', '', '', docs('Verified'), [{ at: '2025-02-02', what: 'Agreement signed' }, { at: '2025-01-19', what: 'Signed up' }]),
   rp('rp-delhi', 1007, 'Capital Career Abroad', 'Delhi', 'India', 'Agreement signed', '2024-11-10', { name: 'Manish Gupta', email: 'manish@capitalcareerabroad.in', phone: '+91 98110 77310' }, 'Another agency', '', '', docs('Verified'), [{ at: '2024-11-25', what: 'Agreement signed' }, { at: '2024-11-10', what: 'Signed up' }]),
-  rp('rp-hanoi', 1015, 'Lotus Study Abroad', 'Hanoi', 'Vietnam', 'Agreement signed', '2025-04-08', { name: 'Mai Pham', email: 'mai@lotusstudy.vn', phone: '+84 90 812 7731' }, 'Social media', '', '', docs('Verified'), [{ at: '2025-04-20', what: 'Agreement signed' }, { at: '2025-04-08', what: 'Signed up' }], 'Saigon Bridge Education'),
+  rp('rp-hanoi', 1015, 'Lotus Study Abroad', 'Hanoi', 'Vietnam', 'Agreement signed', '2025-04-08', { name: 'Mai Pham', email: 'mai@lotusstudy.vn', phone: '+84 90 812 7731' }, 'Social media', '', '', docs('Verified'), [{ at: '2025-04-21', what: 'Linked to Master Partner Mekong Education Network' }, { at: '2025-04-20', what: 'Agreement signed' }, { at: '2025-04-08', what: 'Signed up' }], 'Mekong Education Network'),
   rp('rp-pokhara', 1019, 'Himalayan Study Centre', 'Pokhara', 'Nepal', 'Agreement signed', '2025-03-12', { name: 'Anjali Gurung', email: 'anjali@himalayanstudy.com.np', phone: '+977 985 612 3301' }, 'GSP team member', '', '', docs('Verified'), [{ at: '2025-03-28', what: 'Agreement signed' }, { at: '2025-03-12', what: 'Signed up' }]),
   rp('rp-manila', 1021, 'Manila Study Link', 'Manila', 'Philippines', 'Agreement signed', '2025-03-12', { name: 'Paolo Reyes', email: 'paolo@manilastudylink.ph', phone: '+63 917 555 0142' }, 'Google search', '', '', docs('Verified'), [{ at: '2025-03-30', what: 'Agreement signed' }, { at: '2025-03-12', what: 'Signed up' }]),
   rp('rp-pune', 1009, 'Global Reach Education', 'Pune', 'India', 'Dormant', '2025-08-04', { name: 'Sameer Joshi', email: 'sameer@globalreachedu.in', phone: '+91 98220 44190' }, 'Another agency', '', '', docs('Verified'), [{ at: inDays(-60), what: 'Dormant: no applications for six months' }, { at: '2025-08-20', what: 'Agreement signed' }, { at: '2025-08-04', what: 'Signed up' }]),

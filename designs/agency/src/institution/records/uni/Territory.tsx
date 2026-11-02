@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Button } from '../../../components/Button';
 import { Icon } from '../../../components/Icon';
-import { SelectInput } from '../../../components/forms';
-import { TOP_MARKETS, countryByName } from '../../../data/partners';
-import { canApplyFrom, type Territory as T, type UniRec } from '../../data/catalogue';
+import { COUNTRIES, countryByName } from '../../../data/partners';
+import { type Territory as T, type UniRec } from '../../data/catalogue';
 import { stampBy, type RecruitmentPartner } from '../../data/records';
-import { Section, downloadCsv, toggle } from '../parts';
+import { ErrorText, Facts, Pick, Section, downloadCsv } from '../parts';
+import { MultiPick } from '../MultiPick';
+import { SearchPick } from '../SearchPick';
 import { CountryPicker } from '../CountryPicker';
 import type { UniUpd } from '../UniversityPage';
 
@@ -22,15 +23,20 @@ const MODES: { key: T['mode']; label: string; note: string }[] = [
  * 29 Oct (7th round): the countries for All but some and Only some are ticked in a pop-up, as in the PM prototype.
  * 29 Oct (8th round): no "In short" summary.
  */
-export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: RecruitmentPartner[]; upd: UniUpd; say: (m: string) => void; me: string }) {
+export function Territory({ u, rps, upd, say, me, edit = true }: { u: UniRec; rps: RecruitmentPartner[]; upd: UniUpd; say: (m: string) => void; me: string; edit?: boolean }) {
   const [t, setT] = useState<T>(u.territory);
+  // slice 2 PRD: read-only, then Edit territory (Cancel or Save), saved on its own
+  const [editing, setEditing] = useState(false);
+  const [tried, setTried] = useState(false);
   const [picking, setPicking] = useState(false);
   const [bc, setBc] = useState('');
   const [bs, setBs] = useState('');
   const [rp, setRp] = useState('');
   const changed = JSON.stringify(t) !== JSON.stringify(u.territory);
   const rpName = (id: string) => rps.find((r) => r.id === id)?.name ?? id;
-  const pool = canApplyFrom(t, [...new Set([...TOP_MARKETS, ...t.priority])]);
+  const allCountries = COUNTRIES.map((c) => c.name);
+  const modeErr = t.mode !== 'all' && !t.countries.length ? 'Pick at least one country.' : null;
+  const pairTaken = t.blocked.some((b) => b.country === bc && (b.state || '') === (bs || ''));
   const set = (f: Partial<T>) => setT((x) => ({ ...x, ...f }));
   const states = bc ? countryByName(bc)?.states ?? [] : [];
 
@@ -40,6 +46,12 @@ export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: Recruitmen
       id="iu-territory"
       updated={u.stamps.territory}
       action={
+        <span className="irowacts">
+        {edit && !editing && (
+          <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => (setT(u.territory), setEditing(true))}>
+            Edit territory
+          </Button>
+        )}
         <button
           type="button"
           className="btn btn--secondary btn--sm iadd"
@@ -48,15 +60,27 @@ export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: Recruitmen
               ['Rule', 'Value'],
               ['Who can apply', t.mode === 'all' ? 'Any country' : `${t.mode === 'only' ? 'Only' : 'All but'}: ${t.countries.join('; ')}`],
               ['Priority markets', t.priority.join('; ')],
-              ...t.blocked.map((b) => ['Blocked', `${b.state}, ${b.country}`]),
+              ...t.blocked.map((b) => ['Blocked', b.state ? `${b.state}, ${b.country}` : `${b.country} (whole country)`]),
               ...t.hiddenFrom.map((id) => ['Hidden from', rpName(id)]),
             ])
           }
         >
           <Icon name="download" size={16} /> Export as CSV
         </button>
+        </span>
       }
     >
+      {!editing ? (
+        <Facts
+          items={[
+            ['Countries', t.mode === 'all' ? 'All countries' : `${t.mode === 'only' ? 'Only' : 'All except'}: ${u.territory.countries.join(', ')}`],
+            ['Priority countries', u.territory.priority.length ? u.territory.priority.join(', ') : 'None'],
+            ['Blocked country and state pairs', u.territory.blocked.length ? u.territory.blocked.map((b) => (b.state ? `${b.state}, ${b.country}` : `${b.country} (whole country)`)).join('; ') : 'None'],
+            ['RPs it’s hidden from', u.territory.hiddenFrom.length ? u.territory.hiddenFrom.map(rpName).join(', ') : 'Nobody'],
+          ]}
+        />
+      ) : (
+      <>
       <ol className="isteps">
         <li className="isteps__item">
           <h3 className="isteps__k">Which countries can apply?</h3>
@@ -79,6 +103,7 @@ export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: Recruitmen
               </label>
             ))}
           </div>
+          {tried && modeErr && <ErrorText>{modeErr}</ErrorText>}
           {t.mode !== 'all' && (
             <div className="ipicker">
               <p className="ipicker__k">{t.mode === 'only' ? `${t.countries.length} ${t.countries.length === 1 ? 'country can' : 'countries can'} apply` : `${t.countries.length} left out`}</p>
@@ -100,44 +125,22 @@ export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: Recruitmen
         </li>
 
         <li className="isteps__item">
-          <h3 className="isteps__k">Priority markets</h3>
-          <p className="isteps__v">Of the countries that can apply. Applications from their students get a Priority tag for GSP’s teams, so they’re handled first.</p>
-          <div className="itags">
-            {pool.map((c) => {
-              const on = t.priority.includes(c);
-              return (
-                <button key={c} type="button" className="ichip istar" aria-pressed={on} onClick={() => set({ priority: toggle(t.priority, c) })}>
-                  <Icon name="star" size={16} />
-                  {c}
-                </button>
-              );
-            })}
-            {!pool.length && <p className="iempty">Pick the countries that can apply first.</p>}
-          </div>
+          <h3 className="isteps__k">Priority countries</h3>
+          <p className="isteps__v">Any countries. An application whose student’s nationality is one of them gets a Priority chip, for GSP only. It doesn’t change what is shown.</p>
+          <MultiPick id="iut-pri" label="Priority countries" value={t.priority} options={allCountries} onChange={(priority) => set({ priority })} empty="None" search />
         </li>
 
         <li className="isteps__item">
-          <h3 className="isteps__k">Blocked states or cities</h3>
-          <p className="isteps__v">For a country that can apply, but not from everywhere in it.</p>
+          <h3 className="isteps__k">Blocked country and state pairs</h3>
+          <p className="isteps__v">A country, and optionally one of its states. A blocked country with no state blocks the whole country.</p>
           <div className="ipicker__row">
-            <SelectInput id="iut-bc" aria-label="Country" value={bc} placeholder="Country" allowEmpty onChange={(e) => (setBc(e.target.value), setBs(''))}>
-              {pool.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </SelectInput>
-            <SelectInput id="iut-bs" aria-label="State" value={bs} placeholder={bc ? 'Pick a state' : 'Pick the country first'} allowEmpty disabled={!bc} onChange={(e) => setBs(e.target.value)}>
-              {states.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </SelectInput>
+            <Pick id="iut-bc" label="Country" value={bc} placeholder="Pick a country" options={allCountries} onChange={(v) => (setBc(v), setBs(''))} />
+            <Pick id="iut-bs" label="State" value={bs} all={bc ? 'Whole country' : 'Pick the country first'} options={states} onChange={setBs} />
             <Button
               variant="secondary"
               size="sm"
-              disabled={!bc || !bs || t.blocked.some((b) => b.country === bc && b.state === bs)}
+              disabled={!bc || pairTaken}
+              title={pairTaken ? 'Already blocked.' : undefined}
               onClick={() => {
                 set({ blocked: [...t.blocked, { country: bc, state: bs }] });
                 setBs('');
@@ -150,8 +153,8 @@ export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: Recruitmen
             <div className="itags">
               {t.blocked.map((b) => (
                 <span key={`${b.country}-${b.state}`} className="itag itag--x">
-                  {b.state}, {b.country}
-                  <button type="button" aria-label={`Unblock ${b.state}, ${b.country}`} onClick={() => set({ blocked: t.blocked.filter((x) => x !== b) })}>
+                  {b.state ? `${b.state}, ${b.country}` : `${b.country} (whole country)`}
+                  <button type="button" aria-label={`Unblock ${b.state || 'all of'} ${b.country}`} onClick={() => set({ blocked: t.blocked.filter((x) => x !== b) })}>
                     <Icon name="close" size={14} />
                   </button>
                 </span>
@@ -161,18 +164,10 @@ export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: Recruitmen
         </li>
 
         <li className="isteps__item">
-          <h3 className="isteps__k">Recruitment partners that can’t see it</h3>
-          <p className="isteps__v">A restricted recruitment partner never sees this university, in search or anywhere else.</p>
+          <h3 className="isteps__k">RPs it’s hidden from</h3>
+          <p className="isteps__v">They never see the university’s courses. Search by RP name or code.</p>
           <div className="ipicker__row">
-            <SelectInput id="iut-rp" aria-label="Recruitment partner" value={rp} placeholder="Pick a recruitment partner" allowEmpty onChange={(e) => setRp(e.target.value)}>
-              {rps
-                .filter((r) => !t.hiddenFrom.includes(r.id))
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.city})
-                  </option>
-                ))}
-            </SelectInput>
+            <SearchPick id="iut-rp" label="Recruitment partners" placeholder="RP name or code" value={rp} options={rps.filter((r) => !t.hiddenFrom.includes(r.id)).map((r) => ({ value: r.id, label: r.name, note: r.code }))} onChange={setRp} />
             <Button
               variant="secondary"
               size="sm"
@@ -200,23 +195,27 @@ export function Territory({ u, rps, upd, say, me }: { u: UniRec; rps: Recruitmen
         </li>
       </ol>
 
-      {changed && (
-        <div className="isave" role="region" aria-label="Unsaved territory rules">
-          <p className="isave__t">Course search in this role follows these once they’re saved.</p>
-          <Button variant="secondary" size="sm" onClick={() => setT(u.territory)}>
-            Discard
+        <div className="isave" role="region" aria-label="Territory">
+          <p className="isave__t">{tried && modeErr ? modeErr : changed ? 'Not saved yet.' : 'Nothing changed yet.'}</p>
+          <Button variant="secondary" size="sm" onClick={() => (setT(u.territory), setTried(false), setEditing(false))}>
+            Cancel
           </Button>
           <Button
             size="sm"
-            disabled={t.mode === 'only' && !t.countries.length}
+            disabled={!changed}
             onClick={() => {
+              setTried(true);
+              if (modeErr) return;
               upd((x) => ({ ...x, territory: t, stamps: { ...x.stamps, territory: stampBy(me) } }));
-              say('Territory rules saved.');
+              setEditing(false);
+              setTried(false);
+              say('Territory saved.');
             }}
           >
-            Save territory rules
+            Save
           </Button>
         </div>
+      </>
       )}
       <CountryPicker
         open={picking}

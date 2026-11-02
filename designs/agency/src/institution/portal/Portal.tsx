@@ -225,7 +225,7 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name, role: 'Institution' };
   const content =
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />

@@ -9,7 +9,12 @@ import { useSyncExternalStore } from 'react';
 import { setCatalogueReaders, setFormsReader, setUniScholarships, type Course, type University } from '../../data/courses';
 import { sampleAnnouncements, type Announcement } from './announcements';
 import { forSearch, sampleCourseRecs, sampleUniRecs, searchable, type CourseRec, type UniRec } from './catalogue';
-import { samplePartners, sampleRps, type InstitutionPartner, type RecruitmentPartner } from './records';
+import { agreementJob, samplePartners, sampleRps, type InstitutionPartner, type RecruitmentPartner } from './records';
+import { SEED_TAGS } from './catalogue';
+import { sampleMps, type MasterPartner } from './masters';
+
+/** A course tag on Admin's list (S2-16): retired tags aren't offered and leave every course. */
+export type CourseTag = { id: string; name: string; retired: boolean };
 
 export type Db = {
   ips: InstitutionPartner[];
@@ -17,10 +22,20 @@ export type Db = {
   courses: CourseRec[];
   anns: Announcement[];
   rps: RecruitmentPartner[];
+  /** Master Partners (S2-21): their own records, created by RP Ops. */
+  mps: MasterPartner[];
+  /** GSP · Admin › Course tags (S2-16). */
+  tags: CourseTag[];
 };
 export type SetDb = (fn: (d: Db) => Db) => void;
 
-export const sampleDb = (): Db => ({ ips: samplePartners(), unis: sampleUniRecs(), courses: sampleCourseRecs(), anns: sampleAnnouncements(), rps: sampleRps() });
+export const sampleDb = (): Db => {
+  // job J1 runs at 01:00 Asia/Kolkata: today's run has happened by the time anyone opens the portal (S2-15, Decision A)
+  const j = agreementJob(samplePartners(), sampleUniRecs());
+  return { ips: j.ips, unis: j.unis, courses: sampleCourseRecs(), anns: sampleAnnouncements(), rps: sampleRps(), mps: sampleMps(), tags: SEED_TAGS.map((name, i) => ({ id: `tag-${i + 1}`, name, retired: false })) };
+};
+/** The course tags Admin's list offers now. */
+export const liveTags = (db: Db) => db.tags.filter((t) => !t.retired).map((t) => t.name);
 
 let DB: Db | null = null;
 const subs = new Set<() => void>();

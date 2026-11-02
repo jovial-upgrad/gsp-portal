@@ -1,6 +1,6 @@
 import type { IconName } from '../../components/Icon';
 import type { Db, SetDb } from '../data/store';
-import { liveKeys, liveMenu } from '../../admin/data/menus';
+import { levelFor, liveKeys, liveMenu } from '../../admin/data/menus';
 import { PERM_ROLE } from '../../proto/roles';
 
 /**
@@ -51,4 +51,35 @@ export type PageProps = {
   me: string;
   /** GSP · BAP (and Admin) verify new recruitment partners' documents on Recruitment partners (W4). */
   canVerify?: boolean;
+  /** The signed-in person's permission role (slice 1 names: Admin, RP Ops, IP Ops, Institution…), for the Owner rules. */
+  role?: string;
 };
+
+/** Slice 1 renames three roles; the matrix may hold either name while the slices merge. */
+const ALIAS: Record<string, string> = { 'RP Ops': 'Recruitment Ops', 'IP Ops': 'Institution Ops', 'Global Ops': 'Admission Ops', 'Recruitment Ops': 'RP Ops', 'Institution Ops': 'IP Ops', 'Admission Ops': 'Global Ops' };
+/** A role's level on a matrix row: E edit, V view, N no access (slice 1). */
+export function levelOf(role: string | undefined, object: string): 'E' | 'V' | 'N' {
+  const a = levelFor(role, object);
+  if (a !== 'N' || !role || !ALIAS[role]) return a;
+  return levelFor(ALIAS[role], object);
+}
+/** Slice 2 Owner rules: the roles with Edit on a row create, edit and delete; the rest only read; No access doesn't see it. */
+export const canEdit = (p: { role?: string }, object: string) => levelOf(p.role, object) === 'E';
+export const canSee = (p: { role?: string }, object: string) => levelOf(p.role, object) !== 'N';
+/** The matrix rows slice 2 reads. */
+export const OBJ = {
+  ips: 'Institution partners',
+  ipDocs: 'IP documents and IP changes',
+  unis: 'Universities',
+  campuses: 'Campuses',
+  logins: 'University portal logins',
+  microsites: 'University microsites',
+  courses: 'Courses, intakes and entry rules',
+  entry: 'Admission requirements',
+  anns: 'Announcements',
+  rp: 'Recruitment partner profile and status',
+  rpDocs: 'RP onboarding documents',
+  rpIssued: 'Documents issued to RPs',
+  rpTeam: 'RP branches and team',
+  mps: 'Master Partners',
+} as const;

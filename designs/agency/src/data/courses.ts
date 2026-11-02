@@ -52,7 +52,7 @@ export const FLAG_COLOURS: Record<Destination, [string, string]> = {
  */
 export type Campus = { name: string; city: string; address?: string; setting?: 'City centre' | 'Suburban' | 'Regional town'; regional?: boolean; /** Its Google Maps link, from the campus record (HC3). */ map?: string };
 /** A picture on the university's record (HC11): its file name, and the image when there is one (an upload in the prototype keeps only its name). */
-export type Picture = { id: string; name: string; src?: string };
+export type Picture = { id: string; name: string; src?: string; /** Optional, shown under it (slice 2 PRD). */ caption?: string };
 
 export type University = {
   id: string;
@@ -87,6 +87,13 @@ export type University = {
   pictures?: Picture[];
   /** Colleges award diplomas and certificates, not degrees. */
   college?: boolean;
+  /**
+   * Search priority (slice 2 PRD, S2C-1; renamed from Display priority, S3-1/S3-19): 0 to 100, default 0, set by
+   * Institution or IP Ops on the university. Course search's Recommended sort orders by it first, highest first.
+   */
+  searchPriority?: number;
+  /** The QS ranking's year, from Admin's QS ranking CSV (S2-2): "#415 · QS 2026". */
+  qsYear?: number;
 };
 
 export const UNIVERSITIES: University[] = [
@@ -289,7 +296,17 @@ export type Course = {
   otherFees: [string, number][];
   /** Postgraduate courses: the most backlogs (subjects failed and cleared later) accepted in the student's degree. */
   backlogs?: number;
+  /** The full course fee (slice 2 PRD, S3-20): course search's total tuition fee; `tuition` is the fee a year under it. */
+  totalFee?: number;
+  /**
+   * Minimum highest education required (slice 2 PRD, S3-18): one per course. Empty on courses saved before the field
+   * existed; slice 3's eligibility check shows the level check as Not specified until it's filled.
+   */
+  minEducation?: string;
 };
+
+/** The values of Minimum highest education required (slice 2 PRD, S3-18). */
+export const MIN_EDUCATION = ['Grade 12', 'Diploma', 'Bachelor’s (3 years)', 'Bachelor’s (4 years)', 'Master’s'] as const;
 
 /* ---------- generated, the same every time ---------- */
 

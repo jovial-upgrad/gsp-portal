@@ -1,36 +1,60 @@
 import { renewalDays } from '../../work/renewal';
 import { IpCommission } from '../../components/CommissionSummary';
-import { dateError, focusFirstError } from '../../components/validate';
+import { dateError } from '../../components/validate';
 import { useRef, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { SelectMenu } from '../../components/SelectMenu';
-import { Field, SelectInput, TextInput, DateInput } from '../../components/forms';
+import { Field, TextInput, DateInput } from '../../components/forms';
+import { PhoneInput } from '../../components/PhoneInput';
 import { CopyButton } from '../students/parts';
 import { UniMark } from '../courses/parts';
-import { DESTINATIONS, type Destination } from '../../data/courses';
-import { coursesOf, searchable } from '../data/catalogue';
-import { CONTACT_FOR, DATED, DOC_TYPES, EXECUTED, PARTNER_STATUSES, PARTNER_TYPES, TEAM, agreementOf, dateText, daysTo, endsText, inDays, isClosed, stampBy, type ContactFor, type DocType, type InstitutionPartner, type PartnerStatus, type PartnerType } from '../data/records';
+import { coursesOf, searchable, type UniRec } from '../data/catalogue';
+import { CONTACT_FOR, DATED, DOC_TYPES, ENDED, EXECUTED, PICKABLE, agreementOf, dateText, daysTo, endsText, executedByHand, isClosed, splitName, stampBy, todayIso, type Contact, type ContactFor, type DocType, type InstitutionPartner, type PartnerDoc, type PartnerStatus } from '../data/records';
+import { SYSTEM, acceptOf, audit, change, checkFile, dateTimeText, withLog, type Change, type LogSpec } from '../data/changelog';
 import { patch } from '../data/store';
-import { AddButton, ErrorText, Facts, RecordHead, RecordTabs, Section, TabPanel } from './parts';
+import { AddButton, ChangeLog, ErrorText, Facts, Pick, RecordHead, RecordTabs, Section, SystemInfo, TabPanel } from './parts';
 import { PartnerPill, UniPill, statusGroup } from './pills';
-import type { PageProps } from '../portal/model';
+import { PartnerForm } from './InstitutionPartners';
+import { OBJ, canEdit, canSee, type PageProps } from '../portal/model';
 
-type Tab = 'overview' | 'universities' | 'documents' | 'commission' | 'contacts';
-const TABS: Tab[] = ['overview', 'universities', 'documents', 'commission', 'contacts'];
+type Tab = 'overview' | 'universities' | 'documents' | 'commission' | 'contacts' | 'log';
+const TABS: Tab[] = ['overview', 'universities', 'documents', 'commission', 'contacts', 'log'];
+
+/** What the partner's Change log writes for each field (S2-14): record · part · field. */
+const SPEC: LogSpec<InstitutionPartner> = {
+  record: 'Partner',
+  fields: { name: 'Overview · Partner name', type: 'Overview · Type', rm: 'Overview · Relationship manager', country: 'Overview · Country', state: 'Overview · State', city: 'Overview · City', status: 'Status', docs: 'Document', contacts: 'Contact' },
+};
+const UNI_SPEC: LogSpec<UniRec> = { record: 'University', fields: { status: 'Status' } };
+
+/** A placeholder download of a stored file (files are opened through short-lived links in the product). */
+export function downloadFile(name: string) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([`${name}\n\nPrototype: the stored file opens here, through a short-lived link.`], { type: 'text/plain' }));
+  a.download = name;
+  a.click();
+  window.setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 
 /**
- * An institution partner's page (29 Oct, 2nd round, after the PM prototype): its status, set by hand at the header's
- * right (4th round); then its details and agreement, its universities (they join from their own page), the documents
- * that carry its dates, the commission Commissions and Finance set up, and who to talk to there.
+ * An institution partner's page (slice 2 PRD): the status with Change, Overview (details, agreement, System
+ * information, End partnership), Universities, Documents, Commission (read-only), Contacts and the Change log.
+ * Edited by Institution and Admin (matrix: Institution partners); the Documents tab follows IP documents and IP changes.
  */
-export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, say, me, appsByUni }: PageProps & { p: InstitutionPartner; tab?: string; backLabel: string; onBack: () => void; appsByUni: Record<string, number> }) {
-  const [tab, setTab] = useState<Tab>(TABS.includes(start as Tab) ? (start as Tab) : 'overview');
+export function PartnerPage(props: PageProps & { p: InstitutionPartner; tab?: string; backLabel: string; onBack: () => void; appsByUni: Record<string, number> }) {
+  const { p, tab: start, backLabel, onBack, db, set, open, say, me, appsByUni } = props;
+  const role = props.role ?? 'Institution';
+  const edit = canEdit(props, OBJ.ips);
+  const seeDocs = canSee(props, OBJ.ipDocs);
+  const editDocs = canEdit(props, OBJ.ipDocs);
+  const tabs = TABS.filter((t) => t !== 'documents' || seeDocs);
+  const [tab, setTab] = useState<Tab>(tabs.includes(start as Tab) ? (start as Tab) : 'overview');
   const [status, setStatus] = useState<PartnerStatus>(p.status);
-  const [ending, setEnding] = useState<PartnerStatus | null>(null);
-  // the status shows as it is; Change opens its menu (29 Oct, 6th round)
+  const [ending, setEnding] = useState<{ to: PartnerStatus; end: boolean } | null>(null);
+  const [reason, setReason] = useState('');
   const [changing, setChanging] = useState(false);
   const [editing, setEditing] = useState(false);
   const unis = db.unis.filter((u) => u.ip === p.id);
@@ -38,35 +62,48 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
   const a = agreementOf(p);
   const live = unis.reduce((n, u) => n + (u.status === 'Live' ? coursesOf(db.courses, u.id).filter(searchable).length : 0), 0);
   const apps = unis.reduce((n, u) => n + (appsByUni[u.id] ?? 0), 0);
-  const upd = (fn: (x: InstitutionPartner) => InstitutionPartner) => set((d) => ({ ...d, ips: patch(d.ips, p.id, fn) }));
-  /** Changes a part of the partner and says who did, and when (29 Oct, 7th round). */
-  const updPart = (part: string, fn: (x: InstitutionPartner) => InstitutionPartner) => upd((x) => ({ ...fn(x), stamps: { ...x.stamps, [part]: stampBy(me) } }));
 
-  /** A closed status ends the universities under it, after asking. */
+  /** Saves the partner, stamps the part, and writes the Change log. */
+  const save = (part: string, fn: (x: InstitutionPartner) => InstitutionPartner, extra: Change[] = []) => set((d) => ({ ...d, ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...fn(x), stamps: { ...x.stamps, [part]: stampBy(me) } }, me, role, extra)) }));
+
+  /** A status set by hand: Closed asks first; Closed → not Closed brings its Ended universities back as Paused (S2C-19). */
   const saveStatus = (s: PartnerStatus) => {
-    if (isClosed(s) && active.length && !isClosed(p.status)) {
-      setEnding(s);
-      return;
-    }
-    updPart('status', (x) => ({ ...x, status: s }));
-    setChanging(false);
-    say(`Status saved: ${s}.`);
-  };
-  const endWith = (s: PartnerStatus) => {
+    if (isClosed(s) && !isClosed(p.status) && active.length) return setEnding({ to: s, end: false });
+    const reopen = isClosed(p.status) && !isClosed(s);
     set((d) => ({
       ...d,
-      ips: patch(d.ips, p.id, (x) => ({ ...x, status: s, stamps: { ...x.stamps, status: stampBy(me) } })),
-      unis: d.unis.map((u) => (u.ip === p.id && u.status !== 'Ended' ? { ...u, status: 'Ended', stamps: { ...u.stamps, status: stampBy(me) } } : u)),
+      ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...x, status: s, stamps: { ...x.stamps, status: stampBy(me) } }, me, role)),
+      unis: reopen ? d.unis.map((u) => (u.ip === p.id && u.status === 'Ended' ? withLog(UNI_SPEC, u, { ...u, status: 'Paused', stamps: { ...u.stamps, status: stampBy(me) } }, me, role) : u)) : d.unis,
     }));
+    audit('Institution partners', `ip.status_changed: ${p.name}, ${p.status} → ${s}`, me, role);
+    setChanging(false);
+    say(reopen && unis.some((u) => u.status === 'Ended') ? `Status saved: ${s}. Its ended universities are Paused, ready to resume.` : `Status saved: ${s}.`);
+  };
+  /** End partnership, or a Closed status picked by hand: its universities become Ended and leave course search. */
+  const endWith = (s: PartnerStatus) => {
+    const why = reason.trim();
+    set((d) => ({
+      ...d,
+      ips: patch(d.ips, p.id, (x) => withLog(SPEC, x, { ...x, status: s, closedNote: why || x.closedNote, stamps: { ...x.stamps, status: stampBy(me) } }, me, role, why ? [change(me, role, 'Partner · End partnership · Reason', '—', why)] : [])),
+      unis: d.unis.map((u) => (u.ip === p.id && u.status !== 'Ended' ? withLog(UNI_SPEC, u, { ...u, status: 'Ended', stamps: { ...u.stamps, status: stampBy(me) } }, me, role) : u)),
+    }));
+    audit('Institution partners', `ip.status_changed: ${p.name}, ${p.status} → ${s}; ${active.length} universities ended`, me, role);
     setStatus(s);
     setEnding(null);
+    setReason('');
     setChanging(false);
     say(`${p.name}: ${s}. Its universities have ended.`);
   };
 
   return (
     <div className="ipage irecord">
-      <RecordHead back={backLabel} onBack={onBack} title={p.name} sub={`${p.type} · ${unis.length === 1 ? '1 university' : `${unis.length} universities`} · relationship manager ${p.rm === me ? `${p.rm} (you)` : p.rm}`} updated={p.stamps.status} status={
+      <RecordHead
+        back={backLabel}
+        onBack={onBack}
+        title={p.name}
+        sub={`${p.type} · ${unis.length === 1 ? '1 university' : `${unis.length} universities`} · relationship manager ${p.rm === me ? `${p.rm} (you)` : p.rm || 'not set'}`}
+        updated={p.stamps.status}
+        status={
           <div className="ipstatus">
             <span className="ipstatus__k" id="ipst-label">
               Status
@@ -74,24 +111,28 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
             {changing ? (
               <>
                 <div className="ipstatus__pick">
-                  <SelectMenu id="ipst" label="Status" value={status} options={PARTNER_STATUSES.map((s) => ({ value: s, label: s, group: statusGroup(s), note: s === p.status ? 'now' : undefined }))} onChange={(v) => setStatus(v as PartnerStatus)} />
+                  {/* Agreement ended is set only by job J1 (slice 2 PRD) */}
+                  <SelectMenu id="ipst" label="Status" value={status} options={[...PICKABLE, ...(p.status === ENDED ? [ENDED] : [])].map((s) => ({ value: s, label: s, group: statusGroup(s as PartnerStatus), note: s === p.status ? 'now' : undefined }))} onChange={(v) => setStatus(v as PartnerStatus)} />
                 </div>
                 <Button variant="secondary" size="sm" onClick={() => (setStatus(p.status), setChanging(false))}>
                   Cancel
                 </Button>
-                <Button size="sm" disabled={status === p.status} onClick={() => saveStatus(status)}>
+                <Button size="sm" disabled={status === p.status || status === ENDED} onClick={() => saveStatus(status)}>
                   Save
                 </Button>
               </>
             ) : (
               <>
                 <PartnerPill p={p} />
-                <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setChanging(true)}>
-                  Change<span className="vh"> status</span>
-                </Button>
+                {edit && (
+                  <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setChanging(true)}>
+                    Change<span className="vh"> status</span>
+                  </Button>
+                )}
               </>
             )}
-            {a && p.status === EXECUTED && daysTo(a.end) <= renewalDays() && <span className={`ipstatus__end irhead__k ${daysTo(a.end) < 0 ? 'is-bad' : 'is-warn'}`}>{endsText(a.end)}</span>}
+            {a && p.status === EXECUTED && daysTo(a.end) >= 0 && daysTo(a.end) <= renewalDays() && <span className="ipstatus__end irhead__k is-warn">{endsText(a.end)}</span>}
+            {executedByHand(p) && <span className="ipstatus__end irhead__k">Set by hand after its end date: counts as in date (Decision A)</span>}
           </div>
         }
       />
@@ -101,13 +142,16 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
         label="Partner"
         tab={tab}
         setTab={setTab}
-        tabs={[
-          { key: 'overview', label: 'Overview' },
-          { key: 'universities', label: 'Universities', n: unis.length },
-          { key: 'documents', label: 'Documents', n: p.docs.length },
-          { key: 'commission', label: 'Commission' },
-          { key: 'contacts', label: 'Contacts', n: p.contacts.length },
-        ]}
+        tabs={(
+          [
+            { key: 'overview', label: 'Overview' },
+            { key: 'universities', label: 'Universities', n: unis.length },
+            { key: 'documents', label: 'Documents', n: p.docs.length },
+            { key: 'commission', label: 'Commission' },
+            { key: 'contacts', label: 'Contacts', n: p.contacts.length },
+            { key: 'log', label: 'Change log', n: p.log.length },
+          ] as { key: Tab; label: string; n?: number }[]
+        ).filter((t) => tabs.includes(t.key))}
       />
 
       <TabPanel id="iptab" tab={tab}>
@@ -118,9 +162,11 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
               id="ip-details"
               updated={p.stamps.details}
               action={
-                <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setEditing(true)}>
-                  Edit details
-                </Button>
+                edit ? (
+                  <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setEditing(true)}>
+                    Edit details
+                  </Button>
+                ) : undefined
               }
             >
               <Facts
@@ -129,35 +175,21 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
                   ['Type', p.type],
                   ['Relationship manager', p.rm],
                   ['Country', p.country],
-                  [
-                    'Website',
-                    p.website ? (
-                      <a href={`https://${p.website}`} target="_blank" rel="noreferrer">
-                        {p.website}
-                      </a>
-                    ) : null,
-                  ],
+                  ...(p.state ? ([['State', p.state]] as [string, string][]) : []),
+                  ['City', p.city],
                 ]}
               />
             </Section>
-            <Section
-              title="Agreement"
-              id="ip-agreement"
-              note={a ? undefined : 'No signed agreement yet. Add it under Documents and its dates show here.'}
-              action={
-                <button type="button" className="btn btn--link" onClick={() => setTab('documents')}>
-                  Documents
-                </button>
-              }
-            >
-              {a && (
+            <Section title="Current agreement" id="ip-agreement" note={a ? 'The New agreement or Renewal with the latest end date.' : undefined} action={seeDocs ? <button type="button" className="btn btn--link" onClick={() => setTab('documents')}>Documents</button> : undefined}>
+              {a ? (
                 <Facts
                   items={[
                     ['Starts', dateText(a.start)],
-                    ['Ends', <span key="e">{dateText(a.end)}<span className={`ifacts__sub ${p.status === EXECUTED && endsText(a.end).startsWith('Ended') ? 'is-bad' : ''}`}>{endsText(a.end)}</span></span>],
-                    ['Agreement', <span key="f" className="ifile" title={a.file}><Icon name="file" size={16} /><span className="ifile__t">{a.file}</span></span>],
+                    ['Ends', <span key="e">{dateText(a.end)}<span className={`ifacts__sub ${daysTo(a.end) < 0 ? 'is-bad' : ''}`}>{endsText(a.end)}</span></span>],
                   ]}
                 />
+              ) : (
+                <p className="iempty">No agreement yet</p>
               )}
               <div className="inums" role="group" aria-label="With GSP so far">
                 {(
@@ -174,15 +206,16 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
                 ))}
               </div>
             </Section>
-            {!isClosed(p.status) && (
+            {edit && !isClosed(p.status) && (
               <div className="iend">
-                <p className="iend__t">Ending the partnership ends its universities too: they leave Course search. Applications already made carry on.</p>
-                <Button variant="secondary" size="sm" onClick={() => setEnding('Terminated by GSP')}>
+                <p className="iend__t">Ending the partnership sets Terminated by GSP and ends its universities: they leave course search. Applications already made carry on.</p>
+                <Button variant="secondary" size="sm" onClick={() => setEnding({ to: 'Terminated by GSP', end: true })}>
                   End partnership
                 </Button>
               </div>
             )}
-            {p.closedNote && <p className="irsec__note">Closed: {p.closedNote}</p>}
+            {p.closedNote && <p className="irsec__note">Reason: {p.closedNote}</p>}
+            <SystemInfo created={p.created} log={p.log} />
           </>
         )}
 
@@ -216,10 +249,9 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
                               </span>
                             </span>
                           </td>
-                          <td className="num">{u.campuses.length}</td>
+                          <td className="num">{u.campuses.length - u.inactive.length}</td>
                           <td>
-                            <span className="num">{cs.filter(searchable).length}</span> live
-                            <span className="irow__sub">{cs.length} in all</span>
+                            <span className="num">{cs.filter(searchable).length}</span> live · <span className="num">{cs.length}</span> in all
                           </td>
                           <td>
                             <UniPill s={u.status} />
@@ -231,49 +263,61 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
                 </table>
               </div>
             ) : (
-              <p className="iempty">No universities yet. On a university’s page, pick {p.name} as its institution partner and it shows here.</p>
+              <p className="iempty">No universities yet. Each university picks its partner on its own page.</p>
             )}
           </Section>
         )}
 
-        {tab === 'documents' && <Documents p={p} me={me} upd={(fn) => updPart('documents', fn)} say={say} />}
+        {tab === 'documents' && seeDocs && <Documents p={p} me={me} role={role} edit={editDocs} save={save} say={say} />}
 
         {tab === 'commission' && (
-          <Section
-            title="Commission"
-            id="ip-commission"
-            note="Each university’s terms, as Finance keeps them in Commissions (read only here)."
-            action={p.commission ? <span className={`dpill ${p.commission.state === 'Active' ? 'dpill--verified' : 'dpill--checking'}`}>{p.commission.state}</span> : undefined}
-          >
+          <Section title="Commission" id="ip-commission" note="Set by Finance in Commissions (a later slice). Read only here.">
             <IpCommission unis={unis} />
           </Section>
         )}
 
-        {tab === 'contacts' && <Contacts p={p} upd={(fn) => updPart('contacts', fn)} say={say} />}
+        {tab === 'contacts' && <Contacts list={p.contacts} edit={edit} save={(fn) => save('contacts', (x) => ({ ...x, contacts: fn(x.contacts) }))} say={say} id="ip-contacts" note="Who to talk to at the partner. Each university has its own contacts too." />}
+        {tab === 'log' && <ChangeLog log={p.log} id="ip-log" />}
       </TabPanel>
 
       <ConfirmDialog
         open={!!ending}
-        title={`End the partnership with ${p.name}?`}
-        confirm="End partnership"
+        title={ending?.end ? `End the partnership with ${p.name}?` : `Set ${p.name} to ${ending?.to}?`}
+        confirm={ending?.end ? 'End partnership' : 'Save status'}
         danger
-        onConfirm={() => ending && endWith(ending)}
+        onConfirm={() => ending && endWith(ending.to)}
         onCancel={() => {
           setEnding(null);
+          setReason('');
           setStatus(p.status);
         }}
       >
-        <p>
-          Its status becomes <strong>{ending}</strong>, and {active.length === 1 ? 'its university ends' : `its ${active.length} universities end`}: {active.length === 1 ? 'it leaves' : 'they leave'} Course search. Applications already made carry on.
-        </p>
+        {ending?.end ? (
+          <p>
+            Its status becomes Terminated by GSP. Its {active.length} {active.length === 1 ? 'university becomes' : 'universities become'} Ended and leave course search. Applications already made carry on.
+          </p>
+        ) : (
+          <p>
+            Its {active.length} {active.length === 1 ? 'university becomes' : 'universities become'} Ended and leave course search.
+          </p>
+        )}
+        {ending?.end && (
+          <Field id="ipe-reason" label="Reason" optional hint="Written to the Change log. Not shown outside GSP.">
+            <div className="control iform__area">
+              <textarea id="ipe-reason" className="control__input" rows={2} maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          </Field>
+        )}
       </ConfirmDialog>
 
-      <EditPartner
-        p={editing ? p : null}
+      <PartnerForm
+        open={editing}
+        p={p}
+        me={me}
         taken={(n) => db.ips.some((x) => x.id !== p.id && x.name.toLowerCase() === n.trim().toLowerCase())}
         onCancel={() => setEditing(false)}
         onSave={(f) => {
-          updPart('details', (x) => ({ ...x, ...f }));
+          save('details', (x) => ({ ...x, name: f.name, type: f.type, rm: f.rm, country: f.country, state: f.state, city: f.city }));
           setEditing(false);
           say(`${f.name} saved.`);
         }}
@@ -282,62 +326,77 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
   );
 }
 
-type DocDraft = { type: DocType | ''; file: string; start: string; end: string };
-/** A document can be a PDF, a Word file or an image (29 Oct, 4th round). */
-export const FILE_TYPES = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.heic,image/*';
+type DocDraft = { type: DocType | ''; file: File | null; start: string; end: string };
+/** Documents: PDF, Word (.doc, .docx) or image (JPG, PNG), up to 20 MB (slice 2 PRD). */
+const DOC_KINDS = ['pdf', 'word', 'jpg', 'png'] as const;
+export const FILE_TYPES = acceptOf([...DOC_KINDS]);
 
-/** The partner's documents: each has a type and dates; the dated one that ends last sets the agreement's dates. */
-function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd: (fn: (x: InstitutionPartner) => InstitutionPartner) => void; say: (m: string) => void }) {
+/**
+ * The partner's documents (slice 2 PRD): Type (Current on the current agreement), File, Starts, Ends, Uploaded by and
+ * on, Download; newest first. Never edited: a correction is a new document. Removing one uploaded by mistake asks
+ * first (proposal, S2C-7); the current agreement is worked out again. A New agreement or Renewal whose end date is
+ * today or later moves an Agreement ended partner back to Agreement executed (System).
+ */
+function Documents({ p, me, role, edit, save, say }: { p: InstitutionPartner; me: string; role: string; edit: boolean; save: (part: string, fn: (x: InstitutionPartner) => InstitutionPartner, extra?: Change[]) => void; say: (m: string) => void }) {
   const [adding, setAdding] = useState(false);
-  const [v, setV] = useState<DocDraft>({ type: '', file: '', start: '', end: '' });
+  const [v, setV] = useState<DocDraft>({ type: '', file: null, start: '', end: '' });
+  const [fileErr, setFileErr] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
+  const [removing, setRemoving] = useState<PartnerDoc | null>(null);
   const pick = useRef<HTMLInputElement>(null);
   const a = agreementOf(p);
   const dated = !!v.type && DATED.includes(v.type as DocType);
   const err = {
-    type: !v.type ? 'Pick the type.' : null,
-    file: !v.file ? 'Choose the file.' : null,
-    start: dateError(v.start, { what: 'start date', required: dated }),
-    end: dateError(v.end, { what: 'end date', required: dated }) || (v.start && v.end && v.end <= v.start ? 'The end date has to be after the start date.' : null),
+    type: !v.type ? 'Pick a type.' : null,
+    file: fileErr ?? (!v.file ? 'Choose a file.' : null),
+    start: dated ? dateError(v.start, { what: 'start date', required: true }) : null,
+    end: dated ? dateError(v.end, { what: 'end date', required: true }) || (v.start && v.end && v.end <= v.start ? 'End date must be after the start date.' : null) : null,
   };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const show = (k: keyof typeof err) => (tried || (k === 'file' && fileErr) ? err[k] : null);
   const close = () => {
     setAdding(false);
     setTried(false);
-    setV({ type: '', file: '', start: '', end: '' });
+    setFileErr(null);
+    setV({ type: '', file: null, start: '', end: '' });
   };
+  const add = () => {
+    setTried(true);
+    if (Object.values(err).some(Boolean)) return;
+    const type = v.type as DocType;
+    const d: PartnerDoc = { id: `doc-${Date.now().toString(36)}`, type, file: v.file!.name, start: dated ? v.start : '', end: dated ? v.end : '', added: todayIso(), by: me, at: Date.now() };
+    // a New agreement or Renewal that ends today or later brings an ended partner back (System)
+    const back = dated && p.status === ENDED && daysTo(d.end) >= 0 && (!a || d.end >= a.end);
+    save('documents', (x) => ({ ...x, docs: [d, ...x.docs], ...(back ? { status: EXECUTED as PartnerStatus } : {}) }), back ? [change(SYSTEM, SYSTEM, 'Partner · Status', ENDED, EXECUTED)] : []);
+    if (dated) audit('Institution partners', `ip.agreement_uploaded: ${p.name}, ${type} ${dateText(d.start)} to ${dateText(d.end)}. Bell to Finance; task T39 "Add the commission terms"`, me, role);
+    if (back) audit('Institution partners', `ip.status_changed: ${p.name}, Agreement ended → Agreement executed (System, ${type})`, SYSTEM, SYSTEM);
+    say(back ? `${type} added. ${p.name} is Agreement executed again; resume its Paused universities on each one.` : dated ? `${type} added. Finance is asked to add the commission terms.` : `${type} added.`);
+    close();
+  };
+  const docs = [...p.docs].sort((x, y) => (y.at ?? 0) - (x.at ?? 0));
   return (
-    <Section
-      title="Documents"
-      id="ip-docs"
-      updated={p.stamps.documents}
-      note="Every document has a type and its dates. The partner’s dates come from the New agreement or Renewal that ends last. Commissions and Finance read these to set up the commission."
-      action={!adding ? <AddButton onClick={() => setAdding(true)}>Add a document</AddButton> : undefined}
-    >
+    <Section title="Documents" id="ip-docs" updated={p.stamps.documents} note="Only a New agreement or a Renewal has a start and end date. Documents are never edited: a correction is a new document." action={edit && !adding ? <AddButton onClick={() => setAdding(true)}>Add a document</AddButton> : undefined}>
       {adding && (
         <div className="iaddform">
           <div className="iaddform__grid">
             <Field id="ipd-type" label="Type" required error={show('type')}>
-              <SelectInput id="ipd-type" value={v.type} placeholder="Pick a type" invalid={!!show('type')} onChange={(e) => setV({ ...v, type: e.target.value as DocType })}>
-                {DOC_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </SelectInput>
+              <Pick id="ipd-type" label="Type" value={v.type} placeholder="Pick a type" invalid={!!show('type')} options={DOC_TYPES} onChange={(t) => setV({ ...v, type: t as DocType, ...(DATED.includes(t as DocType) ? {} : { start: '', end: '' }) })} />
             </Field>
-            <Field id="ipd-file" label="File" required error={show('file')} hint="PDF, Word or an image">
+            <Field id="ipd-file" label="File" required error={show('file')} hint="PDF, Word or an image (JPG, PNG), up to 20 MB">
               <button id="ipd-file" type="button" className={`ipick ${show('file') ? 'is-invalid' : ''}`} onClick={() => pick.current?.click()}>
                 <Icon name={v.file ? 'file' : 'upload'} size={18} />
-                <span className="ipick__t">{v.file || 'Choose a file'}</span>
+                <span className="ipick__t">{v.file?.name || 'Choose a file'}</span>
               </button>
             </Field>
-            <Field id="ipd-start" label="Starts" optional={!dated} required={dated} error={show('start')}>
-              <DateInput id="ipd-start" value={v.start} onChange={(start) => setV({ ...v, start })} />
-            </Field>
-            <Field id="ipd-end" label="Ends" optional={!dated} required={dated} error={show('end')}>
-              <DateInput id="ipd-end" value={v.end} onChange={(end) => setV({ ...v, end })} />
-            </Field>
+            {dated && (
+              <>
+                <Field id="ipd-start" label="Start date" required error={show('start')}>
+                  <DateInput id="ipd-start" value={v.start} invalid={!!show('start')} onChange={(start) => setV({ ...v, start })} />
+                </Field>
+                <Field id="ipd-end" label="End date" required error={show('end')}>
+                  <DateInput id="ipd-end" value={v.end} invalid={!!show('end')} onChange={(end) => setV({ ...v, end })} />
+                </Field>
+              </>
+            )}
           </div>
           <input
             ref={pick}
@@ -350,30 +409,23 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
-              if (f) setV((x) => ({ ...x, file: f.name }));
+              if (!f) return;
+              const bad = checkFile(f, [...DOC_KINDS], 20);
+              setFileErr(bad);
+              setV((x) => ({ ...x, file: bad ? null : f }));
             }}
           />
           <div className="iaddform__acts">
             <Button variant="secondary" size="sm" onClick={close}>
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setTried(true);
-                if (Object.values(err).some(Boolean)) return focusFirstError();
-                const d = { id: `doc-${Date.now().toString(36)}`, type: v.type as DocType, file: v.file, start: v.start, end: v.end, added: inDays(0), by: me };
-                upd((x) => ({ ...x, docs: [d, ...x.docs] }));
-                say(DATED.includes(d.type) ? `${d.type} added. The agreement’s dates are updated.` : `${d.type} added.`);
-                close();
-              }}
-            >
+            <Button size="sm" onClick={add}>
               Add document
             </Button>
           </div>
         </div>
       )}
-      {p.docs.length ? (
+      {docs.length ? (
         <div className="stab-wrap">
           <table className="itab">
             <thead>
@@ -382,18 +434,18 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
                 <th scope="col">File</th>
                 <th scope="col">Starts</th>
                 <th scope="col">Ends</th>
-                <th scope="col">Added</th>
+                <th scope="col">Uploaded by and on</th>
                 <th scope="col">
-                  <span className="vh">Remove</span>
+                  <span className="vh">Download or remove</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {p.docs.map((d) => (
+              {docs.map((d) => (
                 <tr key={d.id}>
                   <td>
                     {d.type}
-                    {a && a.file === d.file && a.end === d.end && <span className="irow__sub">Sets the partner’s dates</span>}
+                    {a && a.file === d.file && a.end === d.end && <span className="dpill dpill--verified">Current</span>}
                   </td>
                   <td>
                     <span className="ifile">
@@ -404,20 +456,20 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
                   <td className="num">{d.start ? dateText(d.start) : '—'}</td>
                   <td className="num">{d.end ? dateText(d.end) : '—'}</td>
                   <td>
-                    <span className="num">{dateText(d.added)}</span>
-                    <span className="irow__sub">{d.by}</span>
+                    {d.by}
+                    <span className="irow__sub num">{d.at ? dateTimeText(d.at) : dateText(d.added)}</span>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn btn--link idanger"
-                      onClick={() => {
-                        upd((x) => ({ ...x, docs: x.docs.filter((y) => y.id !== d.id) }));
-                        say(`${d.file} removed.`);
-                      }}
-                    >
-                      Remove<span className="vh"> {d.file}</span>
-                    </button>
+                    <span className="irowacts">
+                      <button type="button" className="btn btn--link" onClick={() => downloadFile(d.file)}>
+                        Download<span className="vh"> {d.file}</span>
+                      </button>
+                      {edit && (
+                        <button type="button" className="btn btn--link idanger" onClick={() => setRemoving(d)}>
+                          Remove<span className="vh"> {d.file}</span>
+                        </button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -427,224 +479,180 @@ function Documents({ p, me, upd, say }: { p: InstitutionPartner; me: string; upd
       ) : (
         <p className="iempty">No documents yet.</p>
       )}
-      {a && <p className="irsec__foot">A renewal reminder goes to {p.rm} {renewalDays()} days before the end date.</p>}
+      {a && <p className="irsec__foot">A renewal reminder goes to {p.rm} {renewalDays()} days before the end date (T38, E20).</p>}
+      <ConfirmDialog
+        open={!!removing}
+        title={`Remove ${removing?.file}?`}
+        confirm="Remove document"
+        danger
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          if (removing) save('documents', (x) => ({ ...x, docs: x.docs.filter((y) => y.id !== removing.id) }));
+          say(`${removing?.file} removed. The current agreement is worked out again.`);
+          setRemoving(null);
+        }}
+      >
+        <p>For a document uploaded by mistake. The Change log keeps the removal, and the current agreement is worked out again; if that puts its end date in the past, the daily job acts the next night.</p>
+      </ConfirmDialog>
     </Section>
   );
 }
 
-/** Who to talk to at the partner, and about what. Each can be edited (30 Oct), with the same form as adding one. */
-function Contacts({ p, upd, say }: { p: InstitutionPartner; upd: (fn: (x: InstitutionPartner) => InstitutionPartner) => void; say: (m: string) => void }) {
-  const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [v, setV] = useState({ name: '', title: '', for: 'Agreement and renewal' as ContactFor, email: '' });
+type ContactDraft = { first: string; last: string; title: string; for: ContactFor | ''; dial: string; phone: string; email: string };
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const digits = (s: string) => s.replace(/\D/g, '').length;
+
+/**
+ * Contacts (slice 2 PRD), the partner's and each university's: first and last name, title, For (one value, no
+ * default), phone with its country code, email. Each is editable and removable; Remove contact asks to confirm.
+ */
+export function Contacts({ list, edit, save, say, id, note }: { list: Contact[]; edit: boolean; save: (fn: (l: Contact[]) => Contact[]) => void; say: (m: string) => void; id: string; note: string }) {
+  const blank: ContactDraft = { first: '', last: '', title: '', for: '', dial: '+61', phone: '', email: '' };
+  const [form, setForm] = useState<Contact | 'new' | null>(null);
+  const [v, setV] = useState<ContactDraft>(blank);
   const [tried, setTried] = useState(false);
+  const [removing, setRemoving] = useState<Contact | null>(null);
+  const openForm = (c: Contact | 'new') => {
+    setForm(c);
+    setTried(false);
+    if (c === 'new') setV(blank);
+    else {
+      const n = splitName(c);
+      const [dial, ...rest] = (c.phone ?? '').split(' ');
+      setV({ first: n.first, last: n.last, title: c.title, for: c.for, dial: c.phone ? dial : '+61', phone: rest.join(' '), email: c.email });
+    }
+  };
   const err = {
-    name: !v.name.trim() ? 'Enter their name.' : null,
-    email: !/^\S+@\S+\.\S+$/.test(v.email.trim()) ? 'Enter an email like name@university.edu.' : null,
+    first: !v.first.trim() ? 'Enter the first name.' : null,
+    last: !v.last.trim() ? 'Enter the last name.' : null,
+    for: !v.for ? 'Pick what they’re for.' : null,
+    phone: v.phone.trim() && (digits(v.phone) < 7 || digits(v.phone) > 13) ? 'Enter a phone number with its country code.' : null,
+    email: !v.email.trim() ? 'Enter the email.' : !EMAIL.test(v.email.trim()) ? 'Enter a valid email, like name@university.edu.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
-  const close = () => {
-    setAdding(false);
-    setEditing(null);
-    setTried(false);
-    setV({ name: '', title: '', for: 'Agreement and renewal', email: '' });
+  const submit = () => {
+    setTried(true);
+    if (Object.values(err).some(Boolean)) return;
+    const c = { first: v.first.trim(), last: v.last.trim(), name: `${v.first.trim()} ${v.last.trim()}`, title: v.title.trim(), for: v.for as ContactFor, email: v.email.trim(), phone: v.phone.trim() ? `${v.dial} ${v.phone.trim()}` : '' };
+    if (form && form !== 'new') save((l) => l.map((y) => (y.id === form.id ? { ...y, ...c } : y)));
+    else save((l) => [...l, { id: `ct-${Date.now().toString(36)}`, ...c }]);
+    say(form === 'new' ? `${c.name} added.` : `${c.name} saved.`);
+    setForm(null);
   };
   return (
-    <Section title="Contacts" id="ip-contacts" updated={p.stamps.contacts} note="Who to talk to at the partner. Admissions contacts for each university are on the university." action={!adding ? <AddButton onClick={() => setAdding(true)}>Add a contact</AddButton> : undefined}>
-      {adding && (
-        <div className="iaddform">
-          <div className="iaddform__grid">
-            <Field id="ipc-name" label="Name" required error={show('name')}>
-              <TextInput id="ipc-name" value={v.name} invalid={!!show('name')} onChange={(e) => setV({ ...v, name: e.target.value })} />
-            </Field>
-            <Field id="ipc-title" label="Job title" optional>
-              <TextInput id="ipc-title" value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder="Like: Partnerships manager" />
-            </Field>
-            <Field id="ipc-for" label="Talk to them about">
-              <SelectInput id="ipc-for" value={v.for} onChange={(e) => setV({ ...v, for: e.target.value as ContactFor })}>
-                {CONTACT_FOR.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <Field id="ipc-email" label="Email" required error={show('email')}>
-              <TextInput id="ipc-email" type="email" value={v.email} invalid={!!show('email')} onChange={(e) => setV({ ...v, email: e.target.value })} />
-            </Field>
-          </div>
-          <div className="iaddform__acts">
-            <Button variant="secondary" size="sm" onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setTried(true);
-                if (Object.values(err).some(Boolean)) return;
-                const c = { name: v.name.trim(), title: v.title.trim(), for: v.for, email: v.email.trim() };
-                if (editing) upd((x) => ({ ...x, contacts: x.contacts.map((y) => (y.id === editing ? { ...y, ...c } : y)) }));
-                else upd((x) => ({ ...x, contacts: [...x.contacts, { id: `ct-${Date.now().toString(36)}`, ...c }] }));
-                say(editing ? `${c.name} saved.` : `${c.name} added.`);
-                close();
-              }}
-            >
-              {editing ? 'Save contact' : 'Add contact'}
-            </Button>
-          </div>
+    <Section title="Contacts" id={id} note={note} action={edit ? <AddButton onClick={() => openForm('new')}>Add a contact</AddButton> : undefined}>
+      {list.length ? (
+        <div className="stab-wrap">
+          <table className="itab">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">For</th>
+                <th scope="col">Phone</th>
+                <th scope="col">Email</th>
+                {edit && (
+                  <th scope="col">
+                    <span className="vh">Edit or remove</span>
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    {c.name}
+                    {c.title && <span className="irow__sub">{c.title}</span>}
+                  </td>
+                  <td>{c.for}</td>
+                  <td className="num">{c.phone || <span className="muted">—</span>}</td>
+                  <td>
+                    <span className="ifacts__copy">
+                      <a href={`mailto:${c.email}`}>{c.email}</a>
+                      <CopyButton text={c.email} what="Email" onDone={say} />
+                    </span>
+                  </td>
+                  {edit && (
+                    <td>
+                      <span className="irowacts">
+                        <button type="button" className="btn btn--link" onClick={() => openForm(c)}>
+                          Edit<span className="vh"> {c.name}</span>
+                        </button>
+                        <button type="button" className="btn btn--link idanger" onClick={() => setRemoving(c)}>
+                          Remove contact<span className="vh"> {c.name}</span>
+                        </button>
+                      </span>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
-      {p.contacts.length ? (
-        <ContactTable
-          list={p.contacts}
-          say={say}
-          editing={editing}
-          onEdit={(c) => {
-            setEditing(c.id);
-            setAdding(true);
-            setTried(false);
-            setV({ name: c.name, title: c.title, for: c.for, email: c.email });
-          }}
-          onRemove={(id) => upd((x) => ({ ...x, contacts: x.contacts.filter((c) => c.id !== id) }))}
-        />
       ) : (
-        <p className="iempty">No contacts yet.</p>
+        <p className="iempty">
+          No contacts yet.{' '}
+          {edit && (
+            <button type="button" className="btn btn--link" onClick={() => openForm('new')}>
+              Add a contact
+            </button>
+          )}
+        </p>
       )}
+      <Sheet
+        open={!!form}
+        onClose={() => setForm(null)}
+        center
+        className="iform"
+        title={form === 'new' ? 'Add a contact' : 'Edit contact'}
+        footer={
+          <div className="asf">
+            <div className="asf__acts">
+              <Button variant="secondary" onClick={() => setForm(null)}>
+                Cancel
+              </Button>
+              <Button onClick={submit}>Save</Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="iform__grid">
+          <Field id={`${id}-first`} label="First name" required error={show('first')}>
+            <TextInput id={`${id}-first`} maxLength={60} value={v.first} invalid={!!show('first')} onChange={(e) => setV({ ...v, first: e.target.value })} />
+          </Field>
+          <Field id={`${id}-last`} label="Last name" required error={show('last')}>
+            <TextInput id={`${id}-last`} maxLength={60} value={v.last} invalid={!!show('last')} onChange={(e) => setV({ ...v, last: e.target.value })} />
+          </Field>
+          <Field id={`${id}-title`} label="Title" optional>
+            <TextInput id={`${id}-title`} maxLength={120} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder="Like: Head of International Partnerships" />
+          </Field>
+          <Field id={`${id}-for`} label="For" required error={show('for')}>
+            <Pick id={`${id}-for`} label="For" value={v.for} placeholder="Pick one" invalid={!!show('for')} options={CONTACT_FOR} onChange={(f) => setV({ ...v, for: f as ContactFor })} />
+          </Field>
+          <Field id={`${id}-phone`} label="Phone" optional error={show('phone')}>
+            <PhoneInput id={`${id}-phone`} dial={v.dial} number={v.phone} invalid={!!show('phone')} onDial={(dial) => setV((x) => ({ ...x, dial }))} onNumber={(phone) => setV((x) => ({ ...x, phone }))} />
+          </Field>
+          <Field id={`${id}-email`} label="Email" required error={show('email')}>
+            <TextInput id={`${id}-email`} type="email" value={v.email} invalid={!!show('email')} onChange={(e) => setV({ ...v, email: e.target.value })} />
+          </Field>
+        </div>
+        {tried && Object.values(err).some(Boolean) && <ErrorText>Fix what’s marked, then save.</ErrorText>}
+      </Sheet>
+      <ConfirmDialog
+        open={!!removing}
+        title={`Remove ${removing?.name}?`}
+        confirm="Remove contact"
+        danger
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          if (removing) save((l) => l.filter((y) => y.id !== removing.id));
+          say(`${removing?.name} removed.`);
+          setRemoving(null);
+        }}
+      >
+        <p>The Change log keeps the removal.</p>
+      </ConfirmDialog>
     </Section>
   );
 }
 
-/** Contacts as a table, shared with the university's page: each can be edited or removed. */
-export function ContactTable({ list, say, onRemove, onEdit, editing }: { list: InstitutionPartner['contacts']; say: (m: string) => void; onRemove: (id: string) => void; onEdit: (c: InstitutionPartner['contacts'][number]) => void; editing?: string | null }) {
-  return (
-    <div className="stab-wrap">
-      <table className="itab">
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">About</th>
-            <th scope="col">Email</th>
-            <th scope="col">
-              <span className="vh">Edit or remove</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((c) => (
-            <tr key={c.id} className={editing === c.id ? 'is-editing' : undefined}>
-              <td>
-                {c.name}
-                {c.title && <span className="irow__sub">{c.title}</span>}
-              </td>
-              <td>{c.for}</td>
-              <td>
-                <span className="ifacts__copy">
-                  <a href={`mailto:${c.email}`}>{c.email}</a>
-                  <CopyButton text={c.email} what="Email" onDone={say} />
-                </span>
-              </td>
-              <td>
-                <span className="irowacts">
-                  <button type="button" className="btn btn--link" onClick={() => onEdit(c)}>
-                    Edit<span className="vh"> {c.name}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--link idanger"
-                    onClick={() => {
-                      onRemove(c.id);
-                      say(`${c.name} removed.`);
-                    }}
-                  >
-                    Remove<span className="vh"> {c.name}</span>
-                  </button>
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-type Edit = { name: string; type: PartnerType; rm: string; country: string; website: string };
-
-function EditPartner({ p, taken, onCancel, onSave }: { p: InstitutionPartner | null; taken: (n: string) => boolean; onCancel: () => void; onSave: (f: Edit) => void }) {
-  const [v, setV] = useState<Edit | null>(null);
-  const [tried, setTried] = useState(false);
-  const [was, setWas] = useState<InstitutionPartner | null>(null);
-  if (p && p !== was) {
-    setWas(p);
-    setV({ name: p.name, type: p.type, rm: p.rm, country: p.country, website: p.website });
-    setTried(false);
-  }
-  if (!p && was) setWas(null);
-  const x = v ?? { name: '', type: 'Direct' as PartnerType, rm: '', country: '', website: '' };
-  const set = (f: Partial<Edit>) => setV({ ...x, ...f });
-  const err = { name: !x.name.trim() ? 'Enter the partner’s name.' : taken(x.name) ? 'That partner is already here.' : null };
-  return (
-    <Sheet
-      open={!!p}
-      onClose={onCancel}
-      center
-      className="iform"
-      title="Edit details"
-      sub="Its agreement’s dates come from its documents, and its commission from Commissions and Finance."
-      footer={
-        <div className="asf">
-          <div className="asf__acts">
-            <Button variant="secondary" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setTried(true);
-                if (!err.name) onSave({ ...x, name: x.name.trim(), website: x.website.trim().replace(/^https?:\/\//, '') });
-              }}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="iform__grid">
-        <Field id="ipe-name" label="Partner name" required error={tried ? err.name : null}>
-          <TextInput id="ipe-name" value={x.name} invalid={tried && !!err.name} onChange={(e) => set({ name: e.target.value })} />
-        </Field>
-        <Field id="ipe-type" label="Type">
-          <SelectInput id="ipe-type" value={x.type} onChange={(e) => set({ type: e.target.value as PartnerType })}>
-            {PARTNER_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        <Field id="ipe-rm" label="Relationship manager">
-          <SelectInput id="ipe-rm" value={x.rm} onChange={(e) => set({ rm: e.target.value })}>
-            {TEAM.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        <Field id="ipe-country" label="Country">
-          <SelectInput id="ipe-country" value={x.country} onChange={(e) => set({ country: e.target.value as Destination })}>
-            {DESTINATIONS.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        <Field id="ipe-web" label="Website" optional>
-          <TextInput id="ipe-web" value={x.website} onChange={(e) => set({ website: e.target.value })} />
-        </Field>
-      </div>
-      {tried && err.name && <ErrorText>{err.name}</ErrorText>}
-    </Sheet>
-  );
-}

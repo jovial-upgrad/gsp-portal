@@ -299,7 +299,7 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin' };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin', role: ({ admin: 'Admin', recruitment: 'Recruitment', bap: 'Recruitment Ops', finance: 'Finance' } as const)[variant] };
   const content =
     WORK_SECTIONS.includes(section as WorkSection) ? (
       <WorkPage section={section as WorkSection} role={`gsp-${variant}`} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
