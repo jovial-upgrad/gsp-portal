@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { STUDY_MODES } from '../../data/courses';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { DateInput, Field, TextInput } from '../../components/forms';
@@ -17,7 +18,7 @@ import { NumberField } from '../../components/NumberField';
  */
 export type CourseDraft = { uni: string; campus: string; name: string; code: string; cricos: string; level: Level | ''; area: Area | ''; mode: StudyMode | ''; durUnit: DurationUnit | ''; durValue: string; url: string; checked: string; source: Source | ''; minEducation?: string; minScore?: number; minScoreScale?: string };
 export const blankCourse: CourseDraft = { uni: '', campus: '', name: '', code: '', cricos: '', level: '', area: '', mode: '', durUnit: '', durValue: '', url: '', checked: '', source: 'Added by hand' };
-export const MODES: StudyMode[] = ['Full time', 'Part time', 'Blended', 'Online'];
+export const MODES: StudyMode[] = [...STUDY_MODES];
 
 /** The university's active campuses. */
 export const activeCampuses = (u?: UniRec) => (u?.campuses ?? []).filter((c) => !u?.inactive.includes(c.name));

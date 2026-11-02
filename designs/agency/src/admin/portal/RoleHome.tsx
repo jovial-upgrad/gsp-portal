@@ -1,4 +1,5 @@
 import { istParts } from '../../data/dates';
+import { RP_ONBOARDING } from '../../institution/data/records';
 import { jobRuns, JOB_NAME } from '../../work/jobs';
 import { now as workNow } from '../../work/clock';
 import type { ReactNode } from 'react';
@@ -76,7 +77,7 @@ const where = (r: RecruitmentPartner) => [r.city, r.country].filter(Boolean).joi
 /** Recruitment (a BDM): the RPs they look after, the new ones assigned to them, and the ones gone quiet. */
 function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
   const mine = db.rps.filter((r) => r.bdm === me);
-  const fresh = mine.filter((r) => ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'].includes(r.status));
+  const fresh = mine.filter((r) => RP_ONBOARDING.includes(r.status));
   const openBy = new Map<string, number>();
   apps.filter(isOpen).forEach((a) => openBy.set(a.rp ?? 'GSP test agency', (openBy.get(a.rp ?? 'GSP test agency') ?? 0) + 1));
   const signed = mine.filter((r) => r.status === 'Agreement signed');

@@ -1,4 +1,5 @@
 import { RP_OWNER_TAG as OWNER_TAG } from '../../data/owners';
+import { requestCategories } from '../../data/chat';
 import { isWithdrawal } from '../../data/reasons';
 import { KeyGroup, WithdrawDialog, appliedAt } from '../../gsp/applications/AppDetail';
 import { RP_WITHDRAW_OFF, autoName, rpCanWithdraw } from '../../data/appRules';
@@ -1004,7 +1005,7 @@ function ExtraDoc({ onAdd }: { onAdd: (name: string, file: string) => void }) {
         <Icon name="upload" size={16} /> Upload a document
       </Button>
       <input ref={input} type="file" hidden accept={UPLOAD.accept} onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
-      <NameDialog file={file} usual={['Gap explanation letter', 'Experience letter', 'Sponsor letter', 'Name change affidavit']} onCancel={() => setFile(null)} onAdd={(n) => { if (file) onAdd(n, file.name); setFile(null); }} />
+      <NameDialog file={file} usual={requestCategories()} onCancel={() => setFile(null)} onAdd={(n) => { if (file) onAdd(n, file.name); setFile(null); }} />
     </section>
   );
 }

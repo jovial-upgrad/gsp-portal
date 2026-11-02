@@ -7,7 +7,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { useStore, simulateJobFailure, simulateBounces, clearSimulations } from './store';
-import { jobRuns, JOB_NAME, JOB_RULES_OF } from './jobs';
+import { jobRuns, JOB_NAME, JOB_RULES_OF, JOB_SENDS } from './jobs';
 import { Page, Card, Tabs, Table, Pill, LinkButton, Sheet, Notice } from '../finance/kit';
 import { PersonaBar } from './persona';
 import { EMAIL_TEMPLATES, EMAIL_RULES, EMAIL_FOOTER, EMAIL_PLACEHOLDERS, JOBS, JOB_RULES } from './mail';
@@ -32,8 +32,6 @@ function nextRun(j, t = now()) {
   }
   return null;
 }
-/** Which templates each job sends, for a run's "emails sent". */
-const JOB_SENDS = { J3: ['E20'], J4: ['E13', 'E17', 'E21', 'E22'], J6: ['E19'], J7: ['E18'], J9: ['E14'], J2: ['E11'] };
 /** The latest runs of every job, newest first: what each found, made and sent since the run before. */
 function runLog(s, sent) {
   const t = now();

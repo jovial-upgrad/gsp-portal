@@ -15,7 +15,7 @@ import { regionOfPlace } from '../data/regions';
 import { recruitmentQueueId } from './seed';
 import { ruleLive, timeHours, afterFrom } from './engine';
 import { calendarOf } from './calendars';
-import { agreementOf, EXECUTED, ENDED } from '../institution/data/records';
+import { agreementOf, EXECUTED, ENDED, RP_ONBOARDING } from '../institution/data/records';
 import { destinations } from '../data/reference';
 import { istAt, istYmd, istWeekday } from './clock';
 import { jobRuns, JOB_NAME } from './jobs';
@@ -157,7 +157,7 @@ export const RECORD_LOGIC = {
     return [...levels, ...dests].map((what) => ({ key: what, rec: setRec('docs', what), since: WORK_START, vars: { 'level / destination': what } }));
   },
 };
-const ONBOARDING = ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'];
+const ONBOARDING = RP_ONBOARDING;
 const catName = (c) => ({ 'United Kingdom': 'UK', 'United States': 'USA' })[c] ?? c;
 /** When an RP's status last changed: its latest logged step, else the day it joined. */
 function statusSince(r) {

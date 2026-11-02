@@ -22,6 +22,9 @@ export const JOB_RULES_OF = {
   J8: ['T49', 'T50'],
 };
 
+/** Which email templates each job sends (slice 4 PRD, Daily jobs), for a run's "emails sent". */
+export const JOB_SENDS = { J2: ['E11'], J3: ['E20'], J4: ['E13', 'E17', 'E21', 'E22'], J6: ['E19'], J7: ['E18'], J9: ['E14'] };
+
 /** The moments a job has run, newest first, at most `limit`, up to `now`. */
 export function runTimes(j, now, limit = 20) {
   const job = JOBS.find((x) => x.id === j);

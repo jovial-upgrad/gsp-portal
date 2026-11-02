@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CAMPUS_SETTINGS } from '../../data/courses';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -373,7 +374,7 @@ function ProfileFacts({ u }: { u: UniRec }) {
   );
 }
 
-const SETTINGS = ['City centre', 'Suburban', 'Regional town'] as const;
+const SETTINGS = CAMPUS_SETTINGS;
 const GEO_NAME: Record<string, string> = { UK: 'United Kingdom', USA: 'United States' };
 
 /**

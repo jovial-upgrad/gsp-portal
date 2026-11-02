@@ -4,6 +4,8 @@
  * settings and weekly FX. Every change waits for a second Finance person
  * (maker-checker) and shows what it would do to amounts already in the system.
  */
+import { adminCfg } from '../admin/data/store';
+import { NOTICE_SOURCES, STUDENT_TYPES } from './defaults';
 import React, { useState } from 'react';
 import { update, nameOf, getState } from './store';
 import { Card, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, Num, Chip, toast, fmtAge, NumberInput, DateField } from './kit';
@@ -15,7 +17,8 @@ import { salesRegionNames } from '../admin/data/config';
 import { proposeChange, applyChange, impactOf, aud, opsOf, payoutCurOf, settingsOf } from './shared';
 
 const AREAS = [['unis', 'Universities'], ['rps', 'RP terms'], ['schemes', 'Schemes'], ['notices', 'Notices'], ['settings', 'Settings and FX']];
-const CURS = ['AUD', 'GBP', 'NZD', 'USD', 'INR', 'NPR', 'BDT', 'LKR', 'VND'];
+// the currencies: GSP · Admin › Currency exchange, the one source (Jovial, 31 Oct)
+const cursNow = () => adminCfg().rates.map(r => r.code);
 
 export default function Terms({ c, user, canEdit }) {
   const [area, setArea] = useState('unis');
@@ -254,7 +257,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
           <Field id="u-days" label="Days to pay an invoice" required error={v.err('payDays')}><NumberInput id="u-days" decimal={false} min={0} steppers value={d.payDays} onBlur={v.blur('payDays')} onChange={x => set('payDays', x)} /></Field>
           <Field id="u-cap" label="Cap per student (first year)" hint="Leave blank for no cap" error={v.err('cap')}><NumberInput id="u-cap" value={d.cap ?? ''} onBlur={v.blur('cap')} onChange={x => set('cap', num(x))} /></Field>
           <Field id="u-end" label="Agreement ends" hint={u.agreement ? `From the Institution partner record${u.agreement.partner ? ` (${u.agreement.partner}, ${u.agreement.status})` : ''}: the Institution Team changes it there.` : 'No Institution partner record yet.'}><DateField id="u-end" value={d.ends || ''} onChange={() => undefined} readOnly /></Field>
-          <Select id="u-cur" label="Currency" required value={d.cur} onChange={x => set('cur', x)} options={CURS} />
+          <Select id="u-cur" label="Currency" required value={d.cur} onChange={x => set('cur', x)} options={cursNow()} />
           <fieldset className="field gspx-fieldset"><legend className="field__label">Rates by level (% of tuition; empty: not paid)</legend>
             <div className="gspx-rates">{lv.map(k => (
               <label key={k} className="gspx-rate"><span>{LEVELS[k]}</span>
@@ -313,7 +316,7 @@ function RpSheet({ ro, c, r, onClose, propose }) {
         <Select id="rp-terms" label="Terms" required value={own ? 'own' : d.scheme} onChange={x => x === 'own' ? set('flat', 80) : (set('flat', null), set('scheme', x))}
           options={[['own', 'Own flat rate'], ...c.cfg.schemes.map(x => [x.id, `${x.id} ${x.name}`])]} />
         {own && <Field id="rp-flat" label="Own flat rate (% of GSP’s commission)" required error={v.err('flat')}><NumberInput id="rp-flat" value={d.flat} onBlur={v.blur('flat')} onChange={x => set('flat', x)} /></Field>}
-        <Select id="rp-cur" label="Payout currency" required value={d.cur} onChange={x => set('cur', x)} options={CURS} />
+        <Select id="rp-cur" label="Payout currency" required value={d.cur} onChange={x => set('cur', x)} options={cursNow()} />
         <Select id="rp-bank" label="Bank account" required value={d.bank} onChange={x => set('bank', x)} options={[['AU', 'Australian account (batch 1)'], ['Local', 'Local account (batch 2)']]} />
         <Select id="rp-payee" label="Paid through a Master Partner?" value={d.payee || ''} onChange={x => set('payee', x)} placeholder="No, GSP pays the RP" options={mps.map(x => [x.id, x.name])} />
         <Field id="rp-ann" label="Own annuity share (%)" error={v.err('ann')} hint={`Blank: the setting (${c.cfg.settings.annuityRp === 'same' ? 'same as year 1' : c.cfg.settings.annuityRp})`}><NumberInput id="rp-ann" value={d.annuityPct ?? ''} onBlur={v.blur('ann')} onChange={x => set('annuityPct', num(x))} /></Field>
@@ -371,7 +374,7 @@ function NoticeSheet({ ro, c, x, onClose, propose }) {
     <Sheet title={x ? `${x.id} ${x.name}` : 'Add notice'} sub="From the notice, addendum, flyer or email approval" onClose={onClose} wide dirty={!ro && dirty} what={x ? `notice ${x.id}` : 'the new notice'} footer={<Foot ro={ro} dirty={!x || dirty} onClose={onClose} onSave={save} />}>
       <div className="gspx-form2">
         <Field id="n-n" label="Name" required error={v.err('name')}><Input id="n-n" value={d.name} onBlur={v.blur('name')} onChange={y => set('name', y)} /></Field>
-        <Select id="n-doc" label="Source document" required value={d.doc} onChange={y => set('doc', y)} options={['Notice', 'Addendum', 'Flyer', 'Email approval']} />
+        <Select id="n-doc" label="Source document" required value={d.doc} onChange={y => set('doc', y)} options={[...NOTICE_SOURCES]} />
         <Field id="n-s" label="Enrolments from" required error={v.err('start')}><DateField id="n-s" value={d.start} onBlur={v.blur('start')} onChange={y => set('start', y)} /></Field>
         <Field id="n-e" label="Enrolments to" hint="Leave blank for no end" error={v.err('end')}><DateField id="n-e" value={d.end} onBlur={v.blur('end')} onChange={y => set('end', y)} /></Field>
         <Field id="n-r" label="Region (when no RPs are listed)"><Input id="n-r" value={d.region} onChange={y => set('region', y)} /></Field>
@@ -400,7 +403,7 @@ export function Settings({ c, canEdit, propose }) {
   const [d, set, setD, changed] = useDraft(S);
   const weekOf = c.today; const rows = [...d.fx].sort((a, b) => a.week < b.week ? -1 : 1);
   const cur = rows.filter(w => w.week <= weekOf).pop();
-  const ccy = ['GBP', 'NZD', 'USD', 'CAD', 'EUR', 'INR', 'NPR', 'BDT', 'LKR', 'VND'];
+  const ccy = cursNow().filter(k => k !== 'AUD');
   // QC, 1 Nov: rates 0 to 100, no negative days or weeks, empty is "not set" (never 0)
   const errors = {
     dp: pctError(d.defaultPct, 'default rate', true),
@@ -444,7 +447,7 @@ export function Settings({ c, canEdit, propose }) {
           <Field id="st-ei" label="Instalments a year" required error={v.err('est')}><NumberInput id="st-ei" decimal={false} min={1} max={12} steppers value={d.estimate.inst} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, inst: num(x) })} /></Field>
           <Field id="st-ep" label="University pays within (days)" required><NumberInput id="st-ep" decimal={false} min={0} steppers value={d.estimate.payDays} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, payDays: num(x) })} /></Field>
           <Select id="st-et" label="Commission is earned at" required disabled={!canEdit} value={d.estimate.trigger} onChange={x => set('estimate', { ...d.estimate, trigger: x })} options={Object.entries(TRIG)} />
-          <Select id="st-es" label="Student type" required disabled={!canEdit} value={d.estimate.studentType} onChange={x => set('estimate', { ...d.estimate, studentType: x })} options={['New', 'Continuing', 'Transfer']} />
+          <Select id="st-es" label="Student type" required disabled={!canEdit} value={d.estimate.studentType} onChange={x => set('estimate', { ...d.estimate, studentType: x })} options={[...STUDENT_TYPES]} />
         </div>
       </Card>
       <Card flush>
@@ -462,7 +465,7 @@ export function Settings({ c, canEdit, propose }) {
         <Table head={['Sales region', 'Payout currency', 'Withholding (%)']}>
           {salesRegionNames().filter(r => r !== 'Global').map(r => (
             <tr key={r} className="irow"><td className="cfg__strong">{r}</td>
-              <td><Select id={`st-pc-${r}`} label={`${r}: payout currency`} hideLabel disabled={!canEdit} value={d.payoutCur[r] || 'AUD'} onChange={x => set('payoutCur', { ...d.payoutCur, [r]: x === 'AUD' ? undefined : x })} options={CURS} /></td>
+              <td><Select id={`st-pc-${r}`} label={`${r}: payout currency`} hideLabel disabled={!canEdit} value={d.payoutCur[r] || 'AUD'} onChange={x => set('payoutCur', { ...d.payoutCur, [r]: x === 'AUD' ? undefined : x })} options={cursNow()} /></td>
               <td><Num label={`${r}: withholding (%)`} disabled={!canEdit} value={(d.wht || {})[r] ?? ''} onBlur={v.blur('wh')} onChange={y => set('wht', { ...(d.wht || {}), [r]: y === '' ? undefined : y })} /></td></tr>))}
         </Table>
         {v.err('wh') && <p className="field__msg field__msg--error gspx-pad" role="alert">{v.err('wh')}</p>}

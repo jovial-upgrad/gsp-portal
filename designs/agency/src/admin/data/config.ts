@@ -132,7 +132,9 @@ export type GspRole = (typeof GSP_ROLES)[number];
  * Login status (PRD slice 1, GSP users): Link sent (created; the login email's link works for 7 days), Active (has
  * signed in at least once), Deactivated (can't sign in; kept for history).
  */
-export type UserStatus = 'Link sent' | 'Active' | 'Deactivated';
+/** A GSP user's login status (slice 1). */
+export const USER_STATUSES = ['Link sent', 'Active', 'Deactivated'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
 /**
  * A GSP user (PRD slice 1). `id` is stable (never the email). `role` is '' only while a new user is being created.
  * No Area field (Jovial, S1C-3): every Recruitment user has just their sales regions; where someone is the default
@@ -627,7 +629,9 @@ export const sampleDocRules = (): DocRule[] => {
 };
 /** A recruitment partner document: its name and whether it's needed. */
 export type RpDoc = { name: string; setting: 'Mandatory' | 'Optional' };
-export type RpDocRule = { id: string; name?: string; applies: 'Only these countries' | 'All countries except' | 'All countries'; countries: string[]; docs: RpDoc[] };
+/** How an RP document rule's countries apply. */
+export const RP_DOC_APPLIES = ['Only these countries', 'All countries except', 'All countries'] as const;
+export type RpDocRule = { id: string; name?: string; applies: (typeof RP_DOC_APPLIES)[number]; countries: string[]; docs: RpDoc[] };
 /** Older saved rules kept documents as plain names ("GST certificate (if registered)" was the optional one). */
 export const rpDocsOf = (r: { docs: (RpDoc | string)[] }): RpDoc[] => r.docs.map((x) => (typeof x === 'string' ? { name: x.replace(/\s*\(if [^)]*\)/i, ''), setting: /\(if /i.test(x) ? 'Optional' : 'Mandatory' } : x));
 export const sampleRpDocs = (): RpDocRule[] => [

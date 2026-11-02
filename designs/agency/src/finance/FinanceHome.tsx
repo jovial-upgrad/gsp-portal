@@ -4,6 +4,7 @@
  * Today's jobs (from the recurring jobs list on Finance setup) with live counts,
  * what's waiting on this person, and the week ahead.
  */
+import { adminCfg } from '../admin/data/store';
 import { istParts } from '../data/dates';
 import React, { useContext } from 'react';
 import { update, nameOf } from './store';
@@ -23,7 +24,7 @@ export default function FinanceHome() {
 
   /* Live numbers behind each job */
   const fxWeek = [...cfg.settings.fx].sort((a, b) => a.week < b.week ? -1 : 1).filter(w => w.week <= today).pop();
-  const fxMissing = fxWeek ? ['GBP', 'NZD', 'USD', 'INR', 'NPR', 'BDT', 'LKR', 'VND'].filter(k => fxWeek[k] == null || fxWeek[k] === '') : ['all'];
+  const fxMissing = fxWeek ? adminCfg().rates.map(r => r.code).filter(k => k !== 'AUD').filter(k => fxWeek[k] == null || fxWeek[k] === '') : ['all'];
   const ready = res.ip.filter(x => x.l.st[0] === 'Ready to invoice');
   const overdue = res.ip.filter(x => /overdue|Invoiced/.test(x.l.st[0]));
   const checks = c.checks.filter(k => k.status === 'waiting');

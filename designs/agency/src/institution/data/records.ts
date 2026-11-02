@@ -404,6 +404,8 @@ export function agreementJob<U extends { id: string; ip: string; status: string;
  */
 /** Agreement sent: every document verified and the agreement with the RP (to sign, or its signed copy with RP Ops). Agreement signed: its first agreement accepted, so it's approved and every module is open (Jovial, 2 Nov). */
 export const RP_STATUSES = ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent', 'Agreement signed', 'Rejected', 'Suspended', 'Dormant'] as const;
+/** The statuses of an RP still being taken on (slice 2): before its first agreement is signed. */
+export const RP_ONBOARDING: RpStatus[] = ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'];
 /** Each status's colour (GSP owner colours: amber with the RP, violet with GSP). */
 export const RP_STATUS_TONE: Record<RpStatus, 'you' | 'gsp' | 'uni' | 'ok' | 'bad' | 'grey'> = { 'Not activated': 'you', Verifying: 'gsp', 'Documents sent back': 'you', 'Agreement sent': 'uni', 'Agreement signed': 'ok', Rejected: 'bad', Suspended: 'bad', Dormant: 'grey' };
 export type RpStatus = (typeof RP_STATUSES)[number];

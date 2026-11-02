@@ -1,6 +1,7 @@
 import { RpCommission } from '../../components/CommissionSummary';
+import { canEditObject } from '../../admin/data/menus';
 import { fmtDate } from '../../data/format';
-import { byRegion, getScope, isIsolated } from '../../data/scope';
+import { byRegion, isIsolated } from '../../data/scope';
 import { regionOfCountry } from '../../data/regions';
 import { useMemo, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
@@ -431,7 +432,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
         {tab === 'commission' && (
           <Section title="Commission" id="irp-commission" note="Terms are set by Finance in Commissions (read only here).">
             {/* Jovial, 1 Nov: read-only terms; RP Ops and Finance can change the bank details */}
-            <RpCommission name={r.name} canBank={['RP Ops', 'Finance', 'Admin'].includes(role) || ['gsp-bap', 'gsp-finance', 'gsp-admin'].includes(getScope().viewer)} />
+            <RpCommission name={r.name} canBank={canEditObject(role, 'RP bank details')} />
             {commissionHeld(r) && <p className="irsec__note">No agreement is active yet: commission on applications enrolled now is held, and paid once the signed agreement is accepted (S2-11).</p>}
             {activeAgreement(r) && openAgreement(r) && <p className="irsec__note">A new agreement is with the RP; {activeAgreement(r)!.version} stays active, so nothing is held.</p>}
           </Section>

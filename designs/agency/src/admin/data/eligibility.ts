@@ -6,7 +6,9 @@
  */
 import { adminCfg, type Cfg } from './store';
 
-export type ConvertBy = 'As is' | 'Multiplier' | 'Bands';
+/** How a grading system converts to a percentage (S3-4). */
+export const CONVERT_BY = ['As is', 'Multiplier', 'Bands'] as const;
+export type ConvertBy = (typeof CONVERT_BY)[number];
 /** A band: From and To on the system's own scale (To may be a grade, such as First) and the percentage it converts to. */
 export type Band = { from: string; to: string; pct: number };
 export type GradingSystem = { id: string; name: string; usedIn: string; by: ConvertBy; mult?: number; bands: Band[]; status: 'Active' | 'Retired' };

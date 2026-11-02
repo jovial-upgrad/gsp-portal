@@ -822,7 +822,7 @@ export function AppDetail({
       />
       <NameDialog
         file={naming}
-        usual={['Conditional offer letter', 'Unconditional offer letter', 'Acceptance letter', 'Visa grant', 'Proof of enrolment']}
+        usual={adminCfg().docRules.filter((r) => r.by === 'GSP').map((r) => r.doc)}
         onCancel={() => setNaming(null)}
         onAdd={(name) => {
           if (naming) addFile(naming.name, undefined, name);

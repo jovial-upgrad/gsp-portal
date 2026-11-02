@@ -444,7 +444,10 @@ function build(): Course[] {
 
 /* ---------- the detail a course page needs (its own random stream, so adding it changed no other data) ---------- */
 
-export type StudyMode = 'Full time' | 'Part time' | 'Blended' | 'Online';
+/** A course's study modes, and a campus's setting (slice 2). */
+export const STUDY_MODES = ['Full time', 'Part time', 'Blended', 'Online'] as const;
+export type StudyMode = (typeof STUDY_MODES)[number];
+export const CAMPUS_SETTINGS = ['City centre', 'Suburban', 'Regional town'] as const;
 /** Most courses for international students are full time; a few are blended, part time or online. From the course's id, so no other data moves. */
 function modeOf(id: string): StudyMode {
   let h = 0;

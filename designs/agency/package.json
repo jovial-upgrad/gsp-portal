@@ -12,7 +12,9 @@
     "test:commissions": "node scripts/test-commissions.mjs",
     "build:sandbox": "node scripts/build-sandbox.mjs",
     "test:agreements": "node scripts/test-rp-agreements.mjs",
-    "test:lock-rules": "node scripts/test-lock-rules.mjs"
+    "test:lock-rules": "node scripts/test-lock-rules.mjs",
+    "test:derived": "node scripts/test-derived.mjs",
+    "scan:hardcoded": "node scripts/scan-hardcoded.mjs"
   },
   "dependencies": {
     "motion": "^12.23.12",
