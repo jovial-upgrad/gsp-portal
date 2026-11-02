@@ -111,7 +111,7 @@ export const EXTRA_DOCS: [string, string, string][] = [
 
 export type Owner = 'you' | 'gsp' | 'uni';
 /** An application as the student's record shows it; the Applications page holds the application itself. */
-export type StudentApp = { id: string; course: string; uni: string; intake: string; owner: Owner | 'done' | 'end'; status: string };
+export type StudentApp = { id: string; course: string; uni: string; intake: string; owner: Owner | 'done' | 'end' | 'wd'; status: string };
 export type Gender = '' | 'Male' | 'Female' | 'Other';
 
 export type Student = {

@@ -12,7 +12,7 @@
  * They answer only from the application's own data, and they never change it.
  */
 import { finalFeeOf, flagsOf } from './live';
-import { closeReasons, type EndKind } from './reasons';
+import { closeReasons, isWithdrawal, type EndKind } from './reasons';
 import { uniForms } from './courses';
 import { adminCfg } from '../admin/data/store';
 import { condOf, whenText } from '../admin/data/config';
@@ -41,8 +41,8 @@ export const STAGE_HINT = [
   'Enrolment',
 ];
 
-/** Who has it now. done: enrolled. end: closed early. */
-export type AppOwner = Owner | 'done' | 'end';
+/** Who has it now. done: enrolled. end: closed. wd: withdrawn (S3-27: the three finished pills). */
+export type AppOwner = Owner | 'done' | 'end' | 'wd';
 
 export type StatusKey =
   | 'docs'
@@ -114,28 +114,32 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   reupload: { stage: 1, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   ready: { stage: 2, owner: 'gsp', text: () => 'Ready to submit', phase: 'before' },
   lodged: { stage: 2, owner: 'uni', text: () => 'Submitted to university', phase: 'after' },
-  moreinfo: { stage: 2, owner: 'you', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true, phase: 'after' },
+  // S3-24: On GSP until the officer sends a request (separately); the status sends nothing
+  moreinfo: { stage: 2, owner: 'gsp', text: () => 'Additional documents requested', branch: 'If the university asks for more', asks: true, phase: 'after' },
   addverify: { stage: 2, owner: 'gsp', text: () => 'Verifying additional documents', branch: 'After additional documents', phase: 'after' },
   // engineering review, 1 Nov: GSP sends the checked additional documents on to the university
   addsent: { stage: 2, owner: 'uni', text: () => 'Additional documents submitted to university', branch: 'After additional documents', phase: 'after' },
   // a document rejected at this stage is one of the additional documents, so it comes after submission
   reapp: { stage: 2, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true, phase: 'after' },
-  conditions: { stage: 3, owner: 'you', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
+  conditions: { stage: 3, owner: 'gsp', text: () => 'Conditional offer received, conditions pending', doc: { by: 'gsp', name: () => 'Conditional offer letter' }, asks: true },
   condsent: { stage: 3, owner: 'uni', text: () => 'Conditions submitted to university' },
   reoffer: { stage: 3, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   finance: { stage: 4, owner: 'gsp', text: () => 'Finance and background check' },
-  interview: { stage: 4, owner: 'you', text: () => 'University assessment or interview', branch: 'If the university assesses or interviews' },
+  // S3-24: the university's
+  interview: { stage: 4, owner: 'uni', text: () => 'University assessment or interview', branch: 'If the university assesses or interviews' },
   uol: { stage: 4, owner: 'gsp', text: () => 'Unconditional offer letter received', doc: { by: 'gsp', name: () => 'Unconditional offer letter' } },
   rever: { stage: 4, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
-  deposit: { stage: 5, owner: 'you', text: () => 'Tuition or deposit pending', asks: true },
+  // S3-24: On GSP; On RP once the payment proof is requested (separately)
+  deposit: { stage: 5, owner: 'gsp', text: () => 'Tuition or deposit pending', asks: true },
   payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', doc: { by: 'you', name: () => 'Payment proof' } },
   waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
-  // Jovial, 1 Nov: the acceptance letter (CoE, CAS, I-20, LOA…) in, before the visa step
-  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
+  // S3-23: one Acceptance letter for every destination (no CoE, CAS, I-20, LOA or Offer of place)
+  accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: () => 'Acceptance letter' } },
   reacc: { stage: 5, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   // the visa is lodged by the agency or by GSP, never both: these two follow whoever lodges it (see ownerAt)
   visa: { stage: 6, owner: 'you', text: () => 'Visa lodgement pending', asks: true },
-  visasub: { stage: 6, owner: 'you', text: () => 'Visa decision pending', doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
+  // S3-12: On GSP, whoever lodged
+  visasub: { stage: 6, owner: 'gsp', text: () => 'Visa decision pending', doc: { by: 'lodger', name: () => 'Visa lodgement proof' } },
   startdate: { stage: 6, owner: 'gsp', text: () => 'Visa granted: waiting for start date', doc: { by: 'lodger', name: () => 'Visa' } },
   revisa: { stage: 6, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   enrolconf: { stage: 7, owner: 'gsp', text: () => 'Enrolment confirmation pending', doc: { by: 'gsp', name: () => 'Proof of enrolment' } },
@@ -216,6 +220,8 @@ export type Msg = {
   useFor?: { need: string; file: string };
   /** A message drafted for the agency to send to the student. */
   draft?: { en: string; hi: string };
+  /** A request card that ended without an answer: withdrawn by GSP ("Withdrawn by <name>") or closed with the application. */
+  ended?: { kind: 'withdrawn' | 'closed'; by?: string; at: number };
 };
 
 export type Offer = {
@@ -277,12 +283,14 @@ export const openRequests = (a: Application) => a.needs.filter((n) => n.request)
  * moves the application to Visa lodgement pending); a conditional offer is GSP's until GSP has sent the conditions to
  * the RP, then the RP's.
  */
-export const ownerAt = (k: StatusKey, a: Pick<Application, 'visaBy'> & { id?: string }): AppOwner => {
+export const ownerAt = (k: StatusKey, a: Pick<Application, 'visaBy'> & { id?: string; end?: Application['end'] }): AppOwner => {
   const f = a.id ? flagsOf(a.id) : {};
-  if (k === 'visa' || k === 'visasub') return f.visaBy ?? a.visaBy ?? 'you';
-  if (k === 'conditions' && f.condsSent === false) return 'gsp';
+  if (k === 'closed' && isWithdrawal(a.end?.kind)) return 'wd';
+  if (k === 'visa') return (f.visaBy ?? a.visaBy ?? 'you') === 'gsp' ? 'gsp' : 'you';
   return STATUS[k].owner;
 };
+/** The five university statuses (slice 3 PRD, Who has it rule 4; University assessment or interview from 2 Nov, S3-24). */
+export const UNI_STATUSES: StatusKey[] = ['lodged', 'addsent', 'condsent', 'interview', 'waitad'];
 /** The agency's documents GSP hasn't checked yet: the latest copy of each, sent and not verified. */
 export function toCheck(a: Application) {
   if (a.status === 'docs') return [];
@@ -297,15 +305,26 @@ export function toCheck(a: Application) {
  * GSP moves the status on. Otherwise the status says who.
  */
 export function ownerOf(a: Application): AppOwner {
+  // a finished application is with no one: Enrolled, Closed or Withdrawn (S3-27)
   if (!isOpen(a)) return ownerAt(a.status, a);
-  if (openRequests(a).length) return 'you';
+  // slice 3 PRD, Who has it comes from what's open, not from the status (decided); the first rule that matches decides:
+  // 1. New: On RP, until the RP sends the documents
+  if (a.status === 'docs') return 'you';
+  // 2. an open request to the RP (a document request, a send-back, a conditions request, the visa lodgement proof):
+  //    On RP; paused and withdrawn requests aren't in `needs`; it outranks a university status (S3-11)
+  if (a.needs.some((n) => !n.profile)) return 'you';
+  // 3. something the RP sent that waits for GSP's review: On GSP
   if (toCheck(a).length) return 'gsp';
-  const o = ownerAt(a.status, a);
-  return o === 'you' && STATUS[a.status].asks && !a.needs.length ? 'gsp' : o;
+  // 4. a university status: On university
+  if (UNI_STATUSES.includes(a.status)) return 'uni';
+  // 5. anything else: On GSP
+  return 'gsp';
 }
 /** Needs the agency: its own statuses, or a document GSP asked for. */
 export const needsYou = (a: Application) => isOpen(a) && ownerOf(a) === 'you';
-export const statusText = (a: Application) => (a.status === 'closed' ? `${a.end?.kind ?? 'Closed'}: ${a.end?.reason ?? ''}`.replace(/: $/, '') : STATUS[a.status].text(destOf(a)));
+/** "Closed: University rejected", "Withdrawn: The student chose another offer", or the status. */
+export const statusText = (a: Application) =>
+  a.status === 'closed' ? (isWithdrawal(a.end?.kind) ? `Withdrawn${a.end?.reason ? `: ${a.end.reason}` : ''}` : `Closed: ${a.end?.kind ?? ''}`.replace(/: $/, '')) : STATUS[a.status].text(destOf(a));
 export const isOpen = (a: Application) => a.status !== 'closed' && a.status !== 'enrolled';
 
 /**

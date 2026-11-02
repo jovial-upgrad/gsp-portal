@@ -8,7 +8,7 @@ import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
-import { FLAG, money } from '../../data/courses';
+import { FLAG, durationText, money } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { fullName, readiness, TESTS, type Member, type Student } from '../../data/students';
 import {
@@ -29,7 +29,7 @@ import {
   type EndKind,
   type Need,
 } from '../../data/applications';
-import { campusLabel, duration, UniMark } from '../courses/parts';
+import { campusLabel, UniMark } from '../courses/parts';
 import { Avatar, CopyButton } from '../students/parts';
 import type { RecordTab } from '../students/StudentRecord';
 import { AssistMark, StageTrack } from './parts';
@@ -41,7 +41,15 @@ import { routeApplication } from '../../data/regions';
 import { isMine } from '../../data/scope';
 import { regionQueueName } from '../../admin/data/config';
 import { officerOf } from '../../data/dataset';
+import { staffById } from '../../data/staff';
 import { StatusDialog, type StatusPick } from './StatusDialog';
+import { REF_FORMAT_ERROR, autoName, isAdmissions, refClash, refClashError, refFormat } from '../../data/appRules';
+import { isWithdrawal } from '../../data/reasons';
+import { adminCfg } from '../../admin/data/store';
+import { staffByEmail, label as staffLabel } from '../../data/staff';
+import { Sheet } from '../../components/Sheet';
+import { SelectMenu } from '../../components/SelectMenu';
+import { Field } from '../../components/forms';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
 import { rpTeam } from '../../data/rpteam';
@@ -102,9 +110,14 @@ export function AppDetail({
   onBack,
   onOpenStudent,
   say,
+  all = [],
+  students = [],
 }: {
   a: Application;
   s: Student;
+  /** Every application and student GSP sees: for the university reference check (S3-22). */
+  all?: Application[];
+  students?: Student[];
   team: Member[];
   agency: string;
   desk: Desk;
@@ -206,8 +219,16 @@ export function AppDetail({
     const from = statusText(a);
     const to = STATUS[k].text(d);
     const visaBy = 'visaBy' in pick ? pick.visaBy : undefined;
+    // what the status needed, done in the popup: the reference (or No reference ID), GSP's mandatory upload
+    const extra: Application['history'] = [
+      ...(pick.ref ? [{ at: now, who: 'gsp' as const, text: `Added the university reference ${pick.ref}`, by: gsp.name }] : []),
+      ...(pick.noRef ? [{ at: now, who: 'gsp' as const, text: 'Submitted with No reference ID (the reference can be added later from Key details)', by: gsp.name }] : []),
+      ...(pick.upload ? [{ at: now, who: 'gsp' as const, text: `Uploaded the ${pick.upload.name.toLowerCase()} (${pick.upload.file}) to Documents by GSP`, by: gsp.name }] : []),
+      ...(visaBy ? [{ at: now, who: 'gsp' as const, text: visaBy === 'gsp' ? 'GSP lodges the visa for this application' : 'The RP lodges the visa', by: gsp.name }] : []),
+    ];
     update((x) => ({
-      ...arriveAt({ ...x, ...(visaBy ? { visaBy } : {}), history: [...x.history, { at: now, who: 'gsp', text: `Changed the status from “${from}” to “${to}”`, by: gsp.name }, ...(visaBy ? [{ at: now, who: 'gsp' as const, text: visaBy === 'gsp' ? 'GSP lodges the visa for this application' : 'The RP lodges the visa', by: gsp.name }] : [])] }, k, now, gsp.name),
+      // a request a status change sends by itself (the visa lodgement proof, when the RP lodges) goes out under the officer's name (S3-13)
+      ...arriveAt({ ...x, ...(visaBy ? { visaBy } : {}), ...(pick.ref ? { uniRef: pick.ref } : {}), files: pick.upload ? [...x.files, { name: pick.upload.name, file: pick.upload.file, from: 'gsp' as const, at: now, status: 'verified' as const }] : x.files, history: [...x.history, { at: now, who: 'gsp', text: `Changed the status from “${from}” to “${to}”`, by: gsp.name }, ...extra] }, k, now, autoName(x, gsp.name)),
       status: k,
       since: now,
       end: undefined,
@@ -224,6 +245,9 @@ export function AppDetail({
 
   const setRef = (ref: string, was?: string) => {
     const now = Date.now();
+    // the same check as the Submitted to university popup (S3-8, S3-22): university + reference
+    const clash = refClash(all, a, ref);
+    if (clash) return say(refClashError(clash, students));
     update((x) => ({ ...x, uniRef: ref, history: [...x.history, { at: now, who: 'gsp', text: was ? `Changed the university reference from ${was} to ${ref}` : `Added the university reference ${ref}`, by: gsp.name }] }));
   };
 
@@ -293,7 +317,7 @@ export function AppDetail({
       ...(back && back !== x.status ? { status: back, since: now } : {}),
       unread: (x.unread ?? 0) + 1,
       needs: [...x.needs, need],
-      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: gsp.name, text: `I’ve sent back the ${r.name.toLowerCase()}: ${/[.!?]$/.test(reason) ? reason : `${reason}.`} Could you upload it again?`, request: need.id, requestName: need.title }],
+      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: autoName(x, gsp.name), text: `I’ve sent back the ${r.name.toLowerCase()}: ${/[.!?]$/.test(reason) ? reason : `${reason}.`} Could you upload it again?`, request: need.id, requestName: need.title }],
       history: [
         ...x.history,
         { at: now, who: 'gsp', text: `Sent back the ${r.name.toLowerCase()}: ${reason}`, by: gsp.name },
@@ -319,7 +343,7 @@ export function AppDetail({
       ...x,
       files: [...x.files, { name: m.name, file: m.file, from: 'uni', at: now, status: 'verified' }],
       unread: (x.unread ?? 0) + 1,
-      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: gsp.name, text: `${m.org} sent ${s.first}’s ${m.name}. I’ve added it to Documents.`, files: [m.file] }],
+      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: autoName(x, gsp.name), text: `${m.org} sent ${s.first}’s ${m.name}. I’ve added it to Documents.`, files: [m.file] }],
       history: [...x.history, { at: now, who: 'gsp', text: `Added the ${m.name} from ${m.org}’s mail to Documents, and let the RP know`, by: gsp.name }],
     }));
     say(`${m.name} added to Documents. ${agency} has been told in the chat.`);
@@ -329,12 +353,46 @@ export function AppDetail({
     say(`${m.name} left in the mail.`);
   };
 
+  /**
+   * Close (Change status › Close the application) or withdraw (More › Withdraw): every open request is cancelled
+   * (its card reads "Closed with the application"), the chat says why under the assigned officer's name, and the
+   * application goes read-only. Close: "Application closed: <reason>". Withdraw: "Application withdrawn by <name>:
+   * <reason>" (S3-14), ending at Withdrawn (S3-26).
+   */
   const close = (kind: EndKind, reason: string, stage = stageOf(a)) => {
     const now = Date.now();
-    update((x) => ({ ...x, status: 'closed', since: now, needs: [], end: { kind, reason, stage, at: now }, history: [...x.history, { at: now, who: 'gsp', text: `Closed, ${kind.toLowerCase()}${reason ? `: ${reason}` : ''}`, by: gsp.name }] }));
-    setLiveStatus(a.id, { status: 'closed', at: now, by: gsp.name, end: kind, note: reason || kind, via: 'portal' });
-    say(`${a.id} closed: ${kind.toLowerCase()}. Its open tasks closed too.`);
+    const wd = isWithdrawal(kind);
+    const line = wd ? `Application withdrawn by ${gsp.name}: ${reason}` : `Application closed: ${kind}`;
+    update((x) => {
+      const open = new Set(x.needs.map((n) => n.id));
+      return {
+        ...x,
+        status: 'closed',
+        since: now,
+        needs: [],
+        parked: [],
+        end: { kind, reason: wd ? reason : '', stage, at: now },
+        chat: [...x.chat.map((m) => (m.request && open.has(m.request) ? { ...m, ended: { kind: 'closed' as const, at: now } } : m)), { id: `m${now}`, at: now, from: 'gsp' as const, name: autoName(x, gsp.name), text: line }],
+        unread: (x.unread ?? 0) + 1,
+        history: [...x.history, { at: now, who: 'gsp', text: wd ? `Withdrew the application: ${reason}` : `Closed the application: ${kind}, at ${STAGES[stage]}`, by: gsp.name }, ...(open.size ? [{ at: now, who: 'gsp' as const, text: `${open.size === 1 ? '1 open request' : `${open.size} open requests`} cancelled with the application`, by: gsp.name }] : [])],
+      };
+    });
+    setLiveStatus(a.id, { status: 'closed', at: now, by: gsp.name, end: kind, note: wd ? reason : kind, via: 'portal' });
+    say(wd ? `${a.id} withdrawn. Its open tasks closed too.` : `${a.id} closed: ${kind}. Its open tasks closed too.`);
   };
+
+  // the officer (S3C-8: Key details › Assigned officer › Change, by the queue's leader, Admin or Global Ops)
+  const [officering, setOfficering] = useState(false);
+  const officer = officerOf(a);
+  const setOfficer = (staffId: string) => {
+    const now = Date.now();
+    const to = staffById(staffId);
+    update((x) => ({ ...x, officer: staffId, history: [...x.history, { at: now, who: 'gsp', text: `Changed the officer from ${officer ? staffLabel(officer) : 'nobody'} to ${to ? staffLabel(to) : staffId}`, by: gsp.name }] }));
+    say(`${to ? staffLabel(to) : 'The new officer'} is the officer now. The open tasks moved to them.`);
+    setOfficering(false);
+  };
+  const finished = !isOpen(a);
+  const admissions = isAdmissions() && isMine(a.region);
 
   // the offer's facts sit in Key details until the deposit is paid; its conditions are needs, in Documents
   const offer = a.offer && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
@@ -389,13 +447,16 @@ export function AppDetail({
               <span className="ahead__st">{statusText(a)}</span>
               <span className="gstat__line">
                 <span className={`who who--${o === 'done' ? 'ok' : o}`}>{HEAD_TAG[o]}</span>
-                {isMine(a.region) ? (
+                {/* a finished application can't be reopened; only Admissions change a status (slice 3 PRD) */}
+                {finished ? null : admissions ? (
                   <button type="button" className="gstat__change" aria-label="Change status" onClick={() => setChanging(true)}>
                     <Icon name="edit" size={14} />
                     Change
                   </button>
                 ) : (
-                  <span className="gstat__ro" title="Outside your sales regions: read only">Read only</span>
+                  <span className="gstat__ro" title={isMine(a.region) ? 'Only Admissions change a status' : 'Outside your sales regions: read only'}>
+                    Read only
+                  </span>
                 )}
               </span>
             </div>
@@ -405,7 +466,7 @@ export function AppDetail({
               word="More"
               items={[
                 { id: 'student', label: 'Student profile', icon: 'user', onPick: () => onOpenStudent(s.id) },
-                ...(isOpen(a) ? [{ id: 'withdraw', label: 'Withdraw application', icon: 'close' as IconName, danger: true, onPick: () => setWithdraw(true) }] : []),
+                ...(isOpen(a) && admissions ? [{ id: 'withdraw', label: 'Withdraw application', icon: 'close' as IconName, danger: true, onPick: () => setWithdraw(true) }] : []),
               ]}
             />
           </div>
@@ -465,7 +526,7 @@ export function AppDetail({
               <Icon name="doc" size={20} />
             </span>
             <div className="aneed__t">
-              <p className="aneed__title">On GSP: {pending.length === 1 ? '1 document to review' : `${pending.length} documents to review`}</p>
+              <p className="aneed__title">On GSP: {pending.length === 1 ? '1 thing to review' : `${pending.length} things to review`}</p>
               <p className="aneed__text">{pending.map((r) => r.name).join(' · ')}</p>
             </div>
             <Button onClick={goReview} iconRight={<Icon name="arrowRight" size={18} />}>
@@ -488,7 +549,7 @@ export function AppDetail({
             </span>
             <div className="aneed__t">
               <p className="aneed__title">
-                With RP: {open.length === 1 ? '1 thing to do' : `${open.length} things to do`}
+                On RP: {open.length === 1 ? '1 thing to do' : `${open.length} things to do`}
                 {open.some((n) => n.due) && <span className="aneed__due"> · due {shortDate(new Date(Math.min(...open.filter((n) => n.due).map((n) => n.due!))))}</span>}
               </p>
               <p className="aneed__text">{open.map((n) => (n.request ? `${n.title} (you asked)` : n.title)).join(' · ')}</p>
@@ -496,6 +557,18 @@ export function AppDetail({
             <Button onClick={goNeeds} iconRight={<Icon name="arrowRight" size={18} />}>
               {open.length === 1 ? 'See it' : 'See them'}
             </Button>
+          </motion.section>
+        )}
+        {isOpen(a) && !pending.length && !open.length && !nudge && (
+          <motion.section key="next" className="aneed aneed--calm" aria-label="What's next" initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}>
+            <span className="aneed__mark" aria-hidden="true">
+              <Icon name="info" size={20} />
+            </span>
+            <div className="aneed__t">
+              <p className="aneed__title">
+                {HEAD_TAG[o]}: {nextLine(a, c.uni.name)}
+              </p>
+            </div>
           </motion.section>
         )}
         {a.status === 'closed' && a.end && (
@@ -511,9 +584,10 @@ export function AppDetail({
               <Icon name="close" size={20} />
             </span>
             <div className="aneed__t">
-              <p className="aneed__title">{a.end.kind}</p>
+              <p className="aneed__title">{isWithdrawal(a.end.kind) ? 'Withdrawn' : `Closed: ${a.end.kind}`}</p>
               <p className="aneed__text">
-                {a.end.reason ? `${a.end.reason}. ` : ''}Closed at {STAGES[a.end.stage]} on {shortDate(new Date(a.end.at))}. The documents stay on {s.first}’s profile for other applications.
+                {isWithdrawal(a.end.kind) && a.end.reason ? `${a.end.reason}. ` : ''}
+                {isWithdrawal(a.end.kind) ? 'Withdrawn' : 'Closed'} at {STAGES[a.end.stage]} on {shortDate(new Date(a.end.at))}. It’s read-only. The documents stay on {s.first}’s profile for other applications.
               </p>
             </div>
           </motion.section>
@@ -570,7 +644,7 @@ export function AppDetail({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease }}
           >
-            {tab === 'chat' && <Chat a={a} s={s} agency={agency} update={update} onShare={(f) => addFile(f, 'chat')} ask={ask} say={say} />}
+            {tab === 'chat' && <Chat a={a} s={s} agency={agency} update={update} onShare={(f) => addFile(f, 'chat')} ask={ask} say={say} canAct={admissions} />}
             {tab === 'mail' && <MailTab a={a} desk={desk} setDesk={setDesk} onLog={log} say={say} />}
             {tab === 'documents' && (
               <DocsTab
@@ -587,9 +661,10 @@ export function AppDetail({
                 onRequest={requestDoc}
                 onCond={setCond}
                 onUpload={(f) => f && setNaming(f)}
+                canAct={admissions && !finished}
               />
             )}
-            {tab === 'submission' && <SubmissionTab a={a} desk={desk} onRef={setRef} say={say} />}
+            {tab === 'submission' && <SubmissionTab a={a} desk={desk} onRef={(r, was) => (finished ? say('This application is finished: it’s read-only.') : setRef(r, was))} say={say} />}
             {tab === 'commission' && <AppCommission a={a} agency={agency} side="both" />}
             {tab === 'activity' && <Activity a={a} agency={agency} />}
           </motion.div>
@@ -636,7 +711,21 @@ export function AppDetail({
             <h2 className="acard__title">Key details</h2>
             <dl className="cdl">
               <Row k="Application" v={<span className="num">{a.id}</span>} />
-              {a.uniRef && <Row k="University reference" v={<span className="num">{a.uniRef}</span>} />}
+              {/* entered on Submitted to university, or added later after No reference ID, with the same check (S3-8, S3-22) */}
+              {isSubmitted(a) && (admissions && !finished ? <RefRow a={a} all={all} students={students} onSave={(r) => setRef(r, a.uniRef)} /> : <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : 'No reference ID'} />)}
+              <Row
+                k="Assigned officer"
+                v={
+                  <span className="gedit__val">
+                    {officer ? staffLabel(officer) : 'Not assigned yet'}
+                    {admissions && !finished && officer && (
+                      <button type="button" className="scopy gedit__pen" aria-label="Change the assigned officer" title="Change the assigned officer" onClick={() => setOfficering(true)}>
+                        <Icon name="edit" size={14} />
+                      </button>
+                    )}
+                  </span>
+                }
+              />
               <Row k="Intake" v={a.intake} />
               {(() => {
                 // W10 / SR4 (Jovial, 1 Nov): the sales region and the routing rule that set it
@@ -644,8 +733,9 @@ export function AppDetail({
                 const region = a.region ?? r.region;
                 return <Row k="Sales region" v={<span>{region} <span className="cdl__soft">· {region === r.region && r.rule ? `routed by rule ${r.rule}, ${r.title?.toLowerCase()}` : 'set by GSP'}{officerOf(a) ? ` · ${regionQueueName(region)}` : ''}</span></span>} />;
               })()}
-              <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={longDate(desk.census)} onSave={setCensus} />
-              <EditRow
+              {/* after Student enrolled only these two stay editable; Closed and Withdrawn are fully read-only (S3C-11) */}
+              {admissions && a.status !== 'closed' ? <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={longDate(desk.census)} onSave={setCensus} /> : <Row k="Census date" v={desk.census ? longDate(desk.census) : 'Not set'} />}
+              {admissions && a.status !== 'closed' ? <EditRow
                 id="fee"
                 k="Final tuition fee"
                 kind="money"
@@ -658,9 +748,9 @@ export function AppDetail({
                   </span>
                 }
                 onSave={setFee}
-              />
+              /> : <Row k="Final tuition fee" v={<span className="num">{money(fee, c.currency)}</span>} />}
               <Row k="Campus" v={campusLabel(c.campus)} />
-              <Row k="Length" v={duration(c.months)} />
+              <Row k="Length" v={durationText(c)} />
               {offer && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
@@ -677,13 +767,16 @@ export function AppDetail({
               )}
               <Row k="Counsellor" v={counsellor?.name} />
               <Row k="Base commission" v={<span className="num">{earn.text}</span>} />
-              <Row k="Applied" v={shortDate(new Date(a.created), true)} />
+              {stageOf(a) >= 6 && a.status !== 'closed' && <Row k="Visa lodged by" v={a.visaBy === 'gsp' ? 'GSP' : 'The RP'} />}
+              {/* Applied: when the RP sent the New documents; "Started" while it's New */}
+              <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />
             </dl>
           </section>
         </aside>
       </div>
 
-      <StatusDialog open={changing} a={a} onCancel={() => setChanging(false)} onConfirm={changeStatus} />
+      <StatusDialog open={changing} a={a} all={all} students={students} onCancel={() => setChanging(false)} onConfirm={changeStatus} />
+      <OfficerDialog open={officering} a={a} onCancel={() => setOfficering(false)} onSave={setOfficer} />
       <CondDialog v={cond ? condViews(a).find((v) => v.id === cond) ?? null : null} s={s} onClose={() => setCond(null)} />
       <ReviewDialog
         r={revR}
@@ -706,7 +799,7 @@ export function AppDetail({
           say(`${name} added to Documents.`);
         }}
       />
-      <WithdrawDialog open={withdraw} a={a} s={s} agency={agency} onCancel={() => setWithdraw(false)} onConfirm={(r) => (setWithdraw(false), close('Student withdrawn', r))} />
+      <WithdrawDialog open={withdraw} a={a} s={s} onCancel={() => setWithdraw(false)} onConfirm={(r) => (setWithdraw(false), close('Withdrawn', r))} />
     </div>
   );
 }
@@ -886,7 +979,7 @@ const DOC_TABS: [DocTab, string][] = [
 const needTag = (n?: Review['need']) => n && <span className="nadoc__tag">{n === 'required' ? 'Required' : n === 'optional' ? 'Optional' : 'Later'}</span>;
 
 /** One of the RP's documents that isn't waiting on GSP: approved, or uploaded and not sent to GSP yet. */
-function DocRow({ r, s, onPreview }: { r: Review; s: Student; onPreview: (r: Review) => void }) {
+function DocRow({ r, s, onPreview, onReject }: { r: Review; s: Student; onPreview: (r: Review) => void; /** Approved documents the RP uploaded can still be sent back (slice 3 PRD). */ onReject?: (r: Review) => void }) {
   const ok = r.status === 'verified';
   return (
     <li className="adoc">
@@ -908,6 +1001,11 @@ function DocRow({ r, s, onPreview }: { r: Review; s: Student; onPreview: (r: Rev
         <button type="button" className="scopy" aria-label={`Preview the ${r.name.toLowerCase()}`} title="Preview" onClick={() => onPreview(r)}>
           <Icon name="eye" size={16} />
         </button>
+        {ok && onReject && (
+          <Button size="sm" variant="secondary" aria-label={`Reject the ${r.name.toLowerCase()}`} onClick={() => onReject(r)}>
+            Reject
+          </Button>
+        )}
         <span className={`dpill dpill--${ok ? 'verified' : 'uploaded'}`}>{ok ? 'Approved' : 'Not sent yet'}</span>
       </span>
     </li>
@@ -936,9 +1034,12 @@ function DocsTab({
   onRequest,
   onCond,
   onUpload,
+  canAct = true,
 }: {
   a: Application;
   s: Student;
+  /** Admissions on an open application: Accept, Reject, upload and request; everyone else views (slice 1 matrix). */
+  canAct?: boolean;
   tab: DocTab;
   setTab: (t: DocTab) => void;
   /** Where the banners' See them and Review them bring you. */
@@ -995,9 +1096,11 @@ function DocsTab({
           <h2 id="gdocs-title" className="acard__title">
             Documents
           </h2>
-          <label className="btn btn--secondary btn--sm nrow__pick" htmlFor="gdocs-file">
-            <Icon name="upload" size={16} /> Upload
-          </label>
+          {canAct && (
+            <label className="btn btn--secondary btn--sm nrow__pick" htmlFor="gdocs-file">
+              <Icon name="upload" size={16} /> Upload
+            </label>
+          )}
           <input
             id="gdocs-file"
             className="vh"
@@ -1061,12 +1164,16 @@ function DocsTab({
                     <Button size="sm" variant="ghost" iconLeft={<Icon name="eye" size={16} />} aria-label={`Preview the ${r.name.toLowerCase()}`} onClick={() => preview(r)}>
                       Preview
                     </Button>
-                    <Button size="sm" variant="secondary" aria-label={`Reject the ${r.name.toLowerCase()}`} onClick={() => onReject(r, order)}>
-                      Reject
-                    </Button>
-                    <Button size="sm" iconLeft={<Icon name="check" size={16} strokeWidth={2.4} />} aria-label={`Accept the ${r.name.toLowerCase()}`} onClick={() => onAccept(r)}>
-                      Accept
-                    </Button>
+                    {canAct && (
+                      <>
+                        <Button size="sm" variant="secondary" aria-label={`Reject the ${r.name.toLowerCase()}`} onClick={() => onReject(r, order)}>
+                          Reject
+                        </Button>
+                        <Button size="sm" iconLeft={<Icon name="check" size={16} strokeWidth={2.4} />} aria-label={`Accept the ${r.name.toLowerCase()}`} onClick={() => onAccept(r)}>
+                          Accept
+                        </Button>
+                      </>
+                    )}
                   </span>
                 </li>
               ))}
@@ -1093,9 +1200,11 @@ function DocsTab({
                     </span>
                     <span className="adoc__file">Not uploaded yet · {l.what}</span>
                   </span>
-                  <Button variant="secondary" size="sm" iconLeft={<Icon name="chat" size={16} />} onClick={() => onRequest(l.name, `${c.uni.name} asks for it with the application.`)} aria-label={`Request the ${l.name.toLowerCase()} from the RP`}>
-                    Request
-                  </Button>
+                  {canAct && (
+                    <Button variant="secondary" size="sm" iconLeft={<Icon name="chat" size={16} />} onClick={() => onRequest(l.name, `${c.uni.name} asks for it with the application.`)} aria-label={`Request the ${l.name.toLowerCase()} from the RP`}>
+                      Request
+                    </Button>
+                  )}
                 </li>
               ))}
               {notSent.map((r) => (
@@ -1107,14 +1216,15 @@ function DocsTab({
           {show('approved') && approved.length > 0 && (
             <ul className="adocs__list">
               {approved.map((r) => (
-                <DocRow key={r.key} r={r} s={s} onPreview={preview} />
+                <DocRow key={r.key} r={r} s={s} onPreview={preview} onReject={canAct && open ? (x) => onReject(x, order) : undefined} />
               ))}
             </ul>
           )}
 
-          {tab === 'all' && byGsp.length > 0 && (
+          {tab === 'all' && (
             <>
-              <h3 className="adocs__k">By GSP</h3>
+              <h3 className="adocs__k">Documents by GSP</h3>
+              {!byGsp.length && <p className="adocs__empty">Nothing yet. Offer letters, the acceptance letter and the visa grant go here; they’re mandatory on the status changes that need them.</p>}
               <ul className="adocs__list">
                 {byGsp.map((f) => (
                   <li key={f.file + f.at} className="adoc">
@@ -1179,24 +1289,182 @@ function Activity({ a, agency }: { a: Application; agency: string }) {
 
 /* ---------- withdrawing ---------- */
 
-/** Why it's withdrawn: one list, data/reasons.ts (HC23). */
-const REASONS = { get list() { return withdrawReasons(); } };
-
-function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; agency: string; onCancel: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState(REASONS.list[0]);
+/**
+ * Withdraw (More › Withdraw application; the RP's users and Admissions): a reason is required, one of the four
+ * (no free text; "Pick a reason."), then the confirm. It ends at Withdrawn. From Submitted to university onwards the
+ * dialog says GSP tells the university (S3C-9's proposal, open).
+ */
+export function WithdrawDialog({ open, a, s, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; onCancel: () => void; onConfirm: (reason: string) => void }) {
+  const [reason, setReason] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setReason('');
+      setTried(false);
+    }
+  }, [open]);
   const c = courseOf(a);
+  const told = isSubmitted(a);
   return (
-    <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw application" danger onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
-      <p>Tell {c.uni.name} by mail; the application closes here and for {agency}, with the reason. {s.first}’s documents stay on the profile for other applications.</p>
+    <ConfirmDialog
+      open={open}
+      title={`Withdraw ${s.first}’s application to ${c.uni.name}?`}
+      confirm="Withdraw application"
+      danger
+      onCancel={onCancel}
+      onConfirm={() => {
+        setTried(true);
+        if (reason) onConfirm(reason);
+      }}
+    >
+      <p>
+        {s.first}’s documents stay on the profile for other applications.{told ? ` GSP tells ${c.uni.name}.` : ''}
+      </p>
       <fieldset className="wreasons">
-        <legend className="wreasons__legend">Why?</legend>
-        {REASONS.list.map((r) => (
-          <label key={r} className="wreason">
-            <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
-            <span>{r}</span>
-          </label>
+        <legend className="wreasons__legend">
+          Reason <span className="field__req" aria-hidden="true">*</span>
+        </legend>
+        {withdrawReasons().map((r, i) => (
+          <div key={r} className="check check--radio">
+            <input id={`wreason-${i}`} type="radio" name="wreason" className="check__input" checked={reason === r} onChange={() => setReason(r)} />
+            <label htmlFor={`wreason-${i}`} className="check__label">
+              <span className="check__box" aria-hidden="true" />
+              <span>{r}</span>
+            </label>
+          </div>
         ))}
+        {tried && !reason && (
+          <p className="wreasons__err" role="alert">
+            Pick a reason.
+          </p>
+        )}
       </fieldset>
     </ConfirmDialog>
+  );
+}
+
+/* ---------- Key details' helpers ---------- */
+
+/** Applied: when the RP sent the New documents (the move to Pending verification); the start before that. */
+export function appliedAt(a: Application) {
+  return a.history.find((e) => /Sent to GSP|Pending verification/i.test(e.text))?.at ?? a.created;
+}
+
+/** The banner when nothing is waiting: "<Who has it>: <what's next>". */
+function nextLine(a: Application, uni: string) {
+  const sent = a.history.filter((e) => /Submitted to university/i.test(e.text)).pop()?.at;
+  if (a.status === 'lodged') return `submitted to ${uni}${sent ? ` on ${shortDate(new Date(sent))}` : ''}. Waiting for the university’s decision. Nothing is open with the RP.`;
+  if (UNI.includes(a.status)) return `${STATUS[a.status].text(courseOf(a).uni.country).toLowerCase()}. Waiting for ${uni}. Nothing is open with the RP.`;
+  return `${STATUS[a.status].text(courseOf(a).uni.country)}. Nothing is open with the RP.`;
+}
+const UNI = ['lodged', 'addsent', 'condsent', 'interview', 'waitad'];
+
+/**
+ * University reference in Key details (S3-8): after No reference ID, the officer adds it here; a set one is edited
+ * here too. The same format and the same university + reference check as the popup (S3-22); logged in Activity.
+ */
+function RefRow({ a, all, students, onSave }: { a: Application; all: Application[]; students: Student[]; onSave: (ref: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState('');
+  const [tried, setTried] = useState(false);
+  const clean = v.trim().toUpperCase();
+  const clash = refFormat(clean) ? refClash(all, a, clean) : undefined;
+  const err = !clean ? 'Enter the university reference ID.' : !refFormat(clean) ? REF_FORMAT_ERROR : clash ? refClashError(clash, students) : null;
+  return (
+    <div className={`cdl__row gedit ${editing ? 'is-editing' : ''}`}>
+      <dt>{editing ? <label htmlFor="gedit-ref">University reference</label> : 'University reference'}</dt>
+      <dd>
+        {editing ? (
+          <form
+            className="gedit__form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setTried(true);
+              if (err) return;
+              onSave(clean);
+              setEditing(false);
+            }}
+          >
+            <span className={`control gedit__control ${tried && err ? 'is-invalid' : ''}`}>
+              <input id="gedit-ref" className="control__input num" value={v} maxLength={30} aria-invalid={(tried && !!err) || undefined} aria-describedby={tried && err ? 'gedit-ref-err' : undefined} onChange={(e) => setV(e.target.value)} />
+            </span>
+            {tried && err && (
+              <span id="gedit-ref-err" className="gedit__err" role="alert">
+                {err}
+              </span>
+            )}
+            <span className="gedit__acts">
+              <Button type="submit" size="sm">
+                Save
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+            </span>
+          </form>
+        ) : (
+          <span className="gedit__val">
+            {a.uniRef ? <span className="num">{a.uniRef}</span> : <span>No reference ID</span>}
+            <button
+              type="button"
+              className="scopy gedit__pen"
+              aria-label={a.uniRef ? 'Edit the university reference' : 'Add the university reference'}
+              title={a.uniRef ? 'Edit the university reference' : 'Add the university reference'}
+              onClick={() => {
+                setV(a.uniRef ?? '');
+                setTried(false);
+                setEditing(true);
+              }}
+            >
+              <Icon name="edit" size={14} />
+            </button>
+          </span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * Change the assigned officer (S3C-8's proposal, open): the members of the application's regional Admissions queue;
+ * Save is off until a different person is picked. Logged (officer.changed); the open tasks move to the new officer.
+ */
+function OfficerDialog({ open, a, onCancel, onSave }: { open: boolean; a: Application; onCancel: () => void; onSave: (staffId: string) => void }) {
+  const [pick, setPick] = useState(a.officer ?? '');
+  useEffect(() => {
+    if (open) setPick(a.officer ?? '');
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const queueName = regionQueueName(a.region ?? '');
+  const cfg = adminCfg();
+  const q = cfg.queues.find((x) => x.name === queueName);
+  const people = (q ? [q.lead, ...q.members] : [])
+    .map((id) => cfg.users.find((u) => u.id === id))
+    .map((u) => (u ? staffByEmail(u.email) : undefined))
+    .filter((x, i, l): x is NonNullable<typeof x> => !!x && l.findIndex((y) => y?.id === x.id) === i);
+  const options = people.map((p) => ({ value: p.id, label: staffLabel(p), note: p.id === a.officer ? 'Now' : undefined }));
+  return (
+    <Sheet
+      open={open}
+      onClose={onCancel}
+      center
+      title="Change the assigned officer"
+      sub={`${queueName}: its members.`}
+      footer={
+        <div className="asf asf--end">
+          <div className="asf__acts">
+            <Button variant="secondary" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button onClick={() => onSave(pick)} disabled={!pick || pick === a.officer}>
+              Save
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <Field id="goff-pick" label="Officer" required hint="Every open task on the application moves to the new officer.">
+        <SelectMenu id="goff-pick" label="Officers" value={pick} options={options} placeholder="Pick a person" onChange={setPick} />
+      </Field>
+    </Sheet>
   );
 }

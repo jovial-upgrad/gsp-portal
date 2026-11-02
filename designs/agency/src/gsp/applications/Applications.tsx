@@ -102,6 +102,8 @@ export function Applications({
           }}
           onOpenStudent={onOpenStudent}
           say={setMsg}
+          all={apps}
+          students={students}
         />
       ) : (
         <AppList apps={apps} students={students} team={team} st={list} set={setList} onOpen={openApp} onAdd={() => setAdd({ key: Date.now() })} onFindCourses={onFindCourses} say={setMsg} />

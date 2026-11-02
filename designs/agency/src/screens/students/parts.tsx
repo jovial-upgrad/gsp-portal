@@ -38,12 +38,13 @@ export function Ring({ pct, size = 28 }: { pct: number; size?: number }) {
   );
 }
 
-export const OWNER: Record<Owner | 'done' | 'end', [string, string]> = {
+export const OWNER: Record<Owner | 'done' | 'end' | 'wd', [string, string]> = {
   you: [OWNER_WORD.you, 'who--you'],
   gsp: [OWNER_WORD.gsp, 'who--gsp'],
   uni: [OWNER_WORD.uni, 'who--uni'],
   done: [OWNER_WORD.done, 'who--ok'],
   end: [OWNER_WORD.end, 'who--end'],
+  wd: [OWNER_WORD.wd, 'who--wd'],
 };
 
 /** Copies to the clipboard, falling back to a hidden text box where the clipboard API isn't allowed. */

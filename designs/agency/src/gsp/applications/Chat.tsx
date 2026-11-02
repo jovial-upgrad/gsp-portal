@@ -7,7 +7,12 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { courseOf, type Application, type Cond, type Msg, type Need } from '../../data/applications';
+import { courseOf, isOpen, type Application, type Cond, type Msg, type Need } from '../../data/applications';
+import { autoName } from '../../data/appRules';
+import { isWithdrawal } from '../../data/reasons';
+
+/** Today as an ISO day, for due dates (today or later). */
+const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 import { DocButtons } from '../../components/DocView';
 import { GSP_USER } from '../user';
 import { AssistLabel } from './parts';
@@ -45,7 +50,10 @@ export function Chat({
   ask,
   focusKey,
   say,
+  canAct = true,
 }: {
+  /** Admissions on this application: the two templates and withdrawing a request (slice 1 matrix: only Admissions use them). */
+  canAct?: boolean;
   a: Application;
   s: Student;
   agency: string;
@@ -137,7 +145,8 @@ export function Chat({
           id: `m${now}`,
           at: now,
           from: 'gsp',
-          name: g.name,
+          // the card goes out under the officer's name (S3-13)
+          name: autoName(x, g.name),
           text: '',
           request: need.id,
           requestName: need.title,
@@ -175,12 +184,30 @@ export function Chat({
       ...x,
       unread: (x.unread ?? 0) + 1,
       needs: [...x.needs, need],
-      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: g.name, text: '', request: need.id, requestName: need.title }],
+      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: autoName(x, g.name), text: '', request: need.id, requestName: need.title }],
       history: [...x.history, { at: now, who: 'gsp', text: `Sent ${r.items.length === 1 ? '1 condition' : `${r.items.length} conditions`} to answer: ${r.title}`, by: g.name }],
     }));
     setConding(false);
     say(`${r.title} sent to the RP.`);
   };
+  /**
+   * Withdraw a request (slice 3 PRD): a document or conditions request GSP sent, no reason needed. The RP's pending
+   * item goes; the card shows "Withdrawn by <name>"; Activity records it; it no longer counts for who has it.
+   */
+  const withdrawRequest = (id: string) => {
+    const now = Date.now();
+    const n = a.needs.find((x) => x.id === id);
+    if (!n) return;
+    update((x) => ({
+      ...x,
+      needs: x.needs.filter((y) => y.id !== id),
+      chat: x.chat.map((m) => (m.request === id ? { ...m, ended: { kind: 'withdrawn' as const, by: g.name, at: now } } : m)),
+      history: [...x.history, { at: now, who: 'gsp', text: `Withdrew the request: ${n.title}`, by: g.name }],
+    }));
+    say(`${n.title}: request withdrawn.`);
+  };
+  const finished = !isOpen(a);
+  const endWord = a.status === 'enrolled' ? 'enrolled' : a.end && isWithdrawal(a.end.kind) ? 'withdrawn' : 'closed';
 
   return (
     <section className="card achat gchat" aria-labelledby="achat-title">
@@ -197,7 +224,7 @@ export function Chat({
       <ol className="achat__list" ref={list} aria-live="polite" aria-relevant="additions">
         {msgs.length === 0 && (
           <li className="achat__empty">
-            <p>No messages yet. Write to the RP, or request a document.</p>
+            <p>No messages yet. Write to the RP about {s.first}’s application.</p>
           </li>
         )}
         <AnimatePresence initial={false}>
@@ -234,7 +261,7 @@ export function Chat({
                         <DocButtons d={{ name: f, file: f }} s={s} />
                       </span>
                     ))}
-                    {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} onView={setViewing} />}
+                    {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} ended={m.ended} onView={setViewing} onWithdraw={canAct && !finished ? withdrawRequest : undefined} />}
                     {m.cites && m.cites.length > 0 && (
                       <p className="msg__cites">
                         <span className="vh">Sources: </span>
@@ -254,6 +281,9 @@ export function Chat({
         </AnimatePresence>
       </ol>
 
+      {finished ? (
+        <p className="achat__ro">This application is {endWord}. The chat is read-only.</p>
+      ) : (
       <div className="gchat__foot">
         <AnimatePresence initial={false}>
           {conding && <CondRequestForm key="conds" onSend={requestConds} onCancel={() => setConding(false)} />}
@@ -269,7 +299,7 @@ export function Chat({
             />
           )}
         </AnimatePresence>
-        {!asking && !conding && (
+        {!asking && !conding && canAct && (
           <div className="gchat__tools">
             <button
               type="button"
@@ -320,6 +350,7 @@ export function Chat({
               rows={1}
               value={text}
               placeholder={`Message ${agency}`}
+              maxLength={2000}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -334,6 +365,7 @@ export function Chat({
           </form>
         )}
       </div>
+      )}
       <CondDialog v={viewing ? condViews(a).find((v) => v.id === viewing) ?? null : null} s={s} onClose={() => setViewing(null)} />
     </section>
   );
@@ -350,8 +382,9 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
   useEffect(() => {
     window.setTimeout(() => ref.current?.focus(), 60);
   }, []);
-  const dueOk = !due || /^\d{4}-\d{2}-\d{2}$/.test(due);
-  const ok = title.trim().length > 1 && dueOk; // what's needed is optional (Jovial, 1 Nov)
+  // today or later (slice 3 PRD); what's needed is optional (Jovial, 1 Nov), up to 500 characters
+  const dueOk = !due || (/^\d{4}-\d{2}-\d{2}$/.test(due) && due >= todayIso());
+  const ok = title.trim().length > 1 && title.trim().length <= 100 && text.length <= 500 && dueOk;
   return (
     <motion.form
       className="greq"
@@ -383,13 +416,13 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
       <label className="greq__field" htmlFor="greq-title">
         <span className="greq__label">Title</span>
         <span className={`control ${tried && title.trim().length < 2 ? 'is-invalid' : ''}`}>
-          <input ref={ref} id="greq-title" className="control__input" value={title} placeholder="Like: Gap explanation document" onChange={(e) => setTitle(e.target.value)} />
+          <input ref={ref} id="greq-title" className="control__input" value={title} maxLength={100} placeholder="Like: Gap explanation document" onChange={(e) => setTitle(e.target.value)} />
         </span>
       </label>
       <label className="greq__field" htmlFor="greq-text">
         <span className="greq__label">What’s needed</span>
         <span className="control gstat__area">
-          <textarea id="greq-text" className="control__input" rows={3} value={text} placeholder="What it should show, and why the university needs it" onChange={(e) => setText(e.target.value)} />
+          <textarea id="greq-text" className="control__input" rows={3} value={text} maxLength={500} placeholder="What it should show, and why the university needs it" onChange={(e) => setText(e.target.value)} />
         </span>
       </label>
       <label className="greq__field greq__field--due" htmlFor="greq-due">
@@ -417,8 +450,9 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
 }
 
 /** A document request as GSP sees it: with the RP until they upload it, then in Documents. Conditions come as a form: the card opens it, with the RP's answers once sent. */
-function RequestCard({ a, s, id, name, onView }: { a: Application; s: Student; id: string; name?: string; onView: (id: string) => void }) {
+function RequestCard({ a, s, id, name, ended, onView, onWithdraw }: { a: Application; s: Student; id: string; name?: string; ended?: Msg['ended']; onView: (id: string) => void; onWithdraw?: (id: string) => void }) {
   const n = a.needs.find((x) => x.id === id);
+  const endLine = ended ? (ended.kind === 'withdrawn' ? `Withdrawn by ${ended.by}` : 'Closed with the application') : null;
   const done = !n ? a.files.find((f) => f.req === id) : undefined;
   const answered = !n ? a.conds?.find((x) => x.id === id) : undefined;
   if (n?.form || answered) {
@@ -433,8 +467,9 @@ function RequestCard({ a, s, id, name, onView }: { a: Application; s: Student; i
           <span className="areq__title">{n?.title ?? answered?.title}</span>
           <span className="areq__why">
             {count === 1 ? '1 condition' : `${count} conditions`}
-            {n ? ` for the RP to answer.${n.due ? ` Due ${shortDate(new Date(n.due))}.` : ''}` : `, answered by the RP ${shortDate(new Date(answered!.sent))}.`}
+            {n ? ` for the RP to answer.${n.due ? ` Due ${shortDate(new Date(n.due))}.` : ''}` : answered ? `, answered by the RP ${shortDate(new Date(answered.sent))}.` : '.'}
           </span>
+          {endLine && <span className="areq__ended">{endLine}</span>}
           <span className="areq__view">
             View {n ? 'the conditions' : 'the answers'}
             <Icon name="arrowRight" size={14} />
@@ -442,6 +477,20 @@ function RequestCard({ a, s, id, name, onView }: { a: Application; s: Student; i
         </span>
         {n && <span className="who who--you">With RP</span>}
       </button>
+    );
+  }
+  if (ended && !n) {
+    return (
+      <div className="areq is-done">
+        <span className="areq__ic" aria-hidden="true">
+          <Icon name="close" size={16} />
+        </span>
+        <div className="areq__t">
+          <p className="areq__k">Document request</p>
+          <p className="areq__title">{name ?? 'Document'}</p>
+          <p className="areq__ended">{endLine}</p>
+        </div>
+      </div>
     );
   }
   return (
@@ -463,6 +512,11 @@ function RequestCard({ a, s, id, name, onView }: { a: Application; s: Student; i
         {done && <DocButtons d={{ name: done.name, file: done.file }} s={s} />}
       </div>
       {n && <span className="who who--you">{n.file ? 'Uploaded, to check' : 'With RP'}</span>}
+      {n && onWithdraw && (
+        <Button size="sm" variant="ghost" onClick={() => onWithdraw(id)} aria-label={`Withdraw the request: ${n.title}`}>
+          Withdraw request
+        </Button>
+      )}
     </div>
   );
 }
@@ -481,8 +535,8 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
   useEffect(() => {
     window.setTimeout(() => first.current?.focus(), 60);
   }, []);
-  const dueOk = !due || /^\d{4}-\d{2}-\d{2}$/.test(due);
-  const ok = title.trim().length > 1 && items.every((x) => x.text.trim().length >= 5) && dueOk;
+  const dueOk = !due || (/^\d{4}-\d{2}-\d{2}$/.test(due) && due >= todayIso());
+  const ok = title.trim().length > 1 && title.trim().length <= 100 && items.every((x) => x.text.trim().length >= 5 && x.text.length <= 500) && dueOk;
   const set = (i: number, patch: Partial<Pick<Cond, 'text'>>) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   return (
     <motion.form
@@ -510,7 +564,7 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
       <label className="greq__field" htmlFor="gcond-title">
         <span className="greq__label">Title</span>
         <span className={`control ${tried && title.trim().length < 2 ? 'is-invalid' : ''}`}>
-          <input id="gcond-title" className="control__input" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input id="gcond-title" className="control__input" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
         </span>
       </label>
       <ol className="gcond__list">
@@ -526,6 +580,7 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
                 className="control__input"
                 value={x.text}
                 aria-label={`Condition ${i + 1}`}
+                maxLength={500}
                 placeholder={i === 0 ? 'Like: why this course and this university?' : 'A question for the student'}
                 onChange={(e) => set(i, { text: e.target.value })}
               />
