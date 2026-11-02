@@ -3,14 +3,15 @@ import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Field } from '../../components/forms';
-import { AREAS, LEVELS, MIN_EDUCATION } from '../../data/courses';
-import { DURATION_UNITS, SOURCES, type CourseRec, type UniRec } from '../data/catalogue';
+import { MIN_EDUCATION } from '../../data/courses';
+import { getDb, liveAreas, liveLevels } from '../data/store';
+import { DURATION_UNITS, SCALES, SCALE_MAX, SOURCES, type CourseRec, type UniRec } from '../data/catalogue';
 import { acceptOf, audit, checkFile } from '../data/changelog';
 import { basicsErrors, MODES, newCourse, type CourseDraft } from './CourseForm';
 import { ErrorText, Pick, downloadCsv } from './parts';
 
-/** The template's columns (slice 2 PRD, S2-3; source and minimum highest education: proposals S2C-4 and S2C-3). */
-export const CSV_COLUMNS = ['course code', 'CRICOS course code', 'course name', 'campus', 'program level', 'study area', 'study mode', 'duration', 'unit', 'course page', 'last checked', 'source', 'minimum highest education'] as const;
+/** The template's columns (slice 2 PRD, S2-3; source: S2C-4; minimum highest education and its minimum score: S2C-3). */
+export const CSV_COLUMNS = ['course code', 'CRICOS course code', 'course name', 'campus', 'program level', 'study area', 'study mode', 'duration', 'unit', 'course page', 'last checked', 'source', 'minimum highest education', 'minimum score', 'minimum score scale'] as const;
 const MAX_ROWS = 1000;
 
 /** Splits CSV text into rows of cells (quotes, commas and new lines inside quotes). */
@@ -84,12 +85,15 @@ export function CsvImport({ open, uni, unis, courses, onClose, onLoad, me, role 
       const rowNo = i + 2;
       const campusName = at('campus');
       const campus = u.campuses.find((k) => k.name.toLowerCase() === campusName.toLowerCase());
-      const level = inList(at('program level'), LEVELS);
-      const area = inList(at('study area'), AREAS);
+      // Admin's lists (S2C-13): a retired level or area isn't taken
+      const level = inList(at('program level'), liveLevels(getDb()));
+      const area = inList(at('study area'), liveAreas(getDb()));
       const mode = inList(at('study mode'), MODES);
       const unit = inList(at('unit'), DURATION_UNITS);
       const source = at('source') ? inList(at('source'), SOURCES) : ('Added by hand' as const);
       const minEd = at('minimum highest education') ? inList(at('minimum highest education'), MIN_EDUCATION) : '';
+      const scale = at('minimum score scale') ? inList(at('minimum score scale'), SCALES) : at('minimum score') ? undefined : '';
+      const score = at('minimum score') ? Number(at('minimum score')) : undefined;
       const reason = !campus || u.inactive.includes(campus.name)
         ? `Campus “${campusName}” isn’t an active campus of this university.`
         : at('program level') && !level
@@ -104,9 +108,13 @@ export function CsvImport({ open, uni, unis, courses, onClose, onLoad, me, role 
                   ? `Source “${at('source')}” isn’t one of University website, StudyLink, Email, Added by hand.`
                   : minEd === undefined
                     ? `Minimum highest education “${at('minimum highest education')}” isn’t one of ${MIN_EDUCATION.join(', ')}.`
-                    : null;
+                    : scale === undefined
+                      ? `Minimum score scale “${at('minimum score scale')}” isn’t one of ${SCALES.join(', ')}.`
+                      : score !== undefined && (!(score > 0) || (scale && score > SCALE_MAX[scale]))
+                        ? `Minimum score “${at('minimum score')}” isn’t a number above 0${scale ? `, up to ${SCALE_MAX[scale]} on ${scale}` : ''}.`
+                        : null;
       if (reason) return skipped.push({ row: rowNo, reason, cells });
-      const d: CourseDraft = { uni: u.id, campus: campus!.name, name: at('course name'), code: at('course code').toUpperCase(), cricos: at('CRICOS course code'), level: level ?? '', area: area ?? '', mode: mode ?? '', durUnit: unit ?? '', durValue: at('duration'), url: at('course page'), checked: isoOf(at('last checked')), source: source ?? '', minEducation: minEd || undefined };
+      const d: CourseDraft = { uni: u.id, campus: campus!.name, name: at('course name'), code: at('course code').toUpperCase(), cricos: at('CRICOS course code'), level: (level ?? '') as CourseDraft['level'], area: (area ?? '') as CourseDraft['area'], mode: mode ?? '', durUnit: unit ?? '', durValue: at('duration'), url: at('course page'), checked: isoOf(at('last checked')), source: source ?? '', minEducation: minEd || undefined, minScore: score, minScoreScale: scale || undefined };
       const e = basicsErrors(d, u, [...courses, ...made]);
       const first = Object.entries(e).find(([, x]) => x);
       if (first) {
@@ -156,7 +164,7 @@ export function CsvImport({ open, uni, unis, courses, onClose, onLoad, me, role 
           </div>
           {err && <ErrorText>{err}</ErrorText>}
           <p className="irsec__note">
-            <button type="button" className="btn btn--link" onClick={() => downloadCsv('gsp-course-import-template.csv', [[...CSV_COLUMNS], ['MBIO-BP-01', '012345A', 'Master of Biotechnology', u?.campuses[0]?.name ?? 'Bedford Park', 'Master’s degree', 'Health and nursing', 'Full time', '24', 'Months', 'https://www.university.edu/courses/master-biotechnology', '2026-11-02', 'University website', 'Bachelor’s (3 years)']])}>
+            <button type="button" className="btn btn--link" onClick={() => downloadCsv('gsp-course-import-template.csv', [[...CSV_COLUMNS], ['MBIO-BP-01', '012345A', 'Master of Biotechnology', u?.campuses[0]?.name ?? 'Bedford Park', 'Master’s degree', 'Health and nursing', 'Full time', '24', 'Months', 'https://www.university.edu/courses/master-biotechnology', '2026-11-02', 'University website', 'Bachelor’s (3 years)', '60', 'Percentage']])}>
               Download the template
             </button>{' '}
             Columns: {CSV_COLUMNS.join(', ')}.

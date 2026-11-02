@@ -4,7 +4,8 @@ import { Button } from '../../../components/Button';
 import { Field, TextInput } from '../../../components/forms';
 import { adminCfg } from '../../../admin/data/store';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
-import { AREAS, LEVELS, type Area, type Level } from '../../../data/courses';
+import { type Area, type Level } from '../../../data/courses';
+import { getDb, liveAreas, liveLevels } from '../../data/store';
 import { COUNTRIES } from '../../../data/partners';
 import { type AmountType, type Scholarship, type UniRec } from '../../data/catalogue';
 import { AddButton, ErrorText, Pick, Section } from '../parts';
@@ -171,10 +172,10 @@ function ScholarshipForm({ s, onCancel, onSave }: { s: Scholarship | 'new' | nul
           <MultiPick id="isch-from" label="Students from" value={v.from} options={COUNTRY_NAMES} onChange={(from) => set({ from })} empty="All countries" all="All countries" search />
         </Field>
         <Field id="isch-levels" label="Program levels" optional>
-          <MultiPick id="isch-levels" label="Program levels" value={v.levels} options={[...LEVELS]} onChange={(levels) => set({ levels: levels as Level[] })} empty="All levels" all="All levels" />
+          <MultiPick id="isch-levels" label="Program levels" value={v.levels} options={liveLevels(getDb())} onChange={(levels) => set({ levels: levels as Level[] })} empty="All levels" all="All levels" />
         </Field>
         <Field id="isch-areas" label="Study areas" optional>
-          <MultiPick id="isch-areas" label="Study areas" value={v.areas} options={[...AREAS]} onChange={(areas) => set({ areas: areas as Area[] })} empty="All areas" all="All areas" search />
+          <MultiPick id="isch-areas" label="Study areas" value={v.areas} options={liveAreas(getDb())} onChange={(areas) => set({ areas: areas as Area[] })} empty="All areas" all="All areas" search />
         </Field>
         <Field id="isch-cond" label="Conditions" optional className="iform__wide">
           <div className="control iform__area">

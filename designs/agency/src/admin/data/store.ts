@@ -4,8 +4,8 @@
  * Kept in this browser (in the real build, the settings service), so a reload keeps them and other tabs see them.
  */
 import { useSyncExternalStore } from 'react';
-import { COURSES, type Course } from '../../data/courses';
-import { INTAKE_TIMES, setIntakeTimesReader, type IntakeTimes } from '../../data/courses'; // hc-courses (HC8), see the end
+import { COURSES, formLevelOf, type Course } from '../../data/courses';
+import { INTAKE_TIMES, setIntakeTimesReader, type IntakeTimes } from '../../data/courses'; // intake timings, see the end
 import { fmtMoney } from '../../data/format';
 import {
   sampleBdm,
@@ -30,7 +30,7 @@ import {
   REGION_BDM,
   seedQueueName,
   sampleNationality,
-  sampleSecurity,
+  SECURITY,
   sampleNationalityChanged,
   withFees,
   visaFeesOf,
@@ -64,7 +64,7 @@ export type Cfg = {
   nationalityChanged: Record<string, number>;
   /** Each person's email preferences (Profile, S4-16): the emails they've turned off, by template id. */
   emailOff: Record<string, string[]>;
-  /** Sign-in rules for every GSP portal (HC52). */
+  /** Sign-in rules for every GSP portal (HC52): pre-decided, not configurable in Admin (S1C-11). Always SECURITY. */
   security: Security;
   perms: Perms;
   queues: Queue[];
@@ -95,7 +95,7 @@ export const sampleCfg = (): Cfg => {
     nationality: sampleNationality(),
     nationalityChanged: sampleNationalityChanged(),
     emailOff: {},
-    security: sampleSecurity(),
+    security: { ...SECURITY },
     perms: samplePerms(),
     queues,
     emails: sampleEmails(users),
@@ -117,7 +117,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v8'; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
+const KEY = 'gsp-admin-v9'; // v9 (2 Nov, lock answers S1–S2): non-EU Europe in Latin America & Europe, admin.gsp@ to the Admin queue, no Area on users, sign-in security and intake timings fixed; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {
@@ -135,6 +135,8 @@ function load(): Cfg {
   state = { ...state!, fxWeeks: fillFx(state!.fxWeeks, state!.rates) };
   // living costs and fees are one table (PRD slice 1): visa and health sit on each destination's row
   state = { ...state!, living: state!.living.map(withFees), nationalityChanged: state!.nationalityChanged ?? {}, emailOff: state!.emailOff ?? {} };
+  // sign-in security is pre-decided (S1C-11): never a saved copy
+  state = { ...state!, security: { ...SECURITY } };
   state = { ...state!, visaFees: visaFeesOf(state!.living) };
   applyCourseCosts(state!);
   return state!;
@@ -279,7 +281,8 @@ const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 
  * plain. Then the English test, from the course's English rule.
  */
 export function courseDocs(c: Pick<Course, 'level' | 'englishFlex'> & { uni: { country: string; name: string } }): CourseDoc[] {
-  const level = RULE_LEVEL[c.level] ?? 'Postgraduate';
+  // a Program level Admin added counts as its Application form level (S2C-13)
+  const level = RULE_LEVEL[formLevelOf(c.level)] ?? 'Postgraduate';
   const out: CourseDoc[] = [];
   const dest = c.uni.country === 'UK' || c.uni.country === 'USA' ? `the ${c.uni.country}` : c.uni.country;
   for (const r of load().docRules) {
@@ -305,16 +308,13 @@ export const useAdminCfg = () => [useAdmin(), setAdminCfg] as const;
 // Admin's costs reach every course from the start
 load();
 
-/* ---------- appended (hc-courses, Jovial 1 Nov, HC8): intake timings, a course setting ---------- */
+/* ---------- intake timings (hc-courses, Jovial 1 Nov, HC8; S1C-11, 2 Nov) ---------- */
 
 /**
  * How intakes are timed in course search, applications and the catalogue: the days an intake still shows as late
- * after its deadline (14), how close a deadline is marked as soon (21) and how close it shows a countdown and counts
- * for "Deadline within" (45). Edited in Admin › Living costs › Intake timings; kept with the other settings (a saved
- * copy from before this setting gets the defaults). data/courses.ts reads it through `setIntakeTimesReader`.
+ * after its deadline (14), how close a deadline is marked as soon (21) and how close it shows a countdown (45).
+ * Pre-decided values, not configurable in Admin (Jovial, S1C-11): data/courses.ts INTAKE_TIMES, shown read only on
+ * Admin › Living costs and fees.
  */
-export type IntakeCfg = Cfg & { intakeTimes?: IntakeTimes };
-export const intakeTimesOf = (c: Cfg): IntakeTimes => ({ ...INTAKE_TIMES, ...(c as IntakeCfg).intakeTimes });
-/** Sets the intake timings (for `change`, which saves and logs it). */
-export const withIntakeTimes = (c: Cfg, t: IntakeTimes): Cfg => ({ ...c, intakeTimes: t }) as IntakeCfg;
-setIntakeTimesReader(() => intakeTimesOf(load()));
+export const intakeTimesOf = (_c?: Cfg): IntakeTimes => ({ ...INTAKE_TIMES });
+setIntakeTimesReader(() => intakeTimesOf());

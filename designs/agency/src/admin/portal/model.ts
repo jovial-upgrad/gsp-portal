@@ -14,7 +14,7 @@ import { PERM_ROLE, type Role } from '../../proto/roles';
  * configuration** (Application routing, Document configuration) and **Other configurations** (Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
-export type ConfigSection = 'users' | 'regions' | 'permissions' | 'emails' | 'bdm' | 'currency' | 'living' | 'grades' | 'english' | 'routing' | 'documents' | 'logs' | 'security' | 'tags';
+export type ConfigSection = 'users' | 'regions' | 'permissions' | 'emails' | 'bdm' | 'currency' | 'living' | 'grades' | 'english' | 'routing' | 'documents' | 'logs' | 'security' | 'tags' | 'levels';
 export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-how' | 'fin-scen';
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-mail';
 export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
@@ -75,6 +75,8 @@ export const GROUPS: NavGroup[] = [
       // PRD slice 1: Living costs and fees is one table (visa and health on each destination), with Intake timings
       { key: 'living', label: 'Living costs and fees', short: 'Living', icon: 'home' },
       { key: 'tags', label: 'Course tags', short: 'Tags', icon: 'cap' },
+      // S2-17, S2C-13: the lists a course picks its level and area from
+      { key: 'levels', label: 'Program levels and study areas', short: 'Levels', icon: 'cap' },
       // slice 3 PRD (S3-4): the eligibility check's two tables
       { key: 'grades', label: 'Grade conversion', short: 'Grades', icon: 'cap' },
       { key: 'english', label: 'English test equivalence', short: 'English', icon: 'chat' },

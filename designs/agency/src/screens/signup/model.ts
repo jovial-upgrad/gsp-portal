@@ -51,6 +51,13 @@ export type EmailStatus = 'idle' | 'sending' | 'sent' | 'checking' | 'verified';
  */
 export type Stage = 'form' | 'code' | 'creating' | 'details' | 'sending' | 'sent' | 'sent-back' | 'verified';
 
+/**
+ * The sign-up code's rules (Jovial, S2C-16): a code works for 10 minutes and allows 5 wrong tries (then a new one is
+ * needed); a new one can be sent after 30 seconds; Change email keeps the other fields; a sign-up whose email is
+ * never verified is deleted after 30 days (daily job J10).
+ */
+export const SIGNUP_CODE = { minutes: 10, maxWrong: 5, resendSeconds: 30, unverifiedDays: 30 } as const;
+
 export type SignupState = {
   form: SignupForm;
   /** `sentAt`: when the code went (it works for 10 minutes); `wrong`: wrong tries on it (after 5 it stops working, S2C-16). */

@@ -44,7 +44,7 @@ export function visibleTasks(s, user, role) {
 
 export default function MyWork() {
   const s = useStore();
-  const { openRecord, openPage, hostRole, openRp } = useContext(HostContext);
+  const { openRecord, openPage, hostRole, openRp, openUni } = useContext(HostContext);
   const { user, role } = usePersona();
   const [tab, setTab] = useState('mine');
   const [tile, setTile] = useState(null);
@@ -96,6 +96,7 @@ export default function MyWork() {
     const rec = recordById(s, id);
     if (rec && rec.type === 'Application' && !rec.addon) openRecord(id);
     else if (rec && rec.type === 'RP' && openRp && rec.page === 'rps') openRp(id);
+    else if (rec && rec.type === 'University' && openUni && rec.page === 'universities') openUni(id);
     else if (rec && rec.type === 'Commission' && openPage) openPage('gspx-comm');
     else if (rec && rec.type === 'Email' && openPage) openPage('gspx-mail');
     else if (rec && rec.type === 'Setting' && openPage && hostRole === 'gsp-admin') openPage(rec.page);

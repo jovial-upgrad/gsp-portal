@@ -6,6 +6,41 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 2 Nov, lock answers: slices 1 and 2 (Jovial)
+
+Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet, rows L-5, S1C-1 to S1C-14 and S2C-1 to S2C-19 ("aligned with proposed" builds the proposal). Built on branch `lock-s1s2`, prototype only (README "Lock answers, slices 1 and 2"). Slice 3's rows are built on `lock-s3`.
+
+### Everywhere
+- [x] Task rules: **T43** (next year's fees) and **T59** (notice follow-up) removed; **T69** (agreement not signed: RP Admin reminded in the bell and by email E22 after 3 and 7 working days, RP Ops task after 10, L-5) and **T70** (IP Ops: activate each university of a reopened partner, S2C-19) added; **T62** worked out from the students (S1C-13). `npm run test:lock-rules`. (2 Nov, commit “Lock answers S1–S2: …”)
+
+### GSP · Admin
+- [x] GSP users: any valid email (S1C-2); no Area, the Sales regions column only, no "Covers …" (S1C-3). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Logs: the download log only; settings pages keep their Change history (S1C-9). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Sign-in security and Intake timings: decided values, read only, from `SECURITY` and `INTAKE_TIMES` (S1C-11). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Currency exchange: Fetch with AI only (S1C-10). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Sales regions: non-EU Europe in Latin America & Europe; Caribbean Rest of world; North Africa Africa (S1C-6); the nationality map follows (S1C-13). (2 Nov, commit “Lock answers S1–S2: …”)
+  - Chosen in the build, for Jovial to confirm: Russia and Turkey are left in Rest of world (not added to Latin America & Europe).
+- [x] admin.gsp@ is the Admin queue's (S1C-14). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Program levels and study areas: add, retire, restore; a level's required Application form level (S2C-13). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Re-routing to another Admissions queue picks a new officer (Fewest open); open tasks follow; logged (S1C-7). (2 Nov, commit “Lock answers S1–S2: …”)
+- Already built as proposed, checked: S1C-1 (access levels), S1C-4 and S1C-5 (sign-in copy; the suspended RP's message says "Recruitment contact", as BDM was renamed on 2 Nov), S1C-12 (delete rules).
+
+### GSP · Institution: universities, courses, partners, announcements
+- [x] Search priority: a whole number 1 to 10, 5 by default (S2C-1). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Update QS rankings on Universities: template of every university, upload (portal drop zone), updated / unchanged / skipped with reasons; only QS rows; unranked "—", sorted last (S2C-17). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Course Academic: Minimum highest education with its minimum score and grading scale required (to save and to publish), optional backlogs allowed (`minEducation`, `minScore`, `minScoreScale`, `minBacklogs`); CSV columns too (S2C-3). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] No fee year (S2C-6). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] End partnership: a confirmation, no reason (S2C-8). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Reopening a Closed partner changes no university; IP Ops gets T70 for each; an Ended university under it can be activated (S2C-19). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Announcements: Scheduled and Live editable, each save in the Change log; only "N sent" (S2C-15); live just after midnight IST, through the expiry date (S2C-18). (2 Nov, commit “Lock answers S1–S2: …”)
+- Already built as proposed, checked: S2C-2 (Go live's fifth check), S2C-4 (Source), S2C-5 (currency list, first-year fee), S2C-7 (Remove an IP document), S2C-11.
+
+### Recruitment partners and the RP portal
+- [x] No Issue a notice (S2C-12); Finance, RP Ops and Admin all edit the RP agreement (S2C-10). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] RP team: a Branch Admin sees their branch, invites and deactivates its Counsellors; a Counsellor has no team (S2C-14). (2 Nov, commit “Lock answers S1–S2: …”)
+- [x] Sign-up code rules in one place (`SIGNUP_CODE`); unverified sign-ups deleted after 30 days by job J10 (S2C-16). (2 Nov, commit “Lock answers S1–S2: …”)
+- Already built as proposed, checked: S2C-9 (Reject, Suspend, Reactivate by status).
+
 ## 2 Nov, evening: the RP agreement (Jovial)
 
 Jovial: "RP Agreement should be uploaded by BAP, and should go to RP to be signed and reuploaded, that is when we can unlock or approve the RP to unlock all modules for him. Do it in a way, we can upload a new contract in the future also." Later (19:25): signing and uploading is the only way an RP acknowledges an agreement; no "Accept in portal". Built on branch `rp-agreement`, prototype only (README "Design decisions: the RP agreement").
@@ -25,7 +60,7 @@ Jovial: "RP Agreement should be uploaded by BAP, and should go to RP to be signe
 ### RP portal: Home and Profile (RP Admin)
 - [x] **The agreement card, redesigned** (Jovial: "not the best UI"): status chip, title and one line; the agreement as a document row with Download; Download · Sign · Upload; one drop zone and a compact **Signed on**; **Send signed copy** at the bottom right; then "Signed copy sent · we're reviewing it" with Replace; sent back shows the reason; the held-commission or "current agreement stays active" note small and muted. (2 Nov, commit “RP agreement: …”)
 - [x] Modules (Applications, Students, Earnings, Profile, Select student) open only when the signed agreement is accepted. **Profile › Agreement** (RP Admin only): the active agreement, the one to sign, the history. The bell: an agreement to sign, sent back, accepted, withdrawn; emails E8, E9, E10. (2 Nov, commit “RP agreement: …”)
-- Open question: no task rule reminds anyone when an RP hasn't signed (T34 covers documents only). Add one (for RP Ops, and an E13-style reminder to the RP)? For Jovial (Pending Questions sheet).
+- [x] ~~Open question: no task rule reminds anyone when an RP hasn't signed.~~ Answered by Jovial (L-5): T69, see "2 Nov, lock answers" above. (2 Nov, commit “Lock answers S1–S2: …”)
 
 ## 2 Nov dev briefs (Jovial)
 

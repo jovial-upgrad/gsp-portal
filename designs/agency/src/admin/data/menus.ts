@@ -18,6 +18,7 @@ const OBJECT_OF: Record<string, string> = {
   // slice 2 PRD: Master Partners (S2-21) and Admin's Course tags (S2-16)
   mps: 'Master Partners',
   tags: 'Settings',
+  levels: 'Settings',
   ips: 'Institution partners',
   universities: 'Universities',
   announcements: 'Announcements',

@@ -25,6 +25,11 @@ type Props = {
   setBranches: (fn: (l: Branch[]) => Branch[]) => void;
   students: Student[];
   setStudents: (fn: (l: Student[]) => Student[]) => void;
+  /**
+   * Who is looking (S2C-14). A Branch Admin sees only their own branch: they invite Counsellors to it and
+   * deactivate or reactivate its Counsellors; branches, roles and Remove stay with the RP Admin.
+   */
+  viewer?: { role?: string; email?: string };
 };
 
 const location = (b: Pick<Branch, 'city' | 'state' | 'country'>) => [b.city, b.state, b.country].filter(Boolean).join(', ');
@@ -38,8 +43,12 @@ const location = (b: Pick<Branch, 'city' | 'state' | 'country'>) => [b.city, b.s
  * member, Edit (role and branch included, so a member moves branch here), Remove (not yourself, not the last RP
  * Admin; their students move to you). The team is the one Students picks counsellors from.
  */
-export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches, students, setStudents }: Props) {
+export function TeamSection({ agency, bdm, team: all, setTeam, branches: allBranches, setBranches, students, setStudents, viewer }: Props) {
   AGENCY.name = agency;
+  const branchAdmin = viewer?.role === 'Branch Admin';
+  const myBranch = branchAdmin ? (all.find((m) => m.email && m.email === viewer?.email)?.branch ?? allBranches.find((b) => b.main)?.id) : undefined;
+  const team = branchAdmin ? all.filter((m) => m.branch === myBranch) : all;
+  const branches = branchAdmin ? allBranches.filter((b) => b.id === myBranch) : allBranches;
   const [branchDlg, setBranchDlg] = useState<{ edit?: Branch } | null>(null);
   const [memberDlg, setMemberDlg] = useState<{ edit?: Member } | null>(null);
   const [toast, setToast] = useState<ToastMsg | null>(null);
@@ -75,7 +84,12 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
   const [asking, setAsking] = useState<{ m: Member } | { b: Branch } | null>(null);
   // Deactivate (proposal S2C-14): can't sign in, keeps their students, can be reactivated
   const [off, setOff] = useState<string[]>([]);
-  const adminOf = team.find((x) => x.role === 'RP Admin' && x.id === 'me') ?? team.find((x) => x.role === 'RP Admin');
+  const adminOf = all.find((x) => x.role === 'RP Admin' && x.id === 'me') ?? all.find((x) => x.role === 'RP Admin');
+  /** Deactivate or Reactivate one member. */
+  const toggle = (m: Member) =>
+    off.includes(m.id)
+      ? { id: 'react', label: 'Reactivate', icon: 'check' as const, onPick: () => (setOff((l) => l.filter((x) => x !== m.id)), tell(`${m.name} reactivated`, 'They can sign in again.')) }
+      : { id: 'deact', label: 'Deactivate', icon: 'lock' as const, onPick: () => (setOff((l) => [...l, m.id]), tell(`${m.name} deactivated`, 'They can’t sign in. They keep their students, and can be reactivated.')) };
   const setRemoving = (r: { m: Member } | { b: Branch }) => setAsking(r);
   const doRemove = (r: { m: Member } | { b: Branch }) => {
     removeNow(r);
@@ -96,9 +110,11 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
               Branches <span className="tcount num">{branches.length}</span>
             </h2>
           </div>
-          <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => setBranchDlg({})}>
-            Add branch
-          </Button>
+          {!branchAdmin && (
+            <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => setBranchDlg({})}>
+              Add branch
+            </Button>
+          )}
         </div>
         <div className="ttable__wrap">
           <table className="ttable">
@@ -128,14 +144,14 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
                       {n}
                     </td>
                     <td className="ttable__acts">
-                      <MoreMenu
+                      {!branchAdmin && <MoreMenu
                         id={`br-${b.id}`}
                         label={`More for ${b.name}`}
                         items={[
                           { id: 'edit', label: 'Edit branch', icon: 'edit', onPick: () => setBranchDlg({ edit: b }) },
                           ...(b.main ? [] : [{ id: 'remove', label: 'Remove branch', icon: 'close' as const, danger: true, onPick: () => setRemoving({ b }) }]),
                         ]}
-                      />
+                      />}
                     </td>
                   </tr>
                 );
@@ -191,14 +207,12 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
                     <MoreMenu
                       id={`tm-${m.id}`}
                       label={`More for ${m.name}`}
-                      items={[
+                      items={branchAdmin ? (m.role === 'Counsellor' ? [toggle(m)] : []) : [
                         { id: 'edit', label: 'Edit details, role or branch', icon: 'edit', onPick: () => setMemberDlg({ edit: m }) },
-                        ...(m.id === 'me' || lastAdmin(team, m)
+                        ...(m.id === 'me' || lastAdmin(all, m)
                           ? []
                           : [
-                              off.includes(m.id)
-                                ? { id: 'react', label: 'Reactivate', icon: 'check' as const, onPick: () => (setOff((l) => l.filter((x) => x !== m.id)), tell(`${m.name} reactivated`, 'They can sign in again.')) }
-                                : { id: 'deact', label: 'Deactivate', icon: 'lock' as const, onPick: () => (setOff((l) => [...l, m.id]), tell(`${m.name} deactivated`, 'They can’t sign in. They keep their students, and can be reactivated.')) },
+                              toggle(m),
                               { id: 'remove', label: 'Remove from team', icon: 'close' as const, danger: true, onPick: () => setRemoving({ m }) },
                             ]),
                       ]}
@@ -245,8 +259,9 @@ export function TeamSection({ agency, bdm, team, setTeam, branches, setBranches,
       <MemberDialog
         open={!!memberDlg}
         edit={memberDlg?.edit}
-        team={team}
+        team={all}
         branches={branches}
+        counsellorOnly={branchAdmin}
         onClose={() => setMemberDlg(null)}
         onSave={(m) => {
           const isNew = !team.some((x) => x.id === m.id);
@@ -363,9 +378,9 @@ function BranchDialog({ open, edit, branches, onClose, onSave }: { open: boolean
 }
 
 /** Invite a team member, or edit one: their name, work email, phone with the country code, role and branch. */
-function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: boolean; edit?: Member; team: Member[]; branches: Branch[]; onClose: () => void; onSave: (m: Member) => void }) {
+function MemberDialog({ open, edit, team, branches, counsellorOnly, onClose, onSave }: { open: boolean; edit?: Member; team: Member[]; branches: Branch[]; counsellorOnly?: boolean; onClose: () => void; onSave: (m: Member) => void }) {
   const homeDial = countryByName(branches.find((x) => x.main)?.country ?? TEST_COUNTRY)?.dial ?? '';
-  const blank = (): Member => ({ id: `m${Date.now()}`, name: '', role: 'Counsellor', email: '', dial: homeDial, phone: '', branch: branches.find((b) => b.main)?.id ?? branches[0]?.id, invited: true });
+  const blank = (): Member => ({ id: `m${Date.now()}`, name: '', role: 'Counsellor', email: '', dial: homeDial, phone: '', branch: counsellorOnly ? branches[0]?.id : (branches.find((b) => b.main)?.id ?? branches[0]?.id), invited: true });
   const [m, setM] = useState<Member>(blank);
   const [start, setStart] = useState<Member>(m);
   const email = (m.email ?? '').trim().toLowerCase();
@@ -431,14 +446,14 @@ function MemberDialog({ open, edit, team, branches, onClose, onSave }: { open: b
         </Field>
         <div className="grid2">
           <Field id="tm-role" label="Role" required hint={onlyAdmin ? `${m.name} is the only RP Admin. Make someone else RP Admin first.` : undefined}>
-            {onlyAdmin ? (
+            {onlyAdmin || counsellorOnly ? (
               <TextInput id="tm-role" value={m.role} readOnly aria-describedby={describedBy('tm-role', null, onlyAdmin)} />
             ) : (
               <SelectMenu id="tm-role" label="Role" value={m.role} options={TEAM_ROLES.map((r) => ({ value: r, label: r }))} onChange={(v) => setM((x) => ({ ...x, role: v as TeamRole }))} />
             )}
           </Field>
           <Field id="tm-branch" label="Branch" required error={show('branch')}>
-            <SelectMenu id="tm-branch" label="Branch" value={m.branch ?? ''} placeholder="Pick a branch" invalid={!!show('branch')} options={branches.map((b) => ({ value: b.id, label: b.name }))} onChange={(v) => setM((x) => ({ ...x, branch: v }))} />
+            <SelectMenu id="tm-branch" label="Branch" disabled={counsellorOnly} value={m.branch ?? ''} placeholder="Pick a branch" invalid={!!show('branch')} options={branches.map((b) => ({ value: b.id, label: b.name }))} onChange={(v) => setM((x) => ({ ...x, branch: v }))} />
           </Field>
         </div>
         <button type="submit" className="vh" tabIndex={-1} aria-hidden="true">

@@ -235,7 +235,7 @@ export function Portal({
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
     ) : section === 'mywork' ? (
-      <WorkPage section="mywork" role={currentRole()} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+      <WorkPage section="mywork" role={currentRole()} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} openUni={(id) => openRecord({ section: 'universities', id })} />
     ) : section === 'profile' ? (
       <StaffProfile email={GSP_USER.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (
