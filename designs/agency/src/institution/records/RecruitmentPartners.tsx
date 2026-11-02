@@ -41,8 +41,8 @@ export const rpRegion = (r: Pick<RecruitmentPartner, 'country'>) => regionOfCoun
 /**
  * Recruitment partners (slice 2 PRD, BAP and RP records): tiles Waiting for BAP, Not activated, Sent back, Not signed
  * yet, Agreement signed; search by name, city, code or contact; filters status, country, BDM; Export as CSV (logged as
- * a download). Admission and Recruitment see only RPs in their own sales regions (S4-24), in lists, counts, exports and
- * direct links. Every other role with View reads the same list and record.
+ * a download). Every GSP role but Admin sees only RPs in its own sales regions (Regression 31), in lists, counts, exports
+ * and direct links.
  */
 export function RecruitmentPartners(props: PageProps) {
   const { db, focus, navKey, open, scrollTop, say, me } = props;
@@ -569,7 +569,7 @@ function BdmPick({ r, me, say }: { r: RecruitmentPartner; me: string; say: (m: s
       <Button size="sm" variant="secondary" onClick={() => setOn(false)}>
         Cancel
       </Button>
-      <Button size="sm" disabled={!v || v === r.bdm} onClick={() => (editRp(r.id, (x) => ({ ...x, bdm: v }), `Recruitment ${r.bdm || '—'} → ${v}`, me), setOn(false), say('BDM saved.'))}>
+      <Button size="sm" disabled={!v || v === r.bdm} onClick={() => (editRp(r.id, (x) => ({ ...x, bdm: v }), `Recruitment ${r.bdm || '—'} → ${v}`, me), setOn(false), say('Recruitment contact saved.'))}>
         Save
       </Button>
     </span>

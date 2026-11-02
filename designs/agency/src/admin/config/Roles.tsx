@@ -216,7 +216,7 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
             A region can be deleted only once no RP, branch or open application is in it. {removing?.name} has {blocked!.rps} {blocked!.rps === 1 ? 'RP' : 'RPs'} and {blocked!.apps} open {blocked!.apps === 1 ? 'application' : 'applications'}.
           </p>
         ) : (
-          <p>{removing && (usersIn(removing.name) ? `Its ${usersIn(removing.name)} users are left with no sales region until you give them one; Admission and Recruitment users without a region see no records.` : 'Nobody is in it.')}</p>
+          <p>{removing && (usersIn(removing.name) ? `Its ${usersIn(removing.name)} users are left with no sales region until you give them one; users without a region see no records (only Admin sees every region).` : 'Nobody is in it.')}</p>
         )}
       </ConfirmDialog>
     </>
@@ -461,7 +461,7 @@ const LEVEL_NAME = Object.fromEntries(LEVELS) as Record<Level, string>;
  * Permission roles (PRD slice 1, Permission model): the matrix, 33 objects × the 9 GSP roles, each cell No access
  * (—), View or View + edit (Edit). Read only until Edit; Save or Cancel. Admin always has Edit on everything and
  * can't be lowered. Each changed cell is logged old → new and applies from each person's next request. RP roles
- * aren't here: they're fixed by role. Sales region isolation still cuts what Admission and Recruitment see.
+ * aren't here: they're fixed by role. Sales region isolation still applies: only Admin sees every region.
  */
 export function Permissions({ cfg, change, say, canEdit }: ConfigProps) {
   const d = useDraft(cfg.perms, 'the permission matrix');
@@ -480,7 +480,7 @@ export function Permissions({ cfg, change, say, canEdit }: ConfigProps) {
   const cell = (o: string, role: string): Level => (role === 'Admin' ? 'E' : ((v[o]?.[role] ?? 'N') as Level));
   return (
     <>
-      <PageHead title="Permission roles" lead="What each GSP role can see and change: No access (—), View, or View + edit (Edit). A page whose objects are all No access isn’t in that role’s menu. Admin always has Edit on everything. Sales region isolation still cuts what Admission and Recruitment see; the RP’s roles are fixed by role.">
+      <PageHead title="Permission roles" lead="What each GSP role can see and change: No access (—), View, or View + edit (Edit). A page whose objects are all No access isn’t in that role’s menu. Admin always has Edit on everything. Sales region isolation still applies: only Admin sees every region, every other role sees the sales regions on the person. The RP’s roles are fixed by role.">
         {canEdit && <EditBar name="the permission matrix" editing={d.editing} dirty={d.dirty} onEdit={d.start} onCancel={() => (setResult(null), d.stop())} onSave={save} />}
       </PageHead>
       {!canEdit && <ViewOnlyNote />}

@@ -8,8 +8,8 @@
  * - **Student:** the sales region of the RP branch that added them; a student who came to GSP directly is Direct.
  * - **Application:** the routing rules, run once when it reaches Pre-screening; "the RP" is the branch that created
  *   it. It changes only when the officer changes the RP, the nationality or where the student lives.
- * - **Region isolation** (model D): Admission and Recruitment see their own regions in lists, dashboards and My work;
- *   searching every region is read-only and logged. Everyone else sees every region.
+ * - **Region isolation** (model D): only Admin sees every region (Regression 31); every other GSP role
+ *   sees the sales regions on the person, in lists, dashboards and My work. There is no switch to see other regions.
  * In the real build the server sets and enforces these.
  */
 import { NATIONALITY, REGION_BDM, route, type RoutingRp } from '../admin/data/config';

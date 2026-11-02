@@ -102,7 +102,7 @@ export function Routing({ cfg, change, say, canEdit }: ConfigProps) {
                       <p className="cfg__sub">Matches when: {x.when}</p>
                       <p className="cfg__rulesets">
                         <span className="cfg__tag cfg__tag--soft">Region: {x.region}</span>
-                        <span className="cfg__tag cfg__tag--soft">BDM: {x.bdm}</span>
+                        <span className="cfg__tag cfg__tag--soft">Recruitment contact: {x.bdm}</span>
                       </p>
                     </div>
                     <div className="cfg__ruleacts">

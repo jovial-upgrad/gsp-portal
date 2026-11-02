@@ -198,11 +198,11 @@ function AdminHome({ first, go, variant }: Props) {
   if (onlyLeader.length) warns.push({ id: 'q-lead', title: `${onlyLeader.length === 1 ? '1 queue has' : `${onlyLeader.length} queues have`} only a leader`, text: `${onlyLeader.map((q) => q.name).join(', ')}: every task goes to the leader.`, go: 'work-sla', action: 'Queues' });
   const inAdmin = work.tasks.filter((t) => t.queue === 'q-admin' && t.status === 'open');
   if (inAdmin.length) warns.push({ id: 'q-admin', title: `${inAdmin.length === 1 ? '1 task' : `${inAdmin.length} tasks`} in the Admin queue`, text: 'Work that no queue took, or that escalated to Admin.', go: 'mywork', action: 'My work' });
-  // a daily job that failed 3 runs in a row (slice 4's job runs, in Logs)
+  // a daily job that failed 3 runs in a row (slice 4's job runs, in Admin › Work › Emails and daily jobs; Logs is downloads only, S1C-9)
   const jobs = [...new Set(cfg.log.filter((l) => l.kind === 'job').map((l) => l.text))];
   for (const j of jobs) {
     const runs = cfg.log.filter((l) => l.kind === 'job' && l.text === j).sort((a, b) => b.at - a.at).slice(0, 3);
-    if (runs.length === 3 && runs.every((r) => r.error)) warns.push({ id: `job-${j}`, title: `${j} failed 3 runs in a row`, text: runs[0].error ?? '', go: 'logs', action: 'Logs' });
+    if (runs.length === 3 && runs.every((r) => r.error)) warns.push({ id: `job-${j}`, title: `${j} failed 3 runs in a row`, text: runs[0].error ?? '', go: 'work-mail', action: 'Emails and daily jobs' });
   }
   const notActive = cfg.users.filter((u) => u.status !== 'Active').length;
   const off = cfg.docRules.filter((r) => !r.on).length;

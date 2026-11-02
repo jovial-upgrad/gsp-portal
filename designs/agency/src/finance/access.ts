@@ -10,7 +10,7 @@ import { ROLES as PERMISSION_ROLES, OVERSIGHT_OBJECT } from '../admin/data/confi
 /*
  * Who can do what (Jovial, 1 Nov, HC46): GSP's roles and their access are GSP · Admin › Permission roles, the one
  * matrix. Finance and Work have no list of their own: each check below is a line of Admin's matrix (No access, View,
- * View + edit). Region isolation (model D) gives Admission and Recruitment their own regions; the rest see all.
+ * View + edit). Region isolation (Regression 31): only Admin sees every region; every other GSP role sees the regions on the person.
  * The RP's roles aren't GSP's to set there: they stay the agency portal's own, below.
  */
 // each role's main work, as the slice 1 PRD's Roles table has it

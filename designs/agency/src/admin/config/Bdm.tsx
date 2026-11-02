@@ -22,7 +22,7 @@ const placesOf = (r: BdmRow) => r.area.split(',').map((x) => x.trim()).filter(Bo
  * other countries", which can't be deleted). The RP's partner manager comes from it; the admissions contact comes
  * from the region. Changing a row affects new branches only; an existing RP's BDM changes on its record.
  */
-export function Bdm({ cfg, change, say, canEdit }: ConfigProps) {
+export function Bdm({ cfg, change, say, canEdit, me }: ConfigProps) {
   const [edit, setEdit] = useState<BdmRow | 'new' | null>(null);
   const [q, setQ] = useState('');
   const [country, setCountry] = useState('');
@@ -113,7 +113,7 @@ export function Bdm({ cfg, change, say, canEdit }: ConfigProps) {
           setEdit(null);
         }}
         onSave={(r, was) => {
-          const stamp = { changedAt: Date.now(), changedBy: cfg.users.find((u) => u.role === 'Admin')?.name ?? 'Admin' };
+          const stamp = { changedAt: Date.now(), changedBy: me };
           change('Recruitment assignment', was ? `${was.country} · ${was.area}: ${[was.country !== r.country && `country ${was.country} → ${r.country}`, was.area !== r.area && `states or cities ${was.area} → ${r.area}`, was.bdm !== r.bdm && `BDM ${was.bdm} → ${r.bdm}`, (was.note ?? '') !== (r.note ?? '') && `note ${was.note || '–'} → ${r.note || '–'}`].filter(Boolean).join('; ')}` : `Added ${r.country} · ${r.area} → ${r.bdm}`, (c) => {
             const next = { ...r, ...stamp };
             if (was) return { ...c, bdm: c.bdm.map((x) => (x.id === r.id ? next : x)) };
