@@ -5,8 +5,9 @@ import './range.css';
  * A range with two handles (slice 3 PRD: the Tuition fee and Duration filters), drawn by the portal, never the
  * browser's own slider. Each handle is an ARIA slider: arrow keys move it a step, Page Up and Down ten steps, Home
  * and End to its end; dragging works with a mouse, pen or finger, and clicking the track moves the nearer handle.
- * The handles can meet but not cross. `stops` labels the steps (Duration's "<1 year" … "5+ years"); without them the
- * values are numbers from `min` to `max` in `step`s, said with `format`.
+ * The handles can meet but not cross. `stops` labels the steps (Duration's "<1" … "5+"); without them the values are
+ * numbers from `min` to `max` in `step`s, said with `format`. `unit` is said after each value to screen readers only
+ * (Jovial, 2 Nov: the field's label names the unit once, not every tick).
  */
 export function RangeSlider({
   id,
@@ -18,6 +19,7 @@ export function RangeSlider({
   onChange,
   format = (n) => String(n),
   stops,
+  unit,
 }: {
   id: string;
   label: string;
@@ -29,6 +31,8 @@ export function RangeSlider({
   format?: (n: number) => string;
   /** Labels for each step from min to max (min and max are then indexes). */
   stops?: string[];
+  /** Said after each value to screen readers ("years"); not shown. */
+  unit?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const drag = useRef<0 | 1 | null>(null);
@@ -96,7 +100,7 @@ export function RangeSlider({
               aria-valuemin={min}
               aria-valuemax={max}
               aria-valuenow={v}
-              aria-valuetext={say(v)}
+              aria-valuetext={unit ? `${say(v)} ${unit}` : say(v)}
               disabled={off}
               onKeyDown={onKey(i)}
               onPointerDown={(e) => {

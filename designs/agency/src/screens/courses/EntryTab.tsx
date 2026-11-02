@@ -2,7 +2,7 @@ import { Icon } from '../../components/Icon';
 import { SelectMenu } from '../../components/SelectMenu';
 import { tagsOf, type Course } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
-import { eligibility, verdictTone, type Line } from '../../data/eligibility';
+import { eligibility, groupsOf, verdictTone, type Line } from '../../data/eligibility';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
 import { TEST_MIN, type AcademicRule, type EnglishRule } from '../../institution/data/catalogue';
 import { courseDocs, type CourseDoc } from '../../admin/data/store';
@@ -144,7 +144,8 @@ function Waiver({ c }: { c: Course }) {
 
 /**
  * The eligibility check for the student picked in the search (slice 3 PRD, Eligibility check): each part's verdict
- * and why (highest education, academics, backlogs, English), then the overall verdict. It's a soft check: it never
+ * and why, in two groups (Jovial, 2 Nov): Academics (highest education, the score, backlogs) and English, each with
+ * its worst check's state, then the overall verdict. It's a soft check: it never
  * blocks applying. With no student picked, the rules show without verdicts.
  */
 function Verdicts({ c, student }: { c: Course; student?: Student }) {
@@ -159,13 +160,21 @@ function Verdicts({ c, student }: { c: Course; student?: Student }) {
   return (
     <Box id="cs-elig" icon="checkCircle" title={`Eligibility check for ${fullName(student)}`} meta={pill({ ok: verdictTone(k.verdict), result: k.verdict })}>
       <ul className="cs-checks">
-        {k.lines.map((l) => (
-          <li key={l.label + l.why} className="cs-check">
-            <span className="cs-check__k">{l.label}</span>
-            <span className="cs-check__line">
-              {pill(l)}
-              <span className="cs-check__why">{l.why}</span>
-            </span>
+        {groupsOf(k).map((g) => (
+          <li key={g.key} className="cs-check cs-check--group">
+            <span className="cs-check__k">{g.key}</span>
+            <span className="cs-check__line">{pill({ ok: g.ok, result: g.verdict })}</span>
+            <ul className="cs-check__subs">
+              {g.lines.map((l) => (
+                <li key={l.label + l.why} className="cs-check cs-check--sub">
+                  <span className="cs-check__k">{l.sub}</span>
+                  <span className="cs-check__line">
+                    {pill(l)}
+                    <span className="cs-check__why">{l.why}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
       </ul>

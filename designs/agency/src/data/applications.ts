@@ -20,7 +20,7 @@ import { STAFF, label, staffById } from './staff';
 import { routeApplication } from './regions';
 import { datasetApplications, testAgencyApps, testAgencyStudents } from './dataset';
 import { COURSES, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
-import { eligibility } from './eligibility';
+import { eligibility, groupsOf } from './eligibility';
 import { TESTS, eduDocKey, fullName, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
 
@@ -496,7 +496,13 @@ export function docLines(a: Application, s: Student): DocLine[] {
 
 export type Verdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check' | 'Not specified';
 /** na: not specified by the university; it doesn't count against the student. */
-export type Reason = { ok: 'yes' | 'warn' | 'no' | 'add' | 'na'; title: string; text: string };
+export type Reason = { ok: 'yes' | 'warn' | 'no' | 'add' | 'na'; title: string; text: string; /** Academics and English (2 Nov): each check under the group, with its own result and why. */ lines?: { sub: string; ok: Reason['ok']; text: string }[] };
+
+/** A check's result and why as one sentence, said once ("Expired: Expired: …" was the result twice) and ending once. */
+const lineText = (l: { result: string; why: string }) => {
+  const why = l.why.startsWith(`${l.result}:`) ? l.why.slice(l.result.length + 1).trim() : l.why;
+  return `${l.result}: ${why}${/[.!?]$/.test(why) ? '' : '.'}`;
+};
 
 /** Checks a student against a course intake, with the reason for each part of the verdict. */
 export function checkFit(s: Student, c: Course, intake: string): { verdict: Verdict; reasons: Reason[] } {
@@ -510,8 +516,8 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
   // academics and English: the eligibility check (slice 3 PRD; data/eligibility.ts), each line with its result
   void so;
   const k = eligibility(s, c);
-  for (const l of k.academicLines) reasons.push({ ok: l.ok, title: l.label === 'Highest education' ? 'Academics · highest education' : l.label === 'Backlogs' ? 'Academics · backlogs' : 'Academics', text: `${l.result}: ${l.why}.` });
-  for (const l of k.englishLines) reasons.push({ ok: l.ok, title: 'English', text: `${l.result}: ${l.why}.` });
+  // one row each for Academics and English (Jovial, 2 Nov), its worst line's state, every check under it
+  for (const g of groupsOf(k)) reasons.push({ ok: g.ok, title: g.key, text: g.verdict, lines: g.lines.map((l) => ({ sub: l.sub, ok: l.ok, text: lineText(l) })) });
   // intake
   const i = c.intakes.find((x) => x.month === intake);
   if (i) {

@@ -165,9 +165,10 @@ row (tab *S3 check*) or on S3-31, the PRD's proposal is built. In every role:
 
 - **Find courses** is one page for RP users and every GSP role (GSP's own copies now render it, without Student view or
   commission, W26). Five filters and no others: **Tuition fee** (two handles, the total fee, bounds from the results),
-  **Tags** (all the ones picked, S3C-4), **Duration** (two handles, <1 year to 5+ years; courses in credits match every
-  range and show "36 credits"), **University** (any of them; 8, then "Show N more universities") and **Destination state
-  or province**. Four sorts: **Recommended** (the university's Search priority, the soonest open deadline, QS rank,
+  **Tags** (all the ones picked, S3C-4), **Duration (years)** (two handles, just the numbers <1 to 5+; courses in credits
+  match every range, unsaid, and show "36 credits"), **University** (a searchable multi-select dropdown of the
+  results' universities, A to Z with course counts, 10 at a time; "N selected"; Clear) and **Destination state or
+  province**. Four sorts: **Recommended** (the university's Search priority, the soonest open deadline, QS rank,
   name), **Fee high to low**, **Fee low to high** (total fee), **QS ranking**. Cards show the total tuition fee with the
   fee a year under it, up to two intakes ("Mar 2027 · Open"), QS rank or "—". The two sliders are the portal's own
   (`components/RangeSlider.tsx`): arrow keys, Page Up/Down, Home/End, drag.
@@ -175,7 +176,10 @@ row (tab *S3 check*) or on S3-31, the PRD's proposal is built. In every role:
   disciplines and levels. **Eligibility and documents** starts on the search's student country; with a student
   picked it shows GSP Assist's check: highest education against the course's **Minimum highest education required**,
   academics through Grade conversion, backlogs, English (Meets, Below, "Meets (converted from PTE)", May be waived,
-  Expired, Not specified) and the overall verdict (`data/eligibility.ts`).
+  Expired, Not specified) and the overall verdict (`data/eligibility.ts`), in two groups, Academics and English, each
+  with its worst check's state (2 Nov; Add an application groups them the same way). **Costs** opens with the first
+  year (tuition a year, living costs a year from Admin, visa and health cover for the year, the application fee);
+  a course longer than a year then shows the whole course's parts and total.
 - **Compare**: the decided fields in order (Program level, Duration, Intakes, Application deadline, Tuition fee,
   Application fee, Scholarship, Requirements, QS rank), tags only where 2+ courses differ (ties tag all; "—" never
   wins; other currencies converted), "Requirements are for students from …". Download: PDF for the student or CSV for

@@ -1171,3 +1171,11 @@
 .fseg__item.is-empty .fseg__pick .smenu__btn--bare { color: var(--placeholder); font-weight: var(--fw-book); }
 .fseg__item.is-error .fseg__pick .smenu__btn--bare { color: var(--bad); }
 .fseg__item.is-disabled .fseg__pick .smenu__btn--bare { cursor: not-allowed; }
+
+/* Costs › Whole course (Jovial, 2 Nov): the full length's parts and total, under the first year at the top */
+.cs-whole { margin: 0; display: grid; }
+.cs-whole__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-16); padding: var(--sp-8) 0; }
+.cs-whole__row + .cs-whole__row { border-top: 1px solid var(--line); }
+.cs-whole__row dt { display: grid; font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
+.cs-whole__row dd { margin: 0; text-align: right; white-space: nowrap; font-size: var(--t-label); font-weight: var(--fw-medium); color: var(--text); }
+.cs-whole__row--total dt, .cs-whole__row--total dd { font-weight: var(--fw-semi); color: var(--text); }

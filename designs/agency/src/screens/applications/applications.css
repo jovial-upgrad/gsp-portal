@@ -1075,3 +1075,25 @@ button.nachip:hover { border-color: var(--line-strong); }
 .kgroup { display: grid; gap: var(--sp-6); }
 .kgroup + .kgroup { margin-top: var(--sp-12); padding-top: var(--sp-12); border-top: 1px solid var(--line); }
 .kgroup__title { margin: 0; font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-semi); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }
+
+/* GSP Assist's check (Jovial, 2 Nov): Academics and English are one row each, its state the worst of its checks,
+   and every check under it with its own result and why */
+.nareason--na .nareason__ic { background: var(--surface-2); color: var(--text-3); }
+.nareason__verdict { font-weight: var(--fw-semi); }
+.nareason__verdict--yes { color: var(--ok); }
+.nareason__verdict--no { color: var(--bad); }
+.nareason__verdict--warn { color: var(--you); }
+.nareason__subs { grid-column: 3; list-style: none; display: grid; gap: var(--sp-6); margin: calc(var(--sp-4) - var(--sp-10)) 0 0; padding: var(--sp-8) 0 0 var(--sp-12); border-left: 2px solid var(--line); }
+.nasub { display: grid; grid-template-columns: 16px 132px minmax(0, 1fr); gap: var(--sp-8); align-items: start; font-size: var(--t-label); line-height: var(--lh-label); }
+.nasub__ic { margin-top: 2px; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--text-3); }
+.nasub--yes .nasub__ic { background: var(--ok-bg); color: var(--ok); }
+.nasub--warn .nasub__ic { background: var(--you-bg); color: var(--you); }
+.nasub--no .nasub__ic { background: var(--bad-bg); color: var(--bad); }
+.nasub--add .nasub__ic { color: var(--text-2); }
+.nasub__k { font-weight: var(--fw-medium); color: var(--text); }
+.nasub__v { color: var(--text-2); }
+@media (max-width: 560px) {
+  .nareason__subs { grid-column: 1 / -1; }
+  .nasub { grid-template-columns: 16px minmax(0, 1fr); }
+  .nasub__v { grid-column: 2; }
+}

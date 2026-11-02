@@ -198,7 +198,7 @@ export type CostPart = { key: 'tuition' | 'living' | 'visa' | 'app'; label: stri
  * tuition for the course's duration, living costs (Admin › Living costs) and visa and health cover (Admin › Visa and
  * health fees: a yearly fee for each year, a one-off once) for the same duration, and the application fee, once.
  * A course whose length is in credits has no length in time, so it's one year of each. Admin figures in another
- * currency are converted at Admin's Currency exchange.
+ * currency are converted at Admin's Currency exchange. `yearParts` are the same for the first year only (2 Nov).
  */
 export function courseCosts(c: Course & { durUnit?: string; durValue?: number; fullFee?: number; firstYearFee?: number }) {
   const cfg = load();
@@ -232,7 +232,38 @@ export function courseCosts(c: Course & { durUnit?: string; durValue?: number; f
     },
     { key: 'app', label: 'Application fee, one time', v: Math.round(c.appFee), basis: c.appFee ? 'Paid once, with the application' : 'No application fee' },
   ];
-  return { parts, total: parts.reduce((n, p) => n + p.v, 0), span, credits, credit: credits ? c.durValue : undefined };
+  // the first year (Jovial, 2 Nov: the Costs tab opens with one year's costs): tuition a year, living costs a year
+  // and the yearly visa and health fees, plus what's paid once (the one-off fees, the application fee), which falls
+  // in the first year. A course shorter than a year is its whole length; a course in credits is already one year.
+  const first = credits ? 1 : Math.min(1, years);
+  const short = !credits && years < 1;
+  const yearSpan = short ? span : '1 year';
+  const tuitionYear = credits ? tuition : (tuition * first) / years;
+  const visaYear = fees.reduce((n, f) => n + conv(f.amount, f.currency) * (f.per === 'year' ? first : 1), 0);
+  const yearParts: CostPart[] = [
+    { key: 'tuition', label: short ? `Tuition fee, for ${span}` : 'Tuition fee, a year', v: Math.round(tuitionYear), basis: short || credits ? tuitionBasis : c.fullFee && c.fullFee > 0 ? `The full course fee of ${fmt(tuition)} over ${span}` : `${fmt(c.tuition)} a year` },
+    { key: 'living', label: short ? `Living costs, for ${span}` : 'Living costs, a year', v: Math.round(l ? conv(l.perYear, l.currency) * first : 0), basis: l ? `${fmt(l.perYear, l.currency)} a year${short ? ` × ${+first.toFixed(2)} years` : ''}, from GSP · Admin` : `Not set for ${c.uni.country} in GSP · Admin` },
+    {
+      key: 'visa',
+      label: short ? `Visa and health cover, for ${span}` : 'Visa and health cover, first year',
+      v: Math.round(visaYear),
+      basis: fees.length ? fees.map((f) => `${f.label}: ${fmt(f.amount, f.currency)} ${f.per === 'year' ? 'a year' : 'once'}`).join(' · ') : `Not set for ${c.uni.country} in GSP · Admin`,
+    },
+    { key: 'app', label: 'Application fee, one time', v: Math.round(c.appFee), basis: c.appFee ? 'Paid once, with the application' : 'No application fee' },
+  ];
+  return {
+    parts,
+    total: parts.reduce((n, p) => n + p.v, 0),
+    span,
+    credits,
+    credit: credits ? c.durValue : undefined,
+    /** One year's costs, for the top of the Costs tab. */
+    yearParts,
+    yearTotal: yearParts.reduce((n, p) => n + p.v, 0),
+    yearSpan,
+    /** Whether the course runs longer than its first year (so the whole course's total is worth showing too). */
+    longer: !credits && years > 1,
+  };
 }
 const durationText = (m: number) => (m % 12 === 0 ? `${m / 12} ${m === 12 ? 'year' : 'years'}` : `${m} months`);
 /** A document a course asks for: its name, whether it's needed, and when (or for whom). */

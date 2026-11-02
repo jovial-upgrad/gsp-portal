@@ -592,7 +592,7 @@ function activeFilters(s: CourseSearch) {
       clear: () => ({ fee: null }),
     });
   f.tags.forEach((t) => out.push({ key: 'tags', label: t, clear: (x) => ({ tags: x.tags.filter((y) => y !== t) }) }));
-  if (f.dur[0] !== ANY_DUR[0] || f.dur[1] !== ANY_DUR[1]) out.push({ key: 'dur', label: `Duration ${DUR_STOPS[f.dur[0]]} to ${DUR_STOPS[f.dur[1]]}`, clear: () => ({ dur: ANY_DUR }) });
+  if (f.dur[0] !== ANY_DUR[0] || f.dur[1] !== ANY_DUR[1]) out.push({ key: 'dur', label: `Duration ${DUR_STOPS[f.dur[0]]} to ${DUR_STOPS[f.dur[1]]} years`, clear: () => ({ dur: ANY_DUR }) });
   f.unis.forEach((id) => {
     const u = searchCatalogue().unis.find((x) => x.id === id);
     out.push({ key: 'unis', label: u?.name ?? 'University', clear: (x) => ({ unis: x.unis.filter((y) => y !== id) }) });
@@ -604,7 +604,8 @@ function activeFilters(s: CourseSearch) {
 /**
  * The left panel: five filters, and no others (slice 3 PRD): **Tuition fee** (two handles, the total fee, bounds the
  * lowest and highest total fees in the results), **Tags** (Admin's list; all of the ones picked, S3C-4), **Duration**
- * (two handles, <1 year to 5+ years; courses in credits match every range), **University** (any of the ones picked)
+ * (two handles, <1 to 5+ years, the steps just numbers; courses in credits match every range, unsaid), **University**
+ * (a multi-select dropdown; any of the ones picked)
  * and **Destination state or province**. Each offers what the results less that filter hold (1 Nov). Clear resets them.
  */
 function FilterPanel({
@@ -655,10 +656,10 @@ function FilterPanel({
       {f.tags.length > 1 && <p className="fpanel__note">Courses with all {f.tags.length} tags.</p>}
       <div className="fpanel__f">
         <p className="field__label" id={id('dur-label')}>
-          Duration
+          Duration (years)
         </p>
-        <RangeSlider id={id('dur')} label="Duration" min={0} max={DUR_STOPS.length - 1} value={f.dur} stops={DUR_STOPS} onChange={(v) => setFilter('dur', v)} />
-        {f.dur[0] === ANY_DUR[0] && f.dur[1] === ANY_DUR[1] ? <p className="fpanel__note">Any length</p> : <p className="fpanel__note">Courses in credits match every range.</p>}
+        <RangeSlider id={id('dur')} label="Duration" unit="years" min={0} max={DUR_STOPS.length - 1} value={f.dur} stops={DUR_STOPS} onChange={(v) => setFilter('dur', v)} />
+        {f.dur[0] === ANY_DUR[0] && f.dur[1] === ANY_DUR[1] && <p className="fpanel__note">Any length</p>}
       </div>
       <UniFilter key={`${s.need.dest}|${s.keyword}`} id={id('uni')} pool={facet('unis')} value={f.unis} onChange={(v) => setFilter('unis', v)} />
       <Field id={id('state')} label="Destination state or province">

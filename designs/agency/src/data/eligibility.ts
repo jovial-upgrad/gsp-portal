@@ -211,3 +211,29 @@ export function eligibility(s: Student, c: Course, country = s.country || s.nati
 
 /** The verdict's tone for its pill. */
 export const verdictTone = (v: PartVerdict): Ok => (v === 'Eligible' ? 'yes' : v === 'Eligible with conditions' ? 'warn' : v === 'Not eligible' ? 'no' : v === 'Add details to check' ? 'add' : 'na');
+
+/* ---------- the check in two groups (Jovial, 2 Nov) ---------- */
+
+/** Worst first: a group takes the state of its worst line (Jovial, 2 Nov: no > add > warn > na > yes). */
+const WORST: Ok[] = ['no', 'add', 'warn', 'na', 'yes'];
+export const worstOf = (oks: Ok[]): Ok => WORST.find((o) => oks.includes(o)) ?? 'na';
+/** A group's state in the PRD's verdict words, so its icon and its words always agree. */
+const VERDICT_OF: Record<Ok, PartVerdict> = { no: 'Not eligible', add: 'Add details to check', warn: 'Eligible with conditions', na: 'Not specified', yes: 'Eligible' };
+/** One check inside a group: what it's about (named for the group it's in), its result and why. */
+export type SubLine = Line & { sub: string };
+export type LineGroup = { key: 'Academics' | 'English'; ok: Ok; verdict: PartVerdict; lines: SubLine[] };
+// the order inside Academics: Highest education, then the score or grade checks, then Backlogs
+const ACADEMIC_ORDER = (l: Line) => (l.label === 'Highest education' ? 0 : l.label === 'Backlogs' ? 2 : 1);
+const SUB_NAME: Record<string, string> = { Academics: 'Score', English: 'English test' };
+/**
+ * The check's lines as two groups, Academics and English (Jovial, 2 Nov: highest education, the scores and the
+ * backlogs come together), each with its worst line's state and every check under it, in a fixed order. Add an
+ * application (GSP Assist) and the course page's Eligibility tab both show them this way.
+ */
+export function groupsOf(k: Check): LineGroup[] {
+  const group = (key: LineGroup['key'], lines: Line[]): LineGroup => {
+    const ok = worstOf(lines.map((l) => l.ok));
+    return { key, ok, verdict: VERDICT_OF[ok], lines: lines.map((l) => ({ ...l, sub: SUB_NAME[l.label] ?? l.label })) };
+  };
+  return [group('Academics', [...k.academicLines].sort((a, b) => ACADEMIC_ORDER(a) - ACADEMIC_ORDER(b))), group('English', k.englishLines)];
+}
