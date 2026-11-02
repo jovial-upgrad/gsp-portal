@@ -96,7 +96,9 @@ export const NEED_LABEL: Record<keyof Need, string> = {
   level: 'program level',
   area: 'study area',
 };
-export const missingNeed = (n: Need) => (Object.keys(NEED_LABEL) as (keyof Need)[]).filter((k) => !n[k]);
+/** What the search still needs before results mean anything. The student's state or province is optional (Jovial, 2 Nov). */
+export const OPTIONAL_NEED: (keyof Need)[] = ['state'];
+export const missingNeed = (n: Need) => (Object.keys(NEED_LABEL) as (keyof Need)[]).filter((k) => !n[k] && !OPTIONAL_NEED.includes(k));
 
 /* ---------- typo-tolerant matching ---------- */
 
