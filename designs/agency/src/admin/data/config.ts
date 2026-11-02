@@ -338,6 +338,26 @@ export const sampleEmails = (users: User[]): EmailGroup[] => {
   });
 };
 
+/**
+ * The shared mailboxes a person can send from (S3F-1 proposal; slice 1 AC-40): those where Admin gave them View and
+ * send. The Admissions mailbox (the first seeded, application conversations) comes first, then the rest in Admin's order.
+ */
+export function sendableMailboxes(c: { emails: EmailGroup[]; users: User[] }, email: string): EmailGroup[] {
+  const u = c.users.find((x) => x.email.toLowerCase() === email.toLowerCase());
+  if (!u) return [];
+  const mine = c.emails.filter((m) => m.users.some((x) => x.id === u.id && x.perm === 'send'));
+  const first = MAILBOX_SEED[0][0];
+  return [...mine.filter((m) => m.email === first), ...mine.filter((m) => m.email !== first)];
+}
+/** A person's access to one shared mailbox by its address (B-6: per person, View or View and send), or null. */
+export function mailboxAccess(c: { emails: EmailGroup[]; users: User[] }, email: string, address: string): EmailPerm | null {
+  const u = c.users.find((x) => x.email.toLowerCase() === String(email || '').toLowerCase());
+  const m = c.emails.find((x) => x.email.toLowerCase() === address.toLowerCase());
+  return (u && m?.users.find((x) => x.id === u.id)?.perm) || null;
+}
+/** A new mail's subject to a university (S3F-1 proposal, as the 1 pm brief): "<GSP ID> · <university reference>". */
+export const uniMailSubject = (a: { id: string; uniRef?: string }) => [a.id, a.uniRef].filter(Boolean).join(' · ');
+
 /* ---------- Recruitment assignment (PRD slice 1, Recruitment assignment) ---------- */
 /**
  * A row: a country (or "All other countries", the fallback row only), its states or cities ("All", "Rest of
@@ -518,7 +538,6 @@ export const regionQueueName = (region: string) => {
 export type RoutingRp = { name: string; region: string; auBranch: boolean; bdm: string };
 /** The regional RP lists at the start: real RPs from the records (seeded: Vietnam, Latin America & Europe, Philippines). */
 export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Edunetwork Australia', 'IEMC Global Pty Ltd'], 'Latin America & Europe': ['Latin Education and Migration'], Philippines: ['Pathway To Aus'] });
-export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United States', 'New Zealand', 'Ireland'];
 
 /** One rule in the test's trace: Matched, No, Not reached, or Off. */
 export type TraceState = 'Matched' | 'No' | 'Not reached' | 'Off';

@@ -296,8 +296,9 @@ export function AppDetail({
   };
 
   // the offer's facts sit in Key details until the deposit is paid; its conditions are needs, in Documents
-  const offer = a.offer && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
-  const acceptLeft = offer ? Math.max(0, Math.ceil((offer.acceptBy - Date.now()) / 86_400_000)) : 0;
+  // S3F-2: Offer, Accept by and Deposit show only what GSP Assist read from the letter; hidden while empty
+  const offer = a.offer?.read && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
+  const acceptLeft = offer?.read?.acceptBy ? Math.max(0, Math.ceil((offer.read.acceptBy - Date.now()) / 86_400_000)) : 0;
   const chaseable = isOpen(a) && STATUS[a.status].owner === 'uni' && clock(a).late && !a.chased;
   // older applications may still carry profile details as to-dos: they don't show, and don't hold Send to GSP
   const sendable = isOpen(a) && !!NEXT_AFTER_YOU[a.status] && a.needs.some((n) => !n.request);
@@ -577,16 +578,16 @@ export function AppDetail({
               <Row k="Final tuition fee" v={<span className="num">{money(finalFeeOf(a.id, c.tuition), c.currency)}</span>} />
               {offer && (
                 <>
-                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
+                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.read!.at))}`} />
                   <Row
                     k="Accept by"
                     v={
-                      <span>
-                        {shortDate(new Date(offer.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
+                      offer.read?.acceptBy && <span>
+                        {shortDate(new Date(offer.read.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
                       </span>
                     }
                   />
-                  <Row k="Deposit" v={<span className="num">{money(offer.deposit, c.currency)}</span>} />
+                  <Row k="Deposit" v={offer.read?.deposit != null ? <span className="num">{money(offer.read.deposit, c.currency)}</span> : null} />
                 </>
               )}
               <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />

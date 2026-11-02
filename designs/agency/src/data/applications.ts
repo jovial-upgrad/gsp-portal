@@ -242,6 +242,11 @@ export type Offer = {
   conditions: { id: string; text: string; doc: string; source: string }[];
   /** GSP Assist found the letter in the chat. */
   found?: 'chat';
+  /**
+   * What GSP Assist read from the letter into Key details (S3F-2 proposal): the Offer, Accept by and Deposit rows show
+   * only once it's here. Nothing fills it in v1 (later, when GSP Assist reads offer letters), so the rows stay hidden.
+   */
+  read?: { at: number; acceptBy?: number; deposit?: number };
 };
 
 export type Application = {

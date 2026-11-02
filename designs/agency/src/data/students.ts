@@ -10,6 +10,7 @@ import { datasetStudents, testAgencyStudents } from './dataset';
 import { GRADING_SCALES } from './grading';
 import { grades, systemOf, toPct } from '../admin/data/eligibility';
 import { TESTS, type Test, type TestType } from './tests';
+import { CARD_LEVELS, LANGUAGES_OF_INSTRUCTION } from './reference';
 
 /* ---------- education ---------- */
 
@@ -26,12 +27,8 @@ export const HIGHEST: [Level, string][] = [
 export const levelsFor = (h: Level) => LEVELS.slice(LEVELS.indexOf(h));
 export const isSchool = (l: Level) => l === 'g12' || l === 'g10';
 
-export const STUDY_LEVELS: Record<Level, string[]> = {
-  pg: ['Master’s degree', 'Postgraduate diploma', 'PhD'],
-  ug: ['Bachelor’s degree', 'Advanced diploma', 'Diploma'],
-  g12: ['Grade 12 (higher secondary)', 'A levels', 'IB Diploma', 'Diploma after Grade 10'],
-  g10: ['Grade 10 (secondary)', 'O levels', 'IGCSE'],
-};
+/** Program levels per Academics card: reference data (S3F-4, data/reference.ts). */
+export const STUDY_LEVELS = CARD_LEVELS as Record<Level, string[]>;
 /**
  * A student's grading system (slice 3 PRD): picked from Admin › Course configuration › Grade conversion, its active
  * systems (a retired one stays on the entries that have it, S3C-18). Older records hold a scale key ('100', '10', '4',
@@ -57,7 +54,8 @@ export function scaleMax(grading: string): number | undefined {
   const nums = s.bands.flatMap((b) => [Number(b.from), Number(b.to)]).filter((n) => !Number.isNaN(n));
   return nums.length ? Math.max(...nums) : undefined;
 }
-export const LANGUAGES = ['English', 'Hindi', 'Bengali', 'Nepali', 'Sinhala', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Gujarati', 'Punjabi', 'Urdu', 'Vietnamese', 'Other'];
+/** Languages of instruction: reference data (S3F-4, data/reference.ts). */
+export const LANGUAGES = LANGUAGES_OF_INSTRUCTION as string[];
 
 export type Edu = {
   country: string;

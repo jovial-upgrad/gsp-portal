@@ -1,4 +1,5 @@
 import { UPLOAD, uploadError, sizeText } from '../../data/uploads';
+import { destinations } from '../../data/reference';
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
@@ -6,7 +7,7 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { downloadDoc } from '../../components/DocView';
 import { Field, SelectInput } from '../../components/forms';
-import { COURSES, DESTINATIONS, FLAG, UNIVERSITIES, daysTo, intakeState, money, type Course } from '../../data/courses';
+import { COURSES, FLAG, type Destination, UNIVERSITIES, daysTo, intakeState, money, type Course } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { eduDocName, fullName, type Member, type Student } from '../../data/students';
 import {
@@ -418,7 +419,7 @@ export function NewApplication({
                           if (uni && UNIVERSITIES.find((u) => u.id === uni)?.country !== e.target.value && e.target.value) setUni('');
                         }}
                       >
-                        {DESTINATIONS.map((d) => (
+                        {(destinations() as Destination[]).map((d) => (
                           <option key={d} value={d}>
                             {FLAG[d]} {d}
                           </option>
@@ -427,7 +428,7 @@ export function NewApplication({
                     </Field>
                     <Field id="na-uni" label="University">
                       <SelectInput id="na-uni" value={uni} placeholder="Any university" allowEmpty onChange={(e) => setUni(e.target.value)}>
-                        {DESTINATIONS.filter((d) => !dest || d === dest).map((d) => (
+                        {(destinations() as Destination[]).filter((d) => !dest || d === dest).map((d) => (
                           <optgroup key={d} label={d}>
                             {UNIVERSITIES.filter((u) => u.country === d)
                               .sort((a, b) => a.name.localeCompare(b.name))

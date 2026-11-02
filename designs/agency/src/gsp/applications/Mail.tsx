@@ -8,6 +8,9 @@ import type { University } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { courseOf, type Application } from '../../data/applications';
 import { GSP_USER } from '../user';
+import { adminCfg } from '../../admin/data/store';
+import { sendableMailboxes, uniMailSubject } from '../../admin/data/config';
+import { SelectMenu } from '../../components/SelectMenu';
 import { UniMark } from '../courses/parts';
 import { AssistMark, Thinking } from './parts';
 import { longDate, summaryOf, type Desk, type Mail } from './desk';
@@ -30,7 +33,7 @@ type View =
       of?: string;
       draft?: string;
     };
-type Draft = { to: string; subject: string; body: string; files: string[] };
+type Draft = { from: string; to: string; subject: string; body: string; files: string[] };
 
 /**
  * Mail: the university's mail about this application, and what GSP sent back. Open one to read it, reply,
@@ -51,9 +54,11 @@ export function MailTab({
   say: (m: string) => void;
 }) {
   const c = courseOf(a);
-  // GSP's mail goes out from the signed-in person's address
+  // S3F-1: GSP's mail goes out from a shared mailbox the person can send from (Admin › Shared mailboxes), the
+  // Admissions mailbox first; the person is named as the sender
   const g = GSP_USER;
-  const me = GSP_USER.email;
+  const boxes = sendableMailboxes(adminCfg(), GSP_USER.email).map((m) => m.email);
+  const me = boxes[0] ?? '';
   const [view, setView] = useState<View>({ mode: 'list' });
   const mails = [...desk.mails].sort((x, y) => y.at - x.at);
   const open = view.mode === 'read' ? mails.find((m) => m.id === view.id) : undefined;
@@ -73,6 +78,7 @@ export function MailTab({
     const d = v.draft ? desk.mails.find((m) => m.id === v.draft) : undefined;
     if (d)
       return {
+        from: d.from.email,
         to: d.to.join(', '),
         subject: d.subject,
         body: d.body,
@@ -81,6 +87,7 @@ export function MailTab({
     const m = v.of ? desk.mails.find((x) => x.id === v.of) : undefined;
     if (m && v.kind === 'reply')
       return {
+        from: me,
         to: m.box === 'sent' ? m.to.join(', ') : m.from.email,
         subject: /^re:/i.test(m.subject) ? m.subject : `Re: ${m.subject}`,
         body: `\n\nOn ${longDate(m.at)}, ${m.from.name} wrote:\n${m.body
@@ -91,12 +98,13 @@ export function MailTab({
       };
     if (m && v.kind === 'forward')
       return {
+        from: me,
         to: '',
         subject: /^fwd:/i.test(m.subject) ? m.subject : `Fwd: ${m.subject}`,
         body: `\n\n---------- Forwarded message ----------\nFrom: ${m.from.name} <${m.from.email}>\nDate: ${longDate(m.at)}\nSubject: ${m.subject}\n\n${m.body}`,
         files: m.files ?? [],
       };
-    return { to: '', subject: '', body: '', files: [] };
+    return { from: me, to: '', subject: uniMailSubject(a), body: '', files: [] };
   };
 
   const save = (v: Extract<View, { mode: 'compose' }>, d: Draft, box: 'sent' | 'draft') => {
@@ -104,7 +112,7 @@ export function MailTab({
     const mail: Mail = {
       id: v.draft ?? `${a.id}-x${now}`,
       at: now,
-      from: { name: g.name, email: me },
+      from: { name: g.name, email: d.from },
       to: d.to.split(/[,;\s]+/).filter(Boolean),
       subject: d.subject.trim() || '(No subject)',
       body: d.body,
@@ -142,7 +150,7 @@ export function MailTab({
             key={`c-${view.kind}-${view.of ?? view.draft ?? 'new'}`}
             v={view}
             init={start(view)}
-            from={me}
+            boxes={boxes}
             onSend={(d) => save(view, d, 'sent')}
             onDraft={(d) => save(view, d, 'draft')}
             onDiscard={() => discard(view)}
@@ -343,14 +351,15 @@ function Reader({ m, uni, onBack, onReply, onForward }: { m: Mail; uni: Universi
 function Composer({
   v,
   init,
-  from,
+  boxes,
   onSend,
   onDraft,
   onDiscard,
 }: {
   v: Extract<View, { mode: 'compose' }>;
   init: Draft;
-  from: string;
+  /** The shared mailboxes the person can send from, the Admissions mailbox first. */
+  boxes: string[];
   onSend: (d: Draft) => void;
   onDraft: (d: Draft) => void;
   onDiscard: () => void;
@@ -373,7 +382,7 @@ function Composer({
       .split(/[,;\s]+/)
       .filter(Boolean)
       .every((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)) && d.to.trim() !== '';
-  const ok = toOk && d.subject.trim() !== '' && d.body.trim() !== '';
+  const ok = !!d.from && toOk && d.subject.trim() !== '' && d.body.trim() !== '';
   const title = v.draft ? 'Draft' : v.kind === 'reply' ? 'Reply' : v.kind === 'forward' ? 'Forward' : 'New mail';
   return (
     <motion.form
@@ -393,7 +402,11 @@ function Composer({
       <div className="gmail__fields">
         <div className="gmail__field">
           <span className="gmail__label">From</span>
-          <span className="gmail__from-me">{from}</span>
+          {boxes.length > 1 ? (
+            <SelectMenu id="gm-from" label="From" ariaLabel="From" value={d.from} options={boxes.map((b) => ({ value: b, label: b }))} onChange={(v) => setD({ ...d, from: v })} />
+          ) : (
+            <span className="gmail__from-me">{d.from || 'No shared mailbox you can send from. Ask a GSP Admin.'}</span>
+          )}
         </div>
         <label className="gmail__field" htmlFor="gm-to">
           <span className="gmail__label">To</span>

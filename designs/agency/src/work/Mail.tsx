@@ -11,6 +11,8 @@
  * Three panes on a wide screen (views, conversations, the conversation); one at a time on a phone.
  * Keys: j / k next and previous, e done, r reply.
  */
+import { adminCfg } from '../admin/data/store';
+import { mailboxAccess } from '../admin/data/config';
 import { fmtWhen } from '../data/format';
 import { regionQueueId } from './seed';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -81,7 +83,8 @@ function MailBody({ s, user, role }) {
   const [picked, setPicked] = useState([]);
   const listRef = useRef(null);
   const M = s.mail;
-  const boxes = M.mailboxes.filter((b) => oversees(role.id) || b.see.includes(role.id));
+  // who sees a mailbox: the people Admin gave it to (Admin › Shared mailboxes, B-6), or oversight
+  const boxes = M.mailboxes.filter((b) => oversees(role.id) || b.addresses.some((x) => mailboxAccess(adminCfg(), user.email, x)));
   const recOf = (t) => (t.record ? recordById(s, t.record) : null);
   // the mailbox's queue: Unmatched mail for admissions mailboxes, Finance for Commission, and so on
   const boxQueue = (t) => queueById(s, t.record ? regionQueue(recOf(t)?.region) : (M.mailboxes.find((b) => b.id === t.mailbox) || {}).queue);
@@ -237,7 +240,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
   const cands = (t.candidates || []).map((id) => recordById(s, id)).filter(Boolean);
   const owner = ownerOf(t);
   const people = s.users.filter((u) => ['admission', 'global-ops', 'finance', 'rp-ops'].includes(u.role));
-  const canSend = mb.sendAs?.includes(role.id) || role.id === 'admin';
+  const canSend = (mb.addresses || []).some((x) => mailboxAccess(adminCfg(), user.email, x) === 'send');
   const dupes = t.messages.filter((m, i) => i > 0 && m.body === t.messages[i - 1].body).length;
   const shown = t.messages.filter((m, i) => !(i > 0 && m.body === t.messages[i - 1].body));
   const older = shown.length > 2 && !showOld ? shown.slice(0, -2) : [];

@@ -13,12 +13,13 @@ const at = (h) => Date.now() - h * H;
 import { ACCOUNT_EMAILS } from '../admin/data/emails';
 
 export const MAILBOXES = [
-  // Jovial's Inbox tab (31 Oct): five mailboxes, each feeding its queues; everyone in them can see and send for now; Admin sees all
-  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-global', see: ['admission', 'global-ops', 'admin', 'view-only'], sendAs: ['admission', 'global-ops'], ytd: 164952 },
-  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-admin', see: ['admin', 'view-only'], sendAs: ['admin'], ytd: 1190 }, // S1C-14: mail to admin.gsp@ is the Admin queue's (T29); Admin forwards anything for RP Ops
-  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 4847 },
-  { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
-  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', see: ['ip-ops', 'admin', 'view-only'], sendAs: ['ip-ops'], ytd: 28 },
+  // the five seeded mailboxes as Mail shows them (name, address, the queue unmatched mail goes to); who can view or
+  // send is per person, in Admin › Shared mailboxes (B-6), not here
+  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-global', ytd: 164952 },
+  { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-admin', ytd: 1190 }, // S1C-14: mail to admin.gsp@ is the Admin queue's (T29); Admin forwards anything for RP Ops
+  { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', ytd: 4847 },
+  { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', ytd: 67 },
+  { id: 'mb-data', name: 'Data team', addresses: ['data-team.gsp@upgrad.com'], routing: 'queue', queue: 'q-inst-ops', ytd: 28 },
 ];
 
 /* Mail that never reaches a person. Share = of all mail, Jan–Oct 2026. */

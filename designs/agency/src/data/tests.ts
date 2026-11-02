@@ -6,6 +6,7 @@
  * Every field is required (Jovial's Test fields sheet, 1 Nov): the score report, the certificate ID, the date of
  * examination, the overall score and every part (the SAT essay and the ACT writing included).
  */
+import { TEST_DEFS } from './reference';
 export type TestType = 'IELTS' | 'TOEFL' | 'PTE' | 'Duolingo' | 'SAT' | 'ACT' | 'GMAT' | 'GRE';
 export type Range = [number, number, number];
 export type TestDef = {
@@ -22,43 +23,8 @@ export type TestDef = {
   /** English tests: what a course's minimum for each part is called (the catalogue's English rules). */
   partRule?: string;
 };
-const band = (key: string, label: string, range: Range) => ({ key, label, range });
-const LRWS = (r: Range) => [band('l', 'Listening', r), band('r', 'Reading', r), band('w', 'Writing', r), band('s', 'Speaking', r)];
-export const TESTS: Record<TestType, TestDef> = {
-  IELTS: { name: 'IELTS Academic', short: 'IELTS', kind: 'English', cert: 'Test Report Form number', overall: [0, 9, 0.5], parts: LRWS([0, 9, 0.5]), years: 2, partRule: 'No band below' },
-  TOEFL: { name: 'TOEFL iBT', short: 'TOEFL', kind: 'English', cert: 'Appointment number', overall: [0, 120, 1], parts: LRWS([0, 30, 1]), years: 2, partRule: 'Minimum in each section' },
-  PTE: { name: 'PTE Academic', short: 'PTE', kind: 'English', cert: 'Score report code', overall: [10, 90, 1], parts: LRWS([10, 90, 1]), years: 2, partRule: 'No part below' },
-  Duolingo: {
-    name: 'Duolingo English Test',
-    short: 'Duolingo',
-    kind: 'English',
-    cert: 'Certificate ID',
-    overall: [10, 160, 5],
-    parts: [band('lit', 'Literacy', [10, 160, 5]), band('comp', 'Comprehension', [10, 160, 5]), band('conv', 'Conversation', [10, 160, 5]), band('prod', 'Production', [10, 160, 5])],
-    years: 2,
-    partRule: 'No subscore below',
-  },
-  SAT: { name: 'SAT', short: 'SAT', kind: 'Admission', cert: 'Score report ID', overall: [400, 1600, 10], parts: [band('rw', 'Reading and writing', [200, 800, 10]), band('math', 'Math', [200, 800, 10]), band('essay', 'Essay', [2, 8, 1])], years: 5 },
-  ACT: {
-    name: 'ACT',
-    short: 'ACT',
-    kind: 'Admission',
-    cert: 'ACT ID',
-    overall: [1, 36, 1],
-    parts: [band('math', 'Math', [1, 36, 1]), band('reading', 'Reading', [1, 36, 1]), band('science', 'Science', [1, 36, 1]), band('english', 'English', [1, 36, 1]), band('writing', 'Writing', [2, 12, 1])],
-    years: 5,
-  },
-  GMAT: {
-    name: 'GMAT',
-    short: 'GMAT',
-    kind: 'Admission',
-    cert: 'Score report ID',
-    overall: [200, 800, 10],
-    parts: [band('q', 'Quantitative', [6, 51, 1]), band('v', 'Verbal', [6, 51, 1]), band('awa', 'Analytical writing', [0, 6, 0.5]), band('ir', 'Integrated reasoning', [1, 8, 1])],
-    years: 5,
-  },
-  GRE: { name: 'GRE General', short: 'GRE', kind: 'Admission', cert: 'Registration number', overall: [260, 340, 1], parts: [band('q', 'Quantitative', [130, 170, 1]), band('v', 'Verbal', [130, 170, 1]), band('awa', 'Analytical writing', [0, 6, 0.5])], years: 5 },
-};
+/** The definitions are reference data (S3F-4): data/reference.ts, the one list. */
+export const TESTS: Record<TestType, TestDef> = TEST_DEFS as Record<TestType, TestDef>;
 // a record saved before the rename still opens: "DET" reads as Duolingo
 Object.defineProperty(TESTS, 'DET', { value: TESTS.Duolingo, enumerable: false });
 export const TEST_ORDER: TestType[] = ['IELTS', 'TOEFL', 'PTE', 'Duolingo', 'SAT', 'ACT', 'GMAT', 'GRE'];
