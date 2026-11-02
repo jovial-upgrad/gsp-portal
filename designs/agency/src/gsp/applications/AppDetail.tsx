@@ -12,7 +12,6 @@ import { FLAG, durationText, money } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { fullName, readiness, TESTS, type Member, type Student } from '../../data/students';
 import {
-  ENROL_DOC_LONG,
   REUPLOAD_AT,
   STAGES,
   STATUS,
@@ -791,7 +790,7 @@ export function AppDetail({
       />
       <NameDialog
         file={naming}
-        usual={['Conditional offer letter', 'Unconditional offer letter', ENROL_DOC_LONG[d], 'Visa grant letter', 'Proof of enrolment']}
+        usual={['Conditional offer letter', 'Unconditional offer letter', 'Acceptance letter', 'Visa grant', 'Proof of enrolment']}
         onCancel={() => setNaming(null)}
         onAdd={(name) => {
           if (naming) addFile(naming.name, undefined, name);

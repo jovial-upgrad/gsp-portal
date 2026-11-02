@@ -221,7 +221,7 @@ export function StatusDialog({ open, a, all = [], students = [], onCancel, onCon
                   </label>
                 </div>
               ))}
-              {left.visa && visaErr && <p className="gstat__err">{visaErr}</p>}
+              {visaErr && <p className="gstat__hint">{visaErr}</p>}
             </fieldset>
           )}
         </div>
