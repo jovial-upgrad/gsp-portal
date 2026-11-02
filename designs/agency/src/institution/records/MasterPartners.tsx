@@ -21,7 +21,7 @@ import { OBJ, canEdit, type PageProps } from '../portal/model';
 
 const SPEC: LogSpec<MasterPartner> = {
   record: 'Master Partner',
-  fields: { name: 'Overview · Name', country: 'Overview · Country', state: 'Overview · State or province', city: 'Overview · City', contact: 'Overview · Contact', commissionsEmail: 'Overview · Commissions email', bdm: 'Overview · BDM', status: 'Status', notes: 'Overview · Notes', docs: 'Documents · Document', rps: 'RPs' },
+  fields: { name: 'Overview · Name', country: 'Overview · Country', state: 'Overview · State or province', city: 'Overview · City', contact: 'Overview · Contact', commissionsEmail: 'Overview · Commissions email', bdm: 'Overview · Recruitment', status: 'Status', notes: 'Overview · Notes', docs: 'Documents · Document', rps: 'RPs' },
   fmt: { contact: (v) => { const c = v as MasterPartner['contact']; return `${c.name}, ${c.email}, ${c.dial} ${c.phone}`; }, rps: (v) => `${(v as unknown[]).length} RPs` },
 };
 
@@ -92,7 +92,7 @@ export function MasterPartners(props: PageProps) {
                 <tr>
                   <th scope="col">Master Partner</th>
                   <th scope="col">Country</th>
-                  <th scope="col">BDM</th>
+                  <th scope="col">Recruitment</th>
                   <th scope="col">RPs</th>
                   <th scope="col">Status</th>
                 </tr>
@@ -163,7 +163,7 @@ function MpPage(props: PageProps & { m: MasterPartner; tab?: string; onBack: () 
       mps: d.mps.map((x) => (x.id === m.id ? withLog(SPEC, x, { ...x, rps: on ? [...x.rps, { rpId, at: Date.now(), by: me }] : x.rps.filter((l) => l.rpId !== rpId) }, me, role, [change(me, role, `RPs · ${r?.name}`, on ? '—' : 'Linked', on ? 'Linked' : '—')]) : x)),
       rps: d.rps.map((x) => (x.id === rpId ? { ...x, masterPartner: on ? m.name : 'None', activity: [{ at: day, what: `${on ? 'Linked to' : 'Unlinked from'} Master Partner ${m.name} (${me})` }, ...x.activity] } : x)),
     }));
-    audit('Master Partners', `master_partner.rp_linked: ${r?.name} ${on ? 'linked to' : 'unlinked from'} ${m.name} (E12 to the RP; bell to its BDM and Finance)`, me, role);
+    audit('Master Partners', `master_partner.rp_linked: ${r?.name} ${on ? 'linked to' : 'unlinked from'} ${m.name} (E12 to the RP; bell to its Recruitment contact and Finance)`, me, role);
     say(on ? `${r?.name} linked. Its applications created from now pay ${m.name}.` : `${r?.name} unlinked.`);
   };
   return (
@@ -212,7 +212,7 @@ function MpPage(props: PageProps & { m: MasterPartner; tab?: string; onBack: () 
                   ['Contact email', m.contact.email],
                   ['Contact phone', <span key="p" className="num">{`${m.contact.dial} ${m.contact.phone}`}</span>],
                   ['Commissions email', m.commissionsEmail],
-                  ['BDM', m.bdm],
+                  ['Recruitment', m.bdm],
                   ['Sales region', mpRegion(m)],
                   ['Notes', m.notes || '—'],
                 ]}
@@ -423,7 +423,7 @@ function UploadDoc({ open, onCancel, onSave }: { open: boolean; onCancel: () => 
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-/** New Master Partner and Edit (slice 2 PRD Fields). The BDM is filled from BDM assignment once the location is in. */
+/** New Master Partner and Edit (slice 2 PRD Fields). The BDM is filled from Recruitment assignment once the location is in. */
 function MpForm({ open, m, taken, onCancel, onSave }: { open: boolean; m?: MasterPartner; taken: (n: string) => boolean; onCancel: () => void; onSave: (f: Fields) => void }) {
   const blank: Fields = { name: '', country: '', state: '', city: '', contact: { name: '', email: '', dial: '+91', phone: '' }, commissionsEmail: '', bdm: '', notes: '' };
   const [v, setV] = useState<Fields>(blank);
@@ -449,7 +449,7 @@ function MpForm({ open, m, taken, onCancel, onSave }: { open: boolean; m?: Maste
     cemail: !EMAIL.test(v.contact.email.trim()) ? 'Enter a valid email, like name@agency.com.' : null,
     cphone: digits < 7 || digits > 13 ? '7 to 13 digits.' : null,
     commissions: !EMAIL.test(v.commissionsEmail.trim()) ? 'Enter a valid email, like accounts@agency.com.' : null,
-    bdm: !v.bdm ? 'Pick a BDM.' : null,
+    bdm: !v.bdm ? 'Pick a Recruitment user.' : null,
   };
   const show = (k: keyof typeof e) => (tried ? e[k] : null);
   return (
@@ -498,8 +498,8 @@ function MpForm({ open, m, taken, onCancel, onSave }: { open: boolean; m?: Maste
         <Field id="impf-comm" label="Commissions email" required error={show('commissions')} hint="Where Finance’s statements go; can be the contact email.">
           <TextInput id="impf-comm" type="email" value={v.commissionsEmail} invalid={!!show('commissions')} onChange={(x) => set({ commissionsEmail: x.target.value })} />
         </Field>
-        <Field id="impf-bdm" label="BDM" required error={show('bdm')} hint={auto ? `From BDM assignment: ${auto}.` : 'Filled from BDM assignment once the location is in.'}>
-          <Pick id="impf-bdm" label="BDM" value={v.bdm} placeholder="Pick a BDM" invalid={!!show('bdm')} options={staffIn('Recruitment').map(label)} onChange={(bdm) => set({ bdm })} />
+        <Field id="impf-bdm" label="Recruitment" required error={show('bdm')} hint={auto ? `From Recruitment assignment: ${auto}.` : 'Filled from Recruitment assignment once the location is in.'}>
+          <Pick id="impf-bdm" label="Recruitment" value={v.bdm} placeholder="Pick a Recruitment user" invalid={!!show('bdm')} options={staffIn('Recruitment').map(label)} onChange={(bdm) => set({ bdm })} />
         </Field>
         <Field id="impf-notes" label="Notes" optional className="iform__wide">
           <div className="control iform__area">

@@ -117,7 +117,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v7'; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
+const KEY = 'gsp-admin-v8'; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {

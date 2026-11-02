@@ -22,12 +22,16 @@ export type EndKind =
   | 'Offer declined'
   | 'Refused after assessment'
   | 'Rejected by university'
+  | 'Visa rejected'
+  /** The old name of Visa rejected (Jovial, 2 Nov), kept only to read older saved applications. */
   | 'Visa refused'
   | 'Deferred'
   | 'Withdrawn'
   | 'Student withdrawn';
 /** A withdrawal, under either name. */
 export const isWithdrawal = (k?: string) => k === 'Withdrawn' || k === 'Student withdrawn';
+/** A close reason as it reads now: older saved ones under their new name (Visa refused is Visa rejected, Jovial 2 Nov). */
+export const endName = (k?: string) => (k === 'Visa refused' ? 'Visa rejected' : k);
 
 export type Reasons = { close: EndKind[][]; withdraw: string[]; sendBack: string[] };
 export const REASON_DEFAULTS: Reasons = {
@@ -41,7 +45,7 @@ export const REASON_DEFAULTS: Reasons = {
     ['Offer declined', 'Deferred'],
     ['Refused after assessment', 'Rejected by university', 'Deferred'],
     ['Deferred'],
-    ['Visa refused', 'Deferred'],
+    ['Visa rejected', 'Deferred'],
     ['Deferred'],
   ],
   withdraw: ['The student chose another offer', 'The student is deferring to a later intake', 'The student isn’t going to study abroad', 'Another reason'],

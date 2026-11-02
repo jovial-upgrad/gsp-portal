@@ -10,7 +10,7 @@ import type { Application, EndKind, StatusKey } from './applications';
 export type LiveStatus = { status: StatusKey; at: number; by: string; end?: EndKind; note?: string; via?: 'mail' | 'portal' | 'rp' };
 /** What GSP set on an application besides its status (Jovial, 1 Nov): when the offer's conditions went to the RP, and who lodges the visa. */
 /** condsSent: false while GSP still has to send the conditions, the time it sent them after. No flag: sent (the sample data). */
-export type LiveFlags = { condsSent?: number | false; visaBy?: 'you' | 'gsp'; filed?: { name: string; file: string; at: number; by: string }[]; rpNews?: number; rpWhat?: string; rpSeen?: number; fee?: number; feeBy?: string; feeAt?: number };
+export type LiveFlags = { condsSent?: number | false; visaBy?: 'you' | 'gsp'; filed?: { name: string; file: string; at: number; by: string }[]; rpNews?: number; rpWhat?: string; rpSeen?: number; fee?: number; feeBy?: string; feeAt?: number; /** Visa granted: the course start date GSP entered (Jovial, 2 Nov). */ start?: number };
 const KEY = 'gsp-live-v1';
 const FKEY = 'gsp-live-flags-v1';
 let state: Record<string, LiveStatus> = read();

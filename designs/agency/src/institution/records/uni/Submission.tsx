@@ -80,7 +80,8 @@ export function Submission({ u, p, part, say, me, role, edit, editLogins, seeLog
           <p>{u.channel ? `${u.channel}${u.channel !== 'StudyLink' && u.link ? `: ${u.link}` : ''}` : <span className="muted">Not set</span>}</p>
         )}
       </Section>
-      {seeLogins && <Logins u={u} upd={part('logins')} say={say} me={me} role={role} edit={editLogins} />}
+      {/* only for Own portal and StudyLink (Jovial, 2 Nov): an email submission has no login */}
+      {seeLogins && (u.channel === 'Own portal' || u.channel === 'StudyLink') && <Logins u={u} upd={part('logins')} say={say} me={me} role={role} edit={editLogins} />}
       <Contacts
         id="iu-contacts"
         list={u.contacts}
@@ -220,7 +221,7 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
     const t = window.setTimeout(() => setShowing(null), 10000);
     return () => window.clearTimeout(t);
   }, [showing]);
-  const err = { region: !v.region ? 'Pick a sales region.' : null, username: !v.username.trim() ? 'Enter the username.' : null, secret: !v.secret ? 'Enter the secret.' : null };
+  const err = { region: !v.region ? 'Pick a sales region.' : null, username: !v.username.trim() ? 'Enter the username.' : null, secret: !v.secret ? 'Enter the password.' : null };
   const close = () => {
     setAdding(false);
     setTried(false);
@@ -231,7 +232,7 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
       title="Portal logins"
       id="iu-logins"
       updated={u.stamps.logins}
-      note="By sales region. Applications use the login for their own region, else the All regions one. Secrets are kept in the secrets store, never in the Change log; each Show is logged."
+      note="Username and password by sales region (StudyLink has one for each). Applications use the login for their own region, else the All regions one. Passwords are kept in the secrets store, never in the Change log; each Show is logged."
       action={edit && !adding ? <AddButton onClick={() => setAdding(true)}>Add a login</AddButton> : undefined}
     >
       {adding && (
@@ -243,7 +244,7 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
             <Field id="iul-user" label="Username" required error={tried ? err.username : null}>
               <TextInput id="iul-user" value={v.username} autoComplete="off" invalid={tried && !!err.username} onChange={(e) => setV({ ...v, username: e.target.value })} />
             </Field>
-            <Field id="iul-secret" label="Secret" required error={tried ? err.secret : null}>
+            <Field id="iul-secret" label="Password" required error={tried ? err.secret : null}>
               <TextInput id="iul-secret" type="password" autoComplete="new-password" value={v.secret} invalid={tried && !!err.secret} onChange={(e) => setV({ ...v, secret: e.target.value })} />
             </Field>
           </div>
@@ -273,7 +274,7 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
               <tr>
                 <th scope="col">Sales region</th>
                 <th scope="col">Username</th>
-                <th scope="col">Secret</th>
+                <th scope="col">Password</th>
                 <th scope="col">Added by and on</th>
                 {edit && (
                   <th scope="col">
@@ -294,12 +295,12 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
                         type="button"
                         className="btn btn--link"
                         onClick={() => {
-                          if (showing !== l.id) audit('Universities', `Showed the ${l.region} portal login secret for ${u.name}`, me, role);
+                          if (showing !== l.id) audit('Universities', `Showed the ${l.region} portal login password for ${u.name}`, me, role);
                           setShowing(showing === l.id ? null : l.id);
                         }}
                       >
                         {showing === l.id ? 'Hide' : 'Show'}
-                        <span className="vh"> the {l.region} secret</span>
+                        <span className="vh"> the {l.region} password</span>
                       </button>
                     </span>
                   </td>
@@ -334,7 +335,7 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
           setRemoving(null);
         }}
       >
-        <p>Its secret is deleted from the secrets store.</p>
+        <p>Its password is deleted from the secrets store.</p>
       </ConfirmDialog>
     </Section>
   );

@@ -1,13 +1,15 @@
 import { UPLOAD } from '../../data/uploads';
 import { setLiveFlags } from '../../data/live';
-import { DateInput } from '../../components/forms';
+import { DateInput, TextInput } from '../../components/forms';
+import { SelectMenu } from '../../components/SelectMenu';
+import { OTHER_CATEGORY, requestCategories } from '../../data/chat';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { courseOf, isOpen, type Application, type Cond, type Msg, type Need } from '../../data/applications';
+import { courseOf, isOpen, named, type Application, type Cond, type Msg, type Need } from '../../data/applications';
 import { autoName } from '../../data/appRules';
 import { isWithdrawal } from '../../data/reasons';
 
@@ -126,45 +128,21 @@ export function Chat({
     onShare(f.name);
     say(`${f.name} shared with the RP.`);
   };
-  const request = (r: { title: string; text: string; due?: number }) => {
+  // several documents in one go (Jovial, 2 Nov): each its own request, card and item in Documents
+  const request = (r: { titles: string[]; text: string; due?: number }) => {
     const now = Date.now();
-    const need: Need = {
-      id: `req-${now}`,
-      title: r.title,
-      why: r.text,
-      request: { by: g.name, at: now },
-      due: r.due,
-    };
+    const needs: Need[] = r.titles.map((title, i) => ({ id: `req-${now}-${i}`, title, why: r.text, request: { by: g.name, at: now }, due: r.due }));
     update((x) => ({
       ...x,
-      unread: (x.unread ?? 0) + 1,
-      needs: [...x.needs, need],
-      chat: [
-        ...x.chat,
-        {
-          id: `m${now}`,
-          at: now,
-          from: 'gsp',
-          // the card goes out under the officer's name (S3-13)
-          name: autoName(x, g.name),
-          text: '',
-          request: need.id,
-          requestName: need.title,
-        },
-      ],
-      history: [
-        ...x.history,
-        {
-          at: now,
-          who: 'gsp',
-          text: `Asked the RP for the ${r.title.toLowerCase()}`,
-          by: g.name,
-        },
-      ],
+      unread: (x.unread ?? 0) + needs.length,
+      needs: [...x.needs, ...needs],
+      // each card goes out under the officer's name (S3-13)
+      chat: [...x.chat, ...needs.map((n) => ({ id: `m${now}-${n.id}`, at: now, from: 'gsp' as const, name: autoName(x, g.name), text: '', request: n.id, requestName: n.title }))],
+      history: [...x.history, ...needs.map((n) => ({ at: now, who: 'gsp' as const, text: `Asked the RP for the ${named(n.title)}`, by: g.name }))],
     }));
     setAsking(false);
     setSeed(undefined);
-    say(`${r.title} requested from the RP.`);
+    say(needs.length === 1 ? `${needs[0].title} requested from the RP.` : `${needs.length} documents requested from the RP.`);
   };
   const requestConds = (r: { title: string; items: Pick<Cond, 'text'>[]; due?: number }) => {
     const now = Date.now();
@@ -311,7 +289,7 @@ export function Chat({
               }}
             >
               <Icon name="doc" size={18} />
-              Request document
+              Request a document
             </button>
             <button type="button" className="gchat__tpl" aria-expanded={conding} onClick={() => setConding(true)}>
               <Icon name="edit" size={18} />
@@ -371,24 +349,37 @@ export function Chat({
   );
 }
 
-/** The Request document template: what the document is, what's needed, and when by (optional). */
-function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: { title: string; text: string; due?: number }) => void; onCancel: () => void }) {
+/**
+ * The Request document template (Jovial, 2 Nov): one or more documents, each picked from the request categories
+ * (GSP · Admin › Document configuration), or **Other** with its name typed; what's needed (optional, for them all) and
+ * when by (optional). Each document becomes its own request.
+ */
+type Row = { cat: string; other: string };
+function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: { titles: string[]; text: string; due?: number }) => void; onCancel: () => void }) {
   const reduce = useReducedMotion();
-  const [title, setTitle] = useState(init?.title ?? '');
+  const cats = requestCategories();
+  const seedRow = (t?: string): Row => {
+    if (!t) return { cat: '', other: '' };
+    const hit = cats.find((c) => c.toLowerCase() === t.trim().toLowerCase());
+    return hit ? { cat: hit, other: '' } : { cat: OTHER_CATEGORY, other: t };
+  };
+  const [rows, setRows] = useState<Row[]>([seedRow(init?.title)]);
   const [text, setText] = useState(init?.text ?? '');
   const [due, setDue] = useState('');
   const [tried, setTried] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    window.setTimeout(() => ref.current?.focus(), 60);
-  }, []);
+  const opts = [...cats.map((c) => ({ value: c, label: c })), { value: OTHER_CATEGORY, label: `${OTHER_CATEGORY} (type its name)` }];
+  const titleOf = (r: Row) => (r.cat === OTHER_CATEGORY ? r.other.trim() : r.cat);
+  const rowErr = (r: Row) => (!r.cat ? 'Pick a document.' : r.cat === OTHER_CATEGORY && r.other.trim().length < 2 ? 'Type the document’s name.' : null);
+  const titles = rows.map(titleOf);
+  const dupe = titles.find((t, i) => t && titles.findIndex((x) => x.toLowerCase() === t.toLowerCase()) !== i);
   // today or later (slice 3 PRD); what's needed is optional (Jovial, 1 Nov), up to 500 characters
   const dueOk = !due || (/^\d{4}-\d{2}-\d{2}$/.test(due) && due >= todayIso());
-  const ok = title.trim().length > 1 && title.trim().length <= 100 && text.length <= 500 && dueOk;
+  const ok = rows.every((r) => !rowErr(r)) && !dupe && text.length <= 500 && dueOk;
+  const set = (i: number, p: Partial<Row>) => setRows((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
   return (
     <motion.form
       className="greq"
-      aria-label="Request a document"
+      aria-label="Request documents"
       initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
@@ -396,29 +387,41 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);
-        if (ok)
-          onSend({
-            title: title.trim(),
-            text: text.trim(),
-            due: due ? new Date(`${due}T23:59:00`).getTime() : undefined,
-          });
+        if (ok) onSend({ titles, text: text.trim(), due: due ? new Date(`${due}T23:59:00`).getTime() : undefined });
       }}
       onKeyDown={(e) => e.key === 'Escape' && onCancel()}
     >
       <div className="greq__head">
         <p className="greq__k">
-          <Icon name="doc" size={16} /> Request a document from the RP
+          <Icon name="doc" size={16} /> Request documents from the RP
         </p>
         <button type="button" className="proto__close" aria-label="Close the request" onClick={onCancel}>
           <Icon name="close" size={16} />
         </button>
       </div>
-      <label className="greq__field" htmlFor="greq-title">
-        <span className="greq__label">Title</span>
-        <span className={`control ${tried && title.trim().length < 2 ? 'is-invalid' : ''}`}>
-          <input ref={ref} id="greq-title" className="control__input" value={title} maxLength={100} placeholder="Like: Gap explanation document" onChange={(e) => setTitle(e.target.value)} />
-        </span>
-      </label>
+      <ol className="gcond__list greq__docs">
+        {rows.map((r, i) => (
+          <li key={i} className="gcond__row greq__doc">
+            <span className="gcond__n num" aria-hidden="true">
+              {i + 1}
+            </span>
+            <span className="greq__pick">
+              <SelectMenu id={`greq-cat-${i}`} label={`Document ${i + 1}`} value={r.cat} options={opts} placeholder="Pick a document" invalid={tried && !r.cat} onChange={(v) => set(i, { cat: v })} />
+              {r.cat === OTHER_CATEGORY && (
+                <TextInput id={`greq-other-${i}`} aria-label={`Document ${i + 1}: its name`} value={r.other} maxLength={100} placeholder="The document’s name" invalid={tried && !!rowErr(r)} onChange={(e) => set(i, { other: e.target.value })} />
+              )}
+            </span>
+            {rows.length > 1 && (
+              <button type="button" className="proto__close" aria-label={`Remove document ${i + 1}`} onClick={() => setRows((l) => l.filter((_, j) => j !== i))}>
+                <Icon name="close" size={16} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+      <Button type="button" size="sm" variant="ghost" iconLeft={<Icon name="plus" size={16} />} onClick={() => setRows((l) => [...l, { cat: '', other: '' }])}>
+        Add another document
+      </Button>
       <label className="greq__field" htmlFor="greq-text">
         <span className="greq__label">What’s needed</span>
         <span className="control gstat__area">
@@ -426,20 +429,18 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
         </span>
       </label>
       <label className="greq__field greq__field--due" htmlFor="greq-due">
-        <span className="greq__label">
-          Due
-        </span>
+        <span className="greq__label">Due</span>
         <DateInput id="greq-due" value={due} invalid={(tried || due.length >= 10) && !dueOk} onChange={setDue} />
       </label>
       {tried && !ok && (
         <p className="gmail__err" role="alert">
           <Icon name="alert" size={14} />
-          {title.trim().length < 2 ? 'Enter the title.' : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.'}
+          {rows.map(rowErr).find(Boolean) ?? (dupe ? `${dupe} is in the list twice.` : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.')}
         </p>
       )}
       <div className="greq__acts">
         <Button type="submit" size="sm" iconRight={<Icon name="arrowRight" size={16} />}>
-          Send request
+          {rows.length > 1 ? `Send ${rows.length} requests` : 'Send request'}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel

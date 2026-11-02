@@ -148,9 +148,9 @@ export function Home({
                 <p className="side-card__text">Once you upload your documents and send them for verification, we’ll assign one.</p>
               </div>
             ) : manager ? (
-              <ContactCard person={{ ...manager, role: 'Partner manager' }} hours={hoursText(regionOfCountry(join?.form.country || TEST_COUNTRY))} />
+              <ContactCard person={{ ...manager, role: 'Recruitment' }} hours={hoursText(regionOfCountry(join?.form.country || TEST_COUNTRY))} />
             ) : (
-              <p className="side-card__text">Your partner manager will be in touch. Their name and number will show here.</p>
+              <p className="side-card__text">Your Recruitment contact at GSP will be in touch. Their name and number will show here.</p>
             )}
           </section>
         </motion.aside>

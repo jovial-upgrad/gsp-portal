@@ -67,7 +67,7 @@ import { STAFF, fullName, label, type Staff } from './staff';
 export type Contact = { name: string; role: string; phone: string; email: string; initials: string };
 
 /**
- * Who looks after a new agency (Jovial, 31 Oct): GSP · Admin › BDM assignment, which starts from the staff list's
+ * Who looks after a new agency (Jovial, 31 Oct): GSP · Admin › Recruitment assignment, which starts from the staff list's
  * areas. Most specific match first: the agency's city, then its state, then the rest of its country, then all other
  * countries. A referral code (the first three letters of a Recruitment person's first name, like ADI-204) wins.
  * The staff list has no phone numbers.
@@ -85,7 +85,7 @@ export function partnerManagerFor(country: string, city: string, referral: strin
   const code = referral.trim().toUpperCase();
   const pre = code.slice(0, 3);
   const byRef = pre.length === 3 ? STAFF.filter((s) => s.role === 'Recruitment' && s.first.toUpperCase().startsWith(pre)) : [];
-  if (byRef.length === 1) return contactOf(byRef[0], `Partner manager · from referral code ${code}`);
+  if (byRef.length === 1) return contactOf(byRef[0], `Recruitment · from referral code ${code}`);
   const rows = adminCfg().bdm;
   const st = state.trim() || (city.trim() ? stateOf(city) : undefined);
   const areas = (area: string) => area.split(',').map(norm);
@@ -93,11 +93,17 @@ export function partnerManagerFor(country: string, city: string, referral: strin
   const cityRow = city.trim() && mine.find((r) => areas(r.area).includes(norm(city)));
   const stateRow = st && mine.find((r) => areas(r.area).includes(norm(st)));
   const restRow = mine.find((r) => r.area.startsWith('Rest of') || r.area === 'All' || r.area === 'All countries');
-  const hit = cityRow || stateRow || restRow || rows.find((r) => r.fallback);
-  const who = hit && byLabel(hit.bdm);
+  // Jovial, 2 Nov: a specific city wins over All / Rest of the country; with no row for the place, the sales
+  // region's default recruitment contact (Admin › Sales regions); then All other countries
+  const cfg = adminCfg();
+  const regionName = cfg.regions.find((g) => g.countries.includes(country))?.name;
+  const regionDefault = regionName ? cfg.regionBdm[regionName] : undefined;
+  const hit = cityRow || stateRow || restRow;
+  const name = hit?.bdm ?? regionDefault ?? rows.find((r) => r.fallback)?.bdm;
+  const who = name && byLabel(name);
   if (!who) return null;
-  const where = cityRow ? `${city.trim()}, ${country}` : stateRow ? `${st}, ${country}` : restRow ? country : 'all other countries';
-  return contactOf(who, `Partner manager · ${where}`);
+  const where = cityRow ? `${city.trim()}, ${country}` : stateRow ? `${st}, ${country}` : restRow ? country : regionDefault ? `${regionName}, by default` : 'all other countries';
+  return contactOf(who, `Recruitment · ${where}`);
 }
 
 /* Emails that already have a GSP account: screens/signup/model.ts emailInUse, from the sign-in accounts and the RP teams (HC35). */

@@ -79,7 +79,7 @@ export function Routing({ cfg, change, say, canEdit }: ConfigProps) {
   const testErr = (k: keyof Test) => (tried && k !== 'rp' && !t[k] ? `Pick ${k === 'nationality' ? 'the nationality' : k === 'now' ? 'where the student lives' : 'the destination'}.` : null);
   return (
     <>
-      <PageHead title="Application routing" lead="When an application reaches Pre-screening (New → Pre-screening, when the RP sends the documents), it gets a sales region, a BDM and its region’s Admissions queue, whose Fewest open then picks the officer. The rules run from the top; the first one that matches decides, and the result and the rule number are stored on the application. Changing the rules affects only applications that reach Pre-screening afterwards.">
+      <PageHead title="Application routing" lead="When an application reaches Pre-screening (New → Pre-screening, when the RP sends the documents), it gets a sales region, a Recruitment contact and its region’s Admissions queue, whose Fewest open then picks the officer. The rules run from the top; the first one that matches decides, and the result and the rule number are stored on the application. Changing the rules affects only applications that reach Pre-screening afterwards.">
         {canEdit && <EditBar name="the routing" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (setResult(null), setListErr(false), d.stop())} onSave={save} />}
       </PageHead>
       {!canEdit && <ViewOnlyNote />}
@@ -163,7 +163,7 @@ export function Routing({ cfg, change, say, canEdit }: ConfigProps) {
                     <dd>{r.hit.region}</dd>
                   </div>
                   <div>
-                    <dt>BDM</dt>
+                    <dt>Recruitment</dt>
                     <dd>{r.hit.bdm}</dd>
                   </div>
                   <div>

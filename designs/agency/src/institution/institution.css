@@ -364,6 +364,7 @@ input[type='date'].icell { min-width: 150px; }
 .imp__opt { display: flex; align-items: center; gap: var(--sp-8); min-height: 34px; padding: 0 var(--sp-6); border-radius: 8px; font-size: var(--t-label); cursor: pointer; }
 .imp__opt:hover { background: var(--surface-2); }
 .imp__opt input { width: 16px; height: 16px; accent-color: var(--text); }
+.imp__pager { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-6); font-size: var(--t-caption); color: var(--text-3); }
 .imp__none { padding: var(--sp-6); font-size: var(--t-caption); color: var(--text-3); }
 .imp__acts { display: flex; align-items: center; justify-content: space-between; padding-top: var(--sp-6); border-top: 1px solid var(--line); }
 .imp__acts .btn--link { padding: 0; height: auto; font-size: var(--t-label); }

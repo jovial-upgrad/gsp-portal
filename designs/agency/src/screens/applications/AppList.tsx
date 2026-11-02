@@ -6,6 +6,8 @@ import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { SelectInput } from '../../components/forms';
+import { chipCounts, inChip, type ChipKey } from '../../data/listChips';
+import { StatusChips } from '../../gsp/applications/AppList';
 
 const isIso = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
 
@@ -29,22 +31,12 @@ import { StageMeter } from './parts';
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 export type OwnerView = '' | 'you' | 'gsp' | 'uni';
-export type Progress = '' | 'new' | 'applied' | 'offer' | 'deposit' | 'enrolled';
+/** The status chip picked ('' is All): data/listChips.ts (Jovial, 2 Nov). */
+export type Progress = ChipKey | '';
 /** The list's filters. stage, from and to are the advanced ones: a stage, and when the application started (yyyy-mm-dd). */
 export type ListState = { owner: OwnerView; progress: Progress; q: string; dest: string; who: string; intake: string; stage: string; from: string; to: string };
 export const NEW_LIST: ListState = { owner: '', progress: '', q: '', dest: '', who: '', intake: '', stage: '', from: '', to: '' };
 
-/**
- * The primary filters: how far an application has got, read from the status it's at (and so its stage).
- * Each open application is in exactly one; closed ones are in none.
- */
-const PROGRESS: [Progress, string, string, (a: Application) => boolean][] = [
-  ['new', 'New', 'Waiting for documents, or GSP checking them', (a) => isOpen(a) && stageOf(a) <= 1],
-  ['applied', 'Applied', 'Submitted to the university, waiting for a decision', (a) => isOpen(a) && stageOf(a) === 2],
-  ['offer', 'Offer received', 'An offer, and the deposit not paid yet', (a) => isOpen(a) && (stageOf(a) === 3 || stageOf(a) === 4 || a.status === 'deposit')],
-  ['deposit', 'Deposit paid', 'The tuition or deposit paid, through to the visa and enrolment', (a) => isOpen(a) && ((stageOf(a) === 5 && a.status !== 'deposit') || stageOf(a) >= 6)],
-  ['enrolled', 'Enrolled', 'The student is enrolled', (a) => a.status === 'enrolled'],
-];
 
 /** A yyyy-mm-dd day from a date input, as the start or the end of that day. */
 const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime();
@@ -90,9 +82,8 @@ export function AppList({
   const rows = apps
     .filter((a) => {
       const s = stu(a);
-      const c = courseOf(a);
       if (st.owner && (st.owner === 'you' ? !needsYou(a) : ownerOf(a) !== st.owner)) return false;
-      if (st.progress && !PROGRESS.find((m) => m[0] === st.progress)![3](a)) return false;
+      if (st.progress && !inChip(st.progress, a)) return false;
       if (st.dest && destOf(a) !== st.dest) return false;
       if (st.who && s?.counsellor !== st.who) return false;
       if (st.intake && a.intake !== st.intake) return false;
@@ -100,7 +91,8 @@ export function AppList({
       // a typed date only filters once it's a whole date (DD/MM/YYYY)
       if (isIso(st.from) && a.created < dayStart(st.from)) return false;
       if (isIso(st.to) && a.created > dayEnd(st.to)) return false;
-      if (ql && !`${a.id}${a.uniRef ?? ''}${s ? fullName(s) + s.passport : ''}${c.name}${c.uni.name}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
+      // by application number or student name only, the fields the list shows (Jovial, 2 Nov: no passport)
+      if (ql && !`${a.id}|${s ? fullName(s) : ''}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
       return true;
     })
     // what's pending from the agency first, then the rest by the latest change
@@ -190,7 +182,7 @@ export function AppList({
             <label className="ssearch">
               <Icon name="search" size={18} />
               <span className="vh">Search applications</span>
-              <input id="ap-q" type="search" placeholder="Student, passport, ID or course" value={st.q} onChange={(e) => set((p) => ({ ...p, q: e.target.value }))} />
+              <input id="ap-q" type="search" placeholder="Application number or student name" value={st.q} onChange={(e) => set((p) => ({ ...p, q: e.target.value }))} />
             </label>
             {!ownOnly && <SelectInput id="ap-who" aria-label="Counsellor" value={st.who} placeholder="All counsellors" allowEmpty onChange={(e) => set((p) => ({ ...p, who: e.target.value }))}>
               {team.map((m) => (
@@ -210,13 +202,14 @@ export function AppList({
               <SelectMenu id="ap-stage" label="Stage" value={st.stage} placeholder="All stages" options={[{ value: '', label: 'All stages' }, ...STAGES.map((x, i) => ({ value: String(i), label: `${i + 1}. ${x}` }))]} onChange={(v) => set((p) => ({ ...p, stage: v }))} />
             </span>
           </div>
+          <StatusChips counts={chipCounts(apps.filter((a) => !st.owner || (st.owner === 'you' ? needsYou(a) : ownerOf(a) === st.owner)))} value={st.progress} onPick={(k) => set((p) => ({ ...p, progress: k }))} />
           <p className="stools__count" id="atable-count" role="status">
             <span>
               <span className="num">{narrowed ? `${rows.length} of ${apps.length}` : apps.length}</span> {apps.length === 1 ? 'application' : 'applications'}
             </span>
             {filtered && (
               <button type="button" className="btn btn--link stools__clear" onClick={clear}>
-                Clear filters
+                Clear all
               </button>
             )}
           </p>
@@ -228,12 +221,12 @@ export function AppList({
               <>
                 <p className="snone__title">No applications match. Clear the search or filters.</p>
                 <Button variant="secondary" size="sm" onClick={clear}>
-                  Clear filters
+                  Clear all
                 </Button>
               </>
             ) : (
               <>
-                <p className="snone__title">{st.owner === 'you' ? 'Nothing pending on you' : st.owner === 'gsp' ? 'Nothing with GSP right now' : 'Nothing with a university right now'}</p>
+                <p className="snone__title">{st.owner === 'you' ? `Nothing ${OWNER_WORD.you.toLowerCase()}` : st.owner === 'gsp' ? 'Nothing with GSP right now' : 'Nothing with a university right now'}</p>
                 <p className="snone__text">{st.owner === 'you' ? 'When something does, it shows here first, and by email.' : 'Applications move here as they progress.'}</p>
               </>
             )}

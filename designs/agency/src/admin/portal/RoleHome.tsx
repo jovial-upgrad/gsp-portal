@@ -87,7 +87,7 @@ function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
         value=""
         onPick={() => go('rps')}
         items={[
-          { key: 'mine', label: 'Your RPs', sub: 'You’re their BDM', tone: 'gsp', n: mine.length },
+          { key: 'mine', label: 'Your RPs', sub: 'You’re their Recruitment contact', tone: 'gsp', n: mine.length },
           { key: 'new', label: 'New, assigned to you', sub: 'Still onboarding', tone: 'you', n: fresh.length },
           { key: 'active', label: 'Signed and applying', sub: 'Open applications', tone: 'ok', n: signed.length - quiet.filter((r) => r.status === 'Agreement signed').length },
           { key: 'quiet', label: 'Inactive', sub: 'Dormant, suspended or no open applications', tone: 'bad', n: quiet.length },

@@ -97,7 +97,7 @@ const INTRO: Partial<Record<RecordTab, string>> = {
 /**
  * A student's record: everything an application needs. Above it, back to Students and Share with student
  * (a link for the student to add their own details). The header says who the student is, their contact and
- * counsellor, Find courses and Start application, and how ready the profile is. A just-added student's profile says
+ * counsellor, Add application (the only add button, Jovial 2 Nov), and how ready the profile is. A just-added student's profile says
  * so in a notification, bottom left ("Nesil Noble added · Complete the student's profile"), for a few seconds. Documents uploaded all at once in Add a
  * student are already filed and read into their parts.
  * The menu has three things (Nesil, 29 Oct): **Personal details**, in tabs (Personal, Academics, English test, Work
@@ -120,7 +120,6 @@ export function StudentRecord({
   fresh,
   onDismissFresh,
   onBack,
-  onFindCourses,
   onCounsellor,
   onOpenApp,
   onNewApp,
@@ -406,12 +405,10 @@ export function StudentRecord({
           </span>
         </p>
         <div className="rhead__acts">
-          <Button data-leave variant="secondary" size="sm" iconRight={<Icon name="arrowRight" size={16} />} onClick={() => onFindCourses(s)}>
-            Find courses for {s.first}
-          </Button>
+          {/* Jovial, 2 Nov: the one way to add an application from the record (no Find courses here, none in Applications) */}
           {onNewApp && (
             <Button size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => onNewApp(s)}>
-              Start application
+              Add application
             </Button>
           )}
         </div>
@@ -514,9 +511,9 @@ export function StudentRecord({
                 ) : tab === 'documents' ? (
                   <Documents s={s} update={save} />
                 ) : tab === 'shortlist' ? (
-                  <Shortlisted s={s} list={shortlist} onFindCourses={onFindCourses} onNewApp={onNewApp} onRemove={(id) => save((p) => ({ ...p, shortlist: (p.shortlist ?? []).filter((x) => x !== id) }))} />
+                  <Shortlisted s={s} list={shortlist} onNewApp={onNewApp} onRemove={(id) => save((p) => ({ ...p, shortlist: (p.shortlist ?? []).filter((x) => x !== id) }))} />
                 ) : (
-                  <Applications s={s} complete={r.complete} onFindCourses={onFindCourses} onOpenApp={onOpenApp} onNewApp={onNewApp} />
+                  <Applications s={s} complete={r.complete} onOpenApp={onOpenApp} />
                 )}
                 {sec && mode === 'edit' ? (
                   <div className="redit">
@@ -552,15 +549,11 @@ export function StudentRecord({
 function Applications({
   s,
   complete,
-  onFindCourses,
   onOpenApp,
-  onNewApp,
 }: {
   s: Student;
   complete: boolean;
-  onFindCourses: (s: Student) => void;
   onOpenApp?: (id: string) => void;
-  onNewApp?: (s: Student, courseId?: string) => void;
 }) {
   return s.apps.length ? (
     <div className="rsec">
@@ -584,28 +577,11 @@ function Applications({
           </li>
         ))}
       </ul>
-      {onNewApp && (
-        <div>
-          <Button variant="secondary" iconLeft={<Icon name="plus" size={18} />} onClick={() => onNewApp(s)}>
-            Add application
-          </Button>
-        </div>
-      )}
     </div>
   ) : (
     <div className="rempty">
       <p className="rempty__title">No applications yet</p>
-      <p className="rempty__text">{complete ? `Find a course ${s.first} can be offered, or start an application if you know the course.` : `You can search now; GSP starts checking once the profile has its documents.`}</p>
-      <div className="rempty__acts">
-        <Button variant="secondary" iconRight={<Icon name="arrowRight" size={18} />} onClick={() => onFindCourses(s)}>
-          Find courses for {s.first}
-        </Button>
-        {onNewApp && (
-          <Button variant="secondary" iconLeft={<Icon name="plus" size={18} />} onClick={() => onNewApp(s)}>
-            Add application
-          </Button>
-        )}
-      </div>
+      <p className="rempty__text">{complete ? `Add one with Add application at the top of ${s.first}’s profile.` : `GSP starts checking once the profile has its documents.`}</p>
     </div>
   );
 }
@@ -614,13 +590,11 @@ function Applications({
 function Shortlisted({
   s,
   list,
-  onFindCourses,
   onNewApp,
   onRemove,
 }: {
   s: Student;
   list: typeof COURSES;
-  onFindCourses: (s: Student) => void;
   onNewApp?: (s: Student, courseId?: string) => void;
   onRemove: (id: string) => void;
 }) {
@@ -629,11 +603,6 @@ function Shortlisted({
       <div className="rempty">
         <p className="rempty__title">Nothing shortlisted yet</p>
         <p className="rempty__text">In Find courses, pick {s.first} as the student and star a course: it’s kept here.</p>
-        <div className="rempty__acts">
-          <Button variant="secondary" iconRight={<Icon name="arrowRight" size={18} />} onClick={() => onFindCourses(s)}>
-            Find courses for {s.first}
-          </Button>
-        </div>
       </div>
     );
   return (

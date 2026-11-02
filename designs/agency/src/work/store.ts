@@ -86,7 +86,7 @@ const canTake = (s, id, rec) => isActive(s, id) && !onLeave(id, istYmd(now())) &
 export const SHARE = { 'fewest-open': 'Fewest open', 'record-owner': 'Record owner', 'to-leader': 'To the leader' };
 export const SHARE_HELP = {
   'fewest-open': 'A new task goes to the member (leader included) with the fewest open tasks in this queue; a tie goes to the name first in alphabetical order. People on leave, deactivated users and anyone who can’t see the record are skipped; if everyone is, the leader gets it.',
-  'record-owner': 'A new task goes to whoever owns the record: the application’s officer, the RP’s BDM, the partner’s or university’s relationship manager. No owner: Fewest open.',
+  'record-owner': 'A new task goes to whoever owns the record: the application’s officer, the RP’s Recruitment contact, the partner’s or university’s relationship manager. No owner: Fewest open.',
   'to-leader': 'A new task goes to the queue’s leader, who does it or assigns it to a member. No leader: the Admin queue’s leader.',
 };
 /** How a rule's task is shared: the application's officer, the queue's own way, or one of the three. */

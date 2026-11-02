@@ -167,6 +167,11 @@
 .amile:hover { border-color: var(--text-3); color: var(--text); }
 .amile[aria-pressed='true'] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .amile[aria-pressed='true'] .num { color: inherit; opacity: 0.75; }
+/* a chip with nothing in it (Jovial, 2 Nov) */
+.amile:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--line); }
+.amile:disabled:hover { color: var(--text-2); border-color: var(--line); }
+.aadv__x { padding: 0; height: auto; font-size: var(--t-label); }
+.stools .amiles { margin-top: var(--sp-10); }
 
 /* the advanced filters: a button at the end of the row, and a panel under it with a stage and a date range */
 .aadv__toggle {
@@ -1061,3 +1066,12 @@ button.nachip:hover { border-color: var(--line-strong); }
 /* a priority source market for the university: GSP's people only (Jovial, 31 Oct) */
 .prio-chip { display: inline-flex; align-items: center; margin-left: var(--sp-8); padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: var(--t-micro); line-height: var(--lh-micro); font-weight: var(--fw-semi); letter-spacing: 0.02em; color: var(--text-2); background: var(--surface-2); white-space: nowrap; vertical-align: middle; }
 .aextra { display:flex; align-items:center; justify-content:space-between; gap: var(--sp-16); flex-wrap: wrap; padding: var(--sp-16) var(--sp-20); margin-top: var(--sp-16); } .aextra__t { font-weight:600; } .aextra__s { color: var(--text-2); font-size: var(--t-label); }
+
+/* Request a document: several at once, each from the request categories or Other (Jovial, 2 Nov) */
+.greq__docs { margin: 0; }
+.greq__pick { display: grid; gap: var(--sp-6); flex: 1; min-width: 0; }
+
+/* Key details in groups (Jovial, 2 Nov): Application details, GSP details, RP details; headed sections, not tabs */
+.kgroup { display: grid; gap: var(--sp-6); }
+.kgroup + .kgroup { margin-top: var(--sp-12); padding-top: var(--sp-12); border-top: 1px solid var(--line); }
+.kgroup__title { margin: 0; font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-semi); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }

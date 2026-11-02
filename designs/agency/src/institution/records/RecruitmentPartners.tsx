@@ -81,7 +81,7 @@ export function RecruitmentPartners(props: PageProps) {
           variant="secondary"
           iconLeft={<Icon name="download" size={18} />}
           onClick={() => {
-            downloadCsv('recruitment-partners.csv', [['Recruitment partner', 'Code', 'City', 'Country', 'Status', 'Since', 'BDM', 'Contact', 'Email', 'Phone', 'Documents missing'], ...rows.map((r) => [r.name, r.code, r.city, r.country, r.status, r.since, r.bdm, r.contact.name, r.contact.email, r.contact.phone, missingOf(r)])]);
+            downloadCsv('recruitment-partners.csv', [['Recruitment partner', 'Code', 'City', 'Country', 'Status', 'Since', 'Recruitment', 'Contact', 'Email', 'Phone', 'Documents missing'], ...rows.map((r) => [r.name, r.code, r.city, r.country, r.status, r.since, r.bdm, r.contact.name, r.contact.email, r.contact.phone, missingOf(r)])]);
             audit('Recruitment partners', 'Recruitment partners', me, props.role ?? '', 'download', { size: `${rows.length} rows`, format: 'CSV', filters: [status, country, bdm, q].filter(Boolean).join(', ') || 'None' });
             say(`${rows.length} recruitment partners exported.`);
           }}
@@ -102,7 +102,7 @@ export function RecruitmentPartners(props: PageProps) {
             </label>
             <Pick id="irp-status" label="Status" value={status} all="All statuses" options={RP_STATUSES} onChange={(v) => setStatus(v as RpStatus | '')} />
             <Pick id="irp-country" label="Country" value={country} all="All countries" options={[...new Set(rps.map((r) => r.country))].sort()} onChange={setCountry} />
-            <Pick id="irp-bdm" label="BDM" value={bdm} all="All BDMs" options={[...new Set(rps.map((r) => r.bdm).filter(Boolean))].sort()} onChange={setBdm} />
+            <Pick id="irp-bdm" label="Recruitment" value={bdm} all="All Recruitment" options={[...new Set(rps.map((r) => r.bdm).filter(Boolean))].sort()} onChange={setBdm} />
           </div>
           <p className="stools__count" id="irp-count" role="status">
             <span>
@@ -120,7 +120,7 @@ export function RecruitmentPartners(props: PageProps) {
               <thead>
                 <tr>
                   <th scope="col">Recruitment partner</th>
-                  <th scope="col">BDM</th>
+                  <th scope="col">Recruitment</th>
                   <th scope="col">Since</th>
                   <th scope="col">Documents</th>
                   <th scope="col">Status</th>
@@ -318,7 +318,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
               <Facts
                 items={[
                   [
-                    'BDM',
+                    'Recruitment',
                     <span key="b" className="irowacts">
                       {r.bdm || <span className="muted">Not set</span>}
                       {editProfile && <BdmPick r={r} me={me} say={say} />}
@@ -355,7 +355,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                       <tr>
                         <th scope="col">Branch</th>
                         <th scope="col">City and country</th>
-                        <th scope="col">Branch BDM</th>
+                        <th scope="col">Branch recruitment contact</th>
                         <th scope="col">Team</th>
                       </tr>
                     </thead>
@@ -602,7 +602,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                 : ask?.kind === 'unlink'
                   ? 'Applications created from now on don’t pay the Master Partner. Earlier ones stay as they were.'
                   : ask?.kind === 'reject'
-                    ? 'Rejected is final. Its users can’t sign in: “This partner account is closed. Contact your partner manager.”'
+                    ? 'Rejected is final. Its users can’t sign in: “This partner account is closed. Contact your Recruitment contact at GSP.”'
                     : ask?.kind === 'suspend'
                       ? 'Every user of the RP loses platform access and can’t sign in. GSP carries on processing its applications in progress, and their commission is paid.'
                       : 'It goes back to its last status, and every user’s access comes back.'}
@@ -618,7 +618,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
       <LinkMp open={linking} r={r} mps={db.mps.filter((m) => m.status === 'Active' && (!isIsolated() || byRegion([m], mpRegion).length))} onCancel={() => setLinking(false)} onSave={(mpId) => {
         const m = db.mps.find((x) => x.id === mpId)!;
         props.set((d) => ({ ...d, mps: d.mps.map((x) => (x.id === mpId ? { ...x, rps: [...x.rps, { rpId: r.id, at: Date.now(), by: me }] } : x)), rps: d.rps.map((x) => (x.id === r.id ? { ...x, masterPartner: m.name, activity: [{ at: new Date().toISOString().slice(0, 10), what: `Linked to Master Partner ${m.name} (${me})` }, ...x.activity] } : x)) }));
-        audit('Master Partners', `master_partner.rp_linked: ${r.name} linked to ${m.name} (E12; bell to its BDM and Finance)`, me, role);
+        audit('Master Partners', `master_partner.rp_linked: ${r.name} linked to ${m.name} (E12; bell to its Recruitment contact and Finance)`, me, role);
         setLinking(false);
         say(`${r.name} linked to ${m.name}. Applications created from now pay it.`);
       }} />
@@ -638,11 +638,11 @@ function BdmPick({ r, me, say }: { r: RecruitmentPartner; me: string; say: (m: s
     );
   return (
     <span className="irowacts">
-      <Pick id="irp-bdm-pick" label="BDM" value={v} placeholder="Pick a BDM" options={staffIn('Recruitment').map(label)} onChange={setV} />
+      <Pick id="irp-bdm-pick" label="Recruitment" value={v} placeholder="Pick a Recruitment user" options={staffIn('Recruitment').map(label)} onChange={setV} />
       <Button size="sm" variant="secondary" onClick={() => setOn(false)}>
         Cancel
       </Button>
-      <Button size="sm" disabled={!v || v === r.bdm} onClick={() => (editRp(r.id, (x) => ({ ...x, bdm: v }), `BDM ${r.bdm || '—'} → ${v}`, me), setOn(false), say('BDM saved.'))}>
+      <Button size="sm" disabled={!v || v === r.bdm} onClick={() => (editRp(r.id, (x) => ({ ...x, bdm: v }), `Recruitment ${r.bdm || '—'} → ${v}`, me), setOn(false), say('BDM saved.'))}>
         Save
       </Button>
     </span>
@@ -757,7 +757,7 @@ function EditRp({ open, r, onCancel, onSave }: { open: boolean; r: RecruitmentPa
 }
 
 type NewBranch = { id: string; name: string; country: string; state: string; city: string; bdm?: string };
-/** Add branch from the RP's record (Recruitment for RPs in its regions, RP Ops, Admin): its BDM comes from BDM assignment. */
+/** Add branch from the RP's record (Recruitment for RPs in its regions, RP Ops, Admin): its BDM comes from Recruitment assignment. */
 export function AddBranch({ open, r, taken, onCancel, onSave }: { open: boolean; r: Pick<RecruitmentPartner, 'name'>; taken: (n: string) => boolean; onCancel: () => void; onSave: (b: NewBranch) => void }) {
   const [v, setV] = useState({ name: '', country: '', state: '', city: '' });
   const [tried, setTried] = useState(false);
@@ -776,7 +776,7 @@ export function AddBranch({ open, r, taken, onCancel, onSave }: { open: boolean;
       center
       className="iform"
       title="Add branch"
-      sub="The branch’s sales region comes from its country; its BDM from BDM assignment."
+      sub="The branch’s sales region comes from its country; its Recruitment contact from Recruitment assignment."
       footer={
         <div className="asf">
           <div className="asf__acts">
@@ -803,7 +803,7 @@ export function AddBranch({ open, r, taken, onCancel, onSave }: { open: boolean;
         <Field id="iab-city" label="City" required error={tried ? e.city : null}>
           <TextInput id="iab-city" value={v.city} invalid={tried && !!e.city} onChange={(x) => setV({ ...v, city: x.target.value })} />
         </Field>
-        <Field id="iab-bdm" label="Branch BDM" hint="Set by the system from BDM assignment.">
+        <Field id="iab-bdm" label="Branch recruitment contact" hint="Set by the system from Recruitment assignment.">
           <TextInput id="iab-bdm" value={bdm ?? '—'} readOnly />
         </Field>
       </div>

@@ -1,8 +1,8 @@
 import { withdrawReasons } from '../../data/reasons';
 import { UPLOAD } from '../../data/uploads';
 import { PriorityChip } from '../../components/PriorityChip';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AppCommission, earnEstimate } from '../../finance/AppCommission';
+import { isValidElement, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { AppCommission } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
@@ -13,6 +13,7 @@ import { shortDate } from '../../data/dates';
 import { fullName, readiness, TESTS, type Member, type Student } from '../../data/students';
 import {
   REUPLOAD_AT,
+  UNI_STATUSES,
   STAGES,
   STATUS,
   docLines,
@@ -50,7 +51,7 @@ import { SelectMenu } from '../../components/SelectMenu';
 import { Field } from '../../components/forms';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
-import { rpTeam } from '../../data/rpteam';
+import { rpBranches, rpTeam } from '../../data/rpteam';
 import { longDate, mailDocs, rpContact, statusMail, type Desk, type MailDoc } from './desk';
 import { DocButtons, downloadDoc } from '../../components/DocView';
 import { Celebrate } from '../../components/Celebrate';
@@ -141,7 +142,6 @@ export function AppDetail({
   const counsellor = rpPeople.find((m) => m.id === s.counsellor) ?? team.find((m) => m.id === s.counsellor && (m.rp ?? agency) === agency) ?? rpPeople.find((m) => m.role === 'Counsellor') ?? rpPeople[0];
   const rp = rpContact(counsellor ?? { name: agency, role: 'RP Admin' }, agency);
   useLiveAll(); // the final tuition fee prices the base commission
-  const earn = earnEstimate(a);
   const [withdraw, setWithdraw] = useState(false);
   const [changing, setChanging] = useState(false);
   // opening it shows the officer what the RP sent: its "Needs you" in My work closes (W11)
@@ -224,9 +224,10 @@ export function AppDetail({
       ...(pick.noRef ? [{ at: now, who: 'gsp' as const, text: 'Submitted with No reference ID (the reference can be added later from Key details)', by: gsp.name }] : []),
       ...(pick.upload ? [{ at: now, who: 'gsp' as const, text: `Uploaded the ${pick.upload.name.toLowerCase()} (${pick.upload.file}) to Documents by GSP`, by: gsp.name }] : []),
       ...(visaBy ? [{ at: now, who: 'gsp' as const, text: visaBy === 'gsp' ? 'GSP lodges the visa for this application' : 'The RP lodges the visa', by: gsp.name }] : []),
+      ...(pick.start ? [{ at: now, who: 'gsp' as const, text: `Set the course start date to ${longDate(Date.parse(pick.start + 'T00:00:00Z'))}`, by: gsp.name }] : []),
     ];
     update((x) => ({
-      // a request a status change sends by itself (the visa lodgement proof, when the RP lodges) goes out under the officer's name (S3-13)
+      // no status asks for a document by itself (Jovial, 2 Nov); arriveAt only pauses and brings back requests by stage
       ...arriveAt({ ...x, ...(visaBy ? { visaBy } : {}), ...(pick.ref ? { uniRef: pick.ref } : {}), files: pick.upload ? [...x.files, { name: pick.upload.name, file: pick.upload.file, from: 'gsp' as const, at: now, status: 'verified' as const }] : x.files, history: [...x.history, { at: now, who: 'gsp', text: `Changed the status from “${from}” to “${to}”`, by: gsp.name }, ...extra] }, k, now, autoName(x, gsp.name)),
       status: k,
       since: now,
@@ -235,6 +236,7 @@ export function AppDetail({
     // every module sees it: My work's tasks follow the status, and who has it (Jovial, 1 Nov)
     setLiveStatus(a.id, { status: k, at: now, by: gsp.name, note: to, via: 'portal' });
     if (visaBy) setLiveFlags(a.id, { visaBy });
+    if (pick.start) setLiveFlags(a.id, { start: Date.parse(pick.start + 'T00:00:00Z') });
     // a conditional offer is GSP's until it asks the RP for the conditions in the chat (Who has it)
     if (k === 'conditions') setLiveFlags(a.id, { condsSent: false });
     const mail = statusMail({ ...a, status: k }, s, k, now - 15 * 60_000);
@@ -706,34 +708,18 @@ export function AppDetail({
               </div>
             </dl>
           </section>
+          {/* Key details in three groups for every user (Jovial, 2 Nov): sections with headings, not tabs; an empty field isn't shown */}
           <section className="card acard">
             <h2 className="acard__title">Key details</h2>
-            <dl className="cdl">
+            <KeyGroup title="Application details">
               <Row k="Application" v={<span className="num">{a.id}</span>} />
-              {/* entered on Submitted to university, or added later after No reference ID, with the same check (S3-8, S3-22) */}
-              {isSubmitted(a) && (admissions && !finished ? <RefRow a={a} all={all} students={students} onSave={(r) => setRef(r, a.uniRef)} /> : <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : 'No reference ID'} />)}
-              <Row
-                k="Assigned officer"
-                v={
-                  <span className="gedit__val">
-                    {officer ? staffLabel(officer) : 'Not assigned yet'}
-                    {admissions && !finished && officer && (
-                      <button type="button" className="scopy gedit__pen" aria-label="Change the assigned officer" title="Change the assigned officer" onClick={() => setOfficering(true)}>
-                        <Icon name="edit" size={14} />
-                      </button>
-                    )}
-                  </span>
-                }
-              />
+              {/* Admissions edit it at any time, after a confirmation, logged in Activity (Jovial, 2 Nov); others see it once there is one */}
+              {admissions ? <RefRow a={a} all={all} students={students} onSave={(r) => setRef(r, a.uniRef)} /> : <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : null} />}
               <Row k="Intake" v={a.intake} />
-              {(() => {
-                // W10 / SR4 (Jovial, 1 Nov): the sales region and the routing rule that set it
-                const r = routeApplication({ rp: a.rp, nationality: s.nationality, livesIn: s.country, dest: d });
-                const region = a.region ?? r.region;
-                return <Row k="Sales region" v={<span>{region} <span className="cdl__soft">· {region === r.region && r.rule ? `routed by rule ${r.rule}, ${r.title?.toLowerCase()}` : 'set by GSP'}{officerOf(a) ? ` · ${regionQueueName(region)}` : ''}</span></span>} />;
-              })()}
+              <Row k="Campus" v={campusLabel(c.campus)} />
+              <Row k="Length" v={durationText(c)} />
               {/* after Student enrolled only these two stay editable; Closed and Withdrawn are fully read-only (S3C-11) */}
-              {admissions && a.status !== 'closed' ? <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={longDate(desk.census)} onSave={setCensus} /> : <Row k="Census date" v={desk.census ? longDate(desk.census) : 'Not set'} />}
+              {admissions && a.status !== 'closed' ? <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={longDate(desk.census)} onSave={setCensus} /> : <Row k="Census date" v={desk.census ? longDate(desk.census) : null} />}
               {admissions && a.status !== 'closed' ? <EditRow
                 id="fee"
                 k="Final tuition fee"
@@ -748,8 +734,6 @@ export function AppDetail({
                 }
                 onSave={setFee}
               /> : <Row k="Final tuition fee" v={<span className="num">{money(fee, c.currency)}</span>} />}
-              <Row k="Campus" v={campusLabel(c.campus)} />
-              <Row k="Length" v={durationText(c)} />
               {offer && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
@@ -764,12 +748,39 @@ export function AppDetail({
                   <Row k="Deposit" v={<span className="num">{money(offer.deposit, c.currency)}</span>} />
                 </>
               )}
-              <Row k="Counsellor" v={counsellor?.name} />
-              <Row k="Base commission" v={<span className="num">{earn.text}</span>} />
-              {stageOf(a) >= 6 && a.status !== 'closed' && <Row k="Visa lodged by" v={a.visaBy === 'gsp' ? 'GSP' : 'The RP'} />}
               {/* Applied: when the RP sent the New documents; "Started" while it's New */}
               <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />
-            </dl>
+            </KeyGroup>
+            <KeyGroup title="GSP details">
+              <Row
+                k="Assigned officer"
+                v={
+                  officer ? (
+                    <span className="gedit__val">
+                      {staffLabel(officer)}
+                      {admissions && !finished && (
+                        <button type="button" className="scopy gedit__pen" aria-label="Change the assigned officer" title="Change the assigned officer" onClick={() => setOfficering(true)}>
+                          <Icon name="edit" size={14} />
+                        </button>
+                      )}
+                    </span>
+                  ) : null
+                }
+              />
+              {(() => {
+                // W10 / SR4 (Jovial, 1 Nov): the sales region and the routing rule that set it
+                const r = routeApplication({ rp: a.rp, nationality: s.nationality, livesIn: s.country, dest: d });
+                const region = a.region ?? r.region;
+                return <Row k="Sales region" v={region ? <span>{region} <span className="cdl__soft">· {region === r.region && r.rule ? `routed by rule ${r.rule}, ${r.title?.toLowerCase()}` : 'set by GSP'}{officerOf(a) ? ` · ${regionQueueName(region)}` : ''}</span></span> : null} />;
+              })()}
+              {stageOf(a) >= 6 && a.status !== 'closed' && <Row k="Visa lodged by" v={a.visaBy === 'gsp' ? 'GSP' : 'The RP'} />}
+            </KeyGroup>
+            {/* GSP sees the RP and its branch too (Jovial, 2 Nov); no Base commission for GSP users (Jovial, 2 Nov) */}
+            <KeyGroup title="RP details">
+              <Row k="Recruitment partner" v={agency} />
+              <Row k="RP branch" v={rpBranches(agency).find((b) => b.id === counsellor?.branch)?.name ?? null} />
+              <Row k="Counsellor" v={counsellor?.name ?? null} />
+            </KeyGroup>
           </section>
         </aside>
       </div>
@@ -809,11 +820,30 @@ function stageDates(a: Application): (number | undefined)[] {
   return [a.created, at(/checked the documents|Sent to GSP/i), at(/^Submitted to/i), at(/conditional offer/i), at(/Verified the financial|unconditional offer/i), at(/Deposit/i), at(/uploaded the (CoE|CAS|I-20|LOA)|Visa/i), undefined];
 }
 
+/** A Key details line; an empty value hides it (Jovial, 2 Nov). */
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
+  if (v === null || v === undefined || v === '') return null;
   return (
     <div className="cdl__row">
       <dt>{k}</dt>
       <dd>{v}</dd>
+    </div>
+  );
+}
+
+/**
+ * One group of Key details (Jovial, 2 Nov: Application details, GSP details, RP details): a section with its heading,
+ * not a tab (no tabs inside tabs). A group whose fields are all empty isn't shown.
+ */
+export function KeyGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  // a line with an empty value (Row's `v`) counts as nothing
+  const empty = (x: unknown) => x === null || x === undefined || x === false || (isValidElement(x) && 'v' in (x.props as object) && ((x.props as { v?: unknown }).v ?? '') === '');
+  const kids = (Array.isArray(children) ? children.flat(3) : [children]).filter((x) => !empty(x));
+  if (!kids.length) return null;
+  return (
+    <div className="kgroup">
+      <h3 className="kgroup__title">{title}</h3>
+      <dl className="cdl">{children}</dl>
     </div>
   );
 }
@@ -1371,16 +1401,17 @@ function nextLine(a: Application, uni: string) {
   if (UNI.includes(a.status)) return `${STATUS[a.status].text(courseOf(a).uni.country).toLowerCase()}. Waiting for ${uni}. Nothing is open with the RP.`;
   return `${STATUS[a.status].text(courseOf(a).uni.country)}. Nothing is open with the RP.`;
 }
-const UNI = ['lodged', 'addsent', 'condsent', 'interview', 'waitad'];
+const UNI: string[] = UNI_STATUSES;
 
 /**
- * University reference in Key details (S3-8): after No reference ID, the officer adds it here; a set one is edited
- * here too. The same format and the same university + reference check as the popup (S3-22); logged in Activity.
+ * University reference in Key details (S3-8): Admissions add or change it here at any time (Jovial, 2 Nov), after a
+ * confirmation. The same format and the same university + reference check as the popup (S3-22); logged in Activity.
  */
 function RefRow({ a, all, students, onSave }: { a: Application; all: Application[]; students: Student[]; onSave: (ref: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState('');
   const [tried, setTried] = useState(false);
+  const [asking, setAsking] = useState(false);
   const clean = v.trim().toUpperCase();
   const clash = refFormat(clean) ? refClash(all, a, clean) : undefined;
   const err = !clean ? 'Enter the university reference ID.' : !refFormat(clean) ? REF_FORMAT_ERROR : clash ? refClashError(clash, students) : null;
@@ -1395,8 +1426,8 @@ function RefRow({ a, all, students, onSave }: { a: Application; all: Application
               e.preventDefault();
               setTried(true);
               if (err) return;
-              onSave(clean);
-              setEditing(false);
+              if (clean === (a.uniRef ?? '').toUpperCase()) return setEditing(false);
+              setAsking(true);
             }}
           >
             <span className={`control gedit__control ${tried && err ? 'is-invalid' : ''}`}>
@@ -1418,7 +1449,7 @@ function RefRow({ a, all, students, onSave }: { a: Application; all: Application
           </form>
         ) : (
           <span className="gedit__val">
-            {a.uniRef ? <span className="num">{a.uniRef}</span> : <span>No reference ID</span>}
+            {a.uniRef ? <span className="num">{a.uniRef}</span> : <span className="cdl__soft">{isSubmitted(a) ? 'No reference ID' : 'Not added yet'}</span>}
             <button
               type="button"
               className="scopy gedit__pen"
@@ -1435,6 +1466,19 @@ function RefRow({ a, all, students, onSave }: { a: Application; all: Application
           </span>
         )}
       </dd>
+      <ConfirmDialog
+        open={asking}
+        title={a.uniRef ? 'Change the university reference?' : 'Add the university reference?'}
+        confirm={a.uniRef ? 'Change it' : 'Add it'}
+        onCancel={() => setAsking(false)}
+        onConfirm={() => {
+          setAsking(false);
+          onSave(clean);
+          setEditing(false);
+        }}
+      >
+        <p>{a.uniRef ? `From ${a.uniRef} to ${clean}.` : `${clean}.`} The change goes into Activity.</p>
+      </ConfirmDialog>
     </div>
   );
 }

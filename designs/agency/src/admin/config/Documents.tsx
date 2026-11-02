@@ -9,6 +9,7 @@ import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { DOC_LEVELS, DOC_WHERE, STAGES, editCond, rpDocsOf, whenText, type DocCond, type DocRule, type RpDoc, type RpDocRule } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
+import { OTHER_CATEGORY, requestCatsOf, withRequestCats } from '../../data/chat';
 import { EditBar, History, Panel, useDraft } from './parts';
 import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, trySave, type SaveResult } from './states';
 
@@ -130,6 +131,7 @@ export function Documents({ cfg, change, say, canEdit }: ConfigProps) {
             </div>
           )}
         </Panel>
+        <RequestCategories cfg={cfg} change={change} say={say} canEdit={canEdit} />
         <RpDocs ed={ed} rules={v.rpDocs} errors={rpTried ? rpErrors : {}} set={(fn) => d.set((x) => ({ ...x, rpDocs: fn(x.rpDocs) }))} />
       </Loaded>
       <History log={cfg.log} area="Document configuration" />
@@ -325,5 +327,68 @@ function RuleDialog({ open, rule, rules, onClose, onSave }: { open: boolean; rul
         <p className="cfg__note iform__wide">Applies when: {when}.</p>
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * Request categories (Jovial, 2 Nov): what GSP picks from in the application chat's Request a document. Admin adds,
+ * renames, reorders by removing and adding, and removes them; **Other** (the officer types the name) is always offered
+ * after the list and isn't one of them. Read only until Edit; saved and logged like every setting here.
+ */
+function RequestCategories({ cfg, change, say, canEdit }: Pick<ConfigProps, 'cfg' | 'change' | 'say' | 'canEdit'>) {
+  const saved = requestCatsOf(cfg);
+  const d = useDraft<string[]>(saved, 'the request categories');
+  const [adding, setAdding] = useState('');
+  const [tried, setTried] = useState(false);
+  const list = d.value;
+  const name = adding.trim();
+  const err = !name ? 'Type the category’s name.' : name.toLowerCase() === OTHER_CATEGORY.toLowerCase() ? `${OTHER_CATEGORY} is always offered.` : list.some((x) => x.toLowerCase() === name.toLowerCase()) ? `${name} is in the list already.` : null;
+  const save = () => {
+    const added = list.filter((x) => !saved.includes(x));
+    const gone = saved.filter((x) => !list.includes(x));
+    change('Document configuration', `Request categories: ${[added.length && `added ${added.join(', ')}`, gone.length && `removed ${gone.join(', ')}`].filter(Boolean).join('; ') || 'no changes'}`, (c) => withRequestCats(c, list));
+    say('Saved.');
+    d.stop();
+  };
+  return (
+    <Panel
+      title="Request categories"
+      note={`What GSP picks from in the chat’s Request a document. ${OTHER_CATEGORY} is always there too: the officer types the document’s name.`}
+      action={canEdit && <EditBar name="the request categories" editing={d.editing} dirty={d.dirty} onEdit={d.start} onCancel={() => (setAdding(''), setTried(false), d.stop())} onSave={save} />}
+    >
+      <ul className="cfg__chips" aria-label="Request categories">
+        {list.map((x) => (
+          <li key={x} className="cfg__chip cfg__chip--plain">
+            {x}
+            {d.editing && (
+              <button type="button" className="icon-btn" aria-label={`Remove ${x}`} onClick={() => d.set((l) => l.filter((y) => y !== x))}>
+                <Icon name="close" size={14} />
+              </button>
+            )}
+          </li>
+        ))}
+        <li className="cfg__chip cfg__chip--plain cfg__muted">{OTHER_CATEGORY} (always)</li>
+      </ul>
+      {d.editing && (
+        <div className="cfg__foot cfg__addusers">
+          <Field id="rc-add" label="Add a category" error={tried ? err : null}>
+            <TextInput id="rc-add" value={adding} maxLength={60} placeholder="Like: Sponsor letter" invalid={tried && !!err} onChange={(e) => setAdding(e.target.value)} />
+          </Field>
+          <Button
+            variant="secondary"
+            iconLeft={<Icon name="plus" size={16} />}
+            onClick={() => {
+              setTried(true);
+              if (err) return;
+              d.set((l) => [...l, name]);
+              setAdding('');
+              setTried(false);
+            }}
+          >
+            Add
+          </Button>
+        </div>
+      )}
+    </Panel>
   );
 }

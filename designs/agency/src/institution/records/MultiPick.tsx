@@ -8,7 +8,7 @@ import { Icon } from '../../components/Icon';
  * opens in the overlay layer, so a table or a dialog never clips it. With `all` (29 Oct, 7th round), the list starts
  * with that option ("All countries"), ticked while nothing else is; ticking it clears the rest.
  */
-export function MultiPick({ id, label, value, options, onChange, empty = 'Any (empty = all)', search, all, invalid, describedBy, onClose }: { id: string; label: string; value: string[]; options: string[]; onChange: (v: string[]) => void; empty?: string; search?: boolean; all?: string; /** QC, 1 Nov: marked invalid and pointed at its error, like any other field. */ invalid?: boolean; describedBy?: string; /** When the list closes: the field has been left. */ onClose?: () => void }) {
+export function MultiPick({ id, label, value, options, onChange, empty = 'Any (empty = all)', search, all, invalid, describedBy, onClose, pageSize }: { id: string; label: string; value: string[]; options: string[]; onChange: (v: string[]) => void; empty?: string; search?: boolean; all?: string; /** Jovial, 2 Nov: a long list (every RP) shows this many at a time, with Previous and Next. */ pageSize?: number; /** QC, 1 Nov: marked invalid and pointed at its error, like any other field. */ invalid?: boolean; describedBy?: string; /** When the list closes: the field has been left. */ onClose?: () => void }) {
   const listId = useId();
   const [open, setOpen] = useState(false);
   const wasOpen = useRef(false);
@@ -17,6 +17,8 @@ export function MultiPick({ id, label, value, options, onChange, empty = 'Any (e
     wasOpen.current = open;
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const [q, setQ] = useState('');
+  const [pg, setPg] = useState(0);
+  useEffect(() => setPg(0), [q]);
   const box = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -49,6 +51,8 @@ export function MultiPick({ id, label, value, options, onChange, empty = 'Any (e
     const t = q.trim().toLowerCase();
     return t ? options.filter((o) => o.toLowerCase().includes(t)) : options;
   }, [q, options]);
+  const pages = pageSize ? Math.max(1, Math.ceil(shown.length / pageSize)) : 1;
+  const onPage = pageSize ? shown.slice(Math.min(pg, pages - 1) * pageSize, (Math.min(pg, pages - 1) + 1) * pageSize) : shown;
   const summary = !value.length ? empty : value.length <= 2 ? value.join(', ') : `${value.slice(0, 2).join(', ')} and ${value.length - 2} more`;
   return (
     <div
@@ -99,7 +103,7 @@ export function MultiPick({ id, label, value, options, onChange, empty = 'Any (e
                 </label>
               </li>
             )}
-            {shown.map((o) => {
+            {onPage.map((o) => {
               const on = value.includes(o);
               return (
                 <li key={o}>
@@ -112,6 +116,19 @@ export function MultiPick({ id, label, value, options, onChange, empty = 'Any (e
             })}
             {!shown.length && <li className="imp__none">Nothing matches “{q}”</li>}
           </ul>
+          {pageSize && pages > 1 && (
+            <div className="imp__pager">
+              <button type="button" className="icon-btn" aria-label="Previous page" disabled={pg <= 0} onClick={() => setPg((p) => Math.max(0, p - 1))}>
+                <Icon name="chevronLeft" size={16} />
+              </button>
+              <span className="num">
+                {Math.min(pg, pages - 1) * pageSize + 1}–{Math.min(shown.length, (Math.min(pg, pages - 1) + 1) * pageSize)} of {shown.length}
+              </span>
+              <button type="button" className="icon-btn" aria-label="Next page" disabled={pg >= pages - 1} onClick={() => setPg((p) => Math.min(pages - 1, p + 1))}>
+                <Icon name="chevronRight" size={16} />
+              </button>
+            </div>
+          )}
           <div className="imp__acts">
             <button type="button" className="btn btn--link" onClick={() => onChange([])}>
               Clear

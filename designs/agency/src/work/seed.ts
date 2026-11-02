@@ -114,7 +114,7 @@ const APP_KINDS = ['k-verify', 'k-submit', 'k-chase-uni', 'k-uni-mail', 'k-gsp-c
 /** A queue: a name, one leader, members, how work is shared, and what it receives. No type and no regions (S4-24). */
 const queue = (id, name, leader, members, assign, kinds) => ({ id, name, leader, members: [...new Set(members)].filter((m) => m && m !== leader), assign, kinds });
 const regional = (region, leader, members = inRegion(region)) => queue('q-adm-' + slug(region), region + ' Admissions', leader, members, 'fewest-open', APP_KINDS);
-/** One Recruitment queue per sales region (S4-3). S4-19's table is still blank: each is led by the region's default BDM, with its other BDMs. */
+/** One Recruitment queue per sales region (S4-3). S4-19's table is still blank: each is led by the region's default recruitment contact, with its other BDMs. */
 const REC_LEADS = {
   India: 'u-saurabh-chaudhary', Bangladesh: 'u-sania-shanta', Nepal: 'u-anil-shrestha', 'Sri Lanka': 'u-kanchani-jayawardhana', Vietnam: 'u-quan-hoang',
   Pakistan: 'u-ali-butt', 'Indonesia Malaysia & Thailand': 'u-rifaldo-marbun', Myanmar: 'u-nilar-win', Bhutan: 'u-ishwor-acharya', Australia: 'u-judy-tan',
@@ -154,12 +154,11 @@ export const QUEUES = [
  */
 export const STATUS_SLA = [
   ['Pre-screening', 'Pending verification', 'T1'], ['Pre-screening', 'Document re-upload pending', 'T2'],
-  ['Application', 'Ready to submit', 'T4'], ['Application', 'Submitted to university', 'T5'], ['Application', 'Additional documents requested', 'T7'],
-  ['Application', 'Verifying additional documents', 'T52'], ['Application', 'Additional documents submitted to university', 'T53'],
+  ['Application', 'Ready to submit', 'T4'], ['Application', 'Submitted to university', 'T5'],
   ['Offer', 'Conditional offer received, conditions pending', 'T9b'], ['Offer', 'Conditions submitted to university', 'T10'],
   ['Verification', 'Finance and background check', 'T11'], ['Verification', 'University assessment or interview', 'T54'], ['Verification', 'Unconditional offer letter received', 'T13'],
   ['Acceptance', 'Tuition or deposit pending', 'T14'], ['Acceptance', 'Payment proof under review', 'T15'], ['Acceptance', 'Awaiting acceptance letter from university', 'T16'], ['Acceptance', 'Acceptance letter received', 'T55'],
-  ['Visa', 'Visa lodgement pending', 'T17'], ['Visa', 'Visa decision pending', 'T56'], ['Visa', 'Visa granted: waiting for start date', 'T57'],
+  ['Visa', 'Visa lodgement pending', 'T17'], ['Visa', 'Visa decision pending', 'T56'], ['Visa', 'Visa granted', 'T57'],
   ['Enrolment', 'Enrolment confirmation pending', 'T20'],
 ].map(([stage, status, row]) => ({ stage, status, row }));
 
@@ -189,9 +188,6 @@ export const RULES = [
   A('T4', { name: 'Ready to submit', when: 'Ready to submit', task: 'Submit <student> to <university>', kind: 'k-submit', sla: wh(1), closes: 'The status moves to Submitted to university' }),
   A('T19', { name: 'Late intake', when: 'Pending verification or Ready to submit, and the intake is up to 2 weeks past its deadline (“Late: likelihood is low”)', task: 'Check <university> still accepts <student> for <intake> (deadline passed)', kind: 'k-chase-uni', sla: wh(12), closes: 'Done (go ahead), the intake moved, or closed' }),
   A('T5', { name: 'No decision from the university', when: 'Submitted to university', after: d(2), task: 'Chase <university> for a decision on <student>', kind: 'k-chase-uni', sla: wh(12), closes: 'Done, or the status changes' }),
-  A('T7', { name: 'Additional documents late', when: 'Additional documents requested, with an open request', after: wh(12), task: 'Chase the RP: additional documents for <student> are late', kind: 'k-chase-uni', sla: wh(12), remind: wh(6), closes: 'The RP uploads, or the status changes' }),
-  A('T52', { name: 'Additional documents to check', when: 'Verifying additional documents', task: 'Check the additional documents for <student>', kind: 'k-verify', sla: wh(9), closes: 'The status changes' }),
-  A('T53', { name: 'Additional documents with the university', when: 'Additional documents submitted to university', after: d(2), task: 'Chase <university> about the additional documents for <student>', kind: 'k-chase-uni', sla: wh(12), closes: 'Done, or the status changes' }),
   A('T54', { name: 'Assessment or interview', when: 'University assessment or interview', after: d(5), task: 'Chase <university> about <student>’s assessment or interview', kind: 'k-chase-uni', sla: wh(12), closes: 'Done, or the status changes' }),
   A('T9', { name: 'Conditions to send', when: 'Conditional offer received, conditions not sent yet', task: 'Send the offer and its conditions to the RP for <student>', kind: 'k-uni-mail', sla: wh(12), closes: 'The conditions request is sent' }),
   A('T9b', { name: 'Conditions late', when: 'Conditional offer received, conditions sent', after: wh(12), task: 'Chase the RP: offer conditions for <student>', kind: 'k-uni-mail', sla: wh(12), remind: wh(6), closes: 'The status moves to Conditions submitted to university' }),
@@ -205,7 +201,7 @@ export const RULES = [
   A('T17', { name: 'Visa not lodged', when: 'Visa lodgement pending, the RP lodges, with an open request', after: d(7), task: 'Chase the RP: visa for <student> not lodged', kind: 'k-chase-uni', sla: wh(12), remind: d(5), closes: 'Lodgement proof uploaded, or the status changes' }),
   A('WH7', { name: 'GSP lodges the visa', when: 'Visa lodgement pending, GSP lodges', task: 'Lodge the student visa for <student> (GSP lodges this one)', kind: 'k-submit', sla: d(7), closes: 'The status moves to Visa decision pending' }),
   A('T56', { name: 'Visa decision late', when: 'Visa decision pending', after: d(20), task: 'Chase the visa decision for <student>', kind: 'k-chase-uni', sla: wh(12), closes: 'Done, or the status changes' }),
-  A('T57', { name: 'Course start', when: 'Visa granted: waiting for start date', after: { text: 'The course start date' }, task: 'Confirm <student> has started', kind: 'k-enrol', sla: wh(18), closes: 'The status changes' }),
+  A('T57', { name: 'Course start', when: 'Visa granted', after: { text: 'The course start date' }, task: 'Confirm <student> has started', kind: 'k-enrol', sla: wh(18), closes: 'The status changes' }),
   A('T20', { name: 'Enrolment to confirm', when: 'Enrolment confirmation pending', task: 'Confirm <student>’s enrolment with <university>', kind: 'k-enrol', sla: d(3), closes: 'The status moves to Student enrolled' }),
 
   R('T32', 'RPs', { record: 'RP', name: 'New RP to verify', when: 'Every onboarding document uploaded (rp.documents_sent)', task: 'Verify <RP>', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-verify', sla: wh(12), closes: 'Verified or sent back' }),
@@ -213,10 +209,10 @@ export const RULES = [
   R('T58', 'RPs', { record: 'RP', name: 'Train a new RP', when: 'The RP’s agreement is executed (rp.agreement_signed)', task: 'Train <RP> on the portal', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-train', sla: d(5), closes: 'RP Ops marks the training done (S4-22)' }),
   R('T33', 'RPs', { record: 'RP', name: 'RP signed up, not activated', when: 'Signed up, not activated', after: d(2), task: 'Help <RP> finish sign-up', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'Activated' }),
   R('T34', 'RPs', { record: 'RP', name: 'RP documents sent back', when: 'Onboarding documents sent back', after: d(7), task: 'Chase <RP> for its documents', queue: 'q-rp-ops', kind: 'k-rp-change', sla: wh(18), remind: d(3), closes: 'Re-uploaded' }),
-  R('T36', 'RPs', { record: 'RP', name: 'RP lifecycle change', when: 'The BDM asks for a suspension, termination or tier change', task: 'Approve and make the change to <RP>', queue: 'q-rp-ops', share: 'to-leader', kind: 'k-rp-change', sla: wh(12), closes: 'Approved or rejected' }),
+  R('T36', 'RPs', { record: 'RP', name: 'RP lifecycle change', when: 'Recruitment asks for a suspension, termination or tier change', task: 'Approve and make the change to <RP>', queue: 'q-rp-ops', share: 'to-leader', kind: 'k-rp-change', sla: wh(12), closes: 'Approved or rejected' }),
   R('T59', 'RPs', { record: 'RP', name: 'Notice follow-up', when: 'RP Ops issues a notice to an RP', task: 'Follow up the notice to <RP>', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-notice', sla: d(3), closes: 'Done (S4-22)' }),
-  R('T37', 'RPs', { record: 'RP', name: 'RP inactive', when: 'No new application', after: days(90), task: 'Check in with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(45), closes: 'An application is added, or the BDM notes why' }),
-  R('W23', 'RPs', { record: 'RP', name: 'New RP assigned', when: 'A new RP is assigned to a BDM', task: 'Get in touch with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'The BDM logs the first call' }),
+  R('T37', 'RPs', { record: 'RP', name: 'RP inactive', when: 'No new application', after: days(90), task: 'Check in with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(45), closes: 'An application is added, or the Recruitment contact notes why' }),
+  R('W23', 'RPs', { record: 'RP', name: 'New RP assigned', when: 'A new RP is assigned to a Recruitment user', task: 'Get in touch with <RP>', queue: 'recruitment', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'The BDM logs the first call' }),
   R('T35', 'RPs', { record: 'RP', name: 'New bank details', when: 'The RP sends new bank details (payouts held)', task: 'Check the new bank details for <RP>', queue: 'q-finance', share: 'not-maker', kind: 'k-check', sla: wh(6), closes: 'Approved or rejected' }),
 
   R('T38', IPG, { record: 'Institution partner', name: 'Agreement ending', days: 60, when: '<days> days before the agreement ends (the days are editable here; slice 2’s renewal reminder reads them)', task: 'Renew the agreement with <partner>', queue: 'q-institution', share: 'record-owner', kind: 'k-renew', sla: d(30), closes: 'A new agreement is uploaded' }),

@@ -47,7 +47,8 @@ export function SubmissionTab({ a, desk, onRef, say }: { a: Application; desk: D
             Where it’s submitted
           </h2>
           <span className={`gsub__via gsub__via--${ch.via}`}>
-            <Icon name={ch.via === 'mail' ? 'mail' : 'external'} size={14} />
+            {/* a chip, not a link (Jovial, 2 Nov) */}
+            <Icon name={ch.via === 'mail' ? 'mail' : 'globe'} size={14} />
             {CHANNEL_NAME[ch.via]}
           </span>
         </div>

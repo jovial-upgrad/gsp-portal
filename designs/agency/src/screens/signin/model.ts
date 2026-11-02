@@ -126,7 +126,7 @@ export const AUTH_PRESETS: Record<string, { label: string; make: () => AuthState
   // an RP person whose RP is Suspended (slice 2), with the right password (PRD slice 1)
   'signin-agency-paused': {
     label: 'Agency paused',
-    make: () => ({ ...initialAuth(DEMO), submitted: true, error: 'Your agency’s access is paused. Your partner manager can tell you more.' }),
+    make: () => ({ ...initialAuth(DEMO), submitted: true, error: 'Your agency’s access is paused. Your Recruitment contact at GSP can tell you more.' }),
   },
   'signin-locked': {
     label: 'Sign-in paused',

@@ -113,11 +113,12 @@ export function routeApplication(p: { rp?: string; nationality: string; livesIn:
 }
 
 /* ---------- region isolation (Region isolation tab: model D) ---------- */
-const ISOLATED = ['Admission', 'Recruitment'];
+// Jovial, 2 Nov: every role but Admin works in its own regions (Global only when Admin gives it)
+const EVERY_REGION = ['Admin'];
 /** The regions a GSP person works in, or null for every region. */
 export function regionsOf(email?: string): string[] | null {
   const s = STAFF.find((x) => x.email === email);
-  if (!s || !ISOLATED.includes(s.role) || s.regions.includes('Global')) return null;
+  if (!s || EVERY_REGION.includes(s.role) || s.regions.includes('Global')) return null;
   return s.regions;
 }
 /** Is a record's region one of this person's? Records without a region are everyone's. */

@@ -48,18 +48,26 @@ export function TooltipHost() {
     const over = (e: Event) => show(e, 450);
     const focus = (e: Event) => {
       if ((e.target as Element)?.matches?.(':focus-visible')) show(e, 150);
-      else hide();
+      // a menu focuses the item under the pointer: keep that item's tip (the disabled Withdraw's reason, 2 Nov)
+      else if (!on || find(e.target) !== on) hide();
     };
     const out = (e: Event) => {
       const to = (e as PointerEvent).relatedTarget as Node | null;
       if (on && to && on.contains(to)) return;
       if (on && !find(to)) hide();
     };
+    // focus moving to the hovered element itself doesn't hide its tip
+    const blur = (e: Event) => {
+      const to = (e as FocusEvent).relatedTarget as Element | null;
+      if (on && to && find(to) === on) return;
+      if (on && (e.target as Element) !== on && !(on as Element).matches?.(':focus')) return;
+      hide();
+    };
     const key = (e: KeyboardEvent) => e.key === 'Escape' && hide();
     document.addEventListener('pointerover', over, true);
     document.addEventListener('pointerout', out, true);
     document.addEventListener('focusin', focus, true);
-    document.addEventListener('focusout', hide, true);
+    document.addEventListener('focusout', blur, true);
     document.addEventListener('pointerdown', hide, true);
     document.addEventListener('keydown', key, true);
     window.addEventListener('scroll', hide, true);
@@ -68,7 +76,7 @@ export function TooltipHost() {
       document.removeEventListener('pointerover', over, true);
       document.removeEventListener('pointerout', out, true);
       document.removeEventListener('focusin', focus, true);
-      document.removeEventListener('focusout', hide, true);
+      document.removeEventListener('focusout', blur, true);
       document.removeEventListener('pointerdown', hide, true);
       document.removeEventListener('keydown', key, true);
       window.removeEventListener('scroll', hide, true);
