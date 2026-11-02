@@ -36,12 +36,6 @@ type AcademicRule = { id: string; countries: string[]; qual: string; board?: str
 type EnglishRule = { id: string; countries: string[]; test: string; overall: number; min: number; note: string };
 type WithRules = Course & { academicRules?: AcademicRule[]; englishRules?: EnglishRule[] };
 
-/** The academic rules for students from a country: the country's own, else the rules for every country. */
-export function academicRulesFor(c: Course, country: string): AcademicRule[] {
-  const rows = (c as WithRules).academicRules ?? (c.academic ? [{ id: 'a', countries: [], qual: 'Applicable to all', scale: 'Percentage', min: c.academic, backlogs: c.backlogs !== undefined ? String(c.backlogs) : '' }] : []);
-  const own = rows.filter((r) => r.countries.includes(country));
-  return own.length ? own : rows.filter((r) => !r.countries.length);
-}
 /** The English rules for students from a country: for each test, the country's own row, else the one for every country. */
 export function englishRulesFor(c: Course, country: string): EnglishRule[] {
   const rec = (c as WithRules).englishRules;
@@ -143,18 +137,15 @@ function englishLines(s: Student, c: Course, country: string): Line[] {
 }
 
 /**
- * The course's minimum score for its Minimum highest education (lock answers S3C-2 with S2C-3, Jovial, 2 Nov): one
- * minimum, on its scale, and its backlog limit when the course states one. Read from the course's own minimum score
- * fields when it has them (`minScore`, `minScoreScale`, `minBacklogs`), else from the course's academic minimum: the
- * Academic row for the student's country, else the row for every country (the first one; rows are no longer matched
- * by qualification).
+ * The course's minimum score in its Minimum highest education (lock answers S3C-2 with S2C-3, Jovial, 2 Nov): the
+ * course's own `minScore` on `minScoreScale`, and its backlog limit (`minBacklogs`) when it states one. Required with
+ * `minEducation` to save the Academic tab and to publish, so every course has them; a course without them shows Not
+ * specified (no other row is read).
  */
 export type MinScore = { min: number; scale: string; backlogs: string };
-export function minScoreOf(c: Course, country: string): MinScore | null {
-  const x = c as Course & { minScore?: number | null; minScoreScale?: string; minBacklogs?: number | string | null };
-  if (typeof x.minScore === 'number' && x.minScore > 0) return { min: x.minScore, scale: x.minScoreScale || 'Percentage', backlogs: x.minBacklogs == null ? '' : String(x.minBacklogs) };
-  const r = academicRulesFor(c, country)[0];
-  return r ? { min: r.min, scale: r.scale, backlogs: r.backlogs ?? '' } : null;
+export function minScoreOf(c: Course): MinScore | null {
+  if (typeof c.minScore !== 'number' || c.minScore <= 0 || !c.minScoreScale) return null;
+  return { min: c.minScore, scale: c.minScoreScale, backlogs: c.minBacklogs == null ? '' : String(c.minBacklogs) };
 }
 
 /**
@@ -164,7 +155,7 @@ export function minScoreOf(c: Course, country: string): MinScore | null {
  * through Admin › Grade conversion). No other academic row or qualification is matched. **Backlogs** count only when
  * the course states a backlog limit; otherwise there's no backlog check.
  */
-function academicLines(s: Student, c: Course, country: string): Line[] {
+function academicLines(s: Student, c: Course): Line[] {
   const out: Line[] = [];
   const min = c.minEducation;
   const mine = highestEdOf(s);
@@ -173,7 +164,7 @@ function academicLines(s: Student, c: Course, country: string): Line[] {
   else if (eduRank(mine) < eduRank(min)) out.push({ ok: 'no', label: 'Highest education', result: 'Not eligible', why: `${eduName(mine)}; needs ${eduName(min)}${isTopEducation(min) ? '' : ' or higher'}` });
   else out.push({ ok: 'yes', label: 'Highest education', result: 'Meets', why: `${eduName(mine)}; needs ${eduName(min)}${isTopEducation(min) ? '' : ' or higher'}` });
   // the score: the student's highest qualification's against the course's minimum score
-  const need = minScoreOf(c, country);
+  const need = minScoreOf(c);
   const e = s.edu[s.highest];
   const what = eduName(mine);
   if (!need) out.push({ ok: 'na', label: 'Academics', result: 'Not specified', why: 'The course has no minimum score for its minimum highest education.' });
@@ -212,7 +203,7 @@ const partOf = (lines: Line[]): PartVerdict => {
  * specified doesn't count; neither specified: Not specified.
  */
 export function eligibility(s: Student, c: Course, country = s.country || s.nationality): Check {
-  const a = academicLines(s, c, country);
+  const a = academicLines(s, c);
   const e = englishLines(s, c, country);
   const academic = partOf(a);
   const english = partOf(e);

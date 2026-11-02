@@ -84,7 +84,7 @@ export const APP_LOGIC = {
   T20: { when: (a) => a.status === 'enrolconf', title: (n, a) => `Confirm ${n}’s enrolment with ${uni(a)}` },
   // lock answer S3C-9 (2 Nov): GSP closed (or withdrew) the application after it went to the university. The close
   // event records whether it had been submitted (end.submitted); older closes without that record make no task.
-  T69: { closed: true, when: (a) => a.status === 'closed' && a.end?.submitted === true, title: (n, a) => `Tell ${uni(a)} that ${n} withdrew` },
+  T71: { closed: true, when: (a) => a.status === 'closed' && a.end?.submitted === true, title: (n, a) => `Tell ${uni(a)} that ${n} withdrew` },
 };
 
 /** Who-has-it labels (Jovial, 1 Nov). */
@@ -133,7 +133,7 @@ export function appTasks(s, live, now = clockNow()) {
   const out = [];
   const all = liveApps(live);
   for (const a0 of all) {
-    // a closed application only has the rules made for a close (T69); an enrolled one none
+    // a closed application only has the rules made for a close (T71); an enrolled one none
     const shut = !isOpen(a0);
     if (shut && a0.status !== 'closed') continue;
     const officer = s.officerOf ? s.officerOf(a0) : a0.officer;

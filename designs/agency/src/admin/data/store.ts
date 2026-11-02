@@ -117,7 +117,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v9'; // v9 (2 Nov, lock answers S1–S2): non-EU Europe in Latin America & Europe, admin.gsp@ to the Admin queue, no Area on users, sign-in security and intake timings fixed; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
+const KEY = 'gsp-admin-v10'; // v10 (2 Nov, lock answers merged): slice 3's Highest education and Reasons lists beside slices 1–2's settings; // v9 (2 Nov, lock answers S1–S2): non-EU Europe in Latin America & Europe, admin.gsp@ to the Admin queue, no Area on users, sign-in security and intake timings fixed; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {

@@ -12,6 +12,7 @@ Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet, rows L-
 
 ### Everywhere
 - [x] Task rules: **T43** (next year's fees) and **T59** (notice follow-up) removed; **T69** (agreement not signed: RP Admin reminded in the bell and by email E22 after 3 and 7 working days, RP Ops task after 10, L-5) and **T70** (IP Ops: activate each university of a reopened partner, S2C-19) added; **T62** worked out from the students (S1C-13). `npm run test:lock-rules`. (2 Nov, commit “Lock answers S1–S2: …”)
+  - Merged with `lock-s3` (2 Nov): slice 3's "Tell <university> that <student> withdrew" (S3C-9), also built as T69, is **T71**; T69 stays the agreement reminders and T70 the reopened partner's universities. `test:lock-rules` checks every rule id is used once. (2 Nov, commit “Lock merge: …”)
 
 ### GSP · Admin
 - [x] GSP users: any valid email (S1C-2); no Area, the Sales regions column only, no "Covers …" (S1C-3). (2 Nov, commit “Lock answers S1–S2: …”)
@@ -22,6 +23,7 @@ Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet, rows L-
   - Chosen in the build, for Jovial to confirm: Russia and Turkey are left in Rest of world (not added to Latin America & Europe).
 - [x] admin.gsp@ is the Admin queue's (S1C-14). (2 Nov, commit “Lock answers S1–S2: …”)
 - [x] Program levels and study areas: add, retire, restore; a level's required Application form level (S2C-13). (2 Nov, commit “Lock answers S1–S2: …”)
+  - Since the merge (2 Nov): Find courses' Program Level and Study Area, Add an application's level and area filters, and the application's postgraduate check and document rules read Admin's lists too (an added level counts as its Application form level). Course minimums pick from the Highest education list. (2 Nov, commit “Lock merge: …”)
 - [x] Re-routing to another Admissions queue picks a new officer (Fewest open); open tasks follow; logged (S1C-7). (2 Nov, commit “Lock answers S1–S2: …”)
 - Already built as proposed, checked: S1C-1 (access levels), S1C-4 and S1C-5 (sign-in copy; the suspended RP's message says "Recruitment contact", as BDM was renamed on 2 Nov), S1C-12 (delete rules).
 
@@ -57,6 +59,7 @@ Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet: L-1 to 
 - [x] **Costs:** the first-year headline keeps the one-time costs, labelled "one-time" (L-4). (2 Nov, commit “Lock answers S3: …”)
 - [x] **Eligibility, Academics:** only the highest qualification against the course's Minimum highest education and its minimum score; backlogs only when the course states a limit (S3C-2 with S2C-3). Rows stay grouped (Highest education, Score, Backlogs). (2 Nov, commit “Lock answers S3: …”)
   - Field names: `minEducation`; the minimum score is the course's `minScore` / `minScoreScale` (and `minBacklogs`) when the slice 1–2 course form adds them, else its Academic row for the student's country, else for every country (`data/eligibility.ts` `minScoreOf`).
+    - Since the merge with `lock-s1s2` (2 Nov): every course has `minEducation`, `minScore` and `minScoreScale` (required to save and publish, S2C-3; seeded on every sample course), so eligibility and Compare read only the course's minimum; the Academic-row fallback is gone. (2 Nov, commit “Lock merge: …”)
 - [x] As built, confirmed: TOEFL sections ×4 (S3C-3); Compare's Scholarship Yes rule (S3C-12); grade conversion edge cases (S3C-18). (2 Nov, commit “Lock answers S3: …”)
 
 ### Add a student and the student record
@@ -72,7 +75,7 @@ Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet: L-1 to 
 - [x] **Activity (RP):** status changes show too (L-3). (2 Nov, commit “Lock answers S3: …”)
 - [x] GSP can close at any stage, New included (L-6, as built). (2 Nov, commit “Lock answers S3: …”)
 - [x] **Assigned officer › Change** for the queue's leader, Admin and Global Ops only; open tasks move; logged (S3C-8). (2 Nov, commit “Lock answers S3: …”)
-- [x] **Closing or withdrawing from Submitted to university onwards** gives the officer task T69 "Tell <university> that <student> withdrew", 9 working hours (S3C-9). (2 Nov, commit “Lock answers S3: …”)
+- [x] **Closing or withdrawing from Submitted to university onwards** gives the officer task T71 "Tell <university> that <student> withdrew", 9 working hours (S3C-9). (2 Nov, commit “Lock answers S3: …”)
 - [x] **After enrolment** only Final tuition fee and Census date stay editable, each logged old → new (S3C-11). (2 Nov, commit “Lock answers S3: …”)
 - [x] **Census date** pre-filled from the intake when it's set, else empty (S3C-13). (2 Nov, commit “Lock answers S3: …”)
 - [x] **Wrong university reference:** fixing it moves the mail conversations matched on it (S3C-19). (2 Nov, commit “Lock answers S3: …”)

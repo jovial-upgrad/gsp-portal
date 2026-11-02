@@ -204,7 +204,7 @@ export const RULES = [
   A('WH7', { name: 'GSP lodges the visa', when: 'Visa lodgement pending, GSP lodges', task: 'Lodge the student visa for <student> (GSP lodges this one)', kind: 'k-submit', sla: d(7), closes: 'The status moves to Visa decision pending' }),
   A('T56', { name: 'Visa decision late', when: 'Visa decision pending', after: d(20), task: 'Chase the visa decision for <student>', kind: 'k-chase-uni', sla: wh(12), closes: 'Done, or the status changes' }),
   A('T57', { name: 'Course start', when: 'Visa granted', after: { text: 'The course start date' }, task: 'Confirm <student> has started', kind: 'k-enrol', sla: wh(18), closes: 'The status changes' }),
-  A('T69', { name: 'Tell the university about a withdrawal', when: 'GSP closes or withdraws an application from Submitted to university onwards', task: 'Tell <university> that <student> withdrew', kind: 'k-uni-mail', sla: wh(9), closes: 'Done (the officer has told the university)' }),
+  A('T71', { name: 'Tell the university about a withdrawal', when: 'GSP closes or withdraws an application from Submitted to university onwards', task: 'Tell <university> that <student> withdrew', kind: 'k-uni-mail', sla: wh(9), closes: 'Done (the officer has told the university)' }),
   A('T20', { name: 'Enrolment to confirm', when: 'Enrolment confirmation pending', task: 'Confirm <student>’s enrolment with <university>', kind: 'k-enrol', sla: d(3), closes: 'The status moves to Student enrolled' }),
 
   R('T32', 'RPs', { record: 'RP', name: 'New RP to verify', when: 'Every onboarding document uploaded (rp.documents_sent)', task: 'Verify <RP>', queue: 'q-rp-ops', share: 'fewest-open', kind: 'k-rp-verify', sla: wh(12), closes: 'Verified or sent back' }),

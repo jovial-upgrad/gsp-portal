@@ -28,7 +28,8 @@ import {
   type University,
 } from '../../data/courses';
 
-export type Need = { dest: Destination | ''; country: string; state: string; level: Level | ''; area: Area | '' };
+/** `level` and `area` are names on Admin's Program levels and Study areas lists (S2C-13). */
+export type Need = { dest: Destination | ''; country: string; state: string; level: Level | string; area: Area | string };
 /**
  * The left panel's five filters, and no others (slice 3 PRD, Filters): the tuition fee range (the total fee, in the
  * destination's currency; null is the whole range), tags (all of them, S3C-4), the duration range (stops 0 "<1 year"

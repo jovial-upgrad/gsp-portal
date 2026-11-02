@@ -19,7 +19,7 @@ import { condOf, whenText } from '../admin/data/config';
 import { STAFF, label, staffById } from './staff';
 import { routeApplication } from './regions';
 import { datasetApplications, testAgencyApps, testAgencyStudents } from './dataset';
-import { COURSES, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
+import { COURSES, formLevelOf, intakeDates, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
 import { eligibility, groupsOf } from './eligibility';
 import { TESTS, eduDocKey, fullName, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
@@ -414,8 +414,9 @@ export type AppDoc = {
   template?: { name: string; file: string };
 };
 
+/** The application form's postgraduate levels; a Program level Admin added counts as its Application form level (S2C-13). */
 const PG_LEVELS: string[] = ['Master’s degree', 'Postgraduate diploma', 'PhD or research'];
-export const isPgCourse = (c: Pick<Course, 'level'>) => PG_LEVELS.includes(c.level);
+export const isPgCourse = (c: Pick<Course, 'level'>) => PG_LEVELS.includes(formLevelOf(c.level));
 const MARKS: Record<EduLevel, [string, string]> = {
   g10: ['10th marksheet', 'Class 10 board exam marksheet'],
   g12: ['12th marksheet', 'Class 12 board exam marksheet'],
@@ -450,7 +451,8 @@ const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 
  */
 export function docsFor(s: Student, c: Course): AppDoc[] {
   const out: AppDoc[] = [];
-  const level = RULE_LEVEL[c.level] ?? 'Postgraduate';
+  // a Program level Admin added counts as its Application form level (S2C-13)
+  const level = RULE_LEVEL[formLevelOf(c.level)] ?? 'Postgraduate';
   const inDest = s.country === c.uni.country || (s.country === 'United Kingdom' && c.uni.country === 'UK');
   const add = (d: AppDoc) => { if (!out.some((x) => x.key === d.key)) out.push(d); };
   for (const r of adminCfg().docRules) {

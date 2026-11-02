@@ -11,17 +11,15 @@ import { MultiPick } from '../../institution/records/MultiPick';
 import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
-import { searchCatalogue } from '../../institution/data/store';
+import { liveAreas, liveLevels, searchCatalogue, useSharedDb } from '../../institution/data/store';
 import { byRegion, useScope } from '../../data/scope';
 import { studentRegion } from '../../data/regions';
 import { HOME_RP } from '../../institution/rps';
 import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, totalFeeOf, type Course } from '../../data/courses';
 import {
   ANY_DUR,
-  AREAS,
   DESTINATIONS,
   DUR_STOPS,
-  LEVELS,
   NEED_LABEL,
   NO_FILTERS,
   POPULAR,
@@ -96,6 +94,8 @@ export function FindCourses({
   commission?: boolean;
 }) {
   const reduce = useReducedMotion();
+  // Program level and Study area: Admin's lists (Admin › Course configuration › Program levels and study areas, S2C-13)
+  const [db] = useSharedDb();
   // GSP's people, and the RP's Branch Admin and Counsellor (S3C-7), see the page as Student view would: no commission
   const noCommission = gsp || !commission;
   // GSP's people pick from the students in their own sales regions, each shown with its RP (lock answer S3C-6)
@@ -271,8 +271,8 @@ export function FindCourses({
             disabled={!s.need.country}
             optional
           />
-          <Segment id="fc-level" label="Program Level" value={s.need.level} options={[...LEVELS]} onChange={(v) => setNeed('level', v)} error={tried && !s.need.level} />
-          <Segment id="fc-area" label="Study Area" value={s.need.area} options={[...AREAS]} onChange={(v) => setNeed('area', v)} error={tried && !s.need.area} />
+          <Segment id="fc-level" label="Program Level" value={s.need.level} options={liveLevels(db, s.need.level)} onChange={(v) => setNeed('level', v)} error={tried && !s.need.level} />
+          <Segment id="fc-area" label="Study Area" value={s.need.area} options={liveAreas(db, s.need.area)} onChange={(v) => setNeed('area', v)} error={tried && !s.need.area} />
           <Segment id="fc-intake" label="Intake" value={s.filters.intake} options={s.filters.intake && !months.includes(s.filters.intake) ? [s.filters.intake, ...months] : months} onChange={(v) => setFilter('intake', v)} optional />
         </fieldset>
       </Form>

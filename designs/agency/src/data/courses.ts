@@ -537,11 +537,11 @@ for (const a of DATASET.apps) {
  * The sample's Minimum highest education required on the shared course list (the catalogue's records set the same,
  * slice 2's sampleCourseRecs): applications read this list, so the eligibility check's level check works there too.
  */
-COURSES.forEach((c, i) => {
-  if (c.minEducation !== undefined || i % 17 === 5) return;
-  c.minEducation = c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : 'Grade 12';
-  // its minimum score (S2C-3): the sample's academic minimum, as a percentage
-  if (c.minScore === undefined && c.academic > 0) (c.minScore = c.academic), (c.minScoreScale = 'Percentage'), (c.minBacklogs = c.backlogs);
+COURSES.forEach((c) => {
+  // every course has its minimum highest education and its minimum score (required since S2C-3; eligibility reads
+  // only these, S3C-2): the sample's academic minimum, as a percentage
+  if (c.minEducation === undefined) c.minEducation = c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : 'Grade 12';
+  if (c.minScore === undefined) (c.minScore = c.academic), (c.minScoreScale = 'Percentage'), (c.minBacklogs = c.backlogs);
 });
 
 /* ---------- the course's figures as course search shows them (slice 3 PRD) ---------- */

@@ -429,12 +429,7 @@ export function sampleCourseRecs(): CourseRec[] {
     source: i % 10 === 3 ? 'Added by hand' : i % 5 === 1 ? 'StudyLink' : 'University website',
     tags: tagsOf(c),
     totalFee: Math.round((c.tuition * c.months) / 12),
-    // set on most samples; a few older courses keep it empty until someone edits them (S3-18)
-    minEducation: i % 17 === 5 ? undefined : c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : c.level === 'Foundation' ? 'Grade 12' : 'Grade 12',
-    // and its minimum score (S2C-3), with it: the sample's academic minimum, as a percentage
-    minScore: i % 17 === 5 ? undefined : c.academic || undefined,
-    minScoreScale: i % 17 === 5 || !c.academic ? undefined : 'Percentage',
-    minBacklogs: i % 17 === 5 ? undefined : c.backlogs,
+    // minEducation, minScore, minScoreScale and minBacklogs come with the shared course (every course has them, S2C-3)
     log: [],
     // a draft was added recently (Institution Home's "Finish draft courses" counts from it); the rest in June 2025
     created: { by: IN('catherine.wilson'), at: draft(i) ? atIso(inDays(-(2 + (i % 9)))) : atIso('2025-06-01') },

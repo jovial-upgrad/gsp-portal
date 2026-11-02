@@ -171,14 +171,14 @@ Jovial's answers in the *Lock S1-S3* tab of his Pending Questions sheet (rows L-
 - **admin.gsp@** is the Admin queue's mailbox; Admin forwards anything for RP Ops (S1C-14).
 - **Universities:** Search priority a whole number 1–10, 5 by default (S2C-1, `SEARCH_PRIORITY`); **Update QS rankings**: download the template (every university with its rank now), upload it back (portal drop zone, CSV only), and see how many were updated, unchanged and skipped (with why); only QS rows change a rank, an empty rank is unranked ("—", sorted last) (S2C-17). Go live has five checks (S2C-2).
 - **Courses:** Academic needs **Minimum highest education** and its **minimum score** with the grading scale, plus optional backlogs allowed in it (`minEducation`, `minScore`, `minScoreScale`, `minBacklogs`), to save the tab and to publish; the CSV takes them as optional columns (S2C-3). No fee year (S2C-6).
-- **Program levels and study areas** (Admin › Course configuration): add, retire and restore; each level has a required Application form level (S2C-13). The course form, CSV import, scholarships and announcements read these lists.
+- **Program levels and study areas** (Admin › Course configuration): add, retire and restore; each level has a required Application form level (S2C-13). The course form, CSV import, scholarships, announcements, Find courses' Program Level and Study Area, Add an application's level and area filters and the application's document rules read these lists (an added level counts as its Application form level, `formLevelOf`).
 - **Institution partners:** End partnership asks for confirmation only, no reason (S2C-8). Reopening a Closed partner changes none of its universities; IP Ops gets T70 "Activate <university>" for each one not Live, and an Ended university under a reopened partner shows its checks and **Activate** (S2C-19).
 - **Recruitment partners:** no Issue a notice and no T59 (S2C-12). Finance, RP Ops and Admin all work the RP agreement (S2C-10).
 - **RP agreement reminders (L-5):** T69 reminds the RP Admins (bell and email E22) 3 and 7 working days after an agreement is sent with no signed copy, and gives RP Ops "Chase <RP> for its signed agreement" after 10 working days; the times are the rule's (Work › Task rules: RP reminded, RP reminded again, Task starts after). In the sample, the GSP test agency's v2 was sent 6 days ago (its first reminder is in RP Admin's bell), Malabar Overseas has one reminder, Kathmandu Study Link both and the RP Ops task (Nepal).
 - **Announcements:** Scheduled and Live ones can be edited, each save written to the announcement's Change log; only "N sent" is counted (S2C-15). Live just after midnight IST on the publish date, through the expiry date (S2C-18).
 - **RP team (Profile):** a Branch Admin sees their own branch, invites Counsellors to it and deactivates or reactivates them; a Counsellor has no team (S2C-14).
 - **RP sign-up code:** 10 minutes, 5 wrong tries, resend after 30 seconds, unverified sign-ups deleted after 30 days by job J10 (`SIGNUP_CODE`, S2C-16).
-- **Task rules:** T43 and T59 removed; T69 and T70 added; T62 worked out from the students. `npm run test:lock-rules` checks every one of them is made only by its rule from a record.
+- **Task rules:** T43 and T59 removed; T69 and T70 added (slice 3's withdrawal task, built as T69 on its own branch, is **T71** since the merge, so every rule id is used once); T62 worked out from the students. `npm run test:lock-rules` checks every one of them is made only by its rule from a record.
 
 ## 2 Nov, lock answers for slice 3 (Jovial)
 
@@ -201,8 +201,8 @@ every role that shows each page. They settle the slice 3 proposals that were bui
   (`data/education.ts`, `admin/data/lists.ts`, `admin/config/Lists.tsx`).
 - **Eligibility, Academics (S3C-2 with S2C-3):** only the **highest qualification**: the student's highest education and
   its score (converted through Grade conversion) against the course's **Minimum highest education** (`minEducation`) and
-  its **minimum score** (the course's `minScore` and `minScoreScale` when it has them, else its Academic row for the
-  student's country, else for every country). No other row or qualification is matched. **Backlogs** only when the
+  its **minimum score** (the course's `minScore` on `minScoreScale`, required with it since S2C-3, so every course has
+  them; no Academic row is read). No other row or qualification is matched. **Backlogs** only when the
   course states a limit. The row stays grouped: Highest education, Score, Backlogs (`data/eligibility.ts`).
 - **Commission (S3C-7):** only **RP Admin** sees commission figures. Branch Admin and Counsellor get no Base commission
   on cards or the course page, no Student view switch (nothing to hide), no Commission tab and no Base commission in
@@ -211,7 +211,7 @@ every role that shows each page. They settle the slice 3 proposals that were bui
   Global Ops only (`data/appRules.ts` `canChangeOfficer`); the open tasks move to the new officer (`work/store.ts`
   `changeOfficer`); logged in Activity under who changed it, and in the work log.
 - **Withdrawal after submission (S3C-9):** GSP closing or withdrawing from Submitted to university onwards gives the
-  officer task **T69** "Tell <university> that <student> withdrew" (9 working hours), from the task rules.
+  officer task **T71** "Tell <university> that <student> withdrew" (9 working hours), from the task rules.
 - **After enrolment (S3C-11):** Admissions can still change only the **Final tuition fee** and the **Census date**,
   each logged old → new; the university reference is read-only once enrolled.
 - **Census date (S3C-13):** pre-filled from the intake's census date when it's set; otherwise empty until Admissions
@@ -743,7 +743,7 @@ Built to match the slice 4 PRD "Operations" (2 Nov, decisions S4-1 to S4-28); th
 - **Sharing**: no task is ever unassigned (S4-2). Fewest open skips people on leave, deactivated users and anyone who can't see the record; tie by name. Every application task goes to the application's **officer**, picked once by Fewest open (open applications) when the RP sends the documents and kept until changed (S4-5); a deactivated officer's applications go to the queue's leader (S4-4). On leave: the leader covers, with "Covering while <name> is on leave".
 - **SLAs**: working hours on the record's region's calendar, **in IST** for everything (S4-27); due soon at ≤ min(9, half the SLA); the rule's SLA, else the kind's, else 18; a task keeps the hours it was created with (S4-11); GSP's own application task **pauses** while a request to the RP is open (S4-10). Escalation: level 1 the leader, level 2 the team's Ops queue, level 3 the Admin queue (numbers editable 0–60); the reminder a working day before due only on SLAs of 18 wh or more (S4-18).
 - **Working days**: calendars with days, hours (half-hour picks, IST), holidays and the sales regions on them; a region's own `calendarId` (slice 1's picker) wins. The SLA by status tab is gone (S4-12).
-- **Task rules** (Admin › Work › Task rules): every rule of the PRD, grouped (Applications T1–T57, RPs incl. T58 and T59, Institution, Email, Commission, Admin T50 and T60–T68 as the S4-28 proposal, Escalation T51). Admin and Global Ops edit on/off, task starts after, SLA, RP reminder, queue and sharing; triggers and close conditions are read-only; no New and no Delete (S4-13). The engine reads them; a switched-off rule makes nothing new and its open tasks stay.
+- **Task rules** (Admin › Work › Task rules): every rule of the PRD, grouped (Applications T1–T57 and T71, RPs incl. T58 and T69, Institution incl. T70, Email, Commission, Admin T50 and T60–T68 as the S4-28 proposal, Escalation T51). Admin and Global Ops edit on/off, task starts after, SLA, RP reminder, queue and sharing; triggers and close conditions are read-only; no New and no Delete (S4-13). The engine reads them; a switched-off rule makes nothing new and its open tasks stay.
 - **Emails and daily jobs** (Admin › Work): the 21 email templates (E1–E21) with the rules every email follows and a preview; **Emails sent**, the log the build keeps, worked out from the work now (E15, E17, E18 for the RP, S4-17; E19 morning email; E20; E21); the nine daily jobs J1–J9 with their IST times and next run. `EMAIL_TEMPLATES` (with `canTurnOff`: all but E1–E4) is exported from `src/work/mail.ts` for Profile › Email preferences.
 - **The bell**: read state saved per person in this browser; 90 days kept, newest 40 with **Show older** (S4-15); no preferences. My work's notifications: a task for you, "Due tomorrow:", "Late:", "Escalated:", "<name> gave you …". The leader gets the officer's application notifications while covering.
 - Every settings change is in the page's **Change history** (with its event, like `queue.edited`) and in Admin's **Logs**.

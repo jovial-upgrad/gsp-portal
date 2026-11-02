@@ -1,5 +1,7 @@
 // The work rules added by Jovial's lock answers (2 Nov): T69's agreement reminders and task (L-5), T70's university
-// tasks after a partner is reopened (S2C-19), T62's nationality tasks (S1C-13), and that T43 and T59 are gone. Every
+// tasks after a partner is reopened (S2C-19), T71's "tell the university" task after a close from Submitted to
+// university onwards (S3C-9), T62's nationality tasks (S1C-13), T7 and T52 back (L-1), and that T43 and T59 are gone.
+// Every rule id is used once. Every
 // derived item must come from a rule and a record: no rule, or no record that meets it, gives nothing. Exits 1 on any
 // failure.   node scripts/test-lock-rules.mjs   (from designs/agency)
 import { build } from 'esbuild';
@@ -13,7 +15,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.__glob = () => ({});
 globalThis.window = globalThis.window ?? { addEventListener: () => {}, removeEventListener: () => {} };
 const out = await build({
-  stdin: { contents: "export * from './src/work/rpRules.ts'; export { RULES } from './src/work/seed.ts';", resolveDir: path.join(here, '..'), loader: 'ts' },
+  stdin: { contents: "export * from './src/work/rpRules.ts'; export { RULES } from './src/work/seed.ts'; export { APP_LOGIC } from './src/work/engine.ts';", resolveDir: path.join(here, '..'), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', write: false, logLevel: 'error', jsx: 'automatic', resolveExtensions: ['.ts', '.tsx', '.js', '.json'], define: { 'import.meta.glob': 'globalThis.__glob', 'import.meta.env.MODE': '"test"' },
   loader: { '.webp': 'empty', '.png': 'empty', '.jpg': 'empty', '.svg': 'empty', '.css': 'empty' },
 });
@@ -35,6 +37,27 @@ ok('T43 removed', rules.some((r) => r.row === 'T43'), false);
 ok('T59 removed', rules.some((r) => r.row === 'T59'), false);
 ok('T69 exists', !!rules.find((r) => r.row === 'T69'), true);
 ok('T70 exists', !!rules.find((r) => r.row === 'T70'), true);
+ok('T71 exists', !!rules.find((r) => r.row === 'T71'), true);
+ok('T7 and T52 back (L-1)', ['T7', 'T52'].map((x) => rules.some((r) => r.row === x)), [true, true]);
+
+// one rule per id (the lock-s1s2 and lock-s3 branches both added a T69: agreement reminders keep it, T71 is the withdrawal)
+const ids = rules.map((r) => r.row);
+ok('every rule id unique', ids.filter((x, i) => ids.indexOf(x) !== i), []);
+ok('T69 is the RP agreement rule', [rules.find((r) => r.row === 'T69')?.record, rules.find((r) => r.row === 'T69')?.name], ['RP', 'Agreement not signed']);
+ok('T70 is the university to activate', rules.find((r) => r.row === 'T70')?.record, 'University');
+ok('T71 is the application withdrawal task', [rules.find((r) => r.row === 'T71')?.record, rules.find((r) => r.row === 'T71')?.task], ['Application', 'Tell <university> that <student> withdrew']);
+// every application task logic has its rule (no derived task without a rule), and no withdrawal logic left on T69
+ok('every APP_LOGIC entry has a rule', Object.keys(W.APP_LOGIC).filter((k) => !ids.includes(k)), []);
+ok('no application logic on T69', 'T69' in W.APP_LOGIC, false);
+
+// S3C-9: T71 only for a close after submission
+const L = W.APP_LOGIC.T71;
+const closedApp = (submitted) => ({ status: 'closed', end: { kind: 'closed', reason: 'x', stage: 2, at: now, submitted }, uni: 'Uni One' });
+ok('T71 closed after submission: task', L.when(closedApp(true), {}), true);
+ok('T71 closed before submission: none', L.when(closedApp(false), {}), false);
+ok('T71 older close without the record: none', L.when({ status: 'closed', end: { kind: 'closed', reason: 'x', stage: 2, at: now } }, {}), false);
+ok('T71 open application: none', L.when({ status: 'lodged' }, {}), false);
+ok('T71 marked for closed applications', L.closed, true);
 
 // L-5: reminders at 3 and 7 working days, the task after 10
 ok('sent today: no reminder', W.agreementReminders(sent(0), rules, now).length, 0);
