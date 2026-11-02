@@ -300,8 +300,7 @@ export function LivingCosts({ cfg, change, say }: ConfigProps) {
 const TIMES: [keyof IntakeTimes, string, string][] = [
   ['lateDays', 'Late after the deadline', 'Days after an intake’s application deadline that it still shows, as “Late: likelihood is low”. Then it’s closed.'],
   ['warnDays', 'Deadline soon', 'Days before the deadline that an open intake is marked as closing soon.'],
-  // Regression 6 (2 Nov): the Countdown means only “closes in N days”; slice 3 has no “Deadline within” filter
-  ['countdownDays', 'Countdown', 'Days before the deadline that an intake shows “closes in N days”.'],
+  ['countdownDays', 'Countdown', 'Days before the deadline that an intake shows “closes in N days”, and the reach of course search’s “Deadline within” filter.'],
 ];
 
 /**
