@@ -223,7 +223,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
                   // shown in course search (Jovial, 1 Nov, HC2, HC3): QS rank, founding year, about, pathway
                   ['QS world ranking', u.qs ? <span key="qs" className="num">#{u.qs}</span> : null],
                   ['Founded', u.founded ? <span key="fd" className="num">{u.founded}</span> : null],
-                  ['Search priority', u.priority ? <span key="dp" className="num">{u.priority}</span> : null],
+                  ['Display priority', u.priority ? <span key="dp" className="num">{u.priority}</span> : null],
                   ['Applies through StudyLink', u.studylink ? 'Yes' : 'No'],
                   ['Pathway provider', u.pathway ? 'Yes' : 'No'],
                   ['About', u.about || null],
@@ -629,7 +629,7 @@ function EditProfile({ u, onCancel, onSave }: { u: UniRec | null; onCancel: () =
         <Field id="iup-web" label="Website" required error={show('website')}>
           <TextInput id="iup-web" value={v.website ?? ''} invalid={!!show('website')} onChange={(e) => set({ website: e.target.value })} />
         </Field>
-        <Field id="iup-priority" label="Search priority" optional hint="A number. Recommended in course search shows the highest first (S3-1).">
+        <Field id="iup-priority" label="Display priority" optional hint="A number. It breaks ties in search.">
           <TextInput id="iup-priority" inputMode="numeric" value={v.priority} onChange={(e) => set({ priority: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="Like: 10" />
         </Field>
         <Field id="iup-qs" label="QS world ranking" optional hint="Shown on the course cards and the course page." error={show('qs')}>

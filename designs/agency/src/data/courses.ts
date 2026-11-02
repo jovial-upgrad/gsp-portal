@@ -30,7 +30,6 @@ import canberraMark from '../assets/unis/canberra-mark.png';
 import uniscLogo from '../assets/unis/unisc.svg';
 import uniscMark from '../assets/unis/unisc-mark.svg';
 import DATASET from './dataset.json';
-import type { MinEducation } from './education';
 
 export const CURRENCY: Record<Destination, string> = { Australia: 'AUD', UK: 'GBP', Canada: 'CAD', 'New Zealand': 'NZD', Ireland: 'EUR', USA: 'USD' };
 export const FLAG: Record<Destination, string> = { Australia: '🇦🇺', UK: '🇬🇧', Canada: '🇨🇦', 'New Zealand': '🇳🇿', Ireland: '🇮🇪', USA: '🇺🇸' };
@@ -53,7 +52,7 @@ export const FLAG_COLOURS: Record<Destination, [string, string]> = {
  */
 export type Campus = { name: string; city: string; address?: string; setting?: 'City centre' | 'Suburban' | 'Regional town'; regional?: boolean; /** Its Google Maps link, from the campus record (HC3). */ map?: string };
 /** A picture on the university's record (HC11): its file name, and the image when there is one (an upload in the prototype keeps only its name). */
-export type Picture = { id: string; name: string; src?: string };
+export type Picture = { id: string; name: string; src?: string; /** Optional, shown under it (slice 2 PRD). */ caption?: string };
 
 export type University = {
   id: string;
@@ -89,10 +88,12 @@ export type University = {
   /** Colleges award diplomas and certificates, not degrees. */
   college?: boolean;
   /**
-   * Search priority (slice 3 PRD, S3-1, S3-19): a number on the university record, set by Institution or IP Ops; it
-   * replaces Display priority. Recommended in course search sorts by it first, highest first. Courses have none.
+   * Search priority (slice 2 PRD, S2C-1; renamed from Display priority, S3-1/S3-19): 0 to 100, default 0, set by
+   * Institution or IP Ops on the university. Course search's Recommended sort orders by it first, highest first.
    */
   searchPriority?: number;
+  /** The QS ranking's year, from Admin's QS ranking CSV (S2-2): "#415 · QS 2026". */
+  qsYear?: number;
 };
 
 export const UNIVERSITIES: University[] = [
@@ -295,12 +296,17 @@ export type Course = {
   otherFees: [string, number][];
   /** Postgraduate courses: the most backlogs (subjects failed and cleared later) accepted in the student's degree. */
   backlogs?: number;
+  /** The full course fee (slice 2 PRD, S3-20): course search's total tuition fee; `tuition` is the fee a year under it. */
+  totalFee?: number;
   /**
-   * Minimum highest education required (slice 3 PRD, S3-18): on the course's Academic tab; required on new and
-   * edited courses. Empty: the eligibility check's level check is Not specified.
+   * Minimum highest education required (slice 2 PRD, S3-18): one per course. Empty on courses saved before the field
+   * existed; slice 3's eligibility check shows the level check as Not specified until it's filled.
    */
-  minHighestEducation?: MinEducation;
+  minEducation?: string;
 };
+
+/** The values of Minimum highest education required (slice 2 PRD, S3-18). */
+export const MIN_EDUCATION = ['Grade 12', 'Diploma', 'Bachelor’s (3 years)', 'Bachelor’s (4 years)', 'Master’s'] as const;
 
 /* ---------- generated, the same every time ---------- */
 
@@ -515,14 +521,13 @@ for (const a of DATASET.apps) {
 }
 
 /**
- * The seed for Minimum highest education required (S3-18), from the course's level; a few courses are left without
- * it, as courses added before the field was required are, so the level check shows Not specified there.
+ * The sample's Minimum highest education required on the shared course list (the catalogue's records set the same,
+ * slice 2's sampleCourseRecs): applications read this list, so the eligibility check's level check works there too.
  */
-for (const c of COURSES) {
-  const n = Number(c.id.split('-').pop()?.replace(/\D/g, '')) || 0;
-  if (n % 11 === 5) continue;
-  c.minHighestEducation = c.level === 'PhD or research' ? 'Master’s' : /Master|Postgraduate/.test(c.level) ? (c.uni.country === 'USA' || c.uni.country === 'Canada' ? 'Bachelor’s (4 years)' : 'Bachelor’s (3 years)') : 'Grade 12';
-}
+COURSES.forEach((c, i) => {
+  if (c.minEducation !== undefined || i % 17 === 5) return;
+  c.minEducation = c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : 'Grade 12';
+});
 
 /* ---------- the course's figures as course search shows them (slice 3 PRD) ---------- */
 
@@ -531,16 +536,16 @@ type Rec = Course & { durUnit?: string; durValue?: number; fullFee?: number; fir
 const rec = (c: Course) => c as Rec;
 /** Whether the course's length is in credits (no length in months: it matches every duration range, S3-3). */
 export const inCredits = (c: Course) => rec(c).durUnit === 'Credits';
-/** The course's total tuition fee, for the whole course: its Full course fee (S3-2, S3-20). */
-export const totalTuition = (c: Course) => {
-  const f = rec(c).fullFee;
+/** The course's total tuition fee (S3-2, S3-20): its `totalFee` (the Full course fee), else worked out from the fee a year. */
+export const totalFeeOf = (c: Course) => {
+  const f = c.totalFee ?? rec(c).fullFee;
   return f && f > 0 ? f : Math.round(c.tuition * Math.max(1, c.months / 12));
 };
 /** The fee a year: the full course fee ÷ the length in years; a course in credits shows its first-year fee, or the full fee when that's empty. */
 export const feeAYear = (c: Course) => {
   const r = rec(c);
-  if (inCredits(c)) return r.firstYearFee && r.firstYearFee > 0 ? r.firstYearFee : totalTuition(c);
-  return Math.round(totalTuition(c) / Math.max(1, c.months / 12));
+  if (inCredits(c)) return r.firstYearFee && r.firstYearFee > 0 ? r.firstYearFee : totalFeeOf(c);
+  return Math.round(totalFeeOf(c) / Math.max(1, c.months / 12));
 };
 /** The course's tags, from its record. */
 export const tagsOf = (c: Course) => rec(c).tags ?? [];
@@ -548,6 +553,11 @@ export const tagsOf = (c: Course) => rec(c).tags ?? [];
 export const urlOf = (c: Course) => rec(c).url;
 /** "2 years", "18 months", "36 credits" (slice 2's display rules). */
 export const durationText = (c: Course) => (inCredits(c) ? `${rec(c).durValue ?? ''} credits`.trim() : c.months % 12 === 0 ? `${c.months / 12} ${c.months === 12 ? 'year' : 'years'}` : `${c.months} months`);
+/**
+ * The university's Search priority (S3-1, S3-19): its `searchPriority`; before slice 2's rename reaches a record, the
+ * record's old Display priority (a string) stands in.
+ */
+export const searchPriorityOf = (u: University) => u.searchPriority ?? (Number((u as University & { priority?: string }).priority) || 0);
 
 /** Base commission in course search: 70% of the university's rate on the course's first-year tuition fee (no scholarship taken off: Jovial, 1 Nov). */
 export const earnOf = (c: Course) => Math.round((c.tuition * c.rate * 0.7) / 100 / 10) * 10;

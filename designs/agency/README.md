@@ -162,7 +162,7 @@ row (tab *S3 check*) or on S3-31, the PRD's proposal is built. In every role:
   internal use (same fields, logged).
 - **GSP · Admin › Course configuration** gains **Grade conversion** (9 seeded systems; add, edit, retire, restore;
   bands can't overlap) and **English test equivalence** (5 seeded rows, edited in place) (`admin/config/Eligibility.tsx`).
-  The course form's Academic tab asks **Minimum highest education required** (needed to publish).
+  The check reads each course's **Minimum highest education required** (`minEducation`, slice 2's course form).
 - **Students**: Highest education is the one list (Grade 10 … Doctorate, S3C-1); a qualification's grading system is
   picked from Admin's Grade conversion; Share with student is hidden (S3C-10); 25 a page.
 - **Applications**: Who has it follows the PRD's five rules (an open RP request outranks a university status;

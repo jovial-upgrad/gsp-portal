@@ -21,11 +21,7 @@ export const blankCourse: CourseDraft = { uni: '', campus: '', name: '', code: '
  * deadline. Everything else shows as "Not added" in Course search until the team enters it.
  */
 export const missingOf = (c: CourseRec) =>
-  [
-    [c.intakes.length > 0 && c.intakes.some((i) => !!i.deadline), 'an intake with its application deadline'],
-    // slice 3 PRD (S3-18): required on new and edited courses, on the Academic tab
-    [!!c.minHighestEducation, 'the minimum highest education required (Academic)'],
-  ]
+  [[c.intakes.length > 0 && c.intakes.some((i) => !!i.deadline), 'an intake with its application deadline']]
     .filter(([ok]) => !ok)
     .map(([, k]) => k as string);
 
@@ -38,8 +34,6 @@ export function newCourse(f: CourseDraft, unis: UniRec[], courses: CourseRec[]):
   return {
     ...like,
     id: `${u.id}-new-${Date.now().toString(36)}`,
-    // asked for on the Academic tab (S3-18); a new course starts without it
-    minHighestEducation: undefined,
     name: f.name.trim(),
     code: f.code.trim(),
     uni: u,

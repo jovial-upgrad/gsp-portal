@@ -8,7 +8,7 @@ import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { searchCatalogue } from '../../institution/data/store';
-import { FLAG, FLAG_COLOURS, blockedFor, daysTo, durationText, earnOf, feeAYear, intakeState, money, totalTuition, type Campus, type Course, type University, intakeDates } from '../../data/courses';
+import { FLAG, FLAG_COLOURS, blockedFor, daysTo, durationText, earnOf, feeAYear, intakeState, money, totalFeeOf, type Campus, type Course, type University, intakeDates } from '../../data/courses';
 import type { Student } from '../../data/students';
 import { EntryTab } from './EntryTab';
 import type { CourseSearch } from './search';
@@ -233,7 +233,7 @@ function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canAppl
         <div className="cs-stat">
           <dt>Total tuition</dt>
           <dd className="cs-stat__v">
-            <Money v={totalTuition(c)} cur={c.currency} />
+            <Money v={totalFeeOf(c)} cur={c.currency} />
           </dd>
           <dd className="cs-stat__sub">{money(feeAYear(c), c.currency)} a year</dd>
         </div>
@@ -379,7 +379,7 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
                     </span>
                   </span>
                   <span className="cs-sim__fee">
-                    {money(totalTuition(x), x.currency)}
+                    {money(totalFeeOf(x), x.currency)}
                     <span className="cs-sim__per"> in all</span>
                   </span>
                   <Icon name="chevronRight" size={18} />

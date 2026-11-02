@@ -18,9 +18,10 @@ import {
   blockedFor,
   daysTo,
   inCredits,
+  searchPriorityOf,
   intakeState,
   tagsOf,
-  totalTuition,
+  totalFeeOf,
   type Area,
   type Course,
   type Destination,
@@ -299,7 +300,7 @@ export function convert(v: number, from: string, to: string) {
   }
 }
 /** The total tuition fee in the destination's currency, for the slider, the fee sorts and Compare's tags (S3C-5). */
-export const totalIn = (c: Course, cur: string) => convert(totalTuition(c), c.currency, cur || c.currency);
+export const totalIn = (c: Course, cur: string) => convert(totalFeeOf(c), c.currency, cur || c.currency);
 
 /** Whether a course's length falls in the duration range, both ends included (S3-21); credit courses match every range (S3-3). */
 export function inDuration(c: Course, [lo, hi]: [number, number]) {
@@ -379,7 +380,7 @@ export function sorter(sort: Sort, cur: string): (a: Course, b: Course) => numbe
   if (sort === 'feeLow') return (a, b) => totalIn(a, cur) - totalIn(b, cur) || byName(a, b);
   if (sort === 'qs') return (a, b) => (qsOf(a) === qsOf(b) ? 0 : qsOf(a) - qsOf(b)) || byName(a, b);
   return (a, b) => {
-    const p = (b.uni.searchPriority ?? 0) - (a.uni.searchPriority ?? 0);
+    const p = searchPriorityOf(b.uni) - searchPriorityOf(a.uni);
     if (p) return p;
     const da = nextDeadline(a);
     const db = nextDeadline(b);

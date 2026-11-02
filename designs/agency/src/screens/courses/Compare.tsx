@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
-import { durationText, feeAYear, intakeState, money, scholarshipsOf, totalTuition, urlOf, type Course } from '../../data/courses';
+import { durationText, feeAYear, intakeState, money, scholarshipsOf, totalFeeOf, urlOf, type Course } from '../../data/courses';
 import { UniMark } from './parts';
 import { campusState, convert } from './search';
 import { academicRulesFor, englishRulesFor } from '../../data/eligibility';
@@ -42,14 +42,14 @@ function requirements(c: Course, country: string) {
   const e = englishRulesFor(c, country);
   const min = a ? (a.scale === 'Percentage' ? `${a.min}%` : `${a.min} (${a.scale})`) : '—';
   const eng = e.length ? e.map((r) => `${r.test.replace(/ (Academic|iBT|English Test)$/, '')} ${r.overall}`).join(', ') : '—';
-  return `Minimum highest education: ${c.minHighestEducation ?? '—'} · Academic minimum: ${min} · English overall: ${eng}`;
+  return `Minimum highest education: ${c.minEducation ?? '—'} · Academic minimum: ${min} · English overall: ${eng}`;
 }
 export const FIELDS: Field[] = [
   { key: 'level', label: 'Program level', get: (c) => c.level },
   { key: 'duration', label: 'Duration', get: (c) => durationText(c) },
   { key: 'intakes', label: 'Intakes', get: (c) => c.intakes.filter((i) => intakeState(i) !== 'closed').map((i) => i.month).join(', ') || '—' },
   { key: 'deadline', label: 'Application deadline', get: (c) => deadlineOf(c) },
-  { key: 'tuition', label: 'Tuition fee', get: (c) => money(totalTuition(c), c.currency), sub: (c) => `${money(feeAYear(c), c.currency)} a year`, num: (c, cur) => convert(totalTuition(c), c.currency, cur), best: 'low', tag: 'Lowest' },
+  { key: 'tuition', label: 'Tuition fee', get: (c) => money(totalFeeOf(c), c.currency), sub: (c) => `${money(feeAYear(c), c.currency)} a year`, num: (c, cur) => convert(totalFeeOf(c), c.currency, cur), best: 'low', tag: 'Lowest' },
   { key: 'fee', label: 'Application fee', get: (c) => (c.appFee ? money(c.appFee, c.currency) : 'Free'), num: (c, cur) => convert(c.appFee, c.currency, cur), best: 'low', tag: 'Lowest' },
   { key: 'schol', label: 'Scholarship', get: (c, k) => (hasScholarship(c, k) ? 'Yes' : 'No'), num: (c, _cur, k) => (hasScholarship(c, k) ? 1 : 0), best: 'high', tag: 'Yes' },
   { key: 'req', label: 'Requirements', get: (c, k) => requirements(c, k) },

@@ -280,7 +280,7 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 ## GSP · Admin
 
-- [x] Jovial, 2 Nov (slice 3 PRD, S3-4, S3-15, S3-16, S3-29): Course configuration › **Grade conversion** and **English test equivalence**, with the seed values; the course form's Academic tab asks Minimum highest education required (S3-18). (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
+- [x] Jovial, 2 Nov (slice 3 PRD, S3-4, S3-15, S3-16, S3-29): Course configuration › **Grade conversion** and **English test equivalence**, with the seed values; the eligibility check reads each course's Minimum highest education required (slice 2's course form, S3-18). (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
 - [x] Nesil, 30 Oct: **a new role, GSP · Admin**, in the Role switch, **replicating GSP · Institution** (the same pages, records, sign-in and design), with **a colour difference**: teal in place of GSP's navy for buttons, links, focus and switches, and in the corner glow and the light behind the sidebar. "GSP Admin" beside the logo; signed in as Ishaan Verma, GSP · Admin. (30 Oct, commit “GSP · Admin: a new role, a copy of GSP · Institution, in teal”)
   - Chosen in the build, for Nesil to confirm: **teal** as Admin's colour (a cool colour that isn't an owner or status colour, and far from GSP's violet and the university blue); the owner and status colours stay the same in every role.

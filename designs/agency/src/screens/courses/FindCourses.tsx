@@ -12,7 +12,7 @@ import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
 import { searchCatalogue } from '../../institution/data/store';
-import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, totalTuition, type Course } from '../../data/courses';
+import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, totalFeeOf, type Course } from '../../data/courses';
 import {
   ANY_DUR,
   AREAS,
@@ -711,7 +711,7 @@ function CourseCard({
   // slice 3 PRD, Results: the total tuition fee with the fee a year underneath (S3-20), the application fee or Free,
   // the duration ("36 credits"), the QS rank or "—", and the base commission (≈; hidden in Student view)
   const facts: [string, string, string?, string?][] = [
-    ['Tuition fee', money(totalTuition(c), c.currency), undefined, `${money(feeAYear(c), c.currency)} a year`],
+    ['Tuition fee', money(totalFeeOf(c), c.currency), undefined, `${money(feeAYear(c), c.currency)} a year`],
     ['Application fee', c.appFee ? money(c.appFee, c.currency) : 'Free'],
     ['Duration', durationText(c)],
     ['QS rank', c.uni.qs ? `#${c.uni.qs}` : '—'],

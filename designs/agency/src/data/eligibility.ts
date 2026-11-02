@@ -151,7 +151,7 @@ function englishLines(s: Student, c: Course, country: string): Line[] {
 function academicLines(s: Student, c: Course, country: string): Line[] {
   const out: Line[] = [];
   // the level check (S3-18): Not specified until the course has its Minimum highest education required
-  const min = c.minHighestEducation;
+  const min = c.minEducation;
   const mine = highestEdOf(s);
   if (!min) out.push({ ok: 'na', label: 'Highest education', result: 'Not specified', why: 'The course has no minimum highest education yet.' });
   else if (eduRank(mine) < eduRank(min)) out.push({ ok: 'no', label: 'Highest education', result: 'Not eligible', why: `${mine}; needs ${min}${min === MIN_EDUCATION[MIN_EDUCATION.length - 1] ? '' : ' or higher'}` });
