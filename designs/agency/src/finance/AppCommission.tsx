@@ -7,11 +7,11 @@
  * every line is an estimate.
  */
 import { useMemo, useState } from 'react';
-import { courseOf, startOf, censusOf, type Application } from '../data/applications';
-import { compute, money, nice } from './engine';
+import { courseOf, startOf, censusOf, earnFor, type Application } from '../data/applications';
+import { compute, money, nice, traceText } from './engine';
 import { getState } from './store';
 import { UNI_TERMS, rpByName } from '../data/dataset';
-import { uniSteps } from './Commissions';
+import { uniSteps, lineLabel } from './Commissions';
 import { convert, settingsOf } from './shared';
 import './finance.css';
 
@@ -57,6 +57,23 @@ function priced(a: Application, agency: string) {
   return { res: one, r: res.apps[a.id], cfg: cfg2, uni, rp, assumed, enrolled: false, today };
 }
 
+/**
+ * What the agency earns on an application (the "Base commission" row on the application page): the RP's first-year
+ * share from the same engine as Finance and the Commission tab (commissions-26, 2 Nov), an estimate before
+ * enrolment. Falls back to the course's estimate if the engine can't price it.
+ */
+export function earnEstimate(a: Application) {
+  try {
+    const p = priced(a, '');
+    if (!p.res.rp.length) throw new Error('no RP line');
+    const amount = Math.round(p.res.rp.filter((x) => !x.annuity && x.ent != null).reduce((t, x) => t + x.ent, 0) * 100) / 100;
+    const currency = p.uni.cur;
+    return { amount, currency, text: money(amount, currency), estimate: !p.enrolled };
+  } catch {
+    return { ...earnFor(a), estimate: true };
+  }
+}
+
 export function AppCommission({ a, agency, side }: { a: Application; agency: string; side: 'both' | 'rp' }) {
   const p = useMemo(() => priced(a, agency), [a.id, a.status, a.intake, a.courseId, agency]);
   const [open, setOpen] = useState<string | null>(null);
@@ -87,7 +104,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
               <tbody>
                 {ip.map((x) => { const k = 'u' + x.l.key; const [t, tone] = stOf(x.l.st); return [
                   <tr key={k} className="irow">
-                    <td>{x.l.bonus ? 'University bonus' : x.l.annuity ? `Annuity, year ${x.l.y}` : `Instalment ${x.l.k}${x.l.n > 1 ? ` of ${x.l.n}` : ''}`}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of the final tuition fee` : 'No rate'}</span></td>
+                    <td>{lineLabel(x.l)}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of the final tuition fee` : 'No rate'}</span></td>
                     <td className="num">{nice(x.l.date)}</td>
                     <td className="num">{money(x.l.ent, uni.cur)}{x.l.gst ? <span className="irow__sub">+ GST {money(x.l.gst, uni.cur)}</span> : null}</td>
                     <td><span className={`dpill ${tone}`}>{t}</span></td>
@@ -121,7 +138,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
                 open === k && (
                   <tr key={k + 'w'} className="gspx-working"><td colSpan={5}>
                     <ol className="gspx-why">
-                      {(x.why || [...(r.rpWhy || []), ...(x.annuity ? [r.annWhy] : [])]).map((w, i) => <li key={i}>{w}</li>)}
+                      {(side === 'both' && x.trace ? traceText(x.trace) : x.why || [...(r.rpWhy || []), ...(x.annuity ? [r.annWhy] : [])]).map((w, i) => <li key={i}>{w}</li>)}
                       {side === 'both' && x.ip && <li>GSP’s commission on this line is {money(x.ip.ent, uni.cur)}; {x.lp}% of it is {money(x.ent, x.cur)}.</li>}
                       {side === 'rp' && x.cur !== cur && <li>Shown in {cur} at this week’s rate; the exact amount is fixed on the payout day.</li>}
                     </ol>

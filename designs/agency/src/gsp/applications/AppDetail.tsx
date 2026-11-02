@@ -2,7 +2,7 @@ import { withdrawReasons } from '../../data/reasons';
 import { UPLOAD } from '../../data/uploads';
 import { PriorityChip } from '../../components/PriorityChip';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AppCommission } from '../../finance/AppCommission';
+import { AppCommission, earnEstimate } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
@@ -17,7 +17,6 @@ import {
   STATUS,
   docLines,
   courseOf,
-  earnFor,
   isOpen,
   arriveAt,
   ownerOf,
@@ -142,7 +141,7 @@ export function AppDetail({
   const counsellor = rpPeople.find((m) => m.id === s.counsellor) ?? team.find((m) => m.id === s.counsellor && (m.rp ?? agency) === agency) ?? rpPeople.find((m) => m.role === 'Counsellor') ?? rpPeople[0];
   const rp = rpContact(counsellor ?? { name: agency, role: 'RP Admin' }, agency);
   useLiveAll(); // the final tuition fee prices the base commission
-  const earn = earnFor(a);
+  const earn = earnEstimate(a);
   const [withdraw, setWithdraw] = useState(false);
   const [changing, setChanging] = useState(false);
   // opening it shows the officer what the RP sent: its "Needs you" in My work closes (W11)

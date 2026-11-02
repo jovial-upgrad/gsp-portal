@@ -11,7 +11,10 @@ import { can, inScope } from './access';
 import { Page, Card, Tiles, Segmented, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, toast, NumberInput } from './kit';
 import { useCheck, numError } from '../components/validate';
 import { PersonaBar, usePersona, HostContext } from './persona';
-import { addDays, addMonths, nice, money, r2, LEVELS, thursdayOf } from './engine';
+import { addDays, addMonths, nice, money, r2, LEVELS, thursdayOf, traceText } from './engine';
+
+/** A university line's name: the engine's (Year 1, Semester 2, Unit 3, Tier top-up, Bonus…), or the old instalment name. */
+export const lineLabel = (l) => l.label ? (l.type === 'bonus' || l.type === 'additional' || l.type === 'topup' ? l.label : l.annuity ? `${l.label} (after year 1)` : l.label) : l.bonus ? 'University bonus' : l.annuity ? `Annuity, year ${l.y}` : `Instalment ${l.k}${l.n > 1 ? ` of ${l.n}` : ''}`;
 import { useComm, liveRun, TONE, aud, sum, opsOf, nav, downloadCsv, payDayName } from './shared';
 import Payout from './Payout';
 import Terms from './Terms';
@@ -174,7 +177,7 @@ function UniSide({ res, c, lines, filter, setFilter, canEdit, user }) {
           <tr key={x.app + x.l.key} className="irow">
             <td>{x.a.student}<span className="irow__sub">{x.app} · {LEVELS[x.a.level] || x.a.level}</span></td>
             <td>{x.u.name}<span className="irow__sub">{x.u.country} · pays in {x.u.payDays} days</span></td>
-            <td>{x.l.bonus ? 'University bonus' : x.l.annuity ? `Annuity, year ${x.l.y}${x.l.n > 1 ? `, period ${x.l.p}` : ''}` : `Instalment ${x.l.k}${x.l.n > 1 ? ` of ${x.l.n}` : ''}`}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of tuition${x.l.n > 1 ? ` ÷ ${x.l.n}` : ''}` : 'No rate'}</span></td>
+            <td>{lineLabel(x.l)}<span className="irow__sub">{x.l.fixed != null ? 'Fixed fee' : x.l.pct != null ? `${x.l.pct}% of tuition${x.l.n > 1 ? ` ÷ ${x.l.n}` : ''}` : 'No rate'}</span></td>
             <td className="num">{nice(x.l.date)}</td>
             <td className="num">{money(x.l.ent, x.u.cur)}{x.l.gst ? <span className="irow__sub">+ GST {money(x.l.gst, x.u.cur)}</span> : null}</td>
             <td><Pill tone={TONE[x.l.st[1]]}>{x.l.st[0]}</Pill>{x.l.st[2] && <span className="irow__sub">{x.l.st[2]}</span>}</td>
@@ -196,7 +199,7 @@ export function UniWhy({ x, r, cfg, onClose }) {
   const net = Math.max(0, (+a.tuition || 0) - (+a.scholarship || 0));
   const steps = uniSteps(x, r, cfg);
   return (
-    <Sheet title={`${a.student} · ${l.bonus ? 'University bonus' : l.annuity ? `Annuity, year ${l.y}` : `Instalment ${l.k}${l.n > 1 ? ` of ${l.n}` : ''}`}`} sub={`${u.name} · ${a.app || x.app}`} onClose={onClose} wide footer={<Button onClick={onClose}>Close</Button>}>
+    <Sheet title={`${a.student} · ${lineLabel(l)}`} sub={`${u.name} · ${a.app || x.app}`} onClose={onClose} wide footer={<Button onClick={onClose}>Close</Button>}>
       <ol className="gspx-why">{steps.map((w, i) => <li key={i}>{w}</li>)}</ol>
       <div className="gspx-sentence">GSP’s commission on this line: <b>{money(l.ent, u.cur)}</b>{l.gst ? ` + GST ${money(l.gst, u.cur)}` : ''}{l.aud != null && u.cur !== 'AUD' ? ` (AUD ${money(l.aud)})` : ''}. Status: {l.st[0].toLowerCase()}{l.st[2] ? `. ${l.st[2]}` : ''}.</div>
       {u.contract && <><h3 className="gspx-h4">What the contract says</h3><dl className="gspx-dl"><dt>Rate</dt><dd>{u.contract.rate}</dd><dt>Trigger</dt><dd>{u.contract.trigger}</dd><dt>Clawback</dt><dd>{u.contract.claw}</dd><dt>Source</dt><dd>{u.contract.src}</dd></dl></>}
@@ -205,8 +208,10 @@ export function UniWhy({ x, r, cfg, onClose }) {
   );
 }
 
+/* the engine's own steps (commissions-26): every input and number, with the sheet scenario */
 export function uniSteps(x, r, cfg) {
   const { a, u, l } = x;
+  if (l.trace) return traceText(l.trace);
   const net = Math.max(0, (+a.tuition || 0) - (+a.scholarship || 0));
   const out = [];
   out.push(`Tuition ${money(+a.tuition || 0, u.cur)} a year${+a.scholarship ? `, less a scholarship of ${money(+a.scholarship, u.cur)}` : ''}: ${money(net, u.cur)}.`);
@@ -262,7 +267,7 @@ function RpSide({ c, lines, filter, setFilter, canEdit, user }) {
 
 function WhySheet({ x, canEdit, user, onClose }) {
   const [ov, setOv] = useState(x.ov ? x.ov.amt : '');
-  const why = x.why || [...(x.r.rpWhy || []), ...(x.annuity ? [x.r.annWhy] : [])];
+  const why = x.trace ? traceText(x.trace) : x.why || [...(x.r.rpWhy || []), ...(x.annuity ? [x.r.annWhy] : [])];
   const was = x.ov ? x.ov.amt : '';
   const v = useCheck({ ov: numError(ov, { what: 'RP’s amount', min: 0, required: true }) });
   const save = clear => {

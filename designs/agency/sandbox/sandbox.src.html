@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GSP Commissions Sandbox</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+/* Layout: a ledger workbench. Sticky header with the sandbox clock and tabs; each tab is one working surface. */
+:root{
+  --bg:#f5f6f3;--panel:#ffffff;--sunk:#eceee8;--line:#d9dcd3;--ink:#1d2421;--mute:#5e6862;--faint:#8a938d;
+  --acc:#24527a;--acc-soft:#e3ecf4;--acc-ink:#ffffff;
+  --good:#1f7a4d;--good-soft:#e2f2e9;--warn:#9a6200;--warn-soft:#fbf0d9;--bad:#b3261e;--bad-soft:#fbe5e3;
+  --f-sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;--f-head:"IBM Plex Serif",Georgia,serif;
+  --r:8px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917;--panel:#1b211f;--sunk:#222a27;--line:#323b37;--ink:#e6ebe7;--mute:#a3ada7;--faint:#76807a;
+  --acc:#8db8e0;--acc-soft:#1f3243;--acc-ink:#0f1a24;
+  --good:#6fcf9a;--good-soft:#173326;--warn:#e8b45a;--warn-soft:#382b12;--bad:#f08a80;--bad-soft:#3d1c19;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917;--panel:#1b211f;--sunk:#222a27;--line:#323b37;--ink:#e6ebe7;--mute:#a3ada7;--faint:#76807a;
+  --acc:#8db8e0;--acc-soft:#1f3243;--acc-ink:#0f1a24;
+  --good:#6fcf9a;--good-soft:#173326;--warn:#e8b45a;--warn-soft:#382b12;--bad:#f08a80;--bad-soft:#3d1c19;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-sans);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1360px;margin:0 auto}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-block:12px 0}
+.brand{display:flex;flex-direction:column;min-width:0}
+.brand h1{font:600 19px/1.2 var(--f-head);margin:0;letter-spacing:.01em}
+.brand span{color:var(--mute);font-size:12.5px}
+.clock{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r);padding:6px 10px}
+.clock label{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);font-weight:600}
+.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:10px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{appearance:none;border:0;background:none;color:var(--mute);font:500 14px var(--f-sans);padding:9px 12px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--acc);font-weight:600}
+.tab .n{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.tab .n.w{background:var(--warn)}
+main{padding-block:20px 60px}
+h2{font:600 18px/1.3 var(--f-head);margin:0 0 4px}
+h3{font:600 15px/1.3 var(--f-sans);margin:0 0 8px}
+p{margin:0 0 10px}
+.lead{color:var(--mute);max-width:75ch;margin-bottom:16px}
+.meter{color:var(--mute);font-size:12.5px}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.num{text-align:right;white-space:nowrap}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;min-width:0;max-width:100%}
+textarea{width:100%;min-height:70px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:7px 12px;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.p{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.btn.d{color:var(--bad)}
+.btn.sm{padding:4px 9px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.link{appearance:none;border:0;background:none;color:var(--acc);padding:0;cursor:pointer;font-weight:500;text-decoration:underline;text-underline-offset:2px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+.split{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.split{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.panel+.panel{margin-top:14px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{text-align:left;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);padding:8px 10px;border-bottom:1px solid var(--line);background:var(--sunk);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--sunk)}
+tfoot td{font-weight:600;background:var(--sunk)}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.p-good{background:var(--good-soft);color:var(--good)}.p-warn{background:var(--warn-soft);color:var(--warn)}.p-bad{background:var(--bad-soft);color:var(--bad)}.p-acc{background:var(--acc-soft);color:var(--acc)}.p-mute{background:var(--sunk);color:var(--mute);border-color:var(--line)}
+.applist{display:grid;gap:4px;max-height:70vh;overflow:auto;margin-top:10px}
+.appi{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:6px;padding:7px 9px;cursor:pointer}
+.appi:hover{background:var(--sunk)}
+.appi[aria-current="true"]{background:var(--acc-soft);border-color:var(--acc)}
+.appi b{display:block;font-weight:600}
+.appi small{color:var(--mute)}
+.grp{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin:10px 0 2px}
+.facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 16px;margin:12px 0}
+.facts dt{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);font-weight:600}
+.facts dd{margin:0;font-weight:500}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.step{font-size:12.5px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
+.step.done{background:var(--good-soft);border-color:transparent;color:var(--good);font-weight:600}
+.step.now{background:var(--acc-soft);border-color:var(--acc);color:var(--acc);font-weight:600}
+details.why{margin-top:4px}
+details.why summary{cursor:pointer;color:var(--acc);font-size:12.5px;font-weight:500}
+.whybox{background:var(--sunk);border-radius:6px;padding:8px 10px;margin-top:6px;font-size:12.5px}
+.whybox ol{margin:0;padding-left:18px}
+.whybox li{margin:2px 0}
+.note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;font-size:13px}
+.note.bad{border-color:var(--bad);background:var(--bad-soft)}
+.note.info{border-color:var(--acc);background:var(--acc-soft)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.kpi span{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);font-weight:600}
+.kpi b{font:600 20px var(--f-mono);font-variant-numeric:tabular-nums}
+.sub{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chip{appearance:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:500;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.overlay{position:fixed;inset:0;background:rgba(10,14,12,.45);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:max(24px,env(safe-area-inset-top,0px)) 12px 24px;overflow:auto}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(720px,100%);padding:18px 18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+.modal.wide{width:min(980px,100%)}
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 14px;margin:12px 0}
+.form .full{grid-column:1/-1}
+.form label{display:grid;gap:4px;font-size:12.5px;font-weight:600;color:var(--mute)}
+.form label input,.form label select,.form label textarea{font-weight:400;color:var(--ink);width:100%}
+.form label small{font-weight:400;color:var(--faint)}
+.chk{display:flex!important;align-items:center;gap:8px;grid-template-columns:none!important}
+.chk input{width:auto!important}
+.toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:30;font-weight:500;max-width:calc(100% - 32px)}
+.diff-up{color:var(--good);font-weight:600}.diff-down{color:var(--bad);font-weight:600}
+.neg{color:var(--bad)}
+.empty{padding:28px;text-align:center;color:var(--mute)}
+.rules ol{padding-left:20px;max-width:80ch}
+.rules li{margin:6px 0}
+.rules h3{margin-top:18px}
+.status-line{font-size:12.5px;color:var(--mute)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* The portal's own controls (no system UI): select menus, a calendar, ticks, number fields */
+.sel{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;min-width:0;max-width:100%;cursor:pointer;text-align:left;font:inherit;color:var(--ink)}
+.sel:hover{border-color:var(--faint)}
+.sel .sel-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sel .sel-c{color:var(--mute);font-size:11px;flex:none}
+.sel[aria-expanded="true"]{border-color:var(--acc)}
+.pop{position:fixed;z-index:40;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:4px;max-height:340px;overflow:auto;max-width:calc(100vw - 16px)}
+.pop .opt{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 9px;border-radius:5px;cursor:pointer;font:inherit;color:var(--ink);white-space:normal}
+.pop .opt:hover,.pop .opt[data-active="true"]{background:var(--sunk)}
+.pop .opt[aria-selected="true"]{font-weight:600;color:var(--acc)}
+.pop input.search{width:100%;margin-bottom:4px}
+.datef{display:inline-flex;align-items:stretch;max-width:100%}
+.datef input{border-top-right-radius:0;border-bottom-right-radius:0;width:122px;min-width:0}
+.datef input.bad,input.bad,textarea.bad{border-color:var(--bad)}
+.datef .calb{border:1px solid var(--line);border-left:0;background:var(--sunk);border-radius:0 6px 6px 0;padding:0 8px;cursor:pointer;color:var(--mute);display:grid;place-items:center}
+.datef .calb svg{width:15px;height:15px}
+.cal{padding:8px;width:262px}
+.cal .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-weight:600;gap:6px}
+.cal .ch button{border:1px solid var(--line);background:var(--panel);border-radius:6px;cursor:pointer;padding:2px 9px;color:var(--ink);font:inherit}
+.cal .cg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal .cg span{font-size:11px;color:var(--faint);text-align:center;padding:2px 0}
+.cal .cg button{border:0;background:none;padding:5px 0;border-radius:5px;cursor:pointer;font:inherit;font-size:13px;color:var(--ink)}
+.cal .cg button:hover{background:var(--sunk)}
+.cal .cg button[aria-pressed="true"]{background:var(--acc);color:var(--acc-ink)}
+.cal .cg button.out{color:var(--faint)}
+.cal .cf{display:flex;justify-content:space-between;margin-top:6px}
+.tick{display:inline-flex;align-items:flex-start;gap:8px;border:0;background:none;padding:2px 0;cursor:pointer;font:inherit;color:var(--ink);text-align:left}
+.tick .box{width:16px;height:16px;margin-top:2px;border:1.5px solid var(--faint);border-radius:4px;display:inline-grid;place-items:center;flex:none;background:var(--panel)}
+.tick[aria-checked="true"] .box{background:var(--acc);border-color:var(--acc)}
+.tick[aria-checked="true"] .box::after{content:"";width:8px;height:4px;border-left:2px solid var(--acc-ink);border-bottom:2px solid var(--acc-ink);transform:translateY(-1px) rotate(-45deg)}
+.form label .sel,.form label .datef,.form .fld .sel{width:100%}
+.form label .datef input{flex:1;width:auto}
+.form .fld{display:grid;gap:4px;font-size:12.5px;font-weight:600;color:var(--mute);align-content:start}
+.form label{align-content:start}
+.form .fld .sel,.form .fld .tick,.form .fld .datef input{font-weight:400;color:var(--ink)}
+.form .fld small,.form label small{font-weight:400;color:var(--faint)}
+.form .err{color:var(--bad);font-weight:500}
+/* How it's worked out */
+.how ol{margin:0;padding-left:20px}
+.how li{margin:5px 0;line-height:1.45}
+.how li b{font-weight:600;color:var(--ink)}
+.ref{display:inline-block;font:600 10.5px/1.6 var(--f-mono);padding:0 5px;border-radius:4px;background:var(--acc-soft);color:var(--acc);margin-left:6px;white-space:nowrap}
+/* Scenarios */
+.casebar{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hdr,104px));z-index:4;background:var(--acc-soft);border-bottom:1px solid var(--acc);color:var(--ink)}
+.casebar .wrap{display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap;padding-block:8px}
+.scard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px;min-width:0}
+.scard.fail{border-color:var(--bad)}
+.scard h3{font:600 16px/1.3 var(--f-head);margin:0}
+.scard .sid{font:600 12px var(--f-mono);color:var(--mute)}
+.scard blockquote{margin:8px 0 10px;padding:8px 12px;border-left:3px solid var(--line);background:var(--sunk);border-radius:0 6px 6px 0;font-size:13px;white-space:pre-line}
+.scard ul{margin:4px 0 10px;padding-left:20px}
+.scard li{margin:2px 0}
+.sgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:900px){.sgrid{grid-template-columns:minmax(0,1fr)}}
+.ok{color:var(--good);font-weight:600}.no{color:var(--bad);font-weight:600}
+td.calc{color:var(--mute);font-family:var(--f-mono);font-size:12px}
+.ltype{display:inline-block;margin-left:6px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/*@@BASELINE@@*/
+/*@@ENGINE@@*/
+const {compute,buildRun,thursdayOf,addDays,addMonths,fxRate,windowKey,nice,money,r2,LEVELS,TRIG,DEST,bandTxt,winName,winLabel,DEFYEARS,PAY,PAYNAME,CHARGENAME,DEF_REGION_GROUPS,rowLabel,monthName,SCENARIOS,runAll,runScenario}=GSPE;
+const pdx=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(Date.UTC(y,m-1,d));};
+const fdx=d=>d.toISOString().slice(0,10);
+const isDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(pdx(s))&&fdx(pdx(s))===s;
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+/* ===== UI ===== */
+const $=s=>document.querySelector(s);
+function h(t,a,...k){const e=document.createElement(t);if(a)for(const[x,v]of Object.entries(a)){if(v==null||v===false)continue;if(x.startsWith('on'))e.addEventListener(x.slice(2),v);else if(x==='class')e.className=v;else if(x==='html')e.innerHTML=v;else e.setAttribute(x,v===true?'':v);}
+  k.flat(9).forEach(c=>{if(c==null||c===false)return;e.append(c.nodeType?c:document.createTextNode(String(c)));});return e;}
+const pill=(t,c)=>h('span',{class:'pill '+(c||'p-mute')},t);
+function toast(t){const x=h('div',{class:'toast',role:'status'},t);document.body.append(x);setTimeout(()=>x.remove(),3200);}
+function modal(title,body,opts){const o=h('div',{class:'overlay',onclick:e=>{if(e.target===o)close();}});const m=h('div',{class:'modal'+(opts&&opts.wide?' wide':''),role:'dialog','aria-modal':'true','aria-label':title},h('div',{class:'row'},h('h2',{class:'grow'},title),h('button',{class:'btn sm',onclick:()=>close()},'Close')),body);o.append(m);document.body.append(o);
+  const close=()=>{closePop();o.remove();document.removeEventListener('keydown',esc);};const esc=e=>{if(e.key==='Escape'&&!POP)close();};document.addEventListener('keydown',esc);return close;}
+function confirmBox(title,msg,ok,fn,danger){const body=h('div',{},h('p',{},msg),h('div',{class:'row',style:'justify-content:flex-end'},h('button',{class:'btn',onclick:()=>c()},'Cancel'),h('button',{class:'btn '+(danger?'d':'p'),onclick:()=>{c();fn();}},ok)));const c=modal(title,body);}
+
+/* ---- the portal's own controls ---- */
+let POP=null;
+function closePop(){if(!POP)return;const p=POP;POP=null;p.el.remove();document.removeEventListener('mousedown',p.out,true);document.removeEventListener('keydown',p.key,true);window.removeEventListener('resize',closePop);p.btn&&p.btn.setAttribute('aria-expanded','false');}
+function popAt(btn,el,key){closePop();el.style.visibility='hidden';document.body.append(el);const r=btn.getBoundingClientRect();el.style.minWidth=Math.min(r.width,window.innerWidth-16)+'px';const w=el.offsetWidth,hh=el.offsetHeight;
+  let left=Math.max(8,Math.min(r.left,window.innerWidth-w-8));let top=r.bottom+4;if(top+hh>window.innerHeight-8&&r.top-hh-4>8)top=r.top-hh-4;el.style.left=left+'px';el.style.top=top+'px';el.style.visibility='';
+  const out=e=>{if(!el.contains(e.target)&&!btn.contains(e.target))closePop();};const k=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closePop();btn.focus();}else if(e.key==='Tab'){closePop();}else if(key)key(e);};
+  document.addEventListener('mousedown',out,true);document.addEventListener('keydown',k,true);window.addEventListener('resize',closePop);POP={el,out,key:k,btn};btn.setAttribute('aria-expanded','true');}
+/* SelectMenu: a button that opens a list (a search box over lists of more than ten) */
+function sel(o){const opts=o.options.map(x=>Array.isArray(x)?x:[x,String(x)]);const lab=v=>{const f=opts.find(x=>String(x[0])===String(v));return f?f[1]:(o.placeholder||'Choose…');};
+  let val=o.value==null?'':o.value;const t=h('span',{class:'sel-t'},lab(val));
+  const b=h('button',{type:'button',class:'sel'+(o.cls?' '+o.cls:''),id:o.id||null,'aria-haspopup':'listbox','aria-expanded':'false','aria-label':o.label||null,style:o.style||null},t,h('span',{class:'sel-c','aria-hidden':'true'},'▾'));
+  b.getValue=()=>val;
+  b.addEventListener('click',e=>{e.preventDefault();if(POP&&POP.btn===b){closePop();return;}open();});
+  b.addEventListener('keydown',e=>{if((e.key==='ArrowDown'||e.key==='ArrowUp')&&!POP){e.preventDefault();open();}});
+  function open(){const pop=h('div',{class:'pop'});const list=h('div',{role:'listbox','aria-label':o.label||'Options'});let q='';
+    const vis=()=>opts.filter(x=>!q||String(x[1]).toLowerCase().includes(q));let act=Math.max(0,vis().findIndex(x=>String(x[0])===String(val)));
+    const search=opts.length>10?h('input',{class:'search',type:'text',placeholder:'Search','aria-label':'Search the list',autocomplete:'off',oninput:e=>{q=e.target.value.toLowerCase();act=0;fill();}}):null;
+    const pick=v=>{val=v;t.textContent=lab(v);closePop();b.focus();o.onChange&&o.onChange(v);};
+    const fill=()=>{list.innerHTML='';const v=vis();v.forEach((x,i)=>list.append(h('button',{type:'button',class:'opt',role:'option',tabindex:'-1','aria-selected':String(String(x[0])===String(val)),'data-active':String(i===act),onmousedown:e=>e.preventDefault(),onclick:()=>pick(x[0])},x[1])));if(!v.length)list.append(h('div',{class:'meter',style:'padding:6px 9px'},'Nothing matches.'));};
+    const scrollAct=()=>{const el=list.querySelector('[data-active="true"]');el&&el.scrollIntoView({block:'nearest'});};
+    fill();if(search)pop.append(search);pop.append(list);
+    popAt(b,pop,e=>{const v=vis();if(e.key==='ArrowDown'){e.preventDefault();act=Math.min(v.length-1,act+1);fill();scrollAct();}else if(e.key==='ArrowUp'){e.preventDefault();act=Math.max(0,act-1);fill();scrollAct();}else if(e.key==='Enter'){e.preventDefault();if(v[act])pick(v[act][0]);}});
+    scrollAct();if(search)search.focus();}
+  return b;}
+/* DatePicker: type YYYY-MM-DD or pick from the portal's calendar */
+const calIcon=()=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','2');s.setAttribute('aria-hidden','true');s.innerHTML='<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>';return s;};
+function dateF(o){let val=o.value||'';const inp=h('input',{type:'text',id:o.id||null,inputmode:'numeric',placeholder:'YYYY-MM-DD',value:val,'aria-label':o.label||null,autocomplete:'off'});
+  const set=(s,from)=>{val=s;inp.value=s;inp.classList.remove('bad');o.onChange&&o.onChange(s);};
+  inp.addEventListener('change',()=>{const s=inp.value.trim();if(!s){if(o.required){inp.classList.add('bad');toast((o.what||'This date')+' is needed. Enter it as YYYY-MM-DD.');return;}set('');return;}if(!isDate(s)){inp.classList.add('bad');toast('Enter the date as YYYY-MM-DD, for example 2026-07-13.');return;}set(s);});
+  const btn=h('button',{type:'button',class:'calb','aria-label':'Choose '+(o.what||'a date')+' from the calendar','aria-haspopup':'dialog','aria-expanded':'false'},calIcon());
+  btn.addEventListener('click',e=>{e.preventDefault();if(POP&&POP.btn===btn){closePop();return;}let view=(isDate(val)?val:today()).slice(0,7)+'-01';
+    const pop=h('div',{class:'pop cal',role:'dialog','aria-label':'Calendar'});
+    const draw=()=>{pop.innerHTML='';const d0=pdx(view),y=d0.getUTCFullYear(),m=d0.getUTCMonth();
+      pop.append(h('div',{class:'ch'},h('button',{type:'button','aria-label':'Previous month',onclick:()=>{view=addMonths(view,-1);draw();}},'‹'),h('span',{},MONTHS[m]+' '+y),h('button',{type:'button','aria-label':'Next month',onclick:()=>{view=addMonths(view,1);draw();}},'›')));
+      const g=h('div',{class:'cg'},...['Mo','Tu','We','Th','Fr','Sa','Su'].map(x=>h('span',{},x)));const lead=(d0.getUTCDay()+6)%7;let d=addDays(view,-lead);
+      for(let i=0;i<42;i++){const dd=d;const pd2=pdx(dd);g.append(h('button',{type:'button',class:pd2.getUTCMonth()!==m?'out':'','aria-pressed':String(dd===val),'aria-label':nice(dd),onclick:()=>{closePop();set(dd);btn.focus();}},String(pd2.getUTCDate())));d=addDays(d,1);}
+      pop.append(g,h('div',{class:'cf'},h('button',{type:'button',class:'link',onclick:()=>{closePop();set(today());}},'Sandbox date'),!o.required?h('button',{type:'button',class:'link',onclick:()=>{closePop();set('');}},'Clear'):h('span')));};
+    draw();popAt(btn,pop);});
+  return h('span',{class:'datef'},inp,btn);}
+/* tick box drawn by the page */
+function tick(o){let v=!!o.checked;const b=h('button',{type:'button',class:'tick',role:'checkbox','aria-checked':String(v),id:o.id||null,onclick:()=>{v=!v;b.setAttribute('aria-checked',String(v));o.onChange&&o.onChange(v);}},h('span',{class:'box','aria-hidden':'true'}),h('span',{},o.label));return b;}
+/* NumberField: a text field that takes numbers only */
+function numF(o){return h('input',{type:'text',inputmode:'decimal',id:o.id||null,value:o.value==null?'':o.value,'aria-label':o.label||null,style:o.style||null,autocomplete:'off',oninput:e=>{const s=e.target.value.trim();e.target.classList.toggle('bad',s!==''&&isNaN(+s));o.onInput&&o.onInput(s);},onchange:o.onChange||null});}
+const num=(s,what,opt)=>{if(s===''||s==null){if(opt)return null;throw new Error('Enter '+what+'.');}const n=+String(s).replace(/,/g,'');if(isNaN(n))throw new Error(what.charAt(0).toUpperCase()+what.slice(1)+' must be a number.');return n;};
+
+/* "How it's worked out": every step the engine took, with its numbers and the sheet scenario */
+const HOW=new Set();
+function howBtn(id){const on=HOW.has(id);return h('button',{type:'button',class:'link',style:'display:block;margin-top:4px;font-size:12.5px;text-decoration:none','aria-expanded':String(on),onclick:()=>{on?HOW.delete(id):HOW.add(id);render();}},(on?'▾ ':'▸ ')+'How it’s worked out');}
+function howRow(id,trace,cols){if(!HOW.has(id))return null;const steps=(trace||[]).filter(Boolean);return h('tr',{class:'howrow'},h('td',{colspan:cols,style:'background:var(--sunk);padding:4px 10px 10px'},h('div',{class:'how',style:'font-size:12.5px;max-width:110ch'},h('ol',{},...steps.map(s=>h('li',{},h('b',{},s.h+': '),s.t,s.ref?h('span',{class:'ref'},'Sheet '+s.ref):null))))));}
+function howBox(trace,label){const steps=(trace||[]).filter(Boolean);return h('details',{class:'why'},h('summary',{},label||'How it’s worked out'),h('div',{class:'whybox how'},h('ol',{},...steps.map(s=>h('li',{},h('b',{},s.h+': '),s.t,s.ref?h('span',{class:'ref'},'Sheet '+s.ref):null)))));}
+
+/* ---- state ---- */
+const ST={cfg:null,apps:{},checks:{},runs:{},log:{},clock:null,mode:'loading',me:{id:null,name:'You'},names:{}};
+const UI={tab:'simulate',sel:null,setup:'unis',filterRp:'',filterUni:'',scen:'',wi:null,sf:'all',sfail:false};
+/* a scenario case opened from Commission scenarios: its own world in memory, never saved */
+const CASE={on:null,saved:null};
+let DB=null,USER=null;
+const today=()=>ST.clock||(ST.cfg&&ST.cfg.settings.sandboxDate)||'2026-10-29';
+const nameOf=id=>!id?(ST.mode==='local'||CASE.on?'You':'Someone'):id===ST.me.id?'You':(ST.names[id]||'Someone');
+async function resolveNames(ids){if(!USER||!USER.profiles)return;const need=[...new Set(ids.filter(x=>x&&!ST.names[x]))];if(!need.length)return;try{const ps=await USER.profiles(need);let ch=false;Object.values(ps||{}).forEach(p=>{if(p&&p.name){ST.names[p.id]=p.name;ch=true;}});if(ch)render();}catch(e){}}
+const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+async function put(path,data){if(!DB||CASE.on){applyLocal(path,data);render();return;}try{await DB.doc(path).set(data);}catch(e){if(e&&e.code==='unavailable'){await new Promise(r=>setTimeout(r,400+Math.random()*600));return DB.doc(path).set(data);}toast(e&&e.code==='quota_exceeded'?'The sandbox store is full. Clear some applications.':'Could not save: '+(e&&e.message||'try again'));throw e;}}
+async function del(path){if(!DB||CASE.on){applyLocal(path,null);render();return;}try{await DB.doc(path).delete();}catch(e){toast('Could not delete: '+(e&&e.message||'try again'));}}
+function applyLocal(path,data){const [c,id]=path.split('/');if(c==='cfg'){if(id==='clock')ST.clock=data.date;else if(id==='settings')ST.cfg.settings=data.data;else ST.cfg[id]=data.rows;return;}const m={apps:ST.apps,checks:ST.checks,runs:ST.runs,log:ST.log}[c];if(data==null)delete m[id];else m[id]=data;}
+function logEvent(text){const id=uid('l');return put('log/'+id,{id,at:new Date().toISOString(),by:ST.me.id,text});}
+const saveApp=a=>put('apps/'+a.id,JSON.parse(JSON.stringify(a)));
+const tgt=()=>CASE.on?CASE.saved:ST; // where the shared store's updates land while a case is open
+
+/* ---- results ---- */
+let RES=null;const calc=()=>{RES=ST.cfg?compute(ST.cfg,ST.apps,today()):null;};
+const fmt=(x,c)=>money(x,c);
+const typeName={standard:'Standard commission',additional:'Additional commission',bonus:'Bonus',topup:'Tier top-up'};
+
+/* ---- shell ---- */
+const TABS=[['simulate','Simulate'],['scenarios','Commission scenarios'],['ledgers','Ledgers'],['payout','Payout run'],['exceptions','Exceptions'],['setup','Setup'],['checks','Checks'],['whatif','What-if'],['processes','Finance processes'],['rules','Rules']];
+function render(){closePop();calc();const root=$('#app');root.innerHTML='';
+  const pend=Object.values(ST.checks).filter(c=>c.status==='waiting').length;const ex=RES?RES.exc.length:0;
+  const hdr=h('header',{class:'top'},h('div',{class:'wrap'},h('div',{class:'bar'},h('div',{class:'brand'},h('h1',{},'Commissions Sandbox'),h('span',{},'GSP 3.0 · test universities, RP terms and notices before the real engine is built')),
+    ST.cfg?h('div',{class:'clock'},h('span',{class:'lbl',id:'clk-l',style:'font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);font-weight:600'},'Sandbox date'),dateF({id:'clk',value:today(),required:true,what:'the sandbox date',label:'Sandbox date',onChange:d=>{if(d)setClock(d);}}),
+      h('button',{class:'btn sm',onclick:()=>setClock(addDays(today(),7))},'+1 week'),h('button',{class:'btn sm',onclick:()=>setClock(addMonths(today(),1))},'+1 month'),h('span',{class:'meter'},'Payout run: Thu '+nice(thursdayOf(today())))):null),
+    h('nav',{class:'tabs',role:'tablist'},...TABS.map(([k,t])=>h('button',{class:'tab',role:'tab','aria-selected':String(UI.tab===k),onclick:()=>go(k)},t,k==='exceptions'&&ex?h('span',{class:'n'},ex):null,k==='checks'&&pend?h('span',{class:'n w'},pend):null,k==='scenarios'&&SCN_FAIL()?h('span',{class:'n'},SCN_FAIL()):null)))));
+  root.append(hdr);
+  if(CASE.on){const c=SCENARIOS.find(x=>x.id===CASE.on);root.append(h('div',{class:'casebar'},h('div',{class:'wrap'},h('b',{},'Scenario '+c.id+': '+c.title),h('span',{class:'meter grow'},'Scenario samples: this case’s own terms and students, separate from your sandbox. Changes here are not saved.'),h('button',{class:'btn sm',onclick:()=>{openCase(c);}},'Start the case again'),h('button',{class:'btn sm p',onclick:closeCase},'Back to Commission scenarios'))));}
+  const main=h('main',{class:'wrap'});root.append(main);
+  requestAnimationFrame(()=>{const hh=hdr.offsetHeight;document.documentElement.style.setProperty('--hdr',hh+'px');});
+  if(ST.mode==='loading'){main.append(h('div',{class:'empty'},'Loading the sandbox…'));return;}
+  if(!ST.cfg){main.append(emptyStore());return;}
+  if(ST.mode==='local'&&!CASE.on)main.append(h('div',{class:'note info'},'Saving is not available in this view, so changes last until you reload the page. Open the sandbox from claude.ai while signed in to keep your work and share it with Finance.'));
+  ({simulate:rSim,scenarios:rScen,ledgers:rLedgers,payout:rPayout,exceptions:rExc,setup:rSetup,checks:rChecks,whatif:rWhatIf,processes:rProcesses,rules:rRules}[UI.tab]||rSim)(main);}
+function go(k){UI.tab=k;try{history.replaceState(null,'','#'+k);}catch(e){location.hash=k;}UI.top=true;render();}
+function setClock(d){put('cfg/clock',{date:d});if(!DB||CASE.on){ST.clock=d;render();}}
+function emptyStore(){return h('div',{class:'panel',style:'max-width:640px;margin:30px auto;text-align:center'},h('h2',{},'The sandbox has no terms yet'),h('p',{class:'lead',style:'margin:8px auto 16px'},'Load the starting data: the 40 university terms drafted from the contracts, and the RP schemes, notices and RP terms from Finance’s sheet (30 Oct 2026). Every row stays editable.'),h('button',{class:'btn p',onclick:loadBaseline},'Load starting data'));}
+async function loadBaseline(){const b=JSON.parse(JSON.stringify(BASELINE));if(!DB){ST.cfg=b;render();return;}for(const k of ['unis','schemes','notices','rps','groups'])await put('cfg/'+k,{rows:b[k]||[]});await put('cfg/settings',{data:b.settings});await logEvent('Loaded the starting data from Finance’s sheet');toast('Starting data loaded.');}
+
+/* ---- Simulate ---- */
+function rSim(m){const apps=Object.values(ST.apps);const U=Object.fromEntries(ST.cfg.unis.map(u=>[u.id,u])),RPm=Object.fromEntries(ST.cfg.rps.map(r=>[r.id,r]));
+  m.append(h('h2',{},'Simulate applications'),h('p',{class:'lead'},'Move a test application from enrolment to the university’s payment and the RP’s payout. Every line shows how its amount was worked out. Use the sandbox date at the top to move time forward.'));
+  const left=h('div',{class:'panel'});const right=h('div',{});m.append(h('div',{class:'split'},left,right));
+  left.append(h('div',{class:'row'},h('button',{class:'btn p',onclick:()=>appEditor(null)},'+ New application'),CASE.on?null:h('button',{class:'btn',onclick:scenarioPicker},'Load test scenarios')));
+  const scens=[...new Set(apps.map(a=>a.scenario||(CASE.on?'Scenario '+CASE.on:'Added by hand')))];
+  if(apps.length)left.append(h('div',{class:'row',style:'margin-top:10px'},sel({id:'scf',label:'Show scenario',cls:'grow',value:UI.scen,options:[['','All applications ('+apps.length+')'],...scens.map(s=>[s,s])],onChange:v=>{UI.scen=v;render();}})));
+  const list=h('div',{class:'applist'});left.append(list);
+  if(!apps.length)list.append(h('div',{class:'empty'},'No applications yet. Load the test scenarios, or add one by hand.'));
+  scens.filter(s=>!UI.scen||s===UI.scen).forEach(s=>{list.append(h('div',{class:'grp'},s));apps.filter(a=>(a.scenario||(CASE.on?'Scenario '+CASE.on:'Added by hand'))===s).sort((a,b)=>a.id<b.id?-1:1).forEach(a=>{const r=RES.apps[a.id];
+    const st=!a.enrolled?'Not enrolled':a.withdrawn?'Withdrawn':r&&r.lines.length&&r.lines.every(l=>l.paid||l.cancelled)?'University paid':'Enrolled';
+    list.append(h('button',{class:'appi','aria-current':String(UI.sel===a.id),onclick:()=>{UI.sel=a.id;render();}},h('b',{},a.student),h('small',{},(RPm[a.rp]||{name:a.rp}).name+' → '+(U[a.uni]||{name:a.uni}).name+' · '+st)));});});
+  const a=ST.apps[UI.sel]||null;if(!a){right.append(h('div',{class:'panel empty'},apps.length?'Choose an application on the left.':'Nothing to show yet.'));return;}
+  right.append(appDetail(a));}
+const listOr=(l,f)=>(l&&l.length)?l.map(f).join('; '):null;
+function appDetail(a){const r=RES.apps[a.id];const u=r.u,rp=r.rp;const T=today();const box=h('div',{});
+  const p=h('div',{class:'panel'});box.append(p);
+  p.append(h('div',{class:'row'},h('div',{class:'grow'},h('h2',{},a.student),h('div',{class:'meter'},(a.scenario||(CASE.on?'Scenario '+CASE.on:'Added by hand'))+' · '+a.id)),h('button',{class:'btn sm',onclick:()=>appEditor(a)},'Edit details'),h('button',{class:'btn sm d',onclick:()=>confirmBox('Delete '+a.student+'?','The application and its ledger lines are removed from the sandbox.','Delete',()=>{del('apps/'+a.id);UI.sel=null;})},'Delete')));
+  if(CASE.on){const c=SCENARIOS.find(x=>x.id===CASE.on);p.append(h('div',{class:'note info'},h('b',{},'Sheet '+(c.sheetNo?c.tab+' '+c.sheetNo:c.id)+': '),c.title+'. ',h('button',{class:'link',onclick:closeCase},'See the expected amounts')));}
+  else if(a.scenarioNote)p.append(h('div',{class:'note info'},h('b',{},'What this tests: '),a.scenarioNote));
+  const fy=[a.tuition].concat((a.yearFees||[]).slice(1));
+  p.append(h('dl',{class:'facts'},...[['RP',rp?rp.name:a.rp],['Paid to',r.payee?r.payee.name:'—'],['University',u?u.name:a.uni],['Terms in force',u?(r.ver?(r.ver.label||r.ver.id)+' (from '+nice(r.ver.from)+')':'Original terms'):'—'],['Course level',LEVELS[a.level]||a.level],['Course',a.course||'—'],['Campus',a.campus||'—'],['Student from',a.nationality||'—'],['Student type',a.studentType||'Not entered'],['Study starts (intake)',nice(a.intake)],['Census date',a.census?nice(a.census):'Not given'],
+    ['Final tuition fee (first year)',u?fmt(+a.tuition,u.cur):a.tuition],['Fees by year',(a.yearFees||[]).length?a.yearFees.map((x,i)=>'Y'+(i+1)+' '+fmt(+x,u?u.cur:'')).join(', '):'Year 1 only'],['Scholarship or discount',u?fmt(+a.scholarship||0,u.cur):'—'],['Course length',(a.courseYears||DEFYEARS[a.level]||2)+' years'],
+    ['Paid and chargeable',u?PAYNAME[r.pay]+'; '+(r.charge.unit==='course'?'whole course':r.charge.unit==='fees'?(r.charge.n?'first '+fmt(r.charge.n,u.cur)+' of fees':'all fees paid'):r.charge.n+' '+CHARGENAME[r.charge.unit]+(r.charge.n===1?'':'s')):'—'],['Commission on',u?(r.gross?'Gross fee':'Net fee'):'—'],
+    ['GSP lead',a.gspLead?'Yes':'No'],['Enrolment-ready',a.enrolReady===false?'No':a.gspLead?'Yes':'—'],['Trigger',u?TRIG[u.trigger]:'—'],
+    ...(a.units&&a.units.length?[['Units',a.units.map(x=>x.name+' '+fmt(+x.fee,u?u.cur:'')).join(', ')]]:[]),...(a.feePayments&&a.feePayments.length?[['Fee payments',a.feePayments.map(x=>nice(x.date)+' '+fmt(+x.amt,u?u.cur:'')).join(', ')]]:[]),...(a.periods&&a.periods.length?[['Period census dates',a.periods.map(x=>nice(x.census)).join(', ')]]:[])].map(([k,v])=>h('div',{},h('dt',{},k),h('dd',{},v)))));
+  const done=x=>x?'done':'';const anyInv=r.lines.some(l=>l.inv||l.paid),anyPaid=r.lines.some(l=>l.paid),rpPaid=RES.rp.some(x=>x.app===a.id&&x.paid);
+  p.append(h('div',{class:'steps'},...[['Enrolled',a.enrolled],['Trigger date passed',r.lines.some(l=>l.date<=T)],['Invoiced',anyInv],['University paid',anyPaid],['RP paid',rpPaid]].map(([t,d])=>h('span',{class:'step '+done(d)},t)),a.withdrawn?h('span',{class:'step now'},'Withdrawn '+nice(a.withdrawn.date)+(a.withdrawn.refund?', refunded':'')):null));
+  const acts=h('div',{class:'row'});p.append(acts);
+  const invoice=ls=>{a.inv=a.inv||{};a.invAmt=a.invAmt||{};ls.forEach(l=>{a.inv[l.key]=T;a.invAmt[l.key]=l.ent;});};
+  const payLines=ls=>{a.paidIP=a.paidIP||{};ls.forEach(l=>{a.paidIP[l.key]={date:T,amt:a.invAmt&&a.invAmt[l.key]!=null?a.invAmt[l.key]:l.ent};});};
+  if(!a.enrolled)acts.append(h('button',{class:'btn p',onclick:()=>{a.enrolled=a.intake<=T?a.intake:T;saveApp(a);logEvent(a.student+' marked enrolled');}},'Mark enrolled'));
+  else{const ready=r.lines.filter(l=>!l.inv&&!l.paid&&!l.cancelled&&!l.held&&l.date<=T&&l.ent>0),inv=r.lines.filter(l=>l.inv&&!l.paid&&!l.cancelled);
+    acts.append(h('button',{class:'btn',disabled:!ready.length,onclick:()=>{invoice(ready);saveApp(a);toast('Invoice raised for '+ready.length+' line'+(ready.length>1?'s':'')+'.');}},'Raise invoice'+(ready.length?' ('+ready.length+')':'')),
+      h('button',{class:'btn',disabled:!inv.length,onclick:()=>{payLines(inv);saveApp(a);toast('University payment recorded.');}},'Record university payment'+(inv.length?' ('+inv.length+')':'')),
+      !a.withdrawn?h('button',{class:'btn d',onclick:()=>withdrawBox(a)},'Withdraw student'):h('button',{class:'btn',onclick:()=>{delete a.withdrawn;saveApp(a);}},'Undo withdrawal'),
+      h('button',{class:'btn',onclick:()=>go('payout')},'Go to payout run'));}
+  if(!a.enrolled)p.append(h('p',{class:'meter',style:'margin-top:8px'},'Lines appear once the student is enrolled.'));
+  /* IP */
+  if(u&&a.enrolled){const ip=h('div',{class:'panel'});box.append(ip);ip.append(h('h3',{},'University side: what '+u.name+' owes GSP'));
+    (r.tiers||[]).forEach(T0=>ip.append(h('p',{class:'meter'},(T0.who==='group'?'Group tier ('+T0.name+')':'University tier')+': this student is '+T0.rank+' of '+T0.total+' counted in '+T0.key+' ('+(T0.t.retro?'retrospective':'prospective')+', per '+winLabel(T0.t.window||'CY',T0.t)+'). Band '+(T0.b.i+1)+' → '+T0.b.pct+'%'+(r.tiers.length>1&&r.tier===T0?' (the higher rate, used)':'')+'.')));
+    if(r.dropped)ip.append(h('p',{class:'meter'},r.dropped+' later period'+(r.dropped>1?'s are':' is')+' outside the chargeable time, so no line.'));
+    const tb=h('tbody');ip.append(h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...['Line','Trigger date','Amount','GST','In AUD','Status',''].map(x=>h('th',{},x)))),tb)));
+    r.lines.forEach(l=>{const hid='ip:'+a.id+':'+l.key;tb.append(h('tr',{},h('td',{},h('span',{},l.label),h('span',{class:'ltype'},pill(typeName[l.type]||'Standard commission',l.type==='bonus'?'p-mute':l.type==='topup'?'p-warn':l.type==='additional'?'p-acc':'p-good')),l.annuity&&l.type!=='topup'?h('span',{class:'ltype'},pill('After year 1','p-acc')):null,howBtn(hid)),h('td',{},nice(l.date)),h('td',{class:'num'+(l.ent<0?' neg':'')},fmt(l.ent,u.cur),l.full!=null&&l.topups&&l.topups.length?h('div',{class:'meter'},'of '+fmt(l.full,u.cur)):null),h('td',{class:'num'},l.gst?fmt(l.gst,u.cur):'—'),h('td',{class:'num'},fmt(l.aud,'AUD')),h('td',{},pill(l.st[0],l.st[1]),h('div',{class:'meter'},l.st[2]||'')),
+        h('td',{style:'white-space:nowrap'},!l.paid&&!l.inv&&l.date<=T&&l.ent>0&&!l.held&&!l.cancelled?h('button',{class:'btn sm',onclick:()=>{invoice([l]);saveApp(a);}},'Invoice'):null,l.inv&&!l.paid&&!l.cancelled?h('button',{class:'btn sm',onclick:()=>{payLines([l]);saveApp(a);}},'Record payment'):null)),howRow(hid,l.trace,7)||'');});
+    if(!r.lines.length)tb.append(h('tr',{},h('td',{colspan:7,class:'empty'},u.pay==='fees'?'No fee payment recorded yet: a line appears when the student pays.':'No lines.')));}
+  /* RP */
+  if(rp&&a.enrolled){const rpl=RES.rp.filter(x=>x.app===a.id);const rb=h('div',{class:'panel'});box.append(rb);
+    rb.append(h('h3',{},'RP side: what GSP owes '+(r.payee?r.payee.name:rp.name)),h('p',{class:'meter'},r.rpPct!=null?'Rate: '+r.rpPct+'% of GSP’s line'+(r.rpSrc&&r.rpSrc!=='scheme'?' ('+r.rpSrc+')':'')+'. RPs never see the university rate.':'No rate yet.'));
+    if(r.rpTier&&r.rpTier.pending&&r.rpTier.pending.length)rb.append(h('div',{class:'note'},h('b',{},'Rework pending: '),r.rpTier.pending.join(' ')));
+    (r.msProgress||[]).forEach(mp=>rb.append(h('div',{class:'note info'},mp.n.id+' '+mp.n.name+': GSP has been paid for '+mp.have+' of the '+mp.th+' enrolments needed for the '+(mp.n.fixedCur||'AUD')+' '+mp.amt.toLocaleString()+' bonus.')));
+    const tb=h('tbody');rb.append(h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...['Line','Rate','Entitled','Earned so far','Paid so far','Due now','Status',''].map(x=>h('th',{},x)))),tb)));
+    rpl.forEach(x=>{const hid='rp:'+a.id+':'+x.key;tb.append(h('tr',{},h('td',{},x.label,x.ov?h('div',{},pill('Overridden by '+nameOf(x.ov.by),'p-warn')):null,howBtn(hid)),h('td',{class:'num'},x.kind==='pct'&&x.lp!=null?x.lp+'%':'—'),h('td',{class:'num'},fmt(x.ent,x.cur)),h('td',{class:'num'},x.earned!=null?fmt(x.earned,x.cur):'—'),h('td',{class:'num'},fmt(x.paid,x.cur)),h('td',{class:'num'+(x.due<0?' neg':'')},fmt(x.due,x.cur)),h('td',{},pill(x.st[0],x.st[1])),
+        h('td',{},x.kind==='pct'?h('button',{class:'btn sm',onclick:()=>overrideBox(a,x)},x.ov?'Change override':'Override'):null)),howRow(hid,x.trace,8)||'');});
+    if(!rpl.length)tb.append(h('tr',{},h('td',{colspan:8,class:'empty'},'No RP lines.')));}
+  return box;}
+function withdrawBox(a){let d=today(),ref=true;const body=h('div',{},h('div',{class:'form'},h('div',{class:'fld'},'Withdrawal date',dateF({id:'wd-d',value:d,required:true,what:'the withdrawal date',onChange:v=>d=v})),h('div',{class:'fld',style:'align-content:end'},tick({id:'wd-r',checked:true,label:'The university took its commission back (refund)',onChange:v=>ref=v}))),
+  h('p',{class:'meter'},'Before a line’s trigger date: nothing is payable. After it, with a refund: the university recovers its commission and GSP recovers the RP’s share from later payouts. Tiers are re-worked at the end of the period, not at once (S5-15).'),
+  h('div',{class:'row',style:'justify-content:flex-end'},h('button',{class:'btn d',onclick:()=>{if(!isDate(d)){toast('Enter the withdrawal date.');return;}a.withdrawn={date:d,refund:ref};saveApp(a);logEvent(a.student+' withdrawn on '+d);c();}},'Withdraw')));const c=modal('Withdraw '+a.student,body);}
+function overrideBox(a,x){let v=x.ov?x.ov.amt:x.ent;const body=h('div',{},h('p',{},'Replace the calculated amount for “'+x.label+'”. The calculated amount is '+fmt(x.ov&&x.ip?r2(x.ip.fullEnt*x.lp/100):x.ent,x.cur)+'. No reason is needed.'),
+  h('div',{class:'form'},h('label',{},'New amount ('+x.cur+')',numF({id:'ov-a',value:v,onInput:s=>v=s}))),
+  h('div',{class:'row',style:'justify-content:space-between'},x.ov?h('button',{class:'btn d',onclick:()=>{delete a.override[x.key];saveApp(a);logEvent('Override removed on '+a.student);c();}},'Remove override'):h('span'),
+    h('button',{class:'btn p',onclick:()=>{let n;try{n=num(v,'an amount');}catch(e){toast(e.message);return;}c();confirmBox('Confirm override','Set '+a.student+'’s '+x.label.toLowerCase()+' to '+fmt(n,x.cur)+'? This is logged with your name.','Confirm override',()=>{a.override=a.override||{};a.override[x.key]={amt:n,by:ST.me.id,at:new Date().toISOString()};saveApp(a);logEvent('Override on '+a.student+': '+fmt(n,x.cur));});}},'Continue')));const c=modal('Override amount',body);}
+/* application lists as text: "Anatomy:2500:2026-03-15; Ethics:2500" and "2026-03-01:15000" */
+const unitsTxt=l=>(l||[]).map(x=>[x.name,x.fee,x.census].filter(v=>v!=null&&v!=='').join(':')).join('; ');
+const txtUnits=t=>String(t||'').split(';').map(s=>s.trim()).filter(Boolean).map(s=>{const [n,f,d]=s.split(':').map(x=>x.trim());if(!n||f==null||isNaN(+f))throw new Error('Units: write each as name:fee:census date, e.g. Anatomy:2500:2026-03-15 (“'+s+'”).');if(d&&!isDate(d))throw new Error('Units: “'+d+'” is not a date (YYYY-MM-DD).');return {name:n,fee:+f,census:d||''};});
+const paysTxt=l=>(l||[]).map(x=>x.date+':'+x.amt).join('; ');
+const txtPays=t=>String(t||'').split(';').map(s=>s.trim()).filter(Boolean).map(s=>{const [d,v]=s.split(':').map(x=>x.trim());if(!isDate(d)||v==null||isNaN(+v))throw new Error('Fee payments: write each as date:amount, e.g. 2026-03-01:15000 (“'+s+'”).');return {date:d,amt:+v};});
+const txtNums=(t,what)=>String(t||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>{const n=+s.replace(/[^\d.-]/g,'');if(isNaN(n)||s.replace(/[\d.,\s-]/g,'').length)throw new Error(what+': “'+s+'” is not a number.');return n;});
+const txtDates=(t,what)=>String(t||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>{if(!isDate(s))throw new Error(what+': “'+s+'” is not a date (YYYY-MM-DD).');return s;});
+function appEditor(a0){const isNew=!a0;const T=today();const a=a0?JSON.parse(JSON.stringify(a0)):{id:uid('a'),student:'',nationality:'India',rp:ST.cfg.rps[0].id,uni:ST.cfg.unis[0].id,level:'UG',course:'',campus:'',intake:T,census:'',tuition:30000,scholarship:0,studentType:'New',gspLead:false,enrolReady:true,enrolled:null,inv:{},paidIP:{},paidRP:{},scenario:'Added by hand'};
+  const f=(lab,el,hint)=>h('label',{},lab,el,hint?h('small',{},hint):null);const fv=(lab,el,hint)=>h('div',{class:'fld'},lab,el,hint?h('small',{},hint):null);const set=k=>e=>{a[k]=e.target.value;};
+  const tx={yearFees:(a.yearFees||[]).join(', '),periods:(a.periods||[]).map(x=>x.census).join(', '),units:unitsTxt(a.units),pays:paysTxt(a.feePayments)};const err=h('p',{class:'err',role:'alert'});
+  const body=h('div',{},h('div',{class:'form'},
+    f('Student name (pseudonym)',h('input',{id:'ae-s',value:a.student,oninput:set('student')})),f('Student from (country)',h('input',{id:'ae-n',value:a.nationality,oninput:set('nationality')}),'Used for rates and promotions by region, and per-country tiers'),
+    fv('RP',sel({id:'ae-rp',label:'RP',value:a.rp,options:ST.cfg.rps.map(r=>[r.id,r.name+' ('+r.id+')']),onChange:v=>a.rp=v})),
+    fv('University',sel({id:'ae-u',label:'University',value:a.uni,options:ST.cfg.unis.map(u=>[u.id,u.name]),onChange:v=>a.uni=v})),
+    fv('Course level (sector)',sel({id:'ae-l',label:'Course level',value:a.level,options:Object.entries(LEVELS),onChange:v=>a.level=v})),
+    f('Course',h('input',{id:'ae-co',value:a.course||'',oninput:set('course')}),'e.g. Nursing, IT. Used for rates and promotions by course'),f('Campus',h('input',{id:'ae-ca',value:a.campus||'',oninput:set('campus')}),'Used for rates by campus'),
+    fv('Study starts (intake)',dateF({id:'ae-i',value:a.intake,required:true,what:'the study start',onChange:v=>a.intake=v}),'Terms, notices, promotions and tier windows follow the intake'),fv('Census date',dateF({id:'ae-c',value:a.census||'',what:'the census date',onChange:v=>a.census=v}),'Leave blank to use start + '+ST.cfg.settings.fallbackWeeks+' weeks'),
+    f('Final tuition fee, first year (university currency)',numF({id:'ae-t',value:a.tuition,onInput:s=>a.tuition=s}),'After any scholarship, as the CoE shows it'),f('Scholarship or discount',numF({id:'ae-sc',value:a.scholarship||0,onInput:s=>a.scholarship=s}),'Added back only for universities that pay on the gross fee'),
+    f('Course length (years)',numF({id:'ae-cy',value:a.courseYears||DEFYEARS[a.level]||2,onInput:s=>a.courseYears=s})),
+    f('Fees by year',h('input',{id:'ae-yf',value:tx.yearFees,placeholder:'30000, 32000, 34000',oninput:e=>tx.yearFees=e.target.value}),'Each year’s fee, comma-separated. Later periods use their own year’s fee; blank repeats the first year'),
+    f('Census date of each period',h('input',{id:'ae-pd',value:tx.periods,placeholder:'2026-02-27, 2026-05-29',oninput:e=>tx.periods=e.target.value}),'Optional: each semester or term on its own date'),
+    f('Units',h('input',{id:'ae-un',value:tx.units,placeholder:'Anatomy:2500:2026-03-15; Ethics:2500:2026-04-15',oninput:e=>tx.units=e.target.value}),'For universities that pay per unit: name:fee:census date; …'),
+    f('Fee payments',h('input',{id:'ae-fp',value:tx.pays,placeholder:'2026-03-01:15000; 2026-08-01:15000',oninput:e=>tx.pays=e.target.value}),'For universities that pay on fees paid: date:amount; …'),
+    fv('Student type',sel({id:'ae-st',label:'Student type',value:a.studentType||'',options:[['','Not entered'],'New','Progression','Transfer'],onChange:v=>a.studentType=v})),
+    h('div',{class:'fld full'},tick({id:'ae-g',checked:!!a.gspLead,label:'GSP lead: GSP gave the RP a qualified student lead',onChange:v=>a.gspLead=v}),tick({id:'ae-er',checked:a.enrolReady!==false,label:'Enrolment-ready: the RP provided an enrolment-ready application',onChange:v=>a.enrolReady=v}),h('small',{},'The 50% special-lead rate needs both.'))),
+    err,h('div',{class:'row',style:'justify-content:flex-end'},h('button',{class:'btn p',onclick:()=>{try{if(!a.student.trim())throw new Error('Enter the student’s name (a pseudonym).');if(!isDate(a.intake||''))throw new Error('Enter the study start date.');if(a.census&&!isDate(a.census))throw new Error('The census date must be YYYY-MM-DD.');
+        a.tuition=num(a.tuition,'the final tuition fee');if(a.tuition<0)throw new Error('The final tuition fee cannot be negative.');a.scholarship=num(a.scholarship,'the scholarship',true)||0;a.courseYears=num(a.courseYears,'the course length',true)||DEFYEARS[a.level]||2;
+        a.yearFees=txtNums(tx.yearFees,'Fees by year');if(a.yearFees.length&&a.yearFees[0]!==a.tuition)a.yearFees[0]=a.tuition;const pds=txtDates(tx.periods,'Census dates');a.periods=pds.map(c=>({census:c}));a.units=txtUnits(tx.units);a.feePayments=txtPays(tx.pays);
+      }catch(e){err.textContent=e.message;return;}saveApp(a);UI.sel=a.id;c();toast(isNew?'Application added.':'Saved.');}},isNew?'Add application':'Save')));
+  const c=modal(isNew?'New application':'Edit '+a0.student,body,{wide:true});}
+
+/* ---- Load test scenarios (the starting data's own) ---- */
+const SCEN=[
+ {k:'retro',t:'Retrospective top-up (S02)',d:'Horizon India is on the 2022 retrospective tier (1–4: 70%, 5–9: 75%). Four Flinders students were paid at 70%. When GSP is paid for the fifth, all five move to 75% and the first four get a 5% top-up.'},
+ {k:'pros',t:'Prospective tier (S13)',d:'Silver Fern is on a non-retrospective tier (1–5: 75%, 6+: 80%). The sixth UTAS student gets 80%; the first five stay at 75%.'},
+ {k:'box',t:'UK addendum box (N01)',d:'A Horizon India student at London Met is priced under the UK Promotion at 80% and does not count toward Horizon’s standard tier.'},
+ {k:'ms',t:'UWS milestone (N07)',d:'Kathmandu Pathways reaches 30 paid UWS enrolments in 2026, so a GBP 6,000 lump sum is due on top of the per-student commission.'},
+ {k:'lead',t:'GSP lead at 50%',d:'GSP gave Horizon India a qualified lead and the application was enrolment-ready. The RP gets a flat 50% of GSP’s line; tiers and notices do not apply.'},
+ {k:'upg',t:'upGrad Abroad at 100%',d:'upGrad Abroad is paid 100% of GSP’s base commission.'},
+ {k:'claw',t:'Clawback after payout',d:'The student withdrew with a refund after GSP and the RP were paid. The university recovers its commission; the RP’s share is netted from later payouts. After 90 days unrecovered, it goes to Legal.'},
+ {k:'noterms',t:'RP with no terms',d:'The RP has no commission terms. Depending on Settings, the new-contract default of 70% is used and flagged, or the line waits in exceptions.'},
+ {k:'unitier',t:'University tier (CDU)',d:'Nine GSP students from three RPs (Hanoi Study Hub, Colombo Edu Link, Harbour Onshore) start at CDU in 2026. The university pays 15.5% for students 1–8 and 18% from the ninth (prospective). The RPs’ shares follow GSP’s base commission.'},
+ {k:'fx',t:'Payout held: FX rate missing',d:'Hanoi Study Hub is paid in VND. This week’s VND rate is missing, so the Thursday run is held until Finance enters it.'},
+ {k:'mp',t:'Master Partner payee',d:'Colombo Edu Link is mapped to Lanka Partner Group, a Master Partner on 80%. GSP pays the Master Partner 80% and nothing to Colombo directly; the Master Partner pays Colombo its 70% under their own agreement, outside GSP.'},
+ {k:'annuity',t:'Annuity (KBS, years 2–3)',d:'A three-year Kaplan Business School degree that started in March 2025. KBS pays commission every study period for the whole course, not just the first year. Year 1 and the first half of year 2 have been paid; the rest is still to come. The RP gets its share of each payment under the rule in Settings.'},
+ {k:'gaps',t:'Contract gaps',d:'A JCUB degree (rate missing) and a Griffith enrolment after the contract ended. Both are held as exceptions until the terms are fixed.'}];
+async function loadScenarios(keys){const T=today();const mk=(sc,i,o)=>Object.assign({id:'x-'+sc.k+'-'+String(i).padStart(2,'0'),student:'',nationality:'India',level:'UG',tuition:30000,scholarship:0,studentType:'New',gspLead:false,enrolled:null,inv:{},paidIP:{},paidRP:{},scenario:sc.t,scenarioNote:sc.d},o);
+  let CTX=[];const paidUni=(a,date,inv)=>{a.enrolled=a.intake;const ctx=Object.assign({},ST.apps,Object.fromEntries([...out,...CTX].map(x=>[x.id,x])),{[a.id]:a});const tmp=compute(ST.cfg,ctx,T);const r=tmp.apps[a.id];r.lines.filter(l=>l.date<=date&&l.type!=='topup').forEach(l=>{a.inv[l.key]=inv||l.date;a.paidIP[l.key]={date,amt:l.ent};});return a;};
+  const payRP=(list)=>{const map=Object.fromEntries(list.map(a=>[a.id,a]));const res=compute(ST.cfg,Object.assign({},ST.apps,map),T);res.rp.filter(x=>map[x.app]&&x.payable&&x.due>0).forEach(x=>{map[x.app].paidRP[x.key]=r2((map[x.app].paidRP[x.key]||0)+x.due);});};
+  const names=['Aarav Mehta','Diya Patel','Kabir Rao','Meera Iyer','Rohan Gupta','Sana Khan','Ishaan Nair','Anaya Joshi','Vihaan Shah','Tara Menon'];
+  const out=[];for(const k of keys){const sc=SCEN.find(s=>s.k===k);let L=[];CTX=L;
+    if(k==='retro'){for(let i=1;i<=4;i++)L.push(paidUni(mk(sc,i,{student:names[i-1]+' (sample)',rp:'S-IN1',uni:'12',intake:'2026-02-23',census:'2026-03-31',tuition:36000}),'2026-05-15','2026-04-02'));payRP(L);L.push(paidUni(mk(sc,5,{student:names[4]+' (sample)',rp:'S-IN1',uni:'12',intake:'2026-07-20',census:'2026-08-31',tuition:36000}),'2026-10-15','2026-09-02'));}
+    if(k==='pros'){for(let i=1;i<=5;i++)L.push(paidUni(mk(sc,i,{student:names[i+4]+' (sample)',rp:'16806',uni:'29',level:'PG',intake:'2026-02-23',census:'2026-03-31',tuition:38000}),'2026-05-20','2026-04-05'));payRP(L);L.push(paidUni(mk(sc,6,{student:'Neel Bose (sample)',rp:'16806',uni:'29',level:'PG',intake:'2026-07-13',census:'2026-08-24',tuition:38000}),'2026-10-12','2026-09-01'));}
+    if(k==='box')L.push(paidUni(mk(sc,1,{student:'Arjun Pillai (sample)',rp:'S-IN1',uni:'15',level:'PG',intake:'2026-09-21',tuition:15950}),'2026-10-20','2026-09-25'));
+    if(k==='ms'){for(let i=1;i<=31;i++)L.push(paidUni(mk(sc,i,{student:'Nepal student '+i+' (sample)',nationality:'Nepal',rp:'S-NP1',uni:'36',intake:i<=20?'2026-01-26':'2026-09-21',tuition:14500}),i<=20?'2026-03-20':'2026-10-22','2026-02-10'));}
+    if(k==='lead')L.push(paidUni(mk(sc,1,{student:'Pooja Reddy (sample)',rp:'S-IN1',uni:'10',level:'PG',intake:'2026-07-13',census:'2026-08-10',tuition:42000,gspLead:true,enrolReady:true}),'2026-09-30','2026-08-12'));
+    if(k==='upg')L.push(paidUni(mk(sc,1,{student:'Karan Malhotra (sample)',rp:'11986',uni:'02',intake:'2026-07-20',census:'2026-08-21',tuition:40000}),'2026-10-01','2026-08-25'));
+    if(k==='claw'){const a=paidUni(mk(sc,1,{student:'Lucas Tran (sample)',nationality:'Vietnam',rp:'S-AU1',uni:'13',intake:'2026-03-02',census:'2026-03-31',tuition:34000}),'2026-05-04','2026-04-02');L.push(a);payRP(L);a.withdrawn={date:'2026-06-15',refund:true};}
+    if(k==='noterms')L.push(paidUni(mk(sc,1,{student:'Riya Kapoor (sample)',rp:'S-NEW',uni:'23',level:'PG',intake:'2026-07-27',census:'2026-08-31',tuition:41000}),'2026-10-10','2026-09-02'));
+    if(k==='unitier'){const rps=['S-VN1','S-LK1','S-AU1'];for(let i=1;i<=9;i++)L.push(paidUni(mk(sc,i,{student:'CDU student '+i+' (sample)',nationality:['Vietnam','Sri Lanka','Australia'][(i-1)%3],rp:rps[(i-1)%3],uni:'08',intake:i<=5?'2026-03-02':'2026-07-20',census:i<=5?'2026-03-31':'2026-08-31',tuition:33000}),'2026-10-15','2026-09-05'));}
+    if(k==='fx')L.push(paidUni(mk(sc,1,{student:'Nguyen Thi Mai (sample)',nationality:'Vietnam',rp:'S-VN1',uni:'07',intake:'2026-07-27',census:'2026-08-31',tuition:35000}),'2026-10-20','2026-09-03'));
+    if(k==='mp')L.push(paidUni(mk(sc,1,{student:'Dilan Perera (sample)',nationality:'Sri Lanka',rp:'S-LK1',uni:'39',intake:'2026-07-27',census:'2026-08-31',tuition:36500}),'2026-10-05','2026-09-02'));
+    if(k==='annuity'){const a=mk(sc,1,{student:'Tharindu Silva (sample)',nationality:'Sri Lanka',rp:'S-LK1',uni:'21a',intake:'2025-03-03',census:'2025-03-31',tuition:28000,courseYears:3});a.enrolled=a.intake;const tmp=compute(ST.cfg,Object.assign({},ST.apps,{[a.id]:a}),T);tmp.apps[a.id].lines.filter(l=>l.date<='2026-06-30').forEach(l=>{a.inv[l.key]=l.date;a.paidIP[l.key]={date:addDays(l.date,40),amt:l.ent};});L.push(a);payRP(L);}
+    if(k==='gaps'){const a=mk(sc,1,{student:'Sneha Das (sample)',rp:'S-IN1',uni:'18',intake:'2026-07-06',tuition:32000});a.enrolled=a.intake;L.push(a);const b=mk(sc,2,{student:'Aditya Verma (sample)',rp:'S-IN1',uni:'25',intake:'2026-07-13',census:'2026-08-07',tuition:35000});b.enrolled=b.intake;L.push(b);}
+    out.push(...L);}
+  for(const a of out){await saveApp(a);}if(!DB)render();UI.sel=out[0]&&out[0].id;await logEvent('Loaded '+keys.length+' test scenario'+(keys.length>1?'s':''));toast(out.length+' applications loaded.');render();}
+function scenarioPicker(){const pick=new Set(SCEN.map(s=>s.k));const loaded=new Set(Object.values(ST.apps).map(a=>a.scenario));
+  const body=h('div',{},h('p',{class:'meter'},'Each scenario adds sample applications with the events already played (enrolled, invoiced, paid). Their names end in “(sample)”. Loading again replaces a scenario’s applications. For the commissions team’s 26 scenarios, see Commission scenarios.'),
+    h('div',{style:'display:grid;gap:8px;margin:10px 0'},...SCEN.map(s=>h('div',{style:'display:flex;gap:8px;align-items:flex-start'},tick({checked:true,label:'',onChange:v=>{v?pick.add(s.k):pick.delete(s.k);}}),h('span',{},h('b',{},s.t),loaded.has(s.t)?' ':null,loaded.has(s.t)?pill('Loaded','p-good'):null,h('div',{class:'meter'},s.d))))),
+    h('div',{class:'row',style:'justify-content:space-between'},h('button',{class:'btn d',onclick:()=>{c();confirmBox('Clear all applications?','Every application in the sandbox is removed, including ones added by hand. Terms are kept.','Clear all',async()=>{for(const id of Object.keys(ST.apps))await del('apps/'+id);UI.sel=null;toast('Applications cleared.');},true);}},'Clear all applications'),
+      h('button',{class:'btn p',onclick:async()=>{if(!pick.size){toast('Choose at least one scenario.');return;}c();for(const a of Object.values(ST.apps))if(SCEN.some(s=>pick.has(s.k)&&s.t===a.scenario))await del('apps/'+a.id);await loadScenarios([...pick]);}},'Load selected')));const c=modal('Test scenarios',body,{wide:true});}
+
+/* ---- Commission scenarios: the commissions team's sheet, case by case ---- */
+let SCN_RES=null;const scnResults=()=>{if(!SCN_RES)SCN_RES=runAll(compute,buildRun);return SCN_RES;};
+const SCN_FAIL=()=>{try{return scnResults().filter(r=>!r.ok).length;}catch(e){return 0;}};
+const showV=v=>v==null?'—':typeof v==='number'?(Number.isInteger(v)?v.toLocaleString('en-AU'):v.toLocaleString('en-AU',{maximumFractionDigits:2})):Array.isArray(v)?v.map(showV).join(Array.isArray(v[0])?' · ':' on '):String(v);
+function openCase(c){if(!CASE.on)CASE.saved={cfg:ST.cfg,apps:ST.apps,clock:ST.clock,runs:ST.runs,checks:ST.checks,log:ST.log};ST.cfg=JSON.parse(JSON.stringify(c.cfg));ST.apps=JSON.parse(JSON.stringify(c.apps));ST.clock=c.today;ST.runs={};ST.checks={};ST.log={};CASE.on=c.id;UI.sel=c.focus;UI.scen='';UI.filterRp='';UI.filterUni='';go('simulate');}
+function closeCase(){if(!CASE.on)return;const id=CASE.on;Object.assign(ST,CASE.saved);CASE.on=null;CASE.saved=null;UI.sel=null;UI.scen='';UI.filterRp='';UI.filterUni='';UI.scrollTo='sc-'+id;go('scenarios');}
+function scnCsv(){const q=v=>{const s=v==null?'':typeof v==='string'?v:JSON.stringify(v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};const rows=[['Case','Sheet','Scenario','Check','Hand calculation','Expected','Engine','Result','Looked at on']];
+  scnResults().forEach(r=>{const c=SCENARIOS.find(x=>x.id===r.id);r.checks.forEach(k=>rows.push([c.id,c.tab+(c.sheetNo?' '+c.sheetNo:''),c.title,k.what,k.calc||'',k.exp,k.got,k.ok?'Pass':'Fail',k.today]));});return rows.map(r=>r.map(q).join(',')).join('\r\n');}
+function downloadCsv(){const csv=scnCsv();try{const url=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));const a=h('a',{href:url,download:'commission-scenarios-'+new Date().toISOString().slice(0,10)+'.csv',style:'display:none'});document.body.append(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},1500);toast('Commission scenarios downloaded as CSV.');}catch(e){copyCsv();}}
+function copyCsv(){const csv=scnCsv();(navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(csv):Promise.reject()).then(()=>toast('CSV copied: paste it into a sheet.'),()=>toast('Could not copy here. Use Download CSV.'));}
+function rScen(m){const R=scnResults();const pass=R.filter(r=>r.ok).length,chk=R.reduce((s,r)=>s+r.checks.length,0),chkOk=R.reduce((s,r)=>s+r.checks.filter(k=>k.ok).length,0);
+  m.append(h('h2',{},'Commission scenarios'),h('p',{class:'lead'},'Every scenario on the commissions team’s sheet (IP 1–19: what a university pays GSP; RP 1–7: what GSP pays the RP), plus the cases where they combine. Each card has the sheet’s wording, the terms set up for it, the sample students (pseudonyms), the amounts worked out by hand, and what the engine gives. Open a case to see its lines in the sandbox, each with How it’s worked out.'));
+  m.append(h('div',{class:'kpis'},h('div',{class:'kpi'},h('span',{},'Scenarios passing'),h('b',{class:pass===R.length?'ok':'no'},pass+' of '+R.length)),h('div',{class:'kpi'},h('span',{},'Checks passing'),h('b',{},chkOk+' of '+chk)),h('div',{class:'kpi'},h('span',{},'From the sheet'),h('b',{},R.filter(r=>/^(IP|RP)/.test(r.id)).length+' scenarios')),h('div',{class:'kpi'},h('span',{},'Combinations'),h('b',{},R.filter(r=>/^C/.test(r.id)).length+' cases'))));
+  m.append(h('div',{class:'row',style:'margin-bottom:14px'},h('div',{class:'sub',style:'margin:0'},...[['all','All'],['IP','Institutions (IP)'],['RP','Agents (RP)'],['Combination','Combinations']].map(([k,t])=>h('button',{class:'chip','aria-pressed':String(UI.sf===k),onclick:()=>{UI.sf=k;render();}},t))),tick({id:'sc-fail',checked:UI.sfail,label:'Failing only',onChange:v=>{UI.sfail=v;render();}}),h('span',{class:'grow'}),h('button',{class:'btn',onclick:copyCsv},'Copy CSV'),h('button',{class:'btn p',onclick:downloadCsv},'Download CSV')));
+  const U=c=>Object.fromEntries(c.cfg.unis.map(u=>[u.id,u])),RPm=c=>Object.fromEntries(c.cfg.rps.map(r=>[r.id,r]));
+  R.forEach(r=>{const c=SCENARIOS.find(x=>x.id===r.id);if(UI.sf!=='all'&&c.tab!==UI.sf)return;if(UI.sfail&&r.ok)return;const u=U(c),rp=RPm(c);
+    const card=h('section',{class:'scard'+(r.ok?'':' fail'),id:'sc-'+c.id},h('div',{class:'row'},h('div',{class:'grow'},h('div',{class:'sid'},c.id+' · '+(c.sheetNo?'Sheet '+c.tab+', '+c.sheetNo:'Combination case')),h('h3',{},c.title)),r.ok?pill('Pass','p-good'):pill('Fail','p-bad'),h('button',{class:'btn sm p',onclick:()=>openCase(c)},'Open the case')),
+      h('blockquote',{},(c.sheetNo?(c.tab==='IP'?'Commission Structure for Institutions':'Commission Structure for Agents')+' — ':'')+c.sheet));
+    const left=h('div',{},h('h3',{style:'font-size:13.5px;margin:6px 0 4px'},'Terms set up'),h('ul',{},...c.terms.map(t=>h('li',{},t))));
+    const st=h('tbody');Object.values(c.apps).forEach(a=>{const uu=u[a.uni]||{},cur=uu.cur||'';const ev=[a.withdrawn?'withdrew '+nice(a.withdrawn.date)+(a.withdrawn.refund?' (refund)':''):null,Object.keys(a.paidIP||{}).length?'university paid '+Object.entries(a.paidIP).map(([k,v])=>fmt(v.amt,cur)+' on '+nice(v.date)).join(', '):null,Object.keys(a.paidRP||{}).length?'RP paid '+Object.values(a.paidRP).map(v=>fmt(v,cur)).join(', '):null,a.gspLead?'GSP lead'+(a.enrolReady===false?', not enrolment-ready':', enrolment-ready'):null].filter(Boolean).join('; ');
+      st.append(h('tr',{},h('td',{},h('b',{},a.student),h('div',{class:'meter'},a.id)),h('td',{},uu.name||a.uni,h('div',{class:'meter'},(rp[a.rp]||{}).name||a.rp)),h('td',{},[LEVELS[a.level]||a.level,a.course,a.campus?a.campus+' campus':null].filter(Boolean).join(' · '),h('div',{class:'meter'},'From '+a.nationality)),h('td',{},nice(a.intake),h('div',{class:'meter'},fmt(+a.tuition,cur)+(a.scholarship?' + scholarship '+fmt(+a.scholarship,cur):''))),h('td',{class:'meter'},ev||'—')));});
+    const right=h('div',{},h('h3',{style:'font-size:13.5px;margin:6px 0 4px'},'Sample students'),h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...['Student','University · RP','Course','Intake · fee','What has happened'].map(x=>h('th',{},x)))),st)));
+    card.append(h('div',{class:'sgrid'},left,right));
+    const ct=h('tbody');r.checks.forEach(k=>ct.append(h('tr',{},h('td',{},k.what,k.today!==c.today?h('div',{class:'meter'},'On '+nice(k.today)):null),h('td',{class:'calc'},k.calc||'—'),h('td',{class:'num'},showV(k.exp)),h('td',{class:'num'},showV(k.got)),h('td',{},k.ok?h('span',{class:'ok'},'Pass'):h('span',{class:'no'},'Fail')))));
+    card.append(h('h3',{style:'font-size:13.5px;margin:12px 0 4px'},'Expected (worked out by hand) and the engine’s amounts, on '+nice(c.today)),h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Check'),h('th',{},'Hand calculation'),h('th',{class:'num'},'Expected'),h('th',{class:'num'},'Engine'),h('th',{},'Result'))),ct)));
+    m.append(card);});
+  if(UI.scrollTo){const id=UI.scrollTo;UI.scrollTo=null;setTimeout(()=>{const el=document.getElementById(id);el&&el.scrollIntoView({block:'start'});},60);}}
+
+/* ---- Ledgers ---- */
+function rLedgers(m){m.append(h('h2',{},'Ledgers'),h('p',{class:'lead'},'Every line the engine has worked out, on both sides. AUD figures use the rate for the week of the trigger date.'));
+  const rps=[...new Set(RES.rp.map(x=>x.r.rp.id))],unis=[...new Set(RES.ip.map(x=>x.u.id))];
+  m.append(h('div',{class:'row',style:'margin-bottom:12px'},sel({id:'lf-rp',label:'Filter by RP',value:UI.filterRp,options:[['','All RPs'],...rps.map(id=>[id,(ST.cfg.rps.find(r=>r.id===id)||{name:id}).name])],onChange:v=>{UI.filterRp=v;render();}}),
+    sel({id:'lf-u',label:'Filter by university',value:UI.filterUni,options:[['','All universities'],...unis.map(id=>[id,(ST.cfg.unis.find(u=>u.id===id)||{name:id}).name])],onChange:v=>{UI.filterUni=v;render();}})));
+  const ok=x=>(!UI.filterRp||x.a.rp===UI.filterRp)&&(!UI.filterUni||x.a.uni===UI.filterUni);
+  const ip=RES.ip.filter(ok),rp=RES.rp.filter(ok);const sum=(l,f)=>r2(l.reduce((s,x)=>s+(f(x)||0),0));
+  m.append(h('div',{class:'kpis'},h('div',{class:'kpi'},h('span',{},'University commission (AUD)'),h('b',{},fmt(sum(ip,x=>x.l.aud)))),h('div',{class:'kpi'},h('span',{},'Received from universities'),h('b',{},fmt(sum(ip.filter(x=>x.l.paid),x=>x.l.paid.amt*(x.l.fx||0))))),
+    h('div',{class:'kpi'},h('span',{},'RP commission entitled (AUD)'),h('b',{},fmt(sum(rp,x=>x.audEnt)))),h('div',{class:'kpi'},h('span',{},'RP due now (AUD)'),h('b',{},fmt(sum(rp.filter(x=>x.payable),x=>x.audDue))))));
+  const anI=ip.filter(x=>x.l.annuity),anR=rp.filter(x=>x.annuity),T=today();
+  m.append(h('div',{class:'kpis'},h('div',{class:'kpi'},h('span',{},'After year 1: earned to date (AUD)'),h('b',{},fmt(sum(anI.filter(x=>x.l.date<=T),x=>x.l.aud)))),h('div',{class:'kpi'},h('span',{},'After year 1: still to come (AUD)'),h('b',{},fmt(sum(anI.filter(x=>x.l.date>T),x=>x.l.aud)))),h('div',{class:'kpi'},h('span',{},'After year 1: passed to RPs (AUD)'),h('b',{},fmt(sum(anR,x=>x.audEnt)))),h('div',{class:'kpi'},h('span',{},'Top-ups to invoice (AUD)'),h('b',{},fmt(sum(ip.filter(x=>x.l.type==='topup'&&!x.l.inv&&!x.l.paid),x=>x.l.aud))))));
+  m.append(h('h3',{},'University side ('+ip.length+' lines)'));const t1=h('tbody');
+  ip.forEach(({l,u,a})=>t1.append(h('tr',{class:'click',onclick:()=>{UI.sel=a.id;go('simulate');}},h('td',{},a.student),h('td',{},u.name),h('td',{},pill(typeName[l.type]||'Standard commission',l.type==='bonus'?'p-mute':l.type==='topup'?'p-warn':l.type==='additional'?'p-acc':'p-good')),h('td',{},l.label),h('td',{},nice(l.date)),h('td',{class:'num'+(l.ent<0?' neg':'')},fmt(l.ent,u.cur)),h('td',{class:'num'},l.gst?fmt(l.gst,u.cur):'—'),h('td',{class:'num'},fmt(l.aud)),h('td',{},pill(l.st[0],l.st[1])))));
+  if(!ip.length)t1.append(h('tr',{},h('td',{colspan:9,class:'empty'},'No lines yet.')));
+  m.append(h('div',{class:'tw',style:'margin-bottom:18px'},h('table',{},h('thead',{},h('tr',{},...['Student','University','Type','Line','Trigger','Amount','GST','AUD','Status'].map(x=>h('th',{},x)))),t1)));
+  m.append(h('h3',{},'RP side ('+rp.length+' lines)'));const t2=h('tbody');
+  rp.forEach(x=>t2.append(h('tr',{class:'click',onclick:()=>{UI.sel=x.app;go('simulate');}},h('td',{},x.a.student),h('td',{},x.r.rp.name),h('td',{},(x.r.payee||x.r.rp).name),h('td',{},x.annuity?pill('After year 1','p-acc'):x.kind==='pct'?(x.additional?pill('Additional','p-acc'):'First year'):pill(x.kind==='tuition'?'Promotion':'Bonus','p-mute')),h('td',{},x.label),h('td',{class:'num'},x.kind==='pct'&&x.lp!=null?x.lp+'%':'—'),h('td',{class:'num'},fmt(x.ent,x.cur)),h('td',{class:'num'},fmt(x.paid,x.cur)),h('td',{class:'num'+(x.due<0?' neg':'')},fmt(x.due,x.cur)),h('td',{},pill(x.st[0],x.st[1])))));
+  if(!rp.length)t2.append(h('tr',{},h('td',{colspan:10,class:'empty'},'No lines yet.')));
+  m.append(h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...['Student','RP','Paid to','Type','Line','Rate','Entitled','Paid','Due','Status'].map(x=>h('th',{},x)))),t2)));}
+
+/* ---- Payout run ---- */
+function rPayout(m){const run=buildRun(ST.cfg,RES,today());const existing=Object.values(ST.runs).filter(x=>x.date===run.date).sort((a,b)=>a.at<b.at?1:-1)[0];
+  const invCell=pid=>{const iv=existing&&existing.status==='waiting'&&existing.invoices&&existing.invoices[pid];if(!iv)return pill('To pay','p-warn');
+    return h('div',{style:'display:grid;gap:4px'},h('span',{class:'mono',style:'font-size:12px'},iv.no),iv.status==='approved'?pill('Approved by RP','p-good'):iv.status==='disputed'?pill('Disputed by RP','p-bad'):h('span',{},pill('Waiting for RP','p-warn'),' ',h('button',{class:'link',onclick:()=>{iv.status='approved';put('runs/'+existing.id,existing);logEvent(iv.no+' approved by the RP (simulated)');}},'RP approves'),' · ',h('button',{class:'link',style:'color:var(--bad)',onclick:()=>{iv.status='disputed';put('runs/'+existing.id,existing);logEvent(iv.no+' disputed by the RP (simulated)');}},'RP disputes')));};
+  m.append(h('h2',{},'Payout run for Thursday '+nice(run.date)),h('p',{class:'lead'},'The run picks up every RP line where GSP has received the university’s money, plus top-ups and recoveries. An RP top-up waits until GSP has received its own top-up from the university. Preparing the run creates an invoice for each RP on the RP’s behalf; the RP approves or disputes it in the RP portal. Only approved invoices are paid; disputed lines stay due. One person prepares the run and a second person approves payment. Australian bank accounts go in one batch, local accounts separately.'));
+  if(run.hold.length)m.append(h('div',{class:'note bad'},h('b',{},'Run on hold. '),'No rate for '+run.hold.join(', ')+' for the week of '+nice(run.date)+'. ',h('button',{class:'link',onclick:()=>{UI.setup='settings';go('setup');}},'Enter the rate in Setup')));
+  const P=Object.values(run.payees);const miss=c=>run.hold.includes(c);
+  if(!P.length){m.append(h('div',{class:'panel empty'},'Nothing to pay this week. Lines become payable when the university’s payment is recorded.'));}
+  else['AU','Local'].forEach(bank=>{const ps=P.filter(p=>(p.bank||'AU')===bank);if(!ps.length)return;m.append(h('h3',{style:'margin-top:14px'},bank==='AU'?'Batch 1: Australian bank accounts':'Batch 2: local bank accounts'));
+    const tb=h('tbody');ps.forEach(p=>{Object.entries(p.byCur).forEach(([c,v])=>{tb.append(h('tr',{},h('td',{},h('b',{},p.name),h('div',{class:'meter'},p.lines.length+' line'+(p.lines.length>1?'s':'')+': '+p.lines.map(l=>l.student.replace(' (sample)','')).slice(0,4).join(', ')+(p.lines.length>4?'…':'')),h('details',{class:'why'},h('summary',{},'How it’s converted'),h('div',{class:'whybox how'},h('ol',{},...p.lines.filter(l=>l.payCur===c).map(l=>h('li',{},h('b',{},l.student+', '+l.label+': '),fmt(l.src,l.srcCur)+(l.srcCur==='AUD'?'':' × '+(l.f1==null?'no rate':l.f1)+' = '+fmt(l.aud,'AUD'))+(c==='AUD'?'':' ÷ '+(l.f2==null?'no rate':l.f2)+' = '+fmt(l.pay,c))+'. All conversion goes through AUD with the week’s rates (AUD per unit).')))))),h('td',{},c),h('td',{class:'num'},miss(c)?h('span',{class:'neg'},'Rate missing'):fmt(v.net)),h('td',{class:'num'},v.gst?fmt(v.gst):'—'),h('td',{class:'num'},v.wht?'−'+fmt(v.wht):'—'),h('td',{class:'num'+(p.total[c]<0?' neg':'')},h('b',{},miss(c)?'—':fmt(p.total[c]))),h('td',{},miss(c)?pill('On hold','p-bad'):p.total[c]<0?pill('Carried forward','p-bad'):invCell(p.id))));});});
+    m.append(h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...['Paid to','Currency','Commission','GST','Withheld','Total','RP invoice'].map(x=>h('th',{},x)))),tb)));});
+  const can=P.length&&!run.hold.length;const box=h('div',{class:'panel',style:'margin-top:16px'});m.append(box);
+  if(existing&&existing.status==='waiting'){const mine=existing.by===ST.me.id&&ST.me.id&&!ST.cfg.settings.selfCheck;box.append(h('div',{class:'row'},h('div',{class:'grow'},h('b',{},'Prepared by '+nameOf(existing.by)),h('div',{class:'meter'},(()=>{const iv=Object.values(existing.invoices||{});const ok=iv.filter(x=>x.status==='approved').length;return 'Invoices sent to '+iv.length+' RP'+(iv.length===1?'':'s')+': '+ok+' approved, '+iv.filter(x=>x.status==='disputed').length+' disputed, '+(iv.length-ok-iv.filter(x=>x.status==='disputed').length)+' waiting. Approving pays the approved invoices only.';})())),
+    h('button',{class:'btn d',onclick:()=>{existing.status='rejected';existing.checkedBy=ST.me.id;put('runs/'+existing.id,existing);logEvent('Payout run '+run.date+' sent back');}},'Send back'),
+    h('button',{class:'btn p',disabled:mine||!Object.values(existing.invoices||{}).some(x=>x.status==='approved'),onclick:()=>approveRun(existing)},'Approve and pay')));if(mine)box.append(h('p',{class:'meter',style:'margin-top:6px'},'You prepared this run, so someone else must approve it. (Settings can allow self-checking while testing.)'));}
+  else box.append(h('div',{class:'row'},h('div',{class:'grow'},h('b',{},'Prepare this run'),h('div',{class:'meter'},can?'Fixes the lines above, creates an invoice for each RP to approve, and sends the run for a second person’s approval. In the real system, approval creates bills in Xero.':run.hold.length?'Clear the hold first.':'Nothing to pay.')),h('button',{class:'btn p',disabled:!can,onclick:()=>{const id=uid('run');const lines=run.lines.filter(l=>!run.payees[l.payee].carry);const invoices={};[...new Set(lines.map(l=>l.payee))].forEach((pid,i)=>invoices[pid]={no:'RCTI-'+run.date.replace(/-/g,'')+'-'+String(i+1).padStart(3,'0'),status:'sent'});put('runs/'+id,{id,date:run.date,at:new Date().toISOString(),by:ST.me.id,status:'waiting',lines,invoices});logEvent('Payout run '+run.date+' prepared');}},'Prepare run')));
+  const hist=Object.values(ST.runs).sort((a,b)=>a.at<b.at?1:-1);if(hist.length){m.append(h('h3',{style:'margin-top:18px'},'Run history'));const tb=h('tbody');hist.forEach(x=>tb.append(h('tr',{},h('td',{},nice(x.date)),h('td',{},x.lines.length+' lines'),h('td',{},'Prepared by '+nameOf(x.by)),h('td',{},x.checkedBy?(x.status==='approved'?'Approved by ':'Sent back by ')+nameOf(x.checkedBy):'—'),h('td',{},pill({waiting:'Waiting for approval',approved:'Paid',rejected:'Sent back'}[x.status],{waiting:'p-warn',approved:'p-good',rejected:'p-mute'}[x.status])))));m.append(h('div',{class:'tw'},h('table',{},tb)));}}
+async function approveRun(run){const okP=new Set(Object.entries(run.invoices||{}).filter(([k,v])=>v.status==='approved').map(([k])=>k));run.lines=run.lines.filter(L=>!run.invoices||okP.has(L.payee));for(const L of run.lines){const a=ST.apps[L.app];if(!a)continue;a.paidRP=a.paidRP||{};a.paidRP[L.key]=r2((a.paidRP[L.key]||0)+L.src);await saveApp(a);}run.status='approved';run.checkedBy=ST.me.id;run.checkedAt=new Date().toISOString();await put('runs/'+run.id,run);await logEvent('Payout run '+run.date+' approved');toast('Run approved. Lines marked paid.');}
+
+/* ---- Exceptions ---- */
+function rExc(m){m.append(h('h2',{},'Exceptions'),h('p',{class:'lead'},'Lines the engine cannot price or pay, and data gaps in the terms. In the real system these land in the Finance queue, to be worked within 2 working days; student type goes to the application’s admission officer.'));
+  const run=buildRun(ST.cfg,RES,today());const groups={};RES.exc.forEach(e=>(groups[e.type]=groups[e.type]||[]).push(e));if(run.hold.length)groups['Payout run on hold']=[{msg:'No rate for '+run.hold.join(', ')+' for the week of '+nice(run.date)+'.',sev:'bad',fx:true}];
+  if(!Object.keys(groups).length)m.append(h('div',{class:'panel empty'},'No exceptions on the applications.'));
+  Object.entries(groups).forEach(([t,list])=>{const tb=h('tbody');list.forEach(e=>{const a=ST.apps[e.app];tb.append(h('tr',{},h('td',{style:'width:200px'},a?h('button',{class:'link',onclick:()=>{UI.sel=a.id;go('simulate');}},a.student):'—'),h('td',{},e.msg),h('td',{},pill(e.sev==='warn'?'Check':'Blocks payment',e.sev==='warn'?'p-warn':'p-bad'))));});
+    m.append(h('h3',{style:'margin-top:14px'},t+' ('+list.length+')'),h('div',{class:'tw'},h('table',{},tb)));});
+  const gaps=[...ST.cfg.unis.filter(u=>u.flag).map(u=>['University',u.name,u.flag,'unis',u.id]),...ST.cfg.schemes.filter(s=>s.note&&/check|list|missing|assumed|cut off/i.test(s.note)).map(s=>['Scheme',s.id+' '+s.name,s.note,'schemes',s.id]),...ST.cfg.notices.filter(n=>n.note).map(n=>['Notice',n.id+' '+n.name,n.note,'notices',n.id])];
+  m.append(h('h3',{style:'margin-top:22px'},'Data gaps in the terms ('+gaps.length+')'),h('p',{class:'meter'},'Open points carried from the contracts and Finance’s sheet. Fixing them is part of the go-live preparation.'));
+  const tb=h('tbody');gaps.forEach(([k,n,t,tab,id])=>tb.append(h('tr',{class:'click',onclick:()=>{UI.setup=tab;go('setup');setTimeout(()=>editItem(tab,id),0);}},h('td',{},k),h('td',{},h('b',{},n)),h('td',{},t))));m.append(h('div',{class:'tw'},h('table',{},tb)));}
+
+/* ---- Setup (editors) ---- */
+const KINDS={unis:'University terms',groups:'University groups',schemes:'RP tier schemes',notices:'Notices and promotions',rps:'RPs and their terms',settings:'Settings and FX rates'};
+const bandsToTxt=b=>(b||[]).map(x=>x[0]+(x[1]==null?'+':'-'+x[1])+':'+x[2]).join(', ');
+const txtToBands=t=>{const b=String(t||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>{const m=s.match(/^(\d+)\s*(?:-\s*(\d+)|\+)?\s*:\s*([\d.]+)%?$/);if(!m)throw new Error('Could not read the band “'+s+'”. Write bands like 1-4:70, 5-9:75, 10+:80');return [+m[1],m[2]?+m[2]:null,+m[3]];});
+  b.forEach((x,i)=>{if(x[1]!=null&&x[1]<x[0])throw new Error('Band '+(i+1)+' ends before it starts.');if(i&&x[0]!==(b[i-1][1]==null?NaN:b[i-1][1]+1))throw new Error('Band '+(i+1)+' should start at '+((b[i-1][1]||0)+1)+', right after band '+i+'.');if(i<b.length-1&&x[1]==null)throw new Error('Only the last band can be open-ended (“'+x[0]+'+”).');});return b;};
+const lvToTxt=o=>Object.entries(o||{}).map(([k,v])=>k+' '+v).join(', ');
+const txtToLv=t=>{const o={};String(t||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{const m=s.match(/^([A-Za-z]+)\s+([\d.]+)%?$/);if(!m)throw new Error('Could not read “'+s+'”. Write levels like UG 15, PG 15');const L=m[1].toUpperCase();if(!LEVELS[L])throw new Error('“'+m[1]+'” is not a level. Levels: '+Object.keys(LEVELS).join(', '));o[L]=+m[2];});return o;};
+const lst=t=>String(t||'').split(',').map(s=>s.trim()).filter(Boolean);
+/* rate rows, one per line: "level=UG; course=Nursing; region=India; campus=Sydney; period=2 : 20%" (or ": 2000" for a fixed amount) */
+const RKEYS=['level','course','campus','region','period'];
+const ratesToTxt=l=>(l||[]).map(x=>RKEYS.filter(k=>x[k]!=null&&x[k]!=='').map(k=>k+'='+x[k]).join('; ')+' : '+(x.amt!=null&&x.amt!==''?x.amt:x.pct+'%')).join('\n');
+const txtToRates=t=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean).map((s,i)=>{const j=s.lastIndexOf(':');if(j<0)throw new Error('Rate row '+(i+1)+': end the row with “: 20%” or “: 2000”.');const keys=s.slice(0,j).trim(),val=s.slice(j+1).trim();const o={};
+  keys.split(';').map(x=>x.trim()).filter(Boolean).forEach(kv=>{const m=kv.match(/^(\w+)\s*=\s*(.+)$/);if(!m||!RKEYS.includes(m[1].toLowerCase()))throw new Error('Rate row '+(i+1)+': “'+kv+'” is not one of '+RKEYS.join(', ')+' (write key=value).');const k=m[1].toLowerCase();let v=m[2].trim();if(k==='level'){v=v.toUpperCase();if(!LEVELS[v])throw new Error('Rate row '+(i+1)+': “'+m[2]+'” is not a level.');}if(k==='period'&&!/^\d+(\+|\s*-\s*\d+)?$/.test(v))throw new Error('Rate row '+(i+1)+': write the study period as 2, 3+ or 1-2.');o[k]=k==='period'&&/^\d+$/.test(v)?+v:v;});
+  if(!Object.keys(o).length)throw new Error('Rate row '+(i+1)+' names nothing to match (level, course, campus, region or period).');
+  const mp=val.match(/^([\d.]+)\s*%$/),ma=val.match(/^([\d.]+)$/);if(mp)o.pct=+mp[1];else if(ma)o.amt=+ma[1];else throw new Error('Rate row '+(i+1)+': “'+val+'” is not a rate (20%) or an amount (2000).');return o;});
+/* promotions: "name | 20% | highest | from=2026-01-01; to=2026-12-31; intakes=2026-07; regions=SEA,India; courses=Nursing; levels=PG; campuses=Sydney" */
+const PKEYS=['from','to','intakes','regions','courses','levels','campuses'];
+const promosToTxt=l=>(l||[]).map(p=>[p.name||p.id,p.amt!=null&&p.amt!==''?String(p.amt):p.pct+'%',p.combine||'highest',PKEYS.filter(k=>p[k]&&(!Array.isArray(p[k])||p[k].length)).map(k=>k+'='+(Array.isArray(p[k])?p[k].join(','):p[k])).join('; ')].join(' | ')).join('\n');
+const txtToPromos=(t,old)=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean).map((s,i)=>{const [name,val,comb,flt]=s.split('|').map(x=>(x||'').trim());if(!name||!val)throw new Error('Promotion '+(i+1)+': write name | rate | how | conditions.');const o={id:((old||[])[i]&&(old||[])[i].id)||'P'+(i+1),name};
+  const mp=val.match(/^([\d.]+)\s*%$/),ma=val.match(/^([\d.]+)$/);if(mp)o.pct=+mp[1];else if(ma)o.amt=+ma[1];else throw new Error('Promotion '+(i+1)+': “'+val+'” is not a rate (20%) or an amount (500).');
+  o.combine=(comb||'highest').toLowerCase();if(!['highest','replace','additional'].includes(o.combine))throw new Error('Promotion '+(i+1)+': how it combines is highest, replace or additional.');if(o.amt!=null&&o.combine!=='additional')throw new Error('Promotion '+(i+1)+': a fixed amount can only be additional commission.');
+  (flt||'').split(';').map(x=>x.trim()).filter(Boolean).forEach(kv=>{const m=kv.match(/^(\w+)\s*=\s*(.+)$/);if(!m||!PKEYS.includes(m[1].toLowerCase()))throw new Error('Promotion '+(i+1)+': “'+kv+'” is not one of '+PKEYS.join(', ')+'.');const k=m[1].toLowerCase();if(k==='from'||k==='to'){if(!isDate(m[2].trim()))throw new Error('Promotion '+(i+1)+': '+k+' must be a date (YYYY-MM-DD).');o[k]=m[2].trim();}else{o[k]=lst(m[2]);if(k==='intakes'&&o[k].some(x=>!/^\d{4}-\d{2}$/.test(x)))throw new Error('Promotion '+(i+1)+': write intakes as YYYY-MM, e.g. 2026-07.');if(k==='levels')o[k]=o[k].map(x=>x.toUpperCase());}});
+  if(o.from&&o.to&&o.from>o.to)throw new Error('Promotion '+(i+1)+': “from” is after “to”.');return o;});
+/* bonus schemes: "PG bonus | 2% | student | levels=PG" or "3rd enrolment bonus | 2000 | at 3 | window=CY" */
+const bonusToTxt=l=>(l||[]).map(b=>[b.name||b.id,b.kind==='pct'?b.v+'%':String(b.v),(b.per||'student')==='student'?'student':'at '+b.threshold,[(b.levels||[]).length?'levels='+b.levels.join(','):null,b.per==='threshold'?'window='+(b.window||'CY'):null].filter(Boolean).join('; ')].join(' | ')).join('\n');
+const txtToBonus=(t,old)=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean).map((s,i)=>{const [name,val,per,flt]=s.split('|').map(x=>(x||'').trim());if(!name||!val)throw new Error('Bonus '+(i+1)+': write name | amount or % | student or at N | conditions.');const o={id:((old||[])[i]&&(old||[])[i].id)||'B'+(i+1),name};
+  const mp=val.match(/^([\d.]+)\s*%$/),ma=val.match(/^([\d.]+)$/);if(mp){o.kind='pct';o.v=+mp[1];}else if(ma){o.kind='fixed';o.v=+ma[1];}else throw new Error('Bonus '+(i+1)+': “'+val+'” is not an amount or a %.');
+  const m=String(per||'student').match(/^at\s+(\d+)$/i);if(m){o.per='threshold';o.threshold=+m[1];if(o.kind==='pct')throw new Error('Bonus '+(i+1)+': a bonus once N students enrol is a fixed amount.');}else if(/^student$/i.test(per||'student'))o.per='student';else throw new Error('Bonus '+(i+1)+': write “student” (per student) or “at 20” (once 20 students enrol).');
+  (flt||'').split(';').map(x=>x.trim()).filter(Boolean).forEach(kv=>{const q=kv.match(/^(levels|window)\s*=\s*(.+)$/i);if(!q)throw new Error('Bonus '+(i+1)+': “'+kv+'” should be levels=… or window=CY, AY, FY or intake.');if(q[1].toLowerCase()==='levels')o.levels=lst(q[2]).map(x=>x.toUpperCase());else{o.window=q[2].trim();if(!['CY','AY','FY','intake'].includes(o.window))throw new Error('Bonus '+(i+1)+': the window is CY, AY, FY or intake.');}});return o;});
+/* versions (S5-2): "Version 2 | 2026-07-01 | UG 18, PG 18" */
+const verToTxt=l=>(l||[]).map(v=>[v.label||v.id,v.from,lvToTxt((v.set||{}).levels)].join(' | ')).join('\n');
+const txtToVer=t=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean).map((s,i)=>{const [label,from,lv]=s.split('|').map(x=>(x||'').trim());if(!isDate(from||''))throw new Error('Version '+(i+1)+': the effective-from date must be YYYY-MM-DD.');return {id:'v'+(i+2),label:label||'Version '+(i+2),from,set:{levels:txtToLv(lv)}};}).sort((a,b)=>a.from<b.from?-1:1);
+const bbToTxt=o=>Object.entries(o||{}).map(([k,v])=>k+': '+(v.kind==='pct'?v.v+'%':v.v)).join(', ');
+const txtToBb=t=>{const o={};String(t||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{const m=s.match(/^(\d+)\s*:\s*([\d.]+)\s*(%?)$/);if(!m)throw new Error('Band bonus “'+s+'”: write band: amount or band: %, e.g. 2: 500, 3: 2%');o[m[1]]={kind:m[3]?'pct':'fixed',v:+m[2]};});return o;};
+const MONTHOPT=MONTHS.map((x,i)=>[String(i+1),x]);
+const TIERSPEC=[['tierOn','Tier','sel',['none','all','country'],{none:'No tier',all:'All GSP students together',country:'Per source country'}],['tierBands','Tier bands','bands','1-5:15, 6-11:20, 12+:25'],['tierRetro','Tier counting','sel',['no','yes'],{no:'Prospective',yes:'Retrospective'}],['tierWindow','Tier counted per','sel',['CY','AY','FY','intake'],{CY:'Calendar year (Jan–Dec)',AY:'Academic year',FY:'Financial year (Apr–Mar)',intake:'Intake'}],['tierAy','Academic year starts in','sel',MONTHOPT.map(x=>x[0]),Object.fromEntries(MONTHOPT)],['tierLevels','Levels in the tier','text','e.g. UG, PG. Empty = every level'],['tierBonus','Band bonuses','text','e.g. 2: 500, 3: 2% (bonus per student in that band; % of the first-year fee)']];
+const SPEC={
+ unis:[['id','ID'],['name','University'],['country','Destination','sel',Object.keys(DEST),DEST],['cur','Currency'],['starts','Agreement starts','date'],['ends','Agreement ends','date'],['trigger','Commission trigger','sel',Object.keys(TRIG),TRIG],['basis','Commission on','sel',['net','gross'],{net:'Net: the final tuition fee',gross:'Gross: the final tuition fee plus the scholarship'}],
+   ['pay','Commission is paid','sel',['year','semester','trimester','term','unit','fees'],{year:'Once a year',semester:'Each semester (2 a year)',trimester:'Each trimester (3 a year)',term:'Each term (4 a year)',unit:'Per unit of study',fees:'On each fee payment'}],['chargeUnit','Chargeable for','sel',['course','year','semester','trimester','term','unit','fees'],{course:'The whole course',year:'A number of years',semester:'A number of semesters',trimester:'A number of trimesters',term:'A number of terms',unit:'A number of units',fees:'Fees paid (up to a limit)'}],['chargeN','How many (or the fee limit)','num','Years, semesters, terms or units. For fees paid: the amount; blank = no limit'],
+   ['payDays','Days to pay after invoice','num'],['cap','Cap per student (first year)','num'],
+   ['levels','Rates by course level or sector (%)','lv','UG 15, PG 15, ELICOS 20. Levels: '+Object.keys(LEVELS).join(', ')],['fixed','Fixed amounts by level','lv','e.g. RES 1000'],
+   ['rates','Rate rows (most specific wins)','rows','One row per line: level=UG; course=Nursing; region=India; campus=Sydney; period=2 : 20%   (or : 2000 for a fixed amount). Region can be a country or a region group (SEA). Period is the study period number: 1, 2, 3+'],
+   ...TIERSPEC.slice(0,1),['tierPool','Tier counts','sel',['uni','group'],{uni:'This university only (college tier)',group:'Every university in its group'}],...TIERSPEC.slice(1),
+   ['promos','University promotions','rows','One per line: name | 20% | highest, replace or additional | from=2026-01-01; to=2026-12-31; intakes=2026-07; regions=SEA,India; courses=Nursing,IT; levels=PG; campuses=Sydney. Matched on the intake start'],
+   ['bonuses','Bonus schemes','rows','One per line: name | 500 or 2% | student, or at 20 (once 20 students enrol) | levels=PG; window=CY'],
+   ['versions','Later versions of these terms','rows','One per line: label | effective from | level rates, e.g. Version 2 | 2026-07-01 | UG 18, PG 18. Each enrolment uses the version in force on its intake (S5-2)'],
+   ['flag','Open point','text'],['status','Status','sel',['Drafted, waiting for Finance','Checked']]],
+ groups:[['id','Group ID'],['name','Group name'],['members','Member university IDs','list','Comma-separated, e.g. 20, 21a, 21b. Every member counts toward the group tier, with or without a tier of its own. A university is in at most one group'],...TIERSPEC,['note','Notes','text']],
+ schemes:[['id','Scheme ID'],['name','Name'],['region','Sales region'],['type','Type','sel',['flat','tier'],{flat:'Flat',tier:'Tier'}],['flat','Flat %','num'],['bands','Bands','bands','1-4:70, 5-9:75, 10+:80'],['retro','Retrospective?','sel',['no','yes','top'],{no:'No (prospective)',yes:'Yes',top:'Yes, top tier only'}],['window','Counting window (by intake)','sel',['CY','FY','intake2'],{CY:'Calendar year',FY:'Financial year (Apr–Mar)',intake2:'Two intakes (Apr–Jul, Aug–Mar)'}],['note','Notes','text']],
+ notices:[['id','Notice ID'],['name','Name'],['regions','Sales regions','list','Comma-separated; region groups like SEA work. Used when no RPs are listed'],['region','Sales region (old text)','text','Kept for older notices; Sales regions above wins'],['doc','Document type','sel',['Notice','Addendum','Flyer','Email','Scheme']],['rps','RP IDs','list','Comma-separated. Leave empty for every RP in the regions'],['start','Intakes from','date'],['end','Intakes to','date'],['intakes','Intakes','list','Months as YYYY-MM, e.g. 2026-07. Empty = any'],['dest','Destinations','list','Codes: '+Object.keys(DEST).join(', ')+'. Empty = all'],['unis','University IDs','list','Empty = all'],['levels','Levels','list','Empty = all'],
+   ['kind','Structure','sel',['flat','tier','flatfixed','milestone','tuitionPct'],{flat:'Flat % of GSP’s line',tier:'Tier % of GSP’s line',flatfixed:'% plus fixed amount per enrolment',milestone:'Milestone bonus (lump sum)',tuitionPct:'% of the student’s tuition fee'}],['flat','Flat % (or % of tuition)','num'],['bands','Bands','bands'],['retro','Retrospective?','sel',['no','yes'],{no:'No',yes:'Yes'}],['fixed','Fixed amount per enrolment','num'],['fixedCur','Currency of fixed amounts'],['milestones','Milestones','bands','e.g. 30:6000, 50:12000 (enrolments:amount)'],
+   ['combine','With the RP’s own terms','sel',['box','highest','adds'],{box:'Separate box: replaces them, not counted in the RP’s tier',highest:'Highest wins, counted in both',adds:'Adds on top (capped at the RP cap)'}],['note','Open point','text']],
+ rps:[['id','RP ID'],['name','RP name'],['region','Sales region'],['scheme','Scheme','scheme'],['flat','Own flat % (instead of a scheme)','num'],['annuityPct','Own % after year 1','num','Blank = the rule in Settings'],['gst','GST-registered','chk'],['cur','Payout currency'],['bank','Bank account','sel',['AU','Local'],{AU:'Australian account',Local:'Local account'}],['payee','Paid through (Master Partner)','payee'],['mp','This RP is a Master Partner','chk'],['note','Notes','text']]};
+const payOfU=u=>u.pay||({1:'year',2:'semester',3:'trimester',4:'term'}[Math.max(1,Math.min(4,+u.inst||1))]);
+const chargeOfU=u=>u.charge&&u.charge.unit?u.charge:u.annuity&&u.annuity.on?(u.annuity.maxYears?{unit:'year',n:+u.annuity.maxYears}:{unit:'course'}):{unit:'year',n:1};
+function tierToForm(v,t){v.tierOn=t?(t.scope==='country'?'country':'all'):'none';v.tierBands=t?bandsToTxt(t.bands):'';v.tierRetro=t&&t.retro?'yes':'no';v.tierWindow=t?(t.scope==='intake'?'intake':t.window||'CY'):'CY';v.tierAy=String((t&&t.ayStart)||1);v.tierLevels=t?(t.levels||[]).join(', '):'';v.tierBonus=t?bbToTxt(Object.assign({},Object.fromEntries(Object.entries(t.bandFixed||{}).map(([k,x])=>[k,{kind:'fixed',v:+x}])),t.bandBonus||{})):'';v.tierPool=t&&t.pool?t.pool:'uni';}
+function tierFromForm(v){if(v.tierOn==='none')return null;const t={scope:v.tierOn,window:v.tierWindow||'CY',retro:v.tierRetro==='yes',bands:txtToBands(v.tierBands),bandBonus:txtToBb(v.tierBonus),levels:lst(v.tierLevels).map(x=>x.toUpperCase())};if(t.window==='AY')t.ayStart=+v.tierAy||1;if(!t.bands.length)throw new Error('Add the tier bands, or set Tier to No tier.');t.levels.forEach(L=>{if(!LEVELS[L])throw new Error('Levels in the tier: “'+L+'” is not a level.');});return t;}
+const TIERKEYS=['tierOn','tierBands','tierRetro','tierWindow','tierAy','tierLevels','tierBonus','tierPool'];
+function toForm(kind,o){const v=JSON.parse(JSON.stringify(o||{}));if(kind==='unis'){tierToForm(v,v.tier);v.levels=lvToTxt(v.levels);v.fixed=lvToTxt(v.fixed);v.pay=payOfU(o||{});const ch=chargeOfU(o||{});v.chargeUnit=ch.unit;v.chargeN=ch.n==null?'':ch.n;v.basis=v.basis||'net';v.rates=ratesToTxt(v.rates);v.promos=promosToTxt(v.promos);v.bonuses=bonusToTxt(v.bonuses);v.versions=verToTxt(v.versions);}
+  if(kind==='groups'){tierToForm(v,v.tier);v.members=(v.members||[]).join(', ');}
+  if(kind==='schemes'||kind==='notices')v.bands=bandsToTxt(v.bands);if(kind==='notices'){v.milestones=bandsToTxt((v.milestones||[]).map(x=>[x[0],null,x[1]])).replace(/\+/g,'');['rps','dest','unis','regions','intakes','levels'].forEach(k=>v[k]=(v[k]||[]).join(', '));}return v;}
+function fromForm(kind,v,o0){const o=Object.assign(JSON.parse(JSON.stringify(o0||{})),v);const n=(x,what,opt)=>num(x,what,opt);
+  if(kind==='unis'){o.levels=txtToLv(v.levels);o.fixed=txtToLv(v.fixed);o.pay=v.pay;o.inst=PAY[v.pay]?PAY[v.pay].per:1;o.payDays=n(v.payDays,'the days to pay',true)||30;o.cap=n(v.cap,'the cap',true);
+    const cn=n(v.chargeN,'how many are chargeable',true);if(['year','semester','trimester','term','unit'].includes(v.chargeUnit)){if(!cn||cn<1||!Number.isInteger(cn))throw new Error('Chargeable for: enter how many '+CHARGENAME[v.chargeUnit]+'s (a whole number, 1 or more).');}
+    if(v.chargeUnit==='unit'&&v.pay!=='unit')throw new Error('A limit in units needs commission paid per unit. Change “Commission is paid” to Per unit of study, or the limit to years, semesters or terms.');
+    if(v.chargeUnit==='fees'&&cn!=null&&cn<=0)throw new Error('The fee limit must be more than 0, or blank for no limit.');
+    o.charge={unit:v.chargeUnit,n:v.chargeUnit==='course'?null:cn};o.annuity=null;o.basis=v.basis||'net';
+    o.rates=txtToRates(v.rates);o.promos=txtToPromos(v.promos,o0&&o0.promos);o.bonuses=txtToBonus(v.bonuses,o0&&o0.bonuses);o.versions=txtToVer(v.versions);
+    if(v.starts&&!isDate(v.starts))throw new Error('Agreement starts must be a date.');if(v.starts&&v.ends&&v.starts>v.ends)throw new Error('The agreement starts after it ends.');
+    o.tier=tierFromForm(v);if(o.tier)o.tier.pool=v.tierPool||'uni';
+    if(!Object.keys(o.levels).length&&!Object.keys(o.fixed).length&&!o.rates.length)throw new Error('Add at least one rate: a level rate, a fixed amount or a rate row.');
+    TIERKEYS.concat(['chargeUnit','chargeN']).forEach(k=>delete o[k]);o.contract=(o0&&o0.contract)||{};}
+  if(kind==='groups'){o.members=lst(v.members);const bad=o.members.filter(id=>!ST.cfg.unis.some(u=>u.id===id));if(bad.length)throw new Error('No university with ID '+bad.join(', ')+'.');if(!o.members.length)throw new Error('Add the member universities.');
+    const clash=(ST.cfg.groups||[]).filter(g=>g.id!==o.id&&(!o0||g.id!==o0.id)).flatMap(g=>o.members.filter(id=>(g.members||[]).includes(id)).map(id=>id+' is already in '+g.name));if(clash.length)throw new Error('A university is in at most one group: '+clash.join('; ')+'.');
+    o.tier=tierFromForm(v);TIERKEYS.forEach(k=>delete o[k]);}
+  if(kind==='schemes'){o.bands=v.type==='tier'?txtToBands(v.bands):[];o.flat=v.type==='flat'?n(v.flat,'the flat %'):null;if(v.type==='tier'&&!o.bands.length)throw new Error('Add the bands.');}
+  if(kind==='notices'){o.bands=v.kind==='tier'?txtToBands(v.bands):[];o.milestones=String(v.milestones||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>{const m=s.match(/^(\d+)\s*:\s*([\d.]+)$/);if(!m)throw new Error('Write milestones like 30:6000, 50:12000');return [+m[1],+m[2]];});['rps','dest','unis','regions','intakes','levels'].forEach(k=>o[k]=lst(v[k]));o.levels=o.levels.map(x=>x.toUpperCase());
+    if(o.intakes.some(x=>!/^\d{4}-\d{2}$/.test(x)))throw new Error('Write intakes as YYYY-MM, e.g. 2026-07.');o.flat=n(v.flat,'the %',true);o.fixed=n(v.fixed,'the fixed amount',true);
+    if(['flat','flatfixed','tuitionPct'].includes(v.kind)&&o.flat==null)throw new Error('Enter the %.');if(v.kind==='tier'&&!o.bands.length)throw new Error('Add the bands.');if(v.kind==='milestone'&&!o.milestones.length)throw new Error('Add the milestones.');if(v.start&&v.end&&v.start>v.end)throw new Error('“Intakes from” is after “Intakes to”.');}
+  if(kind==='rps'){o.flat=n(v.flat,'the flat %',true);o.annuityPct=n(v.annuityPct,'the % after year 1',true);o.gst=!!v.gst;o.mp=!!v.mp;}
+  if(!String(o.id||'').trim())throw new Error('Enter an ID.');if(!String(o.name||'').trim())throw new Error('Enter a name.');return o;}
+function editor(kind,item,mode){const isNew=!item;const v=toForm(kind,item||(kind==='unis'?{country:'AU',cur:'AUD',trigger:'census',inst:1,payDays:30,status:'Drafted, waiting for Finance',levels:{},fixed:{}}:kind==='groups'?{members:[]}:kind==='schemes'?{type:'tier',retro:'no',window:'CY',region:'All'}:kind==='notices'?{doc:'Notice',kind:'flat',combine:'box',retro:'no',fixedCur:'AUD'}:{bank:'Local',cur:'AUD'}));
+  const form=h('div',{class:'form'});const err=h('p',{class:'err',role:'alert'});SPEC[kind].forEach(([k,lab,type,opt,names])=>{let el;const id='ed-'+k;
+    if(type==='sel')el=sel({id,label:lab,value:v[k]==null?opt[0]:String(v[k]),options:opt.map(x=>[x,names?names[x]:x]),onChange:x=>v[k]=x});
+    else if(type==='chk')return form.append(h('div',{class:'fld',style:'align-content:end'},tick({id,checked:!!v[k],label:lab,onChange:x=>v[k]=x})));
+    else if(type==='scheme')el=sel({id,label:lab,value:v[k]||'',options:[['','None'],...ST.cfg.schemes.map(s=>[s.id,s.id+' '+s.name])],onChange:x=>v[k]=x});
+    else if(type==='payee')el=sel({id,label:lab,value:v[k]||'',options:[['','Paid directly'],...ST.cfg.rps.filter(r=>r.mp).map(r=>[r.id,r.name])],onChange:x=>v[k]=x});
+    else if(type==='date')el=dateF({id,value:v[k]||'',label:lab,what:lab.toLowerCase(),onChange:x=>v[k]=x});
+    else if(type==='num')el=numF({id,value:v[k],label:lab,onInput:x=>v[k]=x});
+    else if(type==='rows')el=h('textarea',{id,rows:Math.max(2,String(v[k]||'').split('\n').length+1),style:'font-family:var(--f-mono);font-size:12.5px',oninput:e=>v[k]=e.target.value},v[k]||'');
+    else el=h('input',{id,type:'text',value:v[k]==null?'':v[k],readonly:k==='id'&&!isNew?true:null,oninput:e=>v[k]=e.target.value});
+    const wide=['levels','tierBands','bands','milestones','note','flag','rps','unis','rates','promos','bonuses','versions','members','tierBonus','regions'].includes(k)||type==='rows';
+    form.append(h(type==='sel'||type==='date'||type==='scheme'||type==='payee'?'div':'label',{class:(type==='sel'||type==='date'||type==='scheme'||type==='payee'?'fld ':'')+(wide?'full':'')},lab,el,typeof opt==='string'?h('small',{},opt):null));});
+  const contract=kind==='unis'&&item&&item.contract&&item.contract.rate?h('details',{style:'margin:4px 0 10px'},h('summary',{style:'cursor:pointer;font-weight:600'},'What the contract says'),h('div',{class:'whybox'},...[['Rates',item.contract.rate],['Chargeable periods',item.contract.periods],['Trigger',item.contract.trigger],['Tier',item.contract.tier],['After contract ends',item.contract.after],['Clawback',item.contract.claw],['Contract ends',item.contract.ends],['Source',item.contract.src]].filter(x=>x[1]).map(([k,t])=>h('p',{},h('b',{},k+': '),t)))):null;
+  const pending=Object.values(ST.checks).find(c=>c.status==='waiting'&&c.kind===kind&&c.itemId===(item&&item.id));
+  const tryIt=()=>{try{return fromForm(kind,v,item);}catch(e){err.textContent=e.message;err.scrollIntoView({block:'nearest'});return null;}};
+  const body=h('div',{},pending?h('div',{class:'note'},'A change to this item is already waiting for a check (by '+nameOf(pending.by)+'). A new change is checked separately.'):null,contract,form,err,
+    h('p',{class:'meter'},'Changes are not live until a second Finance person checks them. Applications use the terms in force on their intake.'),
+    h('div',{class:'row',style:'justify-content:space-between'},isNew?h('span'):h('button',{class:'btn d',onclick:()=>{c();propose(kind,item,null);}},'Propose deleting'),
+      h('span',{class:'row'},kind==='groups'?null:h('button',{class:'btn',onclick:()=>{const o=tryIt();if(!o)return;c();UI.wi={kind,before:item||null,after:o};go('whatif');}},'Try in what-if'),
+        h('button',{class:'btn p',onclick:()=>{const o=tryIt();if(!o)return;if(isNew&&(ST.cfg[kind]||[]).some(x=>x.id===o.id)){err.textContent='That ID is already used.';return;}c();propose(kind,item||null,o);}},'Send for checking'))));
+  const c=modal((isNew?'Add ':'Edit ')+(KINDS[kind]||kind).replace(/s$/,'').toLowerCase()+(item?': '+item.name:''),body,{wide:true});}
+function editItem(kind,id){if(kind==='settings')return settingsEditor();const it=(ST.cfg[kind]||[]).find(x=>x.id===id);editor(kind,it);}
+async function propose(kind,before,after){const id=uid('c');await put('checks/'+id,{id,kind,itemId:(after||before).id,itemName:(after||before).name,before,after,by:ST.me.id,at:new Date().toISOString(),status:'waiting'});await logEvent((after?before?'Changed ':'Added ':'Proposed deleting ')+(after||before).name);toast('Sent for checking.');}
+const tierTxt=t=>t?bandsToTxt(t.bands)+(t.retro?' (retro)':'')+', per '+winLabel(t.scope==='intake'?'intake':t.window||'CY',t):'—';
+function rSetup(m){if(!ST.cfg.groups)ST.cfg.groups=[];m.append(h('h2',{},'Setup'),h('p',{class:'lead'},'The terms the engine uses. Finance enters each contract, agreement and notice once; a second person checks it before it goes live.'));
+  m.append(h('div',{class:'sub'},...Object.entries(KINDS).map(([k,t])=>h('button',{class:'chip','aria-pressed':String(UI.setup===k),onclick:()=>{UI.setup=k;render();}},t+(k!=='settings'?' ('+(ST.cfg[k]||[]).length+')':'')))));
+  const k=UI.setup;if(k==='settings')return rSettings(m);
+  const pend=new Set(Object.values(ST.checks).filter(c=>c.status==='waiting'&&c.kind===k).map(c=>c.itemId));
+  m.append(h('div',{class:'row',style:'margin-bottom:10px'},h('span',{class:'grow meter'},{unis:'Drafted from the 39 contracts. Finance checks each against its contract and sets Status to Checked.',groups:'Finance’s list of university groups (S5-22): one contract covering several universities. Every member counts toward the group tier.',schemes:'Percentages are of GSP’s base commission from the university (RP COS).',notices:'Anything time-boxed or targeted that changes what an RP is paid.',rps:'RPs whose terms differ from the default. Sample RPs used by the test scenarios are marked.'}[k]),h('button',{class:'btn p',onclick:()=>editor(k,null)},'+ Add')));
+  const UN=id=>(ST.cfg.unis.find(u=>u.id===id)||{name:id}).name;
+  const cols={unis:[['University',x=>h('b',{},x.name)],['Rates',x=>[lvToTxt(x.levels),Object.keys(x.fixed||{}).length?'fixed '+lvToTxt(x.fixed):null,(x.rates||[]).length?(x.rates.length+' rate row'+(x.rates.length>1?'s':'')):null].filter(Boolean).join('; ')],['Paid · chargeable',x=>{const ch=chargeOfU(x);return PAYNAME[payOfU(x)]+' · '+(ch.unit==='course'?'whole course':ch.unit==='fees'?'fees paid':ch.n+' '+CHARGENAME[ch.unit]+(ch.n===1?'':'s'));}],['Basis',x=>x.basis==='gross'?'Gross':'Net'],['Tier',x=>tierTxt(x.tier)],['Promos · bonus',x=>[(x.promos||[]).length?x.promos.length+' promo':null,(x.bonuses||[]).length?x.bonuses.length+' bonus':null].filter(Boolean).join(' · ')||'—'],['Cur.',x=>x.cur],['Agreement',x=>(x.starts?nice(x.starts):'—')+' to '+(x.ends?nice(x.ends):'no end')+((x.versions||[]).length?' · '+(x.versions.length+1)+' versions':'')],['Status',x=>h('span',{},pill(x.status==='Checked'?'Checked':'Drafted',x.status==='Checked'?'p-good':'p-warn'),x.flag?h('div',{class:'meter'},x.flag):null)]],
+    groups:[['ID',x=>x.id],['Group',x=>h('b',{},x.name)],['Members',x=>(x.members||[]).map(UN).join(', ')],['Group tier',x=>tierTxt(x.tier)],['Notes',x=>x.note||'']],
+    schemes:[['ID',x=>x.id],['Scheme',x=>h('b',{},x.name)],['Region',x=>x.region],['Structure',x=>x.type==='flat'?'Flat '+x.flat+'%':bandsToTxt(x.bands)],['Retro',x=>({no:'No',yes:'Yes',top:'Top tier only'}[x.retro]||'—')],['Window',x=>({CY:'Calendar year',FY:'Apr–Mar',intake2:'Two intakes'}[x.window]||'—')],['RPs',x=>ST.cfg.rps.filter(r=>r.scheme===x.id).length],['Notes',x=>x.note||'']],
+    notices:[['ID',x=>x.id],['Notice',x=>h('b',{},x.name)],['Who',x=>(x.rps||[]).length?(x.rps.length+' listed RP'+(x.rps.length>1?'s':'')):'All RPs in '+((x.regions||[]).length?x.regions.join(', '):x.region)],['Intakes',x=>(x.intakes||[]).length?x.intakes.map(monthName).join(', '):nice(x.start)+' – '+nice(x.end)],['Where',x=>[(x.dest||[]).map(d=>DEST[d]||d).join(', '),(x.unis||[]).map(UN).join(', ')].filter(Boolean).join(' · ')||'All'],['Structure',x=>x.kind==='milestone'?(x.milestones||[]).map(m=>m[0]+' → '+x.fixedCur+' '+m[1]).join('; '):x.kind==='tier'?bandsToTxt(x.bands):x.kind==='tuitionPct'?x.flat+'% of tuition':x.flat+'%'+(x.kind==='flatfixed'?' + '+x.fixedCur+' '+x.fixed:'')],['Combines',x=>({box:'Box',highest:'Highest wins',adds:'Adds on'}[x.combine])],['Open point',x=>x.note||'']],
+    rps:[['ID',x=>x.id],['RP',x=>h('span',{},h('b',{},x.name),x.sample?' ':null,x.sample?pill('Sample','p-acc'):null,x.mp?' ':null,x.mp?pill('Master Partner','p-mute'):null)],['Region',x=>x.region],['Terms',x=>x.flat!=null&&x.flat!==''?'Own flat '+x.flat+'%':x.scheme?(ST.cfg.schemes.find(s=>s.id===x.scheme)||{name:x.scheme}).name:h('span',{class:'neg'},'No terms')],['GST',x=>x.gst?'Yes':'No'],['Payout',x=>(x.cur||'AUD')+' · '+(x.bank==='AU'?'AU account':'Local account')],['Paid through',x=>x.payee?(ST.cfg.rps.find(r=>r.id===x.payee)||{name:x.payee}).name:'—']]}[k];
+  const tb=h('tbody');(ST.cfg[k]||[]).forEach(x=>tb.append(h('tr',{class:'click',onclick:()=>editor(k,x)},...cols.map(([_,f],i)=>h('td',{},f(x),i===0&&pend.has(x.id)?h('div',{},pill('Change waiting','p-warn')):null)))));
+  if(!(ST.cfg[k]||[]).length)tb.append(h('tr',{},h('td',{colspan:cols.length,class:'empty'},'Nothing here yet.')));
+  m.append(h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...cols.map(c=>h('th',{},c[0])))),tb)));}
+const rgTxt=o=>Object.entries(o||{}).map(([k,v])=>k+': '+v.join(', ')).join('; ');
+const txtRg=t=>{const o={};String(t||'').split(';').map(s=>s.trim()).filter(Boolean).forEach(s=>{const i=s.indexOf(':');if(i<1)throw new Error('Region groups: write each as name: country, country; e.g. SEA: Vietnam, Malaysia');o[s.slice(0,i).trim()]=lst(s.slice(i+1));});return o;};
+function rSettings(m){const S=ST.cfg.settings;const rows=[['New RP with no terms',S.defaultMode==='hold'?'Hold in exceptions':'Use flat '+S.defaultPct+'% and flag it'],['Special lead rate (GSP lead and enrolment-ready)',S.gspLeadPct+'% of GSP’s line'],['RP share after year 1',annTxt(S)+' (Finance to confirm)'],['Most an RP can get (notices that add on)',(S.rpCap==null?100:S.rpCap)+'% of GSP’s line (proposal)'],['Region groups',rgTxt(Object.assign({},DEF_REGION_GROUPS,S.regionGroups||{}))],['No census date known',' Start + '+S.fallbackWeeks+' weeks (also used for non-Australian triggers)'],['GST on invoices to Australian universities',S.auGst+'%'],['GST added for GST-registered RPs',S.rpGst+'%'],['Tax withheld from RP payouts',Object.entries(S.wht||{}).map(([k,v])=>k+' '+v+'%').join(', ')||'None'],['Unrecovered clawback goes to Legal after',S.legalDays+' days'],['Same person may check their own change',S.selfCheck?'Yes (testing only)':'No']];
+  m.append(h('div',{class:'panel'},h('div',{class:'row'},h('h3',{class:'grow'},'Engine settings'),h('button',{class:'btn',onclick:settingsEditor},'Edit settings')),h('div',{class:'tw'},h('table',{},h('tbody',{},...rows.map(([k,v])=>h('tr',{},h('td',{style:'width:45%'},k),h('td',{},h('b',{},v)))))))));
+  const curs=[...new Set(['GBP','NZD','USD','INR','NPR','BDT','LKR','VND',...ST.cfg.unis.map(u=>u.cur),...ST.cfg.rps.map(r=>r.cur)].filter(c=>c&&c!=='AUD'))];const fx=(S.fx||[]).slice().sort((a,b)=>a.week<b.week?1:-1);
+  const tb=h('tbody');fx.slice(0,10).forEach(w=>tb.append(h('tr',{},h('td',{},'Week of '+nice(w.week)),...curs.map(c=>h('td',{class:'num'},h('input',{type:'text',inputmode:'decimal','aria-label':c+' rate for week of '+w.week,id:'fx-'+w.week+'-'+c,value:w[c]==null?'':w[c],style:'width:96px;text-align:right'+(w[c]==null?';border-color:var(--bad)':''),onchange:e=>{const val=e.target.value.trim();if(val===''){delete w[c];}else if(isNaN(+val)||+val<=0){toast('Enter a rate above 0, in AUD per 1 '+c+'.');return;}else w[c]=+val;put('cfg/settings',{data:S});logEvent('FX '+c+' for week of '+w.week+' set to '+(val||'blank'));toast('Rate saved.');}}))))));
+  m.append(h('div',{class:'panel'},h('div',{class:'row'},h('h3',{class:'grow'},'Weekly FX rates (AUD per 1 unit)'),h('button',{class:'btn',onclick:()=>{const last=fx[0];const nw=Object.assign({},last,{week:addDays(last.week,7)});S.fx.push(nw);put('cfg/settings',{data:S});logEvent('Added FX week '+nw.week);}},'+ Add next week')),
+    h('p',{class:'meter'},(S.fxNote||'')+'. In the real system AI fills them each Monday and Finance confirms. A red box means the rate is missing, which holds any payout run that needs it. Columns cover every currency a university or RP uses. Rate edits apply straight away.'),h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Week'),...curs.map(c=>h('th',{class:'num'},c)))),tb))));
+  if(!CASE.on)m.append(h('div',{class:'panel'},h('h3',{},'Reset'),h('p',{class:'meter'},'Put every term back to Finance’s sheet of 30 Oct 2026. Applications are kept. This skips the checker, so use it only for testing.'),h('button',{class:'btn d',onclick:()=>confirmBox('Reset all terms?','All universities, groups, schemes, notices, RPs and settings go back to the starting data.','Reset terms',async()=>{const b=JSON.parse(JSON.stringify(BASELINE));for(const k of ['unis','schemes','notices','rps','groups'])await put('cfg/'+k,{rows:b[k]||[]});await put('cfg/settings',{data:b.settings});await logEvent('Reset all terms to the starting data');toast('Terms reset.');},true)},'Reset terms')));}
+const annTxt=S=>S.annuityRp==='flat'?'Flat '+S.annuityPct+'% of GSP’s line':S.annuityRp==='none'?'Not shared':'Same rate as the first year';
+function settingsEditor(){const S=JSON.parse(JSON.stringify(ST.cfg.settings));const f=(lab,el,hint)=>h('label',{},lab,el,hint?h('small',{},hint):null);const fv=(lab,el,hint)=>h('div',{class:'fld'},lab,el,hint?h('small',{},hint):null);const raw={};const err=h('p',{class:'err',role:'alert'});
+  const nf=(k,id)=>numF({id,value:S[k]==null?'':S[k],onInput:s=>raw[k]=s});
+  const body=h('div',{},h('div',{class:'form'},fv('New RP with no terms',sel({id:'st-dm',label:'New RP with no terms',value:S.defaultMode||'flat',options:[['flat','Use the default flat % and flag it'],['hold','Hold in exceptions']],onChange:v=>S.defaultMode=v})),
+    f('Default flat %',nf('defaultPct','st-dp')),f('Special lead %',nf('gspLeadPct','st-gl'),'GSP lead and enrolment-ready application'),fv('RP share after year 1',sel({id:'st-an',label:'RP share after year 1',value:S.annuityRp||'same',options:[['same','Same rate as the first year'],['flat','A flat % of GSP’s line'],['none','Not shared']],onChange:v=>S.annuityRp=v}),'Finance to confirm'),f('Flat % after year 1',nf('annuityPct','st-ap'),'Used when the share is a flat %'),
+    f('Most an RP can get (% of GSP’s line)',nf('rpCap','st-cap'),'Notices that add on stop here (proposal: 100)'),f('Region groups',h('input',{id:'st-rgp',value:rgTxt(Object.assign({},DEF_REGION_GROUPS,S.regionGroups||{})),oninput:e=>raw.regionGroups=e.target.value}),'name: country, country; … Used by rates, promotions and notices'),
+    f('Weeks after start when no census date',nf('fallbackWeeks','st-fw')),f('GST on Australian university invoices %',nf('auGst','st-ag')),
+    f('GST for GST-registered RPs %',nf('rpGst','st-rg')),f('Tax withheld by region',h('input',{id:'st-wh',value:Object.entries(S.wht||{}).map(([k,v])=>k+' '+v).join(', '),oninput:e=>raw.wht=e.target.value}),'e.g. India 2. Only applies if payouts are made from an Indian entity; to confirm'),
+    f('Days before an unrecovered clawback goes to Legal',nf('legalDays','st-ld')),
+    h('div',{class:'fld full'},tick({id:'st-sc',checked:!!S.selfCheck,label:'Let the same person check their own changes and runs (testing only)',onChange:v=>S.selfCheck=v}))),err,
+    h('div',{class:'row',style:'justify-content:flex-end'},h('button',{class:'btn p',onclick:()=>{try{['defaultPct','gspLeadPct','annuityPct','rpCap','fallbackWeeks','auGst','rpGst','legalDays'].forEach(k=>{if(raw[k]!==undefined)S[k]=num(raw[k],k==='rpCap'?'the RP cap':'a number',k==='annuityPct');});if(S.rpCap!=null&&(S.rpCap<0||S.rpCap>200))throw new Error('The RP cap is a % of GSP’s line, 0 to 200.');
+        if(raw.regionGroups!=null)S.regionGroups=txtRg(raw.regionGroups);if(raw.wht!=null){const o={};raw.wht.split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{const m=s.match(/^(.+?)\s+([\d.]+)$/);if(!m)throw new Error('Tax withheld: write region and %, e.g. India 2.');o[m[1]]=+m[2];});S.wht=o;}}catch(e){err.textContent=e.message;return;}
+      c();propose('settings',Object.assign({id:'settings',name:'Engine settings'},ST.cfg.settings),Object.assign({id:'settings',name:'Engine settings'},S));}},'Send for checking')));const c=modal('Edit engine settings',body,{wide:true});}
+
+/* ---- Checks ---- */
+function diffRows(b,a){const keys=[...new Set([...Object.keys(b||{}),...Object.keys(a||{})])].filter(k=>!['contract','fx'].includes(k));const nz=v=>v==null||v===''||(Array.isArray(v)&&!v.length)?null:v;return keys.filter(k=>JSON.stringify(nz((b||{})[k]))!==JSON.stringify(nz((a||{})[k]))).map(k=>[k,(b||{})[k],(a||{})[k]]);}
+const show=v=>v==null||v===''?'—':typeof v==='object'?(Array.isArray(v)?(v.length&&Array.isArray(v[0])?bandsToTxt(v):v.map(x=>typeof x==='object'?JSON.stringify(x):x).join(', ')):JSON.stringify(v)):String(v);
+function rChecks(m){m.append(h('h2',{},'Checks'),h('p',{class:'lead'},'Maker-checker: a change to terms or settings goes live only when a different Finance person approves it.'));
+  const list=Object.values(ST.checks).sort((a,b)=>a.at<b.at?1:-1);const wait=list.filter(c=>c.status==='waiting');
+  if(!wait.length)m.append(h('div',{class:'panel empty'},'Nothing waiting for a check.'));
+  wait.forEach(c=>{const mine=c.by===ST.me.id&&ST.me.id&&!ST.cfg.settings.selfCheck;const d=diffRows(c.before,c.after);
+    m.append(h('div',{class:'panel'},h('div',{class:'row'},h('div',{class:'grow'},h('b',{},(c.after?c.before?'Change: ':'New: ':'Delete: ')+c.itemName),h('div',{class:'meter'},KINDS[c.kind]+' · by '+nameOf(c.by)+' · '+new Date(c.at).toLocaleString())),
+      c.kind==='groups'?null:h('button',{class:'btn',onclick:()=>{UI.wi={kind:c.kind,before:c.before,after:c.after};go('whatif');}},'See the effect'),h('button',{class:'btn d',onclick:()=>decide(c,false)},'Send back'),h('button',{class:'btn p',disabled:mine,onclick:()=>decide(c,true)},'Approve')),
+      mine?h('p',{class:'meter'},'You made this change, so a different person must approve it.'):null,
+      c.after&&c.before?h('div',{class:'tw',style:'margin-top:10px'},h('table',{},h('thead',{},h('tr',{},h('th',{},'Field'),h('th',{},'Now'),h('th',{},'Proposed'))),h('tbody',{},...(d.length?d.map(([k,b,a])=>h('tr',{},h('td',{},k),h('td',{},show(b)),h('td',{},h('b',{},show(a))))):[h('tr',{},h('td',{colspan:3,class:'meter'},'No field changed.'))])))):null));});
+  const done=list.filter(c=>c.status!=='waiting');if(done.length){m.append(h('h3',{style:'margin-top:18px'},'History'));const tb=h('tbody');done.slice(0,40).forEach(c=>tb.append(h('tr',{},h('td',{},c.itemName),h('td',{},KINDS[c.kind]),h('td',{},'By '+nameOf(c.by)),h('td',{},(c.status==='approved'?'Approved by ':'Sent back by ')+nameOf(c.checkedBy)),h('td',{},pill(c.status==='approved'?'Live':'Sent back',c.status==='approved'?'p-good':'p-mute')))));m.append(h('div',{class:'tw'},h('table',{},tb)));}
+  const lg=Object.values(ST.log).sort((a,b)=>a.at<b.at?1:-1).slice(0,30);if(lg.length){m.append(h('h3',{style:'margin-top:18px'},'Activity'));m.append(h('div',{class:'tw'},h('table',{},h('tbody',{},...lg.map(l=>h('tr',{},h('td',{class:'meter',style:'white-space:nowrap'},new Date(l.at).toLocaleString()),h('td',{},nameOf(l.by)),h('td',{},l.text)))))));resolveNames(lg.map(l=>l.by));}
+  resolveNames(list.flatMap(c=>[c.by,c.checkedBy]));}
+async function decide(c,ok){c.status=ok?'approved':'rejected';c.checkedBy=ST.me.id;c.checkedAt=new Date().toISOString();
+  if(ok){if(c.kind==='settings'){const s=Object.assign({},c.after);delete s.id;delete s.name;s.fx=ST.cfg.settings.fx;await put('cfg/settings',{data:s});}
+    else{let rows=(ST.cfg[c.kind]||[]).slice();const i=rows.findIndex(x=>x.id===c.itemId);if(!c.after)rows=rows.filter(x=>x.id!==c.itemId);else if(i>=0)rows[i]=c.after;else rows.push(c.after);await put('cfg/'+c.kind,{rows});}}
+  await put('checks/'+c.id,c);await logEvent((ok?'Approved ':'Sent back ')+c.itemName);toast(ok?'Approved. It is live now.':'Sent back.');}
+
+/* ---- What-if ---- */
+function rWhatIf(m){m.append(h('h2',{},'What-if'),h('p',{class:'lead'},'Try a change to any term and see how every application in the sandbox would be paid, before anything goes live. Open an item in Setup and choose “Try in what-if”, or pick one below.'));
+  if(!UI.wiK)UI.wiK=UI.wi?UI.wi.kind:'schemes';const items=ST.cfg[UI.wiK]||[];if(!items.some(x=>x.id===UI.wiI))UI.wiI=items[0]&&items[0].id;
+  m.append(h('div',{class:'row',style:'margin-bottom:14px'},sel({id:'wi-k',label:'What to change',value:UI.wiK,options:['unis','schemes','notices','rps'].map(k=>[k,KINDS[k]]),onChange:v=>{UI.wiK=v;UI.wiI=null;render();}}),sel({id:'wi-i',label:'Item',value:UI.wiI,options:items.map(x=>[x.id,(x.id.length<6?x.id+' ':'')+x.name]),onChange:v=>UI.wiI=v}),h('button',{class:'btn',onclick:()=>editor(UI.wiK,(ST.cfg[UI.wiK]||[]).find(x=>x.id===UI.wiI))},'Edit a copy')));
+  if(!UI.wi){m.append(h('div',{class:'panel empty'},'No change being tried yet.'));return;}
+  const {kind,before,after}=UI.wi;const cfg2=JSON.parse(JSON.stringify(ST.cfg));
+  if(kind==='settings'){const s=Object.assign({},after);delete s.id;delete s.name;s.fx=cfg2.settings.fx;cfg2.settings=s;}else{let rows=cfg2[kind];const i=rows.findIndex(x=>x.id===(before||after).id);if(!after)cfg2[kind]=rows.filter(x=>x.id!==before.id);else if(i>=0)rows[i]=after;else rows.push(after);}
+  const R2=compute(cfg2,ST.apps,today());const d=diffRows(before,after);
+  m.append(h('div',{class:'panel'},h('div',{class:'row'},h('div',{class:'grow'},h('b',{},'Trying: '+(after||before).name),h('div',{class:'meter'},KINDS[kind])),h('button',{class:'btn',onclick:()=>{UI.wi=null;render();}},'Discard'),h('button',{class:'btn',onclick:()=>editor(kind,after||before)},'Adjust'),h('button',{class:'btn p',onclick:()=>{propose(kind,before,after);UI.wi=null;go('checks');}},'Send for checking')),
+    d.length?h('div',{class:'meter',style:'margin-top:8px'},'Changed: '+d.map(([k,b,a])=>k+' '+show(b)+' → '+show(a)).join(' · ')):null));
+  const per=(res)=>{const o={};Object.keys(ST.apps).forEach(id=>o[id]={ip:0,rp:0});res.ip.forEach(x=>{o[x.app].ip+=x.l.aud||0;});res.rp.forEach(x=>{o[x.app].rp+=x.audEnt||0;});return o;};
+  const A=per(RES),B=per(R2);const rows=Object.keys(ST.apps).map(id=>({a:ST.apps[id],ip0:r2(A[id].ip),ip1:r2(B[id].ip),rp0:r2(A[id].rp),rp1:r2(B[id].rp)}));const ch=rows.filter(x=>x.ip0!==x.ip1||x.rp0!==x.rp1);
+  const tot=k=>r2(rows.reduce((s,x)=>s+x[k],0));const dl=(a,b)=>{const v=r2(b-a);return h('span',{class:v>0?'diff-up':v<0?'diff-down':'meter'},v===0?'—':(v>0?'+':'')+fmt(v));};
+  m.append(h('div',{class:'kpis'},h('div',{class:'kpi'},h('span',{},'Applications affected'),h('b',{},ch.length+' of '+rows.length)),h('div',{class:'kpi'},h('span',{},'University commission (AUD)'),h('b',{},fmt(tot('ip1'))),dl(tot('ip0'),tot('ip1'))),h('div',{class:'kpi'},h('span',{},'RP commission (AUD)'),h('b',{},fmt(tot('rp1'))),dl(tot('rp0'),tot('rp1'))),h('div',{class:'kpi'},h('span',{},'GSP keeps (AUD)'),h('b',{},fmt(r2(tot('ip1')-tot('rp1')))),dl(tot('ip0')-tot('rp0'),tot('ip1')-tot('rp1')))));
+  const tb=h('tbody');(ch.length?ch:[]).forEach(x=>tb.append(h('tr',{},h('td',{},x.a.student),h('td',{class:'num'},fmt(x.ip0)),h('td',{class:'num'},fmt(x.ip1)),h('td',{class:'num'},dl(x.ip0,x.ip1)),h('td',{class:'num'},fmt(x.rp0)),h('td',{class:'num'},fmt(x.rp1)),h('td',{class:'num'},dl(x.rp0,x.rp1)))));
+  if(!ch.length)tb.append(h('tr',{},h('td',{colspan:7,class:'empty'},rows.length?'No application in the sandbox changes. Load the test scenarios to see more effects.':'There are no applications. Load the test scenarios first.')));
+  m.append(h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...['Student','University now','University after','Change','RP now','RP after','Change'].map(x=>h('th',{class:x==='Student'?'':'num'},x)))),tb)));}
+
+/* ---- Finance processes ---- */
+const PROC=[
+ {g:'Before go-live (once)',items:[
+  {t:'Check every university’s terms against its contract',who:'Finance (two people)',when:'Before go-live, then whenever a contract is signed or renewed',tab:['setup','unis'],steps:['Open each university on Setup › University terms. “What the contract says” shows the extract and the page or clause.','Check rates by course level, fee basis (net or gross of scholarship), first-year instalments, commission trigger, days to pay, cap, and contract end date.','Set the tier if the university has one: who is counted (all GSP students, per intake, per source country), the bands, and prospective or retrospective. Put universities whose students count together (Kaplan, Study Group) in one group.','Write anything unclear in Open point and ask the account manager in the Institution team.','Set Status to Checked and send for checking. A second person approves it.'],auto:'The engine prices every enrolment from these terms and raises “ready to invoice” on the trigger date.'},
+  {t:'Load RP terms',who:'Finance (Lav)',when:'Before go-live',tab:['setup','rps'],steps:['Put each RP on its scheme (2022 Retrospective, 2024 Tier, flat 70/75/80/85%) or give it its own flat %.','For a non-standard structure, add a copy of the scheme with the RP’s own bands, then point the RP to it.','Record GST registration, payout currency, Australian or local bank account. For an RP under a Master Partner, map it to the Master Partner: GSP pays the Master Partner on the Master Partner’s terms, and the RP’s own terms with the Master Partner stay outside GSP.','RPs without terms: decide whether they get the new-contract default (flat 70%) or wait in exceptions (Settings).'],auto:'Every RP line uses these terms. An RP with no terms is flagged on its first enrolment.'},
+  {t:'Load live notices and promotions',who:'Finance with country managers',when:'Before go-live',tab:['setup','notices'],steps:['One row per notice, addendum, flyer or email approval that changes what an RP is paid.','Record who it covers (listed RP IDs, or every RP in a region), the enrolment dates, destinations, universities, levels and intakes.','Record the structure: flat %, tier %, % plus a fixed amount, or a milestone lump sum.','Choose how it combines with the RP’s own terms. Usually a separate box: those enrolments do not count toward the RP’s standard tier.','Close the open points in Exceptions › Data gaps (bands cut off in the tracker, missing RP lists).'],auto:'The engine applies a notice to every enrolment that falls in it, on the enrolment date.'},
+  {t:'Bring in commission already in progress',who:'Finance with the build team',when:'Migration',tab:['ledgers',''],steps:['For every continuing student, load what the university has already paid and what the RP has already been paid, per instalment.','Load each RP’s count so far in its current tier window, so the next enrolment lands in the right band.','Load open clawbacks and amounts carried forward.','Reconcile the opening balances with Xero before the first payout run.'],auto:'Top-ups and recoveries are worked out from these paid-to-date amounts.'}]},
+ {g:'When documents change',items:[
+  {t:'A university contract is signed, renewed or varied',who:'Institution team uploads it, Finance enters it',when:'Within 2 working days of signature',tab:['setup','unis'],steps:['The account manager uploads the signed contract to the university’s record.','Finance edits the university’s terms, sets the new contract end date, and sends for checking.','Use What-if to see how the change moves amounts for current students before approving.','A second Finance person checks it against the contract and approves.'],auto:'Students enrolled before the change keep the terms in force on their enrolment date. Students continue to earn after a contract ends; new enrolments after the end date are held.'},
+  {t:'An RP signs, re-signs or changes terms',who:'RP Ops gets it signed, Finance enters it',when:'Before the RP’s next enrolment',tab:['setup','rps'],steps:['RP Ops records the signed agreement.','Finance sets the RP’s scheme or own %, GST status, payout currency, bank account type and payee.','If bank details changed, Finance verifies them; payouts to that RP are held until verified.','A second person approves.'],auto:'New enrolments use the new terms from the date they apply.'},
+  {t:'A notice, flyer, addendum or email approval is issued',who:'Approver or country manager issues it, Finance enters it',when:'Before the first enrolment it covers',tab:['setup','notices'],steps:['Get the source document and the approver.','Enter the notice: who, when (enrolment dates), where, structure, and how it combines.','Use What-if on the notice to check the effect on current students.','Send for checking. Nothing changes for RPs until it is approved.'],auto:'Milestone bonuses are due once GSP has been paid for the required number of enrolments, even after the notice ends.'},
+  {t:'Change a standard tier scheme',who:'Finance',when:'When leadership approves',tab:['setup','schemes'],steps:['Edit the scheme’s bands, counting window or retrospective rule.','Check the effect in What-if.','Send for checking.'],auto:'Every RP on the scheme moves together. Use a separate scheme for one RP’s own bands.'}]},
+ {g:'Every week',items:[
+  {t:'Confirm the weekly FX rates (Monday)',who:'Finance',when:'Every Monday',tab:['setup','settings'],steps:['Rates are filled by AI for each currency.','Finance confirms or corrects them.'],auto:'A payout run is held if a currency it needs has no rate for the week.'},
+  {t:'Thursday payout run',who:'Finance: one person prepares, another approves',when:'Every Thursday',tab:['payout',''],steps:['Open the payout run. It lists every RP line where GSP has received the university’s money, plus top-ups and recoveries.','Clear any hold (missing FX rate) and anything in Exceptions that blocks payment.','Prepare the run. A second person reviews it and approves payment of the invoices the RPs have approved.','Approval creates bills in Xero. Pay batch 1 (Australian accounts) and batch 2 (local accounts).','Preparing the run creates an invoice for each RP on its behalf. The RP approves it, or disputes it with a reason, in the RP portal. Disputed lines stay due and go to the Finance queue.'],auto:'The engine nets recoveries against new commission per RP; a negative balance is carried forward. GST is added for GST-registered RPs and tax is withheld where set.'}]},
+ {g:'Every day',items:[
+  {t:'Work the exceptions',who:'Finance queue',when:'Within 2 working days',tab:['exceptions',''],steps:['No terms for an RP or university, a missing rate, or an expired contract: add or fix the terms.','Student type missing: this goes to the application’s admission officer.','Payout run on hold: enter the missing FX rate.','Clawback not recovered in 90 days: forward to Legal.'],auto:'Each exception clears itself once the cause is fixed.'},
+  {t:'Invoice universities',who:'Finance',when:'Once a line is ready to invoice',tab:['ledgers',''],steps:['Lines become “ready to invoice” on their trigger date (census, fees paid, or start + 4 weeks).','Check the student is still enrolled (Admissions confirms enrolment after census).','Approve the invoice in GSP; it is created and sent from Xero (GST at 10% for Australian universities only).'],auto:'The amount, GST and due date come from the university’s terms.'},
+  {t:'Record university payments',who:'Finance',when:'When money arrives',tab:['simulate',''],steps:['Match each payment in Xero to the student lines it covers.','A lump sum (a university bonus or tier true-up) is recorded on the university, not split per student.','Anything that cannot be matched goes to exceptions.'],auto:'Recording payment makes the RP lines payable and counts the student toward the RP’s tier and any milestone.'},
+  {t:'Confirm continuing students for annuity',who:'Finance with Admissions',when:'Each study period, after census',tab:['ledgers',''],steps:['For universities that pay annuity (Kaplan colleges, UP Education, AIS), check which continuing students are still enrolled this period. Most universities send a list or a commission statement.','Record withdrawals and leave of absence so later periods stop.','Raise the annuity invoice, or match the university’s statement, then record the payment.','The RP’s share is paid in the next Thursday run.'],auto:'Annuity lines are created for every period of the course and become ready to invoice on their date. Filter the Ledgers by type to see annuity earned and still to come.'},
+  {t:'Chase overdue university payments',who:'Finance with the account manager',when:'After the university’s payment terms',tab:['ledgers',''],steps:['Lines past their due date show as “Payment overdue”.','Chase the university; ask the account manager to step in if needed.'],auto:'A task is raised on the due date.'}]},
+ {g:'When something happens to a student',items:[
+  {t:'Withdrawal, refund and clawback',who:'Admissions records it, Finance handles the money',when:'As it happens',tab:['simulate',''],steps:['Admissions records the withdrawal date and whether there was a refund.','Before a line’s trigger date: nothing is payable. After it, with a refund: the university recovers its commission.','The RP’s share is recovered from its next payouts; the credit stays on the student’s own line.','Not recovered in 90 days: forward to Legal.'],auto:'The engine recalculates every line and the tiers it affects.'},
+  {t:'Override an amount',who:'Anyone with the Finance role',when:'Rarely',tab:['simulate',''],steps:['Open the student, choose Override on the RP line, enter the amount and confirm.','No reason is needed. The override is logged with the person’s name.'],auto:'The override replaces the calculated amount until it is removed.'}]},
+ {g:'Every month and period end',items:[
+  {t:'Month-end reconciliation with Xero',who:'Finance (Cady Gan owns Xero)',when:'Month end',tab:['ledgers',''],steps:['Tie university receipts and RP payouts in GSP to Xero.','Investigate differences before the financial month closes.'],auto:'Ledgers in GSP are the source for the reconciliation.'},
+  {t:'Close a tier period',who:'Finance',when:'End of each counting window (calendar year, Apr–Mar, intake)',tab:['ledgers',''],steps:['Check RP top-ups from retrospective tiers are paid in the next run.','Invoice universities for their own tier true-ups and bonuses (for example London Met, UniSC, Federation).','The count resets for the new window.'],auto:'Retrospective top-ups are worked out automatically as each student is paid for.'},
+  {t:'Review contracts and notices that are ending',who:'Finance with the Institution team and country managers',when:'Monthly',tab:['setup','unis'],steps:['Universities with contracts ending in the next 90 days get a renewal task for their account manager.','Notices ending this month: confirm whether they are extended.'],auto:'New enrolments after a contract ends are held in exceptions.'}]}];
+function rProcesses(m){m.append(h('h2',{},'Finance processes'),h('p',{class:'lead'},'What Finance does to keep commissions automatic: enter the terms once from contracts, agreements and notices, then run the weekly and daily jobs. Everything else is calculated. Each process links to where you do it in this sandbox.'));
+  const nav=h('div',{class:'sub'},...PROC.map((g,i)=>h('a',{href:'#proc-'+i,class:'chip',style:'text-decoration:none;color:var(--ink)',onclick:e=>{e.preventDefault();document.getElementById('proc-'+i).scrollIntoView({behavior:'smooth'});}},g.g)));m.append(nav);
+  PROC.forEach((g,i)=>{m.append(h('h3',{id:'proc-'+i,style:'margin-top:22px;font-family:var(--f-head);font-size:17px'},g.g));
+    g.items.forEach(p=>m.append(h('div',{class:'panel'},h('div',{class:'row'},h('b',{class:'grow',style:'font-size:15px'},p.t),h('button',{class:'btn sm',onclick:()=>{if(p.tab[1])UI.setup=p.tab[1];go(p.tab[0]);}},'Open in sandbox')),
+      h('div',{class:'meter',style:'margin:2px 0 8px'},p.who+' · '+p.when),h('ol',{style:'margin:0 0 8px;padding-left:20px'},...p.steps.map(s=>h('li',{style:'margin:3px 0'},s))),h('div',{class:'note info',style:'margin:0'},h('b',{},'Automatic: '),p.auto))));});}
+
+/* ---- Rules ---- */
+function rRules(m){const S=ST.cfg.settings;const sec=(t,items)=>[h('h3',{},t),h('ol',{},...items.map(x=>h('li',{},x)))];const P=t=>h('span',{},t,' ',pill('Proposal','p-warn'));
+  m.append(h('div',{class:'rules panel'},h('h2',{},'How the engine works'),h('p',{class:'lead'},'The rules the sandbox applies, in plain language, with Finance’s answers of 30 Oct 2026 and the commissions team’s scenarios of 2 Nov 2026. Choices the sheet and the slice 5 PRD don’t settle are marked Proposal. The same engine runs the GSP portal.'),
+    ...sec('University side (what GSP earns)',['Each university’s terms are versioned: an enrolment uses the version in force on its intake start (S5-2). An intake before the agreement starts or after it ends is held.','The base is the application’s final tuition fee (first year, after any scholarship, as the CoE shows it). A university that pays on the gross fee adds the scholarship on the application back.',
+      'The rate comes from the level (sector) table, or from a rate row keyed by any mix of level, course, campus, student region (a country or a region group such as SEA) and study period. The row that names the most of them wins.',P('Two equally specific rows: the first listed wins, and the exception list flags it.'),
+      'Commission is paid once a year, each semester, trimester or term, per unit, or on each fee payment, and is chargeable for the whole course, a number of years, semesters, terms or units, or the fees paid up to a limit. Each period has its own date (the application’s census date for it when it holds one) and its own fee (the year’s fee on the application; the first year’s when it holds none, flagged).',
+      'A line becomes due on the commission trigger: the census date for most Australian universities; if no census date is known, start + '+S.fallbackWeeks+' weeks.',
+      'University tiers count GSP students by intake (never the census month), per calendar year, academic year (its own start month), financial year or intake, per university or across a university group. Every member of a group counts toward the group, with or without a tier of its own.',P('A college tier and a group tier on the same student: the higher rate wins; they do not stack.'),P('A tier replaces the level rate; against a more specific rate row (course, campus, region, period) the higher of the two wins.'),
+      'Retrospective tiers: when the band goes up, GSP invoices the university a top-up for lines already billed. The RP’s matching top-up is paid only once GSP has received it.',
+      'University promotions match on the intake start and can be by region, intake or academic year, course or sector, level or campus. A promotion either wins when it is higher, replaces the rate, or adds an additional commission line.',P('Additional commission is shared with the RP at its rate; bonuses (per band, per student, or once N students enrol) are GSP’s alone.'),
+      'Each university pays in its own currency; the AUD view uses the week’s rate for the trigger date. Australian universities are invoiced with '+S.auGst+'% GST; others without. Amounts are rounded half up to the cent after every step (S5-9).']),
+    ...sec('RP side (what GSP pays)',['RP commission is a % of GSP’s line from the university. University bonuses are not shared.','Which terms apply is decided by the intake start: the scheme, own rate or notice in force then.',
+      'Special lead: when GSP gave the RP a qualified lead AND the RP provided an enrolment-ready application, the RP gets a flat '+S.gspLeadPct+'% and nothing else applies; the student does not count toward the RP’s tier. A GSP lead that is not enrolment-ready gets the RP’s standard terms and is flagged.',
+      'Otherwise a notice that covers the enrolment applies; a notice listing the RP by ID beats a region-wide one.',P('Two notices of the same kind cover one enrolment: the higher rate wins.'),'Notices match the RP’s sales region (region groups such as SEA work), the intake (dates, or named intakes such as July 2026), destinations, universities and levels.',
+      'Most notices are a separate box: their enrolments do not count toward the RP’s standard tier. A notice can instead be “highest wins” or “adds on”.',P('Adds on stops at '+(S.rpCap==null?100:S.rpCap)+'% of GSP’s line: an RP is never paid more than GSP earns on the line.'),'A notice can pay a % of the student’s tuition fee, on top of the RP’s share (or instead of it, as a box), once GSP has been paid.',
+      'An RP’s tier counts all its branches together, by intake, and only students GSP has received commission for.','Retrospective: when a higher band is reached, earlier students in the window are topped up. Prospective (the default when a document is silent): only new students get the higher rate.',
+      'A withdrawal with a refund does not drop the band at once: the tier is re-worked at the end of the period (Finance’s assumption, S5-15), and the RP page says a rework is pending.',
+      'Milestone bonuses are due once GSP has been paid for the required number of enrolments, even after the notice ends.','After year 1: '+annTxt(S)+'. An RP can have its own rate. Lines after year 1 do not count toward tiers or milestones. (Finance to confirm.)']),
+    ...sec('Paying RPs',['An RP is paid only after GSP receives the university’s money, and only its share of what GSP has received.','Payout runs happen every Thursday. All conversion goes through AUD with the week’s rates (for example GBP × the GBP rate = AUD, ÷ the INR rate = INR); fixed AUD amounts are paid in AUD.','Australian bank accounts are paid in one batch, local accounts in another.','GST-registered RPs get '+S.rpGst+'% GST added. Tax withheld: '+(Object.entries(S.wht||{}).map(([k,v])=>k+' '+v+'%').join(', ')||'none')+'.','An RP mapped to a Master Partner is paid through it, on the Master Partner’s own terms; its tier counts all its RPs together.','GSP creates each RP’s invoice from the payout run; the RP approves or disputes it. Only approved invoices are paid.','A run is held if a needed FX rate is missing for the week.']),
+    ...sec('Corrections',['A withdrawal before a line’s trigger date means nothing is payable for it.','After a refund, the university recovers its commission and GSP recovers the RP’s share from later payouts. The credit shows on the original student.','Not recovered within '+S.legalDays+' days: forwarded to Legal.','Anyone in Finance can override an amount with confirmation; it is logged.']),
+    ...sec('Controls',['Every change to terms or settings needs a second Finance person to approve it.','Every payout run is prepared by one person and approved by another.','Exceptions are worked within 2 working days.'])));}
+
+/* ---- boot ---- */
+async function boot(){const hsh=(location.hash||'').slice(1);if(TABS.some(t=>t[0]===hsh))UI.tab=hsh;window.addEventListener('hashchange',()=>{const k=location.hash.slice(1);if(TABS.some(t=>t[0]===k)&&k!==UI.tab){UI.tab=k;render();}});render();
+  let db=null;try{db=window.claude&&window.claude.use?await window.claude.use('db'):null;}catch(e){db=null;}
+  try{USER=window.claude&&window.claude.use?await window.claude.use('user'):null;if(USER){const me=await USER.me();ST.me={id:me&&me.id||null,name:me&&me.name||'You'};if(me&&me.id&&me.name)ST.names[me.id]=me.name;}}catch(e){}
+  if(!db){ST.mode='local';ST.cfg=JSON.parse(JSON.stringify(BASELINE));render();return;}
+  DB=db;let first={cfg:false,apps:false};const ready=()=>{if(first.cfg&&first.apps&&ST.mode==='loading'){ST.mode='db';}render();};
+  const fail=e=>{if(e&&(e.code==='revoked'||e.code==='not_granted')){DB=null;ST.mode='local';if(!ST.cfg)ST.cfg=JSON.parse(JSON.stringify(BASELINE));render();}};
+  db.collection('cfg').onSnapshot(s=>{const c={};s.docs.forEach(d=>{c[d.id]=d.data();});const T=tgt();if(c.unis&&c.schemes&&c.notices&&c.rps&&c.settings)T.cfg={unis:c.unis.rows,schemes:c.schemes.rows,notices:c.notices.rows,rps:c.rps.rows,groups:c.groups?c.groups.rows:(BASELINE.groups||[]),settings:c.settings.data};else T.cfg=null;T.clock=c.clock?c.clock.date:null;first.cfg=true;ready();},fail);
+  db.collection('apps').onSnapshot(s=>{const T=tgt();T.apps={};s.docs.forEach(d=>T.apps[d.id]=d.data());first.apps=true;ready();},fail);
+  db.collection('checks').onSnapshot(s=>{const T=tgt();T.checks={};s.docs.forEach(d=>T.checks[d.id]=d.data());render();},fail);
+  db.collection('runs').onSnapshot(s=>{const T=tgt();T.runs={};s.docs.forEach(d=>T.runs[d.id]=d.data());render();},fail);
+  db.collection('log').orderBy('at','desc').limit(60).onSnapshot(s=>{const T=tgt();T.log={};s.docs.forEach(d=>T.log[d.id]=d.data());render();},fail);}
+let _rt=null;const _render=render;render=function(){if(_rt)return;_rt=requestAnimationFrame(()=>{_rt=null;const y=window.scrollY;const fe=document.activeElement&&document.activeElement.id;_render();if(fe){const el=document.getElementById(fe);if(el&&el.focus)el.focus({preventScroll:true});}window.scrollTo(0,UI.top?0:y);UI.top=false;});};
+boot();
+</script>
+</body>
+</html>

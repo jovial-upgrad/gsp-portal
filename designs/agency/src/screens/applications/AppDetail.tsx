@@ -7,7 +7,7 @@ import { UPLOAD } from '../../data/uploads';
 import { setLiveStatus, setLiveFlags, useLiveAll, finalFeeOf } from '../../data/live';
 import { NameDialog } from '../../gsp/applications/NameDialog';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AppCommission } from '../../finance/AppCommission';
+import { AppCommission, earnEstimate } from '../../finance/AppCommission';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
@@ -21,7 +21,6 @@ import {
   STATUS,
   clock,
   courseOf,
-  earnFor,
   gspContact,
   arriveAt,
   docLines,
@@ -113,7 +112,7 @@ export function AppDetail({
   const gsp = gspContact(a);
   const counsellor = team.find((m) => m.id === s.counsellor);
   useLiveAll(); // the final tuition fee prices the base commission
-  const earn = earnFor(a);
+  const earn = earnEstimate(a);
   const [withdraw, setWithdraw] = useState(false);
   const needsRef = useRef<HTMLElement>(null);
   const timers = useRef<number[]>([]);
