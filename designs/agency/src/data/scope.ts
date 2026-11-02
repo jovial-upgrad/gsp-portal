@@ -9,19 +9,27 @@ import { OWNER_WORD } from './owners';
  */
 import { useSyncExternalStore } from 'react';
 import { staffByEmail } from './staff';
-import { setAdminCfg } from '../admin/data/store';
+import { adminCfg, setAdminCfg } from '../admin/data/store';
 
 /** The portal looking: GSP · Admissions, Recruitment, BAP, Finance, Institution or Admin. */
-export type Viewer = 'gsp-admissions' | 'gsp-recruitment' | 'gsp-bap' | 'gsp-finance' | 'gsp-institution' | 'gsp-admin';
+export type Viewer = 'gsp-admissions' | 'gsp-recruitment' | 'gsp-bap' | 'gsp-finance' | 'gsp-institution' | 'gsp-admin' | 'gsp-viewonly';
 export type Scope = { viewer: Viewer; email: string; /** The person's sales regions, from the staff list ('Global' covers all). */ regions: string[]; role: string; /** Looking at every region, read only. */ all?: boolean };
 
 let scope: Scope = { viewer: 'gsp-admissions', email: '', regions: [], role: '' };
 const subs = new Set<() => void>();
 /** Set by each GSP portal as it draws. */
 export function setScope(viewer: Viewer, email: string) {
-  if (scope.viewer === viewer && scope.email === email) return;
-  const st = staffByEmail(email);
-  scope = { viewer, email, regions: st?.regions ?? [], role: st?.role ?? '' };
+  // slice 1: the person's role and regions as Admin › GSP users has them now (a change applies from their next request)
+  let u: { role: string; regions: string[] } | undefined;
+  try {
+    u = adminCfg().users.find((x) => x.email.toLowerCase() === email.toLowerCase());
+  } catch {
+    u = undefined;
+  }
+  const st = u ?? staffByEmail(email);
+  const next = { viewer, email, regions: st?.regions ?? [], role: st?.role ?? '' };
+  if (scope.viewer === viewer && scope.email === email && scope.role === next.role && scope.regions.join() === next.regions.join()) return;
+  scope = next;
 }
 export const getScope = () => scope;
 export const useScope = () => useSyncExternalStore((f) => (subs.add(f), () => subs.delete(f)), () => scope);
@@ -53,7 +61,8 @@ export const isMine = (region: string | undefined, s: Scope = scope) => !isIsola
  * region (no rules yet); `s.regions` holds the person's regions for the rules to use.
  */
 export function inRegion(region: string | undefined, s: Scope = scope): boolean {
-  return !!s.all || isMine(region, s);
+  // decided 1 Nov (PRD slice 1): no switch to see other regions, so `all` no longer opens them
+  return isMine(region, s);
 }
 /** A list cut to what the signed-in person sees, by each record's sales region. */
 export const byRegion = <T,>(list: T[], regionOf: (x: T) => string | undefined, s: Scope = scope) => list.filter((x) => inRegion(regionOf(x), s));

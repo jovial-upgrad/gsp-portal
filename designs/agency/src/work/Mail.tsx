@@ -236,7 +236,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
   const apps = s.records.filter((x) => x.type === 'Application' && inScope(user, x, s.roles));
   const cands = (t.candidates || []).map((id) => recordById(s, id)).filter(Boolean);
   const owner = ownerOf(t);
-  const people = s.users.filter((u) => ['admission', 'admission-ops', 'finance', 'recruitment-ops'].includes(u.role));
+  const people = s.users.filter((u) => ['admission', 'global-ops', 'finance', 'rp-ops'].includes(u.role));
   const canSend = mb.sendAs?.includes(role.id) || role.id === 'admin';
   const dupes = t.messages.filter((m, i) => i > 0 && m.body === t.messages[i - 1].body).length;
   const shown = t.messages.filter((m, i) => !(i > 0 && m.body === t.messages[i - 1].body));
@@ -279,7 +279,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
       if (rule.key === 'conditions') setLiveFlags(r.id, { condsSent: false });
       toast(`${name}: status moved to “${rule.status}”.`);
     } else if (rule.act === 'task' || rule.act === 'finance') {
-      const qid = rule.act === 'finance' ? 'q-finance' : queueById(s, regionQueue(r.region)) ? regionQueue(r.region) : 'q-adm-ops';
+      const qid = rule.act === 'finance' ? 'q-finance' : queueById(s, regionQueue(r.region)) ? regionQueue(r.region) : 'q-adm-global';
       const what = t.fields['Asked for'] ? `Get from the RP: ${t.fields['Asked for']}` : rule.act === 'finance' ? `Match ${t.uni || 'the'} remittance${t.fields.Amount ? ` (${t.fields.Amount})` : ''}` : rule.name;
       const title = rule.act === 'finance' ? what : `${what} – ${name}`;
       finish(`Task raised in ${(queueById(s, qid) || {}).name}: ${title}.`, (d) => {

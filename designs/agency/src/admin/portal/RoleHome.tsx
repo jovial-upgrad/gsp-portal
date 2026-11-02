@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { useAdmin } from '../data/store';
+import { setAdminCfg, useAdmin } from '../data/store';
+import { LINK_DAYS } from '../data/config';
+import { ago, istDay, istHour } from '../config/states';
+import { GSP_USER } from '../user';
 import { useStore } from '../../work/store';
 import { isOpen, type Application } from '../../data/applications';
 import { Pill, Section, Tiles, type Tone } from '../../institution/records/parts';
@@ -15,7 +18,6 @@ const greeting = () => {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 const DAY = 86_400_000;
-const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 type Props = { variant: Exclude<Variant, 'finance'>; first: string; me: string; db: Db; apps: Application[]; open: (t: Target) => void; go: (k: PortalSection) => void };
 
@@ -106,7 +108,7 @@ function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
   );
 }
 
-/** BAP (Recruitment Ops): the new RPs to verify, and the ones whose documents went back to them. */
+/** BAP (RP Ops): the new RPs to verify, and the ones whose documents went back to them. */
 function BapHome({ first, db, open, go }: Props) {
   const toCheck = db.rps.filter((r) => r.docs.some((d) => d.state === 'With BAP'));
   const toApprove = db.rps.filter(canApprove);
@@ -142,67 +144,120 @@ function BapHome({ first, db, open, go }: Props) {
   );
 }
 
-type Warn = { id: string; tone: Tone; title: string; text: string; go: PortalSection; action: string };
+type Warn = { id: string; title: string; text: string; go: PortalSection; action: string; act?: () => void };
 
-/** Admin: the settings that need a look, with a way to each. */
-function AdminHome({ first, db, go }: Props) {
+/**
+ * Admin home (PRD slice 1): where GSP · Admin lands after sign-in, all worked out from the pages below; nobody
+ * types it. Tiles (GSP users, Sales regions, Application documents), Needs a look (one row per item, each with the
+ * button that fixes it) and Recent changes (the last 3 Change entries). View Only sees it without the buttons that
+ * change something.
+ */
+function AdminHome({ first, go, variant }: Props) {
   const cfg = useAdmin();
-  const work = useStore() as { tasks: { queue: string; status: string }[] };
+  const work = useStore() as { tasks: { queue: string; status: string }[]; queues: { id: string; name: string; leader: string; members: string[] }[] };
+  const canEdit = variant !== 'viewonly';
   const now = Date.now();
-  const today = iso(now);
+  const today = istDay(now);
   const warns: Warn[] = [];
-  const empty = cfg.queues.filter((q) => !q.members.length && !q.lead);
-  const noLead = cfg.queues.filter((q) => !q.lead);
-  const noMembers = cfg.queues.filter((q) => !q.members.length && q.lead);
-  if (empty.length) warns.push({ id: 'q-empty', tone: 'bad', title: `${empty.length === 1 ? '1 queue has' : `${empty.length} queues have`} no one in it`, text: empty.map((q) => q.name).join(', '), go: 'queues', action: 'Queues' });
-  if (noMembers.length) warns.push({ id: 'q-members', tone: 'you', title: `${noMembers.length === 1 ? '1 queue has' : `${noMembers.length} queues have`} only a leader`, text: `${noMembers.map((q) => q.name).join(', ')}: every task goes to the leader.`, go: 'queues', action: 'Queues' });
-  if (noLead.length && !empty.length) warns.push({ id: 'q-lead', tone: 'you', title: `${noLead.length === 1 ? '1 queue has' : `${noLead.length} queues have`} no leader`, text: noLead.map((q) => q.name).join(', '), go: 'queues', action: 'Queues' });
-  // this week's exchange rates: Finance prices a line at the rate of the week it's paid
-  const week = cfg.fxWeeks.find((w) => w.week <= today && today < iso(Date.parse(w.week + 'T00:00:00Z') + 7 * DAY));
-  const codes = cfg.rates.map((r) => r.code).filter((c) => c !== 'AUD');
-  const missing = week ? codes.filter((c) => week[c] === undefined || week[c] === '' || Number.isNaN(Number(week[c]))) : codes;
-  if (!week) warns.push({ id: 'fx', tone: 'bad', title: 'No exchange rates for this week', text: 'Finance can’t price this week’s lines until the week’s rates are in.', go: 'currency', action: 'Currency exchange' });
-  else if (missing.length) warns.push({ id: 'fx', tone: 'you', title: `This week’s rates are missing ${missing.join(', ')}`, text: `Week of ${week.week}.`, go: 'currency', action: 'Currency exchange' });
-  const fallback = work.tasks.filter((t) => t.queue === 'q-fallback' && t.status === 'open');
-  if (fallback.length) warns.push({ id: 'fb', tone: 'bad', title: `${fallback.length === 1 ? '1 task' : `${fallback.length} tasks`} in Fallback`, text: 'No queue matched them, or their queue was removed. Assign them, or fix the task rule.', go: 'mywork', action: 'My work' });
-  const noContact = cfg.regions.filter((r) => !r.contact && r.name !== 'Global');
-  if (noContact.length) warns.push({ id: 'reg', tone: 'you', title: `${noContact.length === 1 ? '1 sales region has' : `${noContact.length} sales regions have`} no Admissions contact`, text: noContact.map((r) => r.name).join(', '), go: 'regions', action: 'Sales regions' });
-  const noBdm = db.rps.filter((r) => !r.bdm && !['Rejected'].includes(r.status));
-  if (noBdm.length) warns.push({ id: 'bdm', tone: 'you', title: `${noBdm.length === 1 ? '1 recruitment partner has' : `${noBdm.length} recruitment partners have`} no BDM`, text: `${noBdm.slice(0, 4).map((r) => r.name).join(', ')}${noBdm.length > 4 ? '…' : ''}: check BDM assignment covers their city.`, go: 'bdm', action: 'BDM assignment' });
+  // a login link that expires within 1 day, or has expired
+  for (const u of cfg.users.filter((x) => x.status === 'Link sent' && x.sentAt)) {
+    const left = (u.sentAt ?? 0) + LINK_DAYS * DAY - now;
+    if (left < DAY)
+      warns.push({
+        id: `link-${u.id}`,
+        title: left <= 0 ? `${u.name}’s login link has expired` : `${u.name}’s login link expires within a day`,
+        text: `${u.email} · sent ${ago(u.sentAt, now)}`,
+        go: 'users',
+        action: 'Resend login email',
+        act: () => {
+          setAdminCfg((c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, sentAt: Date.now() } : x)), log: [{ id: `l${Date.now()}`, at: Date.now(), who: GSP_USER.name, role: 'Admin', area: 'Create roles', text: `Resent the login email to ${u.name} (${u.email}); the old link stopped working`, kind: 'change' }, ...c.log] }));
+        },
+      });
+  }
+  // this week's exchange rates: not saved, or older than 7 days
+  const week = cfg.fxWeeks.find((w) => w.week <= today && today < istDay(Date.parse(w.week + 'T00:00:00Z') + 7 * DAY));
+  const stale = cfg.rates.filter((r) => r.code !== 'AUD' && now - r.updated > 7 * DAY);
+  if (!week) warns.push({ id: 'fx', title: 'This week’s exchange rates aren’t saved', text: 'Last week’s rates apply until you save.', go: 'currency', action: 'Currency exchange' });
+  else if (stale.length) warns.push({ id: 'fx', title: `${stale.length === 1 ? '1 exchange rate is' : `${stale.length} exchange rates are`} older than 7 days`, text: stale.map((r) => r.code).join(', '), go: 'currency', action: 'Currency exchange' });
+  // a user with no sales region
+  for (const u of cfg.users.filter((x) => x.status !== 'Deactivated' && !x.regions.length)) warns.push({ id: `nr-${u.id}`, title: `${u.name} has no sales region`, text: `${u.role}: sees no records until given one.`, go: 'users', action: 'Edit' });
+  // slice 4's queue warnings, from Admin › Work's queues
+  const qs = work.queues ?? [];
+  const noMembers = qs.filter((q) => q.id !== 'q-fallback' && !q.leader && !q.members.length);
+  const onlyLeader = qs.filter((q) => q.id !== 'q-fallback' && q.leader && !q.members.length);
+  if (noMembers.length) warns.push({ id: 'q-empty', title: `${noMembers.length === 1 ? '1 queue has' : `${noMembers.length} queues have`} no members`, text: noMembers.map((q) => q.name).join(', '), go: 'work-sla', action: 'Queues' });
+  if (onlyLeader.length) warns.push({ id: 'q-lead', title: `${onlyLeader.length === 1 ? '1 queue has' : `${onlyLeader.length} queues have`} only a leader`, text: `${onlyLeader.map((q) => q.name).join(', ')}: every task goes to the leader.`, go: 'work-sla', action: 'Queues' });
+  const inAdmin = work.tasks.filter((t) => t.queue === 'q-fallback' && t.status === 'open');
+  if (inAdmin.length) warns.push({ id: 'q-admin', title: `${inAdmin.length === 1 ? '1 task' : `${inAdmin.length} tasks`} in the Admin queue`, text: 'Work that no queue took, or that escalated to Admin.', go: 'mywork', action: 'My work' });
+  // a daily job that failed 3 runs in a row (slice 4's job runs, in Logs)
+  const jobs = [...new Set(cfg.log.filter((l) => l.kind === 'job').map((l) => l.text))];
+  for (const j of jobs) {
+    const runs = cfg.log.filter((l) => l.kind === 'job' && l.text === j).sort((a, b) => b.at - a.at).slice(0, 3);
+    if (runs.length === 3 && runs.every((r) => r.error)) warns.push({ id: `job-${j}`, title: `${j} failed 3 runs in a row`, text: runs[0].error ?? '', go: 'logs', action: 'Logs' });
+  }
+  const notActive = cfg.users.filter((u) => u.status !== 'Active').length;
   const off = cfg.docRules.filter((r) => !r.on).length;
+  const recent = cfg.log.filter((l) => l.kind === 'change').sort((a, b) => b.at - a.at).slice(0, 3);
+  const h = istHour(now);
   return (
     <div className="ipage ihome">
-      <Head first={first} lead="GSP’s settings at a glance: what needs a look before it holds anyone up." />
+      <header className="stu__head">
+        <div className="stu__titles">
+          <h1 className="page__title">
+            {h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}, {first}
+          </h1>
+        </div>
+      </header>
       <Tiles
         label="Settings"
         value=""
-        onPick={() => undefined}
+        onPick={(k) => k && go(k as PortalSection)}
         items={[
-          { key: 'warn', label: 'Need a look', sub: 'Below', tone: warns.length ? 'bad' : 'ok', n: warns.length },
-          { key: 'users', label: 'GSP users', sub: `${cfg.users.filter((u) => u.status !== 'Active').length} not active`, tone: 'gsp', n: cfg.users.length },
-          { key: 'queues', label: 'Queues', sub: `${noLead.length} without a leader`, tone: 'uni', n: cfg.queues.length },
-          { key: 'docs', label: 'Document rules', sub: `${off} switched off`, tone: 'grey', n: cfg.docRules.length },
+          { key: 'users' as const, label: 'GSP users', sub: `${notActive} not active`, tone: 'gsp', n: cfg.users.length },
+          { key: 'regions' as const, label: 'Sales regions', sub: '3 of them system regions', tone: 'uni', n: cfg.regions.length },
+          { key: 'documents' as const, label: 'Application documents', sub: `${off} switched off`, tone: 'grey', n: cfg.docRules.length },
         ]}
       />
-      <Section title="Needs a look" note={warns.length ? 'Each opens the setting to fix it.' : 'Every setting is in order.'} id="ah-warn">
-        {warns.length > 0 && (
-          <ul className="ilist">
-            {warns.map((w) => (
-              <li key={w.id} className="ilist__item">
-                <Icon name="alert" size={18} />
-                <span className="ilist__t">
-                  {w.title}
-                  <span className="irow__sub">{w.text}</span>
-                </span>
-                <Pill tone={w.tone}>{w.tone === 'bad' ? 'Fix now' : 'Check'}</Pill>
-                <Button size="sm" variant="secondary" onClick={() => go(w.go)}>
-                  {w.action}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      <div className="shome__grid">
+        <Section title="Needs a look" id="ah-warn">
+          {warns.length ? (
+            <ul className="ilist">
+              {warns.map((w) => (
+                <li key={w.id} className="ilist__item">
+                  <Icon name="alert" size={18} />
+                  <span className="ilist__t">
+                    {w.title}
+                    <span className="irow__sub">{w.text}</span>
+                  </span>
+                  {(canEdit || !w.act) && (
+                    <Button size="sm" variant="secondary" onClick={() => (w.act && canEdit ? w.act() : go(w.go))}>
+                      {canEdit ? w.action : 'Open'}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">Nothing needs a look.</p>
+          )}
+        </Section>
+        <Section title="Recent changes" id="ah-recent" action={<Button size="sm" variant="secondary" onClick={() => go('logs')}>Open logs</Button>}>
+          {recent.length ? (
+            <ul className="cfg__recent">
+              {recent.map((l) => (
+                <li key={l.id}>
+                  <span>{l.text}</span>
+                  <span className="irow__sub">
+                    {l.who} · {l.area} · {ago(l.at, now)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No changes yet.</p>
+          )}
+        </Section>
+      </div>
     </div>
   );
 }

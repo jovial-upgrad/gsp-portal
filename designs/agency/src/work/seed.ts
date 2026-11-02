@@ -21,7 +21,7 @@ export const CALENDARS = [
   // Jovial, 1 Nov (Queue assignment A17): everyone works Monday to Friday, except Bangladesh, Sunday to Thursday.
   // Working hours 9:30 to 18:30 local: SLAs in hours count only these.
   // the seed for Work › Working days (work/calendars.ts), where they're edited
-  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], start: '09:30', end: '18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America and Europe', 'China', 'Rest of world', 'Direct', 'Global'],
+  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], start: '09:30', end: '18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America & Europe', 'China', 'Rest of world', 'Direct', 'Global'],
     holidays: [['2026-11-08', 'Diwali'], ['2026-12-25', 'Christmas'], ['2027-01-01', 'New Year’s Day']] },
   { id: 'cal-sun-thu', name: 'Sunday to Thursday', days: [0, 1, 2, 3, 4], start: '09:30', end: '18:30', regions: ['Bangladesh'],
     holidays: [['2026-12-16', 'Victory Day'], ['2026-12-25', 'Christmas']] },
@@ -47,6 +47,12 @@ export const DEFAULT_PERSONA = {
   'gsp-finance': 'u-suman1-verma',
   'gsp-recruitment': 'u-saurabh-chaudhary',
   'gsp-bap': 'u-garima-bhardwaj',
+  // slice 1 (2 Nov): the new roles in the Role menu
+  'gsp-global-ops': 'u-rhea-menon',
+  'gsp-ip-ops': 'u-kabir-sethi',
+  'gsp-view-only': 'u-anaya-iyer',
+  'rp-branch-admin': 'u-anita',
+  'rp-counsellor': 'u-karthik',
 };
 
 /* Kinds of work: what can land in a queue, with its default SLA in working hours (a working day is 9). */
@@ -58,7 +64,6 @@ export const KINDS = [
   { id: 'k-gsp-check', name: 'GSP check (finance and background)', record: 'Application', sla: 18 },
   { id: 'k-payment', name: 'Check payment proof', record: 'Application', sla: 9 },
   { id: 'k-enrol', name: 'Confirm enrolment', record: 'Application', sla: 63 },
-  { id: 'k-qc', name: 'Quality check before submission', record: 'Application', sla: 9 },
   { id: 'k-rp-verify', name: 'Verify a new RP', record: 'RP', sla: 18 },
   { id: 'k-rp-change', name: 'RP lifecycle change', record: 'RP', sla: 27 },
   { id: 'k-renew', name: 'Renew an agreement', record: 'Institution partner', sla: 270 },
@@ -75,7 +80,7 @@ export const KINDS = [
 
 const inRegion = (region) => STAFF.filter((s) => s.role === 'Admission' && s.regions.includes(region)).map((s) => s.id);
 const withRole = (role) => STAFF.filter((s) => s.role === role).map((s) => s.id);
-const SEA = ['Vietnam', 'Indonesia, Malaysia and Thailand', 'Myanmar', 'Bhutan'];
+const SEA = ['Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan'];
 /**
  * The Admissions queue an application's region goes to (HC50, 1 Nov): the queue stored for the region in GSP · Admin
  * (Application routing › Region defaults), matched to the work queue of the same name. Global Admissions if none.
@@ -84,7 +89,8 @@ export const regionQueueId = (region, queues = QUEUES) => {
   let name = null;
   try {
     const c = adminCfg();
-    name = c.queues.find((q) => q.id === c.regionQueue[region])?.name ?? null;
+    // slice 1 (S4-1): Sales regions stores the Work queue's name (older settings: Admin's own queue id)
+    name = c.queues.find((q) => q.id === c.regionQueue[region])?.name ?? c.regionQueue[region] ?? null;
   } catch { /* Admin not loaded */ }
   const id = name ? queues.find((q) => q.name === name)?.id : null;
   return id || 'q-adm-global';
@@ -111,12 +117,12 @@ export const QUEUES = [
   regionalQueue('Philippines', 'u-kimberly-olaes'),
   regionalQueue('Australia', 'u-jo-qiu'),
   regionalQueue('China', 'u-jo-qiu'),
-  regionalQueue('Latin America and Europe', 'u-valentina-castillo'),
-  { ...regionalQueue('Global', 'u-tasha-tandon', withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon')), name: 'Global Admissions', regions: ['Rest of world', 'Direct'] },
-  { id: 'q-rp-ops', name: 'Recruitment Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('Recruitment Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 18, kinds: ['k-rp-verify', 'k-rp-change'] },
+  regionalQueue('Latin America & Europe', 'u-valentina-castillo'),
+  // S4-20 (2 Nov): Global Ops and Global Admissions are one queue, Global Admissions, worked by the Global Ops team; S4-21: no quality check
+  { ...regionalQueue('Global', 'u-tasha-tandon', withRole('Global Ops').filter((id) => id !== 'u-tasha-tandon')), name: 'Global Admissions', regions: ['Rest of world', 'Direct', 'Global'], kinds: ['k-verify', 'k-submit', 'k-chase-uni', 'k-uni-mail', 'k-gsp-check', 'k-payment', 'k-enrol', 'k-announce', 'k-escalation', 'k-mail'] },
+  { id: 'q-rp-ops', name: 'RP Ops', kind: 'team', leader: 'u-garima-bhardwaj', members: withRole('RP Ops').filter((id) => id !== 'u-garima-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 18, kinds: ['k-rp-verify', 'k-rp-change'] },
   { id: 'q-institution', name: 'Institution', kind: 'team', leader: 'u-matt-beazley', members: withRole('Institution').filter((id) => id !== 'u-matt-beazley'), assign: 'record-owner', cover: 'leader', sla: 45, kinds: ['k-renew', 'k-golive'] },
-  { id: 'q-inst-ops', name: 'Institution Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('Institution Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 45, kinds: ['k-course'] },
-  { id: 'q-adm-ops', name: 'Admission Ops', kind: 'team', leader: 'u-tasha-tandon', members: withRole('Admission Ops').filter((id) => id !== 'u-tasha-tandon'), assign: 'fewest-open', cover: 'leader', sla: 9, kinds: ['k-qc', 'k-announce', 'k-escalation', 'k-mail'] },
+  { id: 'q-inst-ops', name: 'IP Ops', kind: 'team', leader: 'u-gauri-bhardwaj', members: withRole('IP Ops').filter((id) => id !== 'u-gauri-bhardwaj'), assign: 'fewest-open', cover: 'leader', sla: 45, kinds: ['k-course'] },
   { id: 'q-finance', name: 'Finance', kind: 'team', leader: 'u-suman1-verma', members: withRole('Finance').filter((id) => id !== 'u-suman1-verma'), assign: 'fewest-open', cover: 'leader', sla: 18, makerChecker: true, kinds: ['k-terms', 'k-check', 'k-exception', 'k-payout'] },
   { id: 'q-fallback', name: 'Fallback', kind: 'team', leader: 'u-jovial-lejo', members: [], assign: 'fewest-open', cover: 'leader', sla: 9, kinds: [] },
 ];
@@ -153,7 +159,6 @@ export const ESCALATION = { remindBefore: 1, leaderAtDue: true, opsAfter: 2, adm
 export const RULES = [
   { id: 'r1', row: 'T1', on: true, name: 'Documents to verify', record: 'Application', when: 'Status becomes Pending verification (the RP sent the application)', task: 'Verify the documents for [record]', to: 'region', who: 'owner', kind: 'k-verify', sla: 1, closes: 'The officer changes the status' },
   { id: 'r2', row: 'T2', on: true, name: 'Re-upload late', record: 'Application', when: 'Document re-upload pending for 48 working hours (the RP is reminded at 24)', task: 'Chase the RP: re-upload for [record] is late', to: 'region', who: 'owner', kind: 'k-verify', sla: 6, closes: 'The RP re-uploads, or the status changes' },
-  { id: 'r3', row: 'T3', on: true, name: 'Quality check', record: 'Application', when: 'Status becomes Ready to submit', task: 'Quality-check [record] before submission', to: 'q-adm-ops', who: 'leader-assigns', kind: 'k-qc', sla: 1, closes: 'The officer changes the status' },
   { id: 'r4', row: 'T4', on: true, name: 'Ready to submit', record: 'Application', when: 'Status becomes Ready to submit', task: 'Submit [record] to the university', to: 'region', who: 'owner', kind: 'k-submit', sla: 1, closes: 'A university reference is added, or the status changes' },
   { id: 'r5', row: 'T5', on: true, name: 'No decision from the university', record: 'Application', when: 'Submitted to university for 2 working days', task: 'Chase the university for [record]', to: 'region', who: 'owner', kind: 'k-chase-uni', sla: 12, closes: 'The officer closes it, or the status changes' },
   { id: 'r6', row: 'T6', on: true, name: 'University email on an application', record: 'Email', when: 'An email is matched to an application (90% or more)', task: 'Act on the email for [record]', to: 'region', who: 'owner', kind: 'k-uni-mail', sla: 1, closes: 'The officer files or dismisses the email' },
@@ -173,11 +178,11 @@ export const RULES = [
   { id: 'r20', row: 'T20', on: true, name: 'Enrolment to confirm', record: 'Application', when: 'Status becomes Enrolment confirmation pending', task: 'Confirm enrolment for [record]', to: 'region', who: 'owner', kind: 'k-enrol', sla: 27, closes: 'Status moves to Student enrolled' },
   { id: 'r21', row: 'WH5', on: true, name: 'Documents from the RP to check', record: 'Application', when: 'The RP sent documents GSP hasn’t checked (any status but Pending verification and Payment proof under review)', task: 'Check the documents the RP sent for [record]', to: 'region', who: 'owner', kind: 'k-verify', sla: 1, closes: 'Every document verified or sent back' },
   { id: 'r22', row: 'T26', on: true, name: 'Check an email match', record: 'Email', when: 'AI confidence 60 to 89%', task: 'Check the match for this email', to: 'region', who: 'owner', kind: 'k-mail', sla: 1, closes: 'Match confirmed or changed' },
-  { id: 'r23', row: 'T27', on: true, name: 'Email not matched', record: 'Email', when: 'AI confidence below 60%', task: 'Match this email to a record', to: 'q-adm-ops', who: 'members-pick', kind: 'k-mail', sla: 1, closes: 'Matched or marked not needed' },
-  { id: 'r24', row: 'T28', on: true, name: 'New application by email', record: 'Email', when: 'An RP sends a new application by email', task: 'Create the application, or send the RP to the portal', to: 'q-adm-ops', who: 'members-pick', kind: 'k-verify', sla: 3, closes: 'Closed by hand once done' },
+  { id: 'r23', row: 'T27', on: true, name: 'Email not matched', record: 'Email', when: 'AI confidence below 60%', task: 'Match this email to a record', to: 'q-adm-global', who: 'members-pick', kind: 'k-mail', sla: 1, closes: 'Matched or marked not needed' },
+  { id: 'r24', row: 'T28', on: true, name: 'New application by email', record: 'Email', when: 'An RP sends a new application by email', task: 'Create the application, or send the RP to the portal', to: 'q-adm-global', who: 'members-pick', kind: 'k-verify', sla: 3, closes: 'Closed by hand once done' },
   { id: 'r25', row: 'T29', on: true, name: 'Mail to admin.gsp@', record: 'Email', when: 'Any email to admin.gsp@', task: 'Handle this request', to: 'q-rp-ops', who: 'members-pick', kind: 'k-rp-change', sla: 24, closes: 'Closed by hand' },
   { id: 'r26', row: 'T30', on: true, name: 'Commission remittance', record: 'Email', when: 'A remittance or statement, or any mail to commissions.gsp@', task: 'Match the remittance against Commissions', to: 'q-finance', who: 'members-pick', kind: 'k-exception', sla: 24, closes: 'Matched to invoices' },
-  { id: 'r27', row: 'T31', on: true, name: 'University newsletter', record: 'Email', when: 'A university newsletter arrives', task: 'Review the newsletter for an announcement', to: 'q-adm-ops', who: 'fewest-open', kind: 'k-announce', sla: 6, closes: 'Announcement published or dismissed' },
+  { id: 'r27', row: 'T31', on: true, name: 'University newsletter', record: 'Email', when: 'A university newsletter arrives', task: 'Review the newsletter for an announcement', to: 'q-adm-global', who: 'fewest-open', kind: 'k-announce', sla: 6, closes: 'Announcement published or dismissed' },
   { id: 'r28', row: 'T32', on: true, name: 'New RP to verify', record: 'RP', when: 'All onboarding documents uploaded', task: 'Verify [record]', to: 'q-rp-ops', who: 'members-pick', kind: 'k-rp-verify', sla: 12, closes: 'RP verified or documents sent back' },
   { id: 'r29', row: 'T33', on: true, name: 'RP signed up, not activated', record: 'RP', when: 'Not activated for 2 working days', task: 'Help [record] finish sign-up', to: 'owner', who: 'owner', kind: 'k-rp-change', sla: 18, closes: 'RP activated' },
   { id: 'r30', row: 'T34', on: true, name: 'RP documents sent back', record: 'RP', when: 'Onboarding documents sent back 7 working days ago (the RP is reminded at 3)', task: 'Chase [record] for its documents', to: 'owner', who: 'owner', kind: 'k-rp-change', sla: 18, closes: 'Documents re-uploaded' },
@@ -258,7 +263,6 @@ const SEEDED = [
   t('T-1001', 'r1', 'k-verify', 'GSP-23944', 'q-adm-india', 'u-alfiya1-khan', ago(0, 20)),
   t('T-1002', 'r4', 'k-uni-mail', 'GSP-24063', 'q-adm-india', 'u-ramish-jafery', ago(0, 3), { note: 'CAS arrived from Coventry by mail. Add it to Documents and move to Visa.' }),
   t('T-1003', 'r3', 'k-chase-uni', 'GSP-24097', 'q-adm-india', 'u-alfiya1-khan', ago(3)),
-  t('T-1004', 'r7', 'k-qc', 'GSP-23944', 'q-adm-ops', null, ago(0, 5)),
   ...SAMPLE.tasks.map(x => ({ ...x, record: OLD_ID[x.record] ?? x.record, created: ago(x.createdDays) })),
   t('T-1009', 'r8', 'k-rp-verify', 'rp-legal', 'q-rp-ops', 'u-kartik-sharma', ago(3)),
   t('T-1010', 'r8', 'k-rp-verify', 'rp-tutee', 'q-rp-ops', null, ago(2)),
@@ -272,14 +276,14 @@ const SEEDED = [
   t('T-1016', 'r11', 'k-course', 'c-flinders-nursing', 'q-inst-ops', null, ago(9)),
   t('T-1017', null, 'k-course', 'c-murdoch-it', 'q-inst-ops', 'u-munmun-kapil', ago(4)),
   t('T-1018', null, 'k-course', 'c-torrens-mba', 'q-inst-ops', 'u-neelam-sharma', ago(2)),
-  t('T-1019', null, 'k-announce', 'an-113', 'q-adm-ops', 'u-rajinder-kaur', ago(0, 8)),
+  t('T-1019', null, 'k-announce', 'an-113', 'q-adm-global', 'u-rajinder-kaur', ago(0, 8)),
   t('T-1020', 'r12', 'k-terms', 'cm-legal', 'q-finance', null, ago(3)),
   t('T-1021', 'r13', 'k-check', 'cm-uk-promo', 'q-finance', null, ago(0, 7), { maker: 'u-suman1-verma' }),
   t('T-1028', null, 'k-exception', 'cm-jcub', 'q-finance', 'u-suman1-verma', ago(1)),
   t('T-1022', null, 'k-payout', 'cm-payout', 'q-finance', 'u-suman1-verma', ago(0, 2)),
-  t('T-1023', 'r14', 'k-mail', 'mail-1', 'q-adm-ops', null, ago(0, 9)),
-  t('T-1024', 'r14', 'k-mail', 'mail-2', 'q-adm-ops', 'u-ashu-rajpal', ago(1, 2)),
-  t('T-1025', 'r15', 'k-escalation', 'GSP-24097', 'q-adm-ops', 'u-tasha-tandon', ago(1), { note: 'Chase on Wollongong is overdue.' }),
+  t('T-1023', 'r14', 'k-mail', 'mail-1', 'q-adm-global', null, ago(0, 9)),
+  t('T-1024', 'r14', 'k-mail', 'mail-2', 'q-adm-global', 'u-ashu-rajpal', ago(1, 2)),
+  t('T-1025', 'r15', 'k-escalation', 'GSP-24097', 'q-adm-global', 'u-tasha-tandon', ago(1), { note: 'Chase on Wollongong is overdue.' }),
 ];
 
 /* Application tasks come from the rules (work/engine.ts) and follow the status; only those raised from mail stay here. */

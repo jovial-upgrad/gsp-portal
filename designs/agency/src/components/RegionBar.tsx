@@ -1,26 +1,22 @@
-import { isIsolated, setAllRegions, useScope } from '../data/scope';
+import { isIsolated, useScope } from '../data/scope';
 
 /**
- * Region isolation, model D (Jovial, 1 Nov): an Admission or Recruitment person's lists show their own sales
- * regions; they can look across every region, read only, and the switch is logged in Admin › Logs.
+ * Region isolation, model D (PRD slice 1): an Admission or Recruitment person's lists show only their own sales
+ * regions. Isolation is per person (S4-24). There is no switch to see other regions (decided 1 Nov): records outside
+ * them aren't in lists, search, counts, exports or reachable by a direct link.
  */
-export function RegionBar({ page }: { page: string }) {
+export function RegionBar({ page: _page }: { page: string }) {
   const s = useScope();
   if (!isIsolated(s)) return null;
   return (
-    <p className={`regionbar ${s.all ? 'is-all' : ''}`} role="status">
-      {s.all ? (
-        <>
-          <strong>Every sales region, read only.</strong> You can open anything; only your regions ({s.regions.join(', ')}) can be changed. This view is logged.
-        </>
-      ) : (
+    <p className="regionbar" role="status">
+      {s.regions.length ? (
         <>
           Showing your sales {s.regions.length === 1 ? 'region' : 'regions'}: <strong>{s.regions.join(', ')}</strong>.
         </>
-      )}{' '}
-      <button type="button" className="btn btn--link" onClick={() => setAllRegions(!s.all, page)}>
-        {s.all ? 'Back to my regions' : 'Look across every region (read only)'}
-      </button>
+      ) : (
+        <>You have no sales region yet, so no records show. Ask a GSP Admin to give you one.</>
+      )}
     </p>
   );
 }

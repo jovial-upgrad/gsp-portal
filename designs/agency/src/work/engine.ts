@@ -8,7 +8,7 @@
  * - A task exists while its condition holds: when the officer changes the status (forward, back, or closed), the
  *   task closes itself. The officer can also close it with one click.
  * - Tasks go to the application's officer. Their queue is the application's regional Admissions queue; QC goes to
- *   Admission Ops. When the officer is on leave, the queue's leader covers.
+ *   Global Ops. When the officer is on leave, the queue's leader covers.
  * - SLAs and waits count working hours on working days, as Work › Working days sets them for the region (9:30 to
  *   18:30; Monday to Friday, Sunday to Thursday in Bangladesh, to start with).
  * In the real build this is the work service, run on every change to an application.
@@ -81,7 +81,6 @@ export const APP_RULES = [
   { id: 'a-verify', row: 'T1', kind: 'k-verify', when: (a) => a.status === 'checking', title: (n) => `Verify the documents for ${n}`, sla: { h: 1 }, closes: 'Status moves on' },
   { id: 'a-check', row: 'WH5', kind: 'k-verify', when: (a) => !['checking', 'payreview'].includes(a.status) && toCheck(a).length > 0, title: (n, a) => `Check ${toCheck(a).length === 1 ? `the ${toCheck(a)[0].name.toLowerCase()}` : `${toCheck(a).length} documents`} the RP sent for ${n}`, sla: { h: 1 }, closes: 'Every document verified or sent back' },
   { id: 'a-reupload', row: 'T2', kind: 'k-verify', when: (a) => RE_UPLOAD.has(a.status) && openRequests(a).length > 0, after: { h: 48 }, title: (n) => `Chase the RP: re-upload for ${n} is late`, sla: { h: 6 }, closes: 'The RP re-uploads, or the status changes', remind: { h: 24 } },
-  { id: 'a-qc', row: 'T3', kind: 'k-qc', queue: 'q-adm-ops', who: 'leader-assigns', when: (a) => a.status === 'ready', title: (n) => `Quality-check ${n} before submission`, sla: { h: 1 }, closes: 'Status moves on' },
   { id: 'a-submit', row: 'T4', kind: 'k-submit', when: (a) => a.status === 'ready', title: (n, a) => `Submit ${n} to ${uni(a)}`, sla: { h: 1 }, closes: 'Status moves to Submitted to university', late: true },
   { id: 'a-chase-uni', row: 'T5', kind: 'k-chase-uni', when: (a) => a.status === 'lodged', after: { d: 2 }, title: (n, a) => `Chase ${uni(a)} for a decision on ${n}`, sla: { h: 12 }, closes: 'Officer closes it, or the status changes' },
   { id: 'a-moreinfo', row: 'T7', kind: 'k-chase-uni', when: (a) => a.status === 'moreinfo' && openRequests(a).length > 0, after: { h: 12 }, title: (n) => `Chase the RP: additional documents for ${n} are late`, sla: { h: 12 }, closes: 'The RP uploads, or the status changes', remind: { h: 6 } },

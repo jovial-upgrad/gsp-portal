@@ -23,6 +23,8 @@ const ADMIN_PORTALS = {
   'gsp-recruitment': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="recruitment" />,
   'gsp-bap': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="bap" />,
   'gsp-finance': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="finance" />,
+  // View Only reuses GSP · Admin's pages, read only (S1-1)
+  'gsp-view-only': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="viewonly" />,
 };
 import { TeamSignIn as AdminSignIn } from './admin/signin/TeamSignIn';
 import { TEAM_AUTH_PRESETS as ADMIN_AUTH_PRESETS } from './admin/signin/model';
@@ -34,7 +36,11 @@ import type { PortalStart } from './screens/portal/Portal';
 import type { Section } from './screens/portal/model';
 import { AuthScene } from './shell/AuthScene';
 import { ProtoPanel, type Device } from './proto/ProtoPanel';
-import { ADMIN_LIKE, roleOf, type Role } from './proto/roles';
+import { ADMIN_LIKE, ADMISSIONS_LIKE, INSTITUTION_LIKE, RP_ROLE, roleOf, setCurrentRole, type Role } from './proto/roles';
+import { actAsGspRole } from './gsp/user';
+import { actAsInstitutionRole } from './institution/user';
+import { accountByRole } from './screens/signin/model';
+import { ADMIN_STATES, setSim } from './admin/config/states';
 import { setLink, useLink } from './proto/link';
 import { SideBySide } from './proto/SideBySide';
 import { sampleApplications, courseOf } from './data/applications';
@@ -52,13 +58,13 @@ type Route = 'auth' | 'signup' | 'portal' | 'home';
 const routeOf = (token: string | null): Route | null =>
   !token
     ? null
-    : token in AUTH_PRESETS || token in TEAM_AUTH_PRESETS
+    : token in AUTH_PRESETS || token in TEAM_AUTH_PRESETS || token in ADMIN_AUTH_PRESETS
       ? 'auth'
       : token in PRESETS
         ? 'signup'
         : token in PORTAL_PRESETS || token in COURSE_PRESETS || token in STUDENT_PRESETS || token in APP_PRESETS
           ? 'portal'
-          : token === 'home'
+          : token === 'home' || token in ADMIN_STATES
             ? 'home'
             : null;
 /** "Become a GSP partner" always means a new registration: a draft whose account already exists starts again. */
@@ -105,6 +111,8 @@ export default function App() {
             : loadDraft() ?? initialState(),
   );
   const [account, setAccount] = useState<Account>(SAMPLE_ACCOUNT);
+  // a page state's review state opens an Admin page (PRD slice 1)
+  const [adminStart, setAdminStart] = useState<{ key: string; section: Section } | undefined>(() => (first && first in ADMIN_STATES ? (setSim(ADMIN_STATES[first].sim), { key: first, section: ADMIN_STATES[first].section as Section }) : undefined));
   // course search review states open a verified agency, with its students to search for, on Find courses with a search already made
   const courseStart = (k: string, s: SignupState): PortalStart => ({
     key: `${k}-${Date.now()}`,
@@ -187,6 +195,11 @@ export default function App() {
         setStart({ key: `${k}-${Date.now()}`, section: 'home' });
       }
       if (r === 'home') setAccount(SAMPLE_ACCOUNT);
+      // the page states' review states (PRD slice 1): an Admin page, loading, failing, view only…
+      if (k in ADMIN_STATES) {
+        setSim(ADMIN_STATES[k].sim);
+        setAdminStart({ key: `${k}-${Date.now()}`, section: ADMIN_STATES[k].section as Section });
+      } else if (r === 'home') setSim(null);
       setRoute(r);
       mark(k);
       scrollTop();
@@ -229,11 +242,18 @@ export default function App() {
   // Sign in and becoming a partner share one scene that stays mounted and looks the same: the photo, its statement
   // and the panel stay in place and only the panel's content changes; only going in or out of the portal fades the whole page.
   const isPublic = route === 'auth' || route === 'signup';
-  const RolePortal = role === 'gsp-team' ? GspPortal : role === 'institution-partner' ? InstitutionPortal : ADMIN_LIKE.includes(role) ? ADMIN_PORTALS[role as keyof typeof ADMIN_PORTALS] : Portal;
+  // every role in the Role menu has its own signed-in person (Jovial, 2 Nov); the new ones reuse existing views (S1-1)
+  setCurrentRole(role);
+  if (ADMISSIONS_LIKE.includes(role)) actAsGspRole();
+  if (INSTITUTION_LIKE.includes(role)) actAsInstitutionRole();
+  const RolePortal = ADMISSIONS_LIKE.includes(role) ? GspPortal : INSTITUTION_LIKE.includes(role) ? InstitutionPortal : ADMIN_LIKE.includes(role) ? ADMIN_PORTALS[role as keyof typeof ADMIN_PORTALS] : Portal;
+  // the RP's roles: the test agency's RP Admin, Branch Admin or a counsellor
+  const rpAccount = RP_ROLE[role] && RP_ROLE[role] !== 'RP Admin' ? accountByRole(RP_ROLE[role]!) : account;
   // the Institution Team and GSP Admin sign in with a GSP email, each in its own scene
-  const team = role === 'institution-partner' || ADMIN_LIKE.includes(role);
-  const TeamGate = ADMIN_LIKE.includes(role) ? AdminSignIn : TeamSignIn;
-  const teamPresets = ADMIN_LIKE.includes(role) ? ADMIN_AUTH_PRESETS : TEAM_AUTH_PRESETS;
+  // every GSP role signs in at the GSP portal (PRD slice 1, Sign-in): a GSP email, a password set up the first time
+  const team = INSTITUTION_LIKE.includes(role) || ADMIN_LIKE.includes(role) || ADMISSIONS_LIKE.includes(role);
+  const TeamGate = team ? AdminSignIn : TeamSignIn;
+  const teamPresets = team ? ADMIN_AUTH_PRESETS : TEAM_AUTH_PRESETS;
   // switching role shows that role's portal: the same state if one is open, otherwise its Home, signed in
   const switchRole = (r: Role) => {
     setRole(r);
@@ -290,15 +310,16 @@ export default function App() {
         {route === 'portal' && (
           <RolePortal acc={portalAccount(signup)} join={signup} set={setSignupFree} scrollTop={scrollTop} onSignOut={() => signOut(signup.form.email)} start={start} />
         )}
-        {route === 'home' && <RolePortal acc={account} join={null} scrollTop={scrollTop} onSignOut={() => signOut(readPref('gsp-remember-id', ''))} />}
+        {route === 'home' && <RolePortal key={role} acc={rpAccount} join={null} scrollTop={scrollTop} start={ADMIN_LIKE.includes(role) ? adminStart : undefined} onSignOut={() => signOut(readPref('gsp-remember-id', ''))} />}
       </motion.div>
     </AnimatePresence>
   );
 
   const teamGroups = useMemo(
     () => [
-      { title: 'Sign in', items: ['signin', 'signin-error', 'signin-locked', 'signin-unset', 'forgot', 'forgot-code', 'forgot-new', 'forgot-done'].map((k) => ({ key: k, label: teamPresets[k].label })) },
-      { title: 'Set up a password (first time)', items: ['setup', 'setup-code', 'setup-new', 'setup-done'].map((k) => ({ key: k, label: teamPresets[k].label })) },
+      { title: 'Sign in', items: ['signin', 'signin-error', 'signin-locked', 'signin-unset', 'signin-off', 'forgot', 'forgot-code', 'code-expired', 'code-many', 'forgot-new', 'forgot-done'].filter((k) => k in teamPresets).map((k) => ({ key: k, label: teamPresets[k].label })) },
+      { title: 'Set up a password (first time)', items: ['setup', 'setup-code', 'setup-new', 'setup-done', 'link-new', 'link-expired'].filter((k) => k in teamPresets).map((k) => ({ key: k, label: teamPresets[k].label })) },
+      ...(ADMIN_LIKE.includes(role) ? [{ title: 'Admin page states (slice 1)', items: Object.entries(ADMIN_STATES).map(([key, v]) => ({ key, label: v.label })) }] : []),
       { title: 'Portal', items: [{ key: 'home', label: 'Signed in' }] },
       { title: 'Course search', items: Object.entries(COURSE_PRESETS).map(([key, v]) => ({ key, label: v.label })) },
       { title: 'Students', items: Object.entries(STUDENT_PRESETS).map(([key, v]) => ({ key, label: v.label, sub: v.label.startsWith('Add: ') })) },
@@ -310,7 +331,7 @@ export default function App() {
     () => [
       {
         title: 'Sign in',
-        items: ['signin', 'signin-error', 'signin-locked', 'forgot', 'forgot-code', 'forgot-new', 'forgot-done'].map((k) => ({ key: k, label: AUTH_PRESETS[k].label })),
+        items: ['signin', 'signin-error', 'signin-locked', 'signin-agency-paused', 'forgot', 'forgot-code', 'forgot-new', 'forgot-done'].map((k) => ({ key: k, label: AUTH_PRESETS[k].label })),
       },
       { title: 'Become a partner', items: Object.entries(PRESETS).map(([key, v]) => ({ key, label: v.label })) },
       {

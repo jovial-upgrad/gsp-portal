@@ -8,7 +8,7 @@ import { AccountMenu } from '../../components/AccountMenu';
 import { Icon } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import type { SignupState } from '../../screens/signup/model';
-import { VARIANTS, type ConfigSection, type Focus, type NavItem, type PageProps, type Section, type Target, type Variant } from './model';
+import { VARIANTS, roleOfVariant, type ConfigSection, type Focus, type NavItem, type PageProps, type Section, type Target, type Variant } from './model';
 import { FinancePage, FIN_SECTIONS, type FinSection } from '../../finance/FinancePage';
 import { WorkPage, WORK_SECTIONS, type WorkSection } from '../../work/WorkPage';
 // User modules and Institution: GSP · Institution's own pages, so a change there shows here too
@@ -35,9 +35,11 @@ import { RecruitmentPartners } from '../../institution/records/RecruitmentPartne
 import { Announcements } from '../../institution/records/Announcements';
 import { StaffProfile } from '../../gsp/portal/StaffPages';
 import { RoleHome } from './RoleHome';
-import { Toast } from '../../institution/records/parts';
 import { ConfigPage, useCfg } from '../config/ConfigPage';
 import { Flyout } from './Flyout';
+import { canEditIn, canOpen, menuObjectOf } from '../data/menus';
+import { PERM_ROLE } from '../../proto/roles';
+import { NoAccessPage, SavedToast, ViewOnlyNote } from '../config/states';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 // GSP · Institution's styles, shared; GSP Admin's own (its menu) are in ../admin.css
@@ -66,7 +68,7 @@ export type PortalStart = {
 /** GSP · Institution's own signed-in person, before any of these roles stood in for it. */
 let INSTITUTION_OWN: typeof INSTITUTION_USER | null = null;
 const lensSpring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
-const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'queues', 'emails', 'bdm', 'currency', 'living', 'visa', 'routing', 'documents', 'logs', 'security'];
+const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'emails', 'bdm', 'currency', 'living', 'routing', 'documents', 'logs', 'security'];
 const sectionOf = (s?: PortalStart['section']): Section => (!s || s === 'earnings' ? 'home' : s);
 
 export type { Focus };
@@ -100,6 +102,8 @@ export function Portal({
   const NAV: NavItem[] = [HOME, ...V.flat, ...GROUPS.flatMap((g) => g.items)];
   // who's signed in: GSP Admin's person for Admin, the role's own for the others
   const ME = variant === 'admin' ? GSP_USER : { ...GSP_USER, ...V.user, org: 'GSP' };
+  // the role's line in Admin's matrix (PRD slice 1, Permission model): its menu, and View or Edit on each page
+  const PERM = PERM_ROLE[roleOfVariant(variant)] ?? 'Admin';
   // the application pages are GSP · Institution's and act as its signed-in person: while GSP Admin is open, that's
   // Jovial (set before anything draws), and whoever it was comes back when GSP Admin closes
   // QC 31 Oct: remember GSP · Institution's own person once, so switching between these roles can't hand one
@@ -369,11 +373,16 @@ export function Portal({
     ) : section === 'announcements' ? (
       <Announcements {...page} />
     ) : CONFIG.includes(section as ConfigSection) ? (
-      <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={ME.name} say={say} />
+      <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={ME.name} role={PERM} canEdit={canEditIn(PERM, section)} say={say} go={(k) => go(k as Section)} />
     ) : (
       <RecruitmentPartners {...page} />
     );
 
+  // No access: a direct link (or review state) to a page this role can't open (PRD slice 1, Page states)
+  const blocked = section !== 'home' && section !== 'profile' && !canOpen(PERM, section);
+  // View only: pages from other slices show the note; slice 1's pages also hide their actions
+  const viewOnly = !blocked && !!menuObjectOf(section) && !canEditIn(PERM, section) && !CONFIG.includes(section as ConfigSection);
+  const shown = blocked ? <NoAccessPage onHome={() => go('home')} /> : viewOnly ? (<>{content}</>) : content;
   return (
     <AppShell
       brand={['GSP', V.brand]}
@@ -406,10 +415,11 @@ export function Portal({
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
           transition={{ duration: 0.22, ease }}
         >
-          {content}
+          {viewOnly && <div className="cfg__viewonlybar"><ViewOnlyNote /></div>}
+          {shown}
         </motion.div>
       </AnimatePresence>
-      <Toast msg={msg} />
+      <SavedToast msg={msg} />
       {inbox.toast}
     </AppShell>
   );

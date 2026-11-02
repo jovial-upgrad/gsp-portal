@@ -13,16 +13,17 @@ import { ROLES as PERMISSION_ROLES, OVERSIGHT_OBJECT } from '../admin/data/confi
  * View + edit). Region isolation (model D) gives Admission and Recruitment their own regions; the rest see all.
  * The RP's roles aren't GSP's to set there: they stay the agency portal's own, below.
  */
+// each role's main work, as the slice 1 PRD's Roles table has it
 const ABOUT = {
-  Admin: 'Configuration, users and roles. Can do everything.',
-  'View Only': 'Sees everything, changes nothing. For leadership and auditors.',
-  Finance: 'Commission terms, invoices, receipts and payouts.',
-  Institution: 'Account managers for institution partners and universities.',
-  'Institution Ops': 'Keeps course data, intakes and fees current (was Data team).',
-  Recruitment: 'BDMs: own their RPs and branches in their sales regions.',
-  'Recruitment Ops': 'Verifies new recruitment partners and their documents (was BAP).',
-  Admission: 'Admissions officers: work applications in their sales regions.',
-  'Admission Ops': 'Quality checks, announcements and SLA watch across every region.',
+  Admin: 'Users, roles, settings, logs; can do everything.',
+  'View Only': 'Sees everything, changes nothing.',
+  Finance: 'Commission terms, invoices, payouts.',
+  Institution: 'Institution partners, agreements, universities.',
+  'IP Ops': 'Courses, intakes, entry rules, announcements.',
+  Recruitment: 'Their RPs, the RPs’ students and applications.',
+  'RP Ops': 'Verifying new RPs and their documents, RP bank details.',
+  Admission: 'Applications in their regions: verify, submit, offers, visa, enrolment.',
+  'Global Ops': 'Works the Global Admissions queue (Direct, Rest of world and Global applications, unmatched email, escalations from the regional queues); oversight of every queue and mailbox.',
 };
 export const roleId = name => String(name).toLowerCase().replace(/ /g, '-');
 const RP_ROLES = [

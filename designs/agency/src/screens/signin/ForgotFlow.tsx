@@ -208,7 +208,7 @@ function NewStep({ a, patch, go }: StepProps) {
   // the one hint line under both fields: grey while typing, green once met, red if they try to save without it
   const hint = meetsHint && usesName ? 'Don’t use your username in your password.' : PASSWORD_HINT;
   const hintState = ok ? 'ok' : f.submitted || usesName ? 'error' : 'idle';
-  const pw2Err = f.submitted && ok && !match ? 'The two passwords don’t match yet.' : null;
+  const pw2Err = f.submitted && ok && !match ? 'The passwords don’t match.' : null;
 
   const save = () => {
     if (!ok || !match) {

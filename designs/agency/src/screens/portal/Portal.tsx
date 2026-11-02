@@ -36,6 +36,7 @@ import { useLiveApps } from '../../data/live';
 import { useSharedDb } from '../../institution/data/store';
 import { bapDecisions, signupId, syncSignup } from '../../institution/data/rpverify';
 import { setSession } from '../../data/downloads';
+import { rpSees, seesEarnings } from '../../data/rproles';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -117,9 +118,11 @@ export function Portal({
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || TEST_COUNTRY, homeState));
   // students live here too: a new agency starts with none, an established one with its own
   // an RP sees only its own students and applications: GSP's others (with another RP) aren't theirs
-  const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp));
+  // slice 1 Roles (S1-1): a Branch Admin sees their branch's students, a Counsellor only those assigned to them
+  const sees = useMemo(() => rpSees(acc), [acc]);
+  const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp).filter(sees));
   // and applications, for those students; the student list shows each one's applications from here
-  const [apps, setApps] = useState<Application[]>(() => (start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications())).filter((x) => !x.rp));
+  const [apps, setApps] = useState<Application[]>(() => (start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications())).filter((x) => !x.rp).filter((a) => acc.role === 'RP Admin' || !acc.role || students.some((s) => s.id === a.studentId)));
   // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
   useLiveApps(setApps);
   // who's signed in, for the download log (data/downloads.ts)
@@ -228,7 +231,7 @@ export function Portal({
     <>
       <nav aria-label="Main">
         <ul className="pnav">
-          {NAV.map((n) => {
+          {NAV.filter((n) => n.key !== 'earnings' || seesEarnings(acc)).map((n) => {
             const active = section === n.key;
             const locked = isLocked(n.key);
             const delay = n.locked ? 0.08 * lockIndex++ : 0;
@@ -298,7 +301,7 @@ export function Portal({
     </>
   );
 
-  const tabs = NAV.filter((n) => n.key !== 'profile');
+  const tabs = NAV.filter((n) => n.key !== 'profile' && (n.key !== 'earnings' || seesEarnings(acc)));
   const tabbar = (
     <nav className="tabbar glass" aria-label="Main">
       <GlassRim />

@@ -31,6 +31,9 @@ import {
   seedQueueName,
   sampleNationality,
   sampleSecurity,
+  sampleNationalityChanged,
+  withFees,
+  visaFeesOf,
   live,
   type Security,
   type BdmRow,
@@ -57,6 +60,10 @@ export type Cfg = {
   regions: Region[];
   /** Nationality to sales region (HC42), editable on Sales regions. */
   nationality: Record<string, string>;
+  /** When each nationality row was last changed (system). */
+  nationalityChanged: Record<string, number>;
+  /** Each person's email preferences (Profile, S4-16): the emails they've turned off, by template id. */
+  emailOff: Record<string, string[]>;
   /** Sign-in rules for every GSP portal (HC52). */
   security: Security;
   perms: Perms;
@@ -86,6 +93,8 @@ export const sampleCfg = (): Cfg => {
     users,
     regions: sampleRegions(),
     nationality: sampleNationality(),
+    nationalityChanged: sampleNationalityChanged(),
+    emailOff: {},
     security: sampleSecurity(),
     perms: samplePerms(),
     queues,
@@ -98,7 +107,8 @@ export const sampleCfg = (): Cfg => {
     rules: sampleRules(),
     lists: sampleLists(),
     regionBdm: { ...REGION_BDM },
-    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === seedQueueName(r))?.id ?? ''])),
+    // each region's Admissions queue, by the name of a queue in Admin › Work (S4-1)
+    regionQueue: Object.fromEntries(Object.keys(REGION_BDM).map((r) => [r, queues.find((q) => q.name === seedQueueName(r))?.name ?? 'Global Admissions'])),
     docRules: sampleDocRules(),
     rpDocs: sampleRpDocs(),
     filters: sampleFilters(),
@@ -107,7 +117,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v5'; // v5: sales regions with their countries, nationality map, sign-in security, Work permissions (1 Nov)
+const KEY = 'gsp-admin-v6'; // v6: the slice 1 PRD (2 Nov): its roles, region seed, matrix, users' login states, mailboxes, document rules, living costs and fees
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {
@@ -123,17 +133,21 @@ function load(): Cfg {
   state = { ...state!, perms: { ...perms, ...state!.perms }, regions: state!.regions.map((r) => ({ ...r, countries: r.countries ?? [] })) };
   // every week carries every currency (W14): older saved settings may have weeks without one
   state = { ...state!, fxWeeks: fillFx(state!.fxWeeks, state!.rates) };
+  // living costs and fees are one table (PRD slice 1): visa and health sit on each destination's row
+  state = { ...state!, living: state!.living.map(withFees), nationalityChanged: state!.nationalityChanged ?? {}, emailOff: state!.emailOff ?? {} };
+  state = { ...state!, visaFees: visaFeesOf(state!.living) };
   applyCourseCosts(state!);
   return state!;
 }
-/** Every course's living costs and visa and health fees come from Admin's tables (Jovial, 31 Oct). */
+/** Every course's living costs and visa and health fees come from Admin › Living costs and fees. */
 function applyCourseCosts(c: Cfg) {
   for (const x of COURSES) {
     const country = x.uni.country;
     const l = c.living.find((y) => y.country === country);
-    if (l) x.living = l.perYear;
-    const fees = (c.visaFees ?? []).filter((f) => f.country === country);
-    if (fees.length) x.otherFees = fees.map((f) => [`${f.label}, ${f.per === 'year' ? 'a year' : 'once'}`, f.amount]);
+    if (l) {
+      x.living = l.perYear;
+      x.otherFees = [[`Health insurance, a year`, l.health], [`Visa fee, once`, l.visa]];
+    }
   }
 }
 function save() {
@@ -162,6 +176,7 @@ export const adminCfg = (): Cfg => load();
 /** Change Admin's settings (Admin's pages do this through `change`, which also logs it). */
 export function setAdminCfg(fn: (c: Cfg) => Cfg) {
   state = fn(load());
+  state = { ...state, visaFees: visaFeesOf(state.living) };
   applyCourseCosts(state);
   save();
 }
@@ -223,7 +238,8 @@ const durationText = (m: number) => (m % 12 === 0 ? `${m / 12} ${m === 12 ? 'yea
 /** A document a course asks for: its name, whether it's needed, and when (or for whom). */
 export type CourseDoc = [string, 'Required' | 'Optional', string];
 /** The study level as Admin's document rules name it (as data/applications.ts reads them). */
-const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 'Diploma', 'Bachelor’s degree': 'Undergraduate', 'Postgraduate diploma': 'Postgraduate', 'Master’s degree': 'Postgraduate', 'PhD or research': 'Doctorate' };
+// the rules name slice 2's Program levels, which are the course's own levels (PRD slice 1)
+const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 'Diploma', 'Bachelor’s degree': 'Bachelor’s degree', 'Postgraduate diploma': 'Postgraduate diploma', 'Master’s degree': 'Master’s degree', 'PhD or research': 'PhD or research' };
 /**
  * The documents a course asks for (Jovial, 1 Nov), from GSP · Admin › Document configuration, read the way Add an
  * application reads them (data/applications.ts docsFor): the rules switched on for the New stage that the RP uploads,
