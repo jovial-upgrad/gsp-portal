@@ -575,6 +575,14 @@ function compute(cfg, apps, today) {
       });
     });
   });
+  /* S2-11: an RP with no active agreement (none accepted yet) is held; a new version waiting holds nothing */
+  out.rp.forEach((x) => {
+    const rp = x.r.payee || x.r.rp;
+    if (!rp || !rp.agreementHeld || !x.payable) return;
+    x.payable = false; x.held = 'No active RP agreement';
+    x.st = ['Held: no active RP agreement', 'p-bad', ''];
+    x.trace = (x.trace || []).concat([{ h: 'Held', t: rp.name + ' has no active agreement yet: commission is held until its signed agreement is accepted, then paid.', ref: 'S2-11' }]);
+  });
   /* GST, withholding and AUD views on RP lines */
   out.rp.forEach((x) => {
     const rp = x.r.payee || x.r.rp; x.gstPct = rp && rp.gst ? +S.rpGst || 0 : 0; x.whtPct = rp && S.wht && S.wht[rp.region] ? +S.wht[rp.region] : 0;

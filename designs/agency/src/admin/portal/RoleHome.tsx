@@ -8,8 +8,11 @@ import { GSP_USER } from '../user';
 import { useStore } from '../../work/store';
 import { isOpen, type Application } from '../../data/applications';
 import { Pill, Section, Tiles, type Tone } from '../../institution/records/parts';
-import { canApprove, docsVerified } from '../../institution/data/rpverify';
-import type { RecruitmentPartner } from '../../institution/data/records';
+import { readyForAgreement } from '../../institution/data/rpverify';
+import { byRegion } from '../../data/scope';
+import { rpRegion } from '../../institution/records/RecruitmentPartners';
+import { RP_STATUS_TONE, type RecruitmentPartner } from '../../institution/data/records';
+import { agreementLine, openAgreement, returnOf, withRp, withRpOps } from '../../institution/data/agreements';
 import type { Db } from '../../institution/data/store';
 import type { Section as PortalSection, Target, Variant } from './model';
 
@@ -64,13 +67,13 @@ function RpList({ rps, open, empty, sub }: { rps: RecruitmentPartner[]; open: Pr
     </ul>
   );
 }
-const STATUS_TONE: Record<string, Tone> = { 'Not activated': 'you', Verifying: 'gsp', 'Documents sent back': 'you', Activated: 'uni', 'Agreement signed': 'ok', Rejected: 'bad', Suspended: 'bad', Dormant: 'grey' };
+const STATUS_TONE: Record<string, Tone> = RP_STATUS_TONE;
 const where = (r: RecruitmentPartner) => [r.city, r.country].filter(Boolean).join(', ');
 
 /** Recruitment (a BDM): the RPs they look after, the new ones assigned to them, and the ones gone quiet. */
 function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
   const mine = db.rps.filter((r) => r.bdm === me);
-  const fresh = mine.filter((r) => ['Not activated', 'Verifying', 'Documents sent back', 'Activated'].includes(r.status));
+  const fresh = mine.filter((r) => ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent'].includes(r.status));
   const openBy = new Map<string, number>();
   apps.filter(isOpen).forEach((a) => openBy.set(a.rp ?? 'GSP test agency', (openBy.get(a.rp ?? 'GSP test agency') ?? 0) + 1));
   const signed = mine.filter((r) => r.status === 'Agreement signed');
@@ -94,7 +97,7 @@ function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
         ]}
       />
       <div className="shome__grid">
-        <Section title="New RPs assigned to you" note="Signed up, with BAP, or activated and waiting to sign the agreement." id="rh-new">
+        <Section title="New RPs assigned to you" note="Signed up, with BAP, or with the agreement to sign." id="rh-new">
           <RpList rps={fresh} open={open} empty="No new partners assigned to you." sub={(r) => `${where(r)} · since ${r.since}`} />
         </Section>
         <Section title="Inactive RPs" note="Dormant or suspended, or signed with no open application: worth a call." id="rh-quiet">
@@ -109,17 +112,19 @@ function RecruitmentHome({ first, me, db, apps, open, go }: Props) {
 }
 
 /** BAP (RP Ops): the new RPs to verify, and the ones whose documents went back to them. */
-function BapHome({ first, db, open, go }: Props) {
+function BapHome({ first, db: all, open, go }: Props) {
+  // region isolation (S4-24): RP Ops sees the RPs in its own sales regions, as on Recruitment partners
+  const db = { ...all, rps: byRegion(all.rps, rpRegion) };
   const toCheck = db.rps.filter((r) => r.docs.some((d) => d.state === 'With BAP'));
-  // slice 2 PRD: Ready to approve once every document is verified (BAP then uploads the agreement and approves)
-  const toApprove = db.rps.filter(docsVerified);
-  const signedCopy = db.rps.filter((r) => r.agreement?.state === 'Signed copy received');
+  // Jovial, 2 Nov: documents verified, then the agreement goes out; accepting the first signed copy approves the RP
+  const toSend = db.rps.filter(readyForAgreement);
+  const signedCopy = db.rps.filter((r) => withRpOps(openAgreement(r)));
   const back = db.rps.filter((r) => r.status === 'Documents sent back' || r.docs.some((d) => d.state === 'Sent back' && r.status !== 'Rejected'));
   const notYet = db.rps.filter((r) => r.status === 'Not activated');
-  const waiting = db.rps.filter((r) => r.status === 'Documents sent back' || r.agreement?.state === 'Sent' || r.agreement?.state === 'Sent back');
+  const waiting = db.rps.filter((r) => r.status === 'Documents sent back' || withRp(openAgreement(r)));
   return (
     <div className="ipage ihome">
-      <Head first={first} lead="New recruitment partners to verify: check each document, send back what isn’t right, and approve them.">
+      <Head first={first} lead="New recruitment partners to verify: check each document, send the agreement, and accept the signed copy to approve them.">
         <Button variant="secondary" onClick={() => go('rps')} iconRight={<Icon name="arrowRight" size={18} />}>
           Recruitment partners
         </Button>
@@ -130,18 +135,18 @@ function BapHome({ first, db, open, go }: Props) {
         onPick={() => go('rps')}
         items={[
           { key: 'check', label: 'To verify', sub: 'Documents waiting for BAP', tone: 'gsp', n: toCheck.length },
-          { key: 'approve', label: 'Ready to approve', sub: 'Every document verified', tone: 'ok', n: toApprove.length },
-          { key: 'signed', label: 'Signed copy to check', sub: 'The RP signed its agreement', tone: 'uni', n: signedCopy.length },
+          { key: 'approve', label: 'Agreement to send', sub: 'Every document verified', tone: 'ok', n: toSend.length },
+          { key: 'signed', label: 'Signed copy to review', sub: 'Accept it, or send it back', tone: 'uni', n: signedCopy.length },
           { key: 'back', label: 'Sent back', sub: 'Waiting for the RP', tone: 'you', n: back.length },
           { key: 'new', label: 'Not activated', sub: 'Signed up, documents not sent', tone: 'grey', n: notYet.length },
         ]}
       />
       <div className="shome__grid">
         <Section title="RPs to verify" note="Oldest first." id="bh-check">
-          <RpList rps={[...signedCopy, ...toApprove, ...toCheck.filter((r) => !toApprove.includes(r))].filter((r, i, l) => l.indexOf(r) === i).sort((a, b) => (a.since < b.since ? -1 : 1))} open={open} empty="Nothing to verify." sub={(r) => (r.agreement?.state === 'Signed copy received' ? 'Signed copy to check: accept it or send it back' : canApprove(r) ? 'Agreement uploaded: approve the partner' : docsVerified(r) ? 'Every document verified: upload the agreement, then approve' : `${((n) => (n === 1 ? '1 document' : `${n} documents`))(r.docs.filter((d) => d.state === 'With BAP').length)} to check · ${where(r)}`)} />
+          <RpList rps={[...signedCopy, ...toSend, ...toCheck.filter((r) => !toSend.includes(r))].filter((r, i, l) => l.indexOf(r) === i).sort((a, b) => (a.since < b.since ? -1 : 1))} open={open} empty="Nothing to verify." sub={(r) => (withRpOps(openAgreement(r)) ? `${agreementLine(r)}: accept it${r.approved ? '' : ' to approve the partner'}, or send it back` : readyForAgreement(r) ? 'Every document verified: send the agreement' : `${((n) => (n === 1 ? '1 document' : `${n} documents`))(r.docs.filter((d) => d.state === 'With BAP').length)} to check · ${where(r)}`)} />
         </Section>
         <Section title="Waiting on the RP" note="Documents sent back, or the agreement to sign." id="bh-back">
-          <RpList rps={waiting} open={open} empty="Nothing with RPs." sub={(r) => (r.agreement?.state === 'Sent' ? 'Agreement sent: waiting for the signed copy' : r.agreement?.state === 'Sent back' ? `Signed copy sent back: ${r.agreement.reason ?? ''}` : r.docs.filter((d) => d.state === 'Sent back').map((d) => d.name).join(', ') || where(r))} />
+          <RpList rps={waiting} open={open} empty="Nothing with RPs." sub={(r) => (withRp(openAgreement(r)) ? `${agreementLine(r)}${openAgreement(r)!.status === 'Sent back' ? ` (${returnOf(openAgreement(r)!)?.reason ?? ''})` : ''}` : r.docs.filter((d) => d.state === 'Sent back').map((d) => d.name).join(', ') || where(r))} />
         </Section>
       </div>
     </div>

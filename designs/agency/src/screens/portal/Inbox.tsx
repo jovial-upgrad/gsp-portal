@@ -55,6 +55,8 @@ export function useInbox(o: {
   anns: { list: Announcement[]; names: Record<string, string> };
   onOpen: (t: NoteTarget) => void;
   onCourses: (university: string) => void;
+  /** Notifications worked out elsewhere from the agency's own record (its agreement: data/agreements.ts). */
+  extra?: Note[];
 }) {
   // read state is saved per person (slice 4 PRD, S4-15): this browser keeps it for whoever is signed in
   const readKey = `gsp-bell-read-v1:${o.me?.email || o.agency || o.role}`;
@@ -105,8 +107,9 @@ export function useInbox(o: {
     };
   }, [o.role, staffId]);
   const notes = useMemo(() => {
-    return notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps, students: o.students, join: { created: opened, sentAt: o.join?.sentAt }, me: staffId, meName: o.me?.name, work: work.notes, covering: work.covering });
-  }, [o.role, o.access, o.agency, o.apps, o.students, o.join?.sentAt, staffId, o.me?.name, work, opened]);
+    const own = notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps, students: o.students, join: { created: opened, sentAt: o.join?.sentAt }, me: staffId, meName: o.me?.name, work: work.notes, covering: work.covering });
+    return [...own, ...(o.extra ?? []).filter((n) => n.at <= Date.now())].sort((x, y) => y.at - x.at);
+  }, [o.role, o.access, o.agency, o.apps, o.students, o.join?.sentAt, staffId, o.me?.name, work, opened, o.extra]);
   const notices = useMemo(() => noticesFor(o.role, o.anns.list, o.anns.names, o.country), [o.anns, o.role, o.country]);
 
   const open = (n: Note) => {

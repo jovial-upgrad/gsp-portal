@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { RpEarnings } from '../../finance/RpEarnings';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -97,7 +97,10 @@ export function ProfileSection({
   onDocs,
   onSignOut,
   team,
+  agreement,
 }: {
+  /** Profile › Agreement: RP Admin only (Branch Admin and Counsellor don't see it). */
+  agreement?: ReactNode;
   acc: Account;
   join: SignupState | null;
   access: Access;
@@ -167,6 +170,7 @@ export function ProfileSection({
           </section>
         )}
 
+        {agreement}
         {team && <TeamSection {...team} />}
         <EmailPrefs />
 

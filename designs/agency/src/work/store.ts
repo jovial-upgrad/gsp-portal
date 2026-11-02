@@ -17,6 +17,8 @@ import { liveApps, appRecord, appTasks, addWorkingHours, workingHoursBetween, DA
 import { regionQueueId, recruitmentQueueId, sameRole } from './seed';
 import { now, subscribeClock, istDate, istTime, istYmd } from './clock';
 import { WORK_KEY } from './renewal';
+import { getDb as rpDb, onDbChange } from '../institution/data/store';
+import { rpTasks, rpRecord } from './rpRules';
 
 const KEY = WORK_KEY; // v6: the slice 4 PRD's queues, rules and kinds (2 Nov)
 const ADMIN_Q = 'q-admin';
@@ -161,7 +163,8 @@ function flush() {
 function derive() {
   const live = liveAll(), fl = liveFlags(), minute = Math.floor(now() / 60000);
   const cals = getCalendars();
-  if (view && vkey[0] === state && vkey[1] === live && vkey[2] === fl && vkey[3] === leaveSnap && vkey[4] === minute && vkey[5] === cals && vkey[6] === adminTick) return view;
+  const rdb = rpDb();
+  if (view && vkey[0] === state && vkey[1] === live && vkey[2] === fl && vkey[3] === leaveSnap && vkey[4] === minute && vkey[5] === cals && vkey[6] === adminTick && vkey[7] === rdb) return view;
   const t0 = now();
   const apps = liveApps(live);
   const recs = apps.map((a) => ({ ...SEED_RECS[a.id], ...appRecord(a), ...(SEED_RECS[a.id]?.waitingOn && SEED_RECS[a.id].status === appRecord(a).status ? {} : { waitingOn: undefined }) }));
@@ -170,7 +173,8 @@ function derive() {
   // one source each: the sales regions (Admin), the roles (Admin â€º Permission roles), the calendars (Working days)
   const base = {
     ...state, regions: seed.regionsNow(), roles: gspRoles(), calendars: cals, users: usersNow(state),
-    records: [...recs, ...state.records.filter((r) => r.type !== 'Application' || !appIds.has(r.id))],
+    // the RPs as the Institution Team's records have them (their tasks come from rpRules.ts)
+    records: [...recs, ...rdb.rps.map(rpRecord), ...state.records.filter((r) => (r.type !== 'Application' || !appIds.has(r.id)) && !rdb.rps.some((x) => x.id === r.id))],
     calFor: (region) => calendarOf(region || 'Global'),
   };
   // the application's officer: set by routing when the RP sends the documents, kept until changed (S4-5); a
@@ -195,7 +199,7 @@ function derive() {
   };
   const officerNote = (a) => { const o = state.officers[a.id]; return o?.why === 'left' && o.from === (a.officer || null) ? 'Their officer has left GSP: the leader has it' : null; };
 
-  const auto = appTasks(base, live, t0).map((t) => ({ ...t, ...(state.overrides?.[t.id] || {}) }));
+  const auto = [...appTasks(base, live, t0), ...rpTasks(base, rdb.rps, t0)].map((t) => ({ ...t, ...(state.overrides?.[t.id] || {}) }));
   const manual = state.tasks.map((t) => (t.status === 'open' && closedApp.has(t.record) ? { ...t, status: 'done', doneAt: t0, doneBy: null, outcome: 'Closed with the application' } : t));
   const list = [];
   for (const t0x of [...manual, ...auto]) {
@@ -251,7 +255,7 @@ function derive() {
   // the six statuses' usual times, from the rules that time them (S4-12): data/applications.ts reads these
   const statusSla = seed.STATUS_SLA.map((x) => { const r = base.rules.find((y) => y.row === x.row); return { ...x, days: r ? timeHours(r.after) || timeHours(r.sla) : 0 }; });
   view = { ...base, tasks, statusSla };
-  vkey = [state, live, fl, leaveSnap, minute, cals, adminTick];
+  vkey = [state, live, fl, leaveSnap, minute, cals, adminTick, rdb];
   flush();
   return view;
 }
@@ -261,6 +265,8 @@ const nameOfIn = (s, id) => (s.users.find((u) => u.id === id) || {}).name || 'â€
 let leaveSnap = 0;
 subscribeLeave(() => { leaveSnap += 1; listeners.forEach((l) => l()); });
 onLiveChange(() => listeners.forEach((l) => l()));
+// an RP's record changes (a signed copy uploaded, accepted, training done): its tasks follow
+onDbChange(() => { view = null; listeners.forEach((l) => l()); });
 subscribeCalendars(() => { view = null; listeners.forEach((l) => l()); });
 subscribeClock(() => { view = null; listeners.forEach((l) => l()); });
 

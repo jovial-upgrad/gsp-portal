@@ -486,3 +486,10 @@ input[type='date'].icell { min-width: 150px; }
 .icell-pair .smenu .smenu__btn { padding-left: var(--sp-12); padding-right: 34px; }
 .icell-pair .smenu .control__chevron { right: 8px; }
 .itab td > .smenu { min-width: 150px; }
+
+/* RP agreement versions on an RP's record (Jovial, 2 Nov) */
+.iform__stack { display: grid; gap: var(--sp-16); }
+.iagr__review { display: grid; gap: var(--sp-12); padding: var(--sp-16); margin-top: var(--sp-16); border-radius: var(--r-ctl); background: var(--gsp-bg); border: 1px solid var(--gsp-line); }
+.iagr__review .irsec__note { margin: 0; color: var(--text); }
+.iagr__tab { margin-top: var(--sp-16); }
+.iagr__tab td { vertical-align: top; }

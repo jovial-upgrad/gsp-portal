@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test:commissions": "node scripts/test-commissions.mjs",
-    "build:sandbox": "node scripts/build-sandbox.mjs"
+    "build:sandbox": "node scripts/build-sandbox.mjs",
+    "test:agreements": "node scripts/test-rp-agreements.mjs"
   },
   "dependencies": {
     "motion": "^12.23.12",

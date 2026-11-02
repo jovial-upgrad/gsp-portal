@@ -13,8 +13,8 @@ export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-
 export const WORK_SECTIONS: WorkSection[] = ['mywork', 'mail', 'work-sla', 'work-rules', 'work-mail'];
 const PAGE: Record<string, string> = { 'gspx-mywork': 'mywork', 'gspx-mail': 'mail', 'gspx-queues': 'work-sla', 'gspx-rules': 'work-rules' };
 
-export function WorkPage({ section, role, go, openApp }: { section: WorkSection; role: string; go: (s: string) => void; openApp: (id: string) => void }) {
-  const ctx = { hostRole: role, openRecord: openApp, exit: () => undefined, openPage: (id: string) => go(PAGE[id] ?? id) };
+export function WorkPage({ section, role, go, openApp, openRp }: { section: WorkSection; role: string; go: (s: string) => void; openApp: (id: string) => void; openRp?: (id: string) => void }) {
+  const ctx = { hostRole: role, openRecord: openApp, openRp, exit: () => undefined, openPage: (id: string) => go(PAGE[id] ?? id) };
   const page: ReactNode = section === 'mywork' ? <MyWork /> : section === 'mail' ? <Mail /> : section === 'work-sla' ? <Queues /> : section === 'work-mail' ? <EmailsJobs /> : <TaskRules />;
   return (
     <HostContext.Provider value={ctx as never}>

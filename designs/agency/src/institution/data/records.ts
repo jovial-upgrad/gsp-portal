@@ -20,6 +20,7 @@ import { RPS } from '../../data/dataset';
 import { phoneOf, rpAdmin } from '../../data/rpteam';
 import { NATIONALITY } from '../../admin/data/config';
 import { SYSTEM, atIso, change, type Change, type Created } from './changelog';
+import type { RpAgreementVersion } from './agreements';
 /** An Institution person's name from the staff list, by the start of their email. */
 const IN = (local: string) => nameOf(`${local}@upgrad.com`);
 /** The Change log role of the sample's Institution people. */
@@ -399,7 +400,10 @@ export function agreementJob<U extends { id: string; ip: string; status: string;
  * As the PM prototype's IP team sees them (29 Oct, 6th round): every recruitment partner and where it is in onboarding.
  * BAP works the Verifying ones; the Institution Team looks and exports, and changes nothing. No automated checks.
  */
-export const RP_STATUSES = ['Not activated', 'Verifying', 'Documents sent back', 'Activated', 'Agreement signed', 'Rejected', 'Suspended', 'Dormant'] as const;
+/** Agreement sent: every document verified and the agreement with the RP (to sign, or its signed copy with RP Ops). Agreement signed: its first agreement accepted, so it's approved and every module is open (Jovial, 2 Nov). */
+export const RP_STATUSES = ['Not activated', 'Verifying', 'Documents sent back', 'Agreement sent', 'Agreement signed', 'Rejected', 'Suspended', 'Dormant'] as const;
+/** Each status's colour (GSP owner colours: amber with the RP, violet with GSP). */
+export const RP_STATUS_TONE: Record<RpStatus, 'you' | 'gsp' | 'uni' | 'ok' | 'bad' | 'grey'> = { 'Not activated': 'you', Verifying: 'gsp', 'Documents sent back': 'you', 'Agreement sent': 'uni', 'Agreement signed': 'ok', Rejected: 'bad', Suspended: 'bad', Dormant: 'grey' };
 export type RpStatus = (typeof RP_STATUSES)[number];
 /** `note`: BAP's reason when it sent the document back; `at` and `by`: when and who decided (W4). */
 export type RpDoc = { name: string; state: 'With BAP' | 'Verified' | 'Sent back' | 'Missing'; file: string; note?: string; at?: number; by?: string; optional?: boolean };
@@ -418,13 +422,14 @@ export type RecruitmentPartner = {
   admissions: string;
   masterPartner: string;
   docs: RpDoc[];
-  activity: { at: string; what: string }[];
+  /** `time`: when, to the minute, for steps logged in the portal. Agreement steps aren't stored here: they're worked out from the versions (data/agreements.ts). */
+  activity: { at: string; what: string; time?: number }[];
   /** A sign-up made in the RP portal (W5): kept in step with the agency's registration (data/rpverify.ts). */
   signup?: true;
-  /** When BAP approved the partner, and who (W4). */
+  /** When the partner was approved, and who: RP Ops accepting its first signed agreement (Jovial, 2 Nov). */
   approved?: { at: number; by: string };
-  /** The RP agreement (slice 2 PRD, S2-4): uploaded by RP Ops before approval, sent on approval, signed by the RP. */
-  agreement?: RpAgreement;
+  /** The RP agreement's versions (Jovial, 2 Nov): data/agreements.ts. */
+  agreements?: RpAgreementVersion[];
   /** The status before Suspended, which Reactivate returns to (S2C-9). */
   before?: RpStatus;
   /** T58 "Train <RP> on the portal" marked done by RP Ops (S4-22). */
@@ -434,9 +439,6 @@ export type RecruitmentPartner = {
   /** Branches GSP added from the RP's record (Recruitment, RP Ops, Admin; matrix RP branches and team). */
   branches?: { id: string; name: string; country: string; state: string; city: string; main?: boolean; bdm?: string }[];
 };
-/** The RP agreement's state, shown on Activated: Sent (waiting for the RP), Signed copy received (waiting for BAP), Sent back (waiting for the RP). */
-export type RpAgreementState = 'Uploaded' | 'Sent' | 'Signed copy received' | 'Sent back' | 'Accepted';
-export type RpAgreement = { file: string; version: string; uploadedAt: number; by: string; state: RpAgreementState; sentAt?: number; signed?: { file: string; on: string; at: number }; reason?: string; checked?: { by: string; at: number } };
 export type RpNotice = { id: string; subject: string; message: string; file?: string; at: number; by: string };
 
 /** An RP's documents: the ones GSP · Admin's rules ask an agency in its country for (data/partners.ts). */
@@ -484,29 +486,55 @@ const datasetRps = (): RecruitmentPartner[] =>
       masterPartner: 'None',
       docs: docs('Verified'),
       activity: [
-        { at: since, what: test ? 'Agreement signed; the RP signed in as RP Admin (the prototype’s own agency)' : r.terms ? 'Agreement signed; RP terms with Finance' : 'Agreement signed; no RP terms with Finance yet' },
+        { at: since, what: test ? 'The RP signed in as RP Admin (the prototype’s own agency)' : r.terms ? 'RP terms with Finance' : 'No RP terms with Finance yet' },
         { at: since, what: 'Signed up' },
       ],
     };
   });
 export const sampleRps = (): RecruitmentPartner[] => [...rpRows(), ...datasetRps()].map(staffed).map(withAgreement);
-/** The samples' RP agreements: signed ones accepted; Kathmandu's sent and waiting; Bright Future's signed copy waiting for BAP. */
+/**
+ * The samples' RP agreements (Jovial, 2 Nov), as records: versions with their files, who sent them and when, the
+ * signed copies and the decisions. Everything they show (statuses, Activity, tasks, the bell, emails, held
+ * commission) is worked out from these. Malabar Overseas (India) and Kathmandu wait for their signed copies; Bright Future's signed copy waits for RP
+ * Ops; the GSP test agency (RP Admin's own) has v3 active and v4 sent to sign; Horizon, Saigon and Capital Career
+ * show a history (superseded, withdrawn, sent back once). Every other signed RP has one accepted agreement.
+ */
 function withAgreement(r: RecruitmentPartner): RecruitmentPartner {
   const RO = nameOf('garima.bhardwaj@upgrad.com');
-  const base = (at: string) => ({ file: `GSP_RP_agreement_${r.code}.pdf`, version: 'v3 · Oct 2026', uploadedAt: atIso(at, 9), by: RO, sentAt: atIso(at, 10) });
-  if (r.id === 'rp-kathmandu') return { ...r, approved: { at: atIso(inDays(-20)), by: RO }, agreement: { ...base(inDays(-20)), state: 'Sent' } };
-  if (r.id === 'rp-brightfuture') return { ...r, approved: { at: atIso(inDays(-27)), by: RO }, agreement: { ...base(inDays(-27)), state: 'Signed copy received', signed: { file: 'Bright_Future_signed_agreement.pdf', on: inDays(-2), at: atIso(inDays(-2), 15) } } };
-  if (['Agreement signed', 'Dormant', 'Suspended'].includes(r.status))
-    return { ...r, before: r.status === 'Suspended' ? 'Agreement signed' : r.before, trained: r.status === 'Agreement signed' && r.id !== 'rp-manila' ? { at: atIso(r.since), by: RO } : undefined, agreement: { ...base(r.since), state: 'Accepted', signed: { file: `${r.code}_signed_agreement.pdf`, on: r.since, at: atIso(r.since, 15) }, checked: { by: RO, at: atIso(r.since, 16) } } };
-  return r;
+  const signer = r.contact.name || 'RP Admin';
+  const file = (v: string) => `GSP_RP_agreement_${r.code}_${v}.pdf`;
+  const copy = (v: string, on: string, h = 15) => ({ file: `${r.code}_signed_agreement_${v}.pdf`, size: 1_240_000, on, at: atIso(on, h), by: signer });
+  /** A version sent on `sent` (ISO), with what happened next. */
+  const ver = (n: number, label: string, sent: string, o: Partial<RpAgreementVersion> = {}): RpAgreementVersion => ({
+    id: `${r.id}-v${n}`, version: label, file: file(`v${n}`), size: 860_000 + n * 21_000, uploadedAt: atIso(sent, 9), uploadedBy: RO, sentAt: atIso(sent, 10), sentBy: RO, status: 'Sent', ...o,
+  });
+  const my = (iso: string) => `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+  const ok = (on: string) => ({ status: 'Accepted' as const, accepted: { by: RO, at: atIso(on, 16) }, effectiveFrom: on });
+  if (r.id === 'rp-kathmandu') return { ...r, agreements: [ver(1, `v1 · ${my(inDays(-20))}`, inDays(-20))] };
+  if (r.id === 'rp-kochi') return { ...r, agreements: [ver(1, `v1 · ${my(inDays(-6))}`, inDays(-6))] };
+  if (r.id === 'rp-brightfuture') return { ...r, agreements: [ver(1, `v1 · ${my(inDays(-27))}`, inDays(-27), { status: 'Signed copy uploaded', copies: [copy('v1', inDays(-2))] })] };
+  if (!['Agreement signed', 'Dormant', 'Suspended'].includes(r.status)) return r;
+  const signed = r.status === 'Agreement signed';
+  // the day its first agreement was accepted: the sample's own "Agreement signed" line (that line is worked out now)
+  const since = r.activity.find((x) => x.what === 'Agreement signed')?.at ?? r.since;
+  const sent = since > r.since ? isoOf(new Date(atIso(since) - 5 * DAY)) : since;
+  r = { ...r, activity: r.activity.filter((x) => x.what !== 'Agreement signed' && x.what !== 'Activated') };
+  let agreements: RpAgreementVersion[] = [ver(1, `v1 · ${my(sent)}`, sent, { ...ok(since), copies: [copy('v1', since)] })];
+  if (r.id === 'rp-test') agreements = [...agreements, ver(2, `v2 · ${my(inDays(-3))}`, inDays(-3), { notes: 'Revised commission schedule and data-protection clause.' })];
+  if (r.id === 'rp-horizon') agreements = [...agreements, ver(2, 'v2 · Oct 2026', '2026-10-06', { ...ok('2026-10-09'), copies: [copy('v2', '2026-10-08')] })];
+  if (r.id === 'rp-saigon') agreements = [...agreements, ver(2, 'v2 · Oct 2026', '2026-10-12', { status: 'Withdrawn', withdrawn: { by: RO, at: atIso('2026-10-14', 11) }, notes: 'Sent with the wrong annexure.' })];
+  if (r.id === 'rp-delhi')
+    agreements = [ver(1, `v1 · ${my(sent)}`, sent, { ...ok(since), copies: [{ ...copy('v1', since, 11), file: `${r.code}_signed_page1_only.pdf` }, copy('v1', since)], returns: [{ by: RO, at: atIso(since, 13), reason: 'Only the first page is signed. Sign every page and upload the whole agreement.' }] })];
+  return { ...r, approved: { at: atIso(since, 16), by: RO }, before: r.status === 'Suspended' ? 'Agreement signed' : r.before, trained: signed ? { at: atIso(since), by: RO } : undefined, agreements };
 }
 const rpRows = (): RecruitmentPartner[] => [
   rp('rp-dhaka', 1042, 'Dhaka Global Education', 'Dhaka', 'Bangladesh', 'Verifying', inDays(-8), { name: 'Nusrat Jahan', email: 'nusrat@dhakaglobaledu.com', phone: '+880 1711 552 019' }, 'Event or fair', '', '', docs('With BAP'), [{ at: inDays(-7), what: 'All documents uploaded' }, { at: inDays(-8), what: 'Signed up' }]),
   rp('rp-eduvista', 1043, 'EduVista Consultants', 'Hyderabad', 'India', 'Verifying', inDays(-9), { name: 'Kiran Reddy', email: 'kiran@eduvista.in', phone: '+91 98490 11220' }, 'Google search', '', '', docs('With BAP'), [{ at: inDays(-8), what: 'All documents uploaded' }, { at: inDays(-9), what: 'Signed up' }]),
   rp('rp-lanka', 1044, 'Lanka Study Hub', 'Colombo', 'Sri Lanka', 'Not activated', inDays(-12), { name: 'Ruwan Silva', email: 'ruwan@lankastudyhub.lk', phone: '+94 77 220 5531' }, 'Another agency', '', '', docs('Missing'), [{ at: inDays(-12), what: 'Signed up' }]),
   rp('rp-colombo', 1045, 'Colombo EduConnect', 'Colombo', 'Sri Lanka', 'Documents sent back', inDays(-20), { name: 'Shanika Perera', email: 'shanika@colomboeduconnect.lk', phone: '+94 77 410 8821' }, 'Social media', '', '', [...docs('Verified').slice(0, 2), { name: 'Owner’s ID', state: 'Sent back', file: 'Owners_ID.pdf' }, { name: 'Business reference', state: 'Verified', file: 'Business_reference.pdf' }], [{ at: inDays(-15), what: 'Owner’s ID sent back: the photo page is cut off' }, { at: inDays(-18), what: 'All documents uploaded' }, { at: inDays(-20), what: 'Signed up' }]),
-  rp('rp-kathmandu', 1031, 'Kathmandu Study Link', 'Kathmandu', 'Nepal', 'Activated', inDays(-26), { name: 'Bikash Thapa', email: 'bikash@kathmandustudylink.com.np', phone: '+977 980 221 4410' }, 'GSP team member', '', '', docs('Verified'), [{ at: inDays(-20), what: 'Activated: agreement sent to sign' }, { at: inDays(-24), what: 'All documents verified' }, { at: inDays(-26), what: 'Signed up' }]),
-  rp('rp-brightfuture', 1029, 'Bright Future Overseas', 'Bengaluru', 'India', 'Activated', inDays(-31), { name: 'Meena Pillai', email: 'meena@brightfutureoverseas.com', phone: '+91 98872 44114' }, 'A university', '', '', docs('Verified'), [{ at: inDays(-27), what: 'Activated: agreement sent to sign' }, { at: inDays(-29), what: 'All documents verified' }, { at: inDays(-31), what: 'Signed up' }]),
+  rp('rp-kathmandu', 1031, 'Kathmandu Study Link', 'Kathmandu', 'Nepal', 'Agreement sent', inDays(-26), { name: 'Bikash Thapa', email: 'bikash@kathmandustudylink.com.np', phone: '+977 980 221 4410' }, 'GSP team member', '', '', docs('Verified'), [{ at: inDays(-24), what: 'All documents verified' }, { at: inDays(-26), what: 'Signed up' }]),
+  rp('rp-kochi', 1036, 'Malabar Overseas Education', 'Kochi', 'India', 'Agreement sent', inDays(-12), { name: 'Anoop Varghese', email: 'anoop@malabaroverseas.in', phone: '+91 98470 31562' }, 'Event or fair', '', '', docs('Verified'), [{ at: inDays(-8), what: 'All documents verified' }, { at: inDays(-12), what: 'Signed up' }]),
+  rp('rp-brightfuture', 1029, 'Bright Future Overseas', 'Bengaluru', 'India', 'Agreement sent', inDays(-31), { name: 'Meena Pillai', email: 'meena@brightfutureoverseas.com', phone: '+91 98872 44114' }, 'A university', '', '', docs('Verified'), [{ at: inDays(-29), what: 'All documents verified' }, { at: inDays(-31), what: 'Signed up' }]),
   rp('rp-horizon', 1003, 'Horizon Overseas', 'Mumbai', 'India', 'Agreement signed', '2024-08-04', { name: 'Ananya Rao', email: 'ananya@horizonoverseas.in', phone: '+91 98200 11873' }, 'GSP team member', '', '', docs('Verified'), [{ at: '2024-08-19', what: 'Agreement signed' }, { at: '2024-08-12', what: 'Activated' }, { at: '2024-08-04', what: 'Signed up' }]),
   rp('rp-saigon', 1011, 'Saigon Bridge Education', 'Ho Chi Minh City', 'Vietnam', 'Agreement signed', '2025-01-19', { name: 'Lan Tran', email: 'lan@saigonbridge.vn', phone: '+84 90 811 2044' }, 'Event or fair', '', '', docs('Verified'), [{ at: '2025-02-02', what: 'Agreement signed' }, { at: '2025-01-19', what: 'Signed up' }]),
   rp('rp-delhi', 1007, 'Capital Career Abroad', 'Delhi', 'India', 'Agreement signed', '2024-11-10', { name: 'Manish Gupta', email: 'manish@capitalcareerabroad.in', phone: '+91 98110 77310' }, 'Another agency', '', '', docs('Verified'), [{ at: '2024-11-25', what: 'Agreement signed' }, { at: '2024-11-10', what: 'Signed up' }]),

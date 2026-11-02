@@ -15,7 +15,8 @@ import { docsFor, missingRequired } from '../signup/docs';
 import { returnedDocs, stillToReplace } from '../signup/docs';
 import { Home } from './Home';
 import { LaterSection, LockedSection, ProfileSection } from './Sections';
-import { AccountClosed, HeldNote, RpAgreementCard } from './Agreement';
+import { AccountClosed, HeldNote, RpAgreementCard, RpAgreementProfile } from './Agreement';
+import { agreementNotes, commissionHeld, openAgreement, rpCardCopy } from '../../institution/data/agreements';
 import { DocumentsSheet } from './DocumentsSheet';
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, type CourseSearch } from '../courses/search';
@@ -132,7 +133,14 @@ export function Portal({
   // the bell and the megaphone: this portal's notifications (real ones from the other role while connected), and
   // announcements as the Institution Team's model has them (this role's own copy: nothing that team changes reaches here)
   const [anns] = useState(() => ({ list: sampleAnnouncements(), names: {} }));
+  // the agency's own record (its sign-up, or the prototype's own agency): its agreement reaches the RP Admin's bell
+  const [db] = useSharedDb();
+  const rpRec = join ? db.rps.find((r) => r.id === signupId(join)) : undefined;
+  const myRp = rpRec ?? (!join ? db.rps.find((r) => r.id === 'rp-test') : undefined);
+  const isRpAdmin = !acc.role || acc.role === 'RP Admin';
+  const agrNotes = useMemo(() => (myRp && isRpAdmin ? agreementNotes(myRp).map((n) => ({ ...n, kind: 'system' as const, to: { page: 'home' as const } })) : []), [myRp, isRpAdmin]);
   const inbox = useInbox({
+    extra: agrNotes,
     role: 'rp',
     access: accessOf(join),
     agency: acc.agency,
@@ -176,19 +184,17 @@ export function Portal({
   const [docsOpen, setDocsOpen] = useState(false);
   // a new sign-up is on GSP's Recruitment partners list from the start (W5), and BAP's decisions on its documents
   // come back here (W4): data/rpverify.ts
-  const [db] = useSharedDb();
   useEffect(() => {
     if (join) syncSignup(join);
   }, [join]);
-  const rpRec = join ? db.rps.find((r) => r.id === signupId(join)) : undefined;
-  // the agency's own record: its sign-up, or the prototype's own agency (slice 2 PRD: agreement, held commission, suspension)
-  const myRp = rpRec ?? (!join ? db.rps.find((r) => r.id === 'rp-test') : undefined);
   useEffect(() => {
     if (!join || !rpRec || !set) return;
     const next = bapDecisions(join, rpRec);
     if (next) set(() => next);
   }, [rpRec]); // eslint-disable-line react-hooks/exhaustive-deps
   const access = accessOf(join);
+  // documents verified and the agreement out: the sidebar says where it is, until the signed copy is accepted
+  const agrOpen = myRp && !myRp.approved ? openAgreement(myRp) : null;
   const phase = phaseOf(join);
   const needs = join ? sentDocs(join).map((d) => d.need) : [];
   const back = join ? returnedDocs(needs, join.docs).length : 0;
@@ -289,6 +295,17 @@ export function Portal({
                   {left === 0 ? 'Send to GSP again' : back === 1 ? 'Replace document' : 'Replace documents'}
                 </button>
               </>
+            ) : agrOpen ? (
+              <>
+                <span className={`who who--${rpCardCopy(myRp!, agrOpen).chipTone}`}>{rpCardCopy(myRp!, agrOpen).chip}</span>
+                <p className="sstatus__title">{rpCardCopy(myRp!, agrOpen).title}</p>
+                <p className="sstatus__text">{rpCardCopy(myRp!, agrOpen).line}</p>
+                {section !== 'home' && (
+                  <button type="button" className="btn btn--link sstatus__link" onClick={() => go('home')}>
+                    Open on Home
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <span className="who who--gsp">With GSP</span>
@@ -344,8 +361,7 @@ export function Portal({
       <AccountClosed r={myRp} />
     ) : section === 'home' ? (
       <>
-      {myRp && <RpAgreementCard r={myRp} by={acc.name} canSign={acc.role === 'RP Admin'} />}
-      <Home acc={acc} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+      <Home pending={myRp && isRpAdmin && openAgreement(myRp) ? <RpAgreementCard r={myRp} by={acc.name} /> : undefined} acc={acc} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
       </>
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />
@@ -356,6 +372,7 @@ export function Portal({
         access={access}
         onDocs={openDocs}
         onSignOut={onSignOut}
+        agreement={myRp && isRpAdmin ? <RpAgreementProfile r={myRp} by={acc.name} /> : undefined}
         team={{ agency: acc.agency, bdm: manager, team, setTeam, branches, setBranches, students, setStudents }}
       />
     ) : section === 'students' ? (
@@ -408,9 +425,9 @@ export function Portal({
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}
       />
-    ) : section === 'earnings' && myRp && myRp.status === 'Activated' ? (
+    ) : section === 'earnings' && myRp && commissionHeld(myRp) ? (
       <>
-        <HeldNote />
+        <HeldNote r={myRp} />
         <LaterSection section={section} />
       </>
     ) : (
