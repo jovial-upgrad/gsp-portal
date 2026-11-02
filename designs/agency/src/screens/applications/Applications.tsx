@@ -28,6 +28,7 @@ export function Applications({
   onOpenStudent,
   onFindCourses,
   ownOnly = false,
+  commission = true,
 }: {
   apps: Application[];
   setApps: (fn: (l: Application[]) => Application[]) => void;
@@ -44,6 +45,8 @@ export function Applications({
   onFindCourses: () => void;
   /** A Counsellor: only their own, no counsellor filter. */
   ownOnly?: boolean;
+  /** Commission figures: the RP Admin only (S3C-7). */
+  commission?: boolean;
 }) {
   const [list, setList] = useState<ListState>(NEW_LIST);
   const [openId, setOpenId] = useState<string | null>(start?.open ?? null);
@@ -92,6 +95,7 @@ export function Applications({
           }}
           onOpenStudent={onOpenStudent}
           say={setMsg}
+          commission={commission}
         />
       ) : (
         <AppList apps={apps} students={students} team={team} st={list} set={setList} onOpen={openApp} onAdd={() => setAdd({ key: Date.now() })} onFindCourses={onFindCourses} say={setMsg} ownOnly={ownOnly} />

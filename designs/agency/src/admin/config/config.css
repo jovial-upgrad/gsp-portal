@@ -203,3 +203,9 @@
   .cfg__fx .cfg__acts { width: 40px; padding-left: 0; }
 }
 .cfg__scroll { max-height: 420px; overflow: auto; }
+
+/* Reasons (S3C-21): one small list per stage, in a grid */
+.cfg__reasongrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px 24px; }
+.cfg__reasons { display: grid; gap: 8px; align-content: start; }
+.cfg__reasons .cfg__doclist li .field { flex: 1; margin: 0; }
+.cfg__reasons .cfg__add { flex-wrap: wrap; }

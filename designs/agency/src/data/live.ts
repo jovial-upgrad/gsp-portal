@@ -7,7 +7,7 @@ import type { Application, EndKind, StatusKey } from './applications';
  * portal applies it to its copy, now and whenever it opens. Kept in this browser, so other tabs see it too.
  * In the real build this is the application record itself.
  */
-export type LiveStatus = { status: StatusKey; at: number; by: string; end?: EndKind; note?: string; via?: 'mail' | 'portal' | 'rp' };
+export type LiveStatus = { status: StatusKey; at: number; by: string; end?: EndKind; note?: string; via?: 'mail' | 'portal' | 'rp'; /** A close: the stage it closed at, and whether it had gone to the university (S3C-9). */ endStage?: number; submitted?: boolean };
 /** What GSP set on an application besides its status (Jovial, 1 Nov): when the offer's conditions went to the RP, and who lodges the visa. */
 /** condsSent: false while GSP still has to send the conditions, the time it sent them after. No flag: sent (the sample data). */
 export type LiveFlags = { condsSent?: number | false; visaBy?: 'you' | 'gsp'; filed?: { name: string; file: string; at: number; by: string }[]; rpNews?: number; rpWhat?: string; rpSeen?: number; fee?: number; feeBy?: string; feeAt?: number; /** Visa granted: the course start date GSP entered (Jovial, 2 Nov). */ start?: number };
@@ -100,7 +100,7 @@ function withStatus<T extends Pick<Application, 'id' | 'status' | 'since' | 'his
     ...a,
     status: l.status,
     since: l.at,
-    ...(l.end ? { end: { kind: l.end, reason: l.note ?? '', stage: 2, at: l.at } } : {}),
+    ...(l.end ? { end: { kind: l.end, reason: l.note ?? '', stage: l.endStage ?? 2, at: l.at, ...(l.submitted !== undefined ? { submitted: l.submitted } : {}) } } : {}),
     history: [...a.history, { at: l.at, who: l.via === 'rp' ? 'you' : 'gsp', text: l.via === 'mail' || !l.via ? `Status moved to “${l.note || l.status}” from a university email` : `Status moved to “${l.note || l.status}”`, by: l.by }],
   };
 }

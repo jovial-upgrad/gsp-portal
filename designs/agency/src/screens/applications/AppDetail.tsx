@@ -3,7 +3,7 @@ import { isWithdrawal } from '../../data/reasons';
 import { KeyGroup, WithdrawDialog, appliedAt } from '../../gsp/applications/AppDetail';
 import { RP_WITHDRAW_OFF, autoName, rpCanWithdraw } from '../../data/appRules';
 import { uploadAckLine } from '../../data/chat';
-import { activityFor } from '../../data/activity';
+import { activityFor, activityKind } from '../../data/activity';
 import { UPLOAD } from '../../data/uploads';
 import { setLiveStatus, setLiveFlags, useLiveAll, finalFeeOf } from '../../data/live';
 import { NameDialog } from '../../gsp/applications/NameDialog';
@@ -93,6 +93,7 @@ export function AppDetail({
   onBack,
   onOpenStudent,
   say,
+  commission = true,
 }: {
   a: Application;
   s: Student;
@@ -105,8 +106,11 @@ export function AppDetail({
   onBack: () => void;
   onOpenStudent: (id: string, tab?: RecordTab) => void;
   say: (m: string) => void;
+  /** Commission figures: the RP Admin only (S3C-7). Branch Admin and Counsellor get no Commission tab or Base commission. */
+  commission?: boolean;
 }) {
   const reduce = useReducedMotion();
+  const tabs = TABS.filter(([k]) => commission || k !== 'commission');
   const c = courseOf(a);
   const d = c.uni.country;
   const o = ownerOf(a);
@@ -136,12 +140,12 @@ export function AppDetail({
   };
 
   const onTabKey = (e: KeyboardEvent) => {
-    const i = TABS.findIndex(([k]) => k === tab);
-    const n = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
+    const i = tabs.findIndex(([k]) => k === tab);
+    const n = e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i + tabs.length - 1) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
     if (n < 0) return;
     e.preventDefault();
-    setTab(TABS[n][0]);
-    document.getElementById(`atab-${TABS[n][0]}`)?.focus();
+    setTab(tabs[n][0]);
+    document.getElementById(`atab-${tabs[n][0]}`)?.focus();
   };
 
   /* ---------- acting on the application ---------- */
@@ -289,7 +293,7 @@ export function AppDetail({
         history: [...x.history, { at: now, who: 'you', text: `Withdrew the application: ${reason}`, by: me }],
       };
     });
-    setLiveStatus(a.id, { status: 'closed', at: now, by: me, end: kind, note: reason, via: 'rp' });
+    setLiveStatus(a.id, { status: 'closed', at: now, by: me, end: kind, note: reason, via: 'rp', endStage: stageOf(a), submitted: false });
     setLiveFlags(a.id, { rpNews: now, rpWhat: `the withdrawal of ${s.first}’s application` });
     say(`${a.id} withdrawn.`);
   };
@@ -433,7 +437,7 @@ export function AppDetail({
       </AnimatePresence>
 
       <div className="atabs" role="tablist" aria-label="Application" onKeyDown={onTabKey}>
-        {TABS.map(([k, label, icon]) => (
+        {tabs.map(([k, label, icon]) => (
           <button
             key={k}
             type="button"
@@ -518,8 +522,8 @@ export function AppDetail({
                 }
               />
             )}
-            {tab === 'commission' && <AppCommission a={a} agency={''} side="rp" />}
-            {tab === 'activity' && <Activity a={a} />}
+            {tab === 'commission' && commission && <AppCommission a={a} agency={''} side="rp" />}
+            {tab === 'activity' && <Activity a={a} commission={commission} />}
           </motion.div>
         </AnimatePresence>
 
@@ -607,8 +611,8 @@ export function AppDetail({
                   ) : null
                 }
               />
-              {/* the RP sees only its own commission */}
-              <Row k="Base commission" v={<span className="num">{earn.text}</span>} />
+              {/* the RP sees only its own commission, and only its RP Admin (S3C-7) */}
+              {commission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
             </KeyGroup>
           </section>
         </aside>
@@ -1019,16 +1023,16 @@ function ExtraDoc({ onAdd }: { onAdd: (name: string, file: string) => void }) {
 
 const WHO: Record<string, [string, IconName]> = { you: ['Your agency', 'user'], gsp: ['GSP', 'shield'], uni: ['University', 'building'], ai: ['GSP Assist', 'chat'], system: ['Automatic', 'refresh'] };
 
-function Activity({ a }: { a: Application }) {
+function Activity({ a, commission }: { a: Application; commission: boolean }) {
   const reduce = useReducedMotion();
-  // the RP sees chat, documents and commission activity only (Jovial, 2 Nov)
-  const list = activityFor('rp', [...a.history]).sort((x, y) => y.at - x.at);
+  // the RP sees chat, documents, commission and status activity (Jovial, 2 Nov; L-3); commission lines only for the RP Admin (S3C-7)
+  const list = activityFor('rp', [...a.history]).filter((e) => commission || activityKind(e) !== 'commission').sort((x, y) => y.at - x.at);
   return (
     <section className="card acard" aria-labelledby="aact-title">
       <h2 id="aact-title" className="acard__title">
         What has happened
       </h2>
-      <p className="acard__text">The chat, documents and commission on this application, with who or what did each.</p>
+      <p className="acard__text">{commission ? 'The chat, documents, status changes and commission' : 'The chat, documents and status changes'} on this application, with who or what did each.</p>
       <ol className="aact">
         {list.map((e, i) => (
           <motion.li

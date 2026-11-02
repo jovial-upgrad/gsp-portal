@@ -228,9 +228,9 @@ export function courseCosts(c: Course & { durUnit?: string; durValue?: number; f
       key: 'visa',
       label: `Visa and health cover, for ${span}`,
       v: Math.round(visa),
-      basis: fees.length ? fees.map((f) => `${f.label}: ${fmt(f.amount, f.currency)} ${f.per === 'year' ? `a year${times}` : 'once'}`).join(' · ') : `Not set for ${c.uni.country} in GSP · Admin`,
+      basis: fees.length ? fees.map((f) => `${f.label}: ${fmt(f.amount, f.currency)} ${f.per === 'year' ? `a year${times}` : 'one-time'}`).join(' · ') : `Not set for ${c.uni.country} in GSP · Admin`,
     },
-    { key: 'app', label: 'Application fee, one time', v: Math.round(c.appFee), basis: c.appFee ? 'Paid once, with the application' : 'No application fee' },
+    { key: 'app', label: 'Application fee, one-time', v: Math.round(c.appFee), basis: c.appFee ? 'Paid once, with the application' : 'No application fee' },
   ];
   // the first year (Jovial, 2 Nov: the Costs tab opens with one year's costs): tuition a year, living costs a year
   // and the yearly visa and health fees, plus what's paid once (the one-off fees, the application fee), which falls
@@ -245,11 +245,12 @@ export function courseCosts(c: Course & { durUnit?: string; durValue?: number; f
     { key: 'living', label: short ? `Living costs, for ${span}` : 'Living costs, a year', v: Math.round(l ? conv(l.perYear, l.currency) * first : 0), basis: l ? `${fmt(l.perYear, l.currency)} a year${short ? ` × ${+first.toFixed(2)} years` : ''}, from GSP · Admin` : `Not set for ${c.uni.country} in GSP · Admin` },
     {
       key: 'visa',
-      label: short ? `Visa and health cover, for ${span}` : 'Visa and health cover, first year',
+      // L-4 (2 Nov): the one-off visa fee stays in the first year, labelled one-time
+      label: short ? `Visa and health cover, for ${span}` : fees.some((f) => f.per !== 'year') ? 'Visa and health cover, first year (with one-time fees)' : 'Visa and health cover, first year',
       v: Math.round(visaYear),
-      basis: fees.length ? fees.map((f) => `${f.label}: ${fmt(f.amount, f.currency)} ${f.per === 'year' ? 'a year' : 'once'}`).join(' · ') : `Not set for ${c.uni.country} in GSP · Admin`,
+      basis: fees.length ? fees.map((f) => `${f.label}: ${fmt(f.amount, f.currency)} ${f.per === 'year' ? 'a year' : 'one-time'}`).join(' · ') : `Not set for ${c.uni.country} in GSP · Admin`,
     },
-    { key: 'app', label: 'Application fee, one time', v: Math.round(c.appFee), basis: c.appFee ? 'Paid once, with the application' : 'No application fee' },
+    { key: 'app', label: 'Application fee, one-time', v: Math.round(c.appFee), basis: c.appFee ? 'Paid once, with the application' : 'No application fee' },
   ];
   return {
     parts,

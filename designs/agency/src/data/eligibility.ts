@@ -2,14 +2,14 @@
  * GSP Assist's eligibility check (slice 3 PRD, Eligibility check, decided 2 Nov: S3-4 to S3-6, S3-15 to S3-18, and the
  * S3C-1 to S3C-3 proposals until they're answered). It compares the student's record with the course's entry rules,
  * wherever a student is selected: the course page's Eligibility tab and Add an application. It's always a soft check:
- * it never blocks applying. Worked out each time it's shown, never stored, so editing the student, the course or
+ * it never blocks applying. Academics compares the highest qualification only (lock answers S3C-2, S2C-3). Worked out each time it's shown, never stored, so editing the student, the course or
  * Admin's tables changes it at once.
  */
 import { RULE_SCALE, UK_CODE, equiv, systemOf, toPct, type EquivRow } from '../admin/data/eligibility';
 export { systemOf, toPct } from '../admin/data/eligibility';
-import { MIN_EDUCATION, eduRank, type HighestEducation } from './education';
+import { eduName, eduRank, isTopEducation, type HighestEducation } from './education';
 import { tagsOf, type Course } from './courses';
-import { TESTS, type Edu, type Level as EduLevel, type Student, type Test, type TestType } from './students';
+import { TESTS, type Edu, type Student, type Test, type TestType } from './students';
 import { parseDate } from './dates';
 
 export type Ok = 'yes' | 'warn' | 'no' | 'add' | 'na';
@@ -23,7 +23,7 @@ export type Check = { lines: Line[]; academic: PartVerdict; english: PartVerdict
 /** The student's Highest education, in the one list: the record's own, else read from its top education level. */
 export function highestEdOf(s: Student): HighestEducation {
   const own = (s as Student & { highestEd?: HighestEducation }).highestEd;
-  if (own) return own;
+  if (own) return eduName(own);
   const top = s.edu[s.highest];
   if (s.highest === 'pg') return /PhD|Doctor/i.test(top?.level ?? '') ? 'Doctorate' : 'Master’s';
   if (s.highest === 'ug') return /Diploma/i.test(top?.level ?? '') ? 'Diploma' : /4|four|B\.?E|B\.?Tech/i.test(`${top?.qualification ?? ''}`) ? 'Bachelor’s (4 years)' : 'Bachelor’s (3 years)';
@@ -68,12 +68,6 @@ function rulePct(r: AcademicRule): number | null {
 }
 const ruleText = (r: AcademicRule) => (r.scale === 'Percentage' ? `${r.min}%` : r.scale === 'GPA 4' ? `${r.min} out of 4` : r.scale === 'GPA 10' ? `${r.min} out of 10` : `${UK_CODE[String(r.min)] ?? r.min} (UK class)`);
 
-/** The student's entry a rule's qualification asks about: Grade 12, a diploma or bachelor's, or the highest entry. */
-function entryFor(s: Student, qual: string): { level: EduLevel; e?: Edu; name: string } {
-  if (/Grade 12/.test(qual)) return { level: 'g12', e: s.edu.g12, name: 'Grade 12' };
-  if (/Bachelor|Diploma/.test(qual)) return { level: 'ug', e: s.edu.ug, name: qual.replace(/ \(.*\)/, '').toLowerCase() === 'diploma' ? 'diploma' : 'bachelor’s' };
-  return { level: s.highest, e: s.edu[s.highest], name: 'highest qualification' };
-}
 const studentScore = (e: Edu) => `${e.score}${systemOf(e.grading)?.by === 'As is' ? '%' : ` (${systemOf(e.grading)?.name ?? 'score'})`}`;
 
 /* ---------- English test equivalence ---------- */
@@ -148,40 +142,57 @@ function englishLines(s: Student, c: Course, country: string): Line[] {
   return [{ ok: 'add', label: 'English', result: old.length ? 'Expired' : 'Add an English test', why: old.length ? `${exp}Add a newer test to check.` : 'Add an English test to the student’s record to check.' }];
 }
 
+/**
+ * The course's minimum score for its Minimum highest education (lock answers S3C-2 with S2C-3, Jovial, 2 Nov): one
+ * minimum, on its scale, and its backlog limit when the course states one. Read from the course's own minimum score
+ * fields when it has them (`minScore`, `minScoreScale`, `minBacklogs`), else from the course's academic minimum: the
+ * Academic row for the student's country, else the row for every country (the first one; rows are no longer matched
+ * by qualification).
+ */
+export type MinScore = { min: number; scale: string; backlogs: string };
+export function minScoreOf(c: Course, country: string): MinScore | null {
+  const x = c as Course & { minScore?: number | null; minScoreScale?: string; minBacklogs?: number | string | null };
+  if (typeof x.minScore === 'number' && x.minScore > 0) return { min: x.minScore, scale: x.minScoreScale || 'Percentage', backlogs: x.minBacklogs == null ? '' : String(x.minBacklogs) };
+  const r = academicRulesFor(c, country)[0];
+  return r ? { min: r.min, scale: r.scale, backlogs: r.backlogs ?? '' } : null;
+}
+
+/**
+ * Academics (lock answers S3C-2 with S2C-3, Jovial, 2 Nov: "compare only with highest qualification needed for both
+ * course and what's present in student"): the student's **highest qualification** against the course's **Minimum
+ * highest education** (the level, in the one ordered list) and its **minimum score** (both converted to a percentage
+ * through Admin › Grade conversion). No other academic row or qualification is matched. **Backlogs** count only when
+ * the course states a backlog limit; otherwise there's no backlog check.
+ */
 function academicLines(s: Student, c: Course, country: string): Line[] {
   const out: Line[] = [];
-  // the level check (S3-18): Not specified until the course has its Minimum highest education required
   const min = c.minEducation;
   const mine = highestEdOf(s);
+  // the level check (S3-18): Not specified until the course has its Minimum highest education required
   if (!min) out.push({ ok: 'na', label: 'Highest education', result: 'Not specified', why: 'The course has no minimum highest education yet.' });
-  else if (eduRank(mine) < eduRank(min)) out.push({ ok: 'no', label: 'Highest education', result: 'Not eligible', why: `${mine}; needs ${min}${min === MIN_EDUCATION[MIN_EDUCATION.length - 1] ? '' : ' or higher'}` });
-  else out.push({ ok: 'yes', label: 'Highest education', result: 'Meets', why: `${mine}; needs ${min} or higher` });
-  // the academic rules for the student's country, else every country's (S3C-2: Meets if any rule that applies is met)
-  const rules = academicRulesFor(c, country);
-  const hasData = Object.values(s.edu).some((e) => e && e.score.trim() !== '');
-  if (!rules.length) {
-    out.push(hasData ? { ok: 'na', label: 'Academics', result: 'Not specified by the university', why: `No academic rule for students from ${country}.` } : { ok: 'na', label: 'Academics', result: 'Not specified', why: 'Neither the course nor the student has academic details.' });
-    return out;
-  }
-  const tries = rules.map((r) => {
-    const { e, name } = entryFor(s, r.qual);
-    const need = rulePct(r);
-    if (!e || e.score.trim() === '' || !e.grading) return { r, e, state: 'add' as const, why: `Add the ${name}’s ${!e ? 'details' : !e.grading ? 'grading system' : 'score'} to check. It needs ${ruleText(r)}.` };
-    const got = toPct(systemOf(e.grading), e.score);
-    if (got === null || need === null) return { r, e, state: 'add' as const, why: `The ${name}’s score can’t be read on its grading system; correct it to check.` };
-    // a score that meets only after grade conversion is plain Meets, with no "converted" label (S3-17)
-    return { r, e, state: got >= need ? ('yes' as const) : ('no' as const), why: `${studentScore(e)}; needs ${ruleText(r)}` };
-  });
-  const met = tries.find((x) => x.state === 'yes');
-  const pick = met ?? tries.find((x) => x.state === 'add') ?? tries[0];
-  out.push({ ok: pick.state, label: 'Academics', result: pick.state === 'yes' ? 'Meets' : pick.state === 'no' ? 'Below' : 'Add details to check', why: pick.why });
-  // backlogs: against the rule that was met (or the first that applies); more than allowed is its own Not eligible line
-  const br = (met ?? tries[0]).r;
-  const be = (met ?? tries[0]).e;
-  if (br.backlogs !== '' && be && be.backlogs.trim() !== '') {
-    const has = Number(be.backlogs);
-    const allowed = Number(br.backlogs);
-    if (has > allowed) out.push({ ok: 'no', label: 'Backlogs', result: 'Not eligible', why: `${has} backlogs; up to ${allowed} allowed` });
+  else if (eduRank(mine) < eduRank(min)) out.push({ ok: 'no', label: 'Highest education', result: 'Not eligible', why: `${eduName(mine)}; needs ${eduName(min)}${isTopEducation(min) ? '' : ' or higher'}` });
+  else out.push({ ok: 'yes', label: 'Highest education', result: 'Meets', why: `${eduName(mine)}; needs ${eduName(min)}${isTopEducation(min) ? '' : ' or higher'}` });
+  // the score: the student's highest qualification's against the course's minimum score
+  const need = minScoreOf(c, country);
+  const e = s.edu[s.highest];
+  const what = eduName(mine);
+  if (!need) out.push({ ok: 'na', label: 'Academics', result: 'Not specified', why: 'The course has no minimum score for its minimum highest education.' });
+  else {
+    const needPct = rulePct({ id: 'min', countries: [], qual: '', scale: need.scale, min: need.min, backlogs: need.backlogs });
+    const needText = ruleText({ id: 'min', countries: [], qual: '', scale: need.scale, min: need.min, backlogs: need.backlogs });
+    if (!e || e.score.trim() === '' || !e.grading) out.push({ ok: 'add', label: 'Academics', result: 'Add details to check', why: `Add the ${!e ? 'details' : !e.grading ? 'grading system' : 'score'} of the ${what} to check. It needs ${needText}.` });
+    else {
+      const got = toPct(systemOf(e.grading), e.score);
+      // a score that meets only after grade conversion is plain Meets, with no "converted" label (S3-17)
+      if (got === null || needPct === null) out.push({ ok: 'add', label: 'Academics', result: 'Add details to check', why: `The score of the ${what} can’t be read on its grading system; correct it to check.` });
+      else out.push({ ok: got >= needPct ? 'yes' : 'no', label: 'Academics', result: got >= needPct ? 'Meets' : 'Below', why: `${what}: ${studentScore(e)}; needs ${needText}` });
+    }
+    // backlogs only when the course states a limit (S3C-2): more than allowed is its own Not eligible line
+    if (need.backlogs !== '' && e && e.backlogs.trim() !== '') {
+      const has = Number(e.backlogs);
+      const allowed = Number(need.backlogs);
+      out.push(has > allowed ? { ok: 'no', label: 'Backlogs', result: 'Not eligible', why: `${has} backlogs; up to ${allowed} allowed` } : { ok: 'yes', label: 'Backlogs', result: 'Meets', why: `${has} backlogs; up to ${allowed} allowed` });
+    }
   }
   return out;
 }

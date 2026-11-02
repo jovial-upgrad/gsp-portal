@@ -81,7 +81,9 @@ export function StatusDialog({ open, a, all = [], students = [], onCancel, onCon
   const ready = differs && !refErr && !docErr && !visaErr && !startErr;
   const go = () => {
     if (!ready) return;
-    const [, at, kind] = k.split(':');
+    // Admin's close reasons are free text (S3C-21): everything after the stage is the reason, colons included
+    const [, at, ...rest] = k.split(':');
+    const kind = rest.join(':');
     if (isEnd) setClosing({ end: kind as EndKind, stage: Number(at) });
     else onConfirm({ k: key as StatusKey, ...(key === 'visa' ? { visaBy: visaBy as 'you' | 'gsp' } : {}), ...(key === 'lodged' ? (noRef ? { noRef: true } : { ref: refText }) : {}), ...(doc && file ? { upload: { name: doc, file: file.name } } : {}), ...(key === 'startdate' ? { start } : {}) });
   };

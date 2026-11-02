@@ -25,3 +25,8 @@ export function rpSees(acc: Acc): (s: Student) => boolean {
 }
 /** Earnings are visible to the RP Admin only. */
 export const seesEarnings = (acc: { role?: string }) => !acc.role || acc.role === 'RP Admin';
+/**
+ * Commission figures (lock answer S3C-7, Jovial, 2 Nov): only the RP Admin sees them, on course cards, the course
+ * page, the application's Key details and its Commission tab. Branch Admin and Counsellor see none.
+ */
+export const seesCommission = seesEarnings;

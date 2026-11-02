@@ -38,7 +38,7 @@ import { useLiveApps } from '../../data/live';
 import { useSharedDb } from '../../institution/data/store';
 import { bapDecisions, signupId, syncSignup } from '../../institution/data/rpverify';
 import { setSession } from '../../data/downloads';
-import { rpSees, seesEarnings } from '../../data/rproles';
+import { rpSees, seesCommission, seesEarnings } from '../../data/rproles';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -411,6 +411,7 @@ export function Portal({
         nationality={join?.form.country || TEST_COUNTRY}
         onFindCourses={() => go('courses')}
         ownOnly={acc.role === 'Counsellor'}
+        commission={seesCommission(acc)}
       />
     ) : section === 'courses' ? (
       <FindCourses
@@ -424,6 +425,7 @@ export function Portal({
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}
+        commission={seesCommission(acc)}
       />
     ) : section === 'earnings' && myRp && commissionHeld(myRp) ? (
       <>

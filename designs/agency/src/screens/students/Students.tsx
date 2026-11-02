@@ -116,7 +116,7 @@ export function Students({
   const counts = { '': list.length, inc: list.filter((s) => !ready.get(s.id)!.complete).length, com: list.filter((s) => ready.get(s.id)!.complete).length };
 
   const ql = q.trim().toLowerCase().replace(/\s+/g, '');
-  // 25 a page, numbered (S3C-14, proposal); a change of tab, search, filter or sort goes back to page 1
+  // 25 a page, numbered (S3C-14, Jovial 2 Nov); a change of tab, search, filter or sort goes back to page 1
   const PER = 25;
   const [page, setPage] = useState(1);
   useEffect(() => setPage(1), [q, status, sort, who, apps]);

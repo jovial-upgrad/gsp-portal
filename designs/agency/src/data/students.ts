@@ -203,13 +203,14 @@ export const initialsOf = (s: Pick<Student, 'first' | 'last'>) => ((s.first[0] ?
 export { CITIES, citiesOf } from './partners';
 
 /**
- * How ready a profile is to apply with. Only what's mandatory counts: the personal details with a copy of the
- * passport, and every field of the highest education with its marksheet or transcript. Work experience,
- * tests, background and additional documents are optional and never make a section incomplete.
+ * How ready a profile is to apply with (lock answer S3C-17, Jovial, 2 Nov: "only required fields"): only the
+ * required fields count, the personal details and every field of the highest education. Documents don't count (no
+ * passport copy, no marksheet or transcript); work experience, tests, background and additional documents are
+ * optional and never make a section incomplete. 100% is ready to apply.
  */
 export function readiness(s: Student) {
   const hasStates = (countryByName(s.country)?.states.length ?? 0) > 0;
-  const personal = (
+  const checks = (
     [
       ['last name', s.oneName || !!s.last.trim()],
       ['phone', s.phone.replace(/\D/g, '').length >= 7],
@@ -219,18 +220,15 @@ export function readiness(s: Student) {
       ['current country', !!s.country],
       ['state', !hasStates || !!s.state],
       ['city', !!s.city.trim()],
-      ['passport copy', !!s.docs.passport],
     ] as [string, boolean][]
-  )
+  );
+  const personal = checks
     .filter(([, ok]) => !ok)
     .map(([k]) => k);
   const top = s.edu[s.highest] ?? emptyEdu();
-  const education = [
-    ...eduFields(s.highest, top)
-      .filter(([, , ok]) => !ok)
-      .map(([, label]) => label),
-    ...(s.docs[eduDocKey(s.highest)] ? [] : [eduDocName(s.highest).toLowerCase()]),
-  ];
+  const education = eduFields(s.highest, top)
+    .filter(([, , ok]) => !ok)
+    .map(([, label]) => label);
   // additional documents: anything that isn't the passport, a marksheet, a transcript or a score report
   const extra = Object.keys(s.docs).filter((k) => k !== 'passport' && !k.startsWith('edu-') && !k.startsWith('test-')).length;
   const sections = [
@@ -241,8 +239,8 @@ export function readiness(s: Student) {
     { key: 'background', label: 'Background', optional: true, missing: [] as string[], filled: (s.visa ? 1 : 0) + (s.disability ? 1 : 0) },
     { key: 'documents', label: 'Additional documents', optional: true, missing: [] as string[], filled: extra },
   ];
-  // first, nationality and email come with every student; the rest is counted (the passport copy and the education document included)
-  const total = 3 + 10 + eduFields(s.highest, top).length + 1;
+  // first, nationality and email come with every student; the rest is counted (fields only, no documents: S3C-17)
+  const total = 3 + checks.length + eduFields(s.highest, top).length;
   const toAdd = personal.length + education.length;
   return { sections, toAdd, pct: Math.round(((total - toAdd) / total) * 100), complete: toAdd === 0 };
 }

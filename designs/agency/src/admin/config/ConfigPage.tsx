@@ -11,6 +11,7 @@ import { EnglishEquivalence, GradeConversion } from './Eligibility';
 import { Routing } from './Routing';
 import { Documents } from './Documents';
 import { Logs, Security } from './Other';
+import { HighestEducation, Reasons } from './Lists';
 import { NoAccessPage, NotFoundPage, useSim } from './states';
 import './config.css';
 
@@ -58,6 +59,8 @@ export function ConfigPage({ section, cfg, setCfg, me, role, canEdit, say, go }:
     documents: <Documents {...p} />,
     logs: <Logs {...p} />,
     security: <Security {...p} />,
+    education: <HighestEducation {...p} />,
+    reasons: <Reasons {...p} />,
     // Course tags is GSP · Institution's page (institution/records/CourseTags.tsx), routed by the portal
     tags: null,
   };
