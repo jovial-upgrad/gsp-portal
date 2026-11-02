@@ -3,7 +3,7 @@
  * (data/staff.ts). The agency's own data (its name, its admin and counsellors, its students) stays the RP's, since
  * Admissions sees the RP's applications.
  *
- * Jovial, 2 Nov: GSP · Global Ops reuses this portal (S1-1) as Rhea Menon (a pseudonym), Global Ops, every region.
+ * Jovial, 2 Nov: GSP · Global Ops reuses this portal (S1-1) as Rhea Menon (a pseudonym), Global Ops, in her own sales regions (only Admin sees every region, Regression 31).
  */
 import { person, label } from '../data/staff';
 import { currentRole } from '../proto/roles';
