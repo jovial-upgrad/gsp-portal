@@ -48,7 +48,7 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catc
  * working days, Admin after 5.
  */
 const SEED_RECS = Object.fromEntries(seed.RECORDS.filter(r => r.type === 'Application').map(r => [r.id, r]));
-const OPS_OF = q => (!q ? 'q-fallback' : q.kind === 'region' || q.id === 'q-adm-ops' ? 'q-adm-ops' : q.id === 'q-rp-ops' ? 'q-rp-ops' : q.id === 'q-institution' || q.id === 'q-inst-ops' ? 'q-inst-ops' : q.id === 'q-finance' ? 'q-finance' : 'q-fallback');
+const OPS_OF = q => (!q ? 'q-fallback' : q.kind === 'region' || q.id === 'q-adm-global' ? 'q-adm-global' : q.id === 'q-rp-ops' ? 'q-rp-ops' : q.id === 'q-institution' || q.id === 'q-inst-ops' ? 'q-inst-ops' : q.id === 'q-finance' ? 'q-finance' : 'q-fallback');
 let view = null, vkey = [];
 function derive() {
   const live = liveAll(), fl = liveFlags(), minute = Math.floor(Date.now() / 60000);

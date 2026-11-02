@@ -23,6 +23,8 @@ const ADMIN_PORTALS = {
   'gsp-recruitment': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="recruitment" />,
   'gsp-bap': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="bap" />,
   'gsp-finance': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="finance" />,
+  // View Only reuses GSP · Admin's pages, read only (S1-1)
+  'gsp-view-only': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="viewonly" />,
 };
 import { TeamSignIn as AdminSignIn } from './admin/signin/TeamSignIn';
 import { TEAM_AUTH_PRESETS as ADMIN_AUTH_PRESETS } from './admin/signin/model';
@@ -34,7 +36,10 @@ import type { PortalStart } from './screens/portal/Portal';
 import type { Section } from './screens/portal/model';
 import { AuthScene } from './shell/AuthScene';
 import { ProtoPanel, type Device } from './proto/ProtoPanel';
-import { ADMIN_LIKE, roleOf, type Role } from './proto/roles';
+import { ADMIN_LIKE, ADMISSIONS_LIKE, INSTITUTION_LIKE, RP_ROLE, roleOf, setCurrentRole, type Role } from './proto/roles';
+import { actAsGspRole } from './gsp/user';
+import { actAsInstitutionRole } from './institution/user';
+import { accountByRole } from './screens/signin/model';
 import { setLink, useLink } from './proto/link';
 import { SideBySide } from './proto/SideBySide';
 import { sampleApplications, courseOf } from './data/applications';
@@ -229,11 +234,18 @@ export default function App() {
   // Sign in and becoming a partner share one scene that stays mounted and looks the same: the photo, its statement
   // and the panel stay in place and only the panel's content changes; only going in or out of the portal fades the whole page.
   const isPublic = route === 'auth' || route === 'signup';
-  const RolePortal = role === 'gsp-team' ? GspPortal : role === 'institution-partner' ? InstitutionPortal : ADMIN_LIKE.includes(role) ? ADMIN_PORTALS[role as keyof typeof ADMIN_PORTALS] : Portal;
+  // every role in the Role menu has its own signed-in person (Jovial, 2 Nov); the new ones reuse existing views (S1-1)
+  setCurrentRole(role);
+  if (ADMISSIONS_LIKE.includes(role)) actAsGspRole();
+  if (INSTITUTION_LIKE.includes(role)) actAsInstitutionRole();
+  const RolePortal = ADMISSIONS_LIKE.includes(role) ? GspPortal : INSTITUTION_LIKE.includes(role) ? InstitutionPortal : ADMIN_LIKE.includes(role) ? ADMIN_PORTALS[role as keyof typeof ADMIN_PORTALS] : Portal;
+  // the RP's roles: the test agency's RP Admin, Branch Admin or a counsellor
+  const rpAccount = RP_ROLE[role] && RP_ROLE[role] !== 'RP Admin' ? accountByRole(RP_ROLE[role]!) : account;
   // the Institution Team and GSP Admin sign in with a GSP email, each in its own scene
-  const team = role === 'institution-partner' || ADMIN_LIKE.includes(role);
-  const TeamGate = ADMIN_LIKE.includes(role) ? AdminSignIn : TeamSignIn;
-  const teamPresets = ADMIN_LIKE.includes(role) ? ADMIN_AUTH_PRESETS : TEAM_AUTH_PRESETS;
+  // every GSP role signs in at the GSP portal (PRD slice 1, Sign-in): a GSP email, a password set up the first time
+  const team = INSTITUTION_LIKE.includes(role) || ADMIN_LIKE.includes(role) || ADMISSIONS_LIKE.includes(role);
+  const TeamGate = team ? AdminSignIn : TeamSignIn;
+  const teamPresets = team ? ADMIN_AUTH_PRESETS : TEAM_AUTH_PRESETS;
   // switching role shows that role's portal: the same state if one is open, otherwise its Home, signed in
   const switchRole = (r: Role) => {
     setRole(r);
@@ -290,7 +302,7 @@ export default function App() {
         {route === 'portal' && (
           <RolePortal acc={portalAccount(signup)} join={signup} set={setSignupFree} scrollTop={scrollTop} onSignOut={() => signOut(signup.form.email)} start={start} />
         )}
-        {route === 'home' && <RolePortal acc={account} join={null} scrollTop={scrollTop} onSignOut={() => signOut(readPref('gsp-remember-id', ''))} />}
+        {route === 'home' && <RolePortal key={role} acc={rpAccount} join={null} scrollTop={scrollTop} onSignOut={() => signOut(readPref('gsp-remember-id', ''))} />}
       </motion.div>
     </AnimatePresence>
   );

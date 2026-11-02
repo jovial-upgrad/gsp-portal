@@ -2,7 +2,7 @@ import { nextWorkingDay } from '../../data/workdays';
 /** The portal around a partner: which sections they can use, and the verification that opens the rest. */
 import { fmtDate } from '../../data/format';
 import { liveMenu } from '../../admin/data/menus';
-import { PERM_ROLE } from '../../proto/roles';
+import { PERM_ROLE, currentRole } from '../../proto/roles';
 import type { IconName } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import { SAMPLE, accountCreated, type SignupState } from '../../screens/signup/model';
@@ -29,7 +29,8 @@ const ALL_NAV: { key: Section; label: string; short: string; icon: IconName; loc
   { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: false },
 ];
 /** GSP · Admissions' menu, cut to what Admission can open in GSP · Admin › Permission roles (HC47). */
-export const NAV = liveMenu(ALL_NAV, () => PERM_ROLE['gsp-team']);
+// Global Ops reuses this portal (S1-1): the menu follows whichever role is on show
+export const NAV = liveMenu(ALL_NAV, () => (currentRole() === 'gsp-global-ops' ? PERM_ROLE['gsp-global-ops'] : PERM_ROLE['gsp-team']));
 
 /** What each locked section is for, said on its locked page and on Home. */
 export const LOCKED_COPY: Partial<Record<Section, { title: string; text: string }>> = {

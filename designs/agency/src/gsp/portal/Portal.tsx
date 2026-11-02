@@ -30,7 +30,7 @@ import { Applications, type AppsStart } from '../applications/Applications';
 import { sampleApplications, studentApps, type Application } from '../../data/applications';
 import { useLinkedData } from '../../proto/link';
 import type { Desk } from '../applications/desk';
-import { GSP_USER } from '../user';
+import { GSP_USER, gspPermRole, gspRoleKey } from '../user';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 import { useLiveApps } from '../../data/live';
@@ -121,7 +121,7 @@ export function Portal({
   // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
   useLiveApps(setApps);
   // who's signed in, for the download log (data/downloads.ts)
-  setSession(GSP_USER.name, 'Admission');
+  setSession(GSP_USER.name, gspPermRole());
   // who's looking, for the shared lists' wording and region hook (data/scope.ts)
   setScope('gsp-admissions', GSP_USER.email);
   // connected to the other role for testing (Role, beside Prototype): see proto/link.ts
@@ -324,7 +324,7 @@ export function Portal({
 
   const content =
     section === 'mywork' || section === 'mail' ? (
-      <WorkPage section={section} role="gsp-team" go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
+      <WorkPage section={section} role={gspRoleKey()} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'home' ? (
       // Admissions' own Home (W6): the person's applications by who has them, and their tasks
       <AdmissionsHome email={GSP_USER.email} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} onMyWork={() => go('mywork')} />
@@ -390,7 +390,7 @@ export function Portal({
   return (
     <>
       <AppShell
-        brand={['GSP', 'Admissions']}
+        brand={['GSP', gspPermRole() === 'Global Ops' ? 'Global Ops' : 'Admissions']}
         inert={docsOpen}
         sidebar={sidebar}
         footer={<AccountMenu name={GSP_USER.name} org={`${GSP_USER.org} · ${GSP_USER.role}`} email={GSP_USER.email} onSignOut={onSignOut} />}

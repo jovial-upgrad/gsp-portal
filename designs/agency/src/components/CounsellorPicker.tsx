@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icon } from './Icon';
+import { currentRole } from '../proto/roles';
 import './counsellor.css';
 
 export type PickerMember = { id: string; name: string };
@@ -127,7 +128,8 @@ export function CounsellorPicker({
           <span className="cpick__none">No counsellor</span>
         )}
       </span>
-      <button
+      {/* slice 1 Roles rule: only an RP Admin or Branch Admin changes a student's counsellor */}
+      {currentRole() !== 'rp-counsellor' && <button
         ref={btn}
         type="button"
         id={id}
@@ -140,7 +142,7 @@ export function CounsellorPicker({
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name="edit" size={16} />
-      </button>
+      </button>}
       {layer &&
         createPortal(
           <AnimatePresence>

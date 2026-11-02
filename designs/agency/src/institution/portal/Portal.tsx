@@ -295,7 +295,7 @@ export function Portal({
 
   return (
     <AppShell
-      brand={['GSP', 'Institution']}
+      brand={['GSP', GSP_USER.role === 'IP Ops' ? 'IP Ops' : 'Institution']}
       sidebar={sidebar}
       footer={<AccountMenu name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />}
       tools={<ThemeToggle />}

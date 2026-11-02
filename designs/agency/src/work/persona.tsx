@@ -20,6 +20,12 @@ const ALLOWED = {
   'gsp-admin': ['admin', 'admission', 'global-ops', 'recruitment', 'rp-ops', 'institution', 'ip-ops', 'finance', 'view-only'],
   'rp-admin': ['rp-admin', 'branch-admin', 'counsellor'],
   'gsp-finance': ['finance'],
+  // slice 1 (2 Nov): the new roles in the Role menu
+  'gsp-global-ops': ['global-ops'],
+  'gsp-ip-ops': ['ip-ops'],
+  'gsp-view-only': ['view-only'],
+  'rp-branch-admin': ['branch-admin'],
+  'rp-counsellor': ['counsellor'],
 };
 
 export function usePersona() {

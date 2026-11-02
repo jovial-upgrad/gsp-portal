@@ -2585,5 +2585,50 @@
 "dial": "+977",
 "phone": "57173 53772",
 "title": "Admissions Officer"
+},
+{
+"id": "u-rhea-menon",
+"first": "Rhea",
+"last": "Menon",
+"email": "rhea.menon@upgrad.com",
+"role": "Global Ops",
+"region": "Global",
+"regions": [
+"Global"
+],
+"area": "",
+"dial": "+91",
+"phone": "98101 44720",
+"title": "Global Admissions Lead (sample)"
+},
+{
+"id": "u-kabir-sethi",
+"first": "Kabir",
+"last": "Sethi",
+"email": "kabir.sethi@upgrad.com",
+"role": "IP Ops",
+"region": "Global",
+"regions": [
+"Global"
+],
+"area": "",
+"dial": "+91",
+"phone": "98452 61093",
+"title": "Course Data Specialist (sample)"
+},
+{
+"id": "u-anaya-iyer",
+"first": "Anaya",
+"last": "Iyer",
+"email": "anaya.iyer@upgrad.com",
+"role": "View Only",
+"region": "Global",
+"regions": [
+"Global"
+],
+"area": "",
+"dial": "+91",
+"phone": "99001 23418",
+"title": "Business Analyst (sample)"
 }
 ]

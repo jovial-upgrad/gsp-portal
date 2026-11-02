@@ -1,155 +1,266 @@
-import { useEffect, useRef, useState } from 'react';
-import { useCheck, dupError } from '../../components/validate';
-import { leave, useUnsaved } from '../../components/unsaved';
+import { useEffect, useMemo, useState } from 'react';
+import { useCheck } from '../../components/validate';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Sheet } from '../../components/Sheet';
 import { MoreMenu } from '../../components/MoreMenu';
-import { Field, SelectInput, TextInput } from '../../components/forms';
+import { Field, TextInput } from '../../components/forms';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { PageHead } from '../../institution/records/parts';
-import { LEVELS, OBJECTS, REGION_MEANS, ROLES, type Level, type Queue, type Region, type User } from '../data/config';
+import { LEVELS, LEVEL_SHORT, OBJECTS, REGION_MEANS, ROLES, isSystemRegion, type Level, type Region } from '../data/config';
+import { nationalityWord } from '../data/nationalities';
 import { COUNTRIES } from '../../data/partners';
+import { useStore } from '../../work/store';
+import { setCalendars, useCalendars } from '../../work/calendars';
+import { sampleApplications, isOpen } from '../../data/applications';
+import { routingRps } from '../../data/regions';
 import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft } from './parts';
+import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, istDate, trySave, type SaveResult } from './states';
+
+/** A region as the Sales regions page edits it: its own record, plus its default BDM, Admissions queue and working calendar. */
+type RegionRow = Region & { bdm: string; queue: string; calendar: string };
 
 /**
- * Sales regions (PM: Settings › Sales regions, with Admissions contacts; Nesil, 30 Oct: add, edit and delete): GSP's
- * internal regions, the countries in each, and its Admissions contact. Global stays; a region that's deleted leaves
- * its users with no region until they're given one.
+ * Sales regions (PRD slice 1; Admin › User roles › Sales regions): the only list of sales regions in the product.
+ * Each has a name, its countries, an Admissions contact, a default BDM, its Admissions queue (from Admin › Work, the
+ * one queue editor, S4-1) and its working calendar (Admin › Work › Working days, S4-25). One time zone, IST. Global,
+ * Direct and Rest of world are system regions. The same page keeps the nationality map, on its own tab.
  */
-export function Regions({ cfg, change, say }: ConfigProps) {
-  const [edit, setEdit] = useState<Region | 'new' | null>(null);
-  const [removing, setRemoving] = useState<Region | null>(null);
-  const usersIn = (r: string) => cfg.users.filter((u) => u.region === r).length;
+export function Regions(p: ConfigProps) {
+  const [tab, setTab] = useState<'regions' | 'nationality'>('regions');
   return (
     <>
-      <PageHead title="Sales regions" lead="Internal sales regions. A GSP user belongs to one, or to Global; so does an RP. Every region has an Admissions contact, whom its recruitment partners see on every page.">
-        <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
-          Add sales region
-        </Button>
-      </PageHead>
-      <Panel flush>
+      <PageHead title="Sales regions" lead="The only list of sales regions: every country-by-region list reads it. Everything counts in IST (Asia/Kolkata); a region’s calendar only sets which days, hours and holidays are working time." />
+      {!p.canEdit && <ViewOnlyNote />}
+      <div className="cfg__tabs" role="group" aria-label="Sales regions or the nationality map">
+        <button type="button" className="ichip" aria-pressed={tab === 'regions'} onClick={() => setTab('regions')}>
+          Sales regions
+        </button>
+        <button type="button" className="ichip" aria-pressed={tab === 'nationality'} onClick={() => setTab('nationality')}>
+          Nationality map
+        </button>
+      </div>
+      <Loaded page="sales regions" cols={5}>
+        {tab === 'regions' ? <RegionList {...p} /> : <NationalityMap {...p} />}
+      </Loaded>
+      <History log={p.cfg.log} area="Sales regions" />
+    </>
+  );
+}
+
+function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
+  const [edit, setEdit] = useState<RegionRow | 'new' | null>(null);
+  const [removing, setRemoving] = useState<Region | null>(null);
+  const work = useStore() as { queues: { id: string; name: string }[] };
+  const cals = useCalendars();
+  const queueNames = (work.queues ?? []).filter((q) => q.id !== 'q-fallback').map((q) => q.name);
+  const calOf = (r: string) => cals.find((c) => c.regions.includes(r))?.name ?? cals[0]?.name ?? '';
+  const queueOf = (r: string) => {
+    const v = cfg.regionQueue[r];
+    const name = cfg.queues.find((q) => q.id === v)?.name ?? v;
+    // a deleted queue falls back to Global Admissions
+    return name && queueNames.includes(name) ? name : 'Global Admissions';
+  };
+  const rows: RegionRow[] = cfg.regions.map((r) => ({ ...r, bdm: cfg.regionBdm[r.name] ?? '', queue: queueOf(r.name), calendar: calOf(r.name) }));
+  // what keeps a region from being deleted (S1-8): an RP, a branch or an open application in it
+  const inUse = (name: string) => {
+    const rps = routingRps().filter((x) => x.region === name).length;
+    const apps = sampleApplications().filter((a) => isOpen(a) && a.region === name).length;
+    return { rps, apps };
+  };
+  const usersIn = (r: string) => cfg.users.filter((u) => u.regions.includes(r)).length;
+  const blocked = removing ? inUse(removing.name) : null;
+  const stop = !!blocked && (blocked.rps > 0 || blocked.apps > 0);
+  return (
+    <>
+      <Panel
+        flush
+        title="Sales regions"
+        note={`${cfg.regions.length} regions, 3 of them system regions (Rest of world, Direct, Global).`}
+        action={
+          canEdit && (
+            <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
+              Add sales region
+            </Button>
+          )
+        }
+      >
         <div className="stab-wrap">
           <table className="itab cfg__tab">
             <thead>
               <tr>
-                <th scope="col">Sales region</th>
+                <th scope="col">Name</th>
+                <th scope="col">Countries</th>
                 <th scope="col">Admissions contact</th>
-                <th scope="col">Users</th>
-                <th scope="col">
-                  <span className="vh">Actions</span>
-                </th>
+                <th scope="col">Default BDM</th>
+                <th scope="col">Admissions queue</th>
+                <th scope="col">Working calendar</th>
+                {canEdit && (
+                  <th scope="col">
+                    <span className="vh">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {cfg.regions.map((r) => {
-                const fixed = r.name === 'Global';
-                return (
-                  <tr key={r.name}>
-                    <td className="cfg__strong">
-                      {r.name}
-                      <span className="cfg__sub">{r.countries?.length ? (r.countries.length === 1 && r.countries[0] === r.name ? 'The country itself' : `${r.countries.length} countries: ${r.countries.slice(0, 4).join(', ')}${r.countries.length > 4 ? '…' : ''}`) : REGION_MEANS[r.name] ?? 'No countries yet'}</span>
-                    </td>
-                    <td>{fixed ? <span className="cfg__muted">–</span> : r.contact || <span className="cfg__muted">Not set</span>}</td>
-                    <td className="num">{usersIn(r.name)}</td>
+              {rows.map((r) => (
+                <tr key={r.name}>
+                  <td className="cfg__strong">
+                    {r.name}
+                    <span className="cfg__sub">
+                      {isSystemRegion(r.name) ? 'System region · ' : ''}
+                      {usersIn(r.name)} {usersIn(r.name) === 1 ? 'user' : 'users'}
+                    </span>
+                  </td>
+                  <td className="cfg__muted">{r.countries.length ? (r.countries.length === 1 ? r.countries[0] : `${r.countries.length} countries: ${r.countries.slice(0, 3).join(', ')}…`) : REGION_MEANS[r.name] ?? 'None'}</td>
+                  <td>{r.contact || <span className="cfg__warn">Not set</span>}</td>
+                  <td>{r.bdm || <span className="cfg__warn">Not set</span>}</td>
+                  <td>{r.queue}</td>
+                  <td className="cfg__muted">{r.calendar}</td>
+                  {canEdit && (
                     <td className="cfg__acts">
-                      {!fixed && (
-                        <MoreMenu
-                          id={`rg-${r.name}`}
-                          label={`More for ${r.name}`}
-                          items={[
-                            { id: 'edit', label: 'Edit sales region', icon: 'edit', onPick: () => setEdit(r) },
-                            { id: 'remove', label: 'Delete sales region', icon: 'close', danger: true, onPick: () => setRemoving(r) },
-                          ]}
-                        />
-                      )}
+                      <MoreMenu
+                        id={`rg-${r.name}`}
+                        label={`More for ${r.name}`}
+                        items={[
+                          { id: 'edit', label: 'Edit', icon: 'edit', onPick: () => setEdit(r) },
+                          ...(isSystemRegion(r.name) ? [] : [{ id: 'remove', label: 'Delete', icon: 'close' as const, danger: true, onPick: () => setRemoving(r) }]),
+                        ]}
+                      />
                     </td>
-                  </tr>
-                );
-              })}
+                  )}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </Panel>
-      <NationalityMap cfg={cfg} change={change} say={say} />
-      <History log={cfg.log} area="Sales regions" />
       <RegionDialog
         open={!!edit}
         region={edit === 'new' ? null : edit}
         regions={cfg.regions}
-        contacts={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Global Ops') && u.status !== 'Deactivated').map((u) => u.name)}
+        contacts={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Global Ops') && u.status === 'Active').map((u) => u.name)}
+        bdms={cfg.users.filter((u) => u.role === 'Recruitment' && u.status === 'Active').map((u) => u.name)}
+        queues={queueNames}
+        calendars={cals.map((c) => c.name)}
         onClose={() => setEdit(null)}
         onSave={(r) => {
           const was = edit === 'new' ? null : edit;
+          const cal = cals.find((c) => c.name === r.calendar);
+          const region: Region = { name: r.name, contact: r.contact, countries: r.countries };
           if (!was) {
-            change('Sales regions', `Added ${r.name}${r.contact ? `, Admissions contact ${r.contact}` : ''}`, (c) => {
-              const at = c.regions.findIndex((x) => x.name === 'Global');
-              return { ...c, regions: [...c.regions.slice(0, at), r, ...c.regions.slice(at)] };
+            change('Sales regions', `Added ${r.name}: ${r.countries.length} countries; contact ${r.contact}; BDM ${r.bdm}; queue ${r.queue}; calendar ${r.calendar}`, (c) => {
+              const at = c.regions.findIndex((x) => isSystemRegion(x.name));
+              return { ...c, regions: [...c.regions.slice(0, at), region, ...c.regions.slice(at)], regionBdm: { ...c.regionBdm, [r.name]: r.bdm }, regionQueue: { ...c.regionQueue, [r.name]: r.queue } };
             });
-            say(`Sales region added: ${r.name}.`);
           } else {
             const renamed = was.name !== r.name;
             const re = (x: string) => (x === was.name ? r.name : x);
             const rekey = <T,>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).map(([k, x]) => [re(k), x]));
-            const what = renamed ? `Renamed ${was.name} to ${r.name}` : JSON.stringify(was.countries) !== JSON.stringify(r.countries) ? `${r.name}: countries → ${r.countries.join(', ') || 'none'}` : `${r.name}: Admissions contact → ${r.contact || 'Not set'}`;
-            change('Sales regions', what, (c) => ({
+            const short = (s: string) => (s.length > 60 ? `${s.slice(0, 57)}…` : s);
+            const diffs = (
+              [
+                ['name', was.name, r.name],
+                ['countries', was.countries.join(', ') || 'none', r.countries.join(', ') || 'none'],
+                ['Admissions contact', was.contact, r.contact],
+                ['default BDM', was.bdm, r.bdm],
+                ['Admissions queue', was.queue, r.queue],
+                ['working calendar', was.calendar, r.calendar],
+              ] as [string, string, string][]
+            )
+              .filter(([, a, b]) => a !== b)
+              .map(([k, a, b]) => `${k} ${short(a)} → ${short(b)}`);
+            // renaming keeps the region's id: its users, RPs and records move with it
+            change('Sales regions', `${was.name}: ${diffs.join('; ')}`, (c) => ({
               ...c,
-              regions: c.regions.map((x) => (x.name === was.name ? r : x)),
-              users: renamed ? c.users.map((u) => (u.region === was.name ? { ...u, region: r.name, regions: u.regions.map(re) } : u)) : c.users,
-              // a renamed region keeps its nationalities, lists, BDM and queue
+              regions: c.regions.map((x) => (x.name === was.name ? region : x)),
+              users: renamed ? c.users.map((u) => (u.regions.includes(was.name) ? { ...u, regions: u.regions.map(re), region: u.regions.map(re).join(', ') } : u)) : c.users,
               nationality: renamed ? Object.fromEntries(Object.entries(c.nationality).map(([k, x]) => [k, re(x)])) : c.nationality,
               lists: renamed ? rekey(c.lists) : c.lists,
-              regionBdm: renamed ? rekey(c.regionBdm) : c.regionBdm,
-              regionQueue: renamed ? rekey(c.regionQueue) : c.regionQueue,
+              regionBdm: { ...(renamed ? rekey(c.regionBdm) : c.regionBdm), [r.name]: r.bdm },
+              regionQueue: { ...(renamed ? rekey(c.regionQueue) : c.regionQueue), [r.name]: r.queue },
             }));
-            say(`Sales region saved.${renamed ? ' Its users moved with it.' : ''}`);
           }
+          // a region is on exactly one calendar; picking it here or on Working days is the same setting
+          if (cal)
+            setCalendars((list) => {
+              list.forEach((c) => {
+                c.regions = c.regions.filter((x) => x !== r.name && x !== was?.name);
+                if (c.id === cal.id) c.regions.push(r.name);
+              });
+              return list;
+            });
+          say('Saved.');
           setEdit(null);
         }}
       />
       <ConfirmDialog
         open={!!removing}
-        title={`Delete ${removing?.name}?`}
-        confirm="Delete sales region"
-        danger
+        title={stop ? `${removing?.name} can’t be deleted yet` : `Delete ${removing?.name}?`}
+        confirm={stop ? 'OK' : 'Delete'}
+        danger={!stop}
         onCancel={() => setRemoving(null)}
         onConfirm={() => {
           const r = removing!;
-          change('Sales regions', `Deleted ${r.name}`, (c) => ({ ...c, regions: c.regions.filter((x) => x.name !== r.name), users: c.users.map((u) => (u.region === r.name ? { ...u, region: '' } : u)) }));
-          say(`${r.name} deleted.`);
+          if (stop) return setRemoving(null);
+          change('Sales regions', `Deleted ${r.name}; ${usersIn(r.name)} users left with no sales region`, (c) => ({
+            ...c,
+            regions: c.regions.filter((x) => x.name !== r.name),
+            users: c.users.map((u) => (u.regions.includes(r.name) ? { ...u, regions: u.regions.filter((x) => x !== r.name), region: u.regions.filter((x) => x !== r.name).join(', ') } : u)),
+          }));
+          say('Sales region deleted.');
           setRemoving(null);
         }}
       >
-        <p>{removing && (usersIn(removing.name) ? `${usersIn(removing.name)} ${usersIn(removing.name) === 1 ? 'user is' : 'users are'} in it; they’ll have no sales region until you give them one in Create roles.` : 'Nobody is in it.')}</p>
+        {stop ? (
+          <p>
+            A region can be deleted only once no RP, branch or open application is in it. {removing?.name} has {blocked!.rps} {blocked!.rps === 1 ? 'RP' : 'RPs'} and {blocked!.apps} open {blocked!.apps === 1 ? 'application' : 'applications'}.
+          </p>
+        ) : (
+          <p>{removing && (usersIn(removing.name) ? `Its ${usersIn(removing.name)} users are left with no sales region until you give them one; Admission and Recruitment users without a region see no records.` : 'Nobody is in it.')}</p>
+        )}
       </ConfirmDialog>
     </>
   );
 }
 
-/** Add or edit a sales region: its name and its Admissions contact. */
-function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { open: boolean; region: Region | null; regions: Region[]; contacts: string[]; onClose: () => void; onSave: (r: Region) => void }) {
-  const [name, setName] = useState('');
-  const [contact, setContact] = useState('');
-  const [countries, setCountries] = useState<string[]>([]);
-  const v = name.trim();
+/** Add or edit a sales region (PRD slice 1, A sales region). System regions keep their name and countries. */
+function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars, onClose, onSave }: { open: boolean; region: RegionRow | null; regions: Region[]; contacts: string[]; bdms: string[]; queues: string[]; calendars: string[]; onClose: () => void; onSave: (r: RegionRow) => void }) {
+  const blank: RegionRow = { name: '', contact: '', countries: [], bdm: '', queue: '', calendar: calendars.includes('Monday to Friday') ? 'Monday to Friday' : calendars[0] ?? '' };
+  const [v, setV] = useState<RegionRow>(blank);
+  const [result, setResult] = useState<SaveResult | null>(null);
+  const system = !!region && isSystemRegion(region.name);
+  const name = v.name.trim();
+  // a country sits in only one region: one in another region shows "(in <region>)" and can't be picked
+  const elsewhere = useMemo(() => {
+    const m = new Map<string, string>();
+    regions.filter((r) => r.name !== region?.name).forEach((r) => r.countries.forEach((c) => m.set(c, r.name)));
+    return m;
+  }, [regions, region?.name]);
   const c = useCheck({
-    name: v.length < 2 ? 'Enter the sales region’s name, like Middle East.' : dupError(v, regions.filter((r) => r.name !== region?.name).map((r) => r.name), 'There’s already a sales region with this name.'),
-    contact: !contact ? 'Choose its Admissions contact.' : null,
+    name: system ? null : name.length < 2 || name.length > 60 ? 'Enter the region’s name.' : regions.some((r) => r.name !== region?.name && r.name.toLowerCase() === name.toLowerCase()) ? `There’s already a region called ${name}.` : null,
+    countries: system || v.countries.length ? null : 'Pick at least one country.',
+    contact: !v.contact ? 'Pick the admissions contact.' : null,
+    bdm: !v.bdm ? 'Pick the default BDM.' : null,
+    queue: !v.queue ? 'Pick the Admissions queue.' : null,
+    calendar: !v.calendar ? 'Pick the working calendar.' : null,
   });
   useEffect(() => {
     if (!open) return;
-    setName(region?.name ?? '');
-    setContact(region?.contact ?? '');
-    setCountries(region?.countries ?? []);
+    setV(region ?? blank);
+    setResult(null);
     c.reset();
   }, [open, region?.name]); // eslint-disable-line react-hooks/exhaustive-deps
-  // QC, 1 Nov: Save waits for a change; closing with one asks first
-  const dirty = name !== (region?.name ?? '') || contact !== (region?.contact ?? '') || JSON.stringify(countries) !== JSON.stringify(region?.countries ?? []);
+  const dirty = JSON.stringify(v) !== JSON.stringify(region ?? blank);
   const save = () => {
-    if (c.submit()) onSave({ name: v, contact, countries });
+    if (!c.submit()) return;
+    const r = trySave();
+    if (r !== 'ok') return setResult(r);
+    onSave({ ...v, name: system ? region!.name : name });
   };
+  const options = COUNTRIES.map((x) => x.name).map((x) => (elsewhere.has(x) && !v.countries.includes(x) ? `${x} (in ${elsewhere.get(x)})` : x));
   return (
     <Sheet
       open={open}
@@ -159,6 +270,7 @@ function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { op
       center
       className="iform cfg__sheet"
       title={region ? `Edit ${region.name}` : 'Add sales region'}
+      sub={system ? 'A system region: its name and countries are fixed; its contact, default BDM, queue and calendar can change.' : undefined}
       footer={
         <div className="asf">
           <div className="asf__acts">
@@ -172,79 +284,101 @@ function RegionDialog({ open, region, regions, contacts, onClose, onSave }: { op
         </div>
       }
     >
+      <SaveBanner result={result} onReload={onClose} />
       <div className="cfg__form">
-        <Field id="rg-name" label="Sales region" required error={c.err('name')}>
-          <TextInput id="rg-name" value={name} placeholder="Like: Middle East" onBlur={c.blur('name')} onChange={(e) => setName(e.target.value)} />
+        <Field id="rg-name" label="Name" required error={c.err('name')}>
+          <TextInput id="rg-name" value={v.name} maxLength={60} disabled={system} placeholder="Like: Middle East" invalid={!!c.err('name')} onBlur={c.blur('name')} onChange={(e) => setV({ ...v, name: e.target.value })} />
         </Field>
-        <Field id="rg-contact" label="Admissions contact" required error={c.err('contact')} hint="Its recruitment partners see this person on every page.">
-          <SelectInput id="rg-contact" value={contact} placeholder="Choose" onBlur={c.blur('contact')} onChange={(e) => setContact(e.target.value)}>
-            {[...new Set([...contacts, contact].filter(Boolean))].map((n) => (
-              <option key={n}>{n}</option>
-            ))}
-          </SelectInput>
+        {system ? (
+          <div className="field">
+            <span className="field__label">Countries</span>
+            <p className="cfg__muted">{REGION_MEANS[region!.name]}</p>
+          </div>
+        ) : (
+          <Field id="rg-countries" label="Countries" required error={c.err('countries')} hint="A country sits in only one region; one already in another region can’t be picked until it’s removed there.">
+            <MultiPick
+              id="rg-countries"
+              label="Countries"
+              value={v.countries}
+              options={options}
+              invalid={!!c.err('countries')}
+              onClose={c.blur('countries')}
+              empty="Pick its countries"
+              search
+              onChange={(l) => setV({ ...v, countries: l.filter((x) => !/ \(in .+\)$/.test(x)) })}
+            />
+          </Field>
+        )}
+        <Field id="rg-contact" label="Admissions contact" required error={c.err('contact')} hint="Active Admission or Global Ops users.">
+          <Pick id="rg-contact" label="Admissions contact" value={v.contact} placeholder="Pick the admissions contact" options={[...new Set([...contacts, v.contact].filter(Boolean))]} invalid={!!c.err('contact')} onChange={(x) => (setV({ ...v, contact: x }), c.blur('contact')())} />
         </Field>
-        <MultiPick id="rg-countries" label="Countries in it" value={countries} options={COUNTRIES.map((x) => x.name)} empty={REGION_MEANS[v] ?? 'No countries'} search onChange={setCountries} />
-        <p className="cfg__note">Every list of countries by sales region reads these: country pickers, BDM assignment and the RP records. A student’s nationality is mapped below, on its own.</p>
+        <Field id="rg-bdm" label="Default BDM" required error={c.err('bdm')} hint="Active Recruitment users.">
+          <Pick id="rg-bdm" label="Default BDM" value={v.bdm} placeholder="Pick the default BDM" options={[...new Set([...bdms, v.bdm].filter(Boolean))]} invalid={!!c.err('bdm')} onChange={(x) => (setV({ ...v, bdm: x }), c.blur('bdm')())} />
+        </Field>
+        <Field id="rg-queue" label="Admissions queue" required error={c.err('queue')} hint="From Admin › Work › Queues, SLA and escalation, the only queue editor. If the queue is deleted, the region falls back to Global Admissions.">
+          <Pick id="rg-queue" label="Admissions queue" value={v.queue} placeholder="Pick the Admissions queue" options={queues} invalid={!!c.err('queue')} onChange={(x) => (setV({ ...v, queue: x }), c.blur('queue')())} />
+        </Field>
+        <Field id="rg-cal" label="Working calendar" required error={c.err('calendar')} hint="Working days, hours and holidays, from Admin › Work › Working days. A region is on exactly one; picking it here or there is the same setting.">
+          <Pick id="rg-cal" label="Working calendar" value={v.calendar} placeholder="Pick the working calendar" options={calendars} invalid={!!c.err('calendar')} onChange={(x) => (setV({ ...v, calendar: x }), c.blur('calendar')())} />
+        </Field>
       </div>
     </Sheet>
   );
 }
 
 /**
- * Nationality to sales region (Jovial, 1 Nov, HC42): which sales region a student's nationality routes to
- * (Application routing's nationality rule, and every country's region in data/regions.ts). Edit, then Save.
+ * Nationality map (PRD slice 1): one row per nationality, shown as the nationality word, and its sales region.
+ * Routing rule 5 reads it; a nationality with no row falls to rule 6, Fallback. Read only until Edit map; Save
+ * writes settings.changed. Changes affect only applications that reach Pre-screening afterwards.
  */
-function NationalityMap({ cfg, change, say }: Pick<ConfigProps, 'cfg' | 'change' | 'say'>) {
-  const d = useDraft(cfg.nationality, 'the nationality map');
+function NationalityMap({ cfg, change, say, canEdit }: ConfigProps) {
+  const d = useDraft({ map: cfg.nationality, at: cfg.nationalityChanged }, 'the nationality map');
   const [q, setQ] = useState('');
   const [add, setAdd] = useState({ country: '', region: '' });
-  const map = d.value;
+  const [tried, setTried] = useState(false);
+  const [result, setResult] = useState<SaveResult | null>(null);
+  const map = d.value.map;
   const names = cfg.regions.filter((r) => r.name !== 'Global').map((r) => r.name);
   const t = q.trim().toLowerCase();
-  const rows = Object.entries(map).filter(([k, x]) => !t || k.toLowerCase().includes(t) || x.toLowerCase().includes(t)).sort(([a], [b]) => a.localeCompare(b));
+  const rows = Object.entries(map)
+    .filter(([k, x]) => !t || k.toLowerCase().includes(t) || nationalityWord(k).toLowerCase().includes(t) || x.toLowerCase().includes(t))
+    .sort(([a], [b]) => nationalityWord(a).localeCompare(nationalityWord(b)));
   const free = COUNTRIES.map((x) => x.name).filter((x) => !(x in map));
+  const save = () => {
+    const r = trySave();
+    if (r !== 'ok') return setResult(r);
+    const was = cfg.nationality;
+    const changed = [...new Set([...Object.keys(was), ...Object.keys(map)])].filter((k) => was[k] !== map[k]).map((k) => `${nationalityWord(k)} ${was[k] ?? 'none'} → ${map[k] ?? 'none'}`);
+    change('Sales regions', `Nationality map: ${changed.join('; ') || 'no changes'}`, (c) => ({ ...c, nationality: map, nationalityChanged: d.value.at }));
+    say('Saved.');
+    setResult(null);
+    d.stop();
+  };
+  const addErr = tried && !add.region ? 'Pick a sales region.' : null;
   return (
     <Panel
       flush
-      title="Nationality to sales region"
-      note={`${Object.keys(map).length} nationalities mapped. Application routing’s nationality rule reads this; a nationality not in it goes to Rest of world.`}
-      action={
-        <EditBar
-          editing={d.editing}
-          dirty={d.dirty}
-          name="nationality map"
-          onEdit={d.start}
-          onCancel={d.stop}
-          onSave={() => {
-            const n = Object.keys(map).length;
-            change('Sales regions', `Saved the nationality map (${n} nationalities)`, (c) => ({ ...c, nationality: map }));
-            say('Nationality map saved. New applications route by it.');
-            d.stop();
-          }}
-        />
-      }
+      title="Nationality map"
+      note={`${Object.keys(map).length} nationalities mapped. Routing rule 5 (Student’s nationality) reads it; a nationality with no row falls to rule 6, Fallback. It’s separate from each region’s countries.`}
+      action={canEdit && <EditBar editing={d.editing} dirty={d.dirty} label="Edit map" name="the nationality map" onEdit={d.start} onCancel={() => (setResult(null), d.stop())} onSave={save} />}
     >
+      {d.editing && <SaveBanner result={result} onReload={d.stop} />}
       <div className="stools">
         <div className="stools__row">
           <TextInput id="nm-q" aria-label="Search nationalities" placeholder="Search a nationality or region" value={q} onChange={(e) => setQ(e.target.value)} />
           {d.editing && (
             <>
-              <SelectInput id="nm-add-c" aria-label="Nationality to add" value={add.country} placeholder="Nationality to add" onChange={(e) => setAdd({ ...add, country: e.target.value })}>
-                {free.map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </SelectInput>
-              <SelectInput id="nm-add-r" aria-label="Its sales region" value={add.region} placeholder="Sales region" onChange={(e) => setAdd({ ...add, region: e.target.value })}>
-                {names.map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </SelectInput>
+              <Pick id="nm-add-c" label="Nationality to add" value={add.country} placeholder="Nationality to add" options={free.map((x) => [x, nationalityWord(x)] as [string, string])} onChange={(x) => setAdd({ ...add, country: x })} />
+              <Pick id="nm-add-r" label="Its sales region" value={add.region} placeholder="Sales region" options={names} invalid={!!addErr} onChange={(x) => setAdd({ ...add, region: x })} />
               <Button
                 variant="secondary"
-                disabled={!add.country || !add.region}
+                disabled={!add.country}
                 onClick={() => {
-                  d.set((m) => ({ ...m, [add.country]: add.region }));
+                  setTried(true);
+                  if (!add.region) return;
+                  d.set((m) => ({ map: { ...m.map, [add.country]: add.region }, at: { ...m.at, [add.country]: Date.now() } }));
                   setAdd({ country: '', region: '' });
+                  setTried(false);
                 }}
               >
                 Add
@@ -252,60 +386,67 @@ function NationalityMap({ cfg, change, say }: Pick<ConfigProps, 'cfg' | 'change'
             </>
           )}
         </div>
-        <p className="stools__count" role="status">
-          <span className="num">{rows.length}</span> shown
-        </p>
+        {addErr && (
+          <p className="field__msg field__msg--error" role="alert">
+            {addErr}
+          </p>
+        )}
       </div>
-      <div className="stab-wrap cfg__scroll">
-        <table className="itab cfg__tab">
-          <thead>
-            <tr>
-              <th scope="col">Nationality</th>
-              <th scope="col">Sales region</th>
-              {d.editing && (
-                <th scope="col">
-                  <span className="vh">Remove</span>
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([k, x]) => (
-              <tr key={k}>
-                <td className="cfg__strong">{k}</td>
-                <td>
-                  {d.editing ? (
-                    <SelectInput id={`nm-${k}`} aria-label={`${k}: sales region`} value={x} onChange={(e) => d.set((m) => ({ ...m, [k]: e.target.value }))}>
-                      {[...new Set([...names, x])].map((n) => (
-                        <option key={n}>{n}</option>
-                      ))}
-                    </SelectInput>
-                  ) : (
-                    x
-                  )}
-                </td>
+      {!Object.keys(map).length ? (
+        <Empty>No nationalities mapped yet. Every application falls to rule 6, Fallback.</Empty>
+      ) : (
+        <div className="stab-wrap cfg__scroll">
+          <table className="itab cfg__tab">
+            <thead>
+              <tr>
+                <th scope="col">Nationality</th>
+                <th scope="col">Sales region</th>
+                <th scope="col">Last changed</th>
                 {d.editing && (
-                  <td className="cfg__acts">
-                    <Button
-                      variant="link"
-                      aria-label={`Remove ${k}`}
-                      onClick={() =>
-                        d.set((m) => {
-                          const next = { ...m };
-                          delete next[k];
-                          return next;
-                        })
-                      }
-                    >
-                      Remove
-                    </Button>
-                  </td>
+                  <th scope="col">
+                    <span className="vh">Remove</span>
+                  </th>
                 )}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map(([k, x]) => (
+                <tr key={k}>
+                  <td className="cfg__strong">
+                    {nationalityWord(k)}
+                    <span className="cfg__sub">{k}</span>
+                  </td>
+                  <td>
+                    {d.editing ? (
+                      <Pick id={`nm-${k}`} label={`${nationalityWord(k)}: sales region`} value={x} options={[...new Set([...names, x])]} onChange={(val) => d.set((m) => ({ map: { ...m.map, [k]: val }, at: { ...m.at, [k]: Date.now() } }))} />
+                    ) : (
+                      x
+                    )}
+                  </td>
+                  <td className="cfg__muted num">{d.value.at[k] ? istDate(d.value.at[k]) : '–'}</td>
+                  {d.editing && (
+                    <td className="cfg__acts">
+                      <Button
+                        variant="link"
+                        aria-label={`Remove ${nationalityWord(k)}`}
+                        onClick={() =>
+                          d.set((m) => {
+                            const next = { ...m.map };
+                            delete next[k];
+                            return { ...m, map: next };
+                          })
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Panel>
   );
 }
@@ -321,283 +462,94 @@ const GROUPS: [string, number, number][] = [
 const LEVEL_NAME = Object.fromEntries(LEVELS) as Record<Level, string>;
 
 /**
- * Permission roles (Jovial, 31 Oct): GSP's nine roles. Pick a role, pick what it's about, and choose No access, View
- * or View + edit; the role's whole list is below, and picking a line there fills the form. Admin can do everything.
- * Scope (sales region, recruitment partner, branch) still limits which records a person sees.
+ * Permission roles (PRD slice 1, Permission model): the matrix, 33 objects × the 9 GSP roles, each cell No access
+ * (—), View or View + edit (Edit). Read only until Edit; Save or Cancel. Admin always has Edit on everything and
+ * can't be lowered. Each changed cell is logged old → new and applies from each person's next request. RP roles
+ * aren't here: they're fixed by role. Sales region isolation still cuts what Admission and Recruitment see.
  */
-export function Permissions({ cfg, change, say }: ConfigProps) {
-  const [role, setRole] = useState<string>('Admission');
-  const [obj, setObj] = useState<string>(OBJECTS[0]);
-  const [lvl, setLvl] = useState<Level>(cfg.perms[OBJECTS[0]]?.['Admission'] ?? 'N');
-  const fixed = role === 'Admin';
-  const current = cfg.perms[obj]?.[role] ?? 'N';
-  // QC, 1 Nov: an access level picked but not saved is a change; leaving it, or picking another line, asks first
-  const dirty = !fixed && lvl !== current;
-  const form = useRef<HTMLDivElement>(null);
-  useUnsaved(dirty, dirty, { onDiscard: () => setLvl(current), region: form, what: `${role}’s access to ${obj}`, esc: false });
-  const pick = (r: string, o: string) =>
-    leave(() => {
-      setRole(r);
-      setObj(o);
-      setLvl(cfg.perms[o]?.[r] ?? 'N');
-    });
+export function Permissions({ cfg, change, say, canEdit }: ConfigProps) {
+  const d = useDraft(cfg.perms, 'the permission matrix');
+  const [result, setResult] = useState<SaveResult | null>(null);
+  const v = d.value;
+  const save = () => {
+    const r = trySave();
+    if (r !== 'ok') return setResult(r);
+    const diffs: string[] = [];
+    for (const o of OBJECTS) for (const role of ROLES) if (role !== 'Admin' && (cfg.perms[o]?.[role] ?? 'N') !== (v[o]?.[role] ?? 'N')) diffs.push(`${role}, ${o}: ${LEVEL_NAME[cfg.perms[o]?.[role] ?? 'N']} → ${LEVEL_NAME[v[o]?.[role] ?? 'N']}`);
+    change('Permission roles', diffs.join('; ') || 'No changes', (c) => ({ ...c, perms: v }));
+    say('Saved.');
+    setResult(null);
+    d.stop();
+  };
+  const cell = (o: string, role: string): Level => (role === 'Admin' ? 'E' : ((v[o]?.[role] ?? 'N') as Level));
   return (
     <>
-      <PageHead title="Permission roles" lead="What each role can see and change. A role sees only what it has access to; View means it can’t change anything. Admin can do everything." />
-      <Panel title="Change access">
-        <div className="cfg__permform" ref={form}>
-          <Field id="pm-role" label="Role" required>
-            <SelectInput id="pm-role" value={role} onChange={(e) => pick(e.target.value, obj)}>
-              {ROLES.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </SelectInput>
-          </Field>
-          <Field id="pm-obj" label="What" required>
-            <SelectInput id="pm-obj" value={obj} onChange={(e) => pick(role, e.target.value)}>
-              {GROUPS.map(([g, a, b]) => (
-                <optgroup key={g} label={g}>
-                  {OBJECTS.slice(a, b).map((o) => (
-                    <option key={o}>{o}</option>
+      <PageHead title="Permission roles" lead="What each GSP role can see and change: No access (—), View, or View + edit (Edit). A page whose objects are all No access isn’t in that role’s menu. Admin always has Edit on everything. Sales region isolation still cuts what Admission and Recruitment see; the RP’s roles are fixed by role.">
+        {canEdit && <EditBar name="the permission matrix" editing={d.editing} dirty={d.dirty} onEdit={d.start} onCancel={() => (setResult(null), d.stop())} onSave={save} />}
+      </PageHead>
+      {!canEdit && <ViewOnlyNote />}
+      {d.editing && <SaveBanner result={result} onReload={d.stop} />}
+      <Loaded page="the permission matrix" cols={10}>
+        <Panel flush>
+          <div className="stab-wrap cfg__matrixwrap">
+            <table className="itab cfg__tab cfg__matrix">
+              <thead>
+                <tr>
+                  <th scope="col">Object</th>
+                  {ROLES.map((r) => (
+                    <th key={r} scope="col" className="cfg__lvl">
+                      {r}
+                    </th>
                   ))}
-                </optgroup>
-              ))}
-            </SelectInput>
-          </Field>
-          <fieldset className="cfg__radios cfg__levels" disabled={fixed}>
-            <legend>Access</legend>
-            {LEVELS.map(([k, label]) => (
-              <label key={k} className="cfg__radio">
-                <input type="radio" name="pm-level" checked={(fixed ? 'E' : lvl) === k} onChange={() => setLvl(k)} />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-          <div className="cfg__permsave">
-            {fixed ? (
-              <span className="cfg__muted">Admin has every access; it can’t be changed.</span>
-            ) : (
-              <Button
-                disabled={lvl === current}
-                onClick={() => {
-                  change('Permission roles', `${role}: ${obj} → ${LEVEL_NAME[lvl]}`, (c) => ({ ...c, perms: { ...c.perms, [obj]: { ...c.perms[obj], [role]: lvl } } }));
-                  say(`Access saved: ${role}, ${obj} → ${LEVEL_NAME[lvl]}. It applies on their next page load.`);
-                }}
-              >
-                Save
-              </Button>
-            )}
-          </div>
-        </div>
-      </Panel>
-      <Panel flush title={`${role}’s access`} note="Pick a line to change it above.">
-        <div className="stab-wrap">
-          <table className="itab cfg__tab cfg__click">
-            <thead>
-              <tr>
-                <th scope="col">What</th>
-                <th scope="col">Access</th>
-              </tr>
-            </thead>
-            {GROUPS.map(([g, a, b]) => (
-              <tbody key={g}>
-                <tr className="cfg__grouprow">
-                  <th scope="rowgroup" colSpan={2}>
-                    {g}
-                  </th>
                 </tr>
-                {OBJECTS.slice(a, b).map((o) => {
-                  const l = fixed ? 'E' : cfg.perms[o]?.[role] ?? 'N';
-                  return (
-                    <tr key={o} aria-selected={o === obj} className={o === obj ? 'is-picked' : undefined} onClick={() => pick(role, o)}>
-                      <td>
-                        <button type="button" className="cfg__rowlink" onClick={(e) => (e.stopPropagation(), pick(role, o))}>
-                          {o}
-                        </button>
-                      </td>
-                      <td>
-                        <span className={`cfg__lv cfg__lv--${l}`}>{LEVEL_NAME[l]}</span>
-                      </td>
+              </thead>
+              {GROUPS.map(([g, a, b]) => (
+                <tbody key={g}>
+                  <tr className="cfg__grouprow">
+                    <th scope="rowgroup" colSpan={ROLES.length + 1}>
+                      {g}
+                    </th>
+                  </tr>
+                  {OBJECTS.slice(a, b).map((o) => (
+                    <tr key={o}>
+                      <th scope="row" className="cfg__strong">
+                        {o}
+                      </th>
+                      {ROLES.map((role) => {
+                        const l = cell(o, role);
+                        return (
+                          <td key={role} className="cfg__lvl">
+                            {d.editing && role !== 'Admin' ? (
+                              <span className="cfg__segment" role="group" aria-label={`${role}, ${o}`}>
+                                {LEVELS.map(([k, label]) => (
+                                  <button key={k} type="button" aria-pressed={l === k} aria-label={label} onClick={() => d.set((p) => ({ ...p, [o]: { ...p[o], [role]: k } }))}>
+                                    {LEVEL_SHORT[k]}
+                                  </button>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className={`cfg__lv cfg__lv--${l}`} title={LEVEL_NAME[l]}>
+                                {LEVEL_SHORT[l]}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
                     </tr>
-                  );
-                })}
-              </tbody>
-            ))}
-          </table>
-        </div>
-      </Panel>
+                  ))}
+                </tbody>
+              ))}
+            </table>
+          </div>
+          <p className="cfg__legend">
+            <span>— No access: not in lists, search, counts, exports or menus; a direct link shows “You don’t have access”.</span>
+            <span>View: open, list, filter, and export where the page has an export (each export is logged).</span>
+            <span>Edit (View + edit): also create, change and delete, where the object allows each. A page’s own rules still apply.</span>
+            <span>Admin is fixed at Edit.</span>
+          </p>
+        </Panel>
+      </Loaded>
       <History log={cfg.log} area="Permission roles" />
     </>
-  );
-}
-
-/**
- * Queues (Nesil, 30 Oct, from the PM's queues): each queue has a name, one leader and its members. Create a queue
- * with a leader picked from GSP's users and its members picked from a list; edit or delete it.
- */
-export function Queues({ cfg, change, say }: ConfigProps) {
-  const [edit, setEdit] = useState<Queue | 'new' | null>(null);
-  const [removing, setRemoving] = useState<Queue | null>(null);
-  const who = (id: string) => cfg.users.find((u) => u.id === id);
-  return (
-    <>
-      <PageHead title="Queues" lead="A queue is a team’s inbox: work lands in it, its members pick it up, and its leader keeps it moving and covers when someone’s away.">
-        <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
-          Create queue
-        </Button>
-      </PageHead>
-      <Panel flush>
-        <div className="stab-wrap">
-          <table className="itab cfg__tab">
-            <thead>
-              <tr>
-                <th scope="col">Queue name</th>
-                <th scope="col">Queue leader</th>
-                <th scope="col">Queue members</th>
-                <th scope="col">
-                  <span className="vh">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {cfg.queues.map((q) => {
-                const lead = who(q.lead);
-                const members = q.members.map(who).filter((u): u is NonNullable<typeof u> => !!u);
-                return (
-                  <tr key={q.id}>
-                    <td className="cfg__strong">{q.name}</td>
-                    <td>
-                      {lead ? (
-                        <span className="cfg__strong">{lead.name}</span>
-                      ) : (
-                        <span className="cfg__warn">No leader</span>
-                      )}
-                    </td>
-                    <td>
-                      {members.length ? (
-                        <div className="cfg__chips">
-                          {members.map((m) => (
-                            <span key={m.id} className="cfg__chip cfg__chip--plain">
-                              {m.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="cfg__muted">Just the leader</span>
-                      )}
-                    </td>
-                    <td className="cfg__acts">
-                      <MoreMenu
-                        id={`qu-${q.id}`}
-                        label={`More for ${q.name}`}
-                        items={[
-                          { id: 'edit', label: 'Edit queue', icon: 'edit', onPick: () => setEdit(q) },
-                          { id: 'remove', label: 'Delete queue', icon: 'close', danger: true, onPick: () => setRemoving(q) },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-      <History log={cfg.log} area="Queues" />
-      <QueueDialog
-        open={!!edit}
-        queue={edit === 'new' ? null : edit}
-        queues={cfg.queues}
-        users={cfg.users}
-        onClose={() => setEdit(null)}
-        onSave={(q) => {
-          const isNew = !cfg.queues.some((x) => x.id === q.id);
-          const lead = who(q.lead)?.name ?? '';
-          change('Queues', `${isNew ? 'Created' : 'Edited'} ${q.name}: leader ${lead}, ${q.members.length} ${q.members.length === 1 ? 'member' : 'members'}`, (c) => ({ ...c, queues: isNew ? [...c.queues, q] : c.queues.map((x) => (x.id === q.id ? q : x)) }));
-          say(`${q.name} ${isNew ? 'created' : 'saved'}.`);
-          setEdit(null);
-        }}
-      />
-      <ConfirmDialog
-        open={!!removing}
-        title={`Delete ${removing?.name}?`}
-        confirm="Delete queue"
-        danger
-        onCancel={() => setRemoving(null)}
-        onConfirm={() => {
-          const q = removing!;
-          change('Queues', `Deleted ${q.name}`, (c) => ({ ...c, queues: c.queues.filter((x) => x.id !== q.id) }));
-          say(`${q.name} deleted.`);
-          setRemoving(null);
-        }}
-      >
-        <p>Work in it goes back to whoever it was assigned to; new work stops landing in it.</p>
-      </ConfirmDialog>
-    </>
-  );
-}
-
-/** Create or edit a queue: its name, one leader (a single pick) and its members (several). */
-function QueueDialog({ open, queue, queues, users, onClose, onSave }: { open: boolean; queue: Queue | null; queues: Queue[]; users: User[]; onClose: () => void; onSave: (q: Queue) => void }) {
-  const [name, setName] = useState('');
-  const [lead, setLead] = useState('');
-  const [members, setMembers] = useState<string[]>([]);
-  const [tried, setTried] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    setName(queue?.name ?? '');
-    setLead(queue?.lead ?? '');
-    setMembers((queue?.members ?? []).map((id) => users.find((u) => u.id === id)?.name ?? '').filter(Boolean));
-    setTried(false);
-  }, [open, queue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const v = name.trim();
-  const leadName = users.find((u) => u.id === lead)?.name;
-  const err = {
-    name: v.length < 2 ? 'Name the queue, like India Admissions.' : queues.some((q) => q.id !== queue?.id && q.name.toLowerCase() === v.toLowerCase()) ? 'There’s already a queue with this name.' : null,
-    lead: !lead ? 'Pick the queue leader.' : null,
-  };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
-  const save = () => {
-    setTried(true);
-    if (Object.values(err).some(Boolean)) return;
-    const ids = members.filter((n) => n !== leadName).map((n) => users.find((u) => u.name === n)?.id).filter((x): x is string => !!x);
-    onSave({ id: queue?.id ?? `q${Date.now()}`, name: v, lead, members: ids });
-  };
-  return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      center
-      className="iform cfg__sheet"
-      title={queue ? `Edit ${queue.name}` : 'Create queue'}
-      footer={
-        <div className="asf">
-          <div className="asf__acts">
-            <Button variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={save}>{queue ? 'Save' : 'Create queue'}</Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="cfg__form">
-        <Field id="qu-name" label="Queue name" required error={show('name')}>
-          <TextInput id="qu-name" value={name} invalid={!!show('name')} placeholder="Like: India Admissions" onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <Field id="qu-lead" label="Queue leader" required error={show('lead')}>
-          <SelectInput id="qu-lead" value={lead} placeholder="Choose one person" invalid={!!show('lead')} onChange={(e) => setLead(e.target.value)}>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        <Field id="qu-members" label="Queue members" optional hint="Pick as many as you need. The leader is in the queue anyway.">
-          <MultiPick id="qu-members" label="Queue members" value={members} options={users.filter((u) => u.id !== lead).map((u) => u.name)} onChange={setMembers} empty="Choose members" search />
-        </Field>
-      </div>
-    </Sheet>
   );
 }

@@ -12,7 +12,7 @@ const at = (h) => Date.now() - h * H;
 
 export const MAILBOXES = [
   // Jovial's Inbox tab (31 Oct): five mailboxes, each feeding its queues; everyone in them can see and send for now; Admin sees all
-  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-ops', see: ['admission', 'global-ops', 'admin', 'view-only'], sendAs: ['admission', 'global-ops'], ytd: 164952 },
+  { id: 'mb-adm', name: 'GSP Admissions', addresses: ['gsp.admissions@upgrad.com'], routing: 'record-region', queue: 'q-adm-global', see: ['admission', 'global-ops', 'admin', 'view-only'], sendAs: ['admission', 'global-ops'], ytd: 164952 },
   { id: 'mb-admin', name: 'GSP Admin', addresses: ['admin.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 1190 }, // Jovial, 1 Nov (O6): RP Ops only
   { id: 'mb-bap', name: 'Partner onboarding', addresses: ['bap.gsp@upgrad.com'], routing: 'queue', queue: 'q-rp-ops', see: ['rp-ops', 'admin', 'view-only'], sendAs: ['rp-ops'], ytd: 4847 },
   { id: 'mb-comm', name: 'Commissions', addresses: ['commissions.gsp@upgrad.com'], routing: 'queue', queue: 'q-finance', see: ['finance', 'admin', 'view-only'], sendAs: ['finance'], ytd: 67 },
@@ -216,5 +216,5 @@ export const FILED = [
 /* Conversations no record was found for raise a task in the Unmatched mail queue. */
 export const MAIL_RECORDS = THREADS.filter((t) => !t.record && t.state === 'match').map((t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}` }));
 export const MAIL_TASKS = THREADS.filter((t) => !t.record && t.state === 'match').map((t, i) => ({
-  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-adm-ops', rule: null, title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
+  id: 'T-' + t.id, record: t.id, kind: 'k-mail', queue: 'q-adm-global', rule: null, title: `Match email: ${t.subject}`, created: t.messages[t.messages.length - 1].at, status: 'open', assignee: i === 0 ? 'u-ashu-rajpal' : null,
 }));

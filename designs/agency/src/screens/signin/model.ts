@@ -46,6 +46,8 @@ const ACCOUNTS: Account[] = rpTeam(TEST_AGENCY).map((m) => ({
 }));
 
 export const SAMPLE_ACCOUNT = ACCOUNTS[0];
+/** The test agency's person for an RP role (Jovial, 2 Nov: one signed-in user for every role): its RP Admin, its Branch Admin, a counsellor. */
+export const accountByRole = (role: string) => ACCOUNTS.find((a) => a.role === role) ?? SAMPLE_ACCOUNT;
 
 /** Matches an email, or the part before the @, against each account's email and aliases. */
 export function accountFor(id: string): Account | null {

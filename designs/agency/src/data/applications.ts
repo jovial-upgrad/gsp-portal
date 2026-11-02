@@ -412,7 +412,7 @@ const OWN: [RegExp, string, string][] = [
  * collected here: GSP asks for it in the chat when it's needed.
  */
 /** The study level as GSP · Admin's document rules name it. */
-const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 'Diploma', 'Bachelor’s degree': 'Undergraduate', 'Postgraduate diploma': 'Postgraduate', 'Master’s degree': 'Postgraduate', 'PhD or research': 'Doctorate' };
+const RULE_LEVEL: Record<string, string> = { Foundation: 'Foundation', Diploma: 'Diploma', 'Bachelor’s degree': 'Bachelor’s degree', 'Postgraduate diploma': 'Postgraduate diploma', 'Master’s degree': 'Master’s degree', 'PhD or research': 'PhD or research' };
 /**
  * The documents an application asks for when it's added (Jovial, 31 Oct): GSP · Admin › Document configuration's
  * rules for the New stage that the RP uploads, where each rule applies to this course (its study level, the
