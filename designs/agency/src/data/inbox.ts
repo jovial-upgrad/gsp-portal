@@ -129,7 +129,7 @@ export function noticesFor(role: 'rp' | 'gsp', list: Announcement[], names: Reco
   const nameOf = (id: string) => names[id] ?? UNIVERSITIES.find((u) => u.id === id)?.name ?? id;
   const forMe = (a: Announcement) =>
     role === 'gsp' ||
-    (a.userTypes.includes('RP') && (!a.roles.length || a.roles.includes('RP admin')) && (!a.countries.length || a.countries.includes(country)) && (!a.regions.length || a.regions.includes(country) || a.regions.includes('Global')));
+    (a.userTypes.includes('RP') && (!a.roles.length || a.roles.includes('RP Admin')) && (!a.countries.length || a.countries.includes(country)) && (!a.regions.length || a.regions.includes(country) || a.regions.includes('Global')));
   return list
     .filter((a) => statusOf(a) === 'Live' && forMe(a))
     .map((a) => ({
