@@ -19,6 +19,7 @@ How this list works: before changing a page, check its section here. When an ite
 - [x] Nesil, 30 Oct, in RP Admin and GSP Team: **Notifications** (System, Chat, Mail) and **Announcements** (updates from universities: Intakes, Courses, Scholarships, Entry) at the top right of every page, each with an unread count and a panel. (30 Oct, commit “Notifications and Announcements at the top right”)
 - [x] Nesil, 30 Oct (later), in every role: the bell and megaphone on **liquid glass like the navigation**, and **they stay put while the page scrolls**; the panels are glass too. **Real notifications while connected**: the other role's chat messages, status changes, requests and uploads land in the bell, with the bottom-left notification and Open. Announcements now use the Institution Team's model and categories (PM data), live ones only. (30 Oct, commit “Glass, sticky bell and megaphone; real notifications while connected; GSP · Institution brought up to date”)
 - [x] Nesil, 30 Oct (later still), in every role: the bell and megaphone are **two separate glass circles**, and **the page no longer scrolls behind them**: on wide screens they sit in a strip at the top that never moves, and the page scrolls in its own area under it, fading out at its edge (as in upGrad's learner home). Phones keep the glass top bar. (30 Oct, commit “Bell and megaphone in their own circles; the page scrolls under the strip, not behind it”)
+- [x] Jovial, 2 Nov: **no system UI**. Every dropdown, date, time, number, upload, tick box, radio, tooltip and prompt is the portal's own, from the design system, in both themes: selects are SelectMenu (a search box over lists of more than ten), dates the portal's calendar (DatePicker), times TimePicker, numbers NumberField (optional − / +, min and max), uploads FileDrop or the portal's own drop zones, tick boxes and radios drawn by the portal, `title` tooltips the portal's tooltip, the link prompt a dialog, and "Change history" sections the portal's chevron. (2 Nov, prd-merge, commit “No system UI: portal-native selects, dates, times, numbers, uploads, ticks, tooltips”)
 - [ ] **Two views: counsellor and admin.** Counsellors see only their own students and applications; admins see everything and rarely counsel. Add a role switch to the Prototype panel to show both. Review the counsellor view first.
   - Nesil, 27 Oct: a **Role** switch now sits beside Prototype with **RP Admin** (the agency portal so far) and **GSP Team** (a copy of it, to become GSP's internal portal). An RP Counsellor role can be added to it for this item.
   - Nesil, 29 Oct: the agency's roles are now named, on RP Admin's Profile: **RP Admin** (everything), **Branch Admin** (their branch) and **Counsellor** (their own students and applications). Each team member has one, and a branch. The views for Branch Admin and Counsellor aren't built yet.
@@ -83,7 +84,7 @@ No changes from this review.
 ## Students list
 
 - [ ] **Only admins see the counsellor pencil.** No acceptance step; an admin's change is logged as theirs. (Decision)
-- [ ] Counsellors see only their own students.
+- [x] Counsellors see only their own students. No **All counsellors** filter for a Counsellor (2 Nov). (2 Nov, prd-merge, commit “No system UI: portal-native selects, dates, times, numbers, uploads, ticks, tooltips”)
 
 - [x] Nesil, 27 Oct: the Applications column shows **the number only**, with no "pending" or other status under it.
 
@@ -128,7 +129,7 @@ No changes from this review.
 
 - [x] Jovial, 2 Nov (slice 3 PRD, S3C-14 proposal): the PRD's tiles, filters (GSP: destination, recruitment partner, stage, sales region; RP: counsellor, stage, intake) and columns, Started or Applied, Enrolled, Closed or Withdrawn pills, 25 a page. The progress chips and date range are gone. (2 Nov, branch prd-s3, commit “S3 PRD: gap list ticked, README, REVIEW”)
 
-- [ ] Counsellors see only their own applications; admins see all.
+- [x] Counsellors see only their own applications; admins see all. No **All counsellors** filter for a Counsellor (2 Nov). (2 Nov, prd-merge, commit “No system UI: portal-native selects, dates, times, numbers, uploads, ticks, tooltips”)
 
 - [x] Nesil, 27 Oct: **no GSP Assist "Today" brief**; the four tiles are a number and a name only (**All applications, Pending from you, With GSP, With university**); **"Pending from you"** replaces "Needs you" for applications (list, application page, GSP Assist, the student list's application tags).
 - [x] Nesil, 27 Oct: **primary filters** by how far an application has got, read from its status and stage: **New, Applied, Offer received, Deposit paid, Enrolled**; then search, destination, counsellor and intake; then **Advanced filters**: a stage, and a start and end date for when applications started.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { DateInput, Field, TextInput } from '../../components/forms';
+import { DateInput, Field } from '../../components/forms';
 import { afterError, dateError, useCheck } from '../../components/validate';
 import { EditBar, History, Panel, useDraft } from './parts';
 import { CODE_MINUTES, SECURITY_RANGE, type LogEntry, type Security as SecurityCfg } from '../data/config';
@@ -9,6 +9,7 @@ import { PageHead, downloadCsv } from '../../institution/records/parts';
 import type { ConfigProps } from './ConfigPage';
 import { ACCOUNT_EMAILS, SENDER } from '../data/emails';
 import { Empty, Loaded, PAGE_SIZE, Pager, Pick, SaveBanner, ViewOnlyNote, istDate, istDay, istTime, trySave, type SaveResult } from './states';
+import { NumberField } from '../../components/NumberField';
 
 type Kind = 'all' | LogEntry['kind'];
 const KINDS: [Kind, string][] = [
@@ -213,7 +214,7 @@ export function Security({ cfg, change, say, canEdit }: ConfigProps) {
                     <td>
                       {d.editing ? (
                         <Field id={`sec-${k}`} label={`${label}, in ${unit}`} error={c.err(k)} className="cfg__cellfield">
-                          <TextInput id={`sec-${k}`} inputMode="numeric" className="cfg__cellinput cfg__num" value={String(v[k])} invalid={!!c.err(k)} onBlur={c.blur(k)} onChange={(e) => set(k)(e.target.value)} />
+                          <NumberField id={`sec-${k}`} min={SECURITY_RANGE[k][0]} max={SECURITY_RANGE[k][1]} steppers className="cfg__cellinput cfg__num" value={String(v[k])} invalid={!!c.err(k)} onBlur={c.blur(k)} onChange={(_t) => set(k)(_t)} />
                         </Field>
                       ) : (
                         <span className="num">

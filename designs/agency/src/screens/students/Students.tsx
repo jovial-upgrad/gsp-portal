@@ -48,6 +48,7 @@ export function Students({
   onNewApp,
   appList,
   onCreateApp,
+  ownOnly = false,
 }: {
   list: Student[];
   set: (fn: (l: Student[]) => Student[]) => void;
@@ -66,6 +67,8 @@ export function Students({
   /** The agency's applications: starting one from a profile opens Add an application there, on the profile. */
   appList?: Application[];
   onCreateApp?: (a: Application) => void;
+  /** A Counsellor sees only their own students, so there's no counsellor filter (2 Nov). */
+  ownOnly?: boolean;
 }) {
   const reduce = useReducedMotion();
   const [q, setQ] = useState('');
@@ -279,7 +282,7 @@ export function Students({
                 <span className="vh">Search students</span>
                 <input id="st-q" type="search" placeholder="Name, email, phone or passport" value={q} onChange={(e) => setQ(e.target.value)} />
               </label>
-              <SelectInput id="st-who" aria-label="Counsellor" value={who} placeholder="All counsellors" allowEmpty onChange={(e) => setWho(e.target.value)}>
+              {!ownOnly && <SelectInput id="st-who" aria-label="Counsellor" value={who} placeholder="All counsellors" allowEmpty onChange={(e) => setWho(e.target.value)}>
                 <option value="me">My students</option>
                 {team
                   .filter((m) => m.id !== 'me')
@@ -288,7 +291,7 @@ export function Students({
                       {m.name}
                     </option>
                   ))}
-              </SelectInput>
+              </SelectInput>}
               <SelectInput id="st-apps" aria-label="Applications" value={apps} placeholder="Any applications" allowEmpty onChange={(e) => setApps(e.target.value as Apps)}>
                 <option value="you">Has a pending application</option>
                 <option value="some">Has applications</option>

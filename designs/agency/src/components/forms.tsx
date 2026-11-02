@@ -1,7 +1,6 @@
-import { createContext, forwardRef, useContext, useEffect, useRef, useState, type FormHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { Children, Fragment, createContext, forwardRef, isValidElement, useContext, type FormHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { Icon } from './Icon';
-import { dmyToIso, isoToDmy } from '../data/format';
-import { typeDate } from '../data/dates';
+import { SelectMenu, type MenuOption } from './SelectMenu';
 import './forms.css';
 
 /**
@@ -139,94 +138,74 @@ export const TextInput = forwardRef<HTMLInputElement, InputProps>(function TextI
 });
 
 /** `allowEmpty`: an optional question can go back to no answer, so its placeholder stays selectable. */
-type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean; placeholder?: string; allowEmpty?: boolean };
+type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value' | 'onBlur'> & {
+  invalid?: boolean;
+  placeholder?: string;
+  allowEmpty?: boolean;
+  value?: string | number | null;
+  /** Called with the value picked, as `e.target.value`, the same as a select's change. */
+  onChange?: (e: { target: { value: string; name?: string }; currentTarget: { value: string } }) => void;
+  onBlur?: () => void;
+  /** A search box over the list; on by itself for more than ten choices. */
+  search?: boolean;
+};
 
-export const SelectInput = forwardRef<HTMLSelectElement, SelectProps>(function SelectInput(
-  { invalid: inv, placeholder, allowEmpty = false, children, className = '', value, ...rest },
-  ref,
+/** The text of an option's children ("Jo Bloggs · Kerala, India"). */
+const textOf = (n: ReactNode): string =>
+  n === null || n === undefined || typeof n === 'boolean' ? '' : typeof n === 'string' || typeof n === 'number' ? String(n) : Array.isArray(n) ? n.map(textOf).join('') : isValidElement(n) ? textOf((n.props as { children?: ReactNode }).children) : '';
+
+/** `<option>`s and `<optgroup>`s, read into the portal menu's choices. */
+function readOptions(children: ReactNode, group?: string, out: MenuOption[] = []) {
+  Children.forEach(children, (c) => {
+    if (!isValidElement(c)) return;
+    const p = c.props as { value?: string | number; label?: string; disabled?: boolean; children?: ReactNode };
+    if (c.type === 'option') {
+      const label = textOf(p.children).replace(/\s+/g, ' ').trim();
+      out.push({ value: p.value === undefined ? label : String(p.value), label, disabled: p.disabled, group });
+    } else if (c.type === 'optgroup') readOptions(p.children, p.label, out);
+    else if (c.type === Fragment) readOptions(p.children, group, out);
+  });
+  return out;
+}
+
+/**
+ * The shared select (Jovial, 2 Nov: no system UI). Callers write `<option>`s as for a native select and get the
+ * portal's SelectMenu: its list drops down from the field, styled by the design system in both themes, and a list
+ * of more than ten has a search box.
+ */
+export const SelectInput = forwardRef<HTMLDivElement, SelectProps>(function SelectInput(
+  { invalid: inv, placeholder, allowEmpty = false, children, className = '', value, onChange, onBlur, disabled, search, id, name, ...rest },
+  _ref,
 ) {
-  const { bad: invalid, desc } = useFieldAria(rest.id, inv, rest['aria-describedby']);
+  const { bad: invalid, desc } = useFieldAria(id, inv, rest['aria-describedby']);
+  const listed = readOptions(children);
+  const options: MenuOption[] = placeholder && allowEmpty && !listed.some((o) => o.value === '') ? [{ value: '', label: placeholder }, ...listed] : listed;
+  const v = value === null || value === undefined ? '' : String(value);
+  const label = rest['aria-label'] ?? (typeof placeholder === 'string' ? placeholder : 'Choices');
   return (
-    <div className={`control control--select ${invalid ? 'is-invalid' : ''} ${rest.disabled ? 'is-disabled' : ''} ${!value ? 'is-empty' : ''} ${className}`}>
-      <select ref={ref} className="control__input" aria-invalid={invalid || undefined} value={value} {...rest} aria-describedby={desc}>
-        {placeholder && (
-          <option value="" disabled={!allowEmpty}>
-            {placeholder}
-          </option>
-        )}
-        {children}
-      </select>
-      <span className="control__chevron" aria-hidden="true">
-        <Icon name="chevronDown" size={18} />
-      </span>
-    </div>
+    <SelectMenu
+      id={id}
+      value={v}
+      options={options}
+      placeholder={placeholder ?? options.find((o) => o.value === '')?.label ?? 'Pick one'}
+      label={label}
+      ariaLabel={rest['aria-label']}
+      labelledBy={rest['aria-labelledby']}
+      invalid={invalid}
+      describedBy={desc}
+      disabled={disabled}
+      search={search}
+      onBlur={onBlur}
+      className={`control--select ${className}`}
+      onChange={(x) => onChange?.({ target: { value: x, name }, currentTarget: { value: x } })}
+    />
   );
 });
 
 /**
- * One date field (QC, 1 Nov): typed DD/MM/YYYY, the slashes put in as you type. The value is an ISO day
- * ("2026-11-05"), '' when empty, or the text typed while it isn't a real day yet, so `dateError` can say so.
+ * One date field (QC, 1 Nov; Jovial, 2 Nov): typed DD/MM/YYYY, or picked from the portal's calendar. See DatePicker.
  */
-export const DateInput = forwardRef<HTMLInputElement, Omit<InputProps, 'value' | 'onChange' | 'type'> & { value: string; onChange: (v: string) => void }>(function DateInput(
-  { value, onChange, onBlur, placeholder = 'DD/MM/YYYY', ...rest },
-  ref,
-) {
-  const [text, setText] = useState(() => isoToDmy(value));
-  const pick = useRef<HTMLInputElement>(null);
-  // a value set from outside (a reset, a prefill) shows as typed
-  useEffect(() => {
-    if (value !== (dmyToIso(text) ?? text) && !(value === '' && text === '')) setText(isoToDmy(value));
-  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <TextInput
-      ref={ref}
-      inputMode="numeric"
-      autoComplete="off"
-      placeholder={placeholder}
-      maxLength={10}
-      value={text}
-      // the calendar opens a small date picker (Jovial, 1 Nov); typing DD/MM/YYYY still works
-      leading={
-        <span className="dpick">
-          <button
-            type="button"
-            className="dpick__btn"
-            aria-label="Pick a date from a calendar"
-            onClick={() => {
-              const el = pick.current as (HTMLInputElement & { showPicker?: () => void }) | null;
-              try {
-                el?.showPicker?.();
-              } catch {
-                el?.focus();
-              }
-            }}
-          >
-            <Icon name="calendar" size={18} />
-          </button>
-          <input
-            ref={pick}
-            type="date"
-            className="dpick__native"
-            tabIndex={-1}
-            aria-hidden="true"
-            value={/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
-            onChange={(e) => {
-              setText(isoToDmy(e.target.value));
-              onChange(e.target.value);
-            }}
-          />
-        </span>
-      }
-      onChange={(e) => {
-        const t = typeDate(e.target.value);
-        setText(t);
-        onChange(!t ? '' : dmyToIso(t) ?? t);
-      }}
-      onBlur={onBlur}
-      {...rest}
-    />
-  );
-});
+export { DatePicker as DateInput } from './DatePicker';
 
 /** A search box with its magnifier, as on every list (Students, Applications, Create roles). */
 export function SearchInput({ id, label, value, onChange, placeholder, className = '' }: { id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {

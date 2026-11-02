@@ -377,6 +377,7 @@ export function Portal({
         onNewApp={(s, courseId) => jumpTo({ section: 'applications', app: { add: { studentId: s.id, courseId } } })}
         appList={apps}
         onCreateApp={(a) => setApps((l) => [a, ...l])}
+        ownOnly={acc.role === 'Counsellor'}
       />
     ) : section === 'applications' ? (
       <Applications
@@ -392,6 +393,7 @@ export function Portal({
         onOpenStudent={(id, tab) => jumpTo({ section: 'students', open: id, tab: tab ?? 'personal' })}
         nationality={join?.form.country || TEST_COUNTRY}
         onFindCourses={() => go('courses')}
+        ownOnly={acc.role === 'Counsellor'}
       />
     ) : section === 'courses' ? (
       <FindCourses

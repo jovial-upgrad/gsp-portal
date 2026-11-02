@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { useStore, update, logChange, queueById, kindById, RULE_SHARE, SHARE } from './store';
 import { can } from '../finance/access';
-import { Page, Card, Segmented, Table, Pill, Button, LinkButton, Sheet, Field, Input, Notice, toast } from '../finance/kit';
+import { Page, Card, Segmented, Table, Pill, Button, LinkButton, Sheet, Field, Input, Notice, toast, NumberInput } from '../finance/kit';
 import { useCheck, numError } from '../components/validate';
 import { PersonaBar, usePersona } from './persona';
 import { ChangeLog } from './Queues';
@@ -81,7 +81,7 @@ function TimeField({ id, label, value, onChange, error, none, hint }) {
   if (value?.text) return <Field id={id} label={label} hint="Built in: the date comes from the record."><p className="cfg__strong" id={id}>{value.text}</p></Field>;
   return (
     <div className="gspx-inline">
-      <Field id={id} label={label} error={error} hint={hint}><Input id={id} type="number" value={value ? value.n : ''} placeholder={none ? 'None' : ''} onChange={x => onChange(x === '' ? (none ? null : { n: '', u: value?.u || 'wh' }) : { n: x, u: value?.u || 'wh' })} /></Field>
+      <Field id={id} label={label} error={error} hint={hint}><NumberInput id={id} value={value ? value.n : ''} placeholder={none ? 'None' : ''} onChange={x => onChange(x === '' ? (none ? null : { n: '', u: value?.u || 'wh' }) : { n: x, u: value?.u || 'wh' })} /></Field>
       <Pick id={`${id}-u`} label={`${label}: unit`} value={value?.u || 'wh'} onChange={u => onChange(value ? { ...value, u } : { n: 1, u })} options={UNITS} />
     </div>
   );
@@ -124,7 +124,7 @@ function RuleSheet({ rule, onClose, by }) {
         <div><dt>Kind of work</dt><dd>{(kindById(s, v.kind) || {}).name}</dd></div>
       </dl>
       <div className="cfg__form gspx-form2">
-        {v.days != null && <Field id="r-days" label="Days before the agreement ends" required error={c.err('days')} hint="Slice 2’s renewal reminder reads these days."><Input id="r-days" type="number" value={v.days} onChange={x => set('days', x === '' ? '' : Number(x))} /></Field>}
+        {v.days != null && <Field id="r-days" label="Days before the agreement ends" required error={c.err('days')} hint="Slice 2’s renewal reminder reads these days."><NumberInput id="r-days" decimal={false} min={1} steppers value={v.days} onChange={x => set('days', x === '' ? '' : Number(x))} /></Field>}
         <TimeField id="r-after" label="Task starts after" none value={v.after} error={c.err('after')} onChange={x => set('after', x)} hint="Empty: at once." />
         <TimeField id="r-sla" label="SLA" value={v.sla} error={c.err('sla')} onChange={x => set('sla', x)} hint="A working day is 9 hours, 9:30 to 18:30 IST." />
         <TimeField id="r-remind" label="RP reminded after" none value={v.remind} error={c.err('remind')} onChange={x => set('remind', x)} hint="When the RP gets an automatic reminder (bell and email) during the wait. Empty: none." />

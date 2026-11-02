@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { DateInput, Field, TextInput } from '../../components/forms';
+import { DateInput, Field } from '../../components/forms';
 import { CURRENCY, MIN_EDUCATION, intakeTimes, money, type Destination, type IntakeStatus } from '../../data/courses';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
 import { sampleApplications } from '../../data/applications';
@@ -19,6 +19,7 @@ import { CoursePill } from './pills';
 import { MultiPick } from './MultiPick';
 import { BasicsFields, basicsErrors, missingOf, type CourseDraft } from './CourseForm';
 import { OBJ, canEdit, type PageProps } from '../portal/model';
+import { NumberField } from '../../components/NumberField';
 
 type Tab = 'basics' | 'intakes' | 'fees' | 'academic' | 'english' | 'log';
 const TABS: Tab[] = ['basics', 'intakes', 'fees', 'academic', 'english', 'log'];
@@ -540,7 +541,7 @@ function Fees({ c, save, edit }: { c: CourseRec; save: Save; edit: boolean }) {
   const cancel = () => (setV(first()), setTried(false), ed.close());
   const amount = (id: string, label: string, k: 'full' | 'firstYear' | 'appFee', required: boolean, hint?: ReactNode) => (
     <Field id={id} label={label} required={required} optional={!required} hint={hint} error={tried ? err[k] : null}>
-      <TextInput id={id} inputMode="decimal" value={v[k]} invalid={tried && !!err[k]} onChange={(e) => set({ [k]: e.target.value.replace(/[^\d.]/g, '') })} />
+      <NumberField id={id} decimal value={v[k]} invalid={tried && !!err[k]} onChange={(_t) => set({ [k]: _t.replace(/[^\d.]/g, '') })} />
     </Field>
   );
   const shown = (n: number) => (n > 0 ? money(n, c.currency) : null);

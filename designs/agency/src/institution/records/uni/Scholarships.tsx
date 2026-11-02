@@ -11,6 +11,7 @@ import { AddButton, ErrorText, Pick, Section } from '../parts';
 import { MultiPick } from '../MultiPick';
 import type { Stamp } from '../../data/records';
 import type { UniUpd } from '../UniversityPage';
+import { NumberField } from '../../../components/NumberField';
 
 const all = (list: string[], what: string) => (list.length ? list.join(', ') : `All ${what}`);
 
@@ -154,11 +155,11 @@ function ScholarshipForm({ s, onCancel, onSave }: { s: Scholarship | 'new' | nul
             <label className="irange__k" htmlFor="isch-low">
               From
             </label>
-            <TextInput id="isch-low" inputMode="decimal" value={low} invalid={!!show('amount') && !low} onChange={(e) => setLow(e.target.value.replace(/[^\d.]/g, ''))} />
+            <NumberField id="isch-low" decimal value={low} invalid={!!show('amount') && !low} onChange={(_t) => setLow(_t.replace(/[^\d.]/g, ''))} />
             <label className="irange__k" htmlFor="isch-high">
               To
             </label>
-            <TextInput id="isch-high" inputMode="decimal" value={high} invalid={!!show('amount') && (!high || hi < lo)} onChange={(e) => setHigh(e.target.value.replace(/[^\d.]/g, ''))} />
+            <NumberField id="isch-high" decimal value={high} invalid={!!show('amount') && (!high || hi < lo)} onChange={(_t) => setHigh(_t.replace(/[^\d.]/g, ''))} />
             {pct ? (
               <span className="irange__unit">%</span>
             ) : (

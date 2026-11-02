@@ -1,4 +1,5 @@
 import { ToastHost } from './components/Toast';
+import { TooltipHost } from './components/Tooltip';
 import { UnsavedHost } from './components/unsaved';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -380,6 +381,7 @@ export default function App() {
           <div id="layer" className="layer" />
         </>
       )}
+      <TooltipHost />
       <ProtoPanel
         groups={team ? teamGroups : groups}
         current={token}

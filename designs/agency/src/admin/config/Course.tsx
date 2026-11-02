@@ -12,6 +12,7 @@ import { CellError, EditBar, History, Panel, useDraft, when } from './parts';
 import { useCheck } from '../../components/validate';
 import { fmtDate } from '../../data/format';
 import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, istDay, trySave, type SaveResult } from './states';
+import { NumberField } from '../../components/NumberField';
 
 const num = (v: string) => Number(v.replace(/[^\d.]/g, ''));
 /** A rate as typed: digits and one point, so "0.0" can be typed on the way to "0.05". */
@@ -145,17 +146,17 @@ export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
                     <td>
                       {ed && !past && r.code !== 'AUD' ? (
                         <>
-                          <TextInput
+                          <NumberField
                             id={`fx-${i}`}
                             aria-label={`1 ${r.code} in Australian dollars`}
-                            inputMode="decimal"
+                            decimal
                             className="cfg__cellinput cfg__num"
                             value={typed[i] ?? String(r.aud || '')}
                             invalid={!!v.err(`fx-${i}`)}
                             aria-describedby={v.err(`fx-${i}`) ? `fx-${i}-error` : undefined}
                             onBlur={() => v.blur(`fx-${i}`)()}
-                            onChange={(e) => {
-                              const t = rateText(e.target.value);
+                            onChange={(_t) => {
+                              const t = rateText(_t);
                               setTyped((x) => ({ ...x, [i]: t }));
                               upd(i, { aud: num(t), updated: Date.now() });
                             }}
@@ -267,7 +268,7 @@ export function LivingCosts({ cfg, change, say, canEdit, me, role }: ConfigProps
   const amount = (i: number, k: 'perYear' | 'visa' | 'health', id: string, label: string) =>
     ed ? (
       <>
-        <TextInput id={`${id}-${i}`} aria-label={label} inputMode="numeric" className="cfg__cellinput cfg__num" value={String(d.value[i][k] ?? '')} invalid={!!v.err(`${id}-${i}`)} aria-describedby={v.err(`${id}-${i}`) ? `${id}-${i}-error` : undefined} onBlur={v.blur(`${id}-${i}`)} onChange={(e) => upd(i, { [k]: e.target.value === '' ? NaN : num(e.target.value) })} />
+        <NumberField id={`${id}-${i}`} aria-label={label} className="cfg__cellinput cfg__num" value={String(d.value[i][k] ?? '')} invalid={!!v.err(`${id}-${i}`)} aria-describedby={v.err(`${id}-${i}`) ? `${id}-${i}-error` : undefined} onBlur={v.blur(`${id}-${i}`)} onChange={(_t) => upd(i, { [k]: _t === '' ? NaN : num(_t) })} />
         <CellError id={`${id}-${i}`}>{v.err(`${id}-${i}`)}</CellError>
       </>
     ) : (
@@ -423,7 +424,7 @@ function IntakeTimings({ cfg, change, say, canEdit }: ConfigProps) {
                   <td>
                     {ed ? (
                       <>
-                        <TextInput id={`it-${k}`} aria-label={`${label}, in days`} inputMode="numeric" className="cfg__cellinput cfg__num" value={Number.isNaN(d.value[k]) ? '' : String(d.value[k])} invalid={!!v.err(`it-${k}`)} aria-describedby={v.err(`it-${k}`) ? `it-${k}-error` : undefined} onBlur={v.blur(`it-${k}`)} onChange={(e) => d.set((x) => ({ ...x, [k]: e.target.value === '' ? NaN : Number(e.target.value.replace(/[^\d]/g, '')) }))} />
+                        <NumberField id={`it-${k}`} min={lo} max={hi} steppers aria-label={`${label}, in days`} className="cfg__cellinput cfg__num" value={Number.isNaN(d.value[k]) ? '' : String(d.value[k])} invalid={!!v.err(`it-${k}`)} aria-describedby={v.err(`it-${k}`) ? `it-${k}-error` : undefined} onBlur={v.blur(`it-${k}`)} onChange={(_t) => d.set((x) => ({ ...x, [k]: _t === '' ? NaN : Number(_t.replace(/[^\d]/g, '')) }))} />
                         <CellError id={`it-${k}`}>{v.err(`it-${k}`)}</CellError>
                       </>
                     ) : (

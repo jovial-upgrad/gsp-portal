@@ -11,6 +11,7 @@ import { Button as SharedButton } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { Sheet as SharedSheet } from '../components/Sheet';
 import { Field as SharedField, SelectInput, TextInput, DateInput, SearchInput } from '../components/forms';
+import { NumberField } from '../components/NumberField';
 import { notify } from '../components/Toast';
 import { fmtDate as sharedDate } from '../data/format';
 
@@ -118,31 +119,36 @@ export function Field({ id, label, hint, required, error, children }) {
 }
 
 const toNum = v => (v === '' ? '' : Number(v));
+const numOut = t => (t === '' || t === '-' || t.endsWith('.') ? t : toNum(t));
 /**
- * One input for Finance and Work. `type="number"` is a text box that takes digits and a point and hands back a number
- * (or '' when empty: empty is not 0); `type="date"` is the shared DD/MM/YYYY date field (an ISO day out); a placeholder
- * starting "Search" is the shared search box with its icon.
+ * One input for Finance and Work: the shared text field, its error under it, a search box with its icon when the
+ * placeholder starts "Search". Numbers use NumberInput, dates DateField (Jovial, 2 Nov: no system UI).
  */
 export function Input({ id, value, onChange, type = 'text', error, ...rest }) {
-  if (type === 'date') return <DateInput id={id} value={value ?? ''} onChange={onChange} invalid={!!error} {...rest} />;
   if (typeof rest.placeholder === 'string' && /^Search/.test(rest.placeholder)) {
     return <SearchInput id={id} label={rest['aria-label'] || rest.placeholder} placeholder={rest.placeholder} value={value ?? ''} onChange={onChange} />;
   }
-  if (type === 'number') {
-    return (
-      <TextInput id={id} inputMode="decimal" autoComplete="off" value={value ?? ''} invalid={!!error} {...rest}
-        onChange={e => { const t = e.target.value.replace(/[^\d.-]/g, ''); onChange(t === '' || t === '-' || t.endsWith('.') ? t : toNum(t)); }} />
-    );
-  }
   return <TextInput id={id} type={type} value={value ?? ''} invalid={!!error} {...rest} onChange={e => onChange(e.target.value)} />;
+}
+
+/**
+ * A number (the shared NumberField): takes digits and a point and hands back a number, or '' when empty (empty is
+ * not 0). `steppers` adds − / +; `min`, `max` and `step` bound them and the arrow keys.
+ */
+export function NumberInput({ id, value, onChange, error, decimal = true, ...rest }) {
+  return <NumberField id={id} value={value} decimal={decimal} invalid={!!error} {...rest} onChange={t => onChange(numOut(t))} />;
+}
+
+/** The shared DD/MM/YYYY date field with the portal's calendar (an ISO day out). */
+export function DateField({ id, value, onChange, error, ...rest }) {
+  return <DateInput id={id} value={value ?? ''} onChange={onChange} invalid={!!error} {...rest} />;
 }
 
 /** A small number box inside a row or a sentence (bands, rates, SLAs): always named, red when it's wrong. */
 export function Num({ label, value, onChange, error, unit, ...rest }) {
   return (
-    <input className={'gspx-num' + (error ? ' is-invalid' : '')} inputMode="decimal" autoComplete="off" aria-label={label} title={error || undefined}
-      aria-invalid={error ? true : undefined} value={value ?? ''} {...rest}
-      onChange={e => { const t = e.target.value.replace(/[^\d.-]/g, ''); onChange(t === '' ? '' : t.endsWith('.') || t === '-' ? t : Number(t)); }} />
+    <NumberField className="gspx-num" decimal aria-label={error ? `${label}: ${error}` : label} invalid={!!error} value={value} {...rest}
+      onChange={t => onChange(t === '' ? '' : t.endsWith('.') || t === '-' ? t : Number(t))} />
   );
 }
 

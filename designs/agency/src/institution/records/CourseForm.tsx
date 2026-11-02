@@ -8,6 +8,7 @@ import { DURATION_UNITS, SOURCES, type CourseRec, type DurationUnit, type Source
 import { todayIso } from '../data/records';
 import { change } from '../data/changelog';
 import { ErrorText, Pick } from './parts';
+import { NumberField } from '../../components/NumberField';
 
 /**
  * Add a course (slice 2 PRD): opens on the university with the Basics fields (not Tags) and **Add draft** saves it
@@ -152,7 +153,7 @@ export function BasicsFields({ v, set, u, unis, err, show, lockUni, idp }: { v: 
         <Pick id={`${idp}-mode`} label="Study mode" value={v.mode} placeholder="Pick a mode" invalid={!!e('mode')} options={MODES} onChange={(mode) => set({ mode: mode as StudyMode })} />
       </Field>
       <Field id={`${idp}-dur`} label="Duration" required error={e('durValue')} hint="Like 24 or 1.5">
-        <TextInput id={`${idp}-dur`} inputMode="decimal" value={v.durValue} invalid={!!e('durValue')} onChange={(x) => set({ durValue: x.target.value.replace(/[^\d.]/g, '') })} />
+        <NumberField id={`${idp}-dur`} decimal value={v.durValue} invalid={!!e('durValue')} onChange={(_t) => set({ durValue: _t.replace(/[^\d.]/g, '') })} />
       </Field>
       <Field id={`${idp}-unit`} label="Unit" required error={e('durUnit')}>
         <Pick id={`${idp}-unit`} label="Unit" value={v.durUnit} placeholder="Pick a unit" invalid={!!e('durUnit')} options={DURATION_UNITS} onChange={(durUnit) => set({ durUnit: durUnit as DurationUnit })} />

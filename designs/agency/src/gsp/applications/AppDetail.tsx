@@ -59,6 +59,7 @@ import { CondCard, CondDialog, condViews } from '../../screens/applications/Cond
 import { NameDialog, nameFromFile } from './NameDialog';
 import { OWNER_TAG } from './owners';
 import { GSP_USER } from '../user';
+import { DatePicker } from '../../components/DatePicker';
 
 export type AppTab = 'chat' | 'mail' | 'documents' | 'submission' | 'commission' | 'activity';
 const TABS: [AppTab, string, IconName][] = [
@@ -863,6 +864,20 @@ function EditRow({ id, k, kind, value, shown, currency, onSave }: { id: string; 
               end();
             }}
           >
+{kind === 'date' ? (
+              <DatePicker
+                ref={ref}
+                id={`gedit-${id}`}
+                className="gedit__control"
+                value={v}
+                invalid={bad}
+                aria-describedby={bad ? `gedit-${id}-err` : undefined}
+                onChange={(x) => {
+                  setV(x);
+                  setBad(false);
+                }}
+              />
+            ) : (
             <span className={`control gedit__control ${bad ? 'is-invalid' : ''}`}>
               {kind === 'money' && (
                 <span className="gedit__cur" aria-hidden="true">
@@ -873,7 +888,7 @@ function EditRow({ id, k, kind, value, shown, currency, onSave }: { id: string; 
                 ref={ref}
                 id={`gedit-${id}`}
                 className="control__input num"
-                type={kind === 'date' ? 'date' : 'text'}
+                type="text"
                 inputMode={kind === 'money' ? 'numeric' : undefined}
                 value={v}
                 aria-invalid={bad || undefined}
@@ -884,6 +899,7 @@ function EditRow({ id, k, kind, value, shown, currency, onSave }: { id: string; 
                 }}
               />
             </span>
+            )}
             {bad && (
               <span id={`gedit-${id}-err`} className="gedit__err" role="alert">
                 {kind === 'date' ? 'Pick a date.' : 'Enter the fee as a number.'}

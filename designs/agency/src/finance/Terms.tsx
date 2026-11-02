@@ -6,7 +6,7 @@
  */
 import React, { useState } from 'react';
 import { update, nameOf, getState } from './store';
-import { Card, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, Num, Chip, toast, fmtAge } from './kit';
+import { Card, Tabs, Select, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, Num, Chip, toast, fmtAge, NumberInput, DateField } from './kit';
 import { NoMatch } from '../institution/records/parts';
 import { useCheck, numError, pctError, dateError, afterError, dupError } from '../components/validate';
 import { useUnsaved } from '../components/unsaved';
@@ -251,9 +251,9 @@ function UniSheet({ ro, c, u, onClose, propose }) {
         <div className="gspx-form2">
           <Select id="u-trig" label="Commission is earned at" required value={d.trigger} onChange={x => set('trigger', x)} options={Object.entries(TRIG)} />
           <Select id="u-inst" label="First-year instalments" required value={String(d.inst)} onChange={x => set('inst', Number(x))} options={[['1', '1 (once a year)'], ['2', '2 (per semester)'], ['3', '3 (per trimester)']]} />
-          <Field id="u-days" label="Days to pay an invoice" required error={v.err('payDays')}><Input id="u-days" type="number" value={d.payDays} onBlur={v.blur('payDays')} onChange={x => set('payDays', x)} /></Field>
-          <Field id="u-cap" label="Cap per student (first year)" hint="Leave blank for no cap" error={v.err('cap')}><Input id="u-cap" type="number" value={d.cap ?? ''} onBlur={v.blur('cap')} onChange={x => set('cap', num(x))} /></Field>
-          <Field id="u-end" label="Agreement ends" hint={u.agreement ? `From the Institution partner record${u.agreement.partner ? ` (${u.agreement.partner}, ${u.agreement.status})` : ''}: the Institution Team changes it there.` : 'No Institution partner record yet.'}><Input id="u-end" type="date" value={d.ends || ''} onChange={() => undefined} readOnly /></Field>
+          <Field id="u-days" label="Days to pay an invoice" required error={v.err('payDays')}><NumberInput id="u-days" decimal={false} min={0} steppers value={d.payDays} onBlur={v.blur('payDays')} onChange={x => set('payDays', x)} /></Field>
+          <Field id="u-cap" label="Cap per student (first year)" hint="Leave blank for no cap" error={v.err('cap')}><NumberInput id="u-cap" value={d.cap ?? ''} onBlur={v.blur('cap')} onChange={x => set('cap', num(x))} /></Field>
+          <Field id="u-end" label="Agreement ends" hint={u.agreement ? `From the Institution partner record${u.agreement.partner ? ` (${u.agreement.partner}, ${u.agreement.status})` : ''}: the Institution Team changes it there.` : 'No Institution partner record yet.'}><DateField id="u-end" value={d.ends || ''} onChange={() => undefined} readOnly /></Field>
           <Select id="u-cur" label="Currency" required value={d.cur} onChange={x => set('cur', x)} options={CURS} />
           <fieldset className="field gspx-fieldset"><legend className="field__label">Rates by level (% of tuition; empty: not paid)</legend>
             <div className="gspx-rates">{lv.map(k => (
@@ -312,11 +312,11 @@ function RpSheet({ ro, c, r, onClose, propose }) {
           <Select id="rp-reg" label="Sales region" required error={v.err('region')} onBlur={v.blur('region')} value={d.region} onChange={setRegion} options={regions} /></>}
         <Select id="rp-terms" label="Terms" required value={own ? 'own' : d.scheme} onChange={x => x === 'own' ? set('flat', 80) : (set('flat', null), set('scheme', x))}
           options={[['own', 'Own flat rate'], ...c.cfg.schemes.map(x => [x.id, `${x.id} ${x.name}`])]} />
-        {own && <Field id="rp-flat" label="Own flat rate (% of GSP’s commission)" required error={v.err('flat')}><Input id="rp-flat" type="number" value={d.flat} onBlur={v.blur('flat')} onChange={x => set('flat', x)} /></Field>}
+        {own && <Field id="rp-flat" label="Own flat rate (% of GSP’s commission)" required error={v.err('flat')}><NumberInput id="rp-flat" value={d.flat} onBlur={v.blur('flat')} onChange={x => set('flat', x)} /></Field>}
         <Select id="rp-cur" label="Payout currency" required value={d.cur} onChange={x => set('cur', x)} options={CURS} />
         <Select id="rp-bank" label="Bank account" required value={d.bank} onChange={x => set('bank', x)} options={[['AU', 'Australian account (batch 1)'], ['Local', 'Local account (batch 2)']]} />
         <Select id="rp-payee" label="Paid through a Master Partner?" value={d.payee || ''} onChange={x => set('payee', x)} placeholder="No, GSP pays the RP" options={mps.map(x => [x.id, x.name])} />
-        <Field id="rp-ann" label="Own annuity share (%)" error={v.err('ann')} hint={`Blank: the setting (${c.cfg.settings.annuityRp === 'same' ? 'same as year 1' : c.cfg.settings.annuityRp})`}><Input id="rp-ann" type="number" value={d.annuityPct ?? ''} onBlur={v.blur('ann')} onChange={x => set('annuityPct', num(x))} /></Field>
+        <Field id="rp-ann" label="Own annuity share (%)" error={v.err('ann')} hint={`Blank: the setting (${c.cfg.settings.annuityRp === 'same' ? 'same as year 1' : c.cfg.settings.annuityRp})`}><NumberInput id="rp-ann" value={d.annuityPct ?? ''} onBlur={v.blur('ann')} onChange={x => set('annuityPct', num(x))} /></Field>
         <label className="gspx-check"><input type="checkbox" checked={!!d.gst} onChange={e => set('gst', e.target.checked)} /> Registered for GST</label>
         <label className="gspx-check"><input type="checkbox" checked={!!d.mp} onChange={e => set('mp', e.target.checked)} /> This RP is a Master Partner (other RPs are paid through it)</label>
         <label className="gspx-check"><input type="checkbox" checked={d.bankVerified !== false} onChange={e => set('bankVerified', e.target.checked)} /> Bank details verified</label>
@@ -343,7 +343,7 @@ function SchemeSheet({ ro, c, x, onClose, propose }) {
         <Field id="s-n" label="Name" required error={v.err('name')}><Input id="s-n" value={d.name} onBlur={v.blur('name')} onChange={y => set('name', y)} /></Field>
         <Field id="s-r" label="Region"><Input id="s-r" value={d.region} onChange={y => set('region', y)} /></Field>
         <Select id="s-t" label="Structure" required value={d.type} onChange={y => set('type', y)} options={[['tier', 'Tier by number of enrolments'], ['flat', 'Flat %']]} />
-        {d.type === 'flat' ? <Field id="s-f" label="Flat % of GSP’s commission" required error={v.err('flat')}><Input id="s-f" type="number" value={d.flat} onBlur={v.blur('flat')} onChange={y => set('flat', y)} /></Field> : <>
+        {d.type === 'flat' ? <Field id="s-f" label="Flat % of GSP’s commission" required error={v.err('flat')}><NumberInput id="s-f" value={d.flat} onBlur={v.blur('flat')} onChange={y => set('flat', y)} /></Field> : <>
           <Select id="s-re" label="When a higher band is reached" required value={d.retro} onChange={y => set('retro', y)} options={[['no', 'Prospective: only later enrolments get it'], ['yes', 'Retrospective: every enrolment in the window gets it'], ['top', 'Retrospective only at the top band']]} />
           <Select id="s-w" label="Counted per" required value={d.window} onChange={y => set('window', y)} options={Object.entries(winName)} /></>}
       </div>
@@ -372,12 +372,12 @@ function NoticeSheet({ ro, c, x, onClose, propose }) {
       <div className="gspx-form2">
         <Field id="n-n" label="Name" required error={v.err('name')}><Input id="n-n" value={d.name} onBlur={v.blur('name')} onChange={y => set('name', y)} /></Field>
         <Select id="n-doc" label="Source document" required value={d.doc} onChange={y => set('doc', y)} options={['Notice', 'Addendum', 'Flyer', 'Email approval']} />
-        <Field id="n-s" label="Enrolments from" required error={v.err('start')}><Input id="n-s" type="date" value={d.start} onBlur={v.blur('start')} onChange={y => set('start', y)} /></Field>
-        <Field id="n-e" label="Enrolments to" hint="Leave blank for no end" error={v.err('end')}><Input id="n-e" type="date" value={d.end} onBlur={v.blur('end')} onChange={y => set('end', y)} /></Field>
+        <Field id="n-s" label="Enrolments from" required error={v.err('start')}><DateField id="n-s" value={d.start} onBlur={v.blur('start')} onChange={y => set('start', y)} /></Field>
+        <Field id="n-e" label="Enrolments to" hint="Leave blank for no end" error={v.err('end')}><DateField id="n-e" value={d.end} onBlur={v.blur('end')} onChange={y => set('end', y)} /></Field>
         <Field id="n-r" label="Region (when no RPs are listed)"><Input id="n-r" value={d.region} onChange={y => set('region', y)} /></Field>
         <Select id="n-k" label="Structure" required value={d.kind} onChange={y => set('kind', y)} options={Object.entries(NKIND)} />
-        {(d.kind === 'flat' || d.kind === 'flatfixed') && <Field id="n-f" label="% of GSP’s commission" required error={v.err('flat')}><Input id="n-f" type="number" value={d.flat} onBlur={v.blur('flat')} onChange={y => set('flat', y)} /></Field>}
-        {d.kind === 'flatfixed' && <Field id="n-fx" label="Plus a fixed amount per enrolment (AUD)" required error={v.err('fixed')}><Input id="n-fx" type="number" value={d.fixed ?? ''} onBlur={v.blur('fixed')} onChange={y => set('fixed', num(y))} /></Field>}
+        {(d.kind === 'flat' || d.kind === 'flatfixed') && <Field id="n-f" label="% of GSP’s commission" required error={v.err('flat')}><NumberInput id="n-f" value={d.flat} onBlur={v.blur('flat')} onChange={y => set('flat', y)} /></Field>}
+        {d.kind === 'flatfixed' && <Field id="n-fx" label="Plus a fixed amount per enrolment (AUD)" required error={v.err('fixed')}><NumberInput id="n-fx" value={d.fixed ?? ''} onBlur={v.blur('fixed')} onChange={y => set('fixed', num(y))} /></Field>}
         {d.kind !== 'milestone' && <Select id="n-c" label="How it combines with the RP’s own terms" required value={d.combine} onChange={y => set('combine', y)} options={Object.entries(COMBINE)} />}
       </div>
       {d.kind === 'tier' && <div className="field"><span className="field__label">Bands</span><Bands bands={d.bands} show={v.shown} onChange={b => set('bands', b)} /></div>}
@@ -418,7 +418,7 @@ export function Settings({ c, canEdit, propose }) {
   const v = useCheck(errors, () => box.current);
   useUnsaved(canEdit && changed, changed, { onDiscard: () => setD(structuredClone(S)), region: box, what: 'the commission settings', esc: false });
   const f = (id, k, label, value, onChange, hint) => (
-    <Field id={id} label={label} required={k !== 'wh'} hint={hint} error={v.err(k)}><Input id={id} type="number" value={value} disabled={!canEdit} onBlur={v.blur(k)} onChange={onChange} /></Field>
+    <Field id={id} label={label} required={k !== 'wh'} hint={hint} error={v.err(k)}><NumberInput id={id} value={value} disabled={!canEdit} onBlur={v.blur(k)} onChange={onChange} /></Field>
   );
   return (
     <div ref={box} className="gspx-stack">
@@ -441,8 +441,8 @@ export function Settings({ c, canEdit, propose }) {
         <h2 className="gspx-h3">Estimates for a university with no terms yet</h2>
         <p className="muted">Until Finance enters a university’s terms, an application’s Commission tab estimates with the course record’s rate and these.</p>
         <div className="gspx-form2">
-          <Field id="st-ei" label="Instalments a year" required error={v.err('est')}><Input id="st-ei" type="number" value={d.estimate.inst} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, inst: num(x) })} /></Field>
-          <Field id="st-ep" label="University pays within (days)" required><Input id="st-ep" type="number" value={d.estimate.payDays} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, payDays: num(x) })} /></Field>
+          <Field id="st-ei" label="Instalments a year" required error={v.err('est')}><NumberInput id="st-ei" decimal={false} min={1} max={12} steppers value={d.estimate.inst} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, inst: num(x) })} /></Field>
+          <Field id="st-ep" label="University pays within (days)" required><NumberInput id="st-ep" decimal={false} min={0} steppers value={d.estimate.payDays} disabled={!canEdit} onBlur={v.blur('est')} onChange={x => set('estimate', { ...d.estimate, payDays: num(x) })} /></Field>
           <Select id="st-et" label="Commission is earned at" required disabled={!canEdit} value={d.estimate.trigger} onChange={x => set('estimate', { ...d.estimate, trigger: x })} options={Object.entries(TRIG)} />
           <Select id="st-es" label="Student type" required disabled={!canEdit} value={d.estimate.studentType} onChange={x => set('estimate', { ...d.estimate, studentType: x })} options={['New', 'Continuing', 'Transfer']} />
         </div>

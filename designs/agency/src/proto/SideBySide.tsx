@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Icon } from '../components/Icon';
+import { SelectMenu } from '../components/SelectMenu';
 import { addLinkSink, isLinkMsg, setLink, useLink, type Link } from './link';
 import { PAIR, ROLES } from './roles';
 
@@ -44,20 +45,23 @@ export function SideBySide({ hash, links, onExit }: { hash: string; links: { id:
           <Icon name="monitor" size={18} />
           Side by side
         </p>
-        <label className="split__link">
+        <div className="split__link">
           <span className="split__k">Connected</span>
-          <select value={value} onChange={(e) => setLink(pick(e.target.value))} aria-label="Connected applications">
-            <option value="all">All applications</option>
-            <optgroup label="One application">
-              {links.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label}
-                </option>
-              ))}
-            </optgroup>
-            <option value="off">Not connected</option>
-          </select>
-        </label>
+          <SelectMenu
+            className="split__pick"
+            host="body"
+            label="Connected applications"
+            ariaLabel="Connected applications"
+            value={value}
+            minWidth={280}
+            onChange={(v) => setLink(pick(v))}
+            options={[
+              { value: 'all', label: 'All applications' },
+              ...links.map((l) => ({ value: l.id, label: l.label, group: 'One application' })),
+              { value: 'off', label: 'Not connected' },
+            ]}
+          />
+        </div>
         <p className="split__note">{link.mode === 'off' ? 'Not connected: each role keeps its own copy.' : 'A change in one role shows in the other as it happens.'}</p>
         <button type="button" className="split__exit" onClick={onExit}>
           <Icon name="close" size={16} />

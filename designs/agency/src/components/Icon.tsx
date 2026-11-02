@@ -7,6 +7,8 @@ const P: Record<string, string> = {
   lock: 'M7 10V7.5a5 5 0 0 1 10 0V10M5.5 10h13a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1zM12 14.2v2.6',
   chevronDown: 'M6 9.5l6 6 6-6',
   chevronRight: 'M9.5 6l6 6-6 6',
+  chevronLeft: 'M14.5 6l-6 6 6 6',
+  minus: 'M5 12h14',
   sort: 'M7.5 4.5v15M4 8l3.5-3.5L11 8M16.5 19.5v-15M13 16l3.5 3.5L20 16',
   arrowRight: 'M4.5 12h15M13.5 6l6 6-6 6',
   arrowLeft: 'M19.5 12h-15M10.5 6l-6 6 6 6',

@@ -9,6 +9,7 @@ import { PageHead } from '../../institution/records/parts';
 import { EQUIV_COLS, bandError, equivOf, gradesOf, overlapOf, withEquiv, withGrades, type Band, type ConvertBy, type EquivRow, type GradingSystem } from '../data/eligibility';
 import type { ConfigProps } from './ConfigPage';
 import { CellError, EditBar, History, Panel, useDraft } from './parts';
+import { NumberField } from '../../components/NumberField';
 
 const valuesOf = (g: GradingSystem) =>
   g.by === 'As is' ? '—' : g.by === 'Multiplier' ? `× ${g.mult}` : g.bands.map((b) => `${b.from === b.to ? b.from : `${b.from}–${b.to}`} = ${b.pct}%`).join(', ');
@@ -151,7 +152,7 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
           </Field>
           {x.by === 'Multiplier' && (
             <Field id="gs-mult" label="Multiplier" required hint="Up to 100, 2 decimals. A converted score above 100% counts as 100%." error={tried ? multErr : null}>
-              <TextInput id="gs-mult" inputMode="decimal" value={multText} invalid={tried && !!multErr} onChange={(e) => setMultText(e.target.value.replace(/[^\d.]/g, ''))} />
+              <NumberField id="gs-mult" decimal value={multText} invalid={tried && !!multErr} onChange={(_t) => setMultText(_t.replace(/[^\d.]/g, ''))} />
             </Field>
           )}
           {x.by === 'Bands' && (
@@ -183,7 +184,7 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
                           <CellError id={`gs-b${i}`}>{bad ? bandErrs[i] : null}</CellError>
                         </td>
                         <td>
-                          <TextInput id={`gs-b${i}-pct`} aria-label={`Band ${i + 1}, percentage`} inputMode="numeric" className="cfg__cellinput cfg__num" value={String(b.pct)} onChange={(e) => setBand(i, { pct: Number(e.target.value.replace(/[^\d.]/g, '')) })} />
+                          <NumberField id={`gs-b${i}-pct`} aria-label={`Band ${i + 1}, percentage`} className="cfg__cellinput cfg__num" value={String(b.pct)} onChange={(_t) => setBand(i, { pct: Number(_t.replace(/[^\d.]/g, '')) })} />
                         </td>
                         <td>
                           <Button size="sm" variant="ghost" onClick={() => setV((o) => (o ? { ...o, bands: o.bands.filter((_, j) => j !== i) } : o))} aria-label={`Remove band ${i + 1}`}>
@@ -280,7 +281,7 @@ export function EnglishEquivalence({ cfg, change, say, canEdit }: ConfigProps) {
                       <td key={c.key}>
                         {ed ? (
                           <>
-                            <TextInput id={id} aria-label={`Row ${i + 1}, ${c.name}`} inputMode="decimal" className="cfg__cellinput cfg__num" value={typed[`${i}-${c.key}`] ?? String(r[c.key])} invalid={!!v.err(id)} aria-describedby={v.err(id) ? `${id}-error` : undefined} onBlur={v.blur(id)} onChange={(e) => setCell(i, c.key, e.target.value.replace(/[^\d.]/g, ''))} />
+                            <NumberField id={id} aria-label={`Row ${i + 1}, ${c.name}`} decimal className="cfg__cellinput cfg__num" value={typed[`${i}-${c.key}`] ?? String(r[c.key])} invalid={!!v.err(id)} aria-describedby={v.err(id) ? `${id}-error` : undefined} onBlur={v.blur(id)} onChange={(_t) => setCell(i, c.key, _t.replace(/[^\d.]/g, ''))} />
                             <CellError id={id}>{v.err(id)}</CellError>
                           </>
                         ) : (

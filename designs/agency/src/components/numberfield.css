@@ -1,0 +1,26 @@
+/* NumberField (Jovial, 2 Nov): the portal's number box, with optional − / + steppers either side */
+.nfield .control__input { font-variant-numeric: tabular-nums; }
+.nfield.cfg__num .control__input,
+.nfield.is-right .control__input { text-align: right; }
+.nfield__unit { color: var(--text-3); font-size: var(--t-label); white-space: nowrap; padding-right: var(--sp-6); }
+.nfield--steppers .control__leading { padding-left: var(--sp-6); }
+.nfield--steppers .control__leading + .control__input { padding-left: var(--sp-6); padding-right: var(--sp-6); text-align: center; }
+.nfield__step {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.nfield__step:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
+.nfield__step:disabled { opacity: 0.4; cursor: not-allowed; }
+.nfield--steppers.cfg__num { width: 148px; }
+/* small, inside a table row or a sentence (bands, rates, SLAs) */
+.nfield.gspx-num { width: 96px; height: 36px; padding: 0; border-radius: var(--r-sm); }
+.nfield.gspx-num .control__input { padding: 0 10px; font-size: var(--t-label); }

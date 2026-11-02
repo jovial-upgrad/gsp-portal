@@ -64,6 +64,7 @@ export function AppList({
   onAdd,
   onFindCourses,
   say,
+  ownOnly = false,
 }: {
   apps: Application[];
   students: Student[];
@@ -74,6 +75,8 @@ export function AppList({
   onAdd: () => void;
   onFindCourses: () => void;
   say: (m: string) => void;
+  /** A Counsellor sees only their own applications, so there's no counsellor filter (2 Nov). */
+  ownOnly?: boolean;
 }) {
   const reduce = useReducedMotion();
   const stu = (a: Application) => students.find((s) => s.id === a.studentId);
@@ -189,13 +192,13 @@ export function AppList({
               <span className="vh">Search applications</span>
               <input id="ap-q" type="search" placeholder="Student, passport, ID or course" value={st.q} onChange={(e) => set((p) => ({ ...p, q: e.target.value }))} />
             </label>
-            <SelectInput id="ap-who" aria-label="Counsellor" value={st.who} placeholder="All counsellors" allowEmpty onChange={(e) => set((p) => ({ ...p, who: e.target.value }))}>
+            {!ownOnly && <SelectInput id="ap-who" aria-label="Counsellor" value={st.who} placeholder="All counsellors" allowEmpty onChange={(e) => set((p) => ({ ...p, who: e.target.value }))}>
               {team.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.id === 'me' ? 'My students' : m.name}
                 </option>
               ))}
-            </SelectInput>
+            </SelectInput>}
             <SelectInput id="ap-intake" aria-label="Intake" value={st.intake} placeholder="All intakes" allowEmpty onChange={(e) => set((p) => ({ ...p, intake: e.target.value }))}>
               {intakes.map((i) => (
                 <option key={i} value={i}>

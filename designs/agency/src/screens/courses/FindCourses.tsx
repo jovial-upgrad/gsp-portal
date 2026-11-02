@@ -178,29 +178,28 @@ export function FindCourses({
           {/* picking a student waits until GSP verifies the agency (1 Nov); it says why */}
           <div className={`fsearch__who ${s.studentId ? '' : 'is-empty'} ${canApply ? '' : 'is-disabled'}`} title={canApply ? undefined : STUDENT_WAIT}>
             <Icon name="user" size={20} />
-            <select
+            <SelectMenu
+              bare
               id="fc-student"
-              className="fsearch__who-select"
-              aria-label="Student this search is for"
-              aria-describedby={canApply ? undefined : 'fc-student-why'}
+              className="fsearch__who-pick"
+              label="Student this search is for"
+              ariaLabel="Student this search is for"
+              describedBy={canApply ? undefined : 'fc-student-why'}
               disabled={!canApply}
+              chevron={false}
+              minWidth={340}
               value={canApply ? s.studentId ?? '' : ''}
-              onChange={(e) => pickStudent(e.target.value)}
-            >
-              <option value="">Select student</option>
-              {/* with none to pick, the list still opens and says why */}
-              {canApply && !students.length && (
-                <option value="none" disabled>
-                  No students yet: add them in Students
-                </option>
-              )}
-              {students.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {fullName(st)} · {st.state ? `${st.state}, ` : ''}
-                  {st.country || st.nationality}
-                </option>
-              ))}
-            </select>
+              placeholder="Select student"
+              emptyText="No student matches"
+              onChange={(v) => pickStudent(v)}
+              options={[
+                { value: '', label: 'Select student' },
+                // with none to pick, the list still opens and says why
+                ...(canApply && !students.length ? [{ value: 'none', label: 'No students yet: add them in Students', disabled: true }] : []),
+                ...students.map((st) => ({ value: st.id, label: `${fullName(st)} · ${st.state ? `${st.state}, ` : ''}${st.country || st.nationality}` })),
+              ]}
+              render={(o) => <span className="smenu__value">{o && o.value ? o.label : 'Select student'}</span>}
+            />
             <Icon name="chevronDown" size={18} />
           </div>
           <div className="fsearch__box">
@@ -513,16 +512,21 @@ function Segment({
           </>
         )}
       </label>
-      <select id={id} className="fseg__select" value={value} disabled={disabled} aria-invalid={error || undefined} onChange={(e) => onChange(e.target.value)}>
-        <option value="" disabled={!optional}>
-          {optional ? 'Any' : 'Choose'}
-        </option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      <SelectMenu
+        bare
+        id={id}
+        className="fseg__pick"
+        label={label}
+        value={value}
+        disabled={disabled}
+        invalid={error || undefined}
+        chevron={false}
+        minWidth={240}
+        placeholder={optional ? 'Any' : 'Choose'}
+        onChange={onChange}
+        options={[...(optional ? [{ value: '', label: 'Any' }] : []), ...options.map((o) => ({ value: o, label: o }))]}
+        render={(o) => <span className="smenu__value">{o ? o.label : optional ? 'Any' : 'Choose'}</span>}
+      />
       <Icon name="chevronDown" size={16} className="fseg__chev" />
     </div>
   );

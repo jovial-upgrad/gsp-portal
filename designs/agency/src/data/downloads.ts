@@ -17,8 +17,9 @@ function areaNow() {
   return h || document.title || 'Portal';
 }
 function filtersNow() {
-  const on = [...document.querySelectorAll('main [aria-pressed="true"], main .is-on, main select')]
-    .map((x) => (x instanceof HTMLSelectElement ? (x.value && x.selectedIndex > 0 ? x.selectedOptions[0]?.textContent?.trim() : '') : x.textContent?.trim()))
+  // the portal's selects (SelectMenu) say their pick in the button; an empty one shows its placeholder, skipped
+  const on = [...document.querySelectorAll('main [aria-pressed="true"], main .is-on, main .smenu:not(.is-empty) > .smenu__btn')]
+    .map((x) => x.textContent?.trim())
     .filter((x): x is string => !!x && x.length < 40);
   return on.slice(0, 4).join(' · ') || 'None';
 }

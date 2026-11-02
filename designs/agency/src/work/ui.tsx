@@ -1,9 +1,10 @@
 /**
  * The work pages' controls, on the portal's own design-system components (Jovial, 2 Nov: no browser controls):
- * `Pick` is the shared SelectMenu in a Field, `TimePick` a SelectMenu of half-hours, `Tick` the shared Checkbox.
+ * `Pick` is the shared SelectMenu in a Field, `TimePick` the shared TimePicker, `Tick` the shared Checkbox.
  */
 import type { ReactNode } from 'react';
 import { SelectMenu } from '../components/SelectMenu';
+import { TimePicker } from '../components/TimePicker';
 import { Field, Checkbox } from '../components/forms';
 
 type Opt = string | [string, string];
@@ -20,10 +21,11 @@ export function Pick({ id, label, value, onChange, options, placeholder, hideLab
 
 /** Every half-hour of the day, "00:00" to "23:30". */
 export const HALF_HOURS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
-/** A time of day (IST), picked from half-hours. */
+/** A time of day (IST): the shared TimePicker, typed HH:MM or picked from the half-hours. */
 export function TimePick({ id, label, value, onChange, error, hideLabel }: { id: string; label: string; value: string; onChange: (v: string) => void; error?: string | null; hideLabel?: boolean }) {
-  const opts = HALF_HOURS.includes(value) ? HALF_HOURS : [value, ...HALF_HOURS].filter(Boolean);
-  return <Pick id={id} label={label} hideLabel={hideLabel} value={value} onChange={onChange} options={opts.map((t) => [t, `${t} IST`])} error={error} />;
+  const t = <TimePicker id={id} value={value} onChange={onChange} step={30} invalid={!!error} ariaLabel={hideLabel ? label : undefined} describedBy={error ? `${id}-error` : undefined} />;
+  if (hideLabel) return <div className="gspx-select">{t}</div>;
+  return <Field id={id} label={label} error={error} className="gspx-select">{t}</Field>;
 }
 
 /** A tick box (the shared Checkbox). */

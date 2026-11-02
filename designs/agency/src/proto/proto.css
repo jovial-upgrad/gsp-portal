@@ -172,8 +172,6 @@
 /* connecting the two roles (in the Role menu) */
 .proto__link { display: grid; gap: var(--sp-8); margin-top: var(--sp-4); padding-top: var(--sp-12); border-top: 1px solid var(--line); }
 .proto__link .proto__label { margin: 0; }
-.proto__select { width: 100%; height: 36px; padding: 0 var(--sp-10); border: 1px solid var(--line-input); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-caption); }
-.proto__select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .proto__split { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-6); height: 36px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-caption); font-weight: var(--fw-semi); }
 .proto__split:hover { background: var(--surface-2); }
 .proto__linked { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; height: 20px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--ok-dot) 30%, transparent); font-size: var(--t-micro); font-weight: var(--fw-semi); }
@@ -184,7 +182,6 @@
 .split__bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-16); padding: var(--sp-10) var(--sp-16); border-bottom: 1px solid var(--line); background: var(--surface); }
 .split__title { display: inline-flex; align-items: center; gap: var(--sp-8); font-weight: var(--fw-semi); }
 .split__link { display: inline-flex; align-items: center; gap: var(--sp-8); }
-.split__link select { height: 34px; max-width: 320px; padding: 0 var(--sp-10); border: 1px solid var(--line-input); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-label); }
 .split__k { font-size: var(--t-micro); font-weight: var(--fw-semi); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .split__note { flex: 1 1 200px; font-size: var(--t-caption); color: var(--text-2); }
 .split__exit { display: inline-flex; align-items: center; gap: var(--sp-6); height: 34px; padding: 0 var(--sp-12); border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-label); font-weight: var(--fw-semi); }
@@ -197,3 +194,8 @@
 @media (max-width: 900px) {
   .split__panes { grid-template-columns: minmax(0, 1fr); grid-auto-rows: minmax(0, 1fr); }
 }
+/* the panel's lists are the portal's SelectMenu (Jovial, 2 Nov: no system UI) */
+.proto__pick.control { width: 100%; height: 36px; border-radius: 10px; }
+.proto__pick .smenu__btn { font-size: var(--t-caption); padding-left: var(--sp-10); }
+.split__pick.control { height: 34px; width: 320px; max-width: 100%; border-radius: 10px; }
+.split__pick .smenu__btn { font-size: var(--t-label); padding-left: var(--sp-10); }

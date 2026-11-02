@@ -23,6 +23,7 @@ import { Submission } from './uni/Submission';
 import { Scholarships } from './uni/Scholarships';
 import { Pictures } from './uni/Pictures';
 import { OBJ, canEdit, canSee, type PageProps } from '../portal/model';
+import { NumberField } from '../../components/NumberField';
 
 type Tab = 'overview' | 'campuses' | 'pictures' | 'courses' | 'scholarships' | 'territory' | 'submission' | 'log';
 const TABS: Tab[] = ['overview', 'campuses', 'pictures', 'courses', 'scholarships', 'territory', 'submission', 'log'];
@@ -737,10 +738,10 @@ function EditProfile({ u, taken, onCancel, onSave }: { u: UniRec | null; taken: 
           </Field>
         )}
         <Field id="iup-founded" label="Founded" required error={show('founded')}>
-          <TextInput id="iup-founded" inputMode="numeric" value={x.founded} invalid={!!show('founded')} onChange={(e) => set({ founded: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="Like: 1966" />
+          <NumberField id="iup-founded" value={x.founded} invalid={!!show('founded')} onChange={(_t) => set({ founded: _t.replace(/\D/g, '').slice(0, 4) })} placeholder="Like: 1966" />
         </Field>
         <Field id="iup-priority" label="Search priority" required error={show('searchPriority')} hint="0 to 100. Course search’s Recommended sort orders by it first, highest first.">
-          <TextInput id="iup-priority" inputMode="numeric" value={x.searchPriority} invalid={!!show('searchPriority')} onChange={(e) => set({ searchPriority: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
+          <NumberField id="iup-priority" value={x.searchPriority} invalid={!!show('searchPriority')} onChange={(_t) => set({ searchPriority: _t.replace(/\D/g, '').slice(0, 3) })} />
         </Field>
         <Field id="iup-qs" label="QS world ranking" hint="Read-only: from Admin’s QS ranking CSV.">
           <TextInput id="iup-qs" value={u?.qs ? `#${u.qs} · QS ${u.qsYear ?? 2026}` : '—'} readOnly />

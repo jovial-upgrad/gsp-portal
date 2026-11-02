@@ -1,0 +1,26 @@
+/* The portal's tooltip (Jovial, 2 Nov): dark in light theme, light in dark, a small rounded label above its element */
+.ptip {
+  position: fixed;
+  z-index: 500;
+  max-width: 280px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: var(--t-caption);
+  line-height: var(--lh-caption);
+  font-weight: var(--fw-medium);
+  box-shadow: var(--shadow-pop);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: ptip-in var(--dur-2) var(--ease-out);
+  overflow-wrap: anywhere;
+}
+.ptip.is-below { transform: translate(-50%, 0); }
+@keyframes ptip-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ptip { animation: none; }
+}

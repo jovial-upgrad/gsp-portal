@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { useStore, update, logChange, nameOf, kindById, SHARE, SHARE_HELP } from './store';
 import { can } from '../finance/access';
-import { Page, Card, Tabs, Table, Pill, Button, LinkButton, Sheet, Field, Input, Num, Chip, Notice, toast } from '../finance/kit';
+import { Page, Card, Tabs, Table, Pill, Button, LinkButton, Sheet, Field, Input, Num, Chip, Notice, toast, NumberInput, DateField } from '../finance/kit';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useCheck, numError, dupError, dateError } from '../components/validate';
 import { fmtDate, fmtWhen } from '../data/format';
@@ -182,7 +182,7 @@ function KindSheet({ kind, onClose, by, canDelete }) {
       <div className="cfg__form">
         <Field id="k-name" label="Name" required error={c.err('name')}><Input id="k-name" value={v.name} onBlur={c.blur('name')} onChange={x => setV({ ...v, name: x })} /></Field>
         <Pick id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV({ ...v, record: x })} options={['Application', 'RP', 'Institution partner', 'University', 'Course', 'Announcement', 'Commission', 'Email', 'Setting', 'Any']} />
-        <Field id="k-sla" label="SLA (whole working hours, 1 to 540)" required error={c.err('sla')} hint="A working day is 9 hours, 9:30 to 18:30 IST."><Input id="k-sla" type="number" value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
+        <Field id="k-sla" label="SLA (whole working hours, 1 to 540)" required error={c.err('sla')} hint="A working day is 9 hours, 9:30 to 18:30 IST."><NumberInput id="k-sla" decimal={false} min={1} max={540} steppers value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
         {used && <p className="field__msg" id="k-used">A queue or task rule uses it, so it can’t be deleted.</p>}
       </div>
     </Sheet>
@@ -244,7 +244,7 @@ function Calendars({ may, by }) {
             toast('Holiday removed', { text: `${n}, ${fmtDate(d)}`, undo: () => edit(i, cal => { cal.holidays.splice(j, 0, [d, n]); }, 'holiday.added', `${by.name} put back holiday ${n}`) });
           }}>Remove</LinkButton>}</li>)}</ul>
           {may('U') && <><div className="gspx-inline">
-            <Field id={`hd-${i}`} label="Holiday date" required error={tried[i] ? holErr(i).d : null}><Input id={`hd-${i}`} type="date" value={(hol[i] || {}).d || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), d: x } })} /></Field>
+            <Field id={`hd-${i}`} label="Holiday date" required error={tried[i] ? holErr(i).d : null}><DateField id={`hd-${i}`} value={(hol[i] || {}).d || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), d: x } })} /></Field>
             <Field id={`hn-${i}`} label="Holiday name" required error={tried[i] ? holErr(i).n : null}><Input id={`hn-${i}`} value={(hol[i] || {}).n || ''} onChange={x => setHol({ ...hol, [i]: { ...(hol[i] || {}), n: x } })} placeholder="Like: Diwali" /></Field>
           </div>
           <div className="gspx-inline"><Button size="sm" onClick={() => { const h = hol[i] || {}; const e = holErr(i); if (e.d || e.n) { setTried({ ...tried, [i]: true }); window.setTimeout(() => document.getElementById(e.d ? `hd-${i}` : `hn-${i}`)?.focus(), 30); return; } edit(i, cal => { cal.holidays.push([h.d, h.n.trim()]); cal.holidays.sort((a, b) => (a[0] < b[0] ? -1 : 1)); }, 'holiday.added', `${by.name} added holiday ${h.n} to ${c.name}`); setHol({ ...hol, [i]: {} }); setTried({ ...tried, [i]: false }); toast('Holiday added', { text: `${h.n.trim()}, ${fmtDate(h.d)}` }); }}>Add holiday</Button>

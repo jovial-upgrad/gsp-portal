@@ -66,7 +66,7 @@
   flex: none;
 }
 
-/* Native select, restyled */
+/* The shared select (SelectInput → SelectMenu): the field, its value, and room for the chevron */
 .control--select .control__input {
   appearance: none;
   -webkit-appearance: none;
@@ -74,7 +74,6 @@
   cursor: pointer;
 }
 .control--select.is-empty .control__input { color: var(--placeholder); }
-.control--select .control__input option { color: var(--text); background: var(--surface); }
 .control__chevron {
   position: absolute;
   right: var(--sp-12);
@@ -209,3 +208,72 @@
 /* the same box as a radio button: round (Find courses' University filter) */
 .check--radio .check__box { border-radius: 50%; }
 .check--radio .check__input:checked + .check__label .check__box { box-shadow: inset 0 0 0 3px var(--surface); }
+
+/* Every tick box and radio the portal draws itself (Jovial, 2 Nov: no system UI), the same as the Checkbox
+   component's box: a rounded square that fills with the primary colour and a tick, a ring that takes a dot,
+   the portal's focus ring, in both themes. Hidden inputs (.check__input, .vh) are drawn by their labels. */
+input[type='checkbox']:not(.check__input):not(.vh),
+input[type='radio']:not(.check__input):not(.vh) {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  display: inline-grid;
+  place-items: center;
+  vertical-align: -4px;
+  border: 1.5px solid var(--line-input);
+  border-radius: 5px;
+  background: var(--surface);
+  cursor: pointer;
+  accent-color: auto;
+  transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+input[type='radio']:not(.check__input):not(.vh) { border-radius: 50%; }
+input[type='checkbox']:not(.check__input):not(.vh)::after {
+  content: '';
+  width: 10px;
+  height: 5px;
+  margin-top: -2px;
+  border: solid var(--on-primary);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg) scale(0.6);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out), transform var(--dur-2) var(--ease-out);
+}
+input[type='checkbox']:not(.check__input):not(.vh):hover:not(:disabled),
+input[type='radio']:not(.check__input):not(.vh):hover:not(:disabled) { border-color: var(--text-3); }
+input[type='checkbox']:not(.check__input):not(.vh):checked { background: var(--primary); border-color: var(--primary); }
+input[type='checkbox']:not(.check__input):not(.vh):checked::after { opacity: 1; transform: rotate(-45deg) scale(1); }
+input[type='checkbox']:not(.check__input):not(.vh):indeterminate { background: var(--primary); border-color: var(--primary); }
+input[type='checkbox']:not(.check__input):not(.vh):indeterminate::after { opacity: 1; width: 10px; height: 0; margin: 0; border-width: 0 0 2px 0; transform: none; }
+input[type='radio']:not(.check__input):not(.vh):checked { border-color: var(--primary); box-shadow: inset 0 0 0 4px var(--surface), inset 0 0 0 10px var(--primary); background: var(--primary); }
+input[type='checkbox']:not(.check__input):not(.vh):focus-visible,
+input[type='radio']:not(.check__input):not(.vh):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+input[type='checkbox']:not(.check__input):not(.vh):disabled,
+input[type='radio']:not(.check__input):not(.vh):disabled { opacity: 0.5; cursor: not-allowed; }
+input[type='checkbox']:not(.check__input):not(.vh)[aria-invalid='true'],
+input[type='radio']:not(.check__input):not(.vh)[aria-invalid='true'] { border-color: var(--bad-dot); }
+/* the shared Radio: the Checkbox's box as a ring that takes a dot */
+.check--radio .check__box svg { display: none; }
+.check--radio .check__input:checked + .check__label .check__box { box-shadow: inset 0 0 0 4px var(--surface); }
+
+/* A section that opens (<details>): the portal's chevron, not the browser's triangle (Jovial, 2 Nov) */
+details > summary { list-style: none; display: flex; align-items: center; gap: var(--sp-8); cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::marker { content: ''; }
+details > summary::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px 2px 2px;
+  border: solid currentColor;
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-2) var(--ease-out);
+  opacity: 0.7;
+}
+details[open] > summary::before { transform: rotate(45deg); margin-bottom: 4px; }
+details > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }

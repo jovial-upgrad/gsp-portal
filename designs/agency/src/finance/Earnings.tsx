@@ -15,6 +15,7 @@ import { fmtAmount } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
 import { nice, money, bandTxt, winName, windowKey, thursdayOf } from './engine';
 import { useComm, liveRun, convert, sum, payDayName } from './shared';
+import { FileDrop } from '../components/FileDrop';
 
 const SHOW = [['', 'All'], ['next', 'In the next payout'], ['approved', 'Approved'], ['wait', 'Waiting for the university'], ['paid', 'Paid'], ['recover', 'To be recovered']];
 
@@ -172,8 +173,8 @@ export function BankSheet({ rp, user, onClose }) {
         <Field id="b-no2" label="Account number again" required error={v.err('no2')} hint="Type it again, so a slip doesn’t send your commission to the wrong account."><Input id="b-no2" inputMode={kind === 'SWIFT' ? 'text' : 'numeric'} autoComplete="off" onPaste={e => e.preventDefault()} value={d.no2} onBlur={v.blur('no2')} onChange={x => set('no2', x)} /></Field>
         <Field id="b-c" label={code.label} required error={v.err('code')} hint={code.hint}><Input id="b-c" autoComplete="off" value={d.code} onBlur={v.blur('code')} onChange={x => set('code', kind === 'AU' ? x : x.toUpperCase())} /></Field>
         <Field id="b-letter" label="Bank letter or cancelled cheque" required error={v.err('letter')} hint="GSP Finance checks the account against it (H40, 1 Nov). PDF or a photo.">
-          <input id="b-letter" type="file" accept=".pdf,image/*" aria-invalid={!!v.err('letter')} onChange={e => set('letter', e.target.files?.[0]?.name || '')} />
-          {d.letter && <span className="irow__sub">{d.letter}</span>}
+          <FileDrop id="b-letter" accept=".pdf,image/*" file={d.letter || undefined} invalid={!!v.err('letter')} describedBy={v.err('letter') ? 'b-letter-error' : 'b-letter-hint'}
+            label="Drag the letter here, or" onFiles={f => set('letter', f[0]?.name || '')} onRemove={() => set('letter', '')} />
         </Field>
       </Sheet>
       <ConfirmDialog open={sure} title="Hold payouts until GSP verifies?" confirm="Send and hold payouts" onCancel={() => setSure(false)} onConfirm={() => { setSure(false); send(); }}>

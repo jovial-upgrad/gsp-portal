@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icon } from '../components/Icon';
+import { SelectMenu } from '../components/SelectMenu';
 import type { Theme } from '../theme';
 import { ROLES, type Role } from './roles';
 import type { Link } from './link';
@@ -205,13 +206,15 @@ export function ProtoPanel({
                   ))}
                 </div>
                 {link.mode === 'one' && (
-                  <select className="proto__select" aria-label="Application to connect" value={link.app || links[0]?.id} onChange={(e) => onLink({ mode: 'one', app: e.target.value })}>
-                    {links.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectMenu
+                    className="proto__pick"
+                    host="body"
+                    label="Application to connect"
+                    ariaLabel="Application to connect"
+                    value={link.app || links[0]?.id || ''}
+                    options={links.map((l) => ({ value: l.id, label: l.label }))}
+                    onChange={(v) => onLink({ mode: 'one', app: v })}
+                  />
                 )}
                 {onSplit && (
                   <button

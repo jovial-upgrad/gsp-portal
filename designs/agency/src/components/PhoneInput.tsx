@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { COUNTRIES, TOP_MARKETS } from '../data/partners';
-import { Icon } from './Icon';
+import { SelectMenu } from './SelectMenu';
 import './phone.css';
 
 /** Dial code + number. The code follows the country picked above but can be changed. */
@@ -26,38 +26,28 @@ export function PhoneInput({
   const options = useMemo(() => {
     const top = TOP_MARKETS.map((n) => COUNTRIES.find((c) => c.name === n)!);
     const rest = COUNTRIES.filter((c) => !TOP_MARKETS.includes(c.name)).sort((a, b) => a.name.localeCompare(b.name));
-    return { top, rest };
+    return [
+      ...top.map((c) => ({ value: c.dial, label: c.name, note: c.dial, group: 'Where most partners are' })),
+      ...rest.map((c) => ({ value: c.dial, label: c.name, note: c.dial, group: 'All countries' })),
+    ];
   }, []);
 
   return (
     <div className={`control phone ${invalid ? 'is-invalid' : ''}`}>
       <div className="phone__dial">
-        <span className="phone__code num" aria-hidden="true">
-          {dial || 'Code'}
-        </span>
-        <Icon name="chevronDown" size={16} aria-hidden="true" />
-        <select
-          className="phone__select"
-          aria-label="Country code"
+        {/* the portal's own list, searchable (Jovial, 2 Nov: no system UI) */}
+        <SelectMenu
+          bare
+          className="phone__pick"
           value={dial}
-          onChange={(e) => onDial(e.target.value)}
-        >
-          {!dial && <option value="">Pick the country code</option>}
-          <optgroup label="Where most partners are">
-            {options.top.map((c) => (
-              <option key={c.iso} value={c.dial}>
-                {c.name} {c.dial}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="All countries">
-            {options.rest.map((c) => (
-              <option key={c.iso} value={c.dial}>
-                {c.name} {c.dial}
-              </option>
-            ))}
-          </optgroup>
-        </select>
+          label="Country code"
+          ariaLabel="Country code"
+          options={options}
+          minWidth={300}
+          search
+          onChange={onDial}
+          render={() => <span className="phone__code num">{dial || 'Code'}</span>}
+        />
       </div>
       <input
         id={id}
