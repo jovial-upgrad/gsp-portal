@@ -1,0 +1,39 @@
+/* Slice 3 PRD (2 Nov): the five course filters, the sort menu, intakes "Mar 2027 · Open", the comparison's notes,
+   eligibility verdicts, the status popup's extra fields, finished pills. Loaded by main.tsx with the other styles. */
+.fpanel__f { display: grid; gap: var(--sp-4); }
+.fpanel__note { margin-top: calc(var(--sp-8) * -1); font-size: var(--t-caption); color: var(--text-3); }
+.funi__any { display: flex; gap: var(--sp-6); align-items: center; font-size: var(--t-caption); color: var(--text-3); }
+.fbar__pick--menu { min-width: 190px; }
+.ipill--soft::before { background: var(--you-dot); }
+.course__sub { display: block; margin-top: 2px; font-size: var(--t-caption); font-weight: var(--fw-book); color: var(--text-3); }
+
+.cmp__note, .cmpbar__hint { font-size: var(--t-caption); color: var(--text-3); }
+.cmpbar__hint { flex-basis: 100%; }
+.cmp__head { display: grid; gap: 4px; }
+.cmp__where { font-size: var(--t-caption); color: var(--text-3); }
+.cmp__dash { color: var(--text-3); }
+.cmp__sub { display: block; font-size: var(--t-caption); color: var(--text-3); }
+
+.cs-verdict { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--fw-medium); white-space: nowrap; }
+.cs-verdict--yes { background: var(--ok-bg); color: var(--ok); }
+.cs-verdict--warn { background: var(--you-bg); color: var(--you); }
+.cs-verdict--no { background: var(--bad-bg); color: var(--bad); }
+.cs-verdict--add, .cs-verdict--na { background: var(--neutral-bg); color: var(--neutral); }
+.cs-checks { display: grid; gap: var(--sp-8); margin: 0; padding: 0; list-style: none; }
+.cs-check { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: var(--sp-8) var(--sp-12); align-items: baseline; font-size: var(--t-body); }
+.cs-check__k { font-weight: var(--fw-medium); }
+.cs-check__why { color: var(--text-2); }
+.cs-check__line { display: flex; flex-wrap: wrap; gap: var(--sp-8); align-items: baseline; }
+
+.gstat__extra { display: grid; gap: var(--sp-8); }
+.gstat__file { display: flex; align-items: center; gap: var(--sp-8); padding: var(--sp-8) var(--sp-12); border: 1px solid var(--line); border-radius: var(--r-ctl); background: var(--surface); }
+.gstat__fname { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: var(--t-label); }
+.gstat__hint { font-size: var(--t-caption); color: var(--text-3); }
+.gstat__info { display: flex; gap: var(--sp-8); padding: var(--sp-8) var(--sp-12); border-radius: var(--r-ctl); background: var(--uni-bg); color: var(--text); font-size: var(--t-caption); }
+.gstat__err { font-size: var(--t-caption); color: var(--bad); }
+
+.who--wd { background: var(--neutral-bg); color: var(--neutral); }
+.who--end { background: var(--neutral-bg); color: var(--neutral); }
+.areq__ended { font-size: var(--t-caption); color: var(--text-3); font-style: italic; }
+.achat__ro { padding: var(--sp-12) var(--sp-16); border-top: 1px solid var(--line); color: var(--text-3); font-size: var(--t-label); }
+.wreasons__err { font-size: var(--t-caption); color: var(--bad); }

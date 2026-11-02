@@ -1,19 +1,23 @@
 import { TOP_MARKETS } from '../../data/partners';
-import { fmtDate, fmtMoney } from '../../data/format';
+import { fmtDate } from '../../data/format';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { Checkbox, Field, Form, SelectInput, Switch } from '../../components/forms';
+import { Field, Form, Switch } from '../../components/forms';
+import { SelectMenu } from '../../components/SelectMenu';
+import { RangeSlider } from '../../components/RangeSlider';
+import { MultiPick } from '../../institution/records/MultiPick';
 import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
 import { searchCatalogue } from '../../institution/data/store';
-import { intakeTimes, FLAG, FLAG_COLOURS, earnOf, money, type Course } from '../../data/courses';
+import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, totalTuition, type Course } from '../../data/courses';
 import {
+  ANY_DUR,
   AREAS,
   DESTINATIONS,
-  FEE_CAPS,
+  DUR_STOPS,
   LEVELS,
   NEED_LABEL,
   NO_FILTERS,
@@ -26,17 +30,19 @@ import {
   results,
   runSearch,
   soFar,
-  universitiesFor,
+  campusState,
   passes,
+  tagList,
+  totalIn,
   type CourseSearch,
   type Filters,
   type Need,
 } from './search';
 import { CourseSheet } from './CourseSheet';
-import { PER_PAGE, Pager, UniFilter, capsIn } from './ResultParts';
+import { PER_PAGE, Pager, UniFilter } from './ResultParts';
 import { StudentPick, ShortNudge, type Nudge } from './Shortlist';
 import { CompareBar, CompareSheet, DownloadSheet, MAX_PICK, type Sender } from './Compare';
-import { IntakePill, UniMark, campusLabel, duration } from './parts';
+import { UniMark, campusLabel } from './parts';
 import './courses.css';
 
 type SetSearch = (fn: (s: CourseSearch) => CourseSearch) => void;
@@ -62,6 +68,7 @@ export function FindCourses({
   onShortlist,
   onOpenShortlist,
   from,
+  gsp = false,
 }: {
   s: CourseSearch;
   set: SetSearch;
@@ -79,9 +86,14 @@ export function FindCourses({
   onOpenShortlist?: (studentId: string) => void;
   /** Who a downloaded PDF is from. */
   from?: Sender;
+  /** A GSP role: no Student view and no commission (W26); universities hidden from an RP still show. */
+  gsp?: boolean;
 }) {
   const reduce = useReducedMotion();
-  const r = useMemo(() => results(s), [s]);
+  // GSP's people see the page as Student view would: no commission anywhere (W26)
+  if (gsp && !s.studentView) s = { ...s, studentView: true };
+  const r = useMemo(() => results(s, !gsp), [s, gsp]);
+  const cur = currencyOf(s.need);
   const [open, setOpen] = useState<Course | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // on phones, once results show, the five fields fold into one line that opens again with "Change"
@@ -92,9 +104,9 @@ export function FindCourses({
   const tried = s.searched && !ready;
 
   const setNeed = (k: keyof Need, v: string) =>
-    set((p) => ({ ...p, need: { ...p.need, [k]: v, ...(k === 'country' ? { state: '' } : {}) }, shown: 20, ...(k === 'dest' ? { filters: { ...p.filters, uni: '', maxFee: 0, intake: '' } } : {}) }));
+    set((p) => ({ ...p, need: { ...p.need, [k]: v, ...(k === 'country' ? { state: '' } : {}) }, shown: 20, ...(k === 'dest' ? { filters: { ...p.filters, unis: [], fee: null, destState: '', intake: '' } } : {}) }));
   const setFilter = <K extends keyof Filters>(k: K, v: Filters[K]) =>
-    set((p) => ({ ...p, filters: { ...p.filters, [k]: v, ...(k === 'maxFee' ? { feeLakh: undefined } : {}) }, shown: 20 }));
+    set((p) => ({ ...p, filters: { ...p.filters, [k]: v, ...(k === 'fee' ? { feeLakh: undefined } : {}) }, shown: 20 }));
   // shortlists belong to students (29 Oct): with one picked, the star is theirs; with none, it lists who to shortlist for
   const student = students.find((x) => x.id === s.studentId);
   const [pickFor, setPickFor] = useState<{ c: Course; anchor: HTMLElement } | null>(null);
@@ -135,7 +147,7 @@ export function FindCourses({
   const months = intakeMonths(s.need);
   const active = activeFilters(s);
   // what each filter offers comes from the results, less that filter (1 Nov)
-  const facet = (k: keyof Filters) => r.pool.filter((c) => passes(c, s.filters, k));
+  const facet = (k: keyof Filters) => r.pool.filter((c) => passes(c, s.filters, cur, k));
   // results in pages of 20 (1 Nov); `shown` keeps the page, so every change of search or filter goes back to page 1
   const pages = Math.max(1, Math.ceil(r.list.length / PER_PAGE));
   const page = Math.min(pages, Math.max(1, Math.ceil(s.shown / PER_PAGE)));
@@ -152,12 +164,12 @@ export function FindCourses({
           <h1 className="page__title">Find courses</h1>
           <p className="find__lead">Search courses your student can be offered.</p>
         </div>
-        <div className="find__view">
+        {!gsp && <div className="find__view">
           <Switch id="fc-view" checked={s.studentView} onChange={(v) => set((p) => ({ ...p, studentView: v }))}>
             Student view
           </Switch>
-          <p className="find__view-note">Hides earnings while you share your screen.</p>
-        </div>
+          <p className="find__view-note">Hides every commission figure while you share your screen.</p>
+        </div>}
       </header>
 
       <Form className="card fsearch" onSubmit={search} aria-label="Search courses">
@@ -309,19 +321,12 @@ export function FindCourses({
               <Button variant="secondary" size="sm" className="fbar__filters" iconLeft={<Icon name="sliders" size={16} />} onClick={() => setFiltersOpen(true)}>
                 Filters{active.length ? ` · ${active.length}` : ''}
               </Button>
-              <label className="fbar__sort">
-                <span>Sort</span>
-                <span className="fbar__pick">
-                  <select className="fbar__select" value={s.sort} onChange={(e) => set((p) => ({ ...p, sort: e.target.value as CourseSearch['sort'] }))}>
-                    {SORTS.filter(([k]) => !(s.studentView && k === 'earn')).map(([k, t]) => (
-                      <option key={k} value={k}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon name="chevronDown" size={16} className="fbar__chev" />
+              <div className="fbar__sort">
+                <span id="fc-sort-k">Sort</span>
+                <span className="fbar__pick fbar__pick--menu">
+                  <SelectMenu id="fc-sort" label="Sort" describedBy="fc-sort-k" value={s.sort} options={SORTS.map(([k, t]) => ({ value: k, label: t }))} onChange={(v) => set((p) => ({ ...p, sort: v as CourseSearch['sort'], shown: 20 }))} />
                 </span>
-              </label>
+              </div>
             </div>
 
             {r.alias && (
@@ -337,9 +342,9 @@ export function FindCourses({
                 <Icon name="info" size={16} />
                 <span>
                   <strong className="num">
-                    {r.hidden} {r.hidden === 1 ? 'course' : 'courses'} hidden:
+                    {r.hidden} {r.hidden === 1 ? 'course is' : 'courses are'} hidden by university territory rules:
                   </strong>{' '}
-                  {list(r.hiddenBy)} {r.hiddenBy.length === 1 ? 'doesn’t' : 'don’t'} take students from {s.need.state}, {s.need.country} through GSP.
+                  {list(r.hiddenBy)}.
                 </span>
               </p>
             )}
@@ -348,7 +353,7 @@ export function FindCourses({
               <ul className="fchips" aria-label="Filters in use">
                 {active.map((a) => (
                   <li key={a.key}>
-                    <button type="button" className="fchip" onClick={() => set((p) => ({ ...p, filters: { ...p.filters, [a.key]: NO_FILTERS[a.key], ...(a.key === 'maxFee' ? { feeLakh: undefined } : {}) }, shown: 20 }))} aria-label={`Remove filter: ${a.label}`}>
+                    <button type="button" className="fchip" onClick={() => set((p) => ({ ...p, filters: { ...p.filters, ...a.clear(p.filters), ...(a.key === 'fee' ? { feeLakh: undefined } : {}) }, shown: 20 }))} aria-label={`Remove filter: ${a.label}`}>
                       {a.label}
                       <Icon name="close" size={14} />
                     </button>
@@ -362,19 +367,20 @@ export function FindCourses({
               </ul>
             )}
 
-            {r.list.length === 0 ? (
+            {s.failed ? (
+              <div className="card fempty" role="alert">
+                <h2 className="fempty__title">Courses didn’t load. Try again.</h2>
+                <Button variant="secondary" size="sm" onClick={() => set((p) => ({ ...p, failed: false }))}>
+                  Try again
+                </Button>
+              </div>
+            ) : r.list.length === 0 ? (
               <div className="card fempty">
-                <h2 className="fempty__title">No courses match</h2>
-                <p className="fempty__text">
-                  {active.length
-                    ? `${r.before} ${r.before === 1 ? 'course matches' : 'courses match'} your search before the filters. Remove a filter to see more.`
-                    : 'Try a different study area or program level, or check the spelling of the course or university.'}
-                </p>
-                {active.length > 0 && (
-                  <Button variant="secondary" size="sm" onClick={() => set((p) => ({ ...p, filters: { ...NO_FILTERS } }))}>
-                    Clear filters
-                  </Button>
-                )}
+                <h2 className="fempty__title">No courses match these filters</h2>
+                <p className="fempty__text">Widen the tuition fee or duration, or clear a filter.</p>
+                <Button variant="secondary" size="sm" onClick={() => set((p) => ({ ...p, filters: { ...NO_FILTERS, intake: p.filters.intake } }))}>
+                  Clear filters
+                </Button>
               </div>
             ) : (
               <ul className="clist">
@@ -384,6 +390,7 @@ export function FindCourses({
                     c={c}
                     i={i}
                     s={s}
+                    gsp={gsp}
                     shortlisted={isShort(c.id)}
                     shortFor={student?.first}
                     onShort={(el) => onStar(c, el)}
@@ -400,7 +407,7 @@ export function FindCourses({
               </ul>
             )}
             <Pager page={page} total={r.list.length} onPage={toPage} />
-            {picked.length > 0 && <CompareBar n={picked.length} onClear={() => setPicked([])} onCompare={() => setComparing(true)} onDownload={() => setDownloading({ compare: false })} />}
+            {!s.failed && picked.length > 0 && <CompareBar n={picked.length} onClear={() => setPicked([])} onCompare={() => setComparing(true)} onDownload={() => setDownloading({ compare: false })} />}
           </section>
         </div>
       )}
@@ -570,30 +577,36 @@ const STUDENT_WAIT = 'Select student opens once GSP verifies your agency.';
 
 const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
-/** The quick filters; "Deadline within" follows Admin's countdown days (HC8). No English-test or post-study work filter (HC2). */
-const toggles = (): [keyof Filters, string][] => [
-  ['open', 'Intake open now'],
-  ['soon', `Deadline within ${intakeTimes().countdownDays} days`],
-  ['schol', 'Scholarship available'],
-  ['noFee', 'No application fee'],
-];
+/** Money without the currency code, for the slider's ends ("39,700"). */
+const amount = (n: number) => Math.round(n).toLocaleString('en-GB');
 
-/** The filters in use, as removable chips. */
+/** The filters in use, as removable chips; each says how to take itself off. */
 function activeFilters(s: CourseSearch) {
   const f = s.filters;
   const cur = currencyOf(s.need);
-  const out: { key: keyof Filters; label: string }[] = [];
-  if (f.uni) out.push({ key: 'uni', label: universitiesFor(s.need).find((u) => u.id === f.uni)?.name ?? 'University' });
-  if (f.maxFee)
+  const out: { key: keyof Filters; label: string; clear: (f: Filters) => Partial<Filters> }[] = [];
+  if (f.fee)
     out.push({
-      key: 'maxFee',
-      label: f.feeLakh ? `Tuition up to ₹${f.feeLakh} lakh (≈ ${fmtMoney(f.maxFee, cur)})` : `Tuition up to ${fmtMoney(f.maxFee, cur)}`,
+      key: 'fee',
+      label: f.feeLakh ? `Tuition fee up to ₹${f.feeLakh} lakh (≈ ${money(f.fee[1], cur)})` : `Tuition fee ${money(f.fee[0], cur)} to ${money(f.fee[1], cur)}`,
+      clear: () => ({ fee: null }),
     });
-  if (f.maxIelts) out.push({ key: 'maxIelts', label: `IELTS up to ${f.maxIelts.toFixed(1)}` });
-  toggles().forEach(([k, t]) => f[k] && out.push({ key: k, label: t }));
+  f.tags.forEach((t) => out.push({ key: 'tags', label: t, clear: (x) => ({ tags: x.tags.filter((y) => y !== t) }) }));
+  if (f.dur[0] !== ANY_DUR[0] || f.dur[1] !== ANY_DUR[1]) out.push({ key: 'dur', label: `Duration ${DUR_STOPS[f.dur[0]]} to ${DUR_STOPS[f.dur[1]]}`, clear: () => ({ dur: ANY_DUR }) });
+  f.unis.forEach((id) => {
+    const u = searchCatalogue().unis.find((x) => x.id === id);
+    out.push({ key: 'unis', label: u?.name ?? 'University', clear: (x) => ({ unis: x.unis.filter((y) => y !== id) }) });
+  });
+  if (f.destState) out.push({ key: 'destState', label: f.destState, clear: () => ({ destState: '' }) });
   return out;
 }
 
+/**
+ * The left panel: five filters, and no others (slice 3 PRD): **Tuition fee** (two handles, the total fee, bounds the
+ * lowest and highest total fees in the results), **Tags** (Admin's list; all of the ones picked, S3C-4), **Duration**
+ * (two handles, <1 year to 5+ years; courses in credits match every range), **University** (any of the ones picked)
+ * and **Destination state or province**. Each offers what the results less that filter hold (1 Nov). Clear resets them.
+ */
 function FilterPanel({
   s,
   facet,
@@ -613,14 +626,15 @@ function FilterPanel({
 }) {
   const f = s.filters;
   const cur = currencyOf(s.need);
-  const caps = FEE_CAPS[cur] ?? [];
   const id = (x: string) => `${idPrefix}ff-${x}`;
-  // only what's in the results (1 Nov): tuition caps and IELTS scores that let in more courses, quick filters with any
-  const fees = capsIn(caps, facet('maxFee').map((c) => c.tuition), f.maxFee);
-  const ielts = capsIn([5.5, 6, 6.5, 7], facet('maxIelts').map((c) => c.ielts[0]), f.maxIelts);
-  const quick = toggles()
-    .map(([k, t]) => [k, t, facet(k).filter((c) => passes(c, { ...NO_FILTERS, [k]: true })).length] as const)
-    .filter(([k, , n]) => n > 0 || f[k]);
+  // the fee range: the lowest and highest total fees in the results (S3-20), rounded out to a step
+  const fees = facet('fee').map((c) => totalIn(c, cur));
+  const step = 500;
+  const lo = fees.length ? Math.floor(Math.min(...fees) / step) * step : 0;
+  const hi = fees.length ? Math.ceil(Math.max(...fees) / step) * step : 0;
+  const fee: [number, number] = f.fee ? [Math.max(lo, Math.min(f.fee[0], hi)), Math.min(hi, Math.max(f.fee[1], lo))] : [lo, hi];
+  const statePool = facet('destState');
+  const states = [...new Set(statePool.map(campusState).filter(Boolean))].sort();
   return (
     <div className="fpanel">
       <div className={`fpanel__head ${inSheet ? 'is-sheet' : ''}`}>
@@ -629,38 +643,33 @@ function FilterPanel({
           Clear
         </button>
       </div>
-      <UniFilter key={`${s.need.dest}|${s.keyword}`} id={id('uni')} pool={facet('uni')} value={f.uni} onChange={(v) => setFilter('uni', v)} />
-      {fees.length > 0 && (
-        <Field id={id('fee')} label={`Tuition a year, up to${cur ? ` (${cur})` : ''}`}>
-          <SelectInput id={id('fee')} value={f.maxFee ? String(f.maxFee) : ''} placeholder="Any" allowEmpty onChange={(e) => setFilter('maxFee', +e.target.value || 0)}>
-            {fees.map(({ cap, n }) => (
-              <option key={cap} value={cap}>
-                {cap.toLocaleString('en-GB')} ({n})
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-      )}
-      {ielts.length > 0 && (
-        <Field id={id('ielts')} label="IELTS needed, up to">
-          <SelectInput id={id('ielts')} value={f.maxIelts ? String(f.maxIelts) : ''} placeholder="Any" allowEmpty onChange={(e) => setFilter('maxIelts', +e.target.value || 0)}>
-            {ielts.map(({ cap, n }) => (
-              <option key={cap} value={cap}>
-                {cap.toFixed(1)} ({n})
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-      )}
-      {quick.length > 0 && (
-        <div className="fpanel__checks">
-          {quick.map(([k, t, n]) => (
-            <Checkbox key={k} id={id(k)} checked={!!f[k]} onChange={(v) => setFilter(k, v as never)}>
-              {t} <span className="num">({n})</span>
-            </Checkbox>
-          ))}
-        </div>
-      )}
+      <div className="fpanel__f">
+        <p className="field__label" id={id('fee-label')}>
+          Tuition fee{cur ? ` (${cur}, whole course)` : ' (whole course)'}
+        </p>
+        <RangeSlider id={id('fee')} label="Tuition fee" min={lo} max={hi} step={step} value={fee} format={amount} onChange={(v) => setFilter('fee', v[0] <= lo && v[1] >= hi ? null : v)} />
+      </div>
+      <Field id={id('tags')} label="Tags">
+        <MultiPick id={id('tags')} label="Tags" value={f.tags} options={tagList().map((t) => t)} empty="Any tags" search onChange={(v) => setFilter('tags', v)} />
+      </Field>
+      {f.tags.length > 1 && <p className="fpanel__note">Courses with all {f.tags.length} tags.</p>}
+      <div className="fpanel__f">
+        <p className="field__label" id={id('dur-label')}>
+          Duration
+        </p>
+        <RangeSlider id={id('dur')} label="Duration" min={0} max={DUR_STOPS.length - 1} value={f.dur} stops={DUR_STOPS} onChange={(v) => setFilter('dur', v)} />
+        {f.dur[0] === ANY_DUR[0] && f.dur[1] === ANY_DUR[1] ? <p className="fpanel__note">Any length</p> : <p className="fpanel__note">Courses in credits match every range.</p>}
+      </div>
+      <UniFilter key={`${s.need.dest}|${s.keyword}`} id={id('uni')} pool={facet('unis')} value={f.unis} onChange={(v) => setFilter('unis', v)} />
+      <Field id={id('state')} label="Destination state or province">
+        <SelectMenu
+          id={id('state')}
+          label="Destination state or province"
+          value={f.destState}
+          options={[{ value: '', label: 'Any state or province' }, ...states.map((x) => ({ value: x, label: x, note: String(statePool.filter((c) => campusState(c) === x).length) }))]}
+          onChange={(v) => setFilter('destState', v)}
+        />
+      </Field>
     </div>
   );
 }
@@ -669,6 +678,7 @@ function CourseCard({
   c,
   i,
   s,
+  gsp: _gsp = false,
   shortlisted,
   shortFor,
   onShort,
@@ -684,6 +694,7 @@ function CourseCard({
   c: Course;
   i: number;
   s: CourseSearch;
+  gsp?: boolean;
   shortlisted: boolean;
   /** The student picked in the search: the star shortlists for them; with none, it asks who for. */
   shortFor?: string;
@@ -701,13 +712,18 @@ function CourseCard({
 }) {
   const reduce = useReducedMotion();
   const [why, setWhy] = useState(false);
+  // slice 3 PRD, Results: the total tuition fee with the fee a year underneath (S3-20), the application fee or Free,
+  // the duration ("36 credits"), the QS rank or "—", and the base commission (≈; hidden in Student view)
   const facts: [string, string, string?, string?][] = [
-    ['Tuition a year', money(c.tuition, c.currency)],
+    ['Tuition fee', money(totalTuition(c), c.currency), undefined, `${money(feeAYear(c), c.currency)} a year`],
     ['Application fee', c.appFee ? money(c.appFee, c.currency) : 'Free'],
-    ['Duration', duration(c.months)],
-    ['QS world ranking', c.uni.qs ? `#${c.uni.qs}` : 'Not ranked'],
+    ['Duration', durationText(c)],
+    ['QS rank', c.uni.qs ? `#${c.uni.qs}` : '—'],
   ];
   if (!s.studentView) facts.push(['Base commission', `≈ ${money(earnOf(c), c.currency)}`, 'earn']);
+  // up to two intakes, closed ones left out: "Mar 2027 · Open"
+  const intakes = c.intakes.filter((x) => intakeState(x) !== 'closed').slice(0, 2);
+  const STATE: Record<string, string> = { open: 'Open', likely: 'Likely', late: 'Late' };
 
   return (
     <motion.li
@@ -762,9 +778,12 @@ function CourseCard({
             {c.uni.country}
           </span>
           <div className="course__intakes" aria-label="Intakes">
-            {c.intakes.map((x) => (
-              <IntakePill key={x.month} i={x} />
+            {intakes.map((x) => (
+              <span key={x.month} className={`ipill ${intakeState(x) === 'open' ? 'ipill--open' : 'ipill--soft'}`}>
+                {x.month} · {STATE[intakeState(x)]}
+              </span>
             ))}
+            {!intakes.length && <span className="ipill ipill--closed">No open intake</span>}
           </div>
         </div>
       </div>

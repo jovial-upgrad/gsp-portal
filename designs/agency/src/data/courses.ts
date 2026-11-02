@@ -30,6 +30,7 @@ import canberraMark from '../assets/unis/canberra-mark.png';
 import uniscLogo from '../assets/unis/unisc.svg';
 import uniscMark from '../assets/unis/unisc-mark.svg';
 import DATASET from './dataset.json';
+import type { MinEducation } from './education';
 
 export const CURRENCY: Record<Destination, string> = { Australia: 'AUD', UK: 'GBP', Canada: 'CAD', 'New Zealand': 'NZD', Ireland: 'EUR', USA: 'USD' };
 export const FLAG: Record<Destination, string> = { Australia: '🇦🇺', UK: '🇬🇧', Canada: '🇨🇦', 'New Zealand': '🇳🇿', Ireland: '🇮🇪', USA: '🇺🇸' };
@@ -87,6 +88,11 @@ export type University = {
   pictures?: Picture[];
   /** Colleges award diplomas and certificates, not degrees. */
   college?: boolean;
+  /**
+   * Search priority (slice 3 PRD, S3-1, S3-19): a number on the university record, set by Institution or IP Ops; it
+   * replaces Display priority. Recommended in course search sorts by it first, highest first. Courses have none.
+   */
+  searchPriority?: number;
 };
 
 export const UNIVERSITIES: University[] = [
@@ -289,6 +295,11 @@ export type Course = {
   otherFees: [string, number][];
   /** Postgraduate courses: the most backlogs (subjects failed and cleared later) accepted in the student's degree. */
   backlogs?: number;
+  /**
+   * Minimum highest education required (slice 3 PRD, S3-18): on the course's Academic tab; required on new and
+   * edited courses. Empty: the eligibility check's level check is Not specified.
+   */
+  minHighestEducation?: MinEducation;
 };
 
 /* ---------- generated, the same every time ---------- */
@@ -502,6 +513,41 @@ for (const a of DATASET.apps) {
   const like = COURSES.find((c) => c.uni.id === a.uni && c.level === a.level) ?? COURSES.find((c) => c.uni.id === a.uni);
   if (like) COURSES.push({ ...like, id: `${a.uni}-n${COURSES.filter((c) => c.uni.id === a.uni).length + 1}`, name: a.course, level: a.level as Level });
 }
+
+/**
+ * The seed for Minimum highest education required (S3-18), from the course's level; a few courses are left without
+ * it, as courses added before the field was required are, so the level check shows Not specified there.
+ */
+for (const c of COURSES) {
+  const n = Number(c.id.split('-').pop()?.replace(/\D/g, '')) || 0;
+  if (n % 11 === 5) continue;
+  c.minHighestEducation = c.level === 'PhD or research' ? 'Master’s' : /Master|Postgraduate/.test(c.level) ? (c.uni.country === 'USA' || c.uni.country === 'Canada' ? 'Bachelor’s (4 years)' : 'Bachelor’s (3 years)') : 'Grade 12';
+}
+
+/* ---------- the course's figures as course search shows them (slice 3 PRD) ---------- */
+
+/** What the Institution Team's record adds to a course (the catalogue's CourseRec): its duration unit and its fees. */
+type Rec = Course & { durUnit?: string; durValue?: number; fullFee?: number; firstYearFee?: number; tags?: string[]; url?: string };
+const rec = (c: Course) => c as Rec;
+/** Whether the course's length is in credits (no length in months: it matches every duration range, S3-3). */
+export const inCredits = (c: Course) => rec(c).durUnit === 'Credits';
+/** The course's total tuition fee, for the whole course: its Full course fee (S3-2, S3-20). */
+export const totalTuition = (c: Course) => {
+  const f = rec(c).fullFee;
+  return f && f > 0 ? f : Math.round(c.tuition * Math.max(1, c.months / 12));
+};
+/** The fee a year: the full course fee ÷ the length in years; a course in credits shows its first-year fee, or the full fee when that's empty. */
+export const feeAYear = (c: Course) => {
+  const r = rec(c);
+  if (inCredits(c)) return r.firstYearFee && r.firstYearFee > 0 ? r.firstYearFee : totalTuition(c);
+  return Math.round(totalTuition(c) / Math.max(1, c.months / 12));
+};
+/** The course's tags, from its record. */
+export const tagsOf = (c: Course) => rec(c).tags ?? [];
+/** The course's page on the university's website, from its record. */
+export const urlOf = (c: Course) => rec(c).url;
+/** "2 years", "18 months", "36 credits" (slice 2's display rules). */
+export const durationText = (c: Course) => (inCredits(c) ? `${rec(c).durValue ?? ''} credits`.trim() : c.months % 12 === 0 ? `${c.months / 12} ${c.months === 12 ? 'year' : 'years'}` : `${c.months} months`);
 
 /** Base commission in course search: 70% of the university's rate on the course's first-year tuition fee (no scholarship taken off: Jovial, 1 Nov). */
 export const earnOf = (c: Course) => Math.round((c.tuition * c.rate * 0.7) / 100 / 10) * 10;

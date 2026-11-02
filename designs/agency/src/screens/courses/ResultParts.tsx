@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { SearchInput } from '../../components/forms';
+import { Checkbox, SearchInput } from '../../components/forms';
 import type { Course } from '../../data/courses';
 
 /** Results a page (1 Nov: page numbers, not "Show more"). */
@@ -62,17 +62,18 @@ export function Pager({ page, total, onPage }: { page: number; total: number; on
   );
 }
 
-const SHOW = 10;
+const SHOW = 8;
 
 /**
- * The University filter (1 Nov): only the universities in the results, A to Z, with how many courses each,
- * a box to find one, and ten at a time with "Show more".
+ * The University filter (slice 3 PRD): the universities in the current results, searchable, A to Z, with a count
+ * each; the first 8, then "Show N more universities". Picking several shows courses at any of them; none is
+ * "Any university".
  */
-export function UniFilter({ id, pool, value, onChange }: { id: string; pool: Course[]; value: string; onChange: (uniId: string) => void }) {
+export function UniFilter({ id, pool, value, onChange }: { id: string; pool: Course[]; value: string[]; onChange: (uniIds: string[]) => void }) {
   const [q, setQ] = useState('');
-  const [limit, setLimit] = useState(SHOW);
-  useEffect(() => setLimit(SHOW), [q]);
-  const all = useMemo(() => {
+  const [all, setAll] = useState(false);
+  useEffect(() => setAll(false), [q]);
+  const list = useMemo(() => {
     const by = new Map<string, { id: string; name: string; n: number }>();
     pool.forEach((c) => {
       const u = by.get(c.uni.id);
@@ -82,58 +83,32 @@ export function UniFilter({ id, pool, value, onChange }: { id: string; pool: Cou
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [pool]);
   const words = q.trim().toLowerCase();
-  const found = words ? all.filter((u) => u.name.toLowerCase().includes(words)) : all;
-  // the one picked stays in view, first, whatever the box says
-  const picked = all.find((u) => u.id === value);
-  const rest = found.filter((u) => u.id !== value);
-  const shown = rest.slice(0, limit);
-  const left = rest.length - shown.length;
-  const name = `${id}-pick`;
-
-  const option = (key: string, uid: string, label: string, n?: number) => (
-    <div className="check check--radio" key={key}>
-      <input id={`${id}-${key}`} type="radio" name={name} className="check__input" checked={value === uid} onChange={() => onChange(uid)} />
-      <label htmlFor={`${id}-${key}`} className="check__label">
-        <span className="check__box" aria-hidden="true" />
-        <span>
-          {label}
-          {n !== undefined && <span className="funi__n num"> ({n})</span>}
-        </span>
-      </label>
-    </div>
-  );
-
+  const found = words ? list.filter((u) => u.name.toLowerCase().includes(words)) : list;
+  const shown = all ? found : found.slice(0, SHOW);
+  const left = found.length - shown.length;
+  const toggle = (uid: string, on: boolean) => onChange(on ? [...value, uid] : value.filter((x) => x !== uid));
   return (
     <fieldset className="funi">
       <legend className="field__label">University</legend>
-      {all.length > SHOW && <SearchInput id={`${id}-q`} label="Find a university" placeholder="Find a university" value={q} onChange={setQ} className="funi__search" />}
+      <SearchInput id={`${id}-q`} label="Find a university" placeholder="Find a university" value={q} onChange={setQ} className="funi__search" />
+      <p className="funi__any">{value.length ? `${value.length} picked · ` : 'Any university'}{value.length > 0 && (
+        <button type="button" className="btn btn--link" onClick={() => onChange([])}>
+          Any university
+        </button>
+      )}</p>
       <div className="funi__list">
-        {option('any', '', 'Any university')}
-        {picked && option(picked.id, picked.id, picked.name, picked.n)}
-        {shown.map((u) => option(u.id, u.id, u.name, u.n))}
+        {shown.map((u) => (
+          <Checkbox key={u.id} id={`${id}-${u.id}`} checked={value.includes(u.id)} onChange={(on) => toggle(u.id, on)}>
+            {u.name} <span className="funi__n num">({u.n})</span>
+          </Checkbox>
+        ))}
         {words && !found.length && <p className="funi__none">No university in these results matches “{q.trim()}”.</p>}
       </div>
       {left > 0 && (
-        <button type="button" className="btn btn--link funi__more" onClick={() => setLimit((l) => l + SHOW)}>
-          Show {Math.min(SHOW, left)} more <span className="vh">universities</span>
+        <button type="button" className="btn btn--link funi__more" onClick={() => setAll(true)}>
+          Show {left} more {left === 1 ? 'university' : 'universities'}
         </button>
       )}
     </fieldset>
   );
-}
-
-/**
- * Of a filter's "up to" values, the ones worth offering for these results (1 Nov): each lets in at least one more
- * course than the one before it, and none lets in every course (that's "Any"). The one in use always stays.
- */
-export function capsIn(caps: number[], values: number[], current = 0): { cap: number; n: number }[] {
-  const out: { cap: number; n: number }[] = [];
-  [...new Set([...caps, ...(current ? [current] : [])])]
-    .sort((a, b) => a - b)
-    .forEach((cap) => {
-      const n = values.filter((v) => v <= cap).length;
-      const prev = out.length ? out[out.length - 1].n : 0;
-      if (cap === current || (n > prev && n < values.length)) out.push({ cap, n });
-    });
-  return out;
 }

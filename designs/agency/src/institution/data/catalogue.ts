@@ -247,6 +247,8 @@ export function forSearch(u: UniRec, _p?: InstitutionPartner): University {
     ...u,
     campuses: u.campuses.filter((c) => !u.inactive.includes(c.name)),
     priorityFor: t.priority,
+    // Search priority (S3-1, S3-19): the record's number, which Recommended in course search sorts by first
+    searchPriority: Number(u.priority) || 0,
     hiddenFrom: t.hiddenFrom,
     blocked: [...out.map((country) => ({ country })), ...[...states].filter(([c]) => !out.includes(c)).map(([country, s]) => ({ country, states: s }))],
     // GSP's rate comes from Finance's terms (data/courses.ts termsRate), not the partner record (Jovial, 31 Oct)
@@ -372,10 +374,11 @@ export function sampleCourseRecs(): CourseRec[] {
     ...c,
     status: i % 89 === 29 ? 'Hidden' : i % 400 === 13 ? 'Draft' : 'Live',
     code: c.cricos ?? `${c.uni.id.slice(0, 3).toUpperCase()}-${(4000 + i * 7).toString().slice(-4)}`,
-    durUnit: 'Months',
-    durValue: c.months,
+    // US master's are sold in credits (sample): they match every duration range in course search (S3-3)
+    durUnit: c.uni.country === 'USA' && c.level === 'Master’s degree' ? 'Credits' : 'Months',
+    durValue: c.uni.country === 'USA' && c.level === 'Master’s degree' ? 36 : c.months,
     url: `https://${c.uni.website ?? `${c.uni.id}.edu`}/courses/${c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
-    firstYearFee: 0,
+    firstYearFee: c.uni.country === 'USA' && c.level === 'Master’s degree' ? c.tuition : 0,
     // 30 Oct: the fee the team enters is the full course fee; tuition a year follows from it
     fullFee: Math.round((c.tuition * c.months) / 12),
     // each intake's dates (Jovial, 31 Oct): the source for course search and the application; start on a Monday, census four weeks on
