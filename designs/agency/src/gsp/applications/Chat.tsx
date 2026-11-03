@@ -230,7 +230,8 @@ export function Chat({
                     {m.via === 'email' && <span className="msg__role"> · by email</span>}
                     <span className="msg__time"> · {when(m.at)}</span>
                   </p>
-                  <div className="msg__bubble">
+                  {/* a request on its own is the card, without a bubble around it (Jovial, 3 Nov) */}
+                  <div className={`msg__bubble ${m.request && !m.text && !m.files?.length ? 'msg__bubble--card' : ''}`}>
                     {m.text && <p>{m.text}</p>}
                     {m.files?.map((f) => (
                       <span key={f} className="msg__file">

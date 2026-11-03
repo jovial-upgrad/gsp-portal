@@ -34,6 +34,8 @@
 .gchat__tpl:active { transform: translateY(1px); }
 .gchat__tpl:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* a conditions card in the chat opens the form */
+.msg__bubble.msg__bubble--card { padding: 0; border: 0; background: none; box-shadow: none; color: var(--text); }
+.areq > .btn { grid-column: 2 / -1; justify-self: start; margin-left: calc(-1 * var(--sp-10)); }
 .areq.areq--open { width: 100%; font: inherit; text-align: left; color: inherit; cursor: pointer; transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
 .areq.areq--open:hover { border-color: var(--you); box-shadow: 0 4px 14px -8px rgba(9, 30, 66, 0.3); }
 .areq.areq--open.is-done:hover { border-color: var(--ok); }

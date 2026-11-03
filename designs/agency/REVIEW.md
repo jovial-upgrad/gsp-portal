@@ -31,6 +31,8 @@ Prototype only (branch `admin-polish-3nov`); the PRDs follow.
 ### Application page (GSP)
 - [x] **Request documents from the RP:** one column (documents, Add another document, What's needed, Due, Send), not the broken two-column grid. (3 Nov, 3fcd4b7)
 - [x] **Key details › Sales region:** the region name only, without "routed by rule …" or the queue. (3 Nov, 3fcd4b7)
+- [x] **No GSP Assist offer from the mail:** the banner “we’ve received the … offer letter … Should I add it to Documents?” (offer letters, acceptance letter, visa grant read from a mail's attachments) is gone, with its code. GSP uploads these with the status change. (3 Nov, e2d6d30)
+- [x] **Document request in the chat:** the card sits on its own, without the dark bubble around it, and Withdraw request lines up under the text. (3 Nov, e2d6d30)
 
 ### Add a student (every role)
 - [x] No hint under Email (“Used on university applications. GSP never sends students marketing.”) or Current country of residence (“Where the student lives now.”). (3 Nov, 8ae8d97)
