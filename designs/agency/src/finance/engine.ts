@@ -20,7 +20,9 @@
  *   rates: [{level, course, campus, region, period, pct | amt}]  rate rows keyed by any combination (IP5–8, IP16)
  *   basis: 'net' | 'gross'           commission on the final tuition fee, or on it plus the scholarship (IP13, S5-7)
  *   pay: 'year'|'semester'|'trimester'|'term'|'unit'|'fees'   how commission is paid (IP15); old rows: inst 1–4
- *   charge: {unit:'course'|'year'|'semester'|'trimester'|'term'|'unit'|'fees', n}  how long it is chargeable (IP14)
+ *   charge: {unit:'course'|'year'|'semester'|'trimester'|'term'|'unit'|'fees'|'points', n}  how long it is chargeable (IP14);
+ *                                    'points': the first n credit points (NZ: AUT pays on the first 120 points, even
+ *                                    when a one-year programme is worth 180; the commissions team, 3 Nov)
  *   annuity {on, maxYears}            old way of saying "chargeable after the first year"
  *   tier: {retro, window:'CY'|'AY'|'FY'|'intake', ayStart, scope:'all'|'country', pool:'uni'|'group', levels[],
  *          bands[[from,to,pct]], bandBonus{'2':{kind:'fixed'|'pct', v}}}   (IP2–4, IP12, IP19)
@@ -29,7 +31,7 @@
  *   bonuses: [{id, name, kind:'fixed'|'pct', v, per:'student'|'threshold', threshold, window, levels[]}]  (IP19)
  * University groups (cfg.groups[], S5-22): [{id, name, members:[uni ids], tier}]; every member counts toward the group.
  * Settings add: regionGroups {SEA:[countries]}, rpCap (100: an RP never gets more than GSP's line).
- * Applications add: course, campus, enrolReady, yearFees[], periods[{census, tuition}], units[{name, fee, census}],
+ * Applications add: pointsPerYear (credit points the programme is worth a year; NZ full time is 120), course, campus, enrolReady, yearFees[], periods[{census, tuition}], units[{name, fee, census}],
  *   feePayments[{date, amt}], invAmt{} (the amount on an invoice once raised).
  */
 import { fmtMoney } from '../data/format';
@@ -41,7 +43,9 @@ const DEST = { AU: 'Australia', NZ: 'New Zealand', UK: 'United Kingdom', MY: 'Ma
 const PAY = { year: { per: 1, off: [0], one: 'Year' }, semester: { per: 2, off: [0, 5], one: 'Semester' }, trimester: { per: 3, off: [0, 4, 8], one: 'Trimester' }, term: { per: 4, off: [0, 3, 6, 9], one: 'Term' } };
 const PAYNAME = { year: 'once a year', semester: 'each semester', trimester: 'each trimester', term: 'each term', unit: 'per unit of study', fees: 'on each fee payment the student makes' };
 const UNIT_MONTHS = { year: 12, semester: 6, trimester: 4, term: 3 };
-const CHARGENAME = { course: 'the whole course', year: 'year', semester: 'semester', trimester: 'trimester', term: 'term', unit: 'unit', fees: 'fees paid' };
+const CHARGENAME = { course: 'the whole course', year: 'year', semester: 'semester', trimester: 'trimester', term: 'term', unit: 'unit', fees: 'fees paid', points: 'credit point' };
+/* a full-time year in credit points when the application gives none (NZ: 120) */
+const DEF_POINTS = 120;
 const DEF_REGION_GROUPS = { SEA: ['Vietnam', 'Malaysia', 'Indonesia', 'Thailand', 'Philippines', 'Singapore', 'Cambodia', 'Myanmar'], 'South Asia': ['India', 'Nepal', 'Bangladesh', 'Sri Lanka', 'Pakistan', 'Bhutan'] };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -230,10 +234,13 @@ function compute(cfg, apps, today) {
       (a.feePayments || []).slice().sort((p, q) => (p.date < q.date ? -1 : 1)).forEach((x, i) => { const y = Math.floor(Math.max(0, monthsBetween(a.intake, x.date)) / 12) + 1; P.push({ k: i + 1, y, p: i + 1, per: 1, date: x.date, dWhy: 'the date the student paid, ' + nice(x.date), fee: +x.amt || 0, feeWhy: 'the fee payment of ' + money(+x.amt || 0, u.cur) + ' on ' + nice(x.date), add: 0, label: 'Fee payment ' + (i + 1) + ' (' + nice(x.date) + ')' }); });
     }
     /* chargeable time (IP14) */
-    let left = ch.unit === 'fees' && ch.n ? +ch.n : null;
+    let left = ch.unit === 'fees' && ch.n ? +ch.n : ch.unit === 'points' ? +ch.n : null;
+    const ppy = +a.pointsPerYear || DEF_POINTS;
+    if (ch.unit === 'points') { st.push({ h: 'Credit points', t: 'Chargeable for the first ' + ch.n + ' credit points. The programme is worth ' + ppy + ' points a year' + (a.pointsPerYear ? ' (on the application)' : ' (the application gives none, so a full-time year of ' + DEF_POINTS + ' is assumed)') + '.', ref: 'IP14' }); if (!a.pointsPerYear && a.enrolled) exc(a, 'Points missing', u.name + ' pays on the first ' + ch.n + ' credit points, but the application does not say how many points the programme is worth a year. ' + DEF_POINTS + ' is assumed; Admissions adds the points from the offer letter.', 'warn'); }
     P.forEach((q) => {
       q.frac = 1; q.chWhy = '';
       if (ch.unit === 'course') q.chWhy = 'chargeable for the whole course';
+      else if (ch.unit === 'points') { const pts = ppy * (PAY[pay] ? 1 / q.per : 1); const take = Math.max(0, Math.min(pts, left)); q.frac = pts ? take / pts : 0; left = left - take; q.chWhy = take >= pts ? 'all ' + r2(pts) + ' points of this period are within the first ' + ch.n : take > 0 ? 'only ' + r2(take) + ' of its ' + r2(pts) + ' points are within the first ' + ch.n + ' (' + r2(take) + ' ÷ ' + r2(pts) + ' = ' + Math.round(q.frac * 1000) / 10 + '% of its fee)' : 'beyond the first ' + ch.n + ' points'; }
       else if (ch.unit === 'unit') { if (pay === 'unit') { q.frac = q.k <= ch.n ? 1 : 0; q.chWhy = q.frac ? 'unit ' + q.k + ' of the ' + ch.n + ' chargeable' : 'beyond the ' + ch.n + ' chargeable units'; } else q.chWhy = 'a unit limit applies only when commission is paid per unit'; }
       else if (ch.unit === 'fees') { if (left == null) q.chWhy = 'every fee payment is chargeable'; else { const take = Math.max(0, Math.min(q.fee, left)); q.chWhy = take >= q.fee ? 'within the first ' + money(ch.n, u.cur) + ' of fees (' + money(left, u.cur) + ' left before it)' : take > 0 ? 'only ' + money(take, u.cur) + ' of it is within the first ' + money(ch.n, u.cur) + ' of fees' : 'beyond the first ' + money(ch.n, u.cur) + ' of fees'; q.fee = r2(take); q.frac = take > 0 ? 1 : 0; left = r2(left - take); } }
       else { const L = ch.n * UNIT_MONTHS[ch.unit]; if (PAY[pay]) { if (ch.unit === pay) { q.frac = q.k <= ch.n ? 1 : 0; } else q.frac = Math.max(0, Math.min(1, (L - q.s) / (q.e - q.s))); } else q.frac = monthsBetween(a.intake, q.date) < L ? 1 : 0; q.chWhy = q.frac === 1 ? 'inside the chargeable time (' + chargeTxt(ch) + ')' : q.frac === 0 ? 'after the chargeable time (' + chargeTxt(ch) + ')' : Math.round(q.frac * 100) + '% of this period falls inside the chargeable time (' + chargeTxt(ch) + '), so that share of its fee counts'; }

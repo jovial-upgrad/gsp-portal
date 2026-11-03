@@ -106,7 +106,12 @@
 "src": "cl 4 (p6–7); Schedule Two AUT Commission Payment (p13)",
 "ends": "30 Jun 2031"
 },
-"annuity": null
+"annuity": null,
+"charge": {
+"unit": "points",
+"n": 120
+},
+"pay": "year"
 },
 {
 "id": "04",
@@ -539,7 +544,12 @@ null,
 "src": "cl 2.1–2.8 (p1–3)",
 "ends": "Sep 2027 (renewal Sep 2025 to Sep 2027)"
 },
-"annuity": null
+"annuity": null,
+"charge": {
+"unit": "points",
+"n": 120
+},
+"pay": "year"
 },
 {
 "id": "15",
@@ -1266,7 +1276,12 @@ null,
 "src": "cl 10 (p3–4); Schedule Two (p6–7); Schedule Three (p8)",
 "ends": "13 Oct 2028"
 },
-"annuity": null
+"annuity": null,
+"charge": {
+"unit": "points",
+"n": 120
+},
+"pay": "year"
 },
 {
 "id": "31a",

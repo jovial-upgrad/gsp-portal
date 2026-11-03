@@ -585,6 +585,29 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
     ] });
 }
 
+/* ---------------- NZ credit points: AUT pays on the first 120 points (the commissions team, 3 Nov) ---------------- */
+{
+  const U = uni('SC-C9', { name: 'Points University NZ (sample)', country: 'NZ', cur: 'NZD', trigger: 'withdrawal', triggerWeeks: 4, levels: { UG: 12.5, PG: 12.5 }, pay: 'year', charge: { unit: 'points', n: 120 } });
+  const L = [
+    app('c9-180', { uni: 'SC-C9', rp: 'SC-R80', level: 'PG', courseYears: 1, pointsPerYear: 180, tuition: 45000, intake: '2027-02-22', census: null }),
+    app('c9-120', { uni: 'SC-C9', rp: 'SC-R80', courseYears: 3, pointsPerYear: 120, tuition: 30000, intake: '2027-02-22', census: null }),
+    app('c9-none', { uni: 'SC-C9', rp: 'SC-R80', courseYears: 3, tuition: 30000, intake: '2027-02-22', census: null }),
+  ];
+  add({ id: 'C9', tab: 'Combination', title: 'Chargeable for the first 120 credit points (NZ)', sheet: 'AUT: 12.5% of the tuition fee for the first 120 points. Some one-year programmes are worth 180 points; AUT still pays only for the first 120.',
+    terms: ['NZ university, NZD, UG and PG 12.5%, paid once a year.', 'Chargeable for: the first 120 credit points.', 'A one-year programme worth 180 points (NZD 45,000); a three-year programme worth 120 points a year (NZD 30,000 a year); one application with no points given.', 'RP on a flat 80% of GSP’s line.'],
+    today: '2027-04-01', focus: 'c9-180',
+    cfg: world({ unis: [U], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    apps: byId(L),
+    checks: [
+      { what: '180-point year: commission on 120 of its 180 points', calc: '45,000 × 120/180 = 30,000; × 12.5% = 3,750', exp: 3750, got: G.ip('c9-180', 'ip1') },
+      { what: '120-point year: the whole first year', calc: '30,000 × 12.5% = 3,750', exp: 3750, got: G.ip('c9-120', 'ip1') },
+      { what: 'No commission after the first 120 points', calc: 'years 2 and 3 are beyond 120 points: 1 line', exp: 1, got: G.ipCount('c9-120') },
+      { what: 'No points on the application: 120 assumed', calc: '30,000 × 12.5% = 3,750', exp: 3750, got: G.ip('c9-none', 'ip1') },
+      { what: '…and flagged for Admissions', calc: 'exception “Points missing”', exp: true, got: G.exc('c9-none', 'Points missing') },
+      { what: 'RP share', calc: '3,750 × 80% = 3,000', exp: 3000, got: G.rp('c9-180', 'rp1') },
+    ] });
+}
+
 export const SCENARIOS = C;
 
 const same = (e, g) => { if (typeof e === 'number' && typeof g === 'number') return Math.abs(e - g) < 0.005; return JSON.stringify(e) === JSON.stringify(g); };
