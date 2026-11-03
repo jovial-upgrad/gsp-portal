@@ -51,11 +51,16 @@ export const hoursOf = (hm: string, fallback: string) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hm || '') ?? /^(\d{1,2}):(\d{2})$/.exec(fallback)!;
   return Number(m[1]) + Number(m[2]) / 60;
 };
-/** When a calendar's working day starts and how long it is, in hours. */
+/**
+ * When a calendar's working day starts and how long it is, in hours. A day that ends at or before its start runs past
+ * midnight IST (Jovial, 4 Nov: Latin America works 21:30 to 07:30 IST): it belongs to the day it starts on, so
+ * "Mon to Sat, 21:30 to 07:30" is six shifts, each starting on Monday to Saturday evening and ending the next morning.
+ */
 export const dayOf = (cal: Partial<Calendar>) => {
   const open = hoursOf(cal.start ?? DEFAULT_START, DEFAULT_START);
   const close = hoursOf(cal.end ?? DEFAULT_END, DEFAULT_END);
-  return { open, hours: Math.max(0.5, close - open) };
+  const hours = close > open ? close - open : close + 24 - open;
+  return { open, hours: Math.max(0.5, hours), overnight: close <= open };
 };
 
 /** The calendar a sales region picked on its own record (slice 1: `calendarId`), if it names one that exists. */
@@ -101,14 +106,15 @@ export const isWorkingDay = (cal: Calendar, t: number) => cal.days.includes(istW
 /** The moment `hours` working hours after `from`, on a calendar (its days, hours and holidays, in IST). */
 export function addWorkingHours(cal: Calendar, from: number, hours: number) {
   let left = hours * H;
-  let t = from;
+  // start a day early: an overnight day that began yesterday may still be open (and an ordinary one has closed)
+  let t = istDayStart(from) - DAY;
   const w = dayOf(cal);
   for (let guard = 0; guard < 800; guard++) {
     const day = istDayStart(t);
     const open = day + w.open * H;
     const close = open + w.hours * H;
-    if (isWorkingDay(cal, day + 12 * H) && t < close) {
-      const start = Math.max(t, open);
+    if (isWorkingDay(cal, day + 12 * H) && Math.max(t, from) < close) {
+      const start = Math.max(t, open, from);
       if (start + left <= close) return start + left;
       left -= close - start;
     }
@@ -121,7 +127,7 @@ export function workingHoursBetween(cal: Calendar, a: number, b: number): number
   if (b < a) return -workingHoursBetween(cal, b, a);
   const w = dayOf(cal);
   let n = 0;
-  for (let day = istDayStart(a); day <= b; day += DAY) {
+  for (let day = istDayStart(a) - DAY; day <= b; day += DAY) {
     if (!isWorkingDay(cal, day + 12 * H)) continue;
     const open = day + w.open * H;
     const close = open + w.hours * H;
@@ -157,5 +163,5 @@ export const clockText = (hm: string) => {
 export function hoursText(region?: string) {
   const c = calendarOf(region);
   if (!c) return '';
-  return `${daysText(c.days)}, ${clockText(c.start || DEFAULT_START)} to ${clockText(c.end || DEFAULT_END)}`;
+  return `${daysText(c.days)}, ${clockText(c.start || DEFAULT_START)} to ${clockText(c.end || DEFAULT_END)}${dayOf(c).overnight ? ' the next day' : ''}`;
 }
