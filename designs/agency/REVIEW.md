@@ -25,6 +25,10 @@ Prototype only (branch `admin-polish-3nov`); the PRDs follow.
 ### RP portal: Profile (RP Admin)
 - [x] **RP Admin sees the business documents it uploaded**, from its RP record (the list GSP · RP Ops sees), each with its state and Download. Before, the card showed only while registering in the same session. (3 Nov, 8ae8d97)
 
+### Application page (GSP)
+- [x] **Request documents from the RP:** one column (documents, Add another document, What's needed, Due, Send), not the broken two-column grid. (3 Nov, 3fcd4b7)
+- [x] **Key details › Sales region:** the region name only, without "routed by rule …" or the queue. (3 Nov, 3fcd4b7)
+
 ### Add a student (every role)
 - [x] No hint under Email (“Used on university applications. GSP never sends students marketing.”) or Current country of residence (“Where the student lives now.”). (3 Nov, 8ae8d97)
 
