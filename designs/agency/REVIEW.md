@@ -18,6 +18,7 @@ Prototype only (branch `admin-polish-3nov`); the PRDs follow.
 
 ### Find courses / Course page
 - [x] No "Doesn’t meet entry yet? <university> is a pathway provider." on the Entry requirements tab. Pathway provider stays a field on the university's Overview. (3 Nov, 8ae8d97)
+- [x] **CSV for internal use asks which columns:** the 13 comparison fields as checkboxes (all ticked to start; Select all / Clear all), and the preview and the file have only the ticked ones. This changes the slice 3 PRD's "the CSV has the same fields". (3 Nov, 06ef93d)
 
 ### GSP · Institution: university › Submission and contacts
 - [x] **Portal logins sit inside How applications are sent**, under the channel, for Own portal (“Portal logins”) and StudyLink (“StudyLink logins”); none for Email. (3 Nov, 8ae8d97)
