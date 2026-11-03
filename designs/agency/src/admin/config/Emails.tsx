@@ -9,7 +9,7 @@ import { PageHead } from '../../institution/records/parts';
 import type { EmailGroup, EmailPerm } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft } from './parts';
-import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, istDay, trySave, type SaveResult } from './states';
+import { Empty, Loaded, Pager, Pick, SaveBanner, usePaged, ViewOnlyNote, istDay, trySave, type SaveResult } from './states';
 
 /** Jovial, 2 Nov: View, or View and send, for each person. */
 const PERM: Record<EmailPerm, string> = { view: 'View', send: 'View and send' };
@@ -189,6 +189,9 @@ function Access({ g, cfg, change, say, canEdit }: { g: EmailGroup; cfg: ConfigPr
   const list = d.value;
   const userOf = (id: string) => cfg.users.find((u) => u.id === id);
   const notIn = cfg.users.filter((u) => u.status === 'Active' && !list.some((x) => x.id === u.id));
+  // the people, A to Z, paged like every Admin list (Jovial, 3 Nov)
+  const people = list.filter((x) => userOf(x.id)).sort((a, b) => (userOf(a.id)?.name ?? '').localeCompare(userOf(b.id)?.name ?? ''));
+  const { shown, pager } = usePaged(people, [g.id]);
   const save = () => {
     const r = trySave();
     if (r !== 'ok') return setResult(r);
@@ -245,7 +248,7 @@ function Access({ g, cfg, change, say, canEdit }: { g: EmailGroup; cfg: ConfigPr
               </tr>
             </thead>
             <tbody>
-              {list.map((x) => {
+              {shown.map((x) => {
                 const u = userOf(x.id);
                 if (!u) return null;
                 return (
@@ -274,6 +277,7 @@ function Access({ g, cfg, change, say, canEdit }: { g: EmailGroup; cfg: ConfigPr
               })}
             </tbody>
           </table>
+          <Pager {...pager} thing="People" />
         </div>
       ) : (
         <Empty>No one can use this mailbox yet.</Empty>

@@ -8,7 +8,16 @@
 .cfg__full .page__title { max-width: 32ch; font-size: var(--t-subtitle); line-height: var(--lh-subtitle); }
 .cfg__fullicon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--text-3); }
 .cfg__pager { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-8); padding: var(--sp-12) var(--sp-20); border-top: 1px solid var(--line); }
-.cfg__pager > span { margin-right: auto; font-size: var(--t-label); }
+.cfg__pager { flex-wrap: wrap; }
+.cfg__range { margin-right: auto; font-size: var(--t-label); }
+.cfg__per { display: inline-flex; align-items: center; gap: var(--sp-8); font-size: var(--t-label); color: var(--text-2); margin-right: var(--sp-16); }
+.cfg__per .control, .cfg__per .smenu { min-width: 84px; }
+.cfg__pages { display: flex; align-items: center; gap: var(--sp-4); margin: 0; padding: 0; list-style: none; }
+.cfg__pnum { min-width: 32px; height: 32px; padding: 0 var(--sp-8); border: 1px solid var(--line); border-radius: var(--r-8, 8px); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-label); cursor: pointer; }
+.cfg__pnum:hover { background: var(--surface-2); }
+.cfg__pnum:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cfg__pnum.is-on { border-color: var(--primary); color: var(--primary); font-weight: var(--fw-medium); cursor: default; }
+.cfg__pgap { color: var(--text-3); padding: 0 var(--sp-4); }
 .cfg__expired { color: var(--bad); font-weight: var(--fw-medium); }
 .cfg__tabs { display: flex; flex-wrap: wrap; gap: 6px; }
 .cfg__lvcell { min-width: 112px; }

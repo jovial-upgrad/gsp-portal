@@ -259,7 +259,7 @@ export function AddStudentSheet({
               onChange={(name) => name !== f.nationality && up({ nationality: name, dial: countryByName(name)?.dial ?? f.dial })}
             />
           </Field>
-          <Field id="as-country" required label="Current country of residence" hint="Where the student lives now." error={show('country')}>
+          <Field id="as-country" required label="Current country of residence" error={show('country')}>
             <CountryCombobox
               id="as-country"
               value={f.country}
@@ -285,7 +285,7 @@ export function AddStudentSheet({
               {dup.byPassport && <Dupe key="dp" s={dup.byPassport} team={team} onOpen={onOpenStudent} fade={fade} pick={forApplication} />}
             </AnimatePresence>
           </div>
-          <Field id="as-email" required label="Email" hint="Used on university applications. GSP never sends students marketing." error={show('email')}>
+          <Field id="as-email" required label="Email" error={show('email')}>
               <TextInput
                 id="as-email"
                 type="email"

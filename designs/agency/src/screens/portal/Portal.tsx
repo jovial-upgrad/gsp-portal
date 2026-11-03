@@ -382,6 +382,8 @@ export function Portal({
         onDocs={openDocs}
         onSignOut={onSignOut}
         agreement={myRp && isRpAdmin ? <RpAgreementProfile r={myRp} by={acc.name} /> : undefined}
+        // the business documents on the RP's record, for an RP Admin who isn't registering here (Jovial, 3 Nov)
+        recordDocs={myRp && isRpAdmin ? myRp.docs : undefined}
         // RP Admin manages the whole team; a Branch Admin their branch's Counsellors (S2C-14); a Counsellor sees none
         team={acc.role === 'Counsellor' ? undefined : { agency: acc.agency, bdm: manager, team, setTeam, branches, setBranches, students, setStudents, viewer: { role: acc.role, email: acc.email } }}
       />

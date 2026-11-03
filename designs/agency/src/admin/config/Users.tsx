@@ -14,7 +14,7 @@ import { update as updateWork } from '../../work/store';
 import type { ConfigProps } from './ConfigPage';
 import { History } from './parts';
 import { MultiPick } from '../../institution/records/MultiPick';
-import { Loaded, NoResults, PAGE_SIZE, Pager, Pick, SaveBanner, ViewOnlyNote, ago, istDate, trySave, type SaveResult } from './states';
+import { Loaded, NoResults, Pager, usePaged, Pick, SaveBanner, ViewOnlyNote, ago, istDate, trySave, type SaveResult } from './states';
 
 const STATUSES: UserStatus[] = [...USER_STATUSES];
 
@@ -28,7 +28,7 @@ function loginLine(u: User, now = Date.now()) {
 /**
  * GSP users (PRD slice 1; screen Admin › User roles › Create roles): a list of GSP people, with Create user and Edit
  * in a dialog. Login status Link sent, Active or Deactivated; Resend login email, Deactivate, Reactivate and Delete
- * user. Sorted A to Z, 50 a page; tiles that filter; search by name, email or phone; filters by role, sales region
+ * user. Sorted A to Z, 20 a page (10, 20, 50 or 100; Jovial, 3 Nov); tiles that filter; search by name, email or phone; filters by role, sales region
  * and login status; Export as CSV of what the filters show (logged as a download). Admin edits; View Only views.
  */
 export function Users({ cfg, change, say, canEdit }: ConfigProps) {
@@ -36,7 +36,6 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
   const [role, setRole] = useState('');
   const [region, setRegion] = useState('');
   const [status, setStatus] = useState('');
-  const [page, setPage] = useState(0);
   const [edit, setEdit] = useState<User | 'new' | null>(null);
   const [removing, setRemoving] = useState<User | null>(null);
   const [deactivating, setDeactivating] = useState<User | null>(null);
@@ -51,8 +50,7 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
       (!region || (region === 'No sales region' ? !u.regions.length : u.regions.includes(region))) &&
       (!status || u.status === status),
   );
-  useEffect(() => setPage(0), [q, role, region, status]);
-  const shown = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const { shown, pager } = usePaged(rows, [q, role, region, status]);
   const filtered = Boolean(q || role || region || status);
   const clear = () => {
     setQ('');
@@ -186,7 +184,7 @@ export function Users({ cfg, change, say, canEdit }: ConfigProps) {
               </table>
             </div>
           )}
-          <Pager total={rows.length} page={page} setPage={setPage} thing="Users" />
+          <Pager {...pager} thing="Users" />
         </section>
         <History log={cfg.log} area="Create roles" />
       </Loaded>
