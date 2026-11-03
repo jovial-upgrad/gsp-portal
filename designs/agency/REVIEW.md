@@ -11,22 +11,22 @@ How this list works: before changing a page, check its section here. When an ite
 Prototype only (branch `admin-polish-3nov`); the PRDs follow.
 
 ### GSP · Admin
-- [x] **User roles › Sales regions:** no Working calendar column or field. A region's calendar is set only on Admin › Work › Working days; editing or renaming a region keeps it on its calendar. (3 Nov, COMMIT)
-- [x] **User roles › Create roles:** 20 rows a page, with Rows per page (10, 20, 50, 100), the page numbers and Previous/Next. The same pager is on Logs. (3 Nov, COMMIT)
-- [x] **User roles › Shared mailboxes:** the people on a mailbox, A to Z, paged the same way. (3 Nov, COMMIT)
-- [x] **Course configuration:** the read-only Intake timings table is gone. The late, closing-soon and countdown days stay decided values in code (S1C-11). (3 Nov, COMMIT)
+- [x] **User roles › Sales regions:** no Working calendar column or field. A region's calendar is set only on Admin › Work › Working days; editing or renaming a region keeps it on its calendar. (3 Nov, 8ae8d97)
+- [x] **User roles › Create roles:** 20 rows a page, with Rows per page (10, 20, 50, 100), the page numbers and Previous/Next. The same pager is on Logs. (3 Nov, 8ae8d97)
+- [x] **User roles › Shared mailboxes:** the people on a mailbox, A to Z, paged the same way. (3 Nov, 8ae8d97)
+- [x] **Course configuration:** the read-only Intake timings table is gone. The late, closing-soon and countdown days stay decided values in code (S1C-11). (3 Nov, 8ae8d97)
 
 ### Find courses / Course page
-- [x] No "Doesn’t meet entry yet? <university> is a pathway provider." on the Entry requirements tab. Pathway provider stays a field on the university's Overview. (3 Nov, COMMIT)
+- [x] No "Doesn’t meet entry yet? <university> is a pathway provider." on the Entry requirements tab. Pathway provider stays a field on the university's Overview. (3 Nov, 8ae8d97)
 
 ### GSP · Institution: university › Submission and contacts
-- [x] **Portal logins sit inside How applications are sent**, under the channel, for Own portal (“Portal logins”) and StudyLink (“StudyLink logins”); none for Email. (3 Nov, COMMIT)
+- [x] **Portal logins sit inside How applications are sent**, under the channel, for Own portal (“Portal logins”) and StudyLink (“StudyLink logins”); none for Email. (3 Nov, 8ae8d97)
 
 ### RP portal: Profile (RP Admin)
-- [x] **RP Admin sees the business documents it uploaded**, from its RP record (the list GSP · RP Ops sees), each with its state and Download. Before, the card showed only while registering in the same session. (3 Nov, COMMIT)
+- [x] **RP Admin sees the business documents it uploaded**, from its RP record (the list GSP · RP Ops sees), each with its state and Download. Before, the card showed only while registering in the same session. (3 Nov, 8ae8d97)
 
 ### Add a student (every role)
-- [x] No hint under Email (“Used on university applications. GSP never sends students marketing.”) or Current country of residence (“Where the student lives now.”). (3 Nov, COMMIT)
+- [x] No hint under Email (“Used on university applications. GSP never sends students marketing.”) or Current country of residence (“Where the student lives now.”). (3 Nov, 8ae8d97)
 
 ## 3 Nov, overnight alignment with the PRDs (Jovial's brief)
 
