@@ -12,7 +12,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useCheck, numError, dupError, dateError } from '../components/validate';
 import { fmtDate, fmtWhen } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
-import { useCalendars, getCalendars, setCalendars, daysText, clockText, regionsOn, putRegionsOn, DEFAULT_START, DEFAULT_END } from './calendars';
+import { useCalendars, getCalendars, setCalendars, daysText, clockText, regionsOn, putRegionsOn, dayOf, DEFAULT_START, DEFAULT_END } from './calendars';
 import { salesRegionNames } from '../admin/data/config';
 import { MultiPick } from '../institution/records/MultiPick';
 import { Pick, TimePick, Tick } from './ui';
@@ -182,7 +182,7 @@ function KindSheet({ kind, onClose, by, canDelete }) {
       <div className="cfg__form">
         <Field id="k-name" label="Name" required error={c.err('name')}><Input id="k-name" value={v.name} onBlur={c.blur('name')} onChange={x => setV({ ...v, name: x })} /></Field>
         <Pick id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV({ ...v, record: x })} options={[...new Set([...s.kinds.map((k) => k.record), ...s.rules.map((r) => r.record)].filter(Boolean))]} />
-        <Field id="k-sla" label="SLA (whole working hours, 1 to 540)" required error={c.err('sla')} hint="A working day is 9 hours, 9:30 to 18:30 IST."><NumberInput id="k-sla" decimal={false} min={1} max={540} steppers value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
+        <Field id="k-sla" label="SLA (whole working hours, 1 to 540)" required error={c.err('sla')} hint="Counted on the working calendar of the record's sales region. 1 working day = 9 working hours."><NumberInput id="k-sla" decimal={false} min={1} max={540} steppers value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
         {used && <p className="field__msg" id="k-used">A queue or task rule uses it, so it can’t be deleted.</p>}
       </div>
     </Sheet>
@@ -212,7 +212,8 @@ function Calendars({ may, by }) {
   const holErr = i => { const h = hol[i] || {}; return { d: dateError(h.d || '', { what: 'holiday date', required: true }), n: !(h.n || '').trim() ? 'Enter the holiday name.' : null }; };
   const log = (event, text) => logChange(event, text, by.name);
   const edit = (i, fn, event, text) => { setCalendars(x => { fn(x[i], x); return x; }); log(event, text); };
-  const hoursErr = c => (c.end <= c.start ? 'The day ends after it starts.' : null);
+  // a day that ends at or before its start runs past midnight IST (Jovial, 4 Nov); only an equal start and end is wrong
+  const hoursErr = c => ((c.end || DEFAULT_END) === (c.start || DEFAULT_START) ? 'The day can’t start and end at the same time.' : null);
   return (
     <>
     <Notice>Time zone: one for everything, IST (Asia/Kolkata). There is no time zone per sales region or per calendar: an SLA counts the calendar’s hours in IST, and due times, reminders and daily jobs all count in IST (S4-27). A record with no region uses the calendar that lists Global.</Notice>
@@ -222,7 +223,7 @@ function Calendars({ may, by }) {
         <Card key={c.id}>
           {may('U') ? <Field id={`cn-${i}`} label="Calendar name" required error={!String(c.name).trim() ? 'Enter the calendar’s name.' : null}><Input id={`cn-${i}`} value={c.name} onChange={x => setCalendars(l => { l[i].name = x; return l; })} onBlur={() => log('calendar.changed', `${by.name} renamed a calendar to ${c.name}`)} /></Field>
             : <h3 className="gspx-h3">{c.name}</h3>}
-          <p className="muted">{daysText(c.days)}, {clockText(c.start || DEFAULT_START)} to {clockText(c.end || DEFAULT_END)} IST</p>
+          <p className="muted">{daysText(c.days)}, {clockText(c.start || DEFAULT_START)} to {clockText(c.end || DEFAULT_END)}{dayOf(c).overnight ? ' the next day' : ''} IST · {dayOf(c).hours} working hours a day</p>
           <div className="iseg" role="group" aria-label={`Working days for ${c.name}`}>
             {DAYS.map(([d, t]) => <button key={d} type="button" className="ichip" disabled={!may('U')} aria-pressed={String(c.days.includes(d))}
               onClick={() => { if (c.days.length === 1 && c.days.includes(d)) { toast('A calendar needs at least one working day.'); return; } edit(i, cal => { cal.days = cal.days.includes(d) ? cal.days.filter(y => y !== d) : [...cal.days, d]; }, 'calendar.changed', `${by.name} changed working days for ${c.name}`); }}>{t}</button>)}
@@ -233,6 +234,7 @@ function Calendars({ may, by }) {
               <TimePick id={`ce-${i}`} label="Day ends" value={c.end || DEFAULT_END} onChange={x => edit(i, cal => { cal.end = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to end at ${x} IST`)} />
             </> : null}
           </div>
+          {may('U') && <p className="muted gspx-small">An end earlier than the start runs past midnight: the day belongs to the day it starts on, so a holiday on that date takes out that night.</p>}
           <div className="field"><span className="field__label">Sales regions on it</span>
             {may('U') ? <MultiPick id={`cr-${i}`} label={`Sales regions on ${c.name}`} value={regionsOn(c, regions)} options={regions} empty="No regions" search
               onChange={l => { putRegionsOn(c.id, l); log('calendar.changed', `${by.name} set the regions on ${c.name}: ${l.join(', ') || 'none'}`); }} />
@@ -269,7 +271,7 @@ function NewCalendar({ by, regions, onClose }) {
   const errors = {
     name: !v.name.trim() ? 'Enter the calendar’s name, like Saturday to Wednesday.' : dupError(v.name, cals.map(c => c.name), 'There’s already a calendar with this name.'),
     days: v.days.length ? null : 'Pick at least one working day.',
-    hours: v.end <= v.start ? 'The day ends after it starts.' : null,
+    hours: v.end === v.start ? 'The day can’t start and end at the same time.' : null,
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
@@ -297,7 +299,10 @@ function NewCalendar({ by, regions, onClose }) {
           <TimePick id="nc-start" label="Day starts" value={v.start} error={c.err('hours')} onChange={x => set('start', x)} />
           <TimePick id="nc-end" label="Day ends" value={v.end} onChange={x => set('end', x)} />
         </div>
-        <MultiPick id="nc-regions" label="Sales regions on it" value={v.regions} options={regions} empty="No regions yet" search onChange={l => set('regions', l)} />
+        <p className="muted">{v.end && v.start && v.end !== v.start ? (v.end < v.start ? `Runs past midnight: ${clockText(v.start)} to ${clockText(v.end)} the next day IST, ${dayOf(v).hours} working hours.` : `${dayOf(v).hours} working hours a day, IST.`) : 'Times are IST. An end earlier than the start runs past midnight.'}</p>
+        <div className="field"><span className="field__label">Sales regions on it</span>
+          <MultiPick id="nc-regions" label="Sales regions on it" value={v.regions} options={regions} empty="No regions yet" search onChange={l => set('regions', l)} />
+        </div>
         <p className="muted">A region is on one calendar: picking one here moves it from its calendar now.</p>
       </div>
     </Sheet>

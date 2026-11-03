@@ -78,15 +78,20 @@ export default function TaskRules() {
 }
 
 /** A time a rule waits or gives: a number and its unit, or none. */
-function TimeField({ id, label, value, onChange, error, none, hint }) {
+/** A number and its unit on one line, under one label (Jovial, 4 Nov: the unit had its own label below). */
+function TimeField({ id, label, value, onChange, error, none, hint, required = false }) {
   if (value?.text) return <Field id={id} label={label} hint="Built in: the date comes from the record."><p className="cfg__strong" id={id}>{value.text}</p></Field>;
   return (
-    <div className="gspx-inline">
-      <Field id={id} label={label} error={error} hint={hint}><NumberInput id={id} value={value ? value.n : ''} placeholder={none ? 'None' : ''} onChange={x => onChange(x === '' ? (none ? null : { n: '', u: value?.u || 'wh' }) : { n: x, u: value?.u || 'wh' })} /></Field>
-      <Pick id={`${id}-u`} label={`${label}: unit`} value={value?.u || 'wh'} onChange={u => onChange(value ? { ...value, u } : { n: 1, u })} options={UNITS} />
-    </div>
+    <Field id={id} label={label} required={required} error={error} hint={hint}>
+      <div className="rtime">
+        <NumberInput id={id} value={value ? value.n : ''} placeholder={none ? 'None' : ''} onChange={x => onChange(x === '' ? (none ? null : { n: '', u: value?.u || 'wh' }) : { n: x, u: value?.u || 'wh' })} />
+        <Pick id={`${id}-u`} label={`${label}: unit`} hideLabel value={value?.u || 'wh'} onChange={u => onChange(value ? { ...value, u } : { n: 1, u })} options={UNITS} />
+      </div>
+    </Field>
   );
 }
+/** A rule's built-in parts (code, not editable), with the placeholder words in brackets. */
+const plain = (t) => String(t ?? '').replace(/<([^>]+)>/g, '[$1]');
 
 function RuleSheet({ rule, onClose, by }) {
   const s = useStore();
@@ -119,22 +124,25 @@ function RuleSheet({ rule, onClose, by }) {
   return (
     <Sheet wide title={`Edit ${v.label || v.row}: ${v.name}`} onClose={onClose} dirty={dirty} what={`${v.row}`}
       footer={<><span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!dirty} onClick={save}>Save</Button></>}>
-      <dl className="cdl">
-        <div><dt>When (built in)</dt><dd>{whenText(v)}</dd></div>
-        <div><dt>Task people see (built in)</dt><dd>{v.task}</dd></div>
-        <div><dt>Closes when (built in)</dt><dd>{v.closes}</dd></div>
-        <div><dt>Kind of work</dt><dd>{(kindById(s, v.kind) || {}).name}</dd></div>
-      </dl>
+      <section className="rbuilt" aria-labelledby="rbuilt-t">
+        <p className="rbuilt__k" id="rbuilt-t">Built in (can't be changed here)</p>
+        <dl className="rbuilt__dl">
+          <dt>When</dt><dd>{plain(whenText(v))}</dd>
+          <dt>Task people see</dt><dd>{plain(v.task)}</dd>
+          <dt>Closes when</dt><dd>{plain(v.closes)}</dd>
+          <dt>Kind of work</dt><dd>{(kindById(s, v.kind) || {}).name}</dd>
+        </dl>
+      </section>
       <div className="cfg__form gspx-form2">
         {v.days != null && <Field id="r-days" label="Days before the agreement ends" required error={c.err('days')} hint="Slice 2’s renewal reminder reads these days."><NumberInput id="r-days" decimal={false} min={1} steppers value={v.days} onChange={x => set('days', x === '' ? '' : Number(x))} /></Field>}
         <TimeField id="r-after" label="Task starts after" none value={v.after} error={c.err('after')} onChange={x => set('after', x)} hint="Empty: at once." />
-        <TimeField id="r-sla" label="SLA" value={v.sla} error={c.err('sla')} onChange={x => set('sla', x)} hint="A working day is 9 hours, 9:30 to 18:30 IST." />
+        <TimeField id="r-sla" label="SLA" required value={v.sla} error={c.err('sla')} onChange={x => set('sla', x)} hint="Counted on the working calendar of the record's sales region. 1 working day = 9 working hours." />
         <TimeField id="r-remind" label="RP reminded after" none value={v.remind} error={c.err('remind')} onChange={x => set('remind', x)} hint="When the RP gets an automatic reminder (bell and email) during the wait. Empty: none." />
         {v.remind2 !== undefined && <TimeField id="r-remind2" label="RP reminded again after" none value={v.remind2} error={c.err('remind2')} onChange={x => set('remind2', x)} hint="A second reminder, counted from the same start. Empty: none." />}
         <Pick id="r-to" label="Goes to" required value={v.queue} onChange={x => setV(o => ({ ...o, queue: x, share: x !== 'region' && o.share === 'officer' ? null : o.share }))} options={dest} />
         <Pick id="r-share" label="How it’s shared" required value={v.share ?? ''} onChange={x => set('share', x || null)} options={shares} />
       </div>
-      <p className="gspx-sentence"><b>In words: </b>when “{whenText(v).toLowerCase()}”{v.after ? `, for ${timeText(v.after)}` : ''}, make “{v.task}” in {destName(s, v.queue).replace(/^The/, 'the')}, shared {shareName(s, v).replace(/^The/, 'to the').toLowerCase()}, due in {timeText(v.sla)}{v.remind ? `; the RP is reminded after ${timeText(v.remind)}` : ''}. It closes when {String(v.closes).charAt(0).toLowerCase() + String(v.closes).slice(1)}.</p>
+      <p className="gspx-sentence"><b>In words: </b>when “{whenText(v).toLowerCase()}”{v.after ? `, for ${timeText(v.after)}` : ''}, make “{plain(v.task)}” in {destName(s, v.queue).replace(/^The/, 'the')}, shared {shareName(s, v).replace(/^The/, 'to the').toLowerCase()}, due in {timeText(v.sla)}{v.remind ? `; the RP is reminded after ${timeText(v.remind)}` : ''}. It closes when {String(v.closes).charAt(0).toLowerCase() + String(v.closes).slice(1)}.</p>
     </Sheet>
   );
 }
