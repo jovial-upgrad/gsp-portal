@@ -241,6 +241,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
   const errors = {
     payDays: numError(d.payDays, { what: 'days to pay an invoice', min: 0, max: 365, int: true, required: true }),
     cap: numError(d.cap, { what: 'cap per student', min: 0 }),
+    tw: d.trigger === 'withdrawal' ? numError(d.triggerWeeks, { what: 'weeks after the start date', min: 0, max: 52, int: true }) : null,
     ends: dateError(d.ends || '', { what: 'contract end date' }),
     rates: Object.values(rateErr).find(Boolean) || null,
     years: d.annuity && d.annuity.on ? numError(d.annuity.maxYears, { what: 'number of annuity years', min: 1, max: 10, int: true }) : null,
@@ -253,6 +254,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
       <div className="gspx-grid2">
         <div className="gspx-form2">
           <Select id="u-trig" label="Commission is earned at" required value={d.trigger} onChange={x => set('trigger', x)} options={Object.entries(TRIG)} />
+          {d.trigger === 'withdrawal' && <Field id="u-tw" label="Weeks after the start date" hint="The withdrawal deadline, e.g. 4 weeks from the start date (commissions team, 3 Nov). Blank: Finance setup's default." error={v.err('tw')}><NumberInput id="u-tw" decimal={false} min={0} steppers value={d.triggerWeeks ?? ''} onBlur={v.blur('tw')} onChange={x => set('triggerWeeks', num(x))} /></Field>}
           <Select id="u-inst" label="First-year instalments" required value={String(d.inst)} onChange={x => set('inst', Number(x))} options={[['1', '1 (once a year)'], ['2', '2 (per semester)'], ['3', '3 (per trimester)']]} />
           <Field id="u-days" label="Days to pay an invoice" required error={v.err('payDays')}><NumberInput id="u-days" decimal={false} min={0} steppers value={d.payDays} onBlur={v.blur('payDays')} onChange={x => set('payDays', x)} /></Field>
           <Field id="u-cap" label="Cap per student (first year)" hint="Leave blank for no cap" error={v.err('cap')}><NumberInput id="u-cap" value={d.cap ?? ''} onBlur={v.blur('cap')} onChange={x => set('cap', num(x))} /></Field>

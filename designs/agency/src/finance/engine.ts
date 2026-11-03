@@ -12,6 +12,8 @@
  *
  * University terms (cfg.unis[]), all optional beyond the first block (old rows keep working):
  *   id, name, country, cur, trigger, payDays, cap, status, flag, contract, group (legacy free text)
+ *   triggerWeeks                     for the Withdrawal deadline trigger: weeks after the study start (Commissions
+ *                                    team, 3 Nov); blank = Settings' fallback weeks
  *   starts, ends                     agreement dates (IP17); enrolments outside them are held
  *   versions: [{id, from, label, set:{...any field below}}]   terms versioned by effective-from (S5-2)
  *   levels {UG: 15}, fixed {RES: 1000}  the rate table by level / sector (IP1, IP6)
@@ -196,7 +198,7 @@ function compute(cfg, apps, today) {
     if (u.starts || u.ends) st.push({ h: 'Agreement dates', t: 'In force ' + (u.starts ? 'from ' + nice(u.starts) : 'with no start date') + (u.ends ? ' to ' + nice(u.ends) : ', no end date') + '. Intake ' + nice(a.intake) + (u.starts && a.intake < u.starts ? ' is before the agreement starts.' : u.ends && a.intake > u.ends ? ' is after the agreement ends.' : ' is inside it.'), ref: 'IP17' });
     let tb, tw;
     if (u.trigger === 'census') { tb = a.census || addDays(a.intake, 7 * fb); tw = a.census ? 'Census date ' + nice(a.census) : 'No census date known: start + ' + fb + ' weeks = ' + nice(tb); }
-    else if (u.trigger === 'withdrawal') { tb = addDays(a.intake, 7 * fb); tw = 'Withdrawal deadline taken as start + ' + fb + ' weeks = ' + nice(tb); }
+    else if (u.trigger === 'withdrawal') { const own = u.triggerWeeks !== '' && u.triggerWeeks != null && !isNaN(+u.triggerWeeks); const wk = own ? +u.triggerWeeks : fb; tb = addDays(a.intake, 7 * wk); tw = 'Withdrawal deadline: start + ' + wk + ' weeks' + (own ? ' (the university’s terms)' : ' (Settings’ default; the terms give no weeks)') + ' = ' + nice(tb); }
     else { tb = a.intake; tw = (u.trigger === 'fees' ? 'Fees paid' : 'Enrolment confirmed') + ' at start of study, ' + nice(tb); }
     r.trigBase = tb; r.trigWhy = tw;
     const pay = payOf(u), ch = chargeOf(u); r.pay = pay; r.charge = ch;
