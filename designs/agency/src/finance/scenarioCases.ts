@@ -554,6 +554,37 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
     ] });
 }
 
+/* ---------------- The commissions team's questions on the sandbox (Suman, 3 Nov) ---------------- */
+{
+  const T = uni('SC-C8', { name: 'Torrens-style University (sample)', trigger: 'withdrawal', triggerWeeks: 4, levels: { UG: 12 },
+    promos: [
+      { id: 'A1', name: 'Additional commission', pct: 5.5, combine: 'additional' },
+      { id: 'A2', name: 'Nursing Jan 27 extra', pct: 5, combine: 'additional', intakes: ['2027-01'], regions: ['India', 'Nepal'], courses: ['Nursing'], levels: ['UG'] },
+    ] });
+  const L = [
+    app('c8-it', { uni: 'SC-C8', rp: 'SC-R80', course: 'IT', intake: '2027-01-18', census: null }),
+    app('c8-np', { uni: 'SC-C8', rp: 'SC-R80', course: 'Nursing', nationality: 'Nepal', intake: '2027-01-18', census: null }),
+    app('c8-jul', { uni: 'SC-C8', rp: 'SC-R80', course: 'Nursing', intake: '2027-07-12', census: null }),
+    app('c8-vn', { uni: 'SC-C8', rp: 'SC-R80', course: 'Nursing', nationality: 'Vietnam', intake: '2027-01-18', census: null }),
+  ];
+  add({ id: 'C8', tab: 'Combination', title: 'Trigger weeks, base vs additional, an intake-only extra', sheet: 'The commissions team (3 Nov): commission due 4 weeks from the start date; Torrens pays 12% base plus 5.5% additional (17.5%); an additional 5% for UG Nursing, India and Nepal, Jan 2027 intake only.',
+    terms: ['Trigger: withdrawal deadline, 4 weeks after the start (the university’s own weeks, not the Settings default).', 'Base commission: UG 12%.', 'Additional commission 5.5% on every course: its own line, shared with the RP.', 'Nursing Jan 27 extra: 5% additional for UG Nursing, students from India or Nepal, January 2027 intake only.', 'RP on a flat 80% of GSP’s line.'],
+    today: '2027-02-20', focus: 'c8-np',
+    cfg: world({ unis: [T], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    apps: byId(L),
+    checks: [
+      { what: 'Due 4 weeks after the start', calc: '18 Jan 2027 + 28 days', exp: '2027-02-15', got: G.ip('c8-it', 'ip1', 'date') },
+      { what: 'Base commission alone', calc: '30,000 × 12% = 3,600', exp: 3600, got: G.ip('c8-it', 'ip1') },
+      { what: 'Additional 5.5% as its own line', calc: '30,000 × 5.5% = 1,650', exp: 1650, got: G.ip('c8-it', 'ad-A1-1') },
+      { what: 'IT: base + additional only', calc: '2 lines (12% + 5.5% = 17.5%)', exp: 2, got: G.ipCount('c8-it') },
+      { what: 'Nepal Nursing, Jan 27: the extra 5%', calc: '30,000 × 5% = 1,500', exp: 1500, got: G.ip('c8-np', 'ad-A2-1') },
+      { what: 'Nepal Nursing, Jan 27: 3 lines', calc: '12% + 5.5% + 5%', exp: 3, got: G.ipCount('c8-np') },
+      { what: 'July 2027 intake: no extra', calc: 'Jan 2027 only', exp: 2, got: G.ipCount('c8-jul') },
+      { what: 'Student from Vietnam: no extra', calc: 'India and Nepal only', exp: 2, got: G.ipCount('c8-vn') },
+      { what: 'RP shares the additional commission', calc: '1,650 × 80% = 1,320', exp: 1320, got: G.rp('c8-it', 'rpA1-A1', 'ent') },
+    ] });
+}
+
 export const SCENARIOS = C;
 
 const same = (e, g) => { if (typeof e === 'number' && typeof g === 'number') return Math.abs(e - g) < 0.005; return JSON.stringify(e) === JSON.stringify(g); };
