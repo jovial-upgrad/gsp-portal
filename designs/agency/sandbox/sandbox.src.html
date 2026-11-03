@@ -161,6 +161,10 @@ details.why summary{cursor:pointer;color:var(--acc);font-size:12.5px;font-weight
 .form .fld .sel,.form .fld .tick,.form .fld .datef input{font-weight:400;color:var(--ink)}
 .form .fld small,.form label small{font-weight:400;color:var(--faint)}
 .form .err{color:var(--bad);font-weight:500}
+.edit-err:empty{display:none}
+.edit-err{margin:8px 0;padding:10px 12px;border:1px solid var(--bad);border-left-width:4px;border-radius:8px;background:color-mix(in srgb,var(--bad) 8%,#fff);color:var(--bad);font-weight:600;font-size:13px;line-height:1.45}
+.form .is-bad textarea,.form .is-bad input{border-color:var(--bad)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 18%,transparent)}
+.form .is-bad{color:var(--bad)}
 /* How it's worked out */
 .how ol{margin:0;padding-left:20px}
 .how li{margin:5px 0;line-height:1.45}
@@ -528,9 +532,11 @@ const txtToRates=t=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean).m
 /* promotions: "name | 20% | highest | from=2026-01-01; to=2026-12-31; intakes=2026-07; regions=SEA,India; courses=Nursing; levels=PG; campuses=Sydney" */
 const PKEYS=['from','to','intakes','regions','courses','levels','campuses'];
 const promosToTxt=l=>(l||[]).map(p=>[p.name||p.id,p.amt!=null&&p.amt!==''?String(p.amt):p.pct+'%',p.combine||'highest',PKEYS.filter(k=>p[k]&&(!Array.isArray(p[k])||p[k].length)).map(k=>k+'='+(Array.isArray(p[k])?p[k].join(','):p[k])).join('; ')].join(' | ')).join('\n');
-const txtToPromos=(t,old)=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean).map((s,i)=>{const [name,val,comb,flt]=s.split('|').map(x=>(x||'').trim());if(!name||!val)throw new Error('Promotion '+(i+1)+': write name | rate | how | conditions.');const o={id:((old||[])[i]&&(old||[])[i].id)||'P'+(i+1),name};
+/* also reads a line written without the bars: "Additional commission 5.5% additional intakes=2027-01; regions=India" (Suman, 3 Nov) */
+const loosePromo=s=>{const m=s.match(/^(.+?)\s+([\d.]+\s*%|[\d.]+)(?:\s+(additional|highest|replace))?(?:\s+(.*))?$/i);return m?[m[1].trim(),m[2].replace(/\s+/g,''),(m[3]||'').trim(),(m[4]||'').trim()]:null;};
+const txtToPromos=(t,old)=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean).map((s,i)=>{const parts=s.includes('|')?s.split('|').map(x=>(x||'').trim()):(loosePromo(s)||[s]);const [name,val,comb,flt]=parts;if(!name||!val)throw new Error('Promotion '+(i+1)+' (“'+s+'”): write name | rate | how | conditions, e.g. Additional commission | 5.5% | additional');const o={id:((old||[])[i]&&(old||[])[i].id)||'P'+(i+1),name};
   const mp=val.match(/^([\d.]+)\s*%$/),ma=val.match(/^([\d.]+)$/);if(mp)o.pct=+mp[1];else if(ma)o.amt=+ma[1];else throw new Error('Promotion '+(i+1)+': “'+val+'” is not a rate (20%) or an amount (500).');
-  o.combine=(comb||'highest').toLowerCase();if(!['highest','replace','additional'].includes(o.combine))throw new Error('Promotion '+(i+1)+': how it combines is highest, replace or additional.');if(o.amt!=null&&o.combine!=='additional')throw new Error('Promotion '+(i+1)+': a fixed amount can only be additional commission.');
+  o.combine=(comb||'highest').toLowerCase();if(!['highest','replace','additional'].includes(o.combine))throw new Error('Promotion '+(i+1)+': how it combines is highest, replace or additional.');if(o.amt!=null&&o.combine!=='additional')throw new Error('Promotion '+(i+1)+': “'+val+'” reads as a fixed amount, which can only be additional commission. For a rate write '+val+'%; for a fixed amount add “additional”, e.g. '+name+' | '+val+' | additional.');
   (flt||'').split(';').map(x=>x.trim()).filter(Boolean).forEach(kv=>{const m=kv.match(/^(\w+)\s*=\s*(.+)$/);if(!m||!PKEYS.includes(m[1].toLowerCase()))throw new Error('Promotion '+(i+1)+': “'+kv+'” is not one of '+PKEYS.join(', ')+'.');const k=m[1].toLowerCase();if(k==='from'||k==='to'){if(!isDate(m[2].trim()))throw new Error('Promotion '+(i+1)+': '+k+' must be a date (YYYY-MM-DD).');o[k]=m[2].trim();}else{o[k]=lst(m[2]);if(k==='intakes'&&o[k].some(x=>!/^\d{4}-\d{2}$/.test(x)))throw new Error('Promotion '+(i+1)+': write intakes as YYYY-MM, e.g. 2026-07.');if(k==='levels')o[k]=o[k].map(x=>x.toUpperCase());}});
   if(o.from&&o.to&&o.from>o.to)throw new Error('Promotion '+(i+1)+': “from” is after “to”.');return o;});
 /* bonus schemes: "PG bonus | 2% | student | levels=PG" or "3rd enrolment bonus | 2000 | at 3 | window=CY" */
@@ -592,7 +598,7 @@ function fromForm(kind,v,o0){const o=Object.assign(JSON.parse(JSON.stringify(o0|
   if(kind==='rps'){o.flat=n(v.flat,'the flat %',true);o.annuityPct=n(v.annuityPct,'the % after year 1',true);o.gst=!!v.gst;o.mp=!!v.mp;}
   if(!String(o.id||'').trim())throw new Error('Enter an ID.');if(!String(o.name||'').trim())throw new Error('Enter a name.');return o;}
 function editor(kind,item,mode){const isNew=!item;const v=toForm(kind,item||(kind==='unis'?{country:'AU',cur:'AUD',trigger:'census',inst:1,payDays:30,status:'Drafted, waiting for Finance',levels:{},fixed:{}}:kind==='groups'?{members:[]}:kind==='schemes'?{type:'tier',retro:'no',window:'CY',region:'All'}:kind==='notices'?{doc:'Notice',kind:'flat',combine:'box',retro:'no',fixedCur:'AUD'}:{bank:'Local',cur:'AUD'}));
-  const form=h('div',{class:'form'});const err=h('p',{class:'err',role:'alert'});SPEC[kind].forEach(([k,lab,type,opt,names])=>{let el;const id='ed-'+k;
+  const form=h('div',{class:'form'});const err=h('p',{class:'edit-err',role:'alert'});const errTop=h('p',{class:'edit-err',role:'alert'});SPEC[kind].forEach(([k,lab,type,opt,names])=>{let el;const id='ed-'+k;
     if(type==='sel')el=sel({id,label:lab,value:v[k]==null?opt[0]:String(v[k]),options:opt.map(x=>[x,names?names[x]:x]),onChange:x=>v[k]=x});
     else if(type==='chk')return form.append(h('div',{class:'fld',style:'align-content:end'},tick({id,checked:!!v[k],label:lab,onChange:x=>v[k]=x})));
     else if(type==='scheme')el=sel({id,label:lab,value:v[k]||'',options:[['','None'],...ST.cfg.schemes.map(s=>[s.id,s.id+' '+s.name])],onChange:x=>v[k]=x});
@@ -602,15 +608,18 @@ function editor(kind,item,mode){const isNew=!item;const v=toForm(kind,item||(kin
     else if(type==='rows')el=h('textarea',{id,rows:Math.max(2,String(v[k]||'').split('\n').length+1),style:'font-family:var(--f-mono);font-size:12.5px',oninput:e=>v[k]=e.target.value},v[k]||'');
     else el=h('input',{id,type:'text',value:v[k]==null?'':v[k],readonly:k==='id'&&!isNew?true:null,oninput:e=>v[k]=e.target.value});
     const wide=['levels','tierBands','bands','milestones','note','flag','rps','unis','rates','promos','bonuses','versions','members','tierBonus','regions'].includes(k)||type==='rows';
-    form.append(h(type==='sel'||type==='date'||type==='scheme'||type==='payee'?'div':'label',{class:(type==='sel'||type==='date'||type==='scheme'||type==='payee'?'fld ':'')+(wide?'full':'')},lab,el,typeof opt==='string'?h('small',{},opt):null));});
+    form.append(h(type==='sel'||type==='date'||type==='scheme'||type==='payee'?'div':'label',{'data-k':k,class:(type==='sel'||type==='date'||type==='scheme'||type==='payee'?'fld ':'')+(wide?'full':'')},lab,el,typeof opt==='string'?h('small',{},opt):null));});
   const contract=kind==='unis'&&item&&item.contract&&item.contract.rate?h('details',{style:'margin:4px 0 10px'},h('summary',{style:'cursor:pointer;font-weight:600'},'What the contract says'),h('div',{class:'whybox'},...[['Rates',item.contract.rate],['Chargeable periods',item.contract.periods],['Trigger',item.contract.trigger],['Tier',item.contract.tier],['After contract ends',item.contract.after],['Clawback',item.contract.claw],['Contract ends',item.contract.ends],['Source',item.contract.src]].filter(x=>x[1]).map(([k,t])=>h('p',{},h('b',{},k+': '),t)))):null;
   const pending=Object.values(ST.checks).find(c=>c.status==='waiting'&&c.kind===kind&&c.itemId===(item&&item.id));
-  const tryIt=()=>{try{return fromForm(kind,v,item);}catch(e){err.textContent=e.message;err.scrollIntoView({block:'nearest'});return null;}};
-  const body=h('div',{},pending?h('div',{class:'note'},'A change to this item is already waiting for a check (by '+nameOf(pending.by)+'). A new change is checked separately.'):null,contract,form,err,
+  /* a rule the form can't read is shown by the buttons AND by the field it's in, which is scrolled to (Suman, 3 Nov: "no response") */
+  const FIELD_OF=[[/^Promotion/,'promos'],[/^Bonus/,'bonuses'],[/^Rate row/,'rates'],[/^Band bonus/,'tierBonus'],[/^Version/,'versions'],[/level|Levels/,'levels'],[/^Weeks after/,'triggerWeeks'],[/^Chargeable|fee limit|units/,'chargeUnit'],[/^Agreement|starts after/,'starts'],[/tier|bands/i,'tierBands']];
+  const showErr=(msg)=>{err.textContent=msg;errTop.textContent=msg+' The field is marked below.';form.querySelectorAll('.is-bad').forEach(x=>x.classList.remove('is-bad'));const f=(FIELD_OF.find(([re])=>re.test(msg))||[])[1];const box=f&&form.querySelector('[data-k="'+f+'"]');if(box){box.classList.add('is-bad');box.scrollIntoView({block:'center',behavior:'smooth'});const inp=box.querySelector('textarea,input');inp&&inp.focus({preventScroll:true});}else err.scrollIntoView({block:'nearest'});};
+  const tryIt=()=>{err.textContent='';errTop.textContent='';form.querySelectorAll('.is-bad').forEach(x=>x.classList.remove('is-bad'));try{return fromForm(kind,v,item);}catch(e){showErr(e.message);return null;}};
+  const body=h('div',{},errTop,pending?h('div',{class:'note'},'A change to this item is already waiting for a check (by '+nameOf(pending.by)+'). A new change is checked separately.'):null,contract,form,err,
     h('p',{class:'meter'},'Changes are not live until a second Finance person checks them. Applications use the terms in force on their intake.'),
     h('div',{class:'row',style:'justify-content:space-between'},isNew?h('span'):h('button',{class:'btn d',onclick:()=>{c();propose(kind,item,null);}},'Propose deleting'),
       h('span',{class:'row'},kind==='groups'?null:h('button',{class:'btn',onclick:()=>{const o=tryIt();if(!o)return;c();UI.wi={kind,before:item||null,after:o};go('whatif');}},'Try in what-if'),
-        h('button',{class:'btn p',onclick:()=>{const o=tryIt();if(!o)return;if(isNew&&(ST.cfg[kind]||[]).some(x=>x.id===o.id)){err.textContent='That ID is already used.';return;}c();propose(kind,item||null,o);}},'Send for checking'))));
+        h('button',{class:'btn p',onclick:()=>{const o=tryIt();if(!o)return;if(isNew&&(ST.cfg[kind]||[]).some(x=>x.id===o.id)){showErr('That ID is already used.');return;}c();propose(kind,item||null,o);}},'Send for checking'))));
   const c=modal((isNew?'Add ':'Edit ')+(KINDS[kind]||kind).replace(/s$/,'').toLowerCase()+(item?': '+item.name:''),body,{wide:true});}
 function editItem(kind,id){if(kind==='settings')return settingsEditor();const it=(ST.cfg[kind]||[]).find(x=>x.id===id);editor(kind,it);}
 async function propose(kind,before,after){const id=uid('c');await put('checks/'+id,{id,kind,itemId:(after||before).id,itemName:(after||before).name,before,after,by:ST.me.id,at:new Date().toISOString(),status:'waiting'});await logEvent((after?before?'Changed ':'Added ':'Proposed deleting ')+(after||before).name);toast('Sent for checking.');}
