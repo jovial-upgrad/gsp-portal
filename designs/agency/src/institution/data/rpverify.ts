@@ -205,8 +205,13 @@ export function syncSignup(s: SignupState) {
     ...base,
     name: f.biz,
     city: f.city || base.city,
+    state: f.state || base.state,
     country: f.country,
     contact: { name: `${f.first} ${f.last}`.trim(), email: f.email, phone: f.phone ? `${f.dial} ${f.phone}` : base.contact.phone },
+    // the rest of what the agency entered when it registered (Jovial, 3 Nov)
+    owner: f.ownerSame ? { name: `${f.first} ${f.last}`.trim(), email: f.email, phone: f.phone ? `${f.dial} ${f.phone}` : '' } : { name: f.ownerName, email: f.ownerEmail, phone: f.ownerPhone ? `${f.ownerDial} ${f.ownerPhone}` : '' },
+    commissionEmail: f.cemail || base.commissionEmail,
+    referral: f.ref || base.referral,
     foundUs: f.src || base.foundUs,
     docs,
     approved,

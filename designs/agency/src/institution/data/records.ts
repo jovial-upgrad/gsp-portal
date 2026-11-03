@@ -417,11 +417,19 @@ export type RecruitmentPartner = {
   code: string;
   name: string;
   city: string;
+  /** State or province of the head office, as registered. */
+  state?: string;
   country: string;
   status: RpStatus;
   since: string;
   contact: { name: string; email: string; phone: string };
   foundUs: string;
+  /** The owner, as registered (the contact person when they're the owner). */
+  owner?: { name: string; email: string; phone: string };
+  /** Where commission statements go, as registered. */
+  commissionEmail?: string;
+  /** Who referred them, as registered ("Referred by"). */
+  referral?: string;
   bdm: string;
   admissions: string;
   masterPartner: string;
@@ -483,11 +491,14 @@ const datasetRps = (): RecruitmentPartner[] =>
       code: test ? 'AG-1001' : /^\d+$/.test(r.id) ? `AG-${r.id}` : r.id,
       name: r.name.replace(/^Sample: /, ''),
       city: r.city ?? '',
+      state: r.state,
+      owner: r.owner ? { name: r.owner.name, email: r.owner.email, phone: `${r.owner.dial} ${r.owner.phone}` } : undefined,
+      commissionEmail: r.commissionEmail,
       country: REGION_COUNTRIES[r.region]?.[0] ?? (r.region === 'Direct' ? 'Australia' : r.region),
       status: 'Agreement signed' as const,
       since,
       contact: { name: admin?.name ?? '', email: admin?.email ?? '', phone: phoneOf(admin) },
-      foundUs: test ? 'GSP team member' : '',
+      foundUs: r.foundUs ?? '',
       bdm: '',
       admissions: '',
       masterPartner: 'None',

@@ -24,6 +24,8 @@ Prototype only (branch `admin-polish-3nov`); the PRDs follow.
 
 ### RP portal: Profile (RP Admin)
 - [x] **RP Admin sees the business documents it uploaded**, from its RP record (the list GSP · RP Ops sees), each with its state and Download. Before, the card showed only while registering in the same session. (3 Nov, 8ae8d97)
+- [x] **Profile in four tabs** (one level): Profile (the agency's registered details and You), Documents (business documents and the agreement; RP Admin), Branches and team (RP Admin, Branch Admin), Email preferences. (3 Nov, COMMIT)
+- [x] **Every detail the RP registered with** shows on Profile from its RP record: partner code, head office (city, state, country), contact person, owner, commission statements email, how it found GSP, referred by, partner since, its Recruitment contact. GSP's RP record shows the state, owner and commission statements email too. (3 Nov, COMMIT)
 
 ### Application page (GSP)
 - [x] **Request documents from the RP:** one column (documents, Add another document, What's needed, Due, Send), not the broken two-column grid. (3 Nov, 3fcd4b7)

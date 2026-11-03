@@ -330,8 +330,12 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
                   ],
                   ['Phone', <span key="p" className="num">{r.contact.phone}</span>],
                   ['City', r.city],
+                  ['State or province', r.state || '—'],
                   ['Country', r.country],
-                  ['How they found GSP', r.foundUs],
+                  ['Owner', r.owner ? `${r.owner.name}${r.owner.name !== r.contact.name ? ` · ${r.owner.email}${r.owner.phone ? ` · ${r.owner.phone}` : ''}` : ' (the contact person)'}` : '—'],
+                  ['Commission statements', r.commissionEmail || '—'],
+                  ['How they found GSP', r.foundUs || '—'],
+                  ...(r.referral ? ([['Referred by', r.referral]] as [string, string][]) : []),
                   ['Onboarded on', dateText(r.since)],
                 ]}
               />

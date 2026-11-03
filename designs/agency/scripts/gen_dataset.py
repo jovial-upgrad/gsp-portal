@@ -185,6 +185,9 @@ def rp_details(r):
         # the designer's agency, signed in as RP Admin (HC13, 1 Nov): its one team record and its branches, here like
         # every other RP's. `key` is the member's id in the portal ('me' is whoever signs in as its RP Admin).
         r.update({'city': 'Bengaluru', 'state': 'Karnataka', 'country': 'India', 'since': '2024-06-10', 'team': TEST_TEAM, 'branches': TEST_BRANCHES})
+        # what it entered when it registered (Jovial, 3 Nov): the owner (its RP Admin), the commission statements email, how it found GSP
+        me = next(t for t in TEST_TEAM if t.get('key') == 'me')
+        r.update({'owner': {k: me[k] for k in ('name', 'email', 'dial', 'phone')}, 'commissionEmail': 'accounts@gsptestagency.in', 'foundUs': 'GSP team member'})
         return
     cities = RP_CITY.get(r['region'], ['Melbourne'])
     r['city'] = cities[h(key + 'c', len(cities))]
