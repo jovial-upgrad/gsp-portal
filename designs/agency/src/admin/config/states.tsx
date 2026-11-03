@@ -181,24 +181,80 @@ export function Pick({ id, label, value, options, onChange, placeholder, empty, 
   return <SelectMenu id={id} label={label} value={value} options={opts} onChange={onChange} placeholder={placeholder ?? empty ?? 'Pick one'} invalid={invalid} describedBy={describedBy} />;
 }
 
-/** 50 a page (proposal): Previous and Next under a long list. */
-export const PAGE_SIZE = 50;
-export function Pager({ total, page, setPage, thing }: { total: number; page: number; setPage: (n: number) => void; thing: string }) {
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  if (pages <= 1) return null;
-  const from = page * PAGE_SIZE + 1;
-  const to = Math.min(total, (page + 1) * PAGE_SIZE);
+/**
+ * Admin lists' paging (Jovial, 3 Nov): 20 rows a page by default; the person can pick 10, 20, 50 or 100 rows a page;
+ * Previous, the page numbers (first, last and the pages around the current one) and Next. A page-size choice is a
+ * display preference, not data.
+ */
+export const PAGE_SIZES = [10, 20, 50, 100] as const;
+export const PAGE_SIZE = 20;
+
+/** Page numbers to show: the first, the last, and one either side of the current one; gaps become "…" (0-based in, 1-based out). */
+function pagesAround(page: number, pages: number): (number | '…')[] {
+  const cur = page + 1;
+  const keep = [...new Set([1, pages, cur - 1, cur, cur + 1].filter((n) => n >= 1 && n <= pages))].sort((a, b) => a - b);
+  const out: (number | '…')[] = [];
+  keep.forEach((n, i) => {
+    if (i && n - keep[i - 1] > 1) out.push(n - keep[i - 1] === 2 ? n - 1 : '…');
+    out.push(n);
+  });
+  return out;
+}
+
+/** A list's paging state: the rows on this page and the pager's props. Back to page 1 when `reset` changes. */
+export function usePaged<T>(rows: T[], reset: unknown[] = []) {
+  const [page, setPage] = useState(0);
+  const [per, setPerRaw] = useState<number>(PAGE_SIZE);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setPage(0), reset);
+  const pages = Math.max(1, Math.ceil(rows.length / per));
+  const p = Math.min(page, pages - 1);
+  const setPer = (n: number) => (setPerRaw(n), setPage(0));
+  return { shown: rows.slice(p * per, (p + 1) * per), pager: { total: rows.length, page: p, setPage, per, setPer } };
+}
+
+export function Pager({ total, page, setPage, per = PAGE_SIZE, setPer, thing }: { total: number; page: number; setPage: (n: number) => void; per?: number; setPer?: (n: number) => void; thing: string }) {
+  const pages = Math.max(1, Math.ceil(total / per));
+  if (total <= PAGE_SIZES[0]) return null;
+  const from = page * per + 1;
+  const to = Math.min(total, (page + 1) * per);
+  const id = `pg-${thing.toLowerCase().replace(/\W+/g, '-')}`;
   return (
     <nav className="cfg__pager" aria-label={`${thing} pages`}>
-      <span className="cfg__muted num">
-        {from}–{to} of {total.toLocaleString('en-GB')}
+      {setPer && (
+        <span className="cfg__per">
+          <label htmlFor={id}>Rows per page</label>
+          <SelectMenu id={id} label="Rows per page" value={String(per)} options={PAGE_SIZES.map((n) => ({ value: String(n), label: String(n) }))} onChange={(v) => setPer(Number(v))} />
+        </span>
+      )}
+      <span className="cfg__muted num cfg__range">
+        {from === to ? from : `${from}–${to}`} of {total.toLocaleString('en-GB')}
       </span>
-      <Button size="sm" variant="secondary" disabled={page === 0} onClick={() => setPage(page - 1)} iconLeft={<Icon name="arrowLeft" size={16} />}>
-        Previous
-      </Button>
-      <Button size="sm" variant="secondary" disabled={page >= pages - 1} onClick={() => setPage(page + 1)} iconRight={<Icon name="arrowRight" size={16} />}>
-        Next
-      </Button>
+      {pages > 1 && (
+        <>
+          <Button size="sm" variant="secondary" disabled={page === 0} onClick={() => setPage(page - 1)} iconLeft={<Icon name="arrowLeft" size={16} />}>
+            Previous
+          </Button>
+          <ol className="cfg__pages">
+            {pagesAround(page, pages).map((n, i) =>
+              n === '…' ? (
+                <li key={`gap-${i}`} className="cfg__pgap" aria-hidden="true">
+                  …
+                </li>
+              ) : (
+                <li key={n}>
+                  <button type="button" className={`cfg__pnum num ${n === page + 1 ? 'is-on' : ''}`} aria-current={n === page + 1 ? 'page' : undefined} aria-label={`Page ${n}`} onClick={() => n !== page + 1 && setPage(n - 1)}>
+                    {n}
+                  </button>
+                </li>
+              ),
+            )}
+          </ol>
+          <Button size="sm" variant="secondary" disabled={page >= pages - 1} onClick={() => setPage(page + 1)} iconRight={<Icon name="arrowRight" size={16} />}>
+            Next
+          </Button>
+        </>
+      )}
     </nav>
   );
 }

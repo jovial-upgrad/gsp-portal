@@ -19,13 +19,13 @@ import type { ConfigProps } from './ConfigPage';
 import { EditBar, History, Panel, useDraft } from './parts';
 import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, trySave, type SaveResult } from './states';
 
-/** A region as the Sales regions page edits it: its own record, plus its default recruitment contact, Admissions queue and working calendar. */
-type RegionRow = Region & { bdm: string; queue: string; calendar: string };
+/** A region as the Sales regions page edits it: its own record, plus its default recruitment contact and Admissions queue. Its working calendar is set only on Admin › Work › Working days (Jovial, 3 Nov). */
+type RegionRow = Region & { bdm: string; queue: string };
 
 /**
  * Sales regions (PRD slice 1; Admin › User roles › Sales regions): the only list of sales regions in the product.
  * Each has a name, its countries, an Admissions contact, a default recruitment contact, its Admissions queue (from Admin › Work, the
- * one queue editor, S4-1) and its working calendar (Admin › Work › Working days, S4-25). One time zone, IST. Global,
+ * one queue editor, S4-1). Its working calendar is set on Admin › Work › Working days only (S4-25; Jovial, 3 Nov). One time zone, IST. Global,
  * Direct and Rest of world are system regions. The same page keeps the nationality map, on its own tab.
  */
 export function Regions(p: ConfigProps) {
@@ -56,15 +56,13 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
   const work = useStore() as { queues: { id: string; name: string }[] };
   const cals = useCalendars();
   const queueNames = (work.queues ?? []).filter((q) => q.id !== 'q-fallback' && q.id !== 'q-admin').map((q) => q.name);
-  // the region's calendar is work/calendars.ts's: its own calendarId first, then the calendar listing it (one setting, S4-25)
-  const calOf = (r: string) => cals.find((c) => c.id === calendarIdOf(r))?.name ?? cals[0]?.name ?? '';
   const queueOf = (r: string) => {
     const v = cfg.regionQueue[r];
     const name = cfg.queues.find((q) => q.id === v)?.name ?? v;
     // a deleted queue falls back to Global Admissions
     return name && queueNames.includes(name) ? name : 'Global Admissions';
   };
-  const rows: RegionRow[] = cfg.regions.map((r) => ({ ...r, bdm: cfg.regionBdm[r.name] ?? '', queue: queueOf(r.name), calendar: calOf(r.name) }));
+  const rows: RegionRow[] = cfg.regions.map((r) => ({ ...r, bdm: cfg.regionBdm[r.name] ?? '', queue: queueOf(r.name) }));
   // what keeps a region from being deleted (S1-8): an RP, a branch or an open application in it
   const inUse = (name: string) => {
     const rps = routingRps().filter((x) => x.region === name).length;
@@ -97,7 +95,6 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
                 <th scope="col">Admissions contact</th>
                 <th scope="col">Default recruitment contact</th>
                 <th scope="col">Admissions queue</th>
-                <th scope="col">Working calendar</th>
                 {canEdit && (
                   <th scope="col">
                     <span className="vh">Actions</span>
@@ -119,7 +116,6 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
                   <td>{r.contact || <span className="cfg__warn">Not set</span>}</td>
                   <td>{r.bdm || <span className="cfg__warn">Not set</span>}</td>
                   <td>{r.queue}</td>
-                  <td className="cfg__muted">{r.calendar}</td>
                   {canEdit && (
                     <td className="cfg__acts">
                       <MoreMenu
@@ -145,14 +141,14 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
         contacts={cfg.users.filter((u) => (u.role === 'Admission' || u.role === 'Global Ops') && u.status === 'Active').map((u) => u.name)}
         bdms={cfg.users.filter((u) => u.role === 'Recruitment' && u.status === 'Active').map((u) => u.name)}
         queues={queueNames}
-        calendars={cals.map((c) => c.name)}
         onClose={() => setEdit(null)}
         onSave={(r) => {
           const was = edit === 'new' ? null : edit;
-          const cal = cals.find((c) => c.name === r.calendar);
-          const region: Region = { name: r.name, contact: r.contact, countries: r.countries, ...(cal ? { calendarId: cal.id } : {}) };
+          // the working calendar is Admin › Work › Working days' (Jovial, 3 Nov): an edit here keeps the region on its calendar
+          const calId = was ? calendarIdOf(was.name) : undefined;
+          const region: Region = { name: r.name, contact: r.contact, countries: r.countries, ...(calId ? { calendarId: calId } : {}) };
           if (!was) {
-            change('Sales regions', `Added ${r.name}: ${r.countries.length} countries; contact ${r.contact}; recruitment contact ${r.bdm}; queue ${r.queue}; calendar ${r.calendar}`, (c) => {
+            change('Sales regions', `Added ${r.name}: ${r.countries.length} countries; contact ${r.contact}; recruitment contact ${r.bdm}; queue ${r.queue}`, (c) => {
               const at = c.regions.findIndex((x) => isSystemRegion(x.name));
               return { ...c, regions: [...c.regions.slice(0, at), region, ...c.regions.slice(at)], regionBdm: { ...c.regionBdm, [r.name]: r.bdm }, regionQueue: { ...c.regionQueue, [r.name]: r.queue } };
             });
@@ -168,7 +164,6 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
                 ['Admissions contact', was.contact, r.contact],
                 ['default recruitment contact', was.bdm, r.bdm],
                 ['Admissions queue', was.queue, r.queue],
-                ['working calendar', was.calendar, r.calendar],
               ] as [string, string, string][]
             )
               .filter(([, a, b]) => a !== b)
@@ -184,10 +179,10 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
               regionQueue: { ...(renamed ? rekey(c.regionQueue) : c.regionQueue), [r.name]: r.queue },
             }));
           }
-          // a region is on exactly one calendar; picking it here or on Working days is the same setting
-          if (cal) {
-            const on = cals.find((c) => c.id === cal.id)?.regions.filter((x) => x !== was?.name && x !== r.name) ?? [];
-            putRegionsOn(cal.id, [...on, r.name]);
+          // a renamed region stays on its calendar under its new name
+          if (calId && was && was.name !== r.name) {
+            const on = cals.find((c) => c.id === calId)?.regions.filter((x) => x !== was.name && x !== r.name) ?? [];
+            putRegionsOn(calId, [...on, r.name]);
           }
           say('Saved.');
           setEdit(null);
@@ -224,9 +219,8 @@ function RegionList({ cfg, change, say, canEdit }: ConfigProps) {
 }
 
 /** Add or edit a sales region (PRD slice 1, A sales region). System regions keep their name and countries. */
-function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars, onClose, onSave }: { open: boolean; region: RegionRow | null; regions: Region[]; contacts: string[]; bdms: string[]; queues: string[]; calendars: string[]; onClose: () => void; onSave: (r: RegionRow) => void }) {
-  // the working calendar is optional (Jovial, 2 Nov)
-  const blank: RegionRow = { name: '', contact: '', countries: [], bdm: '', queue: '', calendar: '' };
+function RegionDialog({ open, region, regions, contacts, bdms, queues, onClose, onSave }: { open: boolean; region: RegionRow | null; regions: Region[]; contacts: string[]; bdms: string[]; queues: string[]; onClose: () => void; onSave: (r: RegionRow) => void }) {
+  const blank: RegionRow = { name: '', contact: '', countries: [], bdm: '', queue: '' };
   const [v, setV] = useState<RegionRow>(blank);
   const [result, setResult] = useState<SaveResult | null>(null);
   const system = !!region && isSystemRegion(region.name);
@@ -268,7 +262,7 @@ function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars
       center
       className="iform cfg__sheet"
       title={region ? `Edit ${region.name}` : 'Add sales region'}
-      sub={system ? 'A system region: its name and countries are fixed; its contact, default recruitment contact, queue and calendar can change.' : undefined}
+      sub={system ? 'A system region: its name and countries are fixed; its contact, default recruitment contact and queue can change.' : undefined}
       footer={
         <div className="asf">
           <div className="asf__acts">
@@ -315,9 +309,6 @@ function RegionDialog({ open, region, regions, contacts, bdms, queues, calendars
         </Field>
         <Field id="rg-queue" label="Admissions queue" required error={c.err('queue')} hint="From Admin › Work › Queues, SLA and escalation, the only queue editor. If the queue is deleted, the region falls back to Global Admissions.">
           <Pick id="rg-queue" label="Admissions queue" value={v.queue} placeholder="Pick the Admissions queue" options={queues} invalid={!!c.err('queue')} onChange={(x) => (setV({ ...v, queue: x }), c.blur('queue')())} />
-        </Field>
-        <Field id="rg-cal" label="Working calendar" hint="Optional. Working days, hours and holidays, from Admin › Work › Working days (any set of days, like Sunday to Thursday). Picking it here or there is the same setting.">
-          <Pick id="rg-cal" label="Working calendar" value={v.calendar} placeholder="Pick a working calendar" options={calendars} onChange={(x) => setV({ ...v, calendar: x })} />
         </Field>
       </div>
     </Sheet>

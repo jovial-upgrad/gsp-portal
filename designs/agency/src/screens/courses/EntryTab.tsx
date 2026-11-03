@@ -71,16 +71,6 @@ const backlogText = (r: AcademicRule) => (r.backlogs === '' ? 'No limit' : r.bac
 const countriesText = (l: string[]) => (l.length ? l.join(', ') : 'All countries');
 const needClass = (need: string) => `cs-need cs-need--${need === 'Required' ? 'req' : need === 'Optional' ? 'opt' : 'later'}`;
 
-/** A pathway provider, from the university's record (HC2). */
-function Pathway({ c }: { c: Course }) {
-  if (!c.uni.pathway) return null;
-  return (
-    <p className="cnote">
-      <strong>Doesn’t meet entry yet?</strong> {c.uni.name} is a pathway provider.
-    </p>
-  );
-}
-
 const Notes = ({ rows }: { rows: { id: string; note: string }[] }) => (
   <>
     {rows
@@ -111,7 +101,6 @@ function OneCountry({ c, country, academic, english }: { c: Course; country: str
           <AcademicTable rows={academic} />
         )}
         <Notes rows={academic} />
-        <Pathway c={c} />
       </Box>
 
       <Box id="cs-english" icon="chat" title="English" meta={meta}>
@@ -240,7 +229,6 @@ function AllCountries({ c, academic, english }: { c: Course; academic: AcademicR
           <p className="cnote">No academic rule added for this course yet.</p>
         )}
         <Notes rows={academic} />
-        <Pathway c={c} />
       </Box>
 
       <Box id="cs-english" icon="chat" title="English" meta={meta}>

@@ -6,7 +6,7 @@ import { Field, TextInput } from '../../../components/forms';
 import { CHANNELS, FORM_FOR, REGIONS, type Channel, type FormFor, type UniRec } from '../../data/catalogue';
 import { dateText, inDays, type InstitutionPartner } from '../../data/records';
 import { acceptOf, audit, checkFile } from '../../data/changelog';
-import { AddButton, Pick, Section } from '../parts';
+import { AddButton, Pick, Section, Updated } from '../parts';
 import { Contacts, downloadFile } from '../PartnerPage';
 import type { UniUpd } from '../UniversityPage';
 
@@ -21,7 +21,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * Submission and contacts (slice 2 PRD): the application forms the university needs (name, file, level), how
  * applications are sent (own portal with its https:// link, StudyLink, or email with a valid address: required to go
- * Live), portal logins by sales region (Institution, IP Ops, Global Ops and Admin edit; Admission, Finance and View
+ * Live), portal logins by sales region, inside How applications are sent (Jovial, 3 Nov; Institution, IP Ops, Global Ops and Admin edit; Admission, Finance and View
  * Only can Show; each Show is in the audit log), and the university's contacts.
  */
 export function Submission({ u, p, part, say, me, role, edit, editLogins, seeLogins }: { u: UniRec; p?: InstitutionPartner; part: (k: string) => UniUpd; say: (m: string) => void; me: string; role: string; edit: boolean; editLogins: boolean; seeLogins: boolean }) {
@@ -79,9 +79,9 @@ export function Submission({ u, p, part, say, me, role, edit, editLogins, seeLog
         ) : (
           <p>{u.channel ? `${u.channel}${u.channel !== 'StudyLink' && u.link ? `: ${u.link}` : ''}` : <span className="muted">Not set</span>}</p>
         )}
+        {/* the logins are part of how applications are sent (Jovial, 3 Nov), for Own portal and StudyLink only (2 Nov): an email submission has no login */}
+        {seeLogins && (u.channel === 'Own portal' || u.channel === 'StudyLink') && <Logins u={u} upd={part('logins')} say={say} me={me} role={role} edit={editLogins} />}
       </Section>
-      {/* only for Own portal and StudyLink (Jovial, 2 Nov): an email submission has no login */}
-      {seeLogins && (u.channel === 'Own portal' || u.channel === 'StudyLink') && <Logins u={u} upd={part('logins')} say={say} me={me} role={role} edit={editLogins} />}
       <Contacts
         id="iu-contacts"
         list={u.contacts}
@@ -209,7 +209,10 @@ function Forms({ u, upd, say, edit }: { u: UniRec; upd: UniUpd; say: (m: string)
   );
 }
 
-/** Portal logins: by sales region (or All regions); the secret is hidden until shown, and every Show is logged. */
+/**
+ * The logins for the portal applications are sent through, inside How applications are sent (Jovial, 3 Nov): by sales
+ * region (or All regions); the secret is hidden until shown, and every Show is logged.
+ */
 function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: (m: string) => void; me: string; role: string; edit: boolean }) {
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState({ region: '', username: '', secret: '' });
@@ -228,13 +231,17 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
     setV({ region: '', username: '', secret: '' });
   };
   return (
-    <Section
-      title="Portal logins"
-      id="iu-logins"
-      updated={u.stamps.logins}
-      note="Username and password by sales region (StudyLink has one for each). Applications use the login for their own region, else the All regions one. Passwords are kept in the secrets store, never in the Change log; each Show is logged."
-      action={edit && !adding ? <AddButton onClick={() => setAdding(true)}>Add a login</AddButton> : undefined}
-    >
+    <div className="isubsec" role="group" aria-labelledby="iu-logins">
+      <div className="irsec__head">
+        <div className="irsec__t">
+          <h3 className="isubsec__title" id="iu-logins">
+            {u.channel === 'StudyLink' ? 'StudyLink logins' : 'Portal logins'}
+          </h3>
+          <p className="irsec__note">Username and password by sales region{u.channel === 'StudyLink' ? ' (StudyLink has one for each)' : ''}. Applications use the login for their own region, else the All regions one. Passwords are kept in the secrets store, never in the Change log; each Show is logged.</p>
+          <Updated s={u.stamps.logins} />
+        </div>
+        {edit && !adding ? <AddButton onClick={() => setAdding(true)}>Add a login</AddButton> : undefined}
+      </div>
       {adding && (
         <div className="iaddform">
           <div className="iaddform__grid">
@@ -337,6 +344,6 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
       >
         <p>Its password is deleted from the secrets store.</p>
       </ConfirmDialog>
-    </Section>
+    </div>
   );
 }

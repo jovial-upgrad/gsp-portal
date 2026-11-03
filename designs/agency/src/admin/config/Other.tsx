@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { DateInput } from '../../components/forms';
@@ -8,7 +8,7 @@ import { CODE_MINUTES, type LogEntry, type Security as SecurityCfg } from '../da
 import { PageHead, downloadCsv } from '../../institution/records/parts';
 import type { ConfigProps } from './ConfigPage';
 import { ACCOUNT_EMAILS, SENDER } from '../data/emails';
-import { Empty, Loaded, PAGE_SIZE, Pager, Pick, ViewOnlyNote, istDate, istDay, istTime } from './states';
+import { Empty, Loaded, Pager, usePaged, Pick, ViewOnlyNote, istDate, istDay, istTime } from './states';
 
 /**
  * Logs (Jovial, S1C-9): the download log only, for now. Every CSV or export downloaded anywhere, with who, their
@@ -22,15 +22,13 @@ export function Logs({ cfg, canEdit }: ConfigProps) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [q, setQ] = useState('');
-  const [page, setPage] = useState(0);
   const iso = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
   const t = q.trim().toLowerCase();
   const downloads = cfg.log.filter((l) => l.kind === 'download');
   const rows = downloads
     .filter((l) => (!role || l.role === role) && (!who || l.who === who) && (!iso(from) || istDay(l.at) >= from) && (!iso(to) || istDay(l.at) <= to) && (!t || [l.text, l.area, l.filters ?? ''].some((x) => x.toLowerCase().includes(t))))
     .sort((a, b) => b.at - a.at);
-  useEffect(() => setPage(0), [role, who, from, to, q]);
-  const shown = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const { shown, pager } = usePaged(rows, [role, who, from, to, q]);
   const rangeErr = dateError(from, { what: 'From date' }) || dateError(to, { what: 'To date' }) || afterError(from, to, 'To date', 'From date');
   const filtered = Boolean(role || who || from || to || q);
   const clear = () => (setRole(''), setWho(''), setFrom(''), setTo(''), setQ(''));
@@ -116,7 +114,7 @@ export function Logs({ cfg, canEdit }: ConfigProps) {
               </table>
             </div>
           )}
-          <Pager total={rows.length} page={page} setPage={setPage} thing="Log" />
+          <Pager {...pager} thing="Log" />
         </section>
       </Loaded>
     </>

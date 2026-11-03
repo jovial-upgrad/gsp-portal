@@ -189,6 +189,8 @@
 .irsec__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-10) var(--sp-16); }
 .irsec__t { flex: 1 1 320px; display: grid; gap: 4px; min-width: 0; }
 .irsec__title { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); font-weight: var(--fw-semi); }
+.isubsec { margin-top: var(--sp-16); padding-top: var(--sp-16); border-top: 1px solid var(--line); display: grid; gap: var(--sp-12); }
+.isubsec__title { margin: 0; font-size: var(--t-body); line-height: var(--lh-body); font-weight: var(--fw-semi); }
 .irsec__note { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); max-width: 72ch; }
 .irsec__acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
 .irsec__foot { font-size: var(--t-caption); color: var(--text-3); }

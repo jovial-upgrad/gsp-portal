@@ -8,6 +8,11 @@ import { returnedDocs } from '../signup/docs';
 import { LOCKED_COPY, NAV, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { TeamSection } from './Team';
 import { EmailPrefs } from './EmailPrefs';
+import { downloadFile } from '../../institution/records/PartnerPage';
+import type { RpDoc } from '../../institution/data/records';
+
+/** How the RP reads a document's state on its own record (the GSP side's With BAP is "Verifying" to the RP). */
+const RP_DOC_STATE: Record<RpDoc['state'], [string, string]> = { 'With BAP': ['Verifying', 'pill--gsp'], Verified: ['Verified', 'pill--ok'], 'Sent back': ['Not verified', 'pill--bad'], Missing: ['Not uploaded', 'pill--bad'] };
 
 const labelOf = (k: Section) => NAV.find((n) => n.key === k)?.label ?? '';
 
@@ -98,7 +103,10 @@ export function ProfileSection({
   onSignOut,
   team,
   agreement,
+  recordDocs,
 }: {
+  /** The agency's business documents on its RP record (GSP · RP Ops sees the same list), for an RP that isn't registering in this session. */
+  recordDocs?: RpDoc[];
   /** Profile › Agreement: RP Admin only (Branch Admin and Counsellor don't see it). */
   agreement?: ReactNode;
   acc: Account;
@@ -167,6 +175,44 @@ export function ProfileSection({
             <Button variant={back > 0 ? 'primary' : 'secondary'} size="sm" onClick={onDocs}>
               {back === 0 ? 'View documents' : back === 1 ? 'Replace document' : 'Replace documents'}
             </Button>
+          </section>
+        )}
+
+        {!join && recordDocs && (
+          <section className="card pcard" aria-labelledby="pdocs-title">
+            <div className="pcard__row">
+              <div className="pcard__lead">
+                <h2 id="pdocs-title" className="pcard__title">
+                  Business documents
+                </h2>
+                <p className="pcard__text">The documents you sent GSP when you registered, as GSP holds them on your record.</p>
+              </div>
+              {recordDocs.every((d) => d.state === 'Verified' || (d.optional && d.state === 'Missing')) ? <span className="pill pill--ok">Verified</span> : <span className="pill pill--gsp">Verifying</span>}
+            </div>
+            {recordDocs.length ? (
+              <ul className="ilist">
+                {recordDocs.map((d) => {
+                  const [label, tone] = RP_DOC_STATE[d.state];
+                  return (
+                    <li key={d.name} className="ilist__item">
+                      <Icon name="file" size={18} />
+                      <span className="ilist__t">
+                        {d.name}
+                        <span className="irow__sub">{d.state === 'Missing' ? (d.optional ? 'Optional' : 'Not uploaded') : d.file}</span>
+                      </span>
+                      <span className={`pill ${tone}`}>{label}</span>
+                      {d.state !== 'Missing' && (
+                        <button type="button" className="btn btn--link" onClick={() => downloadFile(d.file)}>
+                          Download<span className="vh"> {d.name}</span>
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="pcard__text">No business documents on your record.</p>
+            )}
           </section>
         )}
 

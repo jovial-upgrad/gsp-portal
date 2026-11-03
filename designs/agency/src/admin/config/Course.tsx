@@ -5,7 +5,6 @@ import { TextInput } from '../../components/forms';
 import { FLAG } from '../../data/courses';
 import { PageHead } from '../../institution/records/parts';
 import { DEST_CURRENCY, inrPerFrom, type FxWeek, type Living, type Rate } from '../data/config';
-import { intakeTimes, type IntakeTimes } from '../../data/courses';
 import type { ConfigProps } from './ConfigPage';
 import { CellError, EditBar, History, Panel, useDraft, when } from './parts';
 import { useCheck } from '../../components/validate';
@@ -221,7 +220,7 @@ export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
  * Living costs and fees (PRD slice 1; Admin › Course configuration): one row per destination: its currency (read
  * only, from the destination), the living expense a year, the visa fee (once), health insurance a year, a Note of
  * where Admin found the figures, and when it was last changed. Rows can be added and deleted. The course page's
- * Costs uses these for the course's length (1 year when the length is in credits). Intake timings sit below.
+ * Costs uses these for the course's length (1 year when the length is in credits).
  */
 export function LivingCosts({ cfg, change, say, canEdit, me }: ConfigProps) {
   const d = useDraft<Living[]>(cfg.living, 'the living costs and fees');
@@ -354,50 +353,7 @@ export function LivingCosts({ cfg, change, say, canEdit, me }: ConfigProps) {
         </Panel>
       </Loaded>
       <History log={cfg.log} area="Living costs and fees" />
-      <IntakeTimings />
     </>
   );
 }
 
-/* ---------- intake timings (PRD slice 1, Course configuration) ---------- */
-
-const TIMES: [keyof IntakeTimes, string, string][] = [
-  ['lateDays', 'Late after the deadline', 'An intake still shows, as “Late: likelihood is low”, for this long after its application deadline. Then it’s closed.'],
-  ['warnDays', 'Deadline soon', 'An open intake is marked as closing soon.'],
-  ['countdownDays', 'Countdown', 'An intake shows “closes in N days” once its deadline is this many days away.'],
-];
-
-/**
- * Intake timings: how course search times each intake, in whole calendar days counted on IST dates. Read by course
- * search (slice 3) and the course pages (slice 2). Pre-decided values, not configurable in Admin (Jovial, S1C-11):
- * shown read only; the values live in data/courses.ts (INTAKE_TIMES).
- */
-function IntakeTimings() {
-  const t = intakeTimes();
-  return (
-    <Panel flush title="Intake timings" note="How course search times each intake, in calendar days counted on IST dates. These are decided values and can’t be changed here.">
-      <div className="stab-wrap">
-        <table className="itab cfg__tab">
-          <thead>
-            <tr>
-              <th scope="col">Setting</th>
-              <th scope="col">Days</th>
-              <th scope="col">Means</th>
-            </tr>
-          </thead>
-          <tbody>
-            {TIMES.map(([k, label, what]) => (
-              <tr key={k}>
-                <td className="cfg__strong">{label}</td>
-                <td>
-                  <span className="num">{t[k]} days</span>
-                </td>
-                <td className="cfg__muted">{what}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}

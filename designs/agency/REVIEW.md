@@ -6,6 +6,28 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 3 Nov, morning: Admin, course search, university and student form (Jovial, in chat)
+
+Prototype only (branch `admin-polish-3nov`); the PRDs follow.
+
+### GSP · Admin
+- [x] **User roles › Sales regions:** no Working calendar column or field. A region's calendar is set only on Admin › Work › Working days; editing or renaming a region keeps it on its calendar. (3 Nov, COMMIT)
+- [x] **User roles › Create roles:** 20 rows a page, with Rows per page (10, 20, 50, 100), the page numbers and Previous/Next. The same pager is on Logs. (3 Nov, COMMIT)
+- [x] **User roles › Shared mailboxes:** the people on a mailbox, A to Z, paged the same way. (3 Nov, COMMIT)
+- [x] **Course configuration:** the read-only Intake timings table is gone. The late, closing-soon and countdown days stay decided values in code (S1C-11). (3 Nov, COMMIT)
+
+### Find courses / Course page
+- [x] No "Doesn’t meet entry yet? <university> is a pathway provider." on the Entry requirements tab. Pathway provider stays a field on the university's Overview. (3 Nov, COMMIT)
+
+### GSP · Institution: university › Submission and contacts
+- [x] **Portal logins sit inside How applications are sent**, under the channel, for Own portal (“Portal logins”) and StudyLink (“StudyLink logins”); none for Email. (3 Nov, COMMIT)
+
+### RP portal: Profile (RP Admin)
+- [x] **RP Admin sees the business documents it uploaded**, from its RP record (the list GSP · RP Ops sees), each with its state and Download. Before, the card showed only while registering in the same session. (3 Nov, COMMIT)
+
+### Add a student (every role)
+- [x] No hint under Email (“Used on university applications. GSP never sends students marketing.”) or Current country of residence (“Where the student lives now.”). (3 Nov, COMMIT)
+
 ## 3 Nov, overnight alignment with the PRDs (Jovial's brief)
 
 The four engineering-ready PRDs (slices 1 to 4) and the *Final questions S1-S3* proposals, built on branch `overnight-align`, prototype only (README "Overnight alignment with the PRDs").
