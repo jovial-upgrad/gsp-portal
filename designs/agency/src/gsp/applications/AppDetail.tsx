@@ -792,7 +792,7 @@ export function AppDetail({
                 // W10 / SR4 (Jovial, 1 Nov): the sales region and the routing rule that set it
                 const r = routeApplication({ rp: a.rp, nationality: s.nationality, livesIn: s.country, dest: d });
                 const region = a.region ?? r.region;
-                return <Row k="Sales region" v={region ? <span>{region} <span className="cdl__soft">· {region === r.region && r.rule ? `routed by rule ${r.rule}, ${r.title?.toLowerCase()}` : 'set by GSP'}{officerOf(a) ? ` · ${regionQueueName(region)}` : ''}</span></span> : null} />;
+                return <Row k="Sales region" v={region || null} />;
               })()}
               {stageOf(a) >= 6 && a.status !== 'closed' && <Row k="Visa lodged by" v={a.visaBy === 'gsp' ? 'GSP' : 'The RP'} />}
             </KeyGroup>
