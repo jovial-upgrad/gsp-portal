@@ -15,7 +15,7 @@ export const MAX_PICK = 5;
 const shortDate = (iso: string) => fmtDate(iso);
 
 /**
- * The comparison's fields (slice 3 PRD, decided): only these, in this order; the CSV has the same fields. `best` is
+ * The comparison's fields (slice 3 PRD, decided): only these, in this order; the CSV offers the same fields as columns to tick (Jovial, 3 Nov). `best` is
  * the row's tag (Lowest, Yes, Best); `num` the value it's decided on (null: "—", which never wins); money is compared
  * in one currency, converted with Admin's Currency exchange (S3C-5). `country`: the search's student country, whose
  * requirements the Requirements row shows.
@@ -284,10 +284,13 @@ export type Sender = { org: string; name: string; email: string };
 /**
  * Download, for the courses picked (from the bar, or the comparison's Download): **PDF for the student**, the
  * comparison's fields under the agency's name and the sender's contact, never any commission; or **CSV for internal
- * use**, the same fields as columns (logged as a download, slice 1).
+ * use**, the comparison's fields the person ticks as columns, all to start (Jovial, 3 Nov; logged as a download, slice 1).
  */
 export function DownloadSheet({ open, list, country, from, compare, onClose }: { open: boolean; list: Course[]; country: string; from: Sender; compare: boolean; onClose: () => void }) {
   const [kind, setKind] = useState<'pdf' | 'csv'>('pdf');
+  // the CSV's columns (Jovial, 3 Nov): the person ticks which of the comparison's fields go in; all of them to start
+  const [on, setOn] = useState<string[]>(() => CSV_FIELDS.map((f) => f.key));
+  const picked = CSV_FIELDS.filter((f) => on.includes(f.key));
   const title = compare ? 'Course comparison' : 'Selected courses';
 
   const downloadPdf = () => {
@@ -307,7 +310,7 @@ export function DownloadSheet({ open, list, country, from, compare, onClose }: {
     save(pdfOf(lines), `${title.toLowerCase().replace(/ /g, '-')}-${stamp()}.pdf`);
   };
   const downloadCsv = () => {
-    const out = [CSV_FIELDS.map((f) => csvCell(f.label)).join(','), ...list.map((c) => CSV_FIELDS.map((f) => csvCell(f.get(c, country))).join(','))].join('\n');
+    const out = [picked.map((f) => csvCell(f.label)).join(','), ...list.map((c) => picked.map((f) => csvCell(f.get(c, country))).join(','))].join('\n');
     // a .csv download is logged where the browser saves it (data/downloads.ts)
     save(new Blob([out], { type: 'text/csv' }), `courses-${stamp()}.csv`);
   };
@@ -345,7 +348,7 @@ export function DownloadSheet({ open, list, country, from, compare, onClose }: {
                 Download PDF
               </Button>
             ) : (
-              <Button iconLeft={<Icon name="download" size={16} />} onClick={downloadCsv} disabled={!list.length}>
+              <Button iconLeft={<Icon name="download" size={16} />} onClick={downloadCsv} disabled={!list.length || !picked.length}>
                 Download CSV
               </Button>
             )}
@@ -394,31 +397,60 @@ export function DownloadSheet({ open, list, country, from, compare, onClose }: {
         </div>
       ) : (
         <div className="cdown__body">
+          <div className="cdown__colhead">
+            <p className="cdown__k">
+              Columns · {picked.length} of {CSV_FIELDS.length}
+            </p>
+            <p className="cdown__quick">
+              {picked.length < CSV_FIELDS.length ? (
+                <button type="button" className="btn btn--link" onClick={() => setOn(CSV_FIELDS.map((f) => f.key))}>
+                  Select all
+                </button>
+              ) : (
+                <button type="button" className="btn btn--link" onClick={() => setOn([])}>
+                  Clear all
+                </button>
+              )}
+            </p>
+          </div>
+          <fieldset className="cdown__cols">
+            <legend className="vh">Columns to include in the CSV</legend>
+            {CSV_FIELDS.map((f) => (
+              <label key={f.key} className={`cdown__col ${on.includes(f.key) ? 'is-on' : ''}`}>
+                <input type="checkbox" checked={on.includes(f.key)} onChange={(e) => setOn((l) => (e.target.checked ? CSV_FIELDS.filter((x) => x.key === f.key || l.includes(x.key)).map((x) => x.key) : l.filter((k) => k !== f.key)))} />
+                <span>{f.label}</span>
+              </label>
+            ))}
+          </fieldset>
           <p className="cdown__k">
-            Preview · {list.length} {list.length === 1 ? 'row' : 'rows'} · the comparison’s fields. The download is logged.
+            Preview · {list.length} {list.length === 1 ? 'row' : 'rows'} · the download is logged.
           </p>
-          <div className="cdown__scroll">
-            <table className="cdown__table">
-              <thead>
-                <tr>
-                  {CSV_FIELDS.map((f) => (
-                    <th key={f.key} scope="col">
-                      {f.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((c) => (
-                  <tr key={c.id}>
-                    {CSV_FIELDS.map((f) => (
-                      <td key={f.key}>{f.get(c, country)}</td>
+          {picked.length ? (
+            <div className="cdown__scroll">
+              <table className="cdown__table">
+                <thead>
+                  <tr>
+                    {picked.map((f) => (
+                      <th key={f.key} scope="col">
+                        {f.label}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {list.map((c) => (
+                    <tr key={c.id}>
+                      {picked.map((f) => (
+                        <td key={f.key}>{f.get(c, country)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="cdown__none">Tick at least one column.</p>
+          )}
         </div>
       )}
     </Sheet>
