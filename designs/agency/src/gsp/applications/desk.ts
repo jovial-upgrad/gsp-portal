@@ -214,32 +214,3 @@ export function rpContact(m: Pick<Member, 'name' | 'role' | 'email' | 'dial' | '
   return { name: m.name, first, role: `${m.role}, ${agency}`, email: m.email ?? '', phone: phoneOf(m) };
 }
 
-/** A university document that came in GSP's mail and isn't in Documents yet: GSP Assist offers to add it for the RP. `org`: who sent it. */
-export type MailDoc = { mail: Mail; file: string; name: string; org: string };
-/** What a university document is, from its file name: offer letters, the acceptance letter (CoE, CAS, I-20, LOA), the visa. */
-function uniDocName(file: string, a: Application) {
-  const d = courseOf(a).uni.country;
-  if (/uncond/i.test(file)) return 'Unconditional offer letter';
-  if (/conditional/i.test(file)) return 'Conditional offer letter';
-  if (/(^|[^a-z])(coe|cas|i-?20|loa)([^a-z]|$)|acceptance|confirmation[-_ ]of[-_ ]enrol|offer[-_ ]of[-_ ]place/i.test(file)) return ENROL_DOC_LONG[d];
-  if (/visa|grant/i.test(file)) return 'Visa grant letter';
-  if (/offer/i.test(file)) return a.offer?.file === file ? (a.offer.kind === 'conditional' ? 'Conditional offer letter' : 'Unconditional offer letter') : 'Offer letter';
-  return undefined;
-}
-/** The document each status waits on from the mail: the offer letters, the acceptance letter, the visa grant. */
-function nudgeFor(a: Application) {
-  const d = courseOf(a).uni.country;
-  return a.status === 'conditions' ? 'Conditional offer letter' : a.status === 'uol' ? 'Unconditional offer letter' : a.status === 'waitad' ? ENROL_DOC_LONG[d] : a.status === 'startdate' ? 'Visa grant letter' : undefined;
-}
-/** The university documents in the mail that aren't in Documents: only the one the status is about (Nesil, 28 Oct). */
-export function mailDocs(desk: Desk, a: Application): MailDoc[] {
-  const want = nudgeFor(a);
-  const out: MailDoc[] = [];
-  if (!want) return out;
-  for (const m of desk.mails.filter((x) => x.box === 'in').sort((x, y) => y.at - x.at))
-    for (const file of m.files ?? []) {
-      const name = uniDocName(file, a);
-      if (name === want && !a.files.some((f) => f.file === file) && !desk.dismissed?.includes(file)) out.push({ mail: m, file, name, org: m.org ?? courseOf(a).uni.name });
-    }
-  return out;
-}

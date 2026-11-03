@@ -55,7 +55,7 @@ import { Field } from '../../components/forms';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
 import { rpBranches, rpTeam } from '../../data/rpteam';
-import { longDate, mailDocs, rpContact, statusMail, type Desk, type MailDoc } from './desk';
+import { longDate, rpContact, statusMail, type Desk } from './desk';
 import { DocButtons, downloadDoc } from '../../components/DocView';
 import { Celebrate } from '../../components/Celebrate';
 import { CondCard, CondDialog, condViews } from '../../screens/applications/Conditions';
@@ -217,8 +217,7 @@ export function AppDetail({
 
   // GSP sets the status by hand: the old status's needs are done (requests stay), and a document the new one
   // needs from the RP (the payment proof, the visa lodgement proof) is asked for in the chat, by GSP. Or it closes.
-  // A status that comes with a document by mail (an offer letter, the acceptance letter, the visa grant) has
-  // its mail in, for GSP Assist to offer to add it to Documents
+  // No offer, acceptance or visa letter is read from the mail and offered for Documents (Jovial, 3 Nov): GSP uploads it with the status change
   const changeStatus = (pick: StatusPick) => {
     setChanging(false);
     if ('end' in pick) return close(pick.end, '', pick.stage);
@@ -350,24 +349,6 @@ export function AppDetail({
     setTab('chat');
   };
 
-  // a university document that came by mail: GSP Assist offers to add it to Documents and tell the RP
-  const nudge = isOpen(a) ? mailDocs(desk, a)[0] : undefined;
-  const addFromMail = (m: MailDoc) => {
-    const now = Date.now();
-    update((x) => ({
-      ...x,
-      files: [...x.files, { name: m.name, file: m.file, from: 'uni', at: now, status: 'verified' }],
-      unread: (x.unread ?? 0) + 1,
-      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: autoName(x, gsp.name), text: `${m.org} sent ${s.first}’s ${m.name}. I’ve added it to Documents.`, files: [m.file] }],
-      history: [...x.history, { at: now, who: 'gsp', text: `Added the ${m.name} from ${m.org}’s mail to Documents, and let the RP know`, by: gsp.name }],
-    }));
-    say(`${m.name} added to Documents. ${agency} has been told in the chat.`);
-  };
-  const skipMail = (m: MailDoc) => {
-    setDesk((x) => ({ ...x, dismissed: [...(x.dismissed ?? []), m.file] }));
-    say(`${m.name} left in the mail.`);
-  };
-
   /**
    * Close (Change status › Close the application) or withdraw (More › Withdraw): every open request is cancelled
    * (its card reads "Closed with the application"), the chat says why under the assigned officer's name, and the
@@ -495,43 +476,8 @@ export function AppDetail({
         <StageTrack stage={stageOf(a)} owner={o} dates={reached} who={false} />
       </header>
 
-      {/* GSP Assist's nudge, what's GSP's to do, what's with the RP, or why it's closed */}
+      {/* what's GSP's to do, what's with the RP, or why it's closed */}
       <AnimatePresence initial={false}>
-        {nudge && (
-          <motion.section
-            key={`mail-${nudge.file}`}
-            className="aneed gnudge"
-            aria-label="GSP Assist"
-            initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.24, ease }}
-          >
-            <span className="gnudge__mark" aria-hidden="true">
-              <AssistMark size={22} motion="idle" />
-            </span>
-            <div className="aneed__t">
-              <p className="gnudge__k">GSP Assist</p>
-              <p className="aneed__title">
-                Hi {gsp.name.split(' ')[0]}, we’ve received the {nudge.name} for {fullName(s)}.
-              </p>
-              <p className="aneed__text">
-                It came from {nudge.mail.from.name} by mail. Should I add it to Documents, so {agency} can access it, and let them know?
-              </p>
-              <span className="gnudge__file">
-                <Icon name="file" size={16} />
-                <span className="gnudge__fname">{nudge.file}</span>
-                <DocButtons d={{ name: nudge.name, file: nudge.file }} s={s} />
-              </span>
-            </div>
-            <span className="gnudge__acts">
-              <Button variant="secondary" onClick={() => skipMail(nudge)}>
-                No
-              </Button>
-              <Button onClick={() => addFromMail(nudge)}>Yes, add to documents</Button>
-            </span>
-          </motion.section>
-        )}
         {a.status === 'enrolled' && <Celebrate key="enrolled" title={`${s.first} is enrolled`} text={`${fullName(s)} is enrolled at ${c.uni.name} for the ${c.name}, ${a.intake} intake.`} />}
         {pending.length > 0 && isOpen(a) && (
           <motion.section
@@ -580,7 +526,7 @@ export function AppDetail({
             </Button>
           </motion.section>
         )}
-        {isOpen(a) && !pending.length && !open.length && !nudge && (
+        {isOpen(a) && !pending.length && !open.length && (
           <motion.section key="next" className="aneed aneed--calm" aria-label="What's next" initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}>
             <span className="aneed__mark" aria-hidden="true">
               <Icon name="info" size={20} />
