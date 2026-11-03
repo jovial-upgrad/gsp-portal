@@ -21,6 +21,10 @@ const root = path.join(here, '..');
 const mem = {};
 globalThis.localStorage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
 globalThis.__glob = () => ({});
+// one fixed clock for the whole run: a rule's wait running out between two checks (T9b at 12 working hours) must not
+// look like a task no rule produced (flaky in the evening, 3 Nov)
+const FROZEN = Date.now();
+Date.now = () => FROZEN;
 globalThis.window = { addEventListener() {}, removeEventListener() {}, setTimeout, clearTimeout, location: { search: '', hash: '' } };
 globalThis.document = { addEventListener() {}, removeEventListener() {} };
 const out = await build({
