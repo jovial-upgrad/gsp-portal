@@ -34,7 +34,7 @@ export const textOf = (html: string) => new DOMParser().parseFromString(html, 't
  * A description with formatting (29 Oct, 6th round), as in the PM prototype: bold, italics, lists, a heading and
  * links, and images or PDFs attached under it.
  */
-export function RichText({ id, value, onChange, files, onFiles, invalid, describedBy, disabled }: { id: string; value: string; onChange: (html: string) => void; files: string[]; onFiles: (f: string[]) => void; invalid?: boolean; describedBy?: string; disabled?: boolean }) {
+export function RichText({ id, value, onChange, files, onFiles, onMedia, invalid, describedBy, disabled }: { id: string; value: string; onChange: (html: string) => void; files: string[]; onFiles: (f: string[]) => void; /** An attached image's stored file, once read (4 Nov: images show on the course's details). */ onMedia?: (name: string, src: string) => void; invalid?: boolean; describedBy?: string; disabled?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const pick = useRef<HTMLInputElement>(null);
   // the link's address is asked in the portal's own dialog (Jovial, 2 Nov: no browser prompt); the text picked is kept
@@ -102,7 +102,15 @@ export function RichText({ id, value, onChange, files, onFiles, invalid, describ
           aria-hidden="true"
           data-testid={`${id}-files`}
           onChange={(e) => {
-            const names = [...(e.target.files ?? [])].map((f) => f.name);
+            const picked = [...(e.target.files ?? [])];
+            const names = picked.map((f) => f.name);
+            picked
+              .filter((f) => f.type.startsWith('image/') && !files.includes(f.name))
+              .forEach((f) => {
+                const r = new FileReader();
+                r.onload = () => onMedia?.(f.name, String(r.result));
+                r.readAsDataURL(f);
+              });
             e.target.value = '';
             if (names.length) onFiles([...files, ...names.filter((n) => !files.includes(n))]);
           }}
