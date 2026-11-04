@@ -10,7 +10,7 @@ import { datasetStudents, testAgencyStudents } from './dataset';
 import { GRADING_SCALES } from './grading';
 import { grades, systemOf, toPct } from '../admin/data/eligibility';
 import { TESTS, type Test, type TestType } from './tests';
-import { CARD_LEVELS, LANGUAGES_OF_INSTRUCTION } from './reference';
+import { CARD_LEVELS, LANGUAGES_OF_INSTRUCTION, MARRIED, OTHER_GRADING, STUDENT_GRADING } from './reference';
 
 /* ---------- education ---------- */
 
@@ -35,11 +35,24 @@ export const STUDY_LEVELS = CARD_LEVELS as Record<Level, string[]>;
  * '5'), read as Percentage, CGPA out of 10, GPA out of 4 and GPA out of 5.
  */
 export type Grading = string;
-/** The picker's options: [value, label]; the record's current one is kept when it's retired or an older key. */
+/**
+ * The picker's options: [value, label], from the reference list (data/reference.ts STUDENT_GRADING, 4 Nov: labels
+ * without country names, then Others). The value is the Grade conversion system's name, so the eligibility check
+ * converts it; a system Admin retired isn't offered. The record's current one is kept when it's retired or an older key.
+ */
 export const gradingOptions = (current = ''): [string, string][] => {
-  const list = grades().filter((g) => g.status === 'Active').map((g): [string, string] => [g.name, g.usedIn ? `${g.name} (${g.usedIn})` : g.name]);
+  const active = grades().filter((g) => g.status === 'Active');
+  const list = STUDENT_GRADING.flatMap((r): [string, string][] => {
+    if (!r.system) return [[r.label, r.label]];
+    const sys = active.find((g) => g.id === r.system);
+    return sys ? [[sys.name, r.label]] : [];
+  });
   const cur = current ? systemOf(current) : undefined;
-  return current && !list.some(([k]) => k === current) ? [[current, cur ? `${cur.name}${cur.status === 'Retired' ? ' (retired)' : ''}` : current], ...list] : list;
+  if (!current || list.some(([k]) => k === current)) return list;
+  // an older record's scale key ('10') for a system on the list: that option, under the key the record holds
+  const same = cur && list.find(([k]) => k === cur.name);
+  if (same) return list.map((o) => (o === same ? [current, same[1]] : o));
+  return [[current, cur ? `${cur.name}${cur.status === 'Retired' ? ' (retired)' : ''}` : current], ...list];
 };
 /** @deprecated the fixed scales before Admin's list; kept for the readers that still import it. */
 export const GRADING: [Grading, string][] = GRADING_SCALES.filter((g) => g.max).map((g) => [g.key as Grading, g.label]);
@@ -70,12 +83,17 @@ export type Edu = {
   /** MM/YYYY */
   start: string;
   end: string;
+  /** With grading system Others: how the student was graded (4 Nov). */
+  gradingNote?: string;
 };
 export const emptyEdu = (country = ''): Edu => ({ country, state: '', level: '', institution: '', qualification: '', grading: '', score: '', language: '', backlogs: '', start: '', end: '' });
+/** Graded some other way: no conversion, a description instead (4 Nov). */
+export const isOtherGrading = (g: string) => g === OTHER_GRADING;
 
 /** A score that fits its grading system: a number on its scale, or one of its grades for band systems. */
 export const scoreOk = (e: Pick<Edu, 'grading' | 'score'>) => {
   if (!e.grading || e.score.trim() === '') return false;
+  if (isOtherGrading(e.grading)) return true;
   const s = systemOf(e.grading);
   if (s?.by === 'Bands' && s.bands.some((b) => b.from.trim().toLowerCase() === e.score.trim().toLowerCase())) return true;
   const v = Number(e.score);
@@ -89,18 +107,20 @@ export function pctOf(e: Pick<Edu, 'grading' | 'score'>) {
   return p === null ? null : Math.round(p);
 }
 
-/** The fields an education level needs, in order, with how each is named when it's missing. */
+/**
+ * The fields an education level needs, in order, with how each is named when it's missing. Kept light (admissions
+ * feedback, 4 Nov): the university or school board, its state and the score are optional (a score that's there still
+ * has to fit its grading system); Others needs its description.
+ */
 export function eduFields(l: Level, e: Edu) {
-  const hasStates = (countryByName(e.country)?.states.length ?? 0) > 0;
   return (
     [
       ['country', 'country', !!e.country],
-      ['state', 'state', !hasStates || !!e.state],
       ['level', 'program level', !!e.level],
-      ['institution', isSchool(l) ? 'school board' : 'university', !!e.institution.trim()],
       ['qualification', isSchool(l) ? 'qualification' : 'degree', !!e.qualification.trim()],
       ['grading', 'grading system', !!e.grading],
-      ['score', 'score', scoreOk(e)],
+      ...(isOtherGrading(e.grading) ? [['gradingNote', 'grading description', !!e.gradingNote?.trim()]] : []),
+      ['score', 'score', e.score.trim() === '' || scoreOk(e)],
       ['language', 'language of instruction', !!e.language],
       ...(isSchool(l) ? [] : [['backlogs', 'backlogs', e.backlogs.trim() !== '' && Number(e.backlogs) >= 0]]),
       ['start', 'start date', !!parseMonth(e.start)],
@@ -138,6 +158,12 @@ export type Owner = 'you' | 'gsp' | 'uni';
 /** An application as the student's record shows it; the Applications page holds the application itself. */
 export type StudentApp = { id: string; course: string; uni: string; intake: string; owner: Owner | 'done' | 'end' | 'wd'; status: string };
 export type Gender = '' | 'Male' | 'Female' | 'Other';
+/** A postal address (4 Nov: used for application lodgement). */
+export type Address = { line1: string; line2: string; city: string; state: string; postcode: string; country: string };
+export const emptyAddress = (country = ''): Address => ({ line1: '', line2: '', city: '', state: '', postcode: '', country });
+/** A visa refusal: the country, which visa or document, and when (MM/YYYY). */
+export type Refusal = { id: string; country: string; visa: string; when: string };
+export const emptyRefusal = (id: string): Refusal => ({ id, country: '', visa: '', when: '' });
 
 export type Student = {
   id: string;
@@ -162,11 +188,26 @@ export type Student = {
   country: string;
   state: string;
   city: string;
+  /** The rest of the present address (4 Nov): its country, state and city are the three above. */
+  addr1?: string;
+  addr2?: string;
+  postcode?: string;
+  /** Permanent address: the same as the present one, or its own. */
+  permSame?: boolean;
+  perm?: Address;
   eduCountry: string;
   edu: Partial<Record<Level, Edu>>;
   work: Work[];
   tests: Test[];
+  /** Background (4 Nov): marital status (mandatory, data/reference.ts MARITAL_STATUSES) and, if married, the date (DD/MM/YYYY). */
+  marital?: string;
+  marriedOn?: string;
+  /** Ever refused a visa (mandatory to answer); each refusal when yes. `visaNote` is the older free-text answer. */
   visa: '' | 'yes' | 'no';
+  refusals?: Refusal[];
+  /** Accompanying spouse or dependents (optional), and how many. */
+  dependants?: '' | 'yes' | 'no';
+  dependantsCount?: string;
   /** The recruitment partner the student is with, when GSP adds them (30 Oct); an agency's own students have none. */
   rp?: string;
   visaNote: string;
@@ -218,11 +259,17 @@ export function readiness(s: Student) {
       ['current country', !!s.country],
       ['state', !hasStates || !!s.state],
       ['city', !!s.city.trim()],
+      // the present address's own lines (4 Nov), and the permanent address
+      ['address line 1', !!s.addr1?.trim()],
+      ['postcode', !!s.postcode?.trim()],
+      ['permanent address', !!s.permSame || addressMissing(s.perm).length === 0],
     ] as [string, boolean][]
   );
   const personal = checks
     .filter(([, ok]) => !ok)
     .map(([k]) => k);
+  const bg = backgroundChecks(s);
+  const background = bg.filter(([, ok]) => !ok).map(([k]) => k);
   const top = s.edu[s.highest] ?? emptyEdu();
   const education = eduFields(s.highest, top)
     .filter(([, , ok]) => !ok)
@@ -234,13 +281,43 @@ export function readiness(s: Student) {
     { key: 'education', label: 'Education', missing: education },
     { key: 'work', label: 'Work experience', optional: true, missing: [] as string[], filled: s.work.length },
     { key: 'tests', label: 'Tests', optional: true, missing: [] as string[], filled: s.tests.length },
-    { key: 'background', label: 'Background', optional: true, missing: [] as string[], filled: (s.visa ? 1 : 0) + (s.disability ? 1 : 0) },
+    // mandatory from 4 Nov: marital status and the visa refusal question
+    { key: 'background', label: 'Background', missing: background },
     { key: 'documents', label: 'Additional documents', optional: true, missing: [] as string[], filled: extra },
   ];
   // first, nationality and email come with every student; the rest is counted (fields only, no documents: S3C-17)
-  const total = 3 + checks.length + eduFields(s.highest, top).length;
-  const toAdd = personal.length + education.length;
+  const total = 3 + checks.length + eduFields(s.highest, top).length + bg.length;
+  const toAdd = personal.length + education.length + background.length;
   return { sections, toAdd, pct: Math.round(((total - toAdd) / total) * 100), complete: toAdd === 0 };
+}
+
+/** What an address still needs, by name: line 1, city, state (where the country has states), postcode, country. */
+export function addressMissing(a?: Address): string[] {
+  const x = a ?? emptyAddress();
+  const hasStates = (countryByName(x.country)?.states.length ?? 0) > 0;
+  return (
+    [
+      ['address line 1', !!x.line1.trim()],
+      ['city', !!x.city.trim()],
+      ['state or province', !hasStates || !!x.state],
+      ['postcode', !!x.postcode.trim()],
+      ['country', !!x.country],
+    ] as [string, boolean][]
+  )
+    .filter(([, ok]) => !ok)
+    .map(([k]) => k);
+}
+/** A refusal with its country, visa and month. */
+export const refusalOk = (r: Refusal) => !!r.country && !!r.visa.trim() && !!parseMonth(r.when);
+/** Background's mandatory answers (4 Nov), each with how it's named when it's missing. */
+export function backgroundChecks(s: Student): [string, boolean][] {
+  return [
+    ['marital status', !!s.marital],
+    ...(s.marital === MARRIED ? ([['marriage date', !!parseDate(s.marriedOn ?? '')]] as [string, boolean][]) : []),
+    ['visa refusal answer', !!s.visa],
+    // an older record's free-text answer counts until someone edits it
+    ...(s.visa === 'yes' ? ([['visa refusal details', s.refusals?.length ? s.refusals.every(refusalOk) : !!s.visaNote.trim()]] as [string, boolean][]) : []),
+  ];
 }
 
 /* ---------- reading documents (OCR in the real product; sample values here) ---------- */

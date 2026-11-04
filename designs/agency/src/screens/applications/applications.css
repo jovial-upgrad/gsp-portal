@@ -465,6 +465,8 @@
 .aperson__name { font-weight: var(--fw-semi); color: var(--text); }
 .aperson__role { font-size: var(--t-caption); color: var(--text-3); }
 .aperson__ways { display: grid; gap: var(--sp-4); margin: 0; }
+.aperson__one { display: grid; gap: var(--sp-10); }
+.aperson__one + .aperson__one { padding-top: var(--sp-10); border-top: 1px solid var(--line); }
 .aperson__line { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; font-size: var(--t-label); color: var(--text); }
 .aperson__line dt { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px; background: var(--surface-2); color: var(--text-2); }
 .aperson__line dd { display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0; }

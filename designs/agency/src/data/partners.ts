@@ -77,6 +77,11 @@ const norm = (x: string) => { const v = x.trim().toLowerCase(); return SAME_CITY
 const stateOf = (city: string) => Object.keys(CITIES).find((st) => CITIES[st].some((c) => norm(c) === norm(city)));
 const contactOf = (s: Staff, role: string): Contact => ({ name: label(s), initials: initialsOf(fullName(s)), role, phone: s.phone ? `${s.dial} ${s.phone}` : '', email: s.email });
 const byLabel = (n: string) => STAFF.find((x) => label(x) === n);
+/** A GSP person on the staff list, by the name a record keeps (an RP's Recruitment contact), as a contact; null when not on the list. */
+export const staffContact = (name: string | undefined, role: string): Contact | null => {
+  const who = name ? byLabel(name) : undefined;
+  return who ? contactOf(who, role) : null;
+};
 
 const initialsOf = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('');
 

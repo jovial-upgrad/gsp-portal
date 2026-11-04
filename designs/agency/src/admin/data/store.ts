@@ -27,6 +27,8 @@ import {
   sampleRpDocs,
   sampleRules,
   condOf,
+  listOr,
+  fromOf,
   REGION_BDM,
   seedQueueName,
   sampleNationality,
@@ -117,7 +119,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v11'; // v11 (3 Nov): nothing seeded in the log; exchange rates only up to this week; // v10 (2 Nov, lock answers merged): slice 3's Highest education and Reasons lists beside slices 1–2's settings; // v9 (2 Nov, lock answers S1–S2): non-EU Europe in Latin America & Europe, admin.gsp@ to the Admin queue, no Area on users, sign-in security and intake timings fixed; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
+const KEY = 'gsp-admin-v12'; // v12 (4 Nov, admissions feedback): CV, SOP and Class 10 document rules with the student's current location; Turkey in Latin America & Europe; // v11 (3 Nov): nothing seeded in the log; exchange rates only up to this week; // v10 (2 Nov, lock answers merged): slice 3's Highest education and Reasons lists beside slices 1–2's settings; // v9 (2 Nov, lock answers S1–S2): non-EU Europe in Latin America & Europe, admin.gsp@ to the Admin queue, no Area on users, sign-in security and intake timings fixed; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {
@@ -293,8 +295,10 @@ export function courseDocs(c: Pick<Course, 'level' | 'englishFlex'> & { uni: { c
     if (k.countries.length && !k.countries.includes(c.uni.country)) continue;
     if (out.some(([n]) => n === r.doc)) continue;
     const where = k.where === 'Already in the destination' ? `For students already in ${dest}` : k.where === 'Outside the destination' ? `For students outside ${dest}` : '';
+    // the student's current location (4 Nov): a course page has no student, so it says whom it's for
+    const from = fromOf(k).length ? `For students living in ${listOr(fromOf(k))}` : '';
     const other = k.other.trim() ? `When ${k.other.trim().charAt(0).toLowerCase()}${k.other.trim().slice(1)}` : '';
-    out.push([r.doc, r.setting === 'Mandatory' && !k.other.trim() ? 'Required' : 'Optional', [where, other].filter(Boolean).join('; ') || 'With the application']);
+    out.push([r.doc, r.setting === 'Mandatory' && !k.other.trim() && !from ? 'Required' : 'Optional', [where, from, other, r.note?.trim()].filter(Boolean).join('; ') || 'With the application']);
   }
   out.push(['English test score report', c.englishFlex ? 'Optional' : 'Required', c.englishFlex ? `${c.uni.name} can take it later` : 'With the application']);
   return out;

@@ -18,6 +18,7 @@ import {
   eduDocName,
   eduFields,
   emptyEdu,
+  isOtherGrading,
   isSchool,
   levelsFor,
   pctOf,
@@ -157,9 +158,9 @@ function LevelCard({
         <Field id={id('country')} label="Country" required={required}>
           <CountryCombobox id={id('country')} value={e.country} onChange={(v) => v !== e.country && setLevel(l, { country: v, state: '' })} />
         </Field>
-        {states.length > 0 ? <Sel id={id('state')} label="State or province" required={required} value={e.state} read={read('state')} options={states} onChange={(v) => setLevel(l, { state: v })} /> : <span />}
+        {states.length > 0 ? <Sel id={id('state')} label="State or province" value={e.state} read={read('state')} options={states} onChange={(v) => setLevel(l, { state: v })} /> : <span />}
         <Sel id={id('level')} label="Program Level" required={required} value={e.level} read={read('level')} options={STUDY_LEVELS[l]} onChange={(v) => setLevel(l, { level: v })} />
-        <Txt id={id('institution')} label={isSchool(l) ? 'School board' : 'University'} required={required} value={e.institution} read={read('institution')} onChange={(v) => setLevel(l, { institution: v })} hint={isSchool(l) ? 'Like CBSE, ICSE or a state board.' : undefined} />
+        <Txt id={id('institution')} label={isSchool(l) ? 'School board' : 'University or institution'} value={e.institution} read={read('institution')} onChange={(v) => setLevel(l, { institution: v })} hint={isSchool(l) ? 'Like CBSE, ICSE or a state board.' : undefined} />
         <Txt
           id={id('qualification')}
           label={isSchool(l) ? 'Qualification' : 'Qualification or degree'}
@@ -169,17 +170,19 @@ function LevelCard({
           onChange={(v) => setLevel(l, { qualification: v })}
           hint={isSchool(l) ? (l === 'g12' ? 'Like PUC, Science (PCMB) or HSC, Commerce.' : 'Like SSLC or Secondary School Certificate.') : 'Like B.Tech, Computer Science.'}
         />
-        <Sel id={id('grading')} label="Grading system" required={required} value={e.grading} read={read('grading')} options={gradingOptions(e.grading)} onChange={(v) => setLevel(l, { grading: v as Edu['grading'], score: '' })} hint="From Admin › Grade conversion. The eligibility check converts the score to a percentage." />
+        <Sel id={id('grading')} label="Grading system" required={required} value={e.grading} read={read('grading')} options={gradingOptions(e.grading)} onChange={(v) => setLevel(l, { grading: v as Edu['grading'], score: '', gradingNote: isOtherGrading(v) ? e.gradingNote : undefined })} hint={isOtherGrading(e.grading) ? 'The eligibility check can’t convert this one, so GSP reads it.' : 'The eligibility check converts the score to a percentage.'} />
+        {isOtherGrading(e.grading) && (
+          <Txt id={id('gradingNote')} label="How was the student graded?" required={required} value={e.gradingNote ?? ''} onChange={(v) => setLevel(l, { gradingNote: v.slice(0, 120) })} placeholder="Like: Grade points out of 20" error={e.gradingNote?.trim() ? null : 'Describe the grading system.'} />
+        )}
         <Txt
           id={id('score')}
           label="Score"
-          required={required}
           value={e.score}
           read={read('score')}
           inputMode="decimal"
           disabled={!e.grading}
           onChange={(v) => setLevel(l, { score: v.slice(0, 12) })}
-          hint={!e.grading ? 'Choose the grading system first.' : pct !== null && systemOf(e.grading)?.by !== 'As is' ? `About ${pct}%` : scaleMax(e.grading) ? `Out of ${scaleMax(e.grading)}` : `A grade: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}`}
+          hint={!e.grading ? 'Choose the grading system first.' : isOtherGrading(e.grading) ? 'Optional. As on the marksheet or transcript.' : pct !== null && systemOf(e.grading)?.by !== 'As is' ? `About ${pct}%` : scaleMax(e.grading) ? `Out of ${scaleMax(e.grading)}` : `A grade: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}`}
           error={e.score && e.grading && !scoreOk(e) ? (systemOf(e.grading)?.by === 'Bands' && Number.isNaN(Number(e.score)) ? `Enter one of the grades: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}.` : `Enter a score from 0 to ${scaleMax(e.grading)}.`) : null}
         />
         <Sel id={id('language')} label="Primary language of instruction" required={required} value={e.language} read={read('language')} options={LANGUAGES} onChange={(v) => setLevel(l, { language: v })} hint="English can waive the English test for some universities." />

@@ -127,7 +127,7 @@ FIN_COURSE = {'PG': ['Master of Business Administration', 'Master of Information
               'RES': ['Master of Philosophy'], 'DIP': ['Diploma of Business', 'Diploma of Information Technology'], 'FDN': ['Foundation Studies'], 'VET': ['Diploma of Leadership and Management'], 'ELICOS': ['General English'], 'SA': ['Study Abroad']}
 
 # ---------- statuses ----------
-STATUS_KEY = {'Ready to submit': 'ready', 'Enrolment confirmation pending': 'enrolconf', 'Finance and background check': 'finance', 'Payment proof under review': 'payreview',
+STATUS_KEY = {'Ready to submit': 'ready', 'Enrolment confirmation pending': 'enrolconf', 'Finance and background check': 'finance', 'Payment proof under review': 'payreview', 'Tuition paid, payment proof pending': 'payreview', 'Deposit paid, payment proof pending': 'depreview',
               'Unconditional offer letter received': 'uol', 'Conditional offer received, conditions pending': 'conditions', 'Visa decision pending': 'visasub',
               'Visa lodgement pending': 'visa', 'Document re-upload pending': 'reupload', 'Pending verification': 'checking', 'Submitted to university': 'lodged',
               'Tuition or deposit pending': 'deposit'}

@@ -46,6 +46,8 @@ const out = await build({
       "export { notesFor } from './src/data/inbox.ts';",
       "export { sampleApplications } from './src/data/applications.ts';",
       "export { sampleStudents } from './src/data/students.ts';",
+      "export { docsFor, STATUS, PROOF_STATUSES } from './src/data/applications.ts';",
+      "export { COURSES } from './src/data/courses.ts';",
     ].join('\n'),
     resolveDir: root, loader: 'ts',
   },
@@ -120,6 +122,27 @@ ok('every email uses a template', log.every((m) => tpls.has(m.tpl)), log.filter(
 ok('every email’s record exists', log.every((m) => !m.record || s.records.some((r) => r.id === m.record)), log.filter((m) => m.record && !s.records.some((r) => r.id === m.record)).map((m) => `${m.tpl}:${m.record}`).slice(0, 5).join(', '));
 ok('every email to a person names a user', log.every((m) => !m.toId || s.users.some((u) => u.id === m.toId)));
 ok('every email delivered (no simulation yet)', log.every((m) => m.result === 'Delivered'));
+
+// E23 (4 Nov): one per RP upload against a GSP request, to the application's officer, and nothing else
+const e23 = log.filter((m) => m.tpl === 'E23');
+const uploads = s.records.filter((r) => r.type === 'Application' && !r.closed && r.officer).reduce((n, r) => n + (r.uploads || []).filter((u) => u.at <= Date.now()).length, 0);
+ok('E23: one email per upload against a request', e23.length === uploads && uploads > 0, `${e23.length} emails, ${uploads} uploads`);
+ok('E23: each to the application’s officer', e23.every((m) => s.records.find((r) => r.id === m.record)?.officer === m.toId));
+
+/* ---------- payment proof statuses (4 Nov) ---------- */
+ok('T15 for Tuition paid and Deposit paid, payment proof pending', M.PROOF_STATUSES.length === 2 && M.PROOF_STATUSES.every((k) => M.APP_LOGIC.T15.when({ status: k })), M.PROOF_STATUSES.join(', '));
+ok('the payment proof statuses read as agreed', M.STATUS.payreview.text() === 'Tuition paid, payment proof pending' && M.STATUS.depreview.text() === 'Deposit paid, payment proof pending');
+
+/* ---------- document rules (4 Nov): CV for postgraduate, SOP for UK postgraduate, Class 10 by where the student lives ---------- */
+const stu = M.sampleStudents('')[0];
+const course = (lv, country) => M.COURSES.find((c) => c.level === lv && c.uni.country === country);
+const keys = (st, c) => (c ? M.docsFor(st, c).map((d) => `${d.key}:${d.need}`) : null);
+const pgUk = course('Master’s degree', 'UK'), ugUk = course('Bachelor’s degree', 'UK'), pgAu = course('Master’s degree', 'Australia');
+ok('a UK master’s asks for the CV and the SOP', !!pgUk && keys(stu, pgUk).some((k) => k.startsWith('cv:required')) && keys(stu, pgUk).some((k) => k.startsWith('sop:required')), String(keys(stu, pgUk)));
+ok('an Australian master’s asks for the CV, not the SOP', !!pgAu && keys(stu, pgAu).some((k) => k.startsWith('cv:')) && !keys(stu, pgAu).some((k) => k.startsWith('sop:')), String(keys(stu, pgAu)));
+ok('a UK bachelor’s asks for no SOP or CV', !!ugUk && !keys(stu, ugUk).some((k) => k.startsWith('sop:') || k.startsWith('cv:')), String(keys(stu, ugUk)));
+ok('a UK bachelor’s: Class 10 optional for a student in India', !!ugUk && keys({ ...stu, country: 'India' }, ugUk).includes('edu-g10:optional'), String(keys({ ...stu, country: 'India' }, ugUk)));
+ok('a UK bachelor’s: no Class 10 for a student in Vietnam', !!ugUk && !keys({ ...stu, country: 'Vietnam' }, ugUk).some((k) => k.startsWith('edu-g10')), String(keys({ ...stu, country: 'Vietnam' }, ugUk)));
 
 /* ---------- the bell ---------- */
 const apps = M.sampleApplications();

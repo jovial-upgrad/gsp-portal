@@ -6,6 +6,27 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 4 Nov: admissions feedback (Jovial, from the admissions teams)
+
+Prototype only (branch `admissions-feedback-4nov`); the PRDs follow.
+
+### Everywhere
+- [x] **Application statuses, Acceptance stage:** "Payment proof under review" is now **Tuition paid, payment proof pending**, and **Deposit paid, payment proof pending** follows it (new key `depreview`; the old key `payreview` stays). Both are Admissions' to set, On GSP, and both fire T15 "Payment proof to check"; WH5 skips both. Status dialog, tags, lists, task rules sheet, Mail's sample reason and the data set follow. (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+
+### Student record (both portals)
+- [x] **Personal › Present address:** current country of residence, state, city, address line 1, address line 2 (optional), postcode (any text up to 12 characters). **Permanent address:** "Permanent address is the same as present" switch, or its own country, state or province, city, postcode, line 1 and line 2. Both count towards ready to apply (for lodgement). (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+- [x] **Background:** marital status mandatory (Single, Married, Divorced, Widowed, Separated, from `data/reference.ts`), the date of marriage when Married; the visa refusal question mandatory to answer, and when Yes one or more refusals (country, which visa or document, month and year); optional accompanying spouse or dependents (how many). Background now counts towards ready to apply. (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+- [x] **Academics kept light:** university or institution and state or province optional, score optional (still checked when given). Grading systems without country names, from `data/reference.ts` STUDENT_GRADING (Percentage, GPA out of 4, CGPA out of 10, A-level grades, Degree class (First, 2:1…), …), each converted by Admin › Grade conversion; **Others** asks how the student was graded. (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+  - Note: the grading list now comes from the reference module, not straight from Admin's active Grade conversion systems (slice 3 PRD); a system Admin retires still drops out of it.
+
+### Application page (GSP)
+- [x] **Side panel:** under the RP contact, the RP's **Recruitment contact** (from the RP's record and the staff list: name, email, phone, each with Copy) and the **university's contacts** (Institution › University › Submission and contacts). (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+- [x] **E23 Requested documents uploaded:** the officer gets an email (not only the bell) each time the RP uploads a document GSP asked for; subject "<RP> uploaded <document> for <student>", can be turned off; in Admin › Work › Emails and daily jobs and its log. (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+
+### GSP · Admin
+- [x] **Document configuration seed:** CV mandatory for every postgraduate application, any destination; SOP for UK postgraduate only; Class 10 marksheet Optional, "May be needed", for undergraduate applications from students living in Bangladesh, Nepal, Sri Lanka or India. New rule condition **Student's current location** (countries; empty = anywhere) in the rule editor, the matching (Add an application, course documents) and the Applies when sentence; a rule can carry a **Note for the RP**. Admin storage key bumped (v12). (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+- [x] **Sales regions seed:** Turkey is in Latin America & Europe (Countries and the Nationality map); Russia stays Rest of world. (4 Nov, commit “Admissions feedback 4 Nov: payment proof statuses, addresses, background, light academics, document rules, E23, side panel contacts”)
+
 ## 3 Nov, morning: Admin, course search, university and student form (Jovial, in chat)
 
 Prototype only (branch `admin-polish-3nov`); the PRDs follow.

@@ -56,7 +56,7 @@ const SEED_REGION_NAMES = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam
 /**
  * Countries that make up a region, where it isn't the country itself, as the PRD's seed table lists them (named as
  * the country list names them: Cape Verde, Cote D'Ivoire (Ivory Coast), Swaziland, The Gambia, Czech Republic,
- * Sao Tome and Principe). Non-EU Europe (UK, Switzerland, Norway…) is in Latin America & Europe; the Caribbean stays Rest of world;
+ * Sao Tome and Principe). Non-EU Europe (UK, Switzerland, Norway…) and Turkey (4 Nov) are in Latin America & Europe; Russia stays Rest of world; the Caribbean stays Rest of world;
  * North Africa stays Africa (S1C-6).
  */
 const SEED_COUNTRIES: Record<string, string[]> = {
@@ -67,6 +67,8 @@ const SEED_COUNTRIES: Record<string, string[]> = {
     'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden',
     // non-EU Europe (S1C-6)
     'United Kingdom', 'Switzerland', 'Norway', 'Iceland', 'Liechtenstein', 'Andorra', 'Monaco', 'San Marino', 'Vatican City State (Holy See)', 'Albania', 'Bosnia and Herzegovina', 'Kosovo', 'Macedonia', 'Montenegro', 'Serbia', 'Moldova', 'Ukraine', 'Belarus',
+    // Jovial, 4 Nov: Turkey is Latin America & Europe; Russia stays Rest of world
+    'Turkey',
   ],
   // every country not in another region; students who apply without an RP; GSP people who cover every region
   'Rest of world': [],
@@ -577,38 +579,52 @@ export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { 
 /* ---------- document configuration (PRD slice 1, Document configuration) ---------- */
 /** Slice 3's 8 stages. */
 export const STAGES = ['New', 'Pre-screening', 'Application', 'Offer', 'Verification', 'Acceptance', 'Visa', 'Enrolment'] as const;
-export type DocRule = { id: string; doc: string; stage: (typeof STAGES)[number]; when: string; setting: 'Mandatory' | 'Optional'; by: 'RP' | 'GSP'; on: boolean; cond?: DocCond; /** An application has asked for it: it can only be switched off (proposal S1C-12). */ asked?: boolean };
-/** When a document rule applies: Program levels, university countries, where the student is, and an other condition. Empty = any. */
-export type DocCond = { levels: string[]; countries: string[]; where: string; other: string };
+export type DocRule = { id: string; doc: string; stage: (typeof STAGES)[number]; when: string; setting: 'Mandatory' | 'Optional'; by: 'RP' | 'GSP'; on: boolean; cond?: DocCond; /** A line for the RP beside the document (“May be needed”), 4 Nov. */ note?: string; /** An application has asked for it: it can only be switched off (proposal S1C-12). */ asked?: boolean };
+/**
+ * When a document rule applies: Program levels, university countries, where the student is against the destination,
+ * the student's current location (their country of residence, 4 Nov; `from`, missing on older rules), and an other
+ * condition. Empty = any.
+ */
+export type DocCond = { levels: string[]; countries: string[]; where: string; other: string; from?: string[] };
+/** The student's current location a rule asks for (empty = anywhere). */
+export const fromOf = (c: Pick<DocCond, 'from'>) => c.from ?? [];
+/** Does a student living in `country` meet the rule's current location? */
+export const fromMatches = (c: Pick<DocCond, 'from'>, country: string) => !fromOf(c).length || fromOf(c).includes(country);
 /** Slice 2's Program levels (Admin › Program levels, S2-17). */
 export const DOC_LEVELS = ['Foundation', 'Diploma', 'Bachelor’s degree', 'Postgraduate diploma', 'Master’s degree', 'PhD or research'];
 /** The catalogue's short names for two countries (its universities say UK and USA). */
 const CAT_NAME: Record<string, string> = { 'United Kingdom': 'UK', 'United States': 'USA' };
 const LIST_NAME: Record<string, string> = { UK: 'United Kingdom', USA: 'United States' };
 export const DOC_WHERE = ['Anywhere', 'Already in the destination', 'Outside it'];
-const or = (l: string[]) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} or ${l[l.length - 1]}` : l[0] ?? '');
+export const listOr = (l: string[]) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} or ${l[l.length - 1]}` : l[0] ?? '');
 export const whenText = (c: DocCond) =>
-  [c.levels.length && or(c.levels), c.countries.length && `University in ${or(c.countries.map((x) => CAT_NAME[x] ?? x).map((x) => (x === 'UK' || x === 'USA' ? `the ${x}` : x)))}`, c.where === 'Already in the destination' ? 'already in the destination' : c.where === 'Outside it' || c.where === 'Outside the destination' ? 'outside the destination' : '', c.other.trim()].filter(Boolean).join(', ') || 'Always';
+  [c.levels.length && listOr(c.levels), fromOf(c).length && `student living in ${listOr(fromOf(c))}`, c.countries.length && `University in ${listOr(c.countries.map((x) => CAT_NAME[x] ?? x).map((x) => (x === 'UK' || x === 'USA' ? `the ${x}` : x)))}`, c.where === 'Already in the destination' ? 'already in the destination' : c.where === 'Outside it' || c.where === 'Outside the destination' ? 'outside the destination' : '', c.other.trim()].filter(Boolean).join(', ') || 'Always';
 /**
  * The rule's conditions, for matching against a course: its countries as the catalogue names them (UK, USA), and
  * "Outside it" as the readers know it. Read from the rule's sentence for rules made before conditions were stored.
  */
 export function condOf(r: DocRule): DocCond {
   const c0 = r.cond ?? { levels: [], countries: [], where: 'Anywhere', other: '' };
-  return { ...c0, countries: c0.countries.map((x) => CAT_NAME[x] ?? x), where: c0.where === 'Outside it' ? 'Outside the destination' : c0.where };
+  return { ...c0, from: fromOf(c0), countries: c0.countries.map((x) => CAT_NAME[x] ?? x), where: c0.where === 'Outside it' ? 'Outside the destination' : c0.where };
 }
 /** The rule's conditions as Admin edits them (country list names). */
 export const editCond = (r: DocRule): DocCond => {
   const c = r.cond ?? { levels: [], countries: [], where: 'Anywhere', other: '' };
-  return { ...c, countries: c.countries.map((x) => LIST_NAME[x] ?? x) };
+  return { ...c, from: fromOf(c), countries: c.countries.map((x) => LIST_NAME[x] ?? x) };
 };
 let d = 0;
-const dr = (doc: string, cond: Partial<DocCond>, setting: DocRule['setting']): DocRule => {
-  const c: DocCond = { levels: [], countries: [], where: 'Anywhere', other: '', ...cond };
-  return { id: `d${++d}`, doc, stage: 'New', when: whenText(c), setting, by: 'RP', on: true, cond: c, asked: true };
+const dr = (doc: string, cond: Partial<DocCond>, setting: DocRule['setting'], note?: string): DocRule => {
+  const c: DocCond = { levels: [], countries: [], where: 'Anywhere', other: '', from: [], ...cond };
+  return { id: `d${++d}`, doc, stage: 'New', when: whenText(c), setting, by: 'RP', on: true, cond: c, asked: true, ...(note ? { note } : {}) };
 };
+/** Slice 2's postgraduate and undergraduate Program levels, as the seed rules name them. */
+const PG_LEVELS = ['Postgraduate diploma', 'Master’s degree', 'PhD or research'];
+const UG_LEVELS = ['Foundation', 'Diploma', 'Bachelor’s degree'];
 /**
- * The 10 application document rules (PRD slice 1): the full set, all asked at New and uploaded by the RP. GSP's own
+ * The 11 application document rules (PRD slice 1, with the admissions teams' feedback, 4 Nov: a CV for every
+ * postgraduate application; the SOP for UK postgraduate only; the Class 10 marksheet optional, "May be needed", for
+ * undergraduate applications from students living in Bangladesh, Nepal, Sri Lanka and India), all asked at New and
+ * uploaded by the RP. GSP's own
  * uploads on a status change (the offer letters, one Acceptance letter for every destination, the visa grant) are
  * slice 3's (S3-9, S3-23): no CoE, CAS, I-20, LOA or Offer of place here.
  */
@@ -616,11 +632,12 @@ export const sampleDocRules = (): DocRule[] => {
   d = 0;
   return [
     dr('Passport', {}, 'Mandatory'),
-    { ...dr('Class 10 marksheet', {}, 'Mandatory'), when: 'Any program level' },
+    dr('Class 10 marksheet', { levels: UG_LEVELS, from: ['Bangladesh', 'Nepal', 'Sri Lanka', 'India'] }, 'Optional', 'May be needed'),
     { ...dr('Class 12 marksheet', {}, 'Mandatory'), when: 'Any program level' },
-    dr('UG degree and transcripts', { levels: ['Postgraduate diploma', 'Master’s degree', 'PhD or research'] }, 'Mandatory'),
+    dr('UG degree and transcripts', { levels: PG_LEVELS }, 'Mandatory'),
     dr('PG degree and transcripts', { levels: ['PhD or research'] }, 'Mandatory'),
-    dr('SOP', { countries: ['United Kingdom'] }, 'Mandatory'),
+    dr('CV', { levels: PG_LEVELS }, 'Mandatory'),
+    dr('SOP', { levels: PG_LEVELS, countries: ['United Kingdom'] }, 'Mandatory'),
     dr('LORs', { countries: ['United Kingdom'] }, 'Mandatory'),
     dr('University application form, filled', { other: 'The university has its own form' }, 'Mandatory'),
     dr('IP transfer proof', { countries: ['Australia'], where: 'Already in the destination' }, 'Optional'),
