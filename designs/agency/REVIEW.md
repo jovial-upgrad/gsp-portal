@@ -6,6 +6,11 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 4 Nov, later: course search filters (Jovial, in chat)
+
+### Find courses: search and results
+- [x] **Filters in this order:** University, **Campus location** (was "Destination state or province": the campus's state or province), Tuition fee slider, Duration slider, **Tags as open tick boxes** (each with its count in the results; tags no result carries are left out unless ticked; still all of the ticked ones, S3C-4). Both portals and the phone sheet. (4 Nov, commit “Course search filters: University, Campus location, fee, duration, tags as tick boxes”)
+
 ## 4 Nov: admissions feedback (Jovial, from the admissions teams)
 
 Prototype only (branch `admissions-feedback-4nov`); the PRDs follow.

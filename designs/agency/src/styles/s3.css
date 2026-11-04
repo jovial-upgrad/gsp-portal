@@ -51,3 +51,8 @@ tr.is-muted td { color: var(--text-3); }
 .cs-check__subs { grid-column: 1 / -1; display: grid; gap: var(--sp-6); margin: 0; padding: 0 0 0 var(--sp-12); list-style: none; border-left: 2px solid var(--line); }
 .cs-check--sub { grid-template-columns: 130px 1fr; font-size: var(--t-label); }
 .cs-check--sub .cs-check__k { color: var(--text-2); }
+/* Tags as open tick boxes (Jovial, 4 Nov) */
+.fpanel__tags { border: 0; padding: 0; margin: 0; min-width: 0; gap: var(--sp-6); }
+.fpanel__tags > legend { padding: 0; margin-bottom: var(--sp-6); }
+.fpanel__tags .fpanel__note { margin-top: 0; }
+.fpanel__count { color: var(--text-3); font-size: var(--t-caption); margin-left: var(--sp-4); }
