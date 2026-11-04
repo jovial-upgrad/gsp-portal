@@ -132,6 +132,8 @@ export function makeStudent(a: AddState, me: string): Student {
     country: f.country,
     state: '',
     city: '',
+    // the present address is the profile's to fill; the permanent one starts as the same (4 Nov)
+    permSame: true,
     eduCountry: f.nationality,
     edu: { [f.highest || 'ug']: emptyEdu(f.nationality) },
     work: [],

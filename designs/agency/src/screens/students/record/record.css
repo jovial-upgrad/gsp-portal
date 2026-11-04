@@ -195,6 +195,8 @@
 .rform.is-view .control.is-empty::after,
 .rform.is-view .control:has(> .control__input[value=''])::after { position: absolute; left: 0; top: 50%; transform: translateY(-50%); pointer-events: none; }
 .rform.is-view .radio span::before { display: none; }
+/* a disabled input's own dimming (opacity .5) showed the native radio under the answer */
+.rform.is-view .radio input[type='radio']:disabled { opacity: 0; }
 .rform.is-view .field__label { color: var(--text-3); }
 /* a section's own document: on file, its box without buttons; missing, its name and "Not added", like a field */
 .auto__none { display: none; }
@@ -319,6 +321,13 @@
 
 .rq { padding: var(--sp-20); display: grid; gap: var(--sp-16); }
 .rq__more { overflow: hidden; }
+/* visa refusals (4 Nov): the country picker's list opens out of the card */
+.rq__more.rrefusals { overflow: visible; display: grid; gap: var(--sp-16); justify-items: start; }
+.rrefusal { width: 100%; margin: 0; padding: var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-ctl); min-width: 0; }
+.rrefusal__title { display: flex; align-items: center; gap: var(--sp-8); padding: 0 var(--sp-4); font-size: var(--t-label); font-weight: var(--fw-medium); color: var(--text-2); }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-20) var(--sp-16); }
+.grid3 > * { min-width: 0; }
+.rrefusal .cbx, .rrefusal .control { min-width: 0; width: 100%; }
 
 /* compact upload box inside a card */
 .auto--compact { padding: var(--sp-12) var(--sp-14, 14px); }
@@ -374,7 +383,8 @@
   .rlevel,
   .rq { padding: var(--sp-16); }
   .rlevel .grid2,
-  .rgroup .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .rgroup .grid2,
+  .rrefusal .grid3 { grid-template-columns: minmax(0, 1fr); }
   .rscores,
   .rscores.is-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .drow { flex-wrap: wrap; padding: var(--sp-12); }

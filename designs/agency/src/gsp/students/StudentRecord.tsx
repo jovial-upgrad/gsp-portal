@@ -62,15 +62,15 @@ const hasData = (k: Editable, s: Student) =>
         ? s.work.length > 0
         : k === 'tests'
           ? s.tests.length > 0
-          : !!(s.visa || s.disability);
+          : !!(s.visa || s.disability || s.marital);
 
 /** What each section owns, so saving one section never touches another (or what an upload read meanwhile). */
 const OWN: Record<Editable, (keyof Student)[]> = {
-  personal: ['first', 'last', 'oneName', 'nationality', 'passport', 'dob', 'gender', 'email', 'dial', 'phone', 'country', 'state', 'city'],
+  personal: ['first', 'last', 'oneName', 'nationality', 'passport', 'dob', 'gender', 'email', 'dial', 'phone', 'country', 'state', 'city', 'addr1', 'addr2', 'postcode', 'permSame', 'perm'],
   education: ['eduCountry', 'highest', 'edu'],
   work: ['work'],
   tests: ['tests'],
-  background: ['visa', 'visaNote', 'disability', 'disabilityNote'],
+  background: ['marital', 'marriedOn', 'visa', 'visaNote', 'refusals', 'dependants', 'dependantsCount', 'disability', 'disabilityNote'],
 };
 // the resume read in Work experience is kept as the CV in Additional documents
 const OWN_DOCS: Partial<Record<Editable, (key: string) => boolean>> = { personal: (x) => x === 'passport', education: (x) => x.startsWith('edu-'), work: (x) => x === 'cv', tests: (x) => x.startsWith('test-') };
@@ -340,7 +340,7 @@ export function StudentRecord({
     if (g === 'apps') return { text: String(s.apps.length), cls: 'is-count' };
     if (g === 'documents') return needDocs ? { text: `${needDocs} missing`, cls: 'is-todo' } : { text: String(Object.keys(s.docs).length), cls: 'is-count' };
     if (anyDirty) return { text: 'Unsaved', cls: 'is-unsaved' };
-    return missingIn('personal').length || missingIn('education').length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
+    return missingIn('personal').length || missingIn('education').length || missingIn('background').length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
   };
   const counts: Partial<Record<RecordTab, number>> = { applications: s.apps.length, shortlist: shortlist.length };
 

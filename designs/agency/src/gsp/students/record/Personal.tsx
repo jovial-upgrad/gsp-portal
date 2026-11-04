@@ -1,10 +1,11 @@
 import { phoneError } from '../../../components/validate';
 import { useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Checkbox, Field } from '../../../components/forms';
+import { Checkbox, Field, Switch } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
 import { countryByName } from '../../../data/partners';
-import { citiesOf, type Student } from '../../../data/students';
+import { citiesOf, emptyAddress, type Address, type Student } from '../../../data/students';
+import { POSTCODE_MAX } from '../../../data/reference';
 import { fillFromPassport, savePassport } from './read';
 import { parseDate, typeDate, yearsSince } from '../../../data/dates';
 import { isEmail, passportError, sameStudent } from '../form';
@@ -130,7 +131,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
       </fieldset>
 
       <fieldset className="rgroup">
-        <legend className="rgroup__title">Where they live now</legend>
+        <legend className="rgroup__title">Present address</legend>
         <div className="grid2">
           <Field id="rp-country" label="Current country of residence" required hint={s.country === s.nationality ? 'Same as their nationality.' : undefined}>
             <CountryCombobox id="rp-country" value={s.country} describedBy={s.country === s.nationality ? 'rp-country-hint' : undefined} onChange={(v) => v !== s.country && set({ country: v, state: '', city: '' })} />
@@ -165,8 +166,38 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
               disabled={states.length > 0 && !s.state}
             />
           )}
+          {/* the rest of the present address (4 Nov: used for application lodgement) */}
+          <Txt id="rp-addr1" label="Address line 1" required value={s.addr1 ?? ''} onChange={(v) => set({ addr1: v })} placeholder="House or flat, street" />
+          <Txt id="rp-addr2" label="Address line 2" value={s.addr2 ?? ''} onChange={(v) => set({ addr2: v })} placeholder="Area or landmark (optional)" />
+          <Txt id="rp-postcode" label="Postcode" required value={s.postcode ?? ''} onChange={(v) => set({ postcode: v.slice(0, POSTCODE_MAX) })} />
         </div>
       </fieldset>
+
+      <fieldset className="rgroup">
+        <legend className="rgroup__title">Permanent address</legend>
+        <Switch id="rp-permsame" checked={!!s.permSame} onChange={(v) => set({ permSame: v, perm: v ? undefined : (s.perm ?? emptyAddress(s.country)) })}>
+          Permanent address is the same as present
+        </Switch>
+        {!s.permSame && <AddressFields id="rp-perm" a={s.perm ?? emptyAddress(s.country)} onChange={(perm) => set({ perm })} />}
+      </fieldset>
+    </div>
+  );
+}
+
+/** A full address: line 1, line 2 (optional), city, state or province (where the country has them), postcode, country. */
+function AddressFields({ id, a, onChange }: { id: string; a: Address; onChange: (a: Address) => void }) {
+  const states = countryByName(a.country)?.states ?? [];
+  const put = (patch: Partial<Address>) => onChange({ ...a, ...patch });
+  return (
+    <div className="grid2">
+      <Field id={`${id}-country`} label="Country" required>
+        <CountryCombobox id={`${id}-country`} value={a.country} onChange={(v) => v !== a.country && put({ country: v, state: '', city: '' })} />
+      </Field>
+      {states.length > 0 ? <Sel id={`${id}-state`} label={`State or province in ${a.country}`} required value={a.state} options={states} onChange={(v) => put({ state: v })} placeholder="Choose a state or province" /> : <span />}
+      <Txt id={`${id}-city`} label="City" required value={a.city} onChange={(v) => put({ city: v })} />
+      <Txt id={`${id}-postcode`} label="Postcode" required value={a.postcode} onChange={(v) => put({ postcode: v.slice(0, POSTCODE_MAX) })} />
+      <Txt id={`${id}-line1`} label="Address line 1" required value={a.line1} onChange={(v) => put({ line1: v })} placeholder="House or flat, street" />
+      <Txt id={`${id}-line2`} label="Address line 2" value={a.line2} onChange={(v) => put({ line2: v })} placeholder="Area or landmark (optional)" />
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function Documents({ cfg, change, say, canEdit }: ConfigProps) {
     for (const r of v.docRules) {
       const was = cfg.docRules.find((x) => x.id === r.id);
       if (!was) diffs.push(`added ${r.doc} (${r.stage}, ${r.setting}, ${r.by})`);
-      else if (JSON.stringify(was) !== JSON.stringify(r)) diffs.push(`${r.doc}: ${[was.on !== r.on && `${was.on ? 'On' : 'Off'} → ${r.on ? 'On' : 'Off'}`, was.setting !== r.setting && `${was.setting} → ${r.setting}`, was.stage !== r.stage && `${was.stage} → ${r.stage}`, was.when !== r.when && `applies when ${was.when} → ${r.when}`, was.by !== r.by && `uploaded by ${was.by} → ${r.by}`, was.doc !== r.doc && `named ${was.doc}`].filter(Boolean).join(', ')}`);
+      else if (JSON.stringify(was) !== JSON.stringify(r)) diffs.push(`${r.doc}: ${[was.on !== r.on && `${was.on ? 'On' : 'Off'} → ${r.on ? 'On' : 'Off'}`, was.setting !== r.setting && `${was.setting} → ${r.setting}`, was.stage !== r.stage && `${was.stage} → ${r.stage}`, was.when !== r.when && `applies when ${was.when} → ${r.when}`, was.by !== r.by && `uploaded by ${was.by} → ${r.by}`, (was.note ?? '') !== (r.note ?? '') && `note ${was.note || 'none'} → ${r.note || 'none'}`, was.doc !== r.doc && `named ${was.doc}`].filter(Boolean).join(', ')}`);
     }
     cfg.docRules.filter((x) => !v.docRules.some((r) => r.id === x.id)).forEach((x) => diffs.push(`deleted ${x.doc}`));
     if (JSON.stringify(v.rpDocs) !== JSON.stringify(cfg.rpDocs)) diffs.push('recruitment partner documents');
@@ -98,7 +98,10 @@ export function Documents({ cfg, change, say, canEdit }: ConfigProps) {
                       <td className="cfg__muted num">{i + 1}</td>
                       <td className="cfg__strong">{r.doc}</td>
                       <td>{r.stage}</td>
-                      <td className="cfg__muted">{r.when}</td>
+                      <td className="cfg__muted">
+                        {r.when}
+                        {r.note && <span className="cfg__muted"> · Note: {r.note}</span>}
+                      </td>
                       <td>{r.setting}</td>
                       <td>{r.by}</td>
                       <td>
@@ -263,7 +266,7 @@ function RpDocs({ ed, rules, errors, set }: { ed: boolean; rules: RpDocRule[]; e
 
 /** Add or edit an application document rule (PRD slice 1, Document configuration › Fields). */
 function RuleDialog({ open, rule, rules, onClose, onSave }: { open: boolean; rule: DocRule | null; rules: DocRule[]; onClose: () => void; onSave: (r: DocRule) => void }) {
-  const blankCond: DocCond = { levels: [], countries: [], where: 'Anywhere', other: '' };
+  const blankCond: DocCond = { levels: [], countries: [], where: 'Anywhere', other: '', from: [] };
   const blank = (): DocRule => ({ id: `d${Date.now()}`, doc: '', stage: '' as DocRule['stage'], when: 'Always', setting: 'Mandatory', by: 'RP', on: true, cond: blankCond });
   const [v, setV] = useState<DocRule>(blank);
   const [c, setC] = useState<DocCond>(blankCond);
@@ -294,7 +297,7 @@ function RuleDialog({ open, rule, rules, onClose, onSave }: { open: boolean; rul
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={() => k.submit() && onSave({ ...v, doc: name, when, cond: c })}>{rule ? 'Done' : 'Add rule'}</Button>
+            <Button onClick={() => k.submit() && onSave({ ...v, doc: name, when, cond: c, note: v.note?.trim() || undefined })}>{rule ? 'Done' : 'Add rule'}</Button>
           </div>
         </div>
       }
@@ -319,11 +322,17 @@ function RuleDialog({ open, rule, rules, onClose, onSave }: { open: boolean; rul
         <Field id="ar-uni" label="University countries" optional hint="Empty means any country.">
           <MultiPick id="ar-uni" label="University countries" value={c.countries} options={COUNTRIES.map((x) => x.name)} empty="Any country" search onChange={(countries) => setC((x) => ({ ...x, countries }))} />
         </Field>
+        <Field id="ar-from" label="Student’s current location" optional hint="Where the student lives now (their profile’s country of residence). Empty means anywhere.">
+          <MultiPick id="ar-from" label="Student’s current location" value={c.from ?? []} options={COUNTRIES.map((x) => x.name)} empty="Anywhere" search onChange={(from) => setC((x) => ({ ...x, from }))} />
+        </Field>
         <Field id="ar-where" label="Where the student is" required>
           <Pick id="ar-where" label="Where the student is" value={c.where === 'Outside the destination' ? 'Outside it' : c.where} options={DOC_WHERE} onChange={(where) => setC((x) => ({ ...x, where }))} />
         </Field>
         <Field id="ar-other" label="Other condition" optional hint="Read by GSP people; the system doesn’t check it, except “The university has its own form”.">
           <TextInput id="ar-other" value={c.other} maxLength={120} placeholder="Like: The university has its own form" onChange={(e) => setC((x) => ({ ...x, other: e.target.value }))} />
+        </Field>
+        <Field id="ar-note" label="Note for the RP" optional hint="Shown beside the document when an application asks for it." className="iform__wide">
+          <TextInput id="ar-note" value={v.note ?? ''} maxLength={120} placeholder="Like: May be needed" onChange={(e) => setV((x) => ({ ...x, note: e.target.value }))} />
         </Field>
         <p className="cfg__note iform__wide">Applies when: {when}.</p>
       </div>

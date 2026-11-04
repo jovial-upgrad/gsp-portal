@@ -13,7 +13,7 @@
  * - Times are working hours on the record's region's calendar, in IST (work/calendars.ts, work/clock.ts).
  * In the real build this is the work service, run on every change to an application and by job J4 every 15 minutes.
  */
-import { sampleApplications, STATUS, toCheck, openRequests, statusText, courseOf, REUPLOAD_AT, isOpen } from '../data/applications';
+import { sampleApplications, STATUS, toCheck, openRequests, statusText, courseOf, REUPLOAD_AT, PROOF_STATUSES, isOpen } from '../data/applications';
 import { sampleStudents } from '../data/students';
 import { withLive, liveFlags } from '../data/live';
 import { intakeState } from '../data/courses';
@@ -42,6 +42,8 @@ export const ruleLive = (r, since) => !!r && (r.on || (r.offAt != null && since 
 
 /* ---------- the application rules: trigger and title (code), by rule number ---------- */
 const RE_UPLOAD = new Set(REUPLOAD_AT.filter(Boolean));
+/** The statuses whose payment proof GSP checks (T15): tuition paid and deposit paid (4 Nov). */
+const PAYMENT_PROOF = PROOF_STATUSES;
 const uni = (a) => courseOf(a).uni.name;
 const lateIntake = (a) => {
   const i = courseOf(a).intakes?.find((x) => x.month === a.intake);
@@ -58,7 +60,7 @@ export const startDateOf = (a) => {
  */
 export const APP_LOGIC = {
   T1: { when: (a) => a.status === 'checking', title: (n) => `Verify the documents for ${n}` },
-  WH5: { when: (a) => !['checking', 'payreview'].includes(a.status) && toCheck(a).length > 0, title: (n, a) => `Check ${toCheck(a).length === 1 ? `the ${toCheck(a)[0].name.toLowerCase()}` : `${toCheck(a).length} documents`} the RP sent for ${n}` },
+  WH5: { when: (a) => !['checking', ...PAYMENT_PROOF].includes(a.status) && toCheck(a).length > 0, title: (n, a) => `Check ${toCheck(a).length === 1 ? `the ${toCheck(a)[0].name.toLowerCase()}` : `${toCheck(a).length} documents`} the RP sent for ${n}` },
   W11: { when: (a, f) => (f.rpNews ?? 0) > (f.rpSeen ?? 0), since: (a, f) => f.rpNews, title: (n, a, f) => `Needs you: the RP sent ${f.rpWhat || 'a message'} on ${n}` },
   T2: { chase: true, when: (a) => RE_UPLOAD.has(a.status) && openRequests(a).length > 0, title: (n) => `Chase the RP: re-upload for ${n} is late` },
   T4: { when: (a) => a.status === 'ready', title: (n, a) => `Submit ${n} to ${uni(a)}` },
@@ -74,7 +76,7 @@ export const APP_LOGIC = {
   T11: { when: (a) => a.status === 'finance', title: (n) => `Do the GSP check for ${n}` },
   T13: { when: (a) => a.status === 'uol', title: (n) => `Send the offer to the RP and ask for the deposit for ${n}` },
   T14: { chase: true, when: (a) => a.status === 'deposit' && openRequests(a).length > 0, title: (n) => `Chase the RP: deposit for ${n} not paid` },
-  T15: { when: (a) => a.status === 'payreview', title: (n) => `Check the payment proof for ${n}` },
+  T15: { when: (a) => PAYMENT_PROOF.includes(a.status), title: (n) => `Check the payment proof for ${n}` },
   T16: { when: (a) => a.status === 'waitad', title: (n, a) => `Chase ${uni(a)} for the acceptance letter for ${n}` },
   T55: { when: (a) => a.status === 'accrec', title: (n) => `Move ${n} to visa` },
   T17: { chase: true, when: (a, f) => a.status === 'visa' && (f.visaBy ?? a.visaBy) !== 'gsp' && openRequests(a).length > 0, title: (n) => `Chase the RP: visa for ${n} not lodged` },
@@ -175,5 +177,5 @@ export function appTasks(s, live, now = clockNow()) {
 /** The application record My work and Mail show, from the live application. */
 export function appRecord(a) {
   const c = courseOf(a);
-  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region, agency: a.rp || TEST_AGENCY.name, uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, has: STATUS[a.status]?.owner, since: a.since, closed: !isOpen(a), needs: openRequests(a).map((n) => ({ title: n.title, at: n.request?.at, due: n.due })) };
+  return { id: a.id, type: 'Application', label: `${a.id} · ${a.student}, ${c.uni.name}`, student: a.student, region: a.region, agency: a.rp || TEST_AGENCY.name, uni: c.uni.name, course: c.name, intake: a.intake, officer: a.officer, status: statusText(a), stage: STATUS[a.status]?.stage, has: STATUS[a.status]?.owner, since: a.since, closed: !isOpen(a), needs: openRequests(a).map((n) => ({ title: n.title, at: n.request?.at, due: n.due })), uploads: a.files.filter((f) => f.from === 'you' && f.via === 'request').map((f) => ({ name: f.name, at: f.at })) };
 }

@@ -132,7 +132,7 @@ export const THREADS = [
   T({
     id: 'C-1010', mailbox: 'mb-adm', subject: 'Payment received – Mithila Chowdhury', sender: 'University', org: 'Victoria University of Wellington', record: 'GSP-24210', conf: 92, intent: 'payment', sla: 1, attachments: 1,
     summary: 'VUW received the NZD 12,500 tuition deposit.',
-    reasons: ['Student name and university match', 'The application is at “Payment proof under review”'],
+    reasons: ['Student name and university match', 'The application is at “Tuition paid, payment proof pending”'],
     fields: { Amount: 'NZD 12,500', Receipt: '88213' },
     messages: [m('m1', ['Victoria University of Wellington', 'international@vuw.example'], 9, 'Kia ora,\n\nWe confirm receipt of NZD 12,500 tuition deposit for Mithila Chowdhury, Master of Health.\n\nNgā mihi,\nVUW', { attachments: ['Receipt_VUW_88213.pdf'] })],
   }),
@@ -220,7 +220,7 @@ export const FILED = [
 
 /* ---------- the portal's emails (slice 4 PRD, Emails) ---------- */
 /**
- * Every email the portal sends: 21 templates the system fills in (slice 1 drafted E1 to E4; slice 4 the rest).
+ * Every email the portal sends: 23 templates the system fills in (slice 1 drafted E1 to E4; slice 4 the rest).
  * `canTurnOff`: Profile › Email preferences (slice 1's page, both portals) lets each person turn off any email they
  * get except slice 1's four account emails, which sign-in needs (S4-16). Turning an email off never turns off the bell.
  * Slice 1's Email preferences reads this list.
@@ -250,6 +250,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   { id: 'E16', name: 'Sent back', group: 'Applications', slice: 3, when: 'document.rejected', to: 'The RP', subject: 'Please upload the {document} for {student} again', body: '{GSP name} sent back the {document}: {reason}. Upload a new file: {link}.', who: 'RP', canTurnOff: true },
   { id: 'E17', name: 'Reminder', group: 'Applications', slice: 3, when: 'The “RP reminded” time of T2, T7, T9b, T14, T17', to: 'The RP', subject: 'Reminder: {request title} for {student}', body: 'GSP is still waiting for {request title} for {student}’s application to {university}. {Due by {due date}.} {link}', who: 'RP', canTurnOff: true },
   { id: 'E18', name: 'Daily update', group: 'Applications', slice: 3, when: 'Once a day at 09:00 IST, when anything happened since the last one', to: 'The RP', subject: '{n} updates on your applications', body: 'One line per application: “{student} · {university}: {what happened}” (status changes, messages, verified documents, closes), each linked. Requests and send-backs are not repeated here.', who: 'RP', canTurnOff: true },
+  // admissions feedback (4 Nov): the officer hears by email too, not only the bell (W11)
+  { id: 'E23', name: 'Requested documents uploaded', group: 'Applications', slice: 3, when: 'document.uploaded against a GSP request: each upload the RP makes for a document GSP asked for', to: 'The application’s Admissions officer', subject: '{RP} uploaded {document} for {student}', body: '{RP} uploaded the {document} you asked for, for {student}’s application to {course} at {university} ({application ID}). Check it here: {link}.', who: 'GSP', canTurnOff: true },
   { id: 'E19', name: 'Morning email', group: 'Work', slice: 4, when: '08:30 IST, on their working days, when they have a task due today, due tomorrow or late', to: 'The GSP person', subject: 'Your work today: {n} due, {m} late', body: 'Three groups, Late, Due today, Due tomorrow, each task with its title, record and SLA words, linked; then “Open My work”: {link}. Leaders get a fourth group, “Late in your team”.', who: 'GSP', canTurnOff: true },
   { id: 'E20', name: 'Renewal reminder', group: 'Work', slice: 4, when: 'T38 fires, 60 days before an agreement ends', to: 'The partner’s relationship manager', subject: 'The agreement with {partner} ends on {date}', body: 'Start the renewal: {link}. It’s in your My work too.', who: 'GSP', canTurnOff: true },
   { id: 'E21', name: 'Escalated to you', group: 'Work', slice: 4, when: 'Level 3 escalation', to: 'Every Admin', subject: 'Late by 5 working days: {task title}', body: '{task title} on {record}, assigned to {assignee}, was due {date}. {link}', who: 'GSP', canTurnOff: true },

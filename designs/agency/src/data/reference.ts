@@ -21,6 +21,40 @@ export const CARD_LEVELS: Readonly<Record<CardLevel, readonly string[]>> = Objec
   g10: ['Grade 10 (secondary)', 'O levels', 'IGCSE'],
 });
 
+/* ---------- the student record's Background and Academics (admissions feedback, 4 Nov) ---------- */
+
+/** Marital status: Background asks it of every student (mandatory). `married` is the one that asks for the marriage date. */
+export const MARITAL_STATUSES: readonly string[] = Object.freeze(['Single', 'Married', 'Divorced', 'Widowed', 'Separated']);
+export const MARRIED = 'Married';
+/** A yes-or-no question's answers, as the record stores them. */
+export const YES_NO: readonly (readonly ['yes' | 'no', string])[] = Object.freeze([['no', 'No'], ['yes', 'Yes']] as const);
+/** The disability question's answers. */
+export const DISABILITY_ANSWERS: readonly (readonly ['yes' | 'no' | 'na', string])[] = Object.freeze([['no', 'No'], ['yes', 'Yes'], ['na', 'Prefer not to say']] as const);
+/** The most accompanying spouse and dependents the record takes. */
+export const MAX_DEPENDANTS = 20;
+/** A postcode's longest (any text: countries write them differently). */
+export const POSTCODE_MAX = 12;
+
+/**
+ * Grading systems as the student's Academics offer them: labels without country names. Each one but Others converts
+ * with GSP · Admin › Course configuration › Grade conversion's system of that id (`system`), so the eligibility check
+ * reads its score as a percentage; **Others** has no conversion and asks for a description of the grading instead.
+ */
+export type StudentGrading = { id: string; label: string; system?: string };
+export const OTHER_GRADING = 'Others';
+export const STUDENT_GRADING: readonly StudentGrading[] = Object.freeze([
+  { id: 'pct', label: 'Percentage', system: 'pct' },
+  { id: 'gpa4', label: 'GPA out of 4', system: 'gpa4' },
+  { id: 'gpa5', label: 'GPA out of 5', system: 'gpa5' },
+  { id: 'cgpa5', label: 'CGPA out of 5', system: 'cgpa5' },
+  { id: 'cgpa10', label: 'CGPA out of 10', system: 'cgpa10' },
+  { id: 'out10', label: 'Marks out of 10', system: 'out10' },
+  { id: 'division', label: 'Division (First, Second, Third)', system: 'division' },
+  { id: 'alevel', label: 'A-level grades', system: 'alevel-lk' },
+  { id: 'ukclass', label: 'Degree class (First, 2:1…)', system: 'ukclass' },
+  { id: 'others', label: OTHER_GRADING },
+]);
+
 /** Languages of instruction (S3F-4). */
 export const LANGUAGES_OF_INSTRUCTION: readonly string[] = Object.freeze(['English', 'Hindi', 'Bengali', 'Nepali', 'Sinhala', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Gujarati', 'Punjabi', 'Urdu', 'Vietnamese', 'Other']);
 

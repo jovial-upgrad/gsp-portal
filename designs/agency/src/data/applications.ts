@@ -16,7 +16,7 @@ import { finalFeeOf, flagsOf } from './live';
 import { closeReasons, endName, isWithdrawal, type EndKind } from './reasons';
 import { uniForms } from './courses';
 import { adminCfg } from '../admin/data/store';
-import { condOf, whenText } from '../admin/data/config';
+import { condOf, fromMatches, whenText } from '../admin/data/config';
 import { STAFF, label, staffById } from './staff';
 import { routeApplication } from './regions';
 import { datasetApplications, testAgencyApps, testAgencyStudents } from './dataset';
@@ -64,6 +64,7 @@ export type StatusKey =
   | 'rever'
   | 'deposit'
   | 'payreview'
+  | 'depreview'
   | 'waitad'
   | 'accrec'
   | 'reacc'
@@ -99,6 +100,8 @@ type StatusDef = {
   doc?: { by: 'gsp' | 'you' | 'lodger'; name: (d: Destination) => string };
   /** The agency's part here is what GSP asks for: once it's all in, it's with GSP until GSP moves it on. */
   asks?: true;
+  /** The RP has paid and GSP checks the payment proof (task T15): Tuition paid and Deposit paid, payment proof pending (4 Nov). */
+  proof?: true;
   /** Where it sits against the university submission, in the Application stage (engineering review, 1 Nov): lists by stage group them. */
   phase?: Phase;
 };
@@ -135,7 +138,9 @@ export const STATUS: Record<StatusKey, StatusDef> = {
   rever: { stage: 4, owner: 'you', text: () => 'Document re-upload pending', branch: 'If GSP rejects a document', asks: true },
   // S3-24: On GSP; On RP once the payment proof is requested (separately)
   deposit: { stage: 5, owner: 'gsp', text: () => 'Tuition or deposit pending', asks: true },
-  payreview: { stage: 5, owner: 'gsp', text: () => 'Payment proof under review', doc: { by: 'you', name: () => 'Payment proof' } },
+  // admissions feedback (4 Nov): two statuses after the payment, both Admissions' to set, both checked by T15
+  payreview: { stage: 5, owner: 'gsp', text: () => 'Tuition paid, payment proof pending', doc: { by: 'you', name: () => 'Payment proof' }, proof: true },
+  depreview: { stage: 5, owner: 'gsp', text: () => 'Deposit paid, payment proof pending', doc: { by: 'you', name: () => 'Payment proof' }, proof: true },
   waitad: { stage: 5, owner: 'uni', text: () => 'Awaiting acceptance letter from university', doc: { by: 'gsp', name: (d) => ENROL_DOC_LONG[d] } },
   // S3-23: one Acceptance letter for every destination (no CoE, CAS, I-20, LOA or Offer of place)
   accrec: { stage: 5, owner: 'gsp', text: () => 'Acceptance letter received', doc: { by: 'gsp', name: () => 'Acceptance letter' } },
@@ -157,6 +162,8 @@ export const STATUS: Record<StatusKey, StatusDef> = {
 };
 /** Document re-upload pending, in each stage from Pre-screening: where GSP's rejection of a document puts the application. */
 export const REUPLOAD_AT: (StatusKey | undefined)[] = [undefined, 'reupload', 'reapp', 'reoffer', 'rever', 'reacc', 'revisa', 'reenrol'];
+/** The statuses whose payment proof GSP checks (T15). */
+export const PROOF_STATUSES = (Object.keys(STATUS) as StatusKey[]).filter((k) => STATUS[k].proof);
 /** The statuses in journey order (GSP's status list follows it). */
 export const STATUS_ORDER = Object.keys(STATUS).filter((k) => k !== 'closed') as StatusKey[];
 /** A status's group in a list by stage ("Before submission"), for the stages that split; undefined elsewhere. */
@@ -460,7 +467,7 @@ export function docsFor(s: Student, c: Course): AppDoc[] {
   // a Program level Admin added counts as its Application form level (S2C-13)
   const level = RULE_LEVEL[formLevelOf(c.level)] ?? 'Postgraduate';
   const inDest = s.country === c.uni.country || (s.country === 'United Kingdom' && c.uni.country === 'UK');
-  const add = (d: AppDoc) => { if (!out.some((x) => x.key === d.key)) out.push(d); };
+  const addDoc = (d: AppDoc) => { if (!out.some((x) => x.key === d.key)) out.push(d); };
   for (const r of adminCfg().docRules) {
     if (!r.on || r.stage !== 'New' || r.by !== 'RP') continue;
     const k = condOf(r);
@@ -468,8 +475,13 @@ export function docsFor(s: Student, c: Course): AppDoc[] {
     if (k.countries.length && !k.countries.includes(c.uni.country)) continue;
     if (k.where === 'Already in the destination' && !inDest) continue;
     if (k.where === 'Outside the destination' && inDest) continue;
+    // the student's current location (4 Nov): their country of residence on the profile
+    if (!fromMatches(k, s.country)) continue;
     const need: AppDoc['need'] = r.setting === 'Mandatory' && !k.other ? 'required' : 'optional';
     const name = r.doc;
+    // the rule's note for the RP ("May be needed") goes after what the document is
+    const noted = (d: AppDoc): AppDoc => (r.note?.trim() ? { ...d, what: `${d.what}. ${r.note.trim()}` } : d);
+    const add = (d: AppDoc) => addDoc(noted(d));
     if (/^Passport/i.test(name)) add({ key: 'passport', name: 'Passport', what: 'The photo page and the address page', need });
     else if (/class 10|10th|ssc/i.test(name)) add(markDoc('g10', need));
     else if (/class 12|12th|hsc/i.test(name)) add(markDoc('g12', need));
@@ -486,6 +498,7 @@ export function docsFor(s: Student, c: Course): AppDoc[] {
   }
   // the English test: from the course's English rule
   const t = s.tests.find((x) => TESTS[x.type].kind === 'English' && x.overall);
+  const add = addDoc;
   if (t) add({ key: testDocKey(t), name: testDocName(t), what: `${testSummary(t)}, from ${s.first}’s profile`, need: 'required' });
   else add({ key: 'english', name: 'English test score report', what: c.englishFlex ? `${c.uni.name} can take it later; GSP asks for it before the offer is final` : `${c.name} needs one before GSP can submit`, need: c.englishFlex ? 'optional' : 'required' });
   return out;

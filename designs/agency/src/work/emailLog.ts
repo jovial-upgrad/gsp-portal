@@ -28,6 +28,8 @@ export function emailLog(s, t = now()) {
   const out = [];
   const tpl = (id) => EMAIL_TEMPLATES.find((x) => x.id === id);
   for (const r of s.records.filter((x) => x.type === 'Application' && !x.closed)) {
+    // E23 (4 Nov): each upload the RP made against a GSP request, to the application's officer
+    for (const u of r.uploads || []) if (r.officer) out.push({ tpl: 'E23', to: nameOf(s, r.officer), toId: r.officer, record: r.id, at: u.at, subject: fill(tpl('E23')?.subject ?? '', { RP: r.agency, document: u.name, student: r.student }) });
     for (const n of r.needs || []) if (n.at) out.push({ tpl: 'E15', to: `${r.agency} (counsellor, Branch Admin, RP Admins)`, record: r.id, at: n.at, subject: `GSP needs ${n.title} for ${r.student}` });
   }
   for (const k of s.tasks.filter((x) => x.status === 'open')) {

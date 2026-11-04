@@ -157,7 +157,7 @@ export const STATUS_SLA = [
   ['Application', 'Verifying additional documents', 'T52'],
   ['Offer', 'Conditional offer received, conditions pending', 'T9b'], ['Offer', 'Conditions submitted to university', 'T10'],
   ['Verification', 'Finance and background check', 'T11'], ['Verification', 'University assessment or interview', 'T54'], ['Verification', 'Unconditional offer letter received', 'T13'],
-  ['Acceptance', 'Tuition or deposit pending', 'T14'], ['Acceptance', 'Payment proof under review', 'T15'], ['Acceptance', 'Awaiting acceptance letter from university', 'T16'], ['Acceptance', 'Acceptance letter received', 'T55'],
+  ['Acceptance', 'Tuition or deposit pending', 'T14'], ['Acceptance', 'Tuition paid, payment proof pending', 'T15'], ['Acceptance', 'Deposit paid, payment proof pending', 'T15'], ['Acceptance', 'Awaiting acceptance letter from university', 'T16'], ['Acceptance', 'Acceptance letter received', 'T55'],
   ['Visa', 'Visa lodgement pending', 'T17'], ['Visa', 'Visa decision pending', 'T56'], ['Visa', 'Visa granted', 'T57'],
   ['Enrolment', 'Enrolment confirmation pending', 'T20'],
 ].map(([stage, status, row]) => ({ stage, status, row }));
@@ -182,7 +182,7 @@ const IPG = 'Institution partners, universities, courses';
 export const RULE_GROUPS = ['Applications', 'RPs', IPG, 'Email', 'Commission', 'Admin', 'Escalation'];
 export const RULES = [
   A('T1', { name: 'Documents to verify', when: 'Status is Pending verification', task: 'Verify the documents for <student>', kind: 'k-verify', sla: wh(1), closes: 'The status changes' }),
-  A('WH5', { name: 'Documents from the RP to check', when: 'The RP sent documents GSP hasn’t checked (any status except Pending verification and Payment proof under review)', task: 'Check the <document> the RP sent for <student> (“Check N documents…” when several)', kind: 'k-verify', sla: wh(1), closes: 'Every document verified or sent back' }),
+  A('WH5', { name: 'Documents from the RP to check', when: 'The RP sent documents GSP hasn’t checked (any status except Pending verification, Tuition paid, payment proof pending and Deposit paid, payment proof pending)', task: 'Check the <document> the RP sent for <student> (“Check N documents…” when several)', kind: 'k-verify', sla: wh(1), closes: 'Every document verified or sent back' }),
   A('W11', { name: 'Needs you', when: 'The RP sent a message or upload the officer hasn’t seen', task: 'Needs you: the RP sent <a message> on <student>', kind: 'k-uni-mail', sla: wh(1), closes: 'The officer opens the application' }),
   A('T2', { name: 'Re-upload late', when: 'Document re-upload pending, with an open send-back', after: wh(48), task: 'Chase the RP: re-upload for <student> is late', kind: 'k-verify', sla: wh(6), remind: wh(24), closes: 'The RP re-uploads, or the status changes' }),
   A('T4', { name: 'Ready to submit', when: 'Ready to submit', task: 'Submit <student> to <university>', kind: 'k-submit', sla: wh(1), closes: 'The status moves to Submitted to university' }),
@@ -197,7 +197,7 @@ export const RULES = [
   A('T11', { name: 'GSP check', when: 'Finance and background check', task: 'Do the GSP check for <student>', kind: 'k-gsp-check', sla: wh(12), closes: 'Done, or the status changes' }),
   A('T13', { name: 'Unconditional offer', when: 'Unconditional offer letter received', task: 'Send the offer to the RP and ask for the deposit for <student>', kind: 'k-uni-mail', sla: wh(4), closes: 'The status moves to Tuition or deposit pending' }),
   A('T14', { name: 'Deposit not paid', when: 'Tuition or deposit pending, with an open payment request', after: d(2), task: 'Chase the RP: deposit for <student> not paid', kind: 'k-payment', sla: wh(12), remind: d(1), closes: 'Payment proof uploaded, or the status changes' }),
-  A('T15', { name: 'Payment proof to check', when: 'Payment proof under review', task: 'Check the payment proof for <student>', kind: 'k-payment', sla: wh(4), closes: 'The status changes' }),
+  A('T15', { name: 'Payment proof to check', when: 'Tuition paid, payment proof pending, or Deposit paid, payment proof pending', task: 'Check the payment proof for <student>', kind: 'k-payment', sla: wh(4), closes: 'The status changes' }),
   A('T16', { name: 'Acceptance letter late', when: 'Awaiting acceptance letter from university', after: d(3), task: 'Chase <university> for the acceptance letter for <student>', kind: 'k-chase-uni', sla: wh(12), closes: 'Done, or the status changes' }),
   A('T55', { name: 'Move to visa', when: 'Acceptance letter received', task: 'Move <student> to visa', kind: 'k-submit', sla: wh(9), closes: 'The status changes' }),
   A('T17', { name: 'Visa not lodged', when: 'Visa lodgement pending, the RP lodges, with an open request', after: d(7), task: 'Chase the RP: visa for <student> not lodged', kind: 'k-chase-uni', sla: wh(12), remind: d(5), closes: 'Lodgement proof uploaded, or the status changes' }),

@@ -10,7 +10,7 @@
  */
 import DATASET from './dataset.json';
 import { COURSES, money, type Course, type Destination } from './courses';
-import { ENROL_DOC_LONG, VISA_NAME, docsFor, type AppFile, type Application, type Event, type Msg, type Need, type StatusKey } from './applications';
+import { ENROL_DOC_LONG, STATUS, VISA_NAME, docsFor, type AppFile, type Application, type Event, type Msg, type Need, type StatusKey } from './applications';
 import { eduDocKey, eduDocName, type Edu, type Level, type Student } from './students';
 import { labelOfId, staffById } from './staff';
 import { shortDate } from './dates';
@@ -67,13 +67,15 @@ function intakeOf(a: DataApp) {
 export function courseFor(a: Pick<DataApp, 'uni' | 'course' | 'level'>): Course {
   return COURSES.find((c) => c.uni.id === a.uni && c.name === a.course) ?? COURSES.find((c) => c.uni.id === a.uni && c.level === a.level) ?? COURSES.find((c) => c.uni.id === a.uni)!;
 }
-const STAGE_DAYS: Partial<Record<StatusKey, number>> = { checking: 2, reupload: 6, ready: 4, lodged: 10, conditions: 18, uol: 24, finance: 30, deposit: 34, payreview: 36, visa: 44, visasub: 52, enrolconf: 70 };
+const STAGE_DAYS: Partial<Record<StatusKey, number>> = { checking: 2, reupload: 6, ready: 4, lodged: 10, conditions: 18, uol: 24, finance: 30, deposit: 34, payreview: 36, depreview: 36, visa: 44, visasub: 52, enrolconf: 70 };
 
 /* ---------- the students' profiles (W29, 1 Nov): filled in, as an application past pre-screening needs ---------- */
 
 /** A stable number from a string. */
 const hash = (x: string) => [...x].reduce((t, ch) => (t * 31 + ch.charCodeAt(0)) >>> 0, 7);
 const pick = <T,>(xs: T[], key: string) => xs[hash(key) % xs.length];
+/** Sample street names for the data set's present addresses (4 Nov). */
+const STREET = ['Station Road', 'Main Road', 'Church Street', 'Lake View Road', 'Market Street', 'Temple Road'];
 /** Where students of each nationality live and study (sample): state, city, a university and a school board. */
 const HOME: Record<string, { state: string; city: string; uni: string; board: string; g12: string }[]> = {
   India: [
@@ -148,6 +150,12 @@ function profileOf(s: DataStudent, a: DataApp, me: string): Student {
     country: a.region === 'Australia' && dest === 'Australia' ? 'Australia' : s.nationality,
     state: a.region === 'Australia' && dest === 'Australia' ? 'Victoria' : where.state,
     city: a.region === 'Australia' && dest === 'Australia' ? 'Melbourne' : where.city,
+    // the rest of the present address (4 Nov, sample): a house number on the sample street, and a postcode
+    addr1: `${1 + (hash(s.id + 'a') % 180)}, ${STREET[hash(s.id + 's') % STREET.length]}`,
+    postcode: String(100000 + (hash(s.id + 'p') % 900000)),
+    permSame: true,
+    marital: 'Single',
+    dependants: 'no',
     eduCountry: s.nationality,
     edu,
     work: [],
@@ -175,7 +183,7 @@ const studentOf = (id: string) => {
 /* ---------- the applications (W1, 1 Nov): documents, chat and history that fit each one's stage ---------- */
 
 /** How far each status is along the journey: what has happened by then. */
-const STEP: Partial<Record<StatusKey, number>> = { checking: 1, reupload: 1, ready: 2, lodged: 3, conditions: 4, finance: 5, uol: 6, deposit: 7, payreview: 8, visa: 9, visasub: 10, enrolconf: 11, enrolled: 12, closed: 12 };
+const STEP: Partial<Record<StatusKey, number>> = { checking: 1, reupload: 1, ready: 2, lodged: 3, conditions: 4, finance: 5, uol: 6, deposit: 7, payreview: 8, depreview: 8, visa: 9, visasub: 10, enrolconf: 11, enrolled: 12, closed: 12 };
 
 /** The data set's applications, in the shape every portal reads. */
 export function datasetApplications(): Application[] {
@@ -280,9 +288,9 @@ export function datasetApplications(): Application[] {
     }
     if (step >= 8) {
       const at = t(8);
-      f('Payment proof', fname('deposit receipt'), 'you', at, status === 'payreview' ? 'checking' : 'verified', 'request');
+      f('Payment proof', fname('deposit receipt'), 'you', at, STATUS[status]?.proof ? 'checking' : 'verified', 'request');
       history.push({ at, who: 'you', text: `Payment proof uploaded: ${money(c.deposit, c.currency)}`, by: rpWho });
-      if (status === 'payreview') say(at, 'you', `${first} has paid the deposit. The receipt is uploaded.`);
+      if (STATUS[status]?.proof) say(at, 'you', `${first} has paid. The payment receipt is uploaded.`);
       else history.push({ at: t(8) + DAY, who: 'gsp', text: `Payment confirmed with ${uniShort}`, by: officer });
     }
     if (step >= 9) {

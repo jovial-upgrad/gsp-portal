@@ -5247,7 +5247,8 @@
      "deakin-5",
      "flinders-3",
      "coventry-3"
-    ]
+    ],
+    "permSame": true
    },
    {
     "oneName": false,
@@ -5359,7 +5360,12 @@
     "passport": "V8810342",
     "highest": "ug",
     "counsellor": "karthik",
-    "added": "@now-12"
+    "added": "@now-12",
+    "addr1": "42, 3rd Cross, Indiranagar",
+    "postcode": "560038",
+    "permSame": true,
+    "marital": "Single",
+    "dependants": "no"
    },
    {
     "oneName": false,
@@ -5443,7 +5449,12 @@
     "passport": "U3329018",
     "highest": "ug",
     "counsellor": "me",
-    "added": "@now-19"
+    "added": "@now-19",
+    "addr1": "17, Vidyanagar Main Road",
+    "postcode": "580021",
+    "permSame": true,
+    "marital": "Single",
+    "dependants": "no"
    },
    {
     "oneName": false,
@@ -5486,7 +5497,7 @@
       }
      }
     ],
-    "visa": "",
+    "visa": "no",
     "visaNote": "",
     "disability": "",
     "disabilityNote": "",
@@ -5519,7 +5530,12 @@
     "passport": "S9940211",
     "highest": "ug",
     "counsellor": "divya",
-    "added": "@now-33"
+    "added": "@now-33",
+    "addr1": "88, Model Town Extension",
+    "postcode": "141002",
+    "permSame": true,
+    "marital": "Single",
+    "dependants": "no"
    },
    {
     "oneName": false,
@@ -5585,7 +5601,7 @@
      }
     ],
     "visa": "yes",
-    "visaNote": "Canada, study permit, 2023",
+    "visaNote": "",
     "disability": "",
     "disabilityNote": "",
     "docs": {
@@ -5622,7 +5638,30 @@
     "passport": "R6672330",
     "highest": "pg",
     "counsellor": "divya",
-    "added": "@now-58"
+    "added": "@now-58",
+    "addr1": "5-9-22, Banjara Hills Road 2",
+    "postcode": "500034",
+    "permSame": false,
+    "perm": {
+     "line1": "14, Old City Main Road",
+     "line2": "Near Charminar",
+     "city": "Hyderabad",
+     "state": "Telangana",
+     "postcode": "500002",
+     "country": "India"
+    },
+    "marital": "Married",
+    "marriedOn": "12/02/2023",
+    "refusals": [
+     {
+      "id": "vr1",
+      "country": "Canada",
+      "visa": "Study permit",
+      "when": "03/2023"
+     }
+    ],
+    "dependants": "yes",
+    "dependantsCount": "1"
    }
   ],
   "apps": [

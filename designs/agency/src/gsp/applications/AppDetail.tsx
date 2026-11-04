@@ -50,6 +50,8 @@ import { isWithdrawal } from '../../data/reasons';
 import { adminCfg } from '../../admin/data/store';
 import { staffByEmail, label as staffLabel } from '../../data/staff';
 import { Sheet } from '../../components/Sheet';
+import { staffContact } from '../../data/partners';
+import { useSharedDb } from '../../institution/data/store';
 import { SelectMenu } from '../../components/SelectMenu';
 import { Field } from '../../components/forms';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
@@ -149,6 +151,12 @@ export function AppDetail({
   const rpPeople = rpTeam(agency);
   const counsellor = rpPeople.find((m) => m.id === s.counsellor) ?? team.find((m) => m.id === s.counsellor && (m.rp ?? agency) === agency) ?? rpPeople.find((m) => m.role === 'Counsellor') ?? rpPeople[0];
   const rp = rpContact(counsellor ?? { name: agency, role: 'RP Admin' }, agency);
+  // the side panel's other contacts (admissions feedback, 4 Nov): the RP's Recruitment contact, from its RP record and
+  // the staff list, and the university's own contacts (Institution › University › Submission and contacts)
+  const [db] = useSharedDb();
+  const rpRec = db.rps.find((r) => r.name === agency);
+  const recruiter = staffContact(rpRec?.bdm, `Recruitment contact, ${agency}`);
+  const uniContacts = db.unis.find((u) => u.id === c.uni.id)?.contacts ?? [];
   useLiveAll(); // the final tuition fee prices the base commission
   const [withdraw, setWithdraw] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -673,6 +681,22 @@ export function AppDetail({
                 </dd>
               </div>
             </dl>
+          </section>
+          <section className="card acard aperson">
+            <h2 className="acard__title">Recruitment contact</h2>
+            {recruiter ? (
+              <PersonLines id="rec" name={recruiter.name} role={recruiter.role} phone={recruiter.phone} email={recruiter.email} say={say} />
+            ) : (
+              <p className="cdl__soft">{rpRec?.bdm ? `${rpRec.bdm} (not on the staff list)` : `${agency} has no Recruitment contact yet.`}</p>
+            )}
+          </section>
+          <section className="card acard aperson">
+            <h2 className="acard__title">{c.uni.name} contacts</h2>
+            {uniContacts.length ? (
+              uniContacts.map((x) => <PersonLines key={x.id} id={x.id} name={x.name} role={[x.title, x.for].filter(Boolean).join(' · ')} phone={x.phone ?? ''} email={x.email} say={say} />)
+            ) : (
+              <p className="cdl__soft">No contacts on the university’s record yet.</p>
+            )}
           </section>
           {/* Key details in three groups for every user (Jovial, 2 Nov): sections with headings, not tabs; an empty field isn't shown */}
           <section className="card acard">
@@ -1490,5 +1514,51 @@ function OfficerDialog({ open, a, onCancel, onSave }: { open: boolean; a: Applic
         <SelectMenu id="goff-pick" label="Officers" value={pick} options={options} placeholder="Pick a person" onChange={setPick} />
       </Field>
     </Sheet>
+  );
+}
+
+/** A person in the side panel: name, role, phone and email, each with Copy (the RP contact's layout). */
+function PersonLines({ id, name, role, phone, email, say }: { id: string; name: string; role: string; phone: string; email: string; say: (m: string) => void }) {
+  const first = name.split(' ')[0];
+  return (
+    <div className="aperson__one" id={`ap-${id}`}>
+      <div className="aperson__who">
+        <span className="savatar aperson__av gperson__av" aria-hidden="true">
+          {initials(name)}
+        </span>
+        <span>
+          <span className="aperson__name">{name}</span>
+          <span className="aperson__role">{role}</span>
+        </span>
+      </div>
+      <dl className="aperson__ways">
+        {phone && (
+          <div className="aperson__line">
+            <dt>
+              <Icon name="phone" size={16} />
+              <span className="vh">Phone</span>
+            </dt>
+            <dd>
+              <span>{phone}</span>
+              <CopyButton text={phone} what={`${first}’s number`} onDone={say} />
+            </dd>
+          </div>
+        )}
+        {email && (
+          <div className="aperson__line">
+            <dt>
+              <Icon name="mail" size={16} />
+              <span className="vh">Email</span>
+            </dt>
+            <dd>
+              <a className="aperson__mail" href={`mailto:${email}`}>
+                {email}
+              </a>
+              <CopyButton text={email} what={`${first}’s email`} onDone={say} />
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
   );
 }
