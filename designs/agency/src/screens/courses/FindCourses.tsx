@@ -5,10 +5,9 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { Field, Form, Switch } from '../../components/forms';
+import { Checkbox, Field, Form, Switch } from '../../components/forms';
 import { SelectMenu } from '../../components/SelectMenu';
 import { RangeSlider } from '../../components/RangeSlider';
-import { MultiPick } from '../../institution/records/MultiPick';
 import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
@@ -16,7 +15,7 @@ import { liveAreas, liveLevels, searchCatalogue, useSharedDb } from '../../insti
 import { byRegion, useScope } from '../../data/scope';
 import { studentRegion } from '../../data/regions';
 import { HOME_RP } from '../../institution/rps';
-import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, totalFeeOf, type Course } from '../../data/courses';
+import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, tagsOf, totalFeeOf, type Course } from '../../data/courses';
 import {
   ANY_DUR,
   DUR_STOPS,
@@ -612,11 +611,11 @@ function activeFilters(s: CourseSearch) {
 }
 
 /**
- * The left panel: five filters, and no others (slice 3 PRD): **Tuition fee** (two handles, the total fee, bounds the
- * lowest and highest total fees in the results), **Tags** (Admin's list; all of the ones picked, S3C-4), **Duration**
- * (two handles, <1 to 5+ years, the steps just numbers; courses in credits match every range, unsaid), **University**
- * (a multi-select dropdown; any of the ones picked)
- * and **Destination state or province**. Each offers what the results less that filter hold (1 Nov). Clear resets them.
+ * The left panel: five filters, and no others, in this order (Jovial, 4 Nov): **University** (a multi-select
+ * dropdown; any of the ones picked), **Campus location** (the destination state or province of the campus),
+ * **Tuition fee** (two handles, the total fee, bounds the lowest and highest total fees in the results), **Duration**
+ * (two handles, <1 to 5+ years; courses in credits match every range, unsaid) and **Tags** (Admin's list as open tick
+ * boxes, each with its count; all of the ones picked, S3C-4). Each offers what the results less that filter hold (1 Nov). Clear resets them.
  */
 function FilterPanel({
   s,
@@ -645,6 +644,9 @@ function FilterPanel({
   const hi = fees.length ? Math.ceil(Math.max(...fees) / step) * step : 0;
   const fee: [number, number] = f.fee ? [Math.max(lo, Math.min(f.fee[0], hi)), Math.min(hi, Math.max(f.fee[1], lo))] : [lo, hi];
   const statePool = facet('destState');
+  const tagPool = facet('tags');
+  // only the tags some result carries, plus any already ticked, so no tick box finds nothing
+  const tags = tagList().filter((t) => f.tags.includes(t) || tagPool.some((c) => tagsOf(c).includes(t)));
   const states = [...new Set(statePool.map(campusState).filter(Boolean))].sort();
   return (
     <div className="fpanel">
@@ -654,16 +656,22 @@ function FilterPanel({
           Clear
         </button>
       </div>
+      <UniFilter key={`${s.need.dest}|${s.keyword}`} id={id('uni')} pool={facet('unis')} value={f.unis} onChange={(v) => setFilter('unis', v)} />
+      <Field id={id('state')} label="Campus location">
+        <SelectMenu
+          id={id('state')}
+          label="Campus location"
+          value={f.destState}
+          options={[{ value: '', label: 'Any location' }, ...states.map((x) => ({ value: x, label: x, note: String(statePool.filter((c) => campusState(c) === x).length) }))]}
+          onChange={(v) => setFilter('destState', v)}
+        />
+      </Field>
       <div className="fpanel__f">
         <p className="field__label" id={id('fee-label')}>
           Tuition fee{cur ? ` (${cur}, whole course)` : ' (whole course)'}
         </p>
         <RangeSlider id={id('fee')} label="Tuition fee" min={lo} max={hi} step={step} value={fee} format={amount} onChange={(v) => setFilter('fee', v[0] <= lo && v[1] >= hi ? null : v)} />
       </div>
-      <Field id={id('tags')} label="Tags">
-        <MultiPick id={id('tags')} label="Tags" value={f.tags} options={tagList().map((t) => t)} empty="Any tags" search onChange={(v) => setFilter('tags', v)} />
-      </Field>
-      {f.tags.length > 1 && <p className="fpanel__note">Courses with all {f.tags.length} tags.</p>}
       <div className="fpanel__f">
         <p className="field__label" id={id('dur-label')}>
           Duration (years)
@@ -671,16 +679,17 @@ function FilterPanel({
         <RangeSlider id={id('dur')} label="Duration" unit="years" min={0} max={DUR_STOPS.length - 1} value={f.dur} stops={DUR_STOPS} onChange={(v) => setFilter('dur', v)} />
         {f.dur[0] === ANY_DUR[0] && f.dur[1] === ANY_DUR[1] && <p className="fpanel__note">Any length</p>}
       </div>
-      <UniFilter key={`${s.need.dest}|${s.keyword}`} id={id('uni')} pool={facet('unis')} value={f.unis} onChange={(v) => setFilter('unis', v)} />
-      <Field id={id('state')} label="Destination state or province">
-        <SelectMenu
-          id={id('state')}
-          label="Destination state or province"
-          value={f.destState}
-          options={[{ value: '', label: 'Any state or province' }, ...states.map((x) => ({ value: x, label: x, note: String(statePool.filter((c) => campusState(c) === x).length) }))]}
-          onChange={(v) => setFilter('destState', v)}
-        />
-      </Field>
+      {tags.length > 0 && (
+      <fieldset className="fpanel__f fpanel__tags">
+        <legend className="field__label">Tags</legend>
+        {tags.map((t) => (
+          <Checkbox key={t} id={id(`tag-${t}`)} checked={f.tags.includes(t)} onChange={(on) => setFilter('tags', on ? [...f.tags, t] : f.tags.filter((x) => x !== t))}>
+            {t} <span className="fpanel__count">{tagPool.filter((c) => tagsOf(c).includes(t)).length}</span>
+          </Checkbox>
+        ))}
+        {f.tags.length > 1 && <p className="fpanel__note">Courses with all {f.tags.length} tags.</p>}
+      </fieldset>
+      )}
     </div>
   );
 }
