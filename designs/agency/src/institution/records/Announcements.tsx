@@ -191,7 +191,7 @@ export function Announcements(props: PageProps) {
   );
 }
 
-type Draft = { title: string; category: AnnCategory | ''; subcategory: string; unis: string[]; levels: Level[]; areas: Area[]; publishDay: string; expires: string; body: string; files: string[]; email: boolean; userTypes: string[]; roles: string[]; countries: string[]; regions: string[] };
+type Draft = { title: string; category: AnnCategory | ''; subcategory: string; unis: string[]; levels: Level[]; areas: Area[]; publishDay: string; expires: string; body: string; files: string[]; media: Record<string, string>; email: boolean; userTypes: string[]; roles: string[]; countries: string[]; regions: string[] };
 
 /** One announcement: written, previewed, then saved as a draft, scheduled or published; a live one can be withdrawn. */
 function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | null; id: string; me: string; edit: boolean; unis: PageProps['db']['unis']; onBack: () => void; onSave: (a: Announcement, what: string) => void }) {
@@ -200,8 +200,8 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
   const locked = s === 'Expired' || s === 'Withdrawn' || !edit;
   const [v, setV] = useState<Draft>(() =>
     a
-      ? { title: a.title, category: a.category, subcategory: a.subcategory, unis: a.unis, levels: a.levels, areas: a.areas, publishDay: a.publish.slice(0, 10), expires: a.expires, body: a.body, files: a.files, email: a.email, userTypes: a.userTypes, roles: a.roles, countries: a.countries, regions: a.regions }
-      : { title: '', category: '', subcategory: '', unis: [], levels: [], areas: [], publishDay: inDays(0), expires: inDays(30), body: '', files: [], email: false, userTypes: ['RP'], roles: [], countries: [], regions: [] },
+      ? { title: a.title, category: a.category, subcategory: a.subcategory, unis: a.unis, levels: a.levels, areas: a.areas, publishDay: a.publish.slice(0, 10), expires: a.expires, body: a.body, files: a.files, media: a.media ?? {}, email: a.email, userTypes: a.userTypes, roles: a.roles, countries: a.countries, regions: a.regions }
+      : { title: '', category: '', subcategory: '', unis: [], levels: [], areas: [], publishDay: inDays(0), expires: inDays(30), body: '', files: [], media: {}, email: false, userTypes: ['RP'], roles: [], countries: [], regions: [] },
   );
   const [tried, setTried] = useState(false);
   // QC, 1 Nov: leaving with changes nobody saved asks first
@@ -236,6 +236,8 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
     expires: v.expires,
     body: cleanHtml(v.body),
     files: v.files,
+    // only the images still attached; a new go-live writes the summary again (job J9)
+    media: Object.fromEntries(Object.entries(v.media).filter(([k]) => v.files.includes(k))),
     email: v.email,
     userTypes: v.userTypes,
     roles: v.roles,
@@ -305,7 +307,7 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
                 <DateInput id="ian-exp" value={v.expires} onChange={(expires) => set({ expires })} />
               </Field>
               <Field id="ian-body" label="Description" required error={show('body')} className="iform__wide">
-                <RichText id="ian-body" value={v.body} onChange={(body) => set({ body })} files={v.files} onFiles={(files) => set({ files })} invalid={!!show('body')} disabled={locked} />
+                <RichText id="ian-body" value={v.body} onChange={(body) => set({ body })} files={v.files} onFiles={(files) => set({ files })} onMedia={(name, src) => setV((x) => ({ ...x, media: { ...x.media, [name]: src } }))} invalid={!!show('body')} disabled={locked} />
               </Field>
               <div className="iform__wide">
                 <Checkbox id="ian-email" checked={v.email} onChange={(email) => set({ email })} hint="E14 goes to the recipients when it publishes, from no-reply@gsp.upgrad.com. They can turn it off in Email preferences. A Live edit sends no new email.">

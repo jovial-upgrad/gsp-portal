@@ -54,8 +54,12 @@ export type Announcement = {
   expires: string;
   /** Formatted: bold, italics, lists, headings and links. */
   body: string;
-  /** Images or PDFs attached to it. */
+  /** Images or PDFs attached to it, by file name. */
   files: string[];
+  /** The stored file behind each attached image (file name → its address in file storage); PDFs open by name. */
+  media?: Record<string, string>;
+  /** GSP Assist's one-line summary, written once by job J9 when the announcement goes live and saved with it. */
+  summary?: string;
   email: boolean;
   /** Who gets it: user types (at least one), and their roles, countries and sales regions (empty for all). */
   userTypes: string[];
@@ -84,8 +88,74 @@ export function statusOf(a: Announcement, now = Date.now()): AnnStatus {
   return 'Live';
 }
 
+/** Is this attached file an image (shown as a picture) or a document (a chip that opens it)? */
+export const isImage = (name: string) => /\.(png|jpe?g|gif|webp|svg)$/i.test(name);
+
+/**
+ * GSP Assist's summary of one announcement (Jovial, 4 Nov): written once, when job J9 makes it live, and saved on
+ * it, so everyone sees the same line. The real build asks the model for one plain sentence (under 25 words) from the
+ * title and description; this prototype stands in with the description's first sentence until J9 has saved one.
+ */
+export function summaryOf(a: Announcement): string {
+  if (a.summary) return a.summary;
+  const text = a.body.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[#*_>`]/g, '').replace(/\s+/g, ' ').trim();
+  const first = text.match(/^.*?[.!?](\s|$)/)?.[0].trim() ?? text;
+  return first || a.title;
+}
+
+
+/** A seeded announcement's attached image, as the file storage would hold it (sample records only). */
+const sampleImage = (from: string, to: string, line: string) =>
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><circle cx="520" cy="70" r="120" fill="#fff" opacity=".12"/><text x="36" y="310" font-family="Figtree,Arial" font-size="40" font-weight="700" fill="#fff">${line}</text></svg>`,
+  );
 
 export const sampleAnnouncements = (): Announcement[] => [
+  {
+    id: 'AN-114',
+    title: 'Flinders: virtual open day for partners on 21 November',
+    category: 'Promotion', subcategory: '',
+    unis: ['flinders'],
+    levels: [],
+    areas: [],
+    userTypes: ['RP'],
+    roles: [],
+    countries: [],
+    regions: [],
+    publish: inDays(-2),
+    expires: inDays(17),
+    body: 'Flinders runs a virtual open day for partners on 21 November, with course talks and a Q&A with admissions. Register by 18 November.',
+    files: ['Open day poster.png', 'Open day campus.png', 'Open day agenda.pdf'],
+    media: { 'Open day poster.png': sampleImage('#0B2A5B', '#2F6FD0', 'Open day · 21 November'), 'Open day campus.png': sampleImage('#17703F', '#0AA6C9', 'Bedford Park') },
+    email: true,
+    author: IN('kevin.mcewan'),
+    draft: false,
+    withdrawn: false,
+    sent: 211,
+  },
+  {
+    id: 'AN-115',
+    title: 'Flinders: Business and Analytics masters add a July intake',
+    category: 'Admission', subcategory: 'New Intakes',
+    unis: ['flinders'],
+    levels: ['Master’s degree'],
+    areas: ['Business and management', 'Data and analytics'],
+    userTypes: ['RP'],
+    roles: [],
+    countries: [],
+    regions: [],
+    publish: inDays(-5),
+    expires: inDays(80),
+    body: 'Business and Data and Analytics masters at Bedford Park now take students in July 2027 as well as February. Applications open on 1 December.',
+    files: ['July 2027 intake.png', 'Course list July 2027.pdf'],
+    media: { 'July 2027 intake.png': sampleImage('#C2246B', '#7A2E91', 'New: July 2027 intake') },
+    email: false,
+    author: IN('kevin.mcewan'),
+    draft: false,
+    withdrawn: false,
+    sent: 0,
+  },
   {
     id: 'AN-111',
     title: 'Flinders: February intake applications close 15 December',

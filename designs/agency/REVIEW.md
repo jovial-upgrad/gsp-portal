@@ -11,6 +11,9 @@ How this list works: before changing a page, check its section here. When an ite
 ### Find courses: search and results
 - [x] **Filters in this order:** University, **Campus location** (was "Destination state or province": the campus's state or province), Tuition fee slider, Duration slider, **Tags as open tick boxes** (each with its count in the results; tags no result carries are left out unless ticked; still all of the ticked ones, S3C-4). Both portals and the phone sheet. (4 Nov, commit “Course search filters: University, Campus location, fee, duration, tags as tick boxes”)
 
+### Course page
+- [x] **Announcements with pictures and a GSP Assist summary:** every live announcement matching the course's university, program level and study area, numbered, two then "Show N more"; the first image as a picture ("+N", all in a viewer), PDFs as chips. With two or more, **GSP Assist's summary** on top: one line per announcement, written once when it goes live (job J9) and saved on it, numbered to match. Only on the course's details; the megaphone is unchanged. (4 Nov, commit “Course page: announcements with images and GSP Assist summary”)
+
 ## 4 Nov: admissions feedback (Jovial, from the admissions teams)
 
 Prototype only (branch `admissions-feedback-4nov`); the PRDs follow.
