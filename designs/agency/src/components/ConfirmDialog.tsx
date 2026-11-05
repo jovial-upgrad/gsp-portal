@@ -22,9 +22,10 @@ export function ConfirmDialog({
   open: boolean;
   title: string;
   children: ReactNode;
-  confirm: string;
+  /** The action's name. Left out: the dialog only explains why the action can't happen, with one button (`cancel`, say "Close"). */
+  confirm?: string;
   cancel?: string;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onCancel: () => void;
   /** Deletes, discards or takes something away: the confirm button is red and names the action ("Delete queue"). */
   danger?: boolean;
@@ -95,9 +96,11 @@ export function ConfirmDialog({
               <Button variant="secondary" ref={cancelRef} onClick={onCancel}>
                 {cancel}
               </Button>
-              <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
-                {confirm}
-              </Button>
+              {confirm && onConfirm && (
+                <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
+                  {confirm}
+                </Button>
+              )}
             </div>
           </motion.div>
         </div>

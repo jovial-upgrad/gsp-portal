@@ -6,13 +6,14 @@
  * commission lines, and Admin's own settings and daily jobs. A task exists while its condition holds and closes
  * itself when the record moves on; nothing is seeded. Each hit names its rule; a rule with no logic here makes nothing.
  *
- * The rules are data (Admin › Work › Task rules: on/off, start after, SLA, queue, sharing); only the trigger is code.
+ * The rules are data (Admin › Work › Task rules: on/off, start after, SLA, sharing; the queue is the kind of work's
+ * Goes to); only the trigger is code.
  * Calendar days ("90 days", "14 days") are plain dates; working days count on the record's region's calendar.
  * Date rules (1 March, 1 December, Fridays, Mondays) fire from the work service's start (WORK_START) onwards: the
  * jobs that raise them (J3, J8) didn't run before it, so nothing is made for dates before it.
  */
 import { regionOfPlace } from '../data/regions';
-import { recruitmentQueueId } from './seed';
+import { queueOfRule, goesToOfRule } from './routing';
 import { ruleLive, timeHours, afterFrom } from './engine';
 import { calendarOf } from './calendars';
 import { agreementOf, EXECUTED, ENDED, RP_ONBOARDING } from '../institution/data/records';
@@ -144,10 +145,9 @@ export const RECORD_LOGIC = {
   }).filter(Boolean),
   // T66 (bounces) is worked out after the other tasks, from the email log they make (work/store.ts derive)
   T67: (x) => {
-    const out = x.s.queues.filter((q) => !q.leader).map((q) => ({ key: `lead-${q.id}`, rec: setRec('queues', q.id), since: WORK_START, vars: { what: `${q.name} has no leader` } }));
-    const got = new Set(x.s.queues.flatMap((q) => q.kinds || []));
-    for (const k of x.s.kinds.filter((k) => !got.has(k.id))) out.push({ key: `kind-${k.id}`, rec: setRec('queues', k.id), since: WORK_START, vars: { what: `no queue receives ${k.name}` } });
-    return out;
+    // a leader is required on save: only a queue saved before that can have none. Every kind of work has a Goes to
+    // (required, 5 Nov), so "no queue receives a kind" can't happen and isn't checked.
+    return x.s.queues.filter((q) => !q.leader).map((q) => ({ key: `lead-${q.id}`, rec: setRec('queues', q.id), since: WORK_START, vars: { what: `${q.name} has no leader` } }));
   },
   T68: (x) => {
     const on = x.cfg.docRules.filter((r) => r.on);
@@ -181,7 +181,8 @@ const fillTitle = (task, vars = {}) => task.replace(/<([^>]+)>/g, (m, k) => vars
 
 /**
  * The tasks the record rules make right now, and the records they're about (for My work's Record column). The
- * queue is the rule's ('recruitment': the RP's region's Recruitment queue; 'region': the application's officer's).
+ * queue is the rule's kind of work's Goes to (routing.ts): 'recruitment' the RP's region's Recruitment queue,
+ * 'region' the application's regional queue, else the named queue.
  */
 export function recordTasks(s, x, now) {
   const tasks = [], records = [];
@@ -195,11 +196,11 @@ export function recordTasks(s, x, now) {
       if (!ruleLive(r, hit.since) || now < start) continue;
       const id = `R-${hit.rec.id}-${row}-${hit.key}`;
       if (s.closed?.[id]) continue;
-      const queue = r.queue === 'recruitment' ? recruitmentQueueId(hit.rec.region, s.queues) : r.queue === 'region' ? x.queueOfApp(hit.app) : r.queue;
+      const queue = queueOfRule(s, r, { id, region: hit.rec.region, appQueue: () => x.queueOfApp(hit.app) });
       const assignee = r.share === 'officer' && hit.app ? x.officerOfApp(hit.app) : null;
       const reminded = r.remind ? afterFrom(cal, hit.since, r.remind) : null;
       tasks.push({
-        id, rule: row, row, kind: r.kind, record: hit.app || hit.rec.id, queue, assignee, maker: hit.maker, share: r.share && r.share !== 'officer' ? r.share : null, created: start, status: 'open', auto: true,
+        id, rule: row, row, kind: r.kind, record: hit.app || hit.rec.id, queue, goesTo: goesToOfRule(s, r, id), assignee, maker: hit.maker, share: r.share && r.share !== 'officer' ? r.share : null, created: start, status: 'open', auto: true,
         title: fillTitle(r.task, hit.vars), slaHours: s.frozen?.[id] ?? timeHours(r.sla), closes: r.closes, reminded: reminded && now > reminded ? reminded : null,
       });
       if (!hit.app) records.push(hit.rec);

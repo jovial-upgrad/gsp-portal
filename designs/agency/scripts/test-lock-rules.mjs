@@ -15,7 +15,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.__glob = () => ({});
 globalThis.window = globalThis.window ?? { addEventListener: () => {}, removeEventListener: () => {} };
 const out = await build({
-  stdin: { contents: "export * from './src/work/rpRules.ts'; export { RULES } from './src/work/seed.ts'; export { APP_LOGIC } from './src/work/engine.ts';", resolveDir: path.join(here, '..'), loader: 'ts' },
+  stdin: { contents: "export * from './src/work/rpRules.ts'; export { RULES, KINDS, QUEUES } from './src/work/seed.ts'; export * as R from './src/work/routing.ts'; export { APP_LOGIC } from './src/work/engine.ts';", resolveDir: path.join(here, '..'), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', write: false, logLevel: 'error', jsx: 'automatic', resolveExtensions: ['.ts', '.tsx', '.js', '.json'], define: { 'import.meta.glob': 'globalThis.__glob', 'import.meta.env.MODE': '"test"' },
   loader: { '.webp': 'empty', '.png': 'empty', '.jpg': 'empty', '.svg': 'empty', '.css': 'empty' },
 });
@@ -29,7 +29,8 @@ let pass = 0, fail = 0;
 const ok = (what, got, exp) => { const g = JSON.stringify(got), e = JSON.stringify(exp); if (g === e) pass++; else { fail++; console.log(`FAIL ${what}: expected ${e} got ${g}`); } };
 const DAY = 86_400_000;
 const rules = structuredClone(W.RULES);
-const s = { rules, closed: {}, frozen: {}, queues: [] };
+// the queue comes from the rule's kind of work's Goes to (5 Nov), so the kinds and queues are the seed's
+const s = { rules, closed: {}, frozen: {}, kinds: structuredClone(W.KINDS), queues: structuredClone(W.QUEUES) };
 const now = Date.parse('2026-11-02T12:00:00+05:30');
 const sent = (daysAgo) => ({ id: 'rp-x', name: 'Sample agency', country: 'India', status: 'Agreement sent', agreements: [{ id: 'v1', version: 'v1', file: 'a.pdf', size: 1, uploadedAt: now - daysAgo * DAY, uploadedBy: 'RP Ops', sentAt: now - daysAgo * DAY, status: 'Sent' }], activity: [] });
 
@@ -90,5 +91,15 @@ ok('mapped nationality: no T62', W.nationalityTasks(s, [{ nationality: 'India', 
 ok('unmapped nationality: one T62', W.nationalityTasks(s, [{ nationality: 'Mongolia', added: now }, { nationality: 'Mongolia', added: now }], now).map((t) => t.title), ['Map Mongolia to a sales region']);
 ok('non-EU Europe mapped (S1C-6)', W.nationalityTasks(s, [{ nationality: 'United Kingdom' }, { nationality: 'Switzerland' }, { nationality: 'Norway' }], now).length, 0);
 
+// Goes to (5 Nov): every kind has one, valid for its record; no rule carries a queue; a new Goes to reaches new tasks only
+ok('every kind has a valid Goes to', W.KINDS.filter((k) => !W.R.goesToValid(s, k, k.goesTo)).map((k) => k.id), []);
+ok('no rule has a queue of its own', W.RULES.filter((r) => 'queue' in r).map((r) => r.row), []);
+ok('no queue stores what it receives', W.QUEUES.filter((q) => 'kinds' in q).map((q) => q.id), []);
+ok('routed Goes to only for its record', [W.R.goesToValid(s, { record: 'RP' }, 'region'), W.R.goesToValid(s, { record: 'Application' }, 'recruitment'), W.R.goesToValid(s, { record: 'RP' }, 'recruitment')], [false, false, true]);
+const moved = { ...s, kinds: s.kinds.map((k) => (k.id === rules.find((r) => r.row === 'T69').kind ? { ...k, goesTo: 'q-admin' } : k)) };
+ok('kind goes to Admin: a new T69 task goes there', W.rpTasks(moved, [sent(20)], now).filter((t) => t.rule === 'T69').map((t) => t.queue), ['q-admin']);
+const t69 = W.rpTasks(s, [sent(20)], now).find((t) => t.rule === 'T69');
+ok('kind goes to Admin: the open T69 task keeps RP Ops', W.rpTasks({ ...moved, routed: { [t69.id]: t69.goesTo } }, [sent(20)], now).filter((t) => t.rule === 'T69').map((t) => t.queue), ['q-rp-ops']);
+ok('the queue sheet lists what lands in RP Ops', W.R.receivesOf(s, s.queues.find((q) => q.id === 'q-rp-ops')).direct.map((k) => k.id).sort(), s.kinds.filter((k) => k.goesTo === 'q-rp-ops').map((k) => k.id).sort());
 console.log(`\n${pass} checks pass, ${fail} fail`);
 if (fail) process.exit(1);

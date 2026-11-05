@@ -13,11 +13,12 @@
  * - T70 "Activate <university>" (S2C-19): an institution partner reopened by hand from Closed; one task per
  *   university under it that isn't Live, closing when it is (ipTasks below).
  *
- * The rules are data (Admin › Work › Task rules: on/off, SLA, queue, sharing); only the condition is code here.
+ * The rules are data (Admin › Work › Task rules: on/off, SLA, sharing); each task's queue is its kind of work's Goes to
+ * (routing.ts queueOfRule). Only the condition is code here.
  */
 import { openAgreement, signedOf } from '../institution/data/agreements';
 import { regionOfCountry } from '../data/regions';
-import { recruitmentQueueId } from './seed';
+import { queueOfRule, goesToOfRule } from './routing';
 import { ruleLive, timeHours, afterFrom } from './engine';
 import { calendarOf } from './calendars';
 import { isClosed } from '../institution/data/records';
@@ -72,9 +73,9 @@ export function rpTasks(s, rps, now) {
       const id = `R-${rp.id}-${row}-${hit.key}`;
       if (s.closed?.[id]) continue;
       const region = regionOfCountry(rp.country);
-      const queue = r.queue === 'recruitment' ? recruitmentQueueId(region, s.queues) : r.queue;
+      const queue = queueOfRule(s, r, { id, region });
       out.push({
-        id, rule: row, row, kind: r.kind, record: rp.id, queue, assignee: null, share: r.share && r.share !== 'officer' ? r.share : null, created: hit.since, status: 'open', auto: true,
+        id, rule: row, row, kind: r.kind, record: rp.id, queue, goesTo: goesToOfRule(s, r, id), assignee: null, share: r.share && r.share !== 'officer' ? r.share : null, created: hit.since, status: 'open', auto: true,
         title: r.task.replace('<RP>', rp.name), slaHours: s.frozen?.[id] ?? timeHours(r.sla), closes: r.closes,
       });
     }
@@ -96,7 +97,7 @@ export function ipTasks(s, ips, unis, now) {
       const id = `R-${u.id}-T70-${p.reopenedAt}`;
       if (s.closed?.[id]) continue;
       out.push({
-        id, rule: 'T70', row: 'T70', kind: r.kind, record: u.id, queue: r.queue, assignee: null, share: r.share && r.share !== 'officer' ? r.share : null, created: p.reopenedAt, status: 'open', auto: true,
+        id, rule: 'T70', row: 'T70', kind: r.kind, record: u.id, queue: queueOfRule(s, r, { id, region: 'Global' }), goesTo: goesToOfRule(s, r, id), assignee: null, share: r.share && r.share !== 'officer' ? r.share : null, created: p.reopenedAt, status: 'open', auto: true,
         title: r.task.replace('<university>', u.name).replace('<partner>', p.name), slaHours: s.frozen?.[id] ?? timeHours(r.sla), closes: r.closes,
       });
     }
@@ -116,6 +117,6 @@ export function nationalityTasks(s, students, now) {
     const id = `R-nat-${n}-T62`;
     if (s.closed?.[id]) return null;
     const since = Math.min(...students.filter((x) => x.nationality === n).map((x) => x.added ?? now));
-    return { id, rule: 'T62', row: 'T62', kind: r.kind, record: 'set-nationality', queue: r.queue, assignee: null, share: r.share && r.share !== 'officer' ? r.share : null, created: Number.isFinite(since) ? since : now, status: 'open', auto: true, title: r.task.replace('<nationality>', n), slaHours: s.frozen?.[id] ?? timeHours(r.sla), closes: r.closes };
+    return { id, rule: 'T62', row: 'T62', kind: r.kind, record: 'set-nationality', queue: queueOfRule(s, r, { id }), goesTo: goesToOfRule(s, r, id), assignee: null, share: r.share && r.share !== 'officer' ? r.share : null, created: Number.isFinite(since) ? since : now, status: 'open', auto: true, title: r.task.replace('<nationality>', n), slaHours: s.frozen?.[id] ?? timeHours(r.sla), closes: r.closes };
   }).filter(Boolean);
 }

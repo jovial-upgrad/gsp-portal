@@ -6,6 +6,13 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 5 Nov: where work goes
+
+Prototype only (branch `kind-goes-to`); the PRDs follow.
+
+### GSP · Admin › Work: Queues, SLA and escalation, and Task rules
+- [x] **One routing setting, the kind of work's Goes to.** Every kind of work has a required **Goes to**: a queue, the application's regional Admissions queue (Application kinds only) or the RP's Recruitment queue (RP kinds only), shown in the Kinds of work table and edited on the kind. Every task rule's task goes there: the rule's Queue is now read-only ("Goes to … (from its kind of work: …)", with a link to Kinds of work). A queue's **What lands in this queue** and the Receives column are worked out from the kinds (no tick boxes). A queue can't be deleted while a kind goes to it. A new Goes to applies to new tasks only and is logged "<kind>: goes to <old> → <new>". The "no queue receives a kind" check is gone. Seeded from the queues the rules had; where a kind's rules disagreed, the most common, and on a tie the queue that keeps each rule's assignee: RP lifecycle change goes to RP Ops (T33, T37 and W23 still reach the RP's Recruitment contact as record owner, but sit in RP Ops), Get a university live to IP Ops (T40 moves from Institution, still to the relationship manager), Match an unmatched email to Global Admissions (T26). Work storage key bumped (v13). (5 Nov, commit “Kinds of work: Goes to is the only routing; task rules take their queue from their kind”)
+
 ## 4 Nov, later: course search filters (Jovial, in chat)
 
 ### Find courses: search and results

@@ -114,6 +114,25 @@ W.resetAll();
 await tick();
 s = W.getState();
 
+/* ---------- Goes to (5 Nov): a task's queue is its kind of work's; a change reaches new tasks only ---------- */
+{
+  await tick();
+  const st = W.getState();
+  const named = st.tasks.filter((t) => t.auto && st.queues.some((q) => q.id === st.kinds.find((k) => k.id === t.kind)?.goesTo));
+  ok('each task is in its kind’s queue', named.length > 0 && named.every((t) => t.queue === st.kinds.find((k) => k.id === t.kind).goesTo), named.filter((t) => t.queue !== st.kinds.find((k) => k.id === t.kind).goesTo).map((t) => t.id).slice(0, 3).join(', '));
+  const t0 = named[0], k0 = st.kinds.find((k) => k.id === t0.kind);
+  const other = st.queues.find((q) => q.id !== k0.goesTo && q.leader);
+  W.saveKind({ ...k0, goesTo: other.id }, 'Test');
+  await tick();
+  const after = W.getState();
+  ok('a new Goes to leaves open tasks where they are', after.tasks.find((t) => t.id === t0.id)?.queue === k0.goesTo);
+  ok('a new Goes to is logged', after.log.some((l) => l.event === 'kind.goes_to' && l.text.includes('→')));
+  ok('a queue a kind goes to can’t be deleted', (W.removeQueue(other.id, 'Test').refused || []).some((k) => k.id === k0.id) && !!after.queues.find((q) => q.id === other.id));
+  W.resetAll();
+  await tick();
+  s = W.getState();
+}
+
 /* ---------- email log ---------- */
 const tpls = new Set(M.EMAIL_TEMPLATES.map((e) => e.id));
 const log = M.emailLog(s);

@@ -1,6 +1,8 @@
 // @ts-nocheck -- ported from the add-on prototype; typed when the work API is designed.
 /*
  * The work store (slice 4 PRD): queues, kinds of work, task rules, the escalation ladder, tasks and the work log.
+ * Where a task goes is its kind of work's Goes to (work/routing.ts, 5 Nov); every engine resolves it through
+ * `queueOfRule`, and a task keeps the Goes to it was made with (`routed`).
  * It saves to this browser and tells components when something changes. Calendars are in work/calendars.ts, the
  * clock in work/clock.ts. In the real build this is the work service; components only use `useStore`, `update` and
  * the helpers below.
@@ -14,7 +16,9 @@ import { liveAll, liveFlags, onLiveChange } from '../data/live';
 import { onLeave, subscribeLeave } from '../data/leave';
 import { adminCfg, onAdminChange, setAdminCfg } from '../admin/data/store';
 import { liveApps, appRecord, appTasks, addWorkingHours, workingHoursBetween, DAY_HOURS, pickOfficer, timeHours, afterFrom } from './engine';
-import { regionQueueId, recruitmentQueueId, sameRole } from './seed';
+import { regionQueueId, sameRole } from './seed';
+import { queueOfRule, goesToOfRule, goesToName, kindsGoingTo } from './routing';
+export { queueOfRule, goesToOfRule, goesToName, goesToOptions, goesToValid, kindsGoingTo, receivesOf, ROUTED, BY_REGION, BY_RECRUITMENT } from './routing';
 import { now, subscribeClock, istDate, istTime, istYmd } from './clock';
 import { WORK_KEY } from './renewal';
 import { getDb as rpDb, onDbChange } from '../institution/data/store';
@@ -26,7 +30,7 @@ import { readSource } from './sources';
 import { runTimes } from './jobs';
 import { sampleStudents } from '../data/students';
 
-const KEY = WORK_KEY; // v6: the slice 4 PRD's queues, rules and kinds (2 Nov)
+const KEY = WORK_KEY; // see renewal.ts for each version
 const ADMIN_Q = 'q-admin';
 const NO_HOURS = 18; // no rule SLA and no kind SLA: 18 working hours
 
@@ -44,7 +48,7 @@ function fresh() {
     // nothing seeded (Jovial, 2 Nov: nothing hard-coded): every task comes from a rule (engine.ts, rpRules.ts,
     // recordRules.ts); `tasks` holds none until the build's Mail makes some, and `records` only what an action adds
     records: [], tasks: [],
-    persona: null, log: [], closed: {}, overrides: {}, officers: {}, frozen: {}, pauses: {}, gave: [],
+    persona: null, log: [], closed: {}, overrides: {}, officers: {}, frozen: {}, routed: {}, pauses: {}, appQueue: {}, gave: [],
     // testing aids (the Prototype panel): job runs made to fail, emails made to bounce
     jobs: { fail: {} }, bounces: {},
     mail: { threads: mail.THREADS, filed: mail.FILED, mailboxes: mail.MAILBOXES, filters: mail.FILTERS, intents: mail.INTENTS, settings: mail.MAIL_SETTINGS },
@@ -128,7 +132,11 @@ try { state = JSON.parse(localStorage.getItem(KEY)) || null; } catch { state = n
 if (!state || !state.mail || !state.mail.threads || !state.rules?.[0]?.group) state = fresh();
 state.jobs = state.jobs || { fail: {} };
 state.bounces = state.bounces || {};
-for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses', 'appQueue']) state[k] = state[k] || {};
+for (const k of ['closed', 'overrides', 'officers', 'frozen', 'routed', 'pauses', 'appQueue']) state[k] = state[k] || {};
+// saved before Goes to (5 Nov): each kind takes its seed's Goes to (else the Admin queue), and queues lose their ticks
+state.kinds = (state.kinds || []).map((k) => (k.goesTo ? k : { ...k, goesTo: seed.KINDS.find((x) => x.id === k.id)?.goesTo || ADMIN_Q }));
+state.queues = (state.queues || []).map(({ kinds, ...q }) => q);
+state.rules = (state.rules || []).map(({ queue, ...r }) => r);
 state.gave = state.gave || [];
 const listeners = new Set();
 
@@ -269,6 +277,8 @@ function derive() {
     }
     // S4-11: a task keeps the SLA hours it was created with
     if (t.auto && state.frozen[t.id] == null) { const id = t.id, h = t.slaHours; later(`fz-${id}`, (d) => { if (d.frozen[id] == null) d.frozen[id] = h; }); }
+    // 5 Nov: and the Goes to it was created with, so a kind's new Goes to applies to new tasks only
+    if (t.auto && t.goesTo && state.routed[t.id] == null) { const id = t.id, g = t.goesTo; later(`rt-${id}`, (d) => { if (d.routed[id] == null) d.routed[id] = g; }); }
     // S4-10: GSP's task pauses while the RP is asked for something
     const p = state.pauses[t.id];
     if (t.pausedNow && !p?.open) { const id = t.id, from = t.pausedNow.from; const title = t.pausedNow.title; later(`pz-${id}`, (d) => { if (!d.pauses[id]?.open) d.pauses[id] = { done: d.pauses[id]?.done || 0, open: from, title }; }); }
@@ -308,10 +318,11 @@ function derive() {
       if (n.length < 3 || !ruleLive(t66, n[2].at)) continue;
       const id = `R-set-users-${who}-T66-${b.email}`;
       if (state.closed?.[id]) continue;
-      const lead = (base.queues.find((q) => q.id === t66.queue) || {}).leader;
+      const q66 = queueOfRule(base, t66, { id });
+      const lead = (base.queues.find((q) => q.id === q66) || {}).leader;
       const recId = `set-users-${who}`;
       if (!base.records.some((r) => r.id === recId)) base.records.push({ id: recId, type: 'Setting', label: 'GSP users', page: 'users' });
-      tasks.push({ id, rule: 'T66', row: 'T66', kind: t66.kind, record: recId, queue: t66.queue, assignee: (state.overrides?.[id] || {}).assignee || lead, created: n[2].at, status: 'open', auto: true, title: t66.task.replace('<person>', nameOfIn(base, who)).replace('<n>', String(n.length)), slaHours: state.frozen?.[id] ?? timeHours(t66.sla), closes: t66.closes });
+      tasks.push({ id, rule: 'T66', row: 'T66', kind: t66.kind, record: recId, queue: q66, goesTo: goesToOfRule(base, t66, id), assignee: (state.overrides?.[id] || {}).assignee || lead, created: n[2].at, status: 'open', auto: true, title: t66.task.replace('<person>', nameOfIn(base, who)).replace('<n>', String(n.length)), slaHours: state.frozen?.[id] ?? timeHours(t66.sla), closes: t66.closes });
     }
   }
   // the six statuses' usual times, from the rules that time them (S4-12): data/applications.ts reads these
@@ -339,7 +350,7 @@ export function useStore(select = (s) => s) { return select(useSyncExternalStore
 /* update(draft => { ...change draft... }, 'What changed, for the log', 'event.name') */
 export function update(fn, logText, event) {
   const next = structuredClone(state);
-  for (const k of ['closed', 'overrides', 'officers', 'frozen', 'pauses', 'appQueue']) next[k] = next[k] || {};
+  for (const k of ['closed', 'overrides', 'officers', 'frozen', 'routed', 'pauses', 'appQueue']) next[k] = next[k] || {};
   const before = JSON.stringify(state.queues);
   fn(next);
   if (logText) next.log = [{ at: now(), who: next.persona, text: logText, event }, ...next.log].slice(0, 300);
@@ -416,13 +427,42 @@ export function raiseRpTask(row, rp, at = now()) {
   if (!r || !r.on) return null;
   const id = `R-${rp.id}-${row}`;
   if (s.tasks.some((t) => t.id === id)) return id;
-  const queue = r.queue === 'recruitment' ? recruitmentQueueId(rp.region, s.queues) : r.queue;
+  const queue = queueOfRule(s, r, { region: rp.region });
   const title = r.task.replace('<RP>', rp.name || rp.label);
   update((d) => {
     if (!d.records.some((x) => x.id === rp.id)) d.records.push({ id: rp.id, type: 'RP', label: rp.name || rp.label, region: rp.region, agency: rp.name, owner: rp.bdm || rp.owner });
     d.tasks.push({ id, rule: row, kind: r.kind, record: rp.id, queue, assignee: null, created: at, status: 'open', title, slaHours: timeHours(r.sla) });
   }, `Task ${row}: ${title}`, 'task.created');
   return id;
+}
+
+/* ---------- queues and kinds of work (5 Nov): Goes to ---------- */
+/**
+ * Delete a queue. Refused while any kind of work goes to it (returns those kinds; nothing changes): change their Goes
+ * to first. Its open tasks move to the Admin queue. Logged queue.deleted.
+ */
+export function removeQueue(id, by) {
+  const s = getState();
+  const q = queueById(s, id);
+  if (!q || id === ADMIN_Q) return { refused: [] };
+  const kinds = kindsGoingTo(s, id);
+  if (kinds.length) return { refused: kinds };
+  const open = s.tasks.filter((t) => t.queue === id && t.status === 'open').length;
+  update((d) => { d.queues = d.queues.filter((x) => x.id !== id); d.tasks.forEach((t) => { if (t.queue === id && t.status === 'open') t.queue = ADMIN_Q; }); });
+  logChange('queue.deleted', `${by} deleted queue ${q.name}${open ? `; its ${open} open tasks moved to the Admin queue` : ''}`, by);
+  return { refused: null, open };
+}
+/**
+ * Add or save a kind of work. A new Goes to applies to new tasks only (open tasks keep theirs) and is logged
+ * "<kind>: goes to <old> → <new>" (kind.goes_to); the rest is logged kind.saved.
+ */
+export function saveKind(k, by) {
+  const s = getState();
+  const was = kindById(s, k.id);
+  update((d) => { const i = d.kinds.findIndex((x) => x.id === k.id); if (i >= 0) d.kinds[i] = k; else d.kinds.push(k); });
+  const name = (to) => goesToName(s, to) || 'a deleted queue';
+  if (was && was.goesTo !== k.goesTo) logChange('kind.goes_to', `${k.name}: goes to ${name(was.goesTo)} → ${name(k.goesTo)}`, by);
+  if (!was || was.name !== k.name || was.record !== k.record || was.sla !== k.sla) logChange('kind.saved', `${by} ${was ? 'saved' : 'added'} kind of work ${k.name} (${k.sla} wh, goes to ${name(k.goesTo)})`, by);
 }
 
 /* ---------- testing aids (the Prototype bar on Emails and daily jobs): external events, not product actions ---------- */
