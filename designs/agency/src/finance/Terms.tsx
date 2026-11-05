@@ -248,7 +248,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
   const v = useCheck(errors);
   const save = () => v.submit() && propose('unis', u.id, u, d, `${u.name} terms`);
   return (
-    <Sheet title={u.name} sub="University terms. What the contract says is at the end." onClose={onClose} wide dirty={!ro && dirty} what={`${u.name}’s terms`} footer={<Foot ro={ro} dirty={dirty} onClose={onClose} onSave={save} />}>
+    <Sheet title={u.name} sub="University terms: what the engine prices this university’s lines on." onClose={onClose} wide dirty={!ro && dirty} what={`${u.name}’s terms`} footer={<Foot ro={ro} dirty={dirty} onClose={onClose} onSave={save} />}>
       <div className="gspx-grid2">
         <div className="gspx-form2">
           <Select id="u-trig" label="Commission is earned at" required value={d.trigger} onChange={x => set('trigger', x)} options={Object.entries(TRIG)} />
@@ -272,19 +272,7 @@ function UniSheet({ ro, c, u, onClose, propose }) {
           {d.tier && <div className="field"><span className="field__label">University tier ({d.tier.retro ? 'retrospective' : 'prospective'}, all GSP students{d.tier.scope === 'country' ? ' per source country' : ''})</span>
             <Bands bands={d.tier.bands} show={v.shown} onChange={b => set('tier', { ...d.tier, bands: b })} /></div>}
         </div>
-        <h3 className="gspx-h4">What the contract says</h3>
-        <p className="muted">Read from the signed agreement, clause by clause, so the terms above can be checked against it. Read only: it changes when a new agreement is uploaded on the Institution partner.</p>
-        <dl className="gspx-dl">
-          <dt>Rate</dt><dd>{u.contract?.rate || '—'}</dd>
-          <dt>Periods</dt><dd>{u.contract?.periods || '—'}</dd>
-          <dt>Trigger</dt><dd>{u.contract?.trigger || '—'}</dd>
-          <dt>Tier</dt><dd>{u.contract?.tier || '—'}</dd>
-          <dt>Clawback</dt><dd>{u.contract?.claw || '—'}</dd>
-          <dt>After the contract ends</dt><dd>{u.contract?.after || '—'}</dd>
-          <dt>Source</dt><dd>{u.contract?.src || '—'}</dd>
-          <dt>Territory</dt><dd>{u.territory ? `${u.territory} (the university’s record)` : '—'}</dd>
-          {u.flag && <><dt>Open point</dt><dd>{u.flag}</dd></>}
-        </dl>
+        {u.flag && <Notice tone="warn">Open point: {u.flag}</Notice>}
       </div>
     </Sheet>
   );

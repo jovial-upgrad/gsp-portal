@@ -205,7 +205,6 @@ export function UniWhy({ x, r, cfg, onClose }) {
     <Sheet title={`${a.student} · ${lineLabel(l)}`} sub={`${u.name} · ${a.app || x.app}`} onClose={onClose} wide footer={<Button onClick={onClose}>Close</Button>}>
       <ol className="gspx-why">{steps.map((w, i) => <li key={i}>{w}</li>)}</ol>
       <div className="gspx-sentence">GSP’s commission on this line: <b>{money(l.ent, u.cur)}</b>{l.gst ? ` + GST ${money(l.gst, u.cur)}` : ''}{l.aud != null && u.cur !== 'AUD' ? ` (AUD ${money(l.aud)})` : ''}. Status: {l.st[0].toLowerCase()}{l.st[2] ? `. ${l.st[2]}` : ''}.</div>
-      {u.contract && <><h3 className="gspx-h4">What the contract says</h3><dl className="gspx-dl"><dt>Rate</dt><dd>{u.contract.rate}</dd><dt>Trigger</dt><dd>{u.contract.trigger}</dd><dt>Clawback</dt><dd>{u.contract.claw}</dd><dt>Source</dt><dd>{u.contract.src}</dd></dl></>}
       <p className="muted">Final tuition fee on the application: {money(net, u.cur)} (the course's fee until Admissions changes it from the offer letter).</p>
     </Sheet>
   );
