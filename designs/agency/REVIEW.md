@@ -6,6 +6,13 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 5 Nov, night: the commissions flow (Jovial, Pending Questions › Commissions flow)
+
+- [x] **Monthly RP invoices:** download the system invoice, add the RP's number, sign and upload; Finance checks (checklist), approves or sends back with a reason, and marks paid with the bank reference by the pay-by day. Line statuses, How it's worked out (fee, share, band; never GSP's side), Query this line, the RP's bell. (5 Nov, commit “Commissions: the monthly flow”)
+- [x] **University invoices** batched per university per month or per student; self-billing; payment differences with reasons, resolved or written off. (5 Nov, commit “Commissions: the monthly flow”)
+- [x] **Settings:** monthly cycle, reminders, invoice checks, send-back and difference reasons, upGrad entities; no maker-checker; RP terms in force from; notices sent to many RPs; Master Partner flat; tier counts enrolled students; bank details verified by RP Ops; Admissions change the intake; Finance reports. (5 Nov, commit “Commissions: the monthly flow”)
+  - Open question: Xero (phase two) and migration of commission in progress (not now).
+
 ## 5 Nov, evening: Mail kept simple (Jovial, in chat)
 
 - [x] **Linked or forwarded, nothing else.** A gsp.admissions@ mail is linked to its application and shows in the application's Mail tab, or is forwarded (commission, access or platform, marketing). Mail that can't be linked goes to Global Ops (Mail › To link). The mail types, owners, reasons, states, suggested steps and the How mail is handled table are gone; Admission's menu has no Mail. Replaces the item below. (5 Nov, commit “Mail kept simple: linked or forwarded”)

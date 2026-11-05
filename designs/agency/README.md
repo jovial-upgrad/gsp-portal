@@ -733,6 +733,21 @@ What the docs say, and what this design does with it:
 - **Not yet:** checking eligibility against a student (Eligible, With conditions, Not eligible, Add details), and sending the PDF on WhatsApp.
 
 
+## Commissions: the monthly flow (5 Nov, Pending Questions › Commissions flow)
+
+- **No second-person check anywhere.** One Finance person enters terms, saves settings, checks RP invoices and pays them; Save applies at once (the old "Send for checking" and T45 are gone).
+- **Effective dates.** RP terms have "Terms in force from": an intake before it has no RP rate and is held as the exception "RP terms not in force". Notices are in force from their enrolment start. University terms keep their versions.
+- **Notices to many RPs.** A notice has one set of terms; it lists RPs or covers every RP in a region, and **Send to RPs** shows it on each RP's Earnings.
+- **RP tier counting.** Enrolled students GSP will be paid for, counted per the RP contract's window (not only students GSP has been paid for). A **Master Partner** is paid a flat rate and pays its RPs itself.
+- **The RP's month (Earnings, RP Admin only).** A line is Expected, Waiting for the university, Ready to invoice (once GSP is paid), Invoice in review, Sent back, Approved, Paid, On hold (bank details not verified, or no exchange rate) or Recovered. **Download invoice** makes the system invoice for the month (addressed to the upGrad entity for the RP's region, with tax added and withheld); the RP adds its own number and date, signs and **uploads** it. **How it's worked out** shows the fee, the RP's share of it, its rate and tier band, never GSP's rate or amount. **Query this line** opens a query Finance answers (T74). Notices from GSP show beside the terms.
+- **Finance › RP invoices and payout.** The month's cut-off and pay-by day (Finance setup: last day, and the 10th of the next month). RPs with lines ready and no invoice are reminded 3, 7 and 14 days after the cut-off; nothing expires. **Check** ticks Finance setup's checklist and approves, or sends back with a reason from the setting (T73). **Mark paid** takes the bank reference and date; the RP gets the remittance on its bell (T49 for approved invoices not paid).
+- **Finance › University invoices.** Due lines batch per university per month (or per student, a university setting) from the upGrad entity for its destination, numbered in that entity's series and due after the contract's days to pay. **Self-billing** universities aren't invoiced; their remittance is recorded on the lines. A payment that doesn't match becomes a **payment difference** with a reason from the setting, resolved or written off; the shortfall is never invoiced again.
+- **Bank details.** An RP's change holds its payouts until **RP Ops** verifies or rejects it on the RP's record, Commission tab (T35, RP Ops' queue).
+- **Intake change.** Admissions can move an application to another available intake of the course (Key details › Intake); the commission lines move to the new dates.
+- **Reports.** Receivables ageing by university, earned not invoiced (accrual), cash received and paid out by month, exceptions by type, payables by RP; CSVs for the ledgers and RP invoices.
+- **The RP's bell.** Lines ready to invoice, invoice received, sent back, approved, paid (remittance), a recovery, and Finance's answer to a query.
+- Not built: Xero (phase two) and bringing in commission already in progress.
+
 ## Design decisions: Operations (slice 4)
 
 Built to match the slice 4 PRD "Operations" (2 Nov, decisions S4-1 to S4-28); the gap list is `prd-gaps/S4.md`. Code: `src/work/` (store, engine, seed, calendars, clock, mail, ui).

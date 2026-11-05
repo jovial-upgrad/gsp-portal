@@ -8,7 +8,7 @@
   { "file": "src/components/DocView.tsx", "match": "'Mathematics', 'Physics'", "why": "The placeholder page drawn inside a document preview (an illustration of a marksheet, not data)" },
   { "file": "src/finance/Commissions.tsx", "match": "['Application', 'Student', 'University', 'Line', 'Trigger date'", "why": "University ledger CSV column headings (design copy)" },
   { "file": "src/finance/Commissions.tsx", "match": "['Application', 'Student', 'RP', 'Payee', 'Line'", "why": "RP ledger CSV column headings (design copy)" },
-  { "file": "src/finance/Commissions.tsx", "match": "['Pay day', 'RPs', 'Total AUD', 'Prepared by', 'Approved by']", "why": "Payout runs CSV column headings (design copy)" },
+  { "file": "src/finance/Commissions.tsx", "match": "['Month', 'RP', 'System reference', 'RP invoice number'", "why": "RP invoices CSV column headings (design copy)" },
   { "file": "src/finance/Scenarios.tsx", "match": "['Case', 'Sheet', 'Scenario', 'Check'", "why": "Scenarios CSV column headings (design copy)" },
   { "file": "src/gsp/applications/AppList.tsx", "match": "['Application', 'Student', 'Course', 'Intake', 'Recruitment partner', 'Stage', 'Status']", "why": "Applications export column headings (design copy)" },
   { "file": "src/screens/applications/AppList.tsx", "match": "['Application', 'Student', 'Course', 'Intake', 'Counsellor', 'Stage', 'Status']", "why": "Applications export column headings (design copy)" },

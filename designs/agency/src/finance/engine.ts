@@ -491,9 +491,10 @@ function compute(cfg, apps, today) {
   });
   A.forEach((a) => { const r = base[a.id]; r.boxed = !!(r.notice && r.notice.pct && r.notice.pct.combine === 'box' && !r.lead); });
   const schemeOf = (rp) => (rp.flat != null && rp.flat !== '' ? { type: 'flat', flat: +rp.flat, name: 'Own flat rate' } : rp.scheme && SC[rp.scheme] ? SC[rp.scheme] : null);
-  /* who counts toward an RP tier: GSP received the university's money, and not reworked out (S5-15) */
+  /* who counts toward an RP tier (Jovial, 5 Nov): enrolled students GSP will be paid for, counted per the RP contract's
+     window; not one who withdrew before any trigger date, and not one reworked out at period end (S5-15) */
   const rpCountable = (x, win, notes) => {
-    const b = base[x.id]; if (!b.received) return false;
+    const b = base[x.id]; if (x.withdrawn && !b.received && x.withdrawn.date <= (b.trigBase || x.intake)) return false;
     if (b.nothingEarned) { const end = windowEnd(win, x.intake) || addMonths(x.intake, 6); if (today > end) { notes && notes.push(x.student + ' withdrew with a refund on ' + nice(x.withdrawn.date) + ': taken out at the end-of-period rework on ' + nice(end)); return false; } notes && notes.push(x.student + ' withdrew with a refund on ' + nice(x.withdrawn.date) + ': still counted until the period ends on ' + nice(end) + ', when the band is re-worked (S5-15). Rework pending.'); }
     return true;
   };
@@ -504,7 +505,10 @@ function compute(cfg, apps, today) {
     const tp = r.payee || rp; const viaMP = tp.id !== rp.id;
     const t0 = viaMP ? 'RP: ' + rp.name + ', mapped to Master Partner ' + tp.name + '. GSP pays the Master Partner under the Master Partner’s own terms; the Master Partner pays the RP from that under their own agreement, outside GSP. The tier counts all of the Master Partner’s RPs together.' : 'RP: ' + rp.name + ' (' + rp.region + '). All branches of an RP share one count and one rate.';
     why.push(t0); tr.push({ h: 'Who is paid', t: t0 });
-    const sch = schemeOf(tp); let basePct = null, baseWhy = '', est = false, baseRef = 'RP1', orderTxt = '';
+    // a Master Partner is paid a flat rate and pays its RPs itself (Jovial, 5 Nov)
+    // terms apply to intakes from their effective date (Jovial, 5 Nov: Commissions flow Q2); before it, the line waits
+    const notYet = tp.from && a.intake < tp.from;
+    const sch = notYet ? null : viaMP ? (tp.flat != null && tp.flat !== '' ? { type: 'flat', flat: +tp.flat, name: 'Own flat rate' } : null) : schemeOf(tp); let basePct = null, baseWhy = '', est = false, baseRef = 'RP1', orderTxt = '';
     if (sch) {
       if (sch.type === 'flat') { basePct = +sch.flat; baseWhy = (sch.name === 'Own flat rate' ? (viaMP ? 'Master Partner’s own flat rate' : 'RP’s own flat rate') : 'Scheme ' + sch.id + ' ' + sch.name) + ': ' + basePct + '% of GSP’s base commission.'; }
       else {
@@ -522,7 +526,8 @@ function compute(cfg, apps, today) {
         baseWhy = 'Scheme ' + sch.id + ' ' + sch.name + ' (' + bandTxt(sch.bands) + '), ' + mode + ', counted per ' + (winName[win] || win) + ' by intake (not by the date GSP was paid). Window ' + wk + ': ' + (est ? 'GSP has not received this student’s commission yet, so they would be enrolment ' + rank + ' (estimate). ' : '') + inWin.length + ' enrolment' + (inWin.length === 1 ? '' : 's') + ' GSP has been paid for' + ORDER + '. ' + (mode.startsWith('retro') ? 'The total (' + total + ') sets the band for everyone in the window' : 'This student’s own place (' + rank + ') sets the band') + ': band ' + (b.i + 1) + ' → ' + b.pct + '%.' + (notes.length ? ' ' + notes.join('. ') + '.' : '') + ' GSP leads (50%) and notice boxes are not counted.';
       }
     } else {
-      if (S.defaultMode === 'hold') { baseWhy = 'No commission terms for this RP. The line waits in exceptions.'; exc(a, 'RP has no terms', tp.name + ' has no commission terms. Add them to price this line.'); }
+      if (notYet) { baseWhy = tp.name + '’s terms are in force for intakes from ' + nice(tp.from) + '; this intake starts ' + nice(a.intake) + '. The line waits in exceptions.'; exc(a, 'RP terms not in force', tp.name + '’s terms start ' + nice(tp.from) + ', after this intake (' + nice(a.intake) + '). Add the terms that applied then.'); }
+      else if (S.defaultMode === 'hold') { baseWhy = 'No commission terms for this RP. The line waits in exceptions.'; exc(a, 'RP has no terms', tp.name + ' has no commission terms. Add them to price this line.'); }
       else { basePct = +S.defaultPct; baseWhy = 'No commission terms for this RP: the new-contract default of ' + basePct + '% applies.'; exc(a, 'RP has no terms', tp.name + ' has no commission terms; the default ' + basePct + '% was used. Confirm or add terms.', 'warn'); }
     }
     const baseWhyRp = baseWhy.replace('@@ORDER@@', ''); baseWhy = baseWhy.replace('@@ORDER@@', orderTxt);

@@ -79,7 +79,7 @@ export const KINDS = [
   { id: 'k-terms', name: 'Enter commission terms', record: 'Commission', sla: 18, goesTo: 'q-finance' },
   { id: 'k-check', name: 'Check a change', record: 'Commission', sla: 9, goesTo: 'q-finance' },
   { id: 'k-exception', name: 'Commission exception', record: 'Commission', sla: 18, goesTo: 'q-finance' },
-  { id: 'k-payout', name: 'Payout run', record: 'Commission', sla: 9, goesTo: 'q-finance' },
+  { id: 'k-payout', name: 'RP invoices and payout', record: 'Commission', sla: 9, goesTo: 'q-finance' },
   { id: 'k-mail', name: 'Match an unmatched email', record: 'Email', sla: 9, goesTo: 'q-adm-global' },
   { id: 'k-escalation', name: 'SLA escalation', record: 'Any', sla: 9, goesTo: 'q-adm-global' },
   // proposal S4-28: Admin's own tasks (a setting missing, a job failed)
@@ -224,7 +224,7 @@ export const RULES = [
   R('T69', 'RPs', { record: 'RP', name: 'Agreement not signed', when: 'An agreement was sent to the RP and no signed copy is uploaded yet (Sent)', after: d(10), task: 'Chase <RP> for its signed agreement', share: 'fewest-open', kind: 'k-rp-change', sla: wh(18), remind: d(3), remind2: d(7), closes: 'A signed copy is uploaded, or the agreement is withdrawn' }),
   R('T37', 'RPs', { record: 'RP', name: 'RP inactive', when: 'No new application', after: days(90), task: 'Check in with <RP>', share: 'record-owner', kind: 'k-rp-change', sla: wh(45), closes: 'An application is added, or the Recruitment contact notes why' }),
   R('W23', 'RPs', { record: 'RP', name: 'New RP assigned', when: 'A new RP is assigned to a Recruitment user', task: 'Get in touch with <RP>', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'The BDM logs the first call' }),
-  R('T35', 'RPs', { record: 'RP', name: 'New bank details', when: 'The RP sends new bank details (payouts held)', task: 'Check the new bank details for <RP>', share: 'not-maker', kind: 'k-check', sla: wh(6), closes: 'Approved or rejected' }),
+  R('T35', 'RPs', { record: 'RP', name: 'New bank details', when: 'The RP sends new bank details (payouts held)', task: 'Verify the new bank details for <RP>', kind: 'k-rp-change', sla: wh(6), closes: 'Approved or rejected' }),
 
   R('T38', IPG, { record: 'Institution partner', name: 'Agreement ending', days: 60, when: '<days> days before the agreement ends (the days are editable here; slice 2’s renewal reminder reads them)', task: 'Renew the agreement with <partner>', share: 'record-owner', kind: 'k-renew', sla: d(30), closes: 'A new agreement is uploaded' }),
   R('T40', IPG, { record: 'University', name: 'University not live', when: 'Go-live checks incomplete 14 days after the university was created', task: 'Get <university> live', share: 'record-owner', kind: 'k-golive', sla: d(14), closes: 'The university is Live' }),
@@ -243,11 +243,13 @@ export const RULES = [
   // Commission (slice 5 owns what each task does)
   R('T30', 'Commission', { record: 'Email', name: 'Commission remittance', when: 'A remittance or statement, or any mail to commissions.gsp@', task: 'Match the remittance against Commissions', kind: 'k-exception', sla: wh(24), closes: 'Matched to invoices' }),
   R('T39', 'Commission', { record: 'Commission', name: 'Commission terms missing', when: 'An agreement is uploaded and no terms are entered', task: 'Enter commission terms for <partner>', kind: 'k-terms', sla: wh(18), closes: 'Terms entered and checked' }),
-  R('T45', 'Commission', { record: 'Commission', name: 'Change waiting for a checker', when: 'Terms, a notice or a scheme changed', task: 'Check the change to <record>', share: 'not-maker', kind: 'k-check', sla: wh(9), closes: 'A different person approves or rejects it' }),
+  // T45 (change waiting for a checker) removed, 5 Nov: no second-person check in Finance (Commissions flow Q1, Q17, Q35)
   R('T46', 'Commission', { record: 'Commission', name: 'University invoice due', when: 'A commission line’s trigger date passes (census or enrolment)', task: 'Raise the invoice for <record>', kind: 'k-exception', sla: wh(18), closes: 'Invoice sent' }),
   R('T47', 'Commission', { record: 'Commission', name: 'University payment overdue', when: 'Invoice unpaid past the university’s payment days', task: 'Chase <record>’s payment', kind: 'k-exception', sla: wh(18), closes: 'Paid' }),
   R('T48', 'Commission', { record: 'Commission', name: 'Short payment or unmatched remittance', when: 'Amount paid differs from the invoice', task: 'Resolve the exception on <record>', kind: 'k-exception', sla: wh(18), closes: 'Resolved' }),
-  R('T49', 'Commission', { record: 'Commission', name: 'Payout run', when: 'Mondays 01:00 IST (J8)', task: 'Prepare the payout run', share: 'to-leader', kind: 'k-payout', sla: wh(9), closes: 'Run approved' }),
+  R('T49', 'Commission', { record: 'Commission', name: 'Pay approved RP invoices', when: 'Approved RP invoices not paid yet (the month’s pay-by day, Finance setup)', task: 'Pay the approved RP invoices for <record>', share: 'to-leader', kind: 'k-payout', sla: wh(18), closes: 'Every approved invoice is marked paid' }),
+  R('T73', 'Commission', { record: 'Commission', name: 'RP invoice to check', when: 'An RP uploads its signed invoice for the month', task: 'Check <record>’s invoice', kind: 'k-payout', sla: wh(18), closes: 'Approved or sent back' }),
+  R('T74', 'Commission', { record: 'Commission', name: 'RP query on a line', when: 'An RP queries a commission line on Earnings', task: 'Answer <record>’s query', kind: 'k-exception', sla: wh(27), closes: 'Answered' }),
 
   // Admin: T50, and the proposal S4-28 (T60 to T68). All in the Admin queue, To the leader.
   R('T50', 'Admin', { record: 'Setting', name: 'Exchange rates missing', when: 'Friday 01:00 IST and next week has no exchange rates', task: 'Enter next week’s exchange rates', share: 'to-leader', kind: 'k-admin', sla: wh(9), closes: 'The rates are saved' }),

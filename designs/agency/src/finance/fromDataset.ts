@@ -13,7 +13,7 @@ import { sampleStudents } from '../data/students';
 import { UNI_TERMS, rpByName, dataApp } from '../data/dataset';
 import { compute, thursdayOf } from './engine';
 import { settingsOf } from './defaults';
-import { withLive, finalFeeOf } from '../data/live';
+import { withLive, finalFeeOf, flagsOf } from '../data/live';
 import { getDb } from '../institution/data/store';
 import { agreementOf, statusNow } from '../institution/data/records';
 import { activeAgreement, commissionHeld } from '../institution/data/agreements';
@@ -88,8 +88,11 @@ export function datasetFinanceApps(cfg, today) {
     const st = studs.find((x) => x.id === a.studentId);
     const rp = a.rp ? rpByName(a.rp) : null;
     // the course's start and census: Finance's own record for its enrolments, otherwise the catalogue's intake dates
-    const start = (d && d.intakeDate) || iso(startOf(a));
-    const census = d && d.intakeDate ? undefined : iso(censusOf(a));
+    // Admissions can move the application to another intake (Jovial, 5 Nov): its lines move to the new dates
+    const moved = flagsOf(a.id).intake;
+    const aI = moved ? { ...a, intake: moved } : a;
+    const start = (!moved && d && d.intakeDate) || iso(startOf(aI));
+    const census = !moved && d && d.intakeDate ? undefined : iso(censusOf(aI));
     apps[a.id] = {
       id: a.id, student: st ? `${st.first} ${st.last}` : a.studentId, rp: rp ? rp.id : 'R-TEST', uni: UNI_TERMS[c.uni.id] ?? `none-${c.uni.id}`,
       level: LEVEL[c.level] ?? 'PG', intake: start, ...(census ? { census } : {}), tuition: finalFeeOf(a.id, c.tuition), scholarship: 0, enrolled: start,

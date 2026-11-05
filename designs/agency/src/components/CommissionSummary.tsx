@@ -5,7 +5,7 @@
  * RP Ops and Finance; the change goes to Finance to verify against the bank letter, and payouts hold.
  */
 import { useState } from 'react';
-import { useStore } from '../finance/store';
+import { useStore, update } from '../finance/store';
 import { UNI_TERMS } from '../data/dataset';
 import { BankSheet } from '../finance/Earnings';
 import { Button } from './Button';
@@ -47,6 +47,7 @@ export function RpCommission({ name, canBank }: { name: string; canBank: boolean
   const cfg = useStore((s) => s.comm.cfg);
   const [bank, setBank] = useState(false);
   const rp = cfg.rps.find((r) => r.name === name);
+  const decide = (ok: boolean) => update((d: any) => { const t = d.comm.cfg.rps.find((r: any) => r.name === name); t.bankVerified = ok ? true : undefined; if (!ok) { t.bankLast4 = t.prevLast4 ?? t.bankLast4; } t.bankChange = { ...(t.bankChange || {}), state: ok ? 'approved' : 'rejected' }; }, `${ok ? 'Verified' : 'Rejected'} new bank details for ${name}`);
   if (!rp) return <p className="iempty">No RP terms in Commissions: Finance’s default share ({cfg.settings?.defaultShare ?? 70}%) applies.</p>;
   const sc = cfg.schemes.find((x) => x.id === rp.scheme);
   const share = sc ? `${sc.name}${sc.bands ? `: ${sc.bands.map(([a, b, p]) => `${a}${b ? `–${b}` : '+'} students ${p}%`).join(', ')}` : ''}` : rp.flat != null ? `${rp.flat}% of GSP’s commission` : `Finance’s default (${cfg.settings?.defaultShare ?? 70}%)`;
@@ -58,6 +59,12 @@ export function RpCommission({ name, canBank }: { name: string; canBank: boolean
         <div className="cdl__row"><dt>Paid in</dt><dd>{rp.cur}{rp.gst ? ', plus GST' : ''}</dd></div>
         <div className="cdl__row"><dt>Bank account</dt><dd>{rp.bank === 'AU' ? 'Australian account' : 'Local account'}{rp.bankLast4 ? ` ending ••${rp.bankLast4}` : ' on file'} · {rp.bankVerified === false ? 'new details waiting for Finance to verify; payouts held' : 'verified'}</dd></div>
       </dl>
+      {/* RP Ops verifies new bank details (Jovial, 5 Nov: Commissions flow Q19); payouts are held until then */}
+      {canBank && rp.bankVerified === false && (
+        <div className="csum__verify">
+          <p>New bank details{rp.bankName ? ` for ${rp.bankName}` : ''}{rp.bankLast4 ? `, account ending ••${rp.bankLast4}` : ''}{rp.bankChange?.letter ? `, with ${rp.bankChange.letter}` : ''}. Check them against the bank letter.</p>
+          <Button onClick={() => decide(true)}>Verify</Button> <Button variant="secondary" onClick={() => decide(false)}>Reject</Button>
+        </div>)}
       {canBank && <Button variant="secondary" onClick={() => setBank(true)}>Change bank details</Button>}
       {bank && <BankSheet rp={rp} user={{ id: 'gsp', name: 'GSP' }} onClose={() => setBank(false)} />}
     </div>

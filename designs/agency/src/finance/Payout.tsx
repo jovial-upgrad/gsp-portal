@@ -1,127 +1,172 @@
-// @ts-nocheck -- ported from the add-on layer (JS); typed properly when the finance API is designed.
+// @ts-nocheck -- typed with the finance API.
 /*
- * The payout run, on Finance setup's pay day. One Finance person prepares it, which raises an invoice
- * (RCTI) on each RP's behalf; the RP approves it in Earnings; a second Finance
- * person approves payment of approved invoices. Batch 1: Australian bank
- * accounts. Batch 2: local accounts. A run is held for any currency without
- * this week's rate.
+ * RP invoices and payout (Jovial, 5 Nov: Commissions flow Q11–Q19, Q23). Monthly: each RP invoices the lines that
+ * became eligible (GSP was paid for them) by uploading its signed copy of the system invoice. One Finance person checks
+ * it against Finance setup's checklist, approves it or sends it back with a reason, and pays approved invoices by the
+ * cycle's pay-by day, marking each paid with the bank reference. No second person. RPs whose new bank details aren't
+ * verified, or whose currency has no rate, are held.
  */
 import React, { useState } from 'react';
-import { update, nameOf, getState } from './store';
-import { Card, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, toast } from './kit';
+import { update, getState } from './store';
+import { Card, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, DateField, Select, toast } from './kit';
 import { nice, money, r2 } from './engine';
-import { aud, sum, opsOf, DAYS } from './shared';
+import { opsOf, cycleOf } from './shared';
+import { INV_STATUS, onInvoice } from './rpInvoice';
 
-const INV = { sent: ['Waiting for the RP', 'dpill--checking'], approved: ['Approved by the RP', 'dpill--verified'], queried: ['Queried by the RP', 'dpill--bad'], paying: ['Approved: paid on pay day', 'dpill--verified'] };
-const iso = t => new Date(t).toISOString().slice(0, 10);
-const addD = (d, n) => iso(Date.parse(d + 'T00:00:00Z') + n * 864e5);
+const days = (a, b) => Math.floor((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+const tot = (inv) => Object.entries(inv.total).map(([k, v]) => money(v, k)).join(' + ');
 
 export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
   const s = getState();
-  const [view, setView] = useState(null);
-  const payees = Object.values(run.payees).sort((a, b) => a.name < b.name ? -1 : 1);
   const ops = opsOf(c.cfg);
-  const selfCheck = c.cfg.settings.selfCheck || !ops.makerChecker.run;
-  const isMaker = run.preparedBy === user.id;
-  const total = sum(run.lines, L => L.aud);
-  const needsAdmin = ops.adminAbove && total > ops.adminAbove;
-
-  const prepare = () => update(d => {
-    const invoices = {}; let n = 1;
-    payees.forEach(p => { if (!Object.values(p.total).some(v => v <= 0)) invoices[p.id] = { no: `${ops.rctiPrefix}-${run.date.replace(/-/g, '')}-${String(n++).padStart(3, '0')}`, status: ops.rpApproves ? 'sent' : 'approved' }; });
-    d.comm.run = { date: run.date, status: 'prepared', preparedBy: user.id, preparedAt: Date.now(), invoices };
-    d.records.push({ id: 'cm-run-' + run.date, type: 'Commission', label: 'Payout run · ' + nice(run.date) });
-    d.tasks.unshift({ id: 'T-RUN-' + run.date, record: 'cm-run-' + run.date, kind: 'k-payout', queue: 'q-finance', rule: null, title: `Approve the payout run for ${nice(run.date)}`, maker: user.id, created: Date.now(), status: 'open' });
-  }, `${user.name} prepared the payout run for ${nice(run.date)}`) || toast('Run prepared. Each RP has an invoice to approve in Earnings.');
-
-  const rpApprove = p => update(d => { d.comm.run.invoices[p.id].status = 'approved'; }, `${p.name} approved invoice ${run.invoices[p.id].no} (marked by ${user.name})`);
-
-  const approve = () => {
-    if (isMaker && !selfCheck) { toast('You prepared this run, so someone else must approve it.'); return; }
-    if (needsAdmin && user.role !== 'admin') { toast(`Runs over ${aud(ops.adminAbove)} also need an Admin to approve (Finance setup).`); return; }
-    const ok = payees.filter(p => run.invoices[p.id]?.status === 'approved');
-    if (!ok.length) { toast('No RP has approved its invoice yet.'); return; }
-    const lines = run.lines.filter(L => ok.some(p => p.id === L.payee) && L.pay != null);
-    // W13 (1 Nov): approved now, paid on pay day. Until then the lines are Approved, not Paid, here and in the RP's
-    // Earnings; settleRuns (store.ts) pays them on the day.
-    update(d => {
-      ok.forEach(p => { d.comm.run.invoices[p.id].status = 'paying'; });
-      d.comm.runs.unshift({ id: 'RUN-' + run.date + '-' + d.comm.runs.length, date: run.date, status: 'approved', preparedBy: run.preparedBy, checkedBy: user.id, approvedAt: Date.now(), payees: ok.length, totalAud: sum(lines, L => L.aud), lines: lines.map(L => ({ app: L.app, key: L.key, src: L.src, payee: L.payee })) });
-      if (Object.values(d.comm.run.invoices).every(i => i.status === 'paying')) d.comm.run.status = 'approved';
-      const t = d.tasks.find(x => x.id === 'T-RUN-' + run.date); if (t) { t.status = 'done'; t.doneBy = user.id; t.doneAt = Date.now(); }
-    }, `${user.name} approved the payout run for ${nice(run.date)}: ${ok.length} RPs, ${aud(sum(lines, L => L.aud))}, paid on ${nice(run.date)}`);
-    toast(`Approved. ${ok.length} RP${ok.length === 1 ? ' is' : 's are'} paid on ${DAYS[new Date(run.date + 'T00:00:00Z').getUTCDay()]} ${nice(run.date)}: bills go to Xero, batch 1 (Australian accounts) and batch 2 (local).`);
-  };
-
-  const batch = b => payees.filter(p => (p.bank || 'AU') === b);
-  const batches = ops.batches;
-  const totals = p => Object.entries(p.total).map(([cur, v]) => money(v, cur)).join(' + ');
-  // W13: prepared on the Monday before pay day, approved and paid on pay day (Thursday by default)
-  const prepDay = addD(run.date, -((new Date(run.date + 'T00:00:00Z').getUTCDay() + 6) % 7));
-  const day = d => `${DAYS[new Date(d + 'T00:00:00Z').getUTCDay()].slice(0, 3)} ${nice(d)}`;
-  const paying = Object.values(run.invoices).filter(i => i.status === 'paying').length;
-  const steps = [
-    [`Prepare · ${day(prepDay)}`, run.status === 'draft' ? (c.today < prepDay ? `Opens ${day(prepDay)}` : 'Not yet') : `Done by ${nameOf(s, run.preparedBy)}`],
-    ['RPs approve their invoices', !ops.rpApproves ? 'Not needed (Finance setup)' : run.status === 'draft' ? `Within ${ops.rpApproveDays} working days of preparing` : `${Object.values(run.invoices).filter(i => i.status === 'approved' || i.status === 'paying').length} of ${Object.keys(run.invoices).length} approved`],
-    [`${ops.makerChecker.run ? 'Second person approves payment' : 'Approve payment'} · paid ${day(run.date)}`, needsAdmin ? `Over ${aud(ops.adminAbove)}: an Admin approves` : run.status === 'draft' ? 'After preparing' : paying ? `${paying} approved: shown as Approved until ${day(run.date)}, then Paid` : 'Waiting'],
-  ];
+  const cyc = cycleOf(c.cfg, c.today);
+  const [check, setCheck] = useState(null);
+  const [pay, setPay] = useState(null);
+  const [answer, setAnswer] = useState(null);
+  const invs = Object.values(c.rpInv || {}).sort((a, b) => (a.status === b.status ? a.rpName.localeCompare(b.rpName) : ORDER.indexOf(a.status) - ORDER.indexOf(b.status)));
+  const open = invs.filter((i) => i.status !== 'paid');
+  const paid = invs.filter((i) => i.status === 'paid').sort((a, b) => b.paidAt - a.paidAt);
+  const taken = onInvoice(c);
+  // RPs with eligible lines and no invoice yet: they're reminded at the days in Finance setup (Q15)
+  const waiting = Object.values(run.payees).filter((p) => !open.some((i) => i.rp === p.id) && p.lines.some((L) => !taken.has(L.app + '|' + L.key)));
+  const since = days(cycleOf(c.cfg, c.today).cutoff, c.today);
+  const reminded = (ops.invoiceReminders || []).filter((d) => since >= d);
+  const queries = (c.queries || []).filter((q) => q.status === 'open');
+  const can = canApprove || canPrepare;
 
   return (
     <>
       <Card>
-        <div className="gspx-row">
-          <div className="gspx-grow">
-            <h2 className="gspx-h3">Payout run · {DAYS[new Date(run.date + 'T00:00:00Z').getUTCDay()]} {nice(run.date)}</h2>
-            <p><span className="num">{payees.length}</span> RPs · <span className="num">{run.lines.length}</span> lines · <b className="num">{aud(sum(run.lines, L => L.aud))}</b></p>
-          </div>
-          <div className="gspx-acts">
-            {canPrepare && run.status === 'draft' && <Button kind="primary" disabled={!payees.length} onClick={prepare}>Prepare run</Button>}
-            {canApprove && run.status === 'prepared' && Object.values(run.invoices).some(i => i.status === 'approved') && <Button kind="primary" onClick={approve}>Approve payment</Button>}
-            {run.status === 'approved' && <Pill tone="dpill--verified">Approved: paid {day(run.date)}</Pill>}
-          </div>
-        </div>
-        <ol className="gspx-steps">{steps.map(([t, d], i) => <li key={t}><b>{i + 1}. {t}</b><span className="muted">{d}</span></li>)}</ol>
-        {run.hold.length > 0 && <Notice tone="warn">Lines in {run.hold.join(', ')} are held: this week has no rate for {run.hold.length > 1 ? 'these currencies' : 'this currency'}. Enter it in GSP · Admin › Course configuration › Currency exchange.</Notice>}
-        {run.bankHold.length > 0 && <Notice tone="warn">Held until new bank details are verified (Setup › Commission terms, RP terms): {run.bankHold.join(', ')}.</Notice>}
-        {isMaker && run.status === 'prepared' && !selfCheck && <Notice>You prepared this run. {nameOf(s, s.users.find(u => u.role === 'finance' && u.id !== user.id)?.id)} or another Finance person approves it.</Notice>}
+        <h2 className="gspx-h3">RP invoices · {cyc.label}</h2>
+        <p>Lines that are ready by the cut-off on <b>{nice(cyc.cutoff)}</b> go on that month’s invoice. GSP pays approved invoices by <b>{nice(cyc.payBy)}</b>.</p>
+        <ol className="gspx-steps">
+          <li><b>1. The RP uploads its invoice</b><span className="muted">{open.filter((i) => i.status === 'draft').length} downloaded, not uploaded · {waiting.length} RPs not started</span></li>
+          <li><b>2. Finance checks it</b><span className="muted">{open.filter((i) => i.status === 'review').length} to check · {open.filter((i) => i.status === 'sentback').length} sent back</span></li>
+          <li><b>3. Finance pays it</b><span className="muted">{open.filter((i) => i.status === 'approved').length} approved, to pay by {nice(cyc.payBy)}</span></li>
+        </ol>
+        {run.hold.length > 0 && <Notice tone="warn">Lines in {run.hold.join(', ')} are held: there’s no exchange rate for {run.hold.length > 1 ? 'these currencies' : 'this currency'} this week. Enter it in GSP · Admin › Currency exchange.</Notice>}
+        {run.bankHold.length > 0 && <Notice tone="warn">Held until RP Ops verifies new bank details: {run.bankHold.join(', ')}.</Notice>}
       </Card>
-      {batches.map(bt => { const b = bt.bank; return batch(b).length > 0 && (
-        <Card flush key={bt.id}>
-          <div className="gspx-pad"><h2 className="gspx-h3">{bt.name}</h2></div>
-          <Table head={['RP', 'Lines', 'Net', 'GST', 'Withholding', 'To pay', 'Invoice', '']}>
-            {batch(b).map(p => { const inv = run.invoices[p.id]; const held = p.lines.some(L => L.pay == null); const neg = Object.values(p.total).some(v => v <= 0); return (
-              <tr key={p.id} className="irow">
-                <td>{p.name}<span className="irow__sub">{p.id}</span></td>
-                <td className="num">{p.lines.length}</td>
-                <td className="num">{Object.entries(p.byCur).map(([cur, v]) => money(v.net, cur)).join(' + ')}</td>
-                <td className="num">{Object.entries(p.byCur).map(([cur, v]) => v.gst ? money(v.gst, cur) : '—').join(' + ')}</td>
-                <td className="num">{Object.entries(p.byCur).map(([cur, v]) => v.wht ? money(-v.wht, cur) : '—').join(' + ')}</td>
-                <td className="num"><b>{held ? 'Held' : totals(p)}</b>{neg && <span className="irow__sub">Recovery is larger: carried to next run</span>}</td>
-                <td>{inv ? <><Pill tone={INV[inv.status][1]}>{INV[inv.status][0]}</Pill><span className="irow__sub">{inv.no}</span></> : <span className="muted">{run.status === 'draft' ? 'Raised when prepared' : neg ? 'None: nothing to pay' : '—'}</span>}</td>
-                <td><div className="gspx-acts">
-                  <LinkButton onClick={() => setView(p)}>Lines</LinkButton>
-                  {inv && inv.status !== 'approved' && inv.status !== 'paying' && canApprove && <LinkButton onClick={() => rpApprove(p)}>Mark approved by RP</LinkButton>}
-                </div></td>
-              </tr>); })}
-          </Table>
-        </Card>); })}
-      {!payees.length && <Card><Empty title={`Nothing to pay this ${DAYS[opsOf(c.cfg).payDay]}`}>Lines become payable once the university has paid GSP.</Empty></Card>}
+
       <Card flush>
-        <div className="gspx-pad"><h2 className="gspx-h3">Earlier runs</h2></div>
-        <Table head={['Pay day', 'RPs', 'Total', 'Prepared by', 'Approved by', 'Status']}>
-          {c.runs.map(r => (
-            <tr key={r.id} className="irow"><td className="num">{nice(r.date)}</td><td className="num">{r.payees}</td><td className="num">{aud(r.totalAud)}</td>
-              <td>{nameOf(s, r.preparedBy)}</td><td>{nameOf(s, r.checkedBy)}</td><td>{r.status === 'approved' ? <Pill tone="dpill--checking">Approved: paid {nice(r.date)}</Pill> : <Pill tone="dpill--verified">Paid</Pill>}</td></tr>))}
+        <div className="gspx-pad"><h2 className="gspx-h3">Invoices</h2></div>
+        <Table head={['RP', 'Month', 'Lines', 'To pay', 'To', 'Status', '']} empty={!open.length && <Empty title="No invoices yet">An RP’s invoice shows here once it downloads or uploads one.</Empty>}>
+          {open.map((i) => (
+            <tr key={i.id} className="irow">
+              <td>{i.rpName}<span className="irow__sub">{i.rp}</span></td>
+              <td>{i.cycleLabel}<span className="irow__sub">{i.ref}{i.rpNo ? ` · RP’s number ${i.rpNo}` : ''}</span></td>
+              <td className="num">{i.lines.length}</td>
+              <td className="num"><b>{tot(i)}</b></td>
+              <td>{i.entity?.name}</td>
+              <td><Pill tone={INV_STATUS[i.status][1]}>{INV_STATUS[i.status][0]}</Pill>{i.status === 'sentback' && <span className="irow__sub">{i.reason}</span>}</td>
+              <td><div className="gspx-acts">
+                {can && i.status === 'review' && <Button size="sm" kind="primary" onClick={() => setCheck(i)}>Check</Button>}
+                {can && i.status === 'approved' && <Button size="sm" kind="primary" onClick={() => setPay(i)}>Mark paid</Button>}
+                {(i.status === 'draft' || i.status === 'sentback') && <span className="muted">Waiting for the RP</span>}
+              </div></td>
+            </tr>))}
         </Table>
       </Card>
-      {view && (
-        <Sheet title={`${view.name} · lines in this run`} onClose={() => setView(null)} wide footer={<Button onClick={() => setView(null)}>Close</Button>}>
-          <Table head={['Student', 'Line', 'Amount', 'In AUD', `In ${Object.keys(view.byCur).join(', ')}`]}>
-            {view.lines.map(L => (
-              <tr key={L.app + L.key} className="irow"><td>{L.student}<span className="irow__sub">{L.app}</span></td><td>{L.label}</td>
-                <td className="num">{money(L.src, L.srcCur)}</td><td className="num">{aud(L.aud)}</td><td className="num">{L.pay == null ? 'Held' : money(L.pay, L.payCur)}</td></tr>))}
+
+      {waiting.length > 0 && (
+        <Card flush>
+          <div className="gspx-pad"><h2 className="gspx-h3">Ready to invoice, no invoice yet</h2><p className="muted">These RPs have lines ready. They’re reminded {(ops.invoiceReminders || []).join(', ')} days after the cut-off{reminded.length ? `; ${reminded.length} reminder${reminded.length === 1 ? '' : 's'} sent this month` : ''}. Nothing expires: the lines stay ready for the next month.</p></div>
+          <Table head={['RP', 'Lines', 'Ready']}>
+            {waiting.map((p) => (
+              <tr key={p.id} className="irow"><td>{p.name}<span className="irow__sub">{p.id}</span></td><td className="num">{p.lines.filter((L) => !taken.has(L.app + '|' + L.key)).length}</td><td className="num">{Object.entries(p.total).map(([k, v]) => money(v, k)).join(' + ')}</td></tr>))}
           </Table>
-        </Sheet>)}
+        </Card>)}
+
+      {queries.length > 0 && (
+        <Card flush>
+          <div className="gspx-pad"><h2 className="gspx-h3">Queries from RPs</h2></div>
+          <Table head={['RP', 'Line', 'Question', '']}>
+            {queries.map((q) => (
+              <tr key={q.id} className="irow"><td>{q.rpName}</td><td>{q.student}<span className="irow__sub">{q.app} · {q.line}</span></td><td>{q.text}<span className="irow__sub">{q.by}, {nice(new Date(q.at).toISOString().slice(0, 10))}</span></td>
+                <td>{can && <LinkButton onClick={() => setAnswer(q)}>Answer</LinkButton>}</td></tr>))}
+          </Table>
+        </Card>)}
+
+      <Card flush>
+        <div className="gspx-pad"><h2 className="gspx-h3">Paid</h2></div>
+        <Table head={['RP', 'Month', 'Paid', 'Bank reference', 'Paid on', 'By']} empty={!paid.length && <Empty title="Nothing paid yet" />}>
+          {paid.map((i) => (
+            <tr key={i.id} className="irow"><td>{i.rpName}</td><td>{i.cycleLabel}<span className="irow__sub">{i.ref} · {i.rpNo}</span></td><td className="num">{tot(i)}</td><td>{i.paidRef}</td><td className="num">{nice(i.paidOn)}</td><td>{i.paidBy}</td></tr>))}
+        </Table>
+      </Card>
+      {check && <CheckSheet inv={check} ops={ops} user={user} onClose={() => setCheck(null)} />}
+      {pay && <PaySheet inv={pay} c={c} user={user} onClose={() => setPay(null)} />}
+      {answer && <AnswerSheet q={answer} user={user} onClose={() => setAnswer(null)} />}
     </>
+  );
+}
+const ORDER = ['review', 'approved', 'sentback', 'draft', 'paid'];
+
+/** Check an uploaded invoice (Q16): the checklist from Finance setup; approve, or send back with a reason. */
+function CheckSheet({ inv, ops, user, onClose }) {
+  const [ticks, setTicks] = useState({});
+  const [back, setBack] = useState(false);
+  const [reason, setReason] = useState('');
+  const [note, setNote] = useState('');
+  const all = ops.invoiceChecks.every((k) => ticks[k]);
+  const approve = () => {
+    update((d) => { const i = d.comm.rpInv[inv.id]; i.status = 'approved'; i.checkedBy = user.name; i.checkedAt = Date.now(); i.history.push({ at: Date.now(), by: user.name, what: 'Approved' }); }, `${user.name} approved ${inv.rpName}’s invoice ${inv.rpNo} for ${inv.cycleLabel}`);
+    toast('Approved', { text: `It’s paid by ${nice(inv.payBy)}. ${inv.rpName} is told.` }); onClose();
+  };
+  const sendBack = () => {
+    if (!reason) { toast('Choose why it’s sent back.'); return; }
+    update((d) => { const i = d.comm.rpInv[inv.id]; Object.assign(i, { status: 'sentback', reason, note: note.trim() || null }); i.history.push({ at: Date.now(), by: user.name, what: `Sent back: ${reason}` }); }, `${user.name} sent back ${inv.rpName}’s invoice ${inv.rpNo}: ${reason}`);
+    toast('Sent back', { text: `${inv.rpName} is told why and uploads it again.` }); onClose();
+  };
+  return (
+    <Sheet title={`Check ${inv.rpName}’s invoice`} sub={`${inv.cycleLabel} · RP’s number ${inv.rpNo}, dated ${nice(inv.rpDate)} · ${inv.file}`} onClose={onClose} wide
+      footer={back ? <><Button onClick={() => setBack(false)}>Back</Button><Button kind="primary" onClick={sendBack}>Send back</Button></> : <><Button onClick={() => setBack(true)}>Send back</Button><Button kind="primary" disabled={!all} onClick={approve}>Approve</Button></>}>
+      {!back ? <>
+        <p className="muted">Tick each check against the uploaded file. Approve turns on when every check is ticked.</p>
+        {ops.invoiceChecks.map((k) => <label key={k} className="gspx-check"><input type="checkbox" checked={!!ticks[k]} onChange={(e) => setTicks({ ...ticks, [k]: e.target.checked })} /> {k}</label>)}
+        <Table head={['Student', 'Line', 'Amount']}>
+          {inv.lines.map((L) => <tr key={L.app + L.key} className="irow"><td>{L.student}<span className="irow__sub">{L.app}</span></td><td>{L.label}</td><td className="num">{money(L.pay, L.payCur)}</td></tr>)}
+        </Table>
+        <p>{Object.entries(inv.byCur).map(([k, v]) => `${money(v.net, k)} commission${v.gst ? ` + ${money(v.gst, k)} tax` : ''}${v.wht ? ` − ${money(v.wht, k)} withheld` : ''} = ${money(r2(v.net + v.gst - v.wht), k)}`).join('; ')}</p>
+      </> : <>
+        <Select id="sb-r" label="Why it’s sent back" required value={reason} onChange={setReason} placeholder="Choose a reason" options={ops.sendBackReasons.map((r) => [r, r])} />
+        <Field id="sb-n" label="Note to the RP" hint="Optional"><Input id="sb-n" value={note} onChange={setNote} /></Field>
+      </>}
+    </Sheet>
+  );
+}
+
+/** Mark an approved invoice paid (Q17): the bank reference and date; the RP gets its remittance. */
+function PaySheet({ inv, c, user, onClose }) {
+  const [ref, setRef] = useState('');
+  const [on, setOn] = useState(c.today);
+  const go = () => {
+    if (!ref.trim()) { toast('Enter the bank reference.'); return; }
+    update((d) => {
+      const i = d.comm.rpInv[inv.id]; Object.assign(i, { status: 'paid', paidRef: ref.trim(), paidOn: on, paidAt: Date.now(), paidBy: user.name }); i.history.push({ at: Date.now(), by: user.name, what: `Paid, reference ${ref.trim()}` });
+      for (const L of inv.lines) { const a = d.comm.apps[L.app]; if (a) a.paidRP = { ...(a.paidRP || {}), [L.key]: r2(((a.paidRP || {})[L.key] || 0) + L.src) }; }
+    }, `${user.name} paid ${inv.rpName}’s invoice ${inv.rpNo} for ${inv.cycleLabel}: ${tot(inv)}, reference ${ref.trim()}`);
+    toast('Marked paid', { text: `${inv.rpName} gets the remittance with reference ${ref.trim()}.` }); onClose();
+  };
+  return (
+    <Sheet title={`Mark ${inv.rpName} paid`} sub={`${inv.cycleLabel} · ${tot(inv)}`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={go}>Mark paid</Button></>}>
+      <Field id="p-ref" label="Bank reference" required><Input id="p-ref" value={ref} onChange={setRef} /></Field>
+      <Field id="p-on" label="Paid on" required><DateField id="p-on" value={on} onChange={setOn} /></Field>
+    </Sheet>
+  );
+}
+
+function AnswerSheet({ q, user, onClose }) {
+  const [t, setT] = useState('');
+  const go = () => {
+    if (!t.trim()) { toast('Write the answer.'); return; }
+    update((d) => { const x = d.comm.queries.find((y) => y.id === q.id); x.status = 'answered'; x.answer = t.trim(); x.answeredBy = user.name; x.answeredAt = Date.now(); }, `${user.name} answered ${q.rpName}’s query on ${q.student}`);
+    toast('Answered', { text: `${q.rpName} sees it on the line.` }); onClose();
+  };
+  return (
+    <Sheet title={`Answer ${q.rpName}`} sub={`${q.student} · ${q.line}`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={go}>Send</Button></>}>
+      <p>{q.text}</p>
+      <Field id="a-t" label="Answer" required><Input id="a-t" value={t} onChange={setT} /></Field>
+    </Sheet>
   );
 }

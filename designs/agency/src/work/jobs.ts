@@ -19,7 +19,7 @@ export const JOB_NAME = Object.fromEntries(JOBS.map((j) => [j.id, j.name]));
 export const JOB_RULES_OF = {
   J3: ['T33', 'T34', 'T37', 'T38', 'T40', 'T41', 'T42', 'T57', 'T60', 'T61', 'T62', 'T63', 'T64', 'T67', 'T68'],
   J4: ['T2', 'T5', 'T7', 'T54', 'T9b', 'T10', 'T14', 'T16', 'T17', 'T56', 'T69'],
-  J8: ['T49', 'T50'],
+  J8: ['T50'],
 };
 
 /** Which email templates each job sends (slice 4 PRD, Daily jobs), for a run's "emails sent". */

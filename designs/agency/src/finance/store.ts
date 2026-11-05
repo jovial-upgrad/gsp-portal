@@ -19,7 +19,8 @@ import { agreementOf } from '../institution/data/records';
 import { adminCfg, onAdminChange } from '../admin/data/store';
 import { onLiveChange } from '../data/live';
 
-const KEY = 'gsp-finance-v5'; // v5: roles, access and queues from Admin and Work; Finance setup's defaults (1 Nov)
+const KEY = 'gsp-finance-v6'; // v6 (5 Nov): the monthly RP invoice cycle, university invoice batches, no maker-checker
+// v5: roles, access and queues from Admin and Work; Finance setup's defaults (1 Nov)
 
 /* Every GSP person comes from the staff list (data/staff.ts); the RP person is the sample agency's admin. */
 export const USERS = [
@@ -43,7 +44,7 @@ function commFromDataset() {
   // exchange rates: GSP · Admin › Currency exchange is the one source (Jovial, 31 Oct)
   cfg.settings.fx = structuredClone(adminCfg().fxWeeks);
   cfg.settings.sandboxDate = today;
-  return { today, cfg, apps: datasetFinanceApps(cfg, today), runs: COMM.runs, run: null, checks: [] };
+  return { today, cfg, apps: datasetFinanceApps(cfg, today), runs: COMM.runs, run: null, checks: [], rpInv: {}, uniInv: {}, queries: [], diffs: [] };
 }
 
 function fresh() {
@@ -61,9 +62,9 @@ function joinEnrolled() {
   const now = datasetFinanceApps(state.comm.cfg, state.comm.today);
   const add = Object.keys(now).filter((id) => !state.comm.apps[id]);
   // the final tuition fee changed on the application: re-price it (Jovial, 1 Nov)
-  const repriced = Object.keys(now).filter((id) => state.comm.apps[id] && state.comm.apps[id].tuition !== now[id].tuition);
+  const repriced = Object.keys(now).filter((id) => state.comm.apps[id] && (state.comm.apps[id].tuition !== now[id].tuition || state.comm.apps[id].intake !== now[id].intake));
   if (!add.length && !repriced.length) return;
-  state = { ...state, comm: { ...state.comm, apps: { ...state.comm.apps, ...Object.fromEntries(add.map((id) => [id, now[id]])), ...Object.fromEntries(repriced.map((id) => [id, { ...state.comm.apps[id], tuition: now[id].tuition, scholarship: 0 }])) } } };
+  state = { ...state, comm: { ...state.comm, apps: { ...state.comm.apps, ...Object.fromEntries(add.map((id) => [id, now[id]])), ...Object.fromEntries(repriced.map((id) => [id, { ...state.comm.apps[id], tuition: now[id].tuition, scholarship: 0, intake: now[id].intake, enrolled: now[id].enrolled, ...(now[id].census ? { census: now[id].census } : {}) }])) } } };
   save();
   listeners.forEach((f) => f());
 }
@@ -109,8 +110,29 @@ registerSource('commission', () => {
   }).filter(Boolean);
   const val = {
     checks: (c.checks || []).map((k) => ({ ...k, title: k.title || k.what || k.id })),
-    lines: res.ip.map((x) => ({ uniId: x.u?.id, uniName: x.u?.name, date: x.l.date, st: x.l.st })),
-    exc: res.exc, runs: c.runs || [], currencies: [...new Set(c.cfg.unis.map((u) => u.cur).filter(Boolean))], missingTerms,
+    lines: res.ip.map((x) => ({ uniId: x.u?.id, uniName: x.u?.name, date: x.l.date, st: x.l.st, self: !!x.u?.selfBilling })),
+    exc: res.exc, runs: c.runs || [], rpInv: Object.values(c.rpInv || {}), queries: c.queries || [],
+    // the RP's bell (Jovial, 5 Nov: Commissions flow Q34): ready to invoice, received, sent back, approved, paid, recovered, answered
+    rpNotes: (agency) => {
+      const rp = c.cfg.rps.find((r) => r.name === agency); if (!rp) return [];
+      const taken = new Set(Object.values(c.rpInv || {}).filter((i) => i.status !== 'paid').flatMap((i) => i.lines.map((L) => L.app + '|' + L.key)));
+      const mine = res.rp.filter((x) => (x.r.payee || x.r.rp).id === rp.id);
+      const ready = mine.filter((x) => x.payable && x.due > 0 && !taken.has(x.app + '|' + x.key));
+      const rec = mine.filter((x) => x.due < 0);
+      const at0 = Date.parse(`${c.today}T09:00:00+05:30`);
+      const out = [];
+      if (ready.length) out.push({ id: `cm-ready-${c.today.slice(0, 7)}-${ready.length}`, kind: 'system', title: `${ready.length} commission line${ready.length === 1 ? ' is' : 's are'} ready to invoice`, text: 'Download this month’s invoice on Earnings, sign it and upload it.', at: at0, to: { page: 'earnings' } });
+      if (rec.length) out.push({ id: `cm-rec-${rec.length}`, kind: 'system', title: 'A recovery will be taken from your next payout', text: `${rec.length} line${rec.length === 1 ? '' : 's'}: the student withdrew with a refund.`, at: at0, to: { page: 'earnings' } });
+      for (const i of Object.values(c.rpInv || {}).filter((i) => i.rp === rp.id)) {
+        if (i.uploadedAt) out.push({ id: `cm-inv-${i.id}-up-${i.uploadedAt}`, kind: 'system', title: `GSP received your invoice ${i.rpNo}`, text: `${i.cycleLabel}: GSP Finance is checking it.`, at: i.uploadedAt, read: true, to: { page: 'earnings' } });
+        if (i.status === 'sentback') out.push({ id: `cm-inv-${i.id}-back-${i.history.length}`, kind: 'system', title: `Your invoice ${i.rpNo} was sent back`, text: `${i.reason}${i.note ? `. ${i.note}` : ''}. Upload it again on Earnings.`, at: i.history[i.history.length - 1].at, to: { page: 'earnings' } });
+        if (i.checkedAt && (i.status === 'approved' || i.status === 'paid')) out.push({ id: `cm-inv-${i.id}-ok`, kind: 'system', title: `Invoice ${i.rpNo} approved`, text: `${i.cycleLabel}: paid by ${i.payBy}.`, at: i.checkedAt, to: { page: 'earnings' } });
+        if (i.status === 'paid') out.push({ id: `cm-inv-${i.id}-paid`, kind: 'system', title: `Invoice ${i.rpNo} paid`, text: `Remittance: bank reference ${i.paidRef}, paid ${i.paidOn}.`, at: i.paidAt, to: { page: 'earnings' } });
+      }
+      for (const q of (c.queries || []).filter((q) => q.rp === rp.id && q.status === 'answered')) out.push({ id: `cm-q-${q.id}`, kind: 'system', title: `GSP answered your query on ${q.student}`, text: q.answer, at: q.answeredAt, to: { page: 'earnings' } });
+      return out;
+    },
+    bankChanges: c.cfg.rps.filter((r) => r.bankVerified === false).map((r) => ({ id: r.id, name: r.name, at: r.bankChange?.at ?? Date.parse(`${c.today}T10:00:00+05:30`) })), currencies: [...new Set(c.cfg.unis.map((u) => u.cur).filter(Boolean))], missingTerms,
     since: Date.parse(`${c.today}T10:00:00+05:30`),
   };
   commCache = { key, val };
