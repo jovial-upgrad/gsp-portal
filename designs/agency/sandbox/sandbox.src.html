@@ -343,6 +343,7 @@ function appDetail(a){const r=RES.apps[a.id];const u=r.u,rp=r.rp;const T=today()
   if(!a.enrolled)p.append(h('p',{class:'meter',style:'margin-top:8px'},'Lines appear once the student is enrolled.'));
   /* IP */
   if(u&&a.enrolled){const ip=h('div',{class:'panel'});box.append(ip);ip.append(h('h3',{},'University side: what '+u.name+' owes GSP'));
+    (r.bonusSkip||[]).forEach(x=>ip.append(h('p',{class:'meter'},'No bonus line for “'+x.name+'”: '+x.why+'.')));
     (r.tiers||[]).forEach(T0=>ip.append(h('p',{class:'meter'},(T0.who==='group'?'Group tier ('+T0.name+')':'University tier')+': this student is '+T0.rank+' of '+T0.total+' counted in '+T0.key+' ('+(T0.t.retro?'retrospective':'prospective')+', per '+winLabel(T0.t.window||'CY',T0.t)+'). Band '+(T0.b.i+1)+' → '+T0.b.pct+'%'+(r.tiers.length>1&&r.tier===T0?' (the higher rate, used)':'')+'.')));
     if(r.dropped)ip.append(h('p',{class:'meter'},r.dropped+' later period'+(r.dropped>1?'s are':' is')+' outside the chargeable time, so no line.'));
     const tb=h('tbody');ip.append(h('div',{class:'tw'},h('table',{},h('thead',{},h('tr',{},...['Line','Trigger date','Amount','GST','In AUD','Status',''].map(x=>h('th',{},x)))),tb)));
