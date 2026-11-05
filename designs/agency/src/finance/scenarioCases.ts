@@ -115,9 +115,12 @@ const add = (c) => C.push(c);
       { what: 'April-census student counts in the February intake', calc: 'intake Feb 2026, not census month', exp: 'Intake Feb 2026', got: G.app('ip4-06', (r) => r.uniTier.key) },
       { what: 'February intake has 6 students', calc: '', exp: 6, got: G.app('ip4-06', (r) => r.uniTier.total) },
       { what: 'April-census student at band 2', calc: '6 → 20%; 30,000 × 20% = 6,000', exp: 6000, got: G.ip('ip4-06', 'ip1') },
-      { what: 'No-census student at band 2', calc: '6 → 20% = 6,000', exp: 6000, got: G.ip('ip4-05', 'ip1') },
-      { what: 'First February student at band 2 (retrospective in the intake)', calc: '6 → 20% = 6,000', exp: 6000, got: G.ip('ip4-01', 'ip1') },
+      { what: 'No-census student at band 2', calc: '6 → 20% = 6,000', exp: 6000, got: G.ip('ip4-05', 'ip1', 'fullEnt') },
+      { what: 'First February student at band 2 (retrospective in the intake)', calc: '6 → 20% = 6,000', exp: 6000, got: G.ip('ip4-01', 'ip1', 'fullEnt') },
       { what: 'July intake counts on its own', calc: '2 students → 15%; 30,000 × 15% = 4,500', exp: 4500, got: G.ip('ip4-07', 'ip1') },
+      { what: 'First student’s own line stays at its own band', calc: 'number 1 → 15%; 30,000 × 15% = 4,500', exp: 4500, got: G.ip('ip4-01', 'ip1') },
+      { what: 'The uplift is a separate tier top-up line', calc: '6,000 − 4,500 = 1,500', exp: 1500, got: G.ip('ip4-01', 'ip1~t1') },
+      { what: 'Top-up dated when band 2 was reached', calc: 'the 6th student’s census, 2 Apr', exp: '2026-04-02', got: G.ip('ip4-01', 'ip1~t1', 'date') },
     ] });
 }
 {
@@ -234,9 +237,9 @@ const add = (c) => C.push(c);
     apps: byId(L),
     checks: [
       { what: 'Group count includes college C (no tier of its own)', calc: '3 + 2 + 2 = 7', exp: 7, got: G.app('ip12-b1', (r) => r.uniTier.total) },
-      { what: 'College B student at the group band', calc: '7 → 18%; 30,000 × 18% = 5,400', exp: 5400, got: G.ip('ip12-b1', 'ip1') },
+      { what: 'College B student at the group band', calc: '7 → 18%; 30,000 × 18% = 5,400', exp: 5400, got: G.ip('ip12-b1', 'ip1', 'fullEnt') },
       { what: 'College C student at the group band', calc: '7 → 18% = 5,400', exp: 5400, got: G.ip('ip12-c1', 'ip1') },
-      { what: 'College A: own tier beats group tier', calc: 'college 3 → 20% vs group 18%: 20%; 30,000 × 20% = 6,000', exp: 6000, got: G.ip('ip12-a1', 'ip1') },
+      { what: 'College A: own tier beats group tier', calc: 'college 3 → 20% vs group 18%: 20%; 30,000 × 20% = 6,000', exp: 6000, got: G.ip('ip12-a1', 'ip1', 'fullEnt') },
       { what: 'College A’s winning tier is the college’s', calc: '', exp: 'college', got: G.app('ip12-a1', (r) => r.uniTier.who) },
     ] });
 }
@@ -474,7 +477,7 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
     cfg: world({ unis: [uni('SC-C1U', { name: 'Tier and Promo University (sample)', tier: { retro: true, window: 'CY', scope: 'all', pool: 'uni', levels: [], bands: [[1, 5, 15], [6, null, 20]] }, promos: [{ id: 'PC1', name: 'India promotion', regions: ['India'], from: '2026-01-01', to: '2026-12-31', pct: 18, combine: 'highest' }] })], notices: [{ id: 'SC-NC1', name: 'Adds 30% (sample)', doc: 'Email', rps: ['SC-RC1a'], start: '2026-01-01', end: '2026-12-31', dest: [], unis: [], kind: 'flat', flat: 30, combine: 'adds' }, { id: 'SC-NC1b', name: 'Highest 85% (sample)', doc: 'Email', rps: ['SC-RC1b'], start: '2026-01-01', end: '2026-12-31', dest: [], unis: [], kind: 'flat', flat: 85, combine: 'highest' }], rps: [rp('SC-RC1a', { name: 'Add-on Partners (sample)' }), rp('SC-RC1b', { name: 'Highest-wins Partners (sample)' })] }),
     apps: byId(L),
     checks: [
-      { what: 'Tier beats a lower promotion', calc: '6 → 20% vs promo 18%: 30,000 × 20% = 6,000', exp: 6000, got: G.ip('c1-01', 'ip1') },
+      { what: 'Tier beats a lower promotion', calc: '6 → 20% vs promo 18%: 30,000 × 20% = 6,000', exp: 6000, got: G.ip('c1-01', 'ip1', 'fullEnt') },
       { what: 'Adds on, capped at 100%', calc: '80% + 30% = 110% → 100%', exp: 100, got: G.app('c1-01', (r) => r.rpPct) },
       { what: 'RP never above GSP’s line', calc: '6,000 × 100% = 6,000', exp: 6000, got: G.rp('c1-01', 'rp1') },
       { what: 'Highest wins', calc: 'max(85%, 80%): 6,000 × 85% = 5,100', exp: 5100, got: G.rp('c1-06', 'rp1') },
@@ -502,9 +505,9 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
     cfg: world({ unis: [uni('SC-C3A', { name: 'Tiered College (sample)', tier: { retro: true, window: 'CY', scope: 'all', pool: 'uni', levels: [], bands: [[1, 2, 15], [3, null, 16]] } }), uni('SC-C3B', { name: 'Untiered College (sample)' })], groups: [{ id: 'SC-G3', name: 'Two-college group (sample)', members: ['SC-C3A', 'SC-C3B'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 15], [6, null, 18]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
     apps: byId(L),
     checks: [
-      { what: 'College A: group 18% beats college 16%', calc: '30,000 × 18% = 5,400', exp: 5400, got: G.ip('c3-a1', 'ip1') },
+      { what: 'College A: group 18% beats college 16%', calc: '30,000 × 18% = 5,400', exp: 5400, got: G.ip('c3-a1', 'ip1', 'fullEnt') },
       { what: 'Winning tier is the group’s', calc: '', exp: 'group', got: G.app('c3-a1', (r) => r.uniTier.who) },
-      { what: 'College B at the group band', calc: '6 → 18% = 5,400', exp: 5400, got: G.ip('c3-b1', 'ip1') },
+      { what: 'College B at the group band', calc: '6 → 18% = 5,400', exp: 5400, got: G.ip('c3-b1', 'ip1', 'fullEnt') },
     ] });
 }
 {
