@@ -26,16 +26,18 @@ import '../finance/finance.css';
 import './mail.css';
 import { setLiveStatus, setLiveFlags, flagsOf, useLiveAll } from '../data/live';
 import { STATUS, STATUS_ORDER, destOf } from '../data/applications';
-import { liveApps } from './engine';
+import { liveApps, appTasks } from './engine';
+import { route, typeOf } from './mailRoute';
 
 const regionQueue = regionQueueId;
-const ACT = { status: 'Change the status', task: 'Raise a task', chat: 'Answer in the RP chat', finance: 'Send to Finance', reply: 'Reply to the university', file: 'Just file it' };
+const ACT = { status: 'Change the status', task: 'Raise the task', remind: 'Add to the open task', read: 'Reply' };
 const VIEWS = [
   ['needs', 'Needs you', 'bell'],
   ['match', 'Check the match', 'search'],
   ['waiting', 'Waiting on others', 'clock'],
   ['done', 'Done', 'checkCircle'],
-  ['filed', 'Filed automatically', 'folder'],
+  ['filed', 'Filed or forwarded', 'folder'],
+  ['rules', 'How mail is handled', 'sliders'],
 ];
 const SENDER_TONE = { University: 'is-uni', RP: 'is-rp', Vendor: 'is-vendor', Person: 'is-person' };
 const clean = (s) => s.replace(/^(re|fwd?|fw):\s*/i, '');
@@ -130,7 +132,8 @@ function MailBody({ s, user, role }) {
       undo: () => update((d) => was.forEach((w) => { const t = d.mail.threads.find((x) => x.id === w.id); if (t) Object.assign(t, w); }), `${user.name} undid marking ${ids.length} conversation${ids.length === 1 ? '' : 's'} done`),
     });
   };
-  const counts = { needs: byView.needs.length, match: byView.match.length, waiting: byView.waiting.length, done: byView.done.length, filed: filed.length };
+  const counts = { needs: byView.needs.length, match: byView.match.length, waiting: byView.waiting.length, done: byView.done.length, filed: filed.length, rules: (M.types || []).length };
+  const openSample = (id) => { const t = M.threads.find((x) => x.id === id); if (!t) { setView('filed'); return; } setView(t.state === 'done' ? 'done' : t.state === 'waiting' ? 'waiting' : t.state === 'match' || (t.conf ?? 0) < M.settings.suggest ? 'match' : 'needs'); setWho('all'); setBox(''); setSel(id); };
   const late = byView.needs.filter((t) => clock(t)[1] === 'bad').length;
 
   return (
@@ -168,7 +171,9 @@ function MailBody({ s, user, role }) {
           <p className="mx__hint muted">Keys: j and k to move, e for done, r to reply.</p>
         </nav>
 
-        {view === 'filed' ? (
+        {view === 'rules' ? (
+          <MailRules s={s} openSample={openSample} />
+        ) : view === 'filed' ? (
           <Filed s={s} filed={filed} />
         ) : (
           <section className="mx__list" aria-label={VIEWS.find((v) => v[0] === view)[1]} ref={listRef}>
@@ -200,7 +205,7 @@ function MailBody({ s, user, role }) {
                       <span className="mx__summary">{t.summary}</span>
                       <span className="mx__line3">
                         {r ? <span className="mx__rec">{r.student} · {r.id}</span> : <span className="mx__rec is-none">No application yet</span>}
-                        <span className="mx__intent">{(M.intents.find((i) => i.id === t.intent) || {}).name}</span>
+                        <span className="mx__intent">{typeOf(M, t.intent)?.name}</span>
                         <span className="mx__owner" title={owner ? `Owner: ${nameOf(s, owner)}` : 'Unassigned'}>{owner ? nameOf(s, owner) : 'Unassigned'}</span>
                         <span className="mx__age">{fmtAge(lastMsg.at)}</span>
                       </span>
@@ -212,7 +217,7 @@ function MailBody({ s, user, role }) {
           </section>
         )}
 
-        {view !== 'filed' && (
+        {view !== 'filed' && view !== 'rules' && (
           <section className="mx__read" aria-label="Conversation">
             {open ? <Conversation key={open.id} t={open} s={s} user={user} role={role} ownerOf={ownerOf} openRecord={openRecord} onBack={() => setSel(null)} onDone={(o) => markDone([open.id], o)} /> : <Empty title="Pick a conversation">It opens here, with what the system read and the next step.</Empty>}
           </section>
@@ -232,7 +237,11 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
   const [reply, setReply] = useState(null);
   const [showOld, setShowOld] = useState(false);
   const canAct = can(s.matrix, role.id, 'mail', 'U');
-  const rule = M.intents.find((i) => i.id === intentId) || {};
+  const rule = typeOf(M, intentId) || {};
+  const [pick, setPick] = useState(null);
+  const toKey = pick && (rule.statuses || []).includes(pick) ? pick : (rule.statuses || [])[0];
+  const toText = toKey ? (rule.end?.[toKey] ? `Closed: ${rule.end[toKey]}` : STATUS[toKey]?.text()) : '';
+  const goes = route(s, { ...t, record: link || null }, intentId);
   const r = link ? recordById(s, link) : null;
   const mb = M.mailboxes.find((b) => b.id === t.mailbox) || {};
   const [ct, ctone] = confOf(s, t.conf ?? 0);
@@ -248,18 +257,19 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
   const lastIn = [...t.messages].reverse().find((m) => m.dir !== 'out');
   // who the reply goes to: the university when passing on the RP's answer, otherwise whoever wrote last
   const uniMsg = t.messages.find((m) => m.dir !== 'out' && m.from[1] !== lastIn?.from[1]);
-  const toMsg = rule.act === 'reply' && uniMsg ? uniMsg : lastIn;
-  const to = { name: toMsg?.from[0] ?? '', addr: toMsg?.from[1] ?? '', side: rule.act === 'reply' ? 'University' : t.sender === 'RP' ? 'RP' : 'University' };
+  const toMsg = rule.act === 'read' && t.sender === 'RP' && uniMsg ? uniMsg : lastIn;
+  const to = { name: toMsg?.from[0] ?? '', addr: toMsg?.from[1] ?? '', side: toMsg?.from[1] === lastIn?.from[1] && t.sender === 'RP' ? 'RP' : 'University' };
+  const [chatMode, setChatMode] = useState(false);
   const draft = t.draft || `Dear ${(lastIn?.from[0] || '').split(' (')[0]},\n\nThank you. ${rule.id === 'info' ? 'We’ll send what you asked for shortly.' : 'We’ve noted this on the application.'}\n\nKind regards,\n${user.name}\nGSP Admissions`;
 
   // W3 (Jovial, 1 Nov): check where the application is before suggesting a move; say what it would skip
   const liveNow = useLiveAll();
   const app = r ? liveApps(liveNow.state).find((x) => x.id === r.id) : null;
   const main = STATUS_ORDER.filter((k) => !STATUS[k].branch);
-  const skips = app && rule.act === 'status' && rule.key && rule.key !== 'closed' && main.includes(rule.key)
-    ? main.slice(main.indexOf(app.status) + 1, main.indexOf(rule.key)).filter(() => main.indexOf(app.status) >= 0) : [];
-  const back = app && rule.act === 'status' && rule.key && main.includes(app.status) && main.includes(rule.key) && main.indexOf(rule.key) < main.indexOf(app.status);
-  const same = app && rule.key === app.status;
+  const skips = app && rule.act === 'status' && toKey && toKey !== 'closed' && main.includes(toKey)
+    ? main.slice(main.indexOf(app.status) + 1, main.indexOf(toKey)).filter(() => main.indexOf(app.status) >= 0) : [];
+  const back = app && rule.act === 'status' && toKey && main.includes(app.status) && main.includes(toKey) && main.indexOf(toKey) < main.indexOf(app.status);
+  const same = app && toKey === app.status;
   const set = (fn, log) => update((d) => fn(d.mail.threads.find((x) => x.id === t.id), d), log);
   const finish = (outcome, extra) => {
     set((x, d) => {
@@ -270,30 +280,38 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
     }, `${user.name}: ${clean(t.subject)} → ${outcome}`);
   };
   const confirm = () => {
-    if (!r && ['status', 'task', 'chat', 'reply'].includes(rule.act)) { toast('Link the conversation to an application first.'); return; }
+    if (!r && rule.act !== 'task') { toast('Link the conversation to an application first.'); return; }
     const name = r ? r.student || r.label : '';
+    const files = (t.messages.flatMap((m) => m.attachments || [])).filter(Boolean);
+    const fileDocs = (now) => rule.doc && files.length && r && setLiveFlags(r.id, { filed: [...(flagsOf(r.id).filed || []), ...files.map((f) => ({ name: rule.doc, file: f, at: now, by: user.name }))] });
     if (rule.act === 'status') {
       const now = Date.now();
-      const files = (t.messages.flatMap((m) => m.attachments || [])).filter(Boolean);
-      finish(`Status moved to “${rule.status}”${rule.attach && files.length ? `; ${rule.attach} added to Documents` : ''}.`);
+      finish(`Status moved to “${toText}”${rule.doc && files.length ? `; ${rule.doc} added to Documents` : ''}.`);
       // the application itself, in every role (data/live.ts); the attachment is filed on it, in Documents
-      if (rule.key && !same) setLiveStatus(r.id, { status: rule.key, at: now, by: user.name, end: rule.end, note: rule.status, via: 'mail' });
-      if (rule.attach && files.length) setLiveFlags(r.id, { filed: [...(flagsOf(r.id).filed || []), ...files.map((f) => ({ name: rule.attach, file: f, at: now, by: user.name }))] });
-      if (rule.key === 'conditions') setLiveFlags(r.id, { condsSent: false });
-      toast(`${name}: status moved to “${rule.status}”.`);
-    } else if (rule.act === 'task' || rule.act === 'finance') {
-      const qid = rule.act === 'finance' ? 'q-finance' : queueById(s, regionQueue(r.region)) ? regionQueue(r.region) : 'q-adm-global';
-      const what = t.fields['Asked for'] ? `Get from the RP: ${t.fields['Asked for']}` : rule.act === 'finance' ? `Match ${t.uni || 'the'} remittance${t.fields.Amount ? ` (${t.fields.Amount})` : ''}` : rule.name;
-      const title = rule.act === 'finance' ? what : `${what} – ${name}`;
+      if (toKey && !same) setLiveStatus(r.id, { status: toKey, at: now, by: user.name, end: rule.end?.[toKey], note: toText, via: 'mail' });
+      fileDocs(now);
+      if (toKey === 'conditions') setLiveFlags(r.id, { condsSent: false });
+      toast(`${name}: status moved to “${toText}”.`);
+    } else if (rule.act === 'task') {
+      const qid = goes.queue?.id || 'q-adm-global';
+      const what = t.fields['Asked for'] ? `${rule.task}: ${t.fields['Asked for']}` : rule.task;
+      const title = r ? `${what} – ${name}` : `${what} – ${clean(t.subject)}`;
       finish(`Task raised in ${(queueById(s, qid) || {}).name}: ${title}.`, (d) => {
-        d.tasks.unshift({ id: 'T-M' + t.id + '-' + Date.now().toString(36), record: r ? r.id : 'cm-payout', kind: rule.kind || 'k-uni-mail', queue: qid, rule: null, title, note: `From mail: ${clean(t.subject)}`, created: Date.now(), status: 'open', assignee: r?.officer || null, slaDays: rule.sla });
+        d.tasks.unshift({ id: 'T-M' + t.id + '-' + Date.now().toString(36), record: r ? r.id : t.id, kind: rule.kind || 'k-uni-mail', queue: qid, rule: null, title, note: `From mail: ${clean(t.subject)}`, created: Date.now(), status: 'open', assignee: goes.owner || null, slaDays: rule.sla });
       });
-      toast(`Task raised${r?.officer ? ` for ${nameOf(s, r.officer)}` : ''}, with a ${rule.sla || 1}-working-day SLA. It’s in My work.`);
-    } else if (rule.act === 'chat') {
-      setReply(draft); toast('Answer below: it goes to the application’s chat with the RP, and the RP is asked to use the portal next time.');
-      return;
-    } else if (rule.act === 'reply') {
-      setReply(draft); return;
+      fileDocs(Date.now());
+      toast(`Task raised${goes.owner ? ` for ${nameOf(s, goes.owner)}` : ''}, with a ${rule.sla || 1}-working-day SLA. It’s in My work.`);
+    } else if (rule.act === 'remind') {
+      // a reminder joins the open task of its kind on the application; only when there is none is one raised
+      const open = [...s.tasks, ...appTasks(s, liveNow.state)].find((y) => (y.record === r.id || y.app === r.id) && y.kind === rule.kind && y.status !== 'done');
+      finish(open ? `Added to the open task “${open.title}” as a reminder.` : `No open task: one raised in ${goes.queue?.name}.`, (d) => {
+        const o = d.tasks.find((y) => y.id === open?.id);
+        if (o) o.note = `${o.note ? o.note + ' · ' : ''}Reminder from ${t.org}, ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+        else d.tasks.unshift({ id: 'T-M' + t.id + '-' + Date.now().toString(36), record: r.id, kind: rule.kind, queue: goes.queue?.id || 'q-adm-global', rule: null, title: `Book the interview – ${name}`, note: `From mail: ${clean(t.subject)}`, created: Date.now(), status: 'open', assignee: goes.owner || null, slaDays: 1 });
+      });
+      toast(open ? 'Added to the open task as a reminder.' : 'Task raised. It’s in My work.');
+    } else if (rule.act === 'read') {
+      setChatMode(t.sender === 'RP' && !uniMsg); setReply(draft); return;
     } else { finish('Filed on the application.'); toast('Filed.'); }
   };
   const relink = () => set((x, d) => {
@@ -301,7 +319,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
     const task = d.tasks.find((y) => y.id === 'T-' + t.id); if (task) { task.status = 'done'; task.doneBy = user.id; task.doneAt = Date.now(); }
   }, `${user.name} linked ${clean(t.subject)} to ${link}`) || toast('Linked. Next time this sender writes, it’s matched on its own.');
   const send = () => {
-    const toChat = rule.act === 'chat';
+    const toChat = chatMode;
     set((x) => {
       x.messages.push({ id: 'o' + Date.now(), from: [user.name, mb.addresses[0]], to: to.addr, at: Date.now(), body: reply, dir: 'out', attachments: [], via: toChat ? 'chat' : 'mail' });
       x.state = toChat ? 'done' : 'waiting'; x.waitingOn = to.side; x.due = Date.now() + (M.settings.waitDays || 3) * day;
@@ -343,8 +361,10 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
           </p>
           <div className="mx__aigrid">
             <div>
-              <p className="mx__k">What it is</p>
-              {canAct ? <Select id="mx-int" label="What it is" hideLabel value={intentId} onChange={setIntent} options={M.intents.map((i) => [i.id, i.name])} /> : <p>{rule.name}</p>}
+              <p className="mx__k">Mail type</p>
+              {canAct && t.mailbox === 'mb-adm' ? <Select id="mx-int" label="Mail type" hideLabel value={intentId} onChange={(v) => { setIntent(v); setPick(null); }} options={M.types.filter((x) => x.handling === 'officer').map((x) => [x.id, `${x.n}. ${x.name}`])} /> : <p>{rule.name}</p>}
+              <p className="mx__k mx__goes">Goes to</p>
+              <p>{goes.where}</p>
             </div>
             <div>
               <p className="mx__k">Linked to <Pill tone={ctone}>{ct} · {t.conf}%</Pill></p>
@@ -364,19 +384,22 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
           </div>
           {canAct && (
             <div className="mx__next">
-              <p><span className="mx__k">Next step</span> {rule.text}</p>
+              <p><span className="mx__k">Next step</span> {rule.does}</p>
+              {rule.act === 'status' && ((rule.statuses || []).length > 1 ? (
+                <Select id="mx-status" label="Moves to" value={toKey} onChange={setPick} options={rule.statuses.map((k) => [k, rule.end?.[k] ? `Closed: ${rule.end[k]}` : STATUS[k].text()])} />
+              ) : <p><span className="mx__k">Moves to</span> {toText}</p>)}
               {app && rule.act === 'status' && (skips.length > 0 || back || same) && (
                 <p className="mx__warn" role="note">
-                  {same ? `It’s already at “${STATUS[app.status].text(destOf(app))}”: confirming only files the email.` : back ? `It’s at “${STATUS[app.status].text(destOf(app))}”, later than this email suggests. Check before you move it back.` : `It’s at “${STATUS[app.status].text(destOf(app))}”. Moving to “${rule.status}” skips ${skips.map((k) => `“${STATUS[k].text(destOf(app))}”`).join(', ')}. Check before you confirm.`}
+                  {same ? `It’s already at “${STATUS[app.status].text(destOf(app))}”: confirming only files the email.` : back ? `It’s at “${STATUS[app.status].text(destOf(app))}”, later than this email suggests. Check before you move it back.` : `It’s at “${STATUS[app.status].text(destOf(app))}”. Moving to “${toText}” skips ${skips.map((k) => `“${STATUS[k].text(destOf(app))}”`).join(', ')}. Check before you confirm.`}
                 </p>
               )}
               <div className="mx__nextacts">
                 {link !== (t.record || '') ? (
                   <Button kind="primary" disabled={!link} onClick={relink}>Save the link</Button>
                 ) : (
-                  <Button kind="primary" onClick={confirm}>{rule.act === 'reply' || rule.act === 'chat' ? 'Write the reply' : `Confirm: ${ACT[rule.act]?.toLowerCase()}`}</Button>
+                  <Button kind="primary" onClick={confirm}>{rule.act === 'read' ? (t.sender === 'RP' && !uniMsg ? 'Answer in the RP chat' : 'Write the reply') : rule.act === 'status' ? 'Confirm the status' : `Confirm: ${(ACT[rule.act] || '').toLowerCase()}`}</Button>
                 )}
-                {canSend && rule.act !== 'reply' && rule.act !== 'chat' && <Button onClick={() => setReply(reply == null ? draft : null)}>Reply</Button>}
+                {canSend && rule.act !== 'read' && <Button onClick={() => { setChatMode(false); setReply(reply == null ? draft : null); }}>Reply</Button>}
                 <button type="button" className="btn btn--link gspx-link" onClick={() => onDone('Nothing needed: done.')}>Nothing needed</button>
               </div>
             </div>
@@ -388,7 +411,7 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
 
       {reply != null && (
         <section className="mx__compose" aria-label="Reply">
-          <p className="mx__k">{rule.act === 'chat' ? 'Answer in the application’s chat with the RP' : `To ${to.name} <${to.addr}> · from ${mb.addresses?.[0]}, in this thread`}</p>
+          <p className="mx__k">{chatMode ? 'Answer in the application’s chat with the RP' : `To ${to.name} <${to.addr}> · from ${mb.addresses?.[0]}, in this thread`}</p>
           <textarea id="mx-reply" aria-label="Reply" className="gspx-textarea" rows={8} value={reply} onChange={(e) => setReply(e.target.value)} />
           <div className="mx__nextacts">
             <Button kind="primary" disabled={!reply.trim()} onClick={send}>Send</Button>
@@ -421,29 +444,76 @@ function Conversation({ t, s, user, role, ownerOf, openRecord, onBack, onDone })
 }
 
 function Filed({ s, filed }) {
-  const F = s.mail.filters;
+  const M = s.mail;
+  const total = M.types.reduce((n, t) => n + t.seen, 0);
+  const auto = M.types.filter((t) => t.handling === 'auto');
   return (
-    <section className="mx__list mx__filed" aria-label="Filed automatically">
+    <section className="mx__list mx__filed" aria-label="Filed or forwarded">
       <div className="mx__filedtop">
-        {F.map((f) => (
+        {auto.map((f) => (
           <div key={f.id} className="mx__filter">
-            <span className="num mx__share">{f.share}%</span>
+            <span className="num mx__share">{Math.round((f.seen / total) * 1000) / 10}%</span>
             <span><b>{f.name}</b><br /><span className="muted">{f.does}</span></span>
           </div>
         ))}
       </div>
       <ul className="mx__rows">
-        {filed.map((x) => (
-          <li key={x.id} className="mx__row is-filed">
-            <div className="mx__rowbtn">
-              <span className="mx__line1"><span className="mx__from">{x.from}</span><span className="mx__age">{fmtAge(x.at)}</span></span>
-              <span className="mx__subject">{x.subject}</span>
-              <span className="mx__summary">{x.outcome}</span>
-              <span className="mx__line3"><span className="mx__intent">{(F.find((f) => f.id === x.filter) || {}).name}</span></span>
-            </div>
-          </li>
-        ))}
+        {filed.map((x) => {
+          const g = route(s, x, x.type);
+          return (
+            <li key={x.id} className="mx__row is-filed">
+              <div className="mx__rowbtn">
+                <span className="mx__line1"><span className="mx__from">{x.from}</span><span className="mx__age">{fmtAge(x.at)}</span></span>
+                <span className="mx__subject">{x.subject}</span>
+                <span className="mx__summary">{g.outcome}</span>
+                <span className="mx__line3"><span className="mx__intent">{typeOf(M, x.type)?.name}</span>{g.where !== 'Nobody' && <span className="mx__owner">{g.where}</span>}</span>
+              </div>
+            </li>
+          );
+        })}
       </ul>
+    </section>
+  );
+}
+
+/** How mail is handled: the 23 Admissions mail types, what each does and where it goes, with this mailbox's samples. */
+function MailRules({ s, openSample }) {
+  const M = s.mail;
+  const total = M.types.reduce((n, t) => n + t.seen, 0);
+  const share = (t) => Math.round((t.seen / total) * 1000) / 10;
+  const action = M.types.filter((t) => t.handling === 'officer').reduce((n, t) => n + t.seen, 0);
+  const goesTo = (t) => t.goesTo === 'region' ? 'The application’s regional Admissions queue and its officer; Global Ops when no application is found'
+    : t.goesTo === 'sender' ? 'Whoever sent the mail it bounced from; Global Ops when it can’t be matched'
+    : t.goesTo === 'forward' ? (t.forward || []).map((f) => { const b = M.mailboxes.find((x) => x.id === f.to); const n = b ? `${b.name} inbox` : (M.forwardTargets.find((x) => x.id === f.to) || {}).name; return f.when ? `${n} (${f.when})` : n; }).join('; otherwise ')
+    : t.act === 'private' ? 'The person who asked for it' : 'Nobody';
+  const samples = (t) => [...M.threads.filter((x) => x.mailbox === 'mb-adm' && x.intent === t.id), ...(M.filed || []).filter((x) => x.type === t.id)];
+  return (
+    <section className="mx__list mx__rules" aria-label="How mail is handled">
+      <div className="mx__rulestop">
+        <h2 className="mx__title">How gsp.admissions@ mail is handled</h2>
+        <p className="muted">Every mail is one of these {M.types.length} types. {Math.round(((total - action) / total) * 100)}% need nobody: they’re filed, threaded, flagged or forwarded on their own. The rest go to the application’s regional Admissions queue and its officer, who confirms what the system suggests. Volumes are the mailbox’s, January to October 2026 ({total.toLocaleString('en-IN')} mails).</p>
+      </div>
+      <div className="mx__tablewrap">
+        <table className="mx__table">
+          <thead><tr><th>#</th><th>Mail type</th><th className="num">Share</th><th>Who acts</th><th>What happens</th><th>Goes to</th><th>Sample here</th></tr></thead>
+          <tbody>
+            {M.types.map((t) => {
+              const sm = samples(t);
+              return (
+                <tr key={t.id}>
+                  <td className="num">{t.n}</td>
+                  <td><b>{t.name}</b>{t.example && <><br /><span className="muted">“{t.example}”</span></>}</td>
+                  <td className="num">{share(t)}%</td>
+                  <td><Pill tone={t.handling === 'auto' ? 'dpill--plain' : 'dpill--checking'}>{t.handling === 'auto' ? (t.act === 'forward' ? 'Forwarded' : 'Nobody') : 'Officer confirms'}</Pill></td>
+                  <td>{t.does}</td>
+                  <td>{goesTo(t)}</td>
+                  <td>{sm.length ? <button type="button" className="btn btn--link gspx-link" onClick={() => openSample(sm[0].id)}>Open ({sm.length})</button> : <span className="muted">None</span>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

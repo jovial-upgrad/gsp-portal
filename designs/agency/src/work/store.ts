@@ -51,7 +51,7 @@ function fresh() {
     persona: null, log: [], closed: {}, overrides: {}, officers: {}, frozen: {}, routed: {}, pauses: {}, appQueue: {}, gave: [],
     // testing aids (the Prototype panel): job runs made to fail, emails made to bounce
     jobs: { fail: {} }, bounces: {},
-    mail: { threads: mail.THREADS, filed: mail.FILED, mailboxes: mail.MAILBOXES, filters: mail.FILTERS, intents: mail.INTENTS, settings: mail.MAIL_SETTINGS },
+    mail: { threads: mail.THREADS, filed: mail.FILED, mailboxes: mail.MAILBOXES, types: mail.MAIL_TYPES, boxType: mail.BOX_TYPE, forwardTargets: mail.FORWARD_TARGETS, forwardWords: mail.FORWARD_WORDS, settings: mail.MAIL_SETTINGS },
   };
   return st;
 }

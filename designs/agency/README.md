@@ -749,6 +749,14 @@ Built to match the slice 4 PRD "Operations" (2 Nov, decisions S4-1 to S4-28); th
 - **The bell**: read state saved per person in this browser; 90 days kept, newest 40 with **Show older** (S4-15); no preferences. My work's notifications: a task for you, "Due tomorrow:", "Late:", "Escalated:", "<name> gave you …". The leader gets the officer's application notifications while covering.
 - Every settings change is in the page's **Change history** (with its event, like `queue.edited`) and in Admin's **Logs**.
 
+### Mail: the Admissions mail types (5 Nov)
+
+- **Every mail to gsp.admissions@ is one of 23 types** (`MAIL_TYPES` in `src/work/mail.ts`, agreed in the Pending Questions sheet's *Admissions mail types* tab). Each type says who acts (nobody, or the officer confirms), what happens, and where it goes. **Mail › How mail is handled** lists them with their share of the mailbox (January to October 2026) and opens a sample of each.
+- **Where it goes** is worked out in one place (`src/work/mailRoute.ts`): a mail linked to an application goes to that application's regional Admissions queue and its officer; with no application, to Global Ops (Global Admissions) to link it. Each conversation shows its **Mail type** and **Goes to**.
+- **Nobody acts on 62%:** GSP system notifications (to be stopped at source), copies of mails GSP sent and out-of-office replies (threaded), application received (filed, university reference saved), codes (only the person who asked). A **bounce** marks the address Bounced and tells whoever sent the mail; one that can't be matched is a Global Ops task, **T72** "Check bounced mail".
+- **Forwarded, no task here:** university news and marketing to the **compliance inbox** (its address is still to come); RP queries to the **commissions inbox** (commission words) or the **BAP inbox** (everything else). **T31** (newsletter review by Global Ops) is gone.
+- **The officer confirms:** status types suggest the status (an unclear offer offers conditional or unconditional; a visa offers granted or refused) and file the letter; task types raise one task (Read and act, GSP check, Request documents, Set status, Check payment, Handle deferral or change); a vendor's interview reminder joins the open interview task.
+
 ## Overnight alignment with the PRDs (3 Nov)
 
 Branch `overnight-align`, prototype only. The prototype now matches the four engineering-ready PRDs, and nothing derived is seeded.
