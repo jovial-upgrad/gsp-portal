@@ -281,7 +281,9 @@ function compute(cfg, apps, today) {
     const useN = t.retro ? total : rank;
     const b = bandOf(t.bands, Math.max(1, useN));
     const setter = t.retro ? pool[total - 1] : a;
-    return { key: myKey, pool, rank, total, b, useN, end, reworked, notes, setDate: setter ? base[setter.id].trigBase : null };
+    // retrospective: the band this student had on its own place in the count, before later students moved it up
+    const own = bandOf(t.bands, Math.max(1, rank));
+    return { key: myKey, pool, rank, total, b, own, useN, end, reworked, notes, setDate: setter ? base[setter.id].trigBase : null };
   };
   A.forEach((a) => {
     const r = base[a.id]; if (!r.u || !a.enrolled) return; const u = r.u; r.tiers = [];
@@ -304,6 +306,7 @@ function compute(cfg, apps, today) {
     }
   });
 
+  const billed0 = (paidO, invAmt) => (paidO ? +paidO.amt : invAmt != null ? +invAmt : null);
   /* ---------- pass 3: lines, amounts, top-ups, statuses ---------- */
   A.forEach((a) => {
     const r = base[a.id]; if (!r.u || !a.enrolled) return; const u = r.u; const cur = u.cur;
@@ -419,7 +422,12 @@ function compute(cfg, apps, today) {
     };
     lines.forEach((l) => {
       l.full = l.amt; const paidO = a.paidIP && a.paidIP[l.key]; const invAmt = a.invAmt && a.invAmt[l.key];
-      const billed = paidO ? +paidO.amt : invAmt != null ? +invAmt : null;
+      // a retrospective tier that moved up after this student: the line stays at the student's own band and the
+      // difference is a separate tier top-up line, dated when the higher band was reached (Jovial, 5 Nov)
+      const T = r.tier;
+      const retroOwn = billed0(paidO, invAmt) == null && T && T.t.retro && l.type === 'standard' && l.amt != null && l.pct === T.b.pct && T.own && T.own.pct < T.b.pct
+        ? r2((l.amt * T.own.pct) / T.b.pct) : null;
+      const billed = paidO ? +paidO.amt : invAmt != null ? +invAmt : retroOwn;
       const kids = [];
       if (billed != null && l.amt != null && !(wd && wd.date <= l.date)) {
         l.ent = wd && wd.refund && wd.date > l.date ? 0 : billed;
@@ -429,7 +437,8 @@ function compute(cfg, apps, today) {
           kids.push({ k, amt: fixed }); rest = r2(rest - fixed); i++;
         }
         if (Math.abs(rest) >= 0.01 && !(wd && wd.refund && wd.date > l.date)) kids.push({ k: l.key + '~t' + i, amt: rest, open: true });
-        if (kids.length) l.trace.push({ h: 'Billed on this line', t: 'This line was ' + (paidO ? 'paid at ' : 'invoiced at ') + money(billed, cur) + ' before the rate changed to ' + pctTxt(l.pct) + '. The full amount for the period is now ' + money(l.amt, cur) + '; the difference is on the top-up line' + (kids.length > 1 ? 's' : '') + ' below, which GSP invoices to the university.', ref: 'IP2' });
+        if (kids.length && retroOwn != null && !paidO && invAmt == null) l.trace.push({ h: 'Tier top-up', t: 'This line is worked out at this student’s own band: number ' + T.rank + ' in ' + T.key + ', band ' + (T.own.i + 1) + ', ' + T.own.pct + '% = ' + money(retroOwn, cur) + '. The tier is retrospective and ' + T.total + ' students have now enrolled, so band ' + (T.b.i + 1) + ' (' + T.b.pct + '%) applies to every student. The difference, ' + money(r2(l.amt - retroOwn), cur) + ', is a separate tier top-up line, dated when band ' + (T.b.i + 1) + ' was reached.', ref: 'IP2' });
+        else if (kids.length) l.trace.push({ h: 'Billed on this line', t: 'This line was ' + (paidO ? 'paid at ' : 'invoiced at ') + money(billed, cur) + ' before the rate changed to ' + pctTxt(l.pct) + '. The full amount for the period is now ' + money(l.amt, cur) + '; the difference is on the top-up line' + (kids.length > 1 ? 's' : '') + ' below, which GSP invoices to the university.', ref: 'IP2' });
       }
       finish(l);
       const setDate = r.tier && r.tier.setDate && r.tier.setDate > l.date ? r.tier.setDate : l.date;
