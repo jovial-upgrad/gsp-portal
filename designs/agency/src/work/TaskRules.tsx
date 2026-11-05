@@ -1,17 +1,18 @@
 // @ts-nocheck -- ported from the add-on prototype; typed when the work API is designed.
 /*
  * Admin › Work › Task rules (slice 4 PRD, Every timer). The rules are data the work service reads (S4-13): Admin and
- * Global Ops change a rule's on or off, when its task starts, its SLA, the RP reminder, its queue and how it's shared.
- * The trigger ("When"), the task's title and "Closes when" are code: read-only here. There is no New task rule and
- * no Delete. Rule numbers are the rows of Jovial's Task triggers sheet.
+ * Global Ops change a rule's on or off, when its task starts, its SLA, the RP reminder and how it's shared. Its queue
+ * isn't the rule's (5 Nov): every task goes where its kind of work's Goes to says (Queues › Kinds of work), shown here
+ * read-only. The trigger ("When"), the task's title and "Closes when" are code: read-only here. There is no New task
+ * rule and no Delete. Rule numbers are the rows of Jovial's Task triggers sheet.
  */
-import React, { useState } from 'react';
-import { useStore, update, logChange, queueById, kindById, RULE_SHARE, SHARE } from './store';
+import React, { useContext, useState } from 'react';
+import { useStore, update, logChange, queueById, kindById, RULE_SHARE, SHARE, goesToName, BY_REGION } from './store';
 import { can } from '../finance/access';
 import { Page, Card, Segmented, Table, Pill, Button, LinkButton, Sheet, Field, Input, Notice, toast, NumberInput } from '../finance/kit';
 import { useCheck, numError } from '../components/validate';
-import { PersonaBar, usePersona } from './persona';
-import { ChangeLog } from './Queues';
+import { PersonaBar, usePersona, HostContext } from './persona';
+import { ChangeLog, queuesNav } from './Queues';
 import { RULE_GROUPS } from './seed';
 import { timeText } from './engine';
 import { Pick } from './ui';
@@ -22,8 +23,10 @@ export const recordTypes = (rules) => [...new Set(rules.map((r) => r.record).fil
 export const triggersOf = (rules, record) => [...new Set(rules.filter(r => r.record === record).map(r => r.when))];
 
 const UNITS = [['wh', 'working hours'], ['d', 'working days'], ['days', 'calendar days']];
-const destName = (s, to) => to === 'region' ? 'The application’s regional Admissions queue' : to === 'recruitment' ? 'The RP’s region’s Recruitment queue' : to === 'ops' ? 'The team’s Ops queue, then Admin' : (queueById(s, to) || {}).name || 'Queue deleted';
-const shareName = (s, r) => r.share === 'officer' ? 'The application’s officer' : r.share ? RULE_SHARE[r.share] : `${SHARE[(queueById(s, r.queue) || {}).assign] || 'Fewest open'} (the queue’s way)`;
+/** Where a rule's tasks go: its kind of work's Goes to (5 Nov). The ladder (T51) makes no task: it shows the task to more people. */
+const goesOf = (s, r) => (kindById(s, r.kind) || {}).goesTo;
+const destName = (s, r) => r.ladder ? 'The team’s Ops queue, then Admin' : goesToName(s, goesOf(s, r)) || 'Queue deleted';
+const shareName = (s, r) => r.share === 'officer' ? 'The application’s officer' : r.share ? RULE_SHARE[r.share] : `${SHARE[(queueById(s, goesOf(s, r)) || {}).assign] || 'Fewest open'} (the queue’s way)`;
 const whenText = r => String(r.when).replace('<days>', r.days ?? '');
 
 export default function TaskRules() {
@@ -42,24 +45,24 @@ export default function TaskRules() {
     <Page cfg title="Task rules" top={<PersonaBar />}
       lead="The rules that make every task: what each watches, when its task starts, the task people see, where it goes, its SLA, when the RP is reminded and when it closes on its own. “Task starts after” is how long the condition must hold first. Times are working hours (wh) or working days (d, 9 wh) on the record’s region’s calendar, in IST.">
       {!may('U') && <Notice>{role.name} can see the rules but not change them.</Notice>}
-      <Notice>Admin and Global Ops can change a rule’s on or off, when its task starts, its SLA, the RP reminder, its queue and how it’s shared. What a rule watches and when it closes are built in. A change applies to new tasks; open tasks keep the SLA they were made with (S4-11).</Notice>
+      <Notice>Admin and Global Ops can change a rule’s on or off, when its task starts, its SLA, the RP reminder and how it’s shared. Where its tasks go comes from its kind of work (Queues, SLA and escalation › Kinds of work). What a rule watches and when it closes are built in. A change applies to new tasks; open tasks keep the SLA they were made with (S4-11).</Notice>
       <Segmented label="Rules for" value={group} onChange={setGroup} options={[['', `All (${s.rules.length})`], ...RULE_GROUPS.map(g => [g, `${g.split(',')[0]} (${s.rules.filter(r => r.group === g).length})`])]} />
       {groups.map(g => {
         const rows = s.rules.filter(r => r.group === g);
         if (!rows.length) return null;
         return (
           <Card flush key={g}>
-            <h2 className="gspx-h3 gspx-pad">{g}{g === 'Applications' ? ' (queue: the application’s regional Admissions queue, assignee the officer, unless it says otherwise)' : g === 'Admin' ? ' (T60 to T68: proposal, S4-28)' : g === 'Commission' ? ' (slice 5 owns what each task does)' : g === 'Email' ? ' (Mail, later slice)' : ''}</h2>
+            <h2 className="gspx-h3 gspx-pad">{g}{g === 'Applications' ? ' (assignee the officer, unless it says otherwise)' : g === 'Admin' ? ' (T60 to T68: proposal, S4-28)' : g === 'Commission' ? ' (slice 5 owns what each task does)' : g === 'Email' ? ' (Mail, later slice)' : ''}</h2>
             <Table head={['#', 'When', 'Task starts after', 'Task', 'Goes to', 'SLA', 'RP reminded', 'Closes when', 'On', '']} className="cfg__tab">
               {rows.map(r => {
-                const missing = !['region', 'recruitment', 'ops'].includes(r.queue) && !queueById(s, r.queue);
+                const missing = !r.ladder && !goesToName(s, goesOf(s, r));
                 return (
                   <tr key={r.id} className={r.on ? '' : 'gspx-off'}>
                     <td className="cfg__strong">{r.label || r.row}{r.proposal && <span className="cfg__sub">Proposal</span>}</td>
                     <td>{whenText(r)}</td>
                     <td className="num">{timeText(r.after)}</td>
                     <td>{r.task}<span className="cfg__sub">{(kindById(s, r.kind) || {}).name}</span></td>
-                    <td>{missing ? <Pill tone="dpill--bad">Queue deleted</Pill> : destName(s, r.queue)}{!r.ladder && <span className="cfg__sub">{shareName(s, r)}</span>}</td>
+                    <td>{missing ? <Pill tone="dpill--bad">Queue deleted</Pill> : destName(s, r)}{!r.ladder && <span className="cfg__sub">{shareName(s, r)}</span>}</td>
                     <td className="num">{r.ladder ? '—' : timeText(r.sla)}</td>
                     <td className="num">{r.remind2 !== undefined ? `${timeText(r.remind)}, ${timeText(r.remind2)}` : timeText(r.remind)}</td>
                     <td><span className="cfg__sub gspx-wrap">{r.closes}</span></td>
@@ -108,16 +111,15 @@ function RuleSheet({ rule, onClose, by }) {
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
-  const dest = [
-    ...(v.record === 'Application' || v.queue === 'region' ? [['region', 'The application’s regional Admissions queue']] : []),
-    ...(v.record === 'RP' ? [['recruitment', 'The RP’s region’s Recruitment queue']] : []),
-    ...s.queues.filter(q => !q.id.startsWith('q-adm-') || q.id === 'q-adm-global').filter(q => !q.id.startsWith('q-rec-')).map(q => [q.id, q.name]),
-  ];
-  const shares = Object.entries(RULE_SHARE).filter(([k]) => (k === 'officer' ? v.queue === 'region' : true)).map(([k, l]) => [k, l]);
+  const { openPage } = useContext(HostContext);
+  const kind = kindById(s, v.kind) || {};
+  const byRegion = kind.goesTo === BY_REGION;
+  const shares = Object.entries(RULE_SHARE).filter(([k]) => (k === 'officer' ? byRegion || v.share === 'officer' : true)).map(([k, l]) => [k, l]);
+  const toKinds = () => { queuesNav.tab = 'kinds'; queuesNav.kind = kind.id || null; onClose(); openPage && openPage('gspx-queues'); };
   const save = () => {
     if (!c.submit()) return;
     update(d => { const i = d.rules.findIndex(r => r.id === v.id); d.rules[i] = v; });
-    const what = ['after', 'sla', 'remind', 'remind2', 'queue', 'share', 'days'].filter(k => JSON.stringify(v[k]) !== JSON.stringify(init.current[k])).join(', ');
+    const what = ['after', 'sla', 'remind', 'remind2', 'share', 'days'].filter(k => JSON.stringify(v[k]) !== JSON.stringify(init.current[k])).join(', ');
     logChange('rule.edited', `${by.name} edited ${v.row} “${v.name}”: ${what}`, by.name);
     toast('Rule saved', { text: 'Applies to new tasks from now.' }); onClose();
   };
@@ -139,10 +141,13 @@ function RuleSheet({ rule, onClose, by }) {
         <TimeField id="r-sla" label="SLA" required value={v.sla} error={c.err('sla')} onChange={x => set('sla', x)} hint="Counted on the working calendar of the record's sales region. 1 working day = 9 working hours." />
         <TimeField id="r-remind" label="RP reminded after" none value={v.remind} error={c.err('remind')} onChange={x => set('remind', x)} hint="When the RP gets an automatic reminder (bell and email) during the wait. Empty: none." />
         {v.remind2 !== undefined && <TimeField id="r-remind2" label="RP reminded again after" none value={v.remind2} error={c.err('remind2')} onChange={x => set('remind2', x)} hint="A second reminder, counted from the same start. Empty: none." />}
-        <Pick id="r-to" label="Goes to" required value={v.queue} onChange={x => setV(o => ({ ...o, queue: x, share: x !== 'region' && o.share === 'officer' ? null : o.share }))} options={dest} />
+        <Field id="r-to" label="Queue" hint="Set on the kind of work, for every rule of that kind.">
+          <p className="cfg__strong" id="r-to">Goes to {(goesToName(s, kind.goesTo) || 'a deleted queue').replace(/^The/, 'the')} (from its kind of work: {kind.name})</p>
+          {openPage && <LinkButton onClick={toKinds}>Change it in Kinds of work</LinkButton>}
+        </Field>
         <Pick id="r-share" label="How it’s shared" required value={v.share ?? ''} onChange={x => set('share', x || null)} options={shares} />
       </div>
-      <p className="gspx-sentence"><b>In words: </b>when “{whenText(v).toLowerCase()}”{v.after ? `, for ${timeText(v.after)}` : ''}, make “{plain(v.task)}” in {destName(s, v.queue).replace(/^The/, 'the')}, shared {shareName(s, v).replace(/^The/, 'to the').toLowerCase()}, due in {timeText(v.sla)}{v.remind ? `; the RP is reminded after ${timeText(v.remind)}` : ''}. It closes when {String(v.closes).charAt(0).toLowerCase() + String(v.closes).slice(1)}.</p>
+      <p className="gspx-sentence"><b>In words: </b>when “{whenText(v).toLowerCase()}”{v.after ? `, for ${timeText(v.after)}` : ''}, make “{plain(v.task)}” in {destName(s, v).replace(/^The/, 'the')}, shared {shareName(s, v).replace(/^The/, 'to the').toLowerCase()}, due in {timeText(v.sla)}{v.remind ? `; the RP is reminded after ${timeText(v.remind)}` : ''}. It closes when {String(v.closes).charAt(0).toLowerCase() + String(v.closes).slice(1)}.</p>
     </Sheet>
   );
 }

@@ -3,9 +3,11 @@
  * Admin › Work › Queues, SLA and escalation (slice 4 PRD): Queues, Kinds of work, Working days, Reminders and
  * escalation. The only queue editor (S4-1). Admin and Global Ops edit; every other GSP role views. Every change is in
  * the page's Change history and Admin's Audit log. All times are IST (S4-27).
+ * Routing (5 Nov) is one setting: each kind of work's Goes to (Kinds of work). A queue's "What lands in this queue"
+ * and the Receives column are worked out from it; a queue can't be deleted while a kind goes to it.
  */
 import React, { useState } from 'react';
-import { useStore, update, logChange, nameOf, kindById, SHARE, SHARE_HELP } from './store';
+import { useStore, update, logChange, nameOf, SHARE, SHARE_HELP, removeQueue, saveKind, goesToName, goesToOptions, goesToValid, kindsGoingTo, receivesOf, ROUTED } from './store';
 import { can } from '../finance/access';
 import { Page, Card, Tabs, Table, Pill, Button, LinkButton, Sheet, Field, Input, Num, Chip, Notice, toast, NumberInput, DateField } from '../finance/kit';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -15,24 +17,29 @@ import { PersonaBar, usePersona } from './persona';
 import { useCalendars, getCalendars, setCalendars, daysText, clockText, regionsOn, putRegionsOn, dayOf, DEFAULT_START, DEFAULT_END } from './calendars';
 import { salesRegionNames } from '../admin/data/config';
 import { MultiPick } from '../institution/records/MultiPick';
-import { Pick, TimePick, Tick } from './ui';
+import { Pick, TimePick } from './ui';
 
 const ADMIN_Q = 'q-admin';
+/** Where the page opens next (another page's link, like Task rules' "Change it in Kinds of work"): a tab and a kind to edit. */
+export const queuesNav = { tab: null, kind: null };
 
 export default function Queues() {
   const s = useStore();
   const { user, role } = usePersona();
-  const [tab, setTab] = useState('queues');
+  const [tab, setTab] = useState(() => queuesNav.tab || 'queues');
+  const [kindOpen, setKindOpen] = useState(() => queuesNav.kind);
+  React.useEffect(() => { queuesNav.tab = null; queuesNav.kind = null; }, []);
   const may = a => can(s.matrix, role.id, 'queues', a);
+  const openKind = id => { setKindOpen(id || null); setTab('kinds'); };
   return (
     <Page cfg title="Queues, SLA and escalation" top={<PersonaBar />}
-      lead="A queue is a team’s inbox: a name, one leader, members, and how work is shared. Every task belongs to exactly one queue. Set what each kind of work is due in, the working days every SLA counts on, and who is told when a task is late. All times are IST."
+      lead="A queue is a team’s inbox: a name, one leader, members, and how work is shared. Every task belongs to exactly one queue: the one its kind of work goes to. Set where each kind of work goes and what it’s due in, the working days every SLA counts on, and who is told when a task is late. All times are IST."
       actions={tab === 'queues' && may('C') ? <QueueButton by={user} /> : tab === 'kinds' && may('C') ? <KindButton by={user} /> : null}>
       {!may('U') && <Notice>{role.name} can see this page but not change it.</Notice>}
       <Tabs label="Section" value={tab} onChange={setTab}
         options={[['queues', `Queues (${s.queues.length})`], ['kinds', `Kinds of work (${s.kinds.length})`], ['calendars', 'Working days'], ['escalation', 'Reminders and escalation']]} />
-      {tab === 'queues' && <QueueList may={may} by={user} />}
-      {tab === 'kinds' && <KindList may={may} by={user} />}
+      {tab === 'queues' && <QueueList may={may} by={user} openKind={openKind} />}
+      {tab === 'kinds' && <KindList may={may} by={user} openId={kindOpen} onOpened={() => setKindOpen(null)} />}
       {tab === 'calendars' && <Calendars may={may} by={user} />}
       {tab === 'escalation' && <Escalation may={may} by={user} />}
       <ChangeLog />
@@ -45,19 +52,14 @@ function QueueButton({ by }) {
   return <><Button kind="primary" onClick={() => setOpen(true)}>Create queue</Button>{open && <QueueSheet onClose={() => setOpen(false)} by={by} />}</>;
 }
 
-function QueueList({ may, by }) {
+function QueueList({ may, by, openKind }) {
   const s = useStore();
   const [edit, setEdit] = useState(null);
-  const gaps = s.kinds.filter(k => !s.queues.some(q => (q.kinds || []).includes(k.id)));
+  // a leader is required on save: only a queue saved before that can have none
   const noLead = s.queues.filter(q => !q.leader);
   return (
     <>
-      {(gaps.length > 0 || noLead.length > 0) && (
-        <Notice tone="warn">
-          {noLead.length > 0 && <>No leader: {noLead.map(q => q.name).join(', ')}. Escalations from these queues go to the Admin queue. </>}
-          {gaps.length > 0 && <>Not received by any queue: {gaps.map(k => k.name).join(', ')}.</>}
-        </Notice>
-      )}
+      {noLead.length > 0 && <Notice tone="warn">No leader: {noLead.map(q => q.name).join(', ')}. Escalations from these queues go to the Admin queue.</Notice>}
       <Card flush>
         <Table head={['Queue', 'Leader', 'Members', 'How work is shared', 'Receives', '']} className="cfg__tab">
           {s.queues.map(q => (
@@ -66,22 +68,25 @@ function QueueList({ may, by }) {
               <td>{q.leader ? <span className="cfg__strong">{nameOf(s, q.leader)}</span> : <Pill tone="dpill--bad">Not set</Pill>}</td>
               <td>{(q.members || []).length ? <div className="cfg__chips">{q.members.slice(0, 6).map(m => <Chip key={m}>{nameOf(s, m)}</Chip>)}{q.members.length > 6 && <span className="muted">+{q.members.length - 6} more</span>}</div> : <span className="cfg__muted">Just the leader</span>}</td>
               <td>{SHARE[q.assign] || SHARE['fewest-open']}</td>
-              <td>{(() => { const names = (q.kinds || []).map(k => (kindById(s, k) || {}).name).filter(Boolean); return names.length ? <span className="gspx-wrap" title={names.join(', ')}>{names.slice(0, 2).join(', ')}{names.length > 2 ? <span className="muted"> +{names.length - 2} more</span> : null}</span> : <span className="cfg__muted">Nothing yet</span>; })()}</td>
+              <td>{(() => { const names = receivesOf(s, q).all.map(k => k.name); return names.length ? <span className="gspx-wrap" title={names.join(', ')}>{names.slice(0, 2).join(', ')}{names.length > 2 ? <span className="muted"> +{names.length - 2} more</span> : null}</span> : <span className="cfg__muted">Nothing yet</span>; })()}</td>
               <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${q.name}`} onClick={() => setEdit(q)}>Edit</LinkButton>}</td>
             </tr>
           ))}
         </Table>
       </Card>
-      {edit && <QueueSheet queue={edit} onClose={() => setEdit(null)} by={by} canDelete={may('D') && edit.id !== ADMIN_Q} />}
+      {edit && <QueueSheet queue={edit} onClose={() => setEdit(null)} by={by} canDelete={may('D') && edit.id !== ADMIN_Q} openKind={id => { setEdit(null); openKind(id); }} />}
     </>
   );
 }
 
-/** A queue (slice 4 PRD, A queue): name, leader, members, how work is shared, and what it receives. No type, no regions (S4-24). */
-function QueueSheet({ queue, onClose, by, canDelete }) {
+/**
+ * A queue (slice 4 PRD, A queue): name, leader, members and how work is shared. No type, no regions (S4-24). What
+ * lands in it is read-only here (5 Nov): the kinds of work whose Goes to is this queue, set in Kinds of work.
+ */
+function QueueSheet({ queue, onClose, by, canDelete, openKind }) {
   const s = useStore();
   const isNew = !queue;
-  const init = React.useRef(queue ? structuredClone(queue) : { id: 'q-' + Date.now(), name: '', leader: '', members: [], assign: 'fewest-open', kinds: [] });
+  const init = React.useRef(queue ? (({ kinds, ...q }) => structuredClone(q))(queue) : { id: 'q-' + Date.now(), name: '', leader: '', members: [], assign: 'fewest-open' });
   const [v, setV] = useState(() => structuredClone(init.current));
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
   const gsp = s.users.filter(u => !['rp-admin', 'branch-admin', 'counsellor'].includes(u.role) && s.roles.some(r => r.id === u.role));
@@ -92,22 +97,26 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
     leader: !v.leader ? 'Choose the queue’s leader.' : null,
   };
   const c = useCheck(errors);
-  const dirty = JSON.stringify(v) !== JSON.stringify(queue || init.current);
+  const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
   const open = s.tasks.filter(t => t.queue === v.id && t.status === 'open').length;
   const save = () => {
     if (!c.submit()) return;
-    const x = { ...v, name: v.name.trim(), members: (v.members || []).filter(m => m !== v.leader) };
+    const { kinds, ...rest } = v;
+    const x = { ...rest, name: v.name.trim(), members: (v.members || []).filter(m => m !== v.leader) };
     update(d => { const i = d.queues.findIndex(q => q.id === x.id); if (i >= 0) d.queues[i] = x; else d.queues.push(x); });
     logChange(isNew ? 'queue.created' : 'queue.edited', `${by.name} ${isNew ? 'created' : 'edited'} queue ${x.name}: leader ${x.leader ? nameOf(s, x.leader) : 'not set'}, ${x.members.length} member${x.members.length === 1 ? '' : 's'}, ${SHARE[x.assign]}`, by.name);
     toast(isNew ? 'Queue created' : 'Applies to new work from now'); onClose();
   };
   const remove = () => {
-    update(d => { d.queues = d.queues.filter(q => q.id !== v.id); d.tasks.forEach(t => { if (t.queue === v.id && t.status === 'open') t.queue = ADMIN_Q; }); });
-    logChange('queue.deleted', `${by.name} deleted queue ${v.name}${open ? `; its ${open} open tasks moved to the Admin queue` : ''}`, by.name);
-    toast('Queue deleted', { text: open ? 'Its open tasks moved to the Admin queue.' : undefined }); onClose();
+    const r = removeQueue(v.id, by.name);
+    if (r.refused?.length) { toast('Queue not deleted', { text: `${r.refused.map(k => k.name).join(', ')} still ${r.refused.length === 1 ? 'goes' : 'go'} to it.` }); return; }
+    toast('Queue deleted', { text: r.open ? 'Its open tasks moved to the Admin queue.' : undefined }); onClose();
   };
-  const toggle = (k, id) => set(k, (v[k] || []).includes(id) ? v[k].filter(x => x !== id) : [...(v[k] || []), id]);
-  const app = (v.kinds || []).some(k => (kindById(s, k) || {}).record === 'Application');
+  const gets = isNew ? { direct: [], region: [], recruitment: [], all: [] } : receivesOf(s, v);
+  const blocking = isNew ? [] : kindsGoingTo(s, v.id);
+  const app = gets.all.some(k => k.record === 'Application');
+  const kindLink = k => <LinkButton aria-label={`${k.name} in Kinds of work`} onClick={() => openKind(k.id)}>{k.name}</LinkButton>;
+  const routedName = id => ROUTED.find(x => x.id === id)?.name.replace(/^The/, 'the');
   return (
     <>
     <Sheet wide title={isNew ? 'Create queue' : `Edit ${queue.name}`} onClose={onClose} dirty={dirty} what={isNew ? 'the new queue' : queue.name}
@@ -122,14 +131,26 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
           <p className="field__msg">The leader is a member anyway. A deactivated user stays listed until deleted, but gets no new work. Anyone can be in any queue: each person sees only records in their own sales regions.</p>
         </div>
       </div>
-      <Field id="q-kinds" label="What lands in this queue">
-        <div className="gspx-checks">{s.kinds.map(k => <Tick key={k.id} id={`qk-${k.id}`} checked={(v.kinds || []).includes(k.id)} onChange={() => toggle('kinds', k.id)}>{k.name}</Tick>)}</div>
-      </Field>
+      <section className="field" aria-labelledby="q-kinds">
+        <span className="field__label" id="q-kinds">What lands in this queue</span>
+        {gets.all.length ? <ul className="gspx-list">
+          {gets.direct.map(k => <li key={k.id}>{kindLink(k)}</li>)}
+          {gets.region.length > 0 && <li>As a region’s Admissions queue, the kinds that go to {routedName('region')}: {gets.region.map((k, i) => <React.Fragment key={k.id}>{i ? ', ' : ''}{kindLink(k)}</React.Fragment>)}</li>}
+          {gets.recruitment.length > 0 && <li>As a region’s Recruitment queue, the kinds that go to {routedName('recruitment')}: {gets.recruitment.map((k, i) => <React.Fragment key={k.id}>{i ? ', ' : ''}{kindLink(k)}</React.Fragment>)}</li>}
+        </ul> : <p className="muted">{isNew ? 'Nothing yet: once the queue is created, pick it as a kind of work’s Goes to.' : 'Nothing: no kind of work goes to this queue.'}</p>}
+        <p className="field__msg">Set in Kinds of work: each kind of work’s Goes to says which queue its tasks land in.</p>
+      </section>
       {app && <p className="muted">One officer end to end: every task on an application goes to its officer, whom routing picks by Fewest open when the RP sends the documents.</p>}
     </Sheet>
-    <ConfirmDialog open={sure} danger title={`Delete ${v.name || 'this queue'}?`} confirm="Delete queue" onCancel={() => setSure(false)} onConfirm={() => { setSure(false); remove(); }}>
-      <p>Its {open} open {open === 1 ? 'task moves' : 'tasks move'} to the Admin queue, and new work stops landing in it. This can’t be undone.</p>
-    </ConfirmDialog>
+    {blocking.length ? (
+      <ConfirmDialog open={sure} title={`${v.name} can’t be deleted`} cancel="Close" onCancel={() => setSure(false)}>
+        <p>{blocking.length === 1 ? 'A kind of work goes to it' : `${blocking.length} kinds of work go to it`}: {blocking.map(k => k.name).join(', ')}. Change {blocking.length === 1 ? 'its' : 'their'} Goes to in Kinds of work first.</p>
+      </ConfirmDialog>
+    ) : (
+      <ConfirmDialog open={sure} danger title={`Delete ${v.name || 'this queue'}?`} confirm="Delete queue" onCancel={() => setSure(false)} onConfirm={() => { setSure(false); remove(); }}>
+        <p>Its {open} open {open === 1 ? 'task moves' : 'tasks move'} to the Admin queue. This can’t be undone.</p>
+      </ConfirmDialog>
+    )}
     </>
   );
 }
@@ -138,42 +159,45 @@ function KindButton({ by }) {
   const [open, setOpen] = useState(false);
   return <><Button kind="primary" onClick={() => setOpen(true)}>Add kind of work</Button>{open && <KindSheet onClose={() => setOpen(false)} by={by} />}</>;
 }
-function KindList({ may, by }) {
+function KindList({ may, by, openId, onOpened }) {
   const s = useStore();
-  const [edit, setEdit] = useState(null);
+  const [edit, setEdit] = useState(() => (openId ? s.kinds.find(k => k.id === openId) || null : null));
+  React.useEffect(() => { if (openId) { const k = s.kinds.find(x => x.id === openId); if (k) setEdit(k); onOpened(); } }, [openId]);
   return (
     <Card flush>
       <Table head={['Kind of work', 'Record', 'SLA', 'Goes to', '']} className="cfg__tab">
-        {s.kinds.map(k => { const qs = s.queues.filter(q => (q.kinds || []).includes(k.id)); return (
+        {s.kinds.map(k => { const to = goesToName(s, k.goesTo); return (
           <tr key={k.id}>
             <td className="cfg__strong">{k.name}</td><td>{k.record}</td>
             <td className="num">{k.sla} wh</td>
-            <td>{qs.length ? (qs.length > 3 ? `${qs.slice(0, 2).map(q => q.name).join(', ')} +${qs.length - 2} more` : qs.map(q => q.name).join(', ')) : <Pill tone="dpill--bad">No queue</Pill>}</td>
+            <td>{to || <Pill tone="dpill--bad">Queue deleted</Pill>}</td>
             <td className="cfg__acts">{may('U') && <LinkButton aria-label={`Edit ${k.name}`} onClick={() => setEdit(k)}>Edit</LinkButton>}</td>
           </tr>); })}
       </Table>
-      <p className="gspx-pad muted">A task’s SLA, first match wins: the task rule’s own SLA; else its kind of work’s; else 18 working hours. A task keeps the SLA hours it was created with (S4-11).</p>
+      <p className="gspx-pad muted">Every task goes where its kind of work goes; a task rule has no queue of its own. A new Goes to applies to new tasks: open tasks stay in their queue. A task’s SLA, first match wins: the task rule’s own SLA; else its kind of work’s; else 18 working hours. A task keeps the SLA hours it was created with (S4-11).</p>
       {edit && <KindSheet kind={edit} onClose={() => setEdit(null)} by={by} canDelete={may('D')} />}
     </Card>
   );
 }
 function KindSheet({ kind, onClose, by, canDelete }) {
   const s = useStore();
-  const init = React.useRef(kind ? { ...kind } : { id: 'k-' + Date.now(), name: '', record: 'Application', sla: 9 });
+  const init = React.useRef(kind ? { ...kind } : { id: 'k-' + Date.now(), name: '', record: 'Application', sla: 9, goesTo: '' });
   const [v, setV] = useState(() => ({ ...init.current }));
   const [sure, setSure] = useState(false);
-  const used = kind && (s.queues.some(q => (q.kinds || []).includes(kind.id)) || s.rules.some(r => r.kind === kind.id));
+  const used = kind && s.rules.some(r => r.kind === kind.id);
+  const open = kind ? s.tasks.filter(t => t.kind === kind.id && t.status === 'open').length : 0;
   const errors = {
     name: !v.name.trim() ? 'Enter the name of the kind of work.' : dupError(v.name, s.kinds.filter(k => k.id !== v.id).map(k => k.name), 'There’s already a kind of work with this name.'),
     sla: numError(v.sla, { what: 'SLA', min: 1, max: 540, int: true, required: true }),
+    goesTo: !v.goesTo ? 'Choose where its tasks go.' : !goesToValid(s, v, v.goesTo) ? 'Choose again: that isn’t open to this record.' : null,
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(init.current);
   const save = () => {
     if (!c.submit()) return;
-    update(d => { const i = d.kinds.findIndex(k => k.id === v.id); if (i >= 0) d.kinds[i] = v; else d.kinds.push(v); });
-    logChange('kind.saved', `${by.name} saved kind of work ${v.name} (${v.sla} wh)`, by.name);
-    toast(kind ? 'Kind of work saved' : 'Kind of work added'); onClose();
+    saveKind({ ...v, name: v.name.trim() }, by.name);
+    const moved = kind && kind.goesTo !== v.goesTo;
+    toast(kind ? 'Kind of work saved' : 'Kind of work added', { text: moved ? `New tasks go to ${goesToName(s, v.goesTo)}; open tasks stay where they are.` : undefined }); onClose();
   };
   return (
     <>
@@ -182,14 +206,16 @@ function KindSheet({ kind, onClose, by, canDelete }) {
         <Button kind="primary" disabled={!!kind && !dirty} onClick={save}>{kind ? 'Save' : 'Add kind of work'}</Button></>}>
       <div className="cfg__form">
         <Field id="k-name" label="Name" required error={c.err('name')}><Input id="k-name" value={v.name} onBlur={c.blur('name')} onChange={x => setV({ ...v, name: x })} /></Field>
-        <Pick id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV({ ...v, record: x })} options={[...new Set([...s.kinds.map((k) => k.record), ...s.rules.map((r) => r.record)].filter(Boolean))]} />
+        <Pick id="k-rec" label="Record it is about" required value={v.record} onChange={x => setV(o => ({ ...o, record: x, goesTo: goesToValid(s, { record: x }, o.goesTo) ? o.goesTo : '' }))} options={[...new Set([...s.kinds.map((k) => k.record), ...s.rules.map((r) => r.record)].filter(Boolean))]} />
+        <Pick id="k-to" label="Goes to" required error={c.err('goesTo')} value={v.goesTo || ''} placeholder="Choose a queue" onChange={x => (setV(o => ({ ...o, goesTo: x })), c.blur('goesTo')())} options={goesToOptions(s, v.record)}
+          hint={kind && kind.goesTo !== v.goesTo && open ? `Applies to new tasks. Its ${open} open ${open === 1 ? 'task stays' : 'tasks stay'} where ${open === 1 ? 'it is' : 'they are'}.` : 'Every task of this kind lands here, from every task rule of this kind.'} />
         <Field id="k-sla" label="SLA (whole working hours, 1 to 540)" required error={c.err('sla')} hint="Counted on the working calendar of the record's sales region. 1 working day = 9 working hours."><NumberInput id="k-sla" decimal={false} min={1} max={540} steppers value={v.sla} onBlur={c.blur('sla')} onChange={x => setV({ ...v, sla: x })} /></Field>
-        {used && <p className="field__msg" id="k-used">A queue or task rule uses it, so it can’t be deleted.</p>}
+        {used && <p className="field__msg" id="k-used">A task rule uses it, so it can’t be deleted.</p>}
       </div>
     </Sheet>
     <ConfirmDialog open={sure} danger title={`Delete ${v.name}?`} confirm="Delete kind of work" onCancel={() => setSure(false)}
       onConfirm={() => { setSure(false); update(d => { d.kinds = d.kinds.filter(k => k.id !== v.id); }); logChange('kind.deleted', `${by.name} deleted kind of work ${v.name}`, by.name); toast('Kind of work deleted'); onClose(); }}>
-      <p>No queue or task rule uses it. This can’t be undone.</p>
+      <p>No task rule uses it. This can’t be undone.</p>
     </ConfirmDialog>
     </>
   );

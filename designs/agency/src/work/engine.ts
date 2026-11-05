@@ -18,6 +18,7 @@ import { sampleStudents } from '../data/students';
 import { withLive, liveFlags } from '../data/live';
 import { intakeState } from '../data/courses';
 import { regionQueueId } from './seed';
+import { queueOfRule, goesToOfRule } from './routing';
 import { routeApplication, TEST_AGENCY } from '../data/regions';
 import { destOf } from '../data/applications';
 import { addWorkingHours, workingHoursBetween } from './calendars';
@@ -156,14 +157,15 @@ export function appTasks(s, live, now = clockNow()) {
       if (due0 == null || now < due0) continue;
       const id = `A-${a.id}-${row}-${since}`;
       if (s.closed?.[id]) continue;
-      const tq = r.queue && r.queue !== 'region' && s.queues.some((x) => x.id === r.queue) ? r.queue : queue;
+      // the queue: the rule's kind of work's Goes to (5 Nov), the application's regional queue when it goes by region
+      const tq = queueOfRule(s, r, { id, appQueue: queue });
       const tqq = s.queues.find((x) => x.id === tq) || q;
       // the officer gets every application task (S4-5), unless Admin set the rule to share another way
       const assignee = !r.share || r.share === 'officer' ? (officer ?? null) : null;
       const reminded = r.remind ? afterFrom(cal, since, r.remind) : null;
       const req = !L.chase ? openRequests(a).find((n) => n.request) : null;
       out.push({
-        id, rule: row, row, kind: r.kind, record: a.id, queue: tq, assignee, share: r.share && r.share !== 'officer' ? r.share : null, created: due0, status: 'open', auto: true,
+        id, rule: row, row, kind: r.kind, record: a.id, queue: tq, goesTo: goesToOfRule(s, r, id), assignee, share: r.share && r.share !== 'officer' ? r.share : null, created: due0, status: 'open', auto: true,
         title: L.title(a.student, a, f), slaHours: s.frozen?.[id] ?? timeHours(r.sla), cal: cal.id, closes: r.closes, leader: tqq?.leader,
         reminded: reminded && now > reminded ? reminded : null,
         // GSP's own task pauses while the RP is asked for something (S4-10)
