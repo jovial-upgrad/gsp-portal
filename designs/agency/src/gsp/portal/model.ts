@@ -20,7 +20,7 @@ export type Access = 'setup' | 'verifying' | 'all';
 /** The menu never changes order with the account's state; locked sections keep their place and say so. */
 const ALL_NAV: { key: Section; label: string; short: string; icon: IconName; locked: boolean }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home', locked: false },
-  // Jovial, 31 Oct: GSP · Admissions works from My work and Mail; Earnings is the RP's, not Admissions'
+  // Jovial, 31 Oct: GSP · Admissions works from My work; Earnings is the RP's, not Admissions'
   { key: 'mywork', label: 'My work', short: 'My work', icon: 'checkCircle', locked: false },
   { key: 'mail', label: 'Mail', short: 'Mail', icon: 'mail', locked: false },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
@@ -30,7 +30,9 @@ const ALL_NAV: { key: Section; label: string; short: string; icon: IconName; loc
 ];
 /** GSP · Admissions' menu, cut to what Admission can open in GSP · Admin › Permission roles (HC47). */
 // Global Ops reuses this portal (S1-1): the menu follows whichever role is on show
-export const NAV = liveMenu(ALL_NAV, () => (currentRole() === 'gsp-global-ops' ? PERM_ROLE['gsp-global-ops'] : PERM_ROLE['gsp-team']));
+// Mail kept simple (Jovial, 5 Nov): an officer reads an application's mail in its Mail tab, so Mail (mail to link) is Global Ops' only
+const MENU = liveMenu(ALL_NAV, () => (currentRole() === 'gsp-global-ops' ? PERM_ROLE['gsp-global-ops'] : PERM_ROLE['gsp-team']));
+export const NAV = new Proxy(MENU, { get: (t, k) => Reflect.get(t.filter((x) => x.key !== 'mail' || currentRole() === 'gsp-global-ops'), k) });
 
 /** What each locked section is for, said on its locked page and on Home. */
 export const LOCKED_COPY: Partial<Record<Section, { title: string; text: string }>> = {

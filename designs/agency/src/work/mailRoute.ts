@@ -1,58 +1,34 @@
 // @ts-nocheck -- typed when the mail API is designed.
 /**
- * Where a mail to gsp.admissions@ goes and what happens to it, worked out from its mail type (Mail › How mail is
- * handled, the 23 Admissions mail types) and the application it's linked to. One function, so the conversation, the
- * list, Filed and the "How mail is handled" table all say the same thing.
+ * Where a mail to gsp.admissions@ goes (Jovial, 5 Nov, kept simple): linked to its application, forwarded to the
+ * inbox that handles it, not kept (GSP's own notifications, auto-replies, bounces, codes), or, when none of these,
+ * to Global Ops to link by hand. Rules: Mail's `routes` (work/mail.ts MAIL_ROUTES).
  */
-import { regionQueueId } from './seed';
-import { recordById, queueById, nameOf } from './store';
+import { recordById, queueById } from './store';
 
-export const typeOf = (M, id) => (M.types || []).find((t) => t.id === id) || (id === 'box' ? M.boxType : null);
-
-/** The forward target of a forwarded mail: the first `forward` whose words appear in the subject, else the catch-all. */
-export function forwardOf(M, type, text) {
-  const low = String(text || '').toLowerCase();
-  const hit = (type.forward || []).find((f) => !f.when || (M.forwardWords?.[f.when] || []).some((w) => low.includes(w)));
-  if (!hit) return null;
-  const box = M.mailboxes.find((b) => b.id === hit.to);
-  if (box) return { name: `${box.name} inbox`, address: box.addresses[0] };
-  const t = (M.forwardTargets || []).find((x) => x.id === hit.to);
-  return t ? { name: t.name, address: t.address } : null;
+/** The inbox a forward rule sends to: one of the portal's mailboxes, or another address. */
+export function targetOf(M, to) {
+  const box = M.mailboxes.find((b) => b.id === to);
+  if (box) return { id: to, name: `${box.name} inbox`, address: box.addresses[0] };
+  const t = (M.forwardTargets || []).find((x) => x.id === to);
+  return t ? { id: to, name: t.name, address: t.address } : null;
 }
 
-/**
- * route(s, item, typeId) → { queue, owner, where, outcome }
- *   where: what the "Goes to" line says; outcome: what the system did (auto types) or will do once confirmed.
- */
-export function route(s, item, typeId) {
+/** The forward rule a mail's words match, if any. */
+export function forwardRuleOf(M, item) {
+  const low = `${item.subject || ''} ${(item.messages || []).map((m) => m.body).join(' ')}`.toLowerCase();
+  return (M.routes?.forward || []).find((f) => f.words.some((w) => low.includes(w))) || null;
+}
+
+/** routeOf(s, item) → { kind: 'linked' | 'forward' | 'drop' | 'unlinked', text } */
+export function routeOf(s, item) {
   const M = s.mail;
-  const type = typeOf(M, typeId ?? item.intent ?? item.type);
-  if (!type) return { where: 'Not typed yet', outcome: '' };
+  if (item.drop) { const d = (M.routes?.drop || []).find((x) => x.id === item.drop); return { kind: 'drop', text: `Not kept: ${d ? d.name.toLowerCase() : 'not about an application'}${d?.why ? ` (${d.why})` : ''}.` }; }
+  if (item.forwardedTo) { const t = targetOf(M, item.forwardedTo); return { kind: 'forward', target: t, text: `Forwarded to the ${t?.name}${t?.address ? ` <${t.address}>` : ' (address not set yet)'}.` }; }
   const rec = item.record ? recordById(s, item.record) : null;
-  const global = queueById(s, 'q-adm-global');
-  const box = M.mailboxes.find((b) => b.id === (item.mailbox || 'mb-adm'));
-  if (box && box.id !== 'mb-adm') {
-    const q = queueById(s, box.queue);
-    return { queue: q, owner: q?.leader, where: `${q?.name || box.name} (this mailbox’s queue)`, outcome: '' };
-  }
-  const regional = rec ? queueById(s, regionQueueId(rec.region)) : null;
-  switch (type.act) {
-    case 'stop': return { where: 'Nobody', outcome: 'GSP’s own notification: filed, and to be stopped at source.' };
-    case 'file': return { where: 'Nobody', outcome: rec ? `Filed on ${rec.id}${item.ref ? `; university reference ${item.ref} saved` : ''}.` : 'Filed.' };
-    case 'thread': return { where: 'Nobody', outcome: rec ? `Threaded on ${rec.id}.` : 'Filed on its thread.' };
-    case 'private': return { where: item.forUser ? `${nameOf(s, item.forUser)} only` : 'The person who asked', outcome: `Shown only to ${item.forUser ? nameOf(s, item.forUser) : 'the person who asked'}, who asked for it. Not filed.` };
-    case 'flag':
-      return rec && item.sentBy
-        ? { owner: item.sentBy, where: `${nameOf(s, item.sentBy)} (sent the mail)`, outcome: `${item.address || 'The address'} marked Bounced on the contact. ${nameOf(s, item.sentBy)}, who sent the mail, got one notice.` }
-        : { queue: global, where: `${global?.name || 'Global Ops'}: Check bounced mail`, outcome: 'Not matched to a mail GSP sent: a task “Check bounced mail” for Global Ops.' };
-    case 'forward': {
-      const f = forwardOf(M, type, `${item.subject} ${item.summary || ''}`);
-      return { where: f ? f.name : 'Not set', outcome: f ? `Forwarded to the ${f.name}${f.address ? ` <${f.address}>` : ' (address not set yet)'}.` : 'No forward set.' };
-    }
-    default: {
-      if (!rec) return { queue: global, owner: global?.leader, where: `${global?.name || 'Global Ops'}: link to an application`, outcome: '' };
-      const q = regional || global;
-      return { queue: q, owner: rec.officer || q?.leader, where: `${q?.name}${rec.officer ? ` → ${nameOf(s, rec.officer)}` : ''}`, outcome: '' };
-    }
-  }
+  if (rec) return { kind: 'linked', rec, text: `Linked to ${rec.student ? `${rec.student} · ` : ''}${rec.id}: it’s in the application’s Mail tab.` };
+  const f = forwardRuleOf(M, item);
+  if (f) { const t = targetOf(M, f.to); return { kind: 'forward', target: t, rule: f, text: `${f.name}: forwarded to the ${t?.name}${t?.address ? ` <${t.address}>` : ' (address not set yet)'}.` }; }
+  const q = queueById(s, M.routes?.unlinked);
+  return { kind: 'unlinked', text: `No application found: ${q?.name || 'Global Ops'} links it.` };
 }

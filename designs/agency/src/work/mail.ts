@@ -23,52 +23,30 @@ export const MAILBOXES = [
 ];
 
 /*
- * The gsp.admissions@ mail types (Jovial, 5 Nov: Pending Questions › Admissions mail types). Every mail that reaches
- * the mailbox is one of these 23 types, and each type says what happens and where it goes. `seen` is how many the
- * mailbox got from January to October 2026 (164,951 in all).
- *   handling  auto: nobody acts (filed, threaded, flagged, stopped, forwarded); officer: a person confirms or acts.
- *   act       stop | file | thread | flag | private | forward (auto); status | task | remind | read (officer).
- *   goesTo    region: the linked application's regional Admissions queue and its officer, Global Ops when no
- *             application is found; sender: whoever sent the mail it answers; forward: another inbox (`forward`).
- *   statuses  the statuses the officer can pick from (the first is suggested); `end` closes with that reason.
- * Each conversation carries its type in `intent`.
+ * gsp.admissions@, kept simple (Jovial, 5 Nov): every mail is either **linked to an application** (it shows in that
+ * application's Mail tab, where its officer reads it: no task, no owner, no reasons) or **forwarded** to the inbox
+ * that handles it. Mail the system can't link, a student with no application yet say, goes to Global Ops to link.
+ * GSP's own notifications, out-of-office replies, bounces and sign-in codes are not kept on any application.
  */
-export type MailType = {
-  id: string; n: number; name: string; seen: number; handling: 'auto' | 'officer'; act: string; record: string; does: string;
-  goesTo: 'none' | 'region' | 'sender' | 'forward'; statuses?: string[]; end?: Record<string, string>; doc?: string; kind?: string; task?: string; sla?: number;
-  forward?: { when: string; to: string }[]; example?: string;
+export const MAIL_ROUTES = {
+  /** Forwarded, never linked: the first whose words appear in the subject or text. `to` is a mailbox or a target below. */
+  forward: [
+    { id: 'commission', name: 'Commission', to: 'mb-comm', words: ['commission', 'invoice', 'payout', 'remittance', 'statement'] },
+    { id: 'platform', name: 'Access or platform', to: 'mb-bap', words: ['access', 'login', 'log in', 'password', 'account', 'portal', 'sign in'] },
+    { id: 'marketing', name: 'University news or marketing', to: 'fw-compliance', words: ['newsletter', 'webinar', 'partner update', 'scholarship allocations', 'was anything missed'] },
+  ],
+  /** Not kept anywhere: what GSP's own systems, auto-replies and codes send. */
+  drop: [
+    { id: 'system', name: 'GSP system notifications', why: 'the portal already records the change' },
+    { id: 'ooo', name: 'Out-of-office replies', why: 'an automatic reply' },
+    { id: 'bounce', name: 'Bounces', why: 'the address is marked bounced on the contact' },
+    { id: 'code', name: 'Sign-in and account codes', why: 'shown only to the person who asked' },
+  ],
+  /** Where mail that can't be linked goes, to be linked by hand (T27). */
+  unlinked: 'q-adm-global',
 };
-export const MAIL_TYPES: MailType[] = [
-  { id: 'system', n: 1, name: 'GSP system notification', seen: 79757, handling: 'auto', act: 'stop', record: 'None', goesTo: 'none', example: 'GSP System Notification – Enrolment update', does: 'Stopped at source: the portal already records the change. Until then it’s filed with no task.' },
-  { id: 'other', n: 2, name: 'Other application email', seen: 22157, handling: 'officer', act: 'read', record: 'Application', goesTo: 'region', kind: 'k-uni-mail', task: 'Read and act', sla: 1, example: 'Re: Application_169656_…_Sep-2026', does: 'One task for the officer: read and act. Reply in the mail thread to a university; answer an RP in the application’s chat.' },
-  { id: 'copy', n: 3, name: 'Copy of a mail GSP sent', seen: 8847, handling: 'auto', act: 'thread', record: 'Application', goesTo: 'none', example: 'RE: Letter of Offer (from a GSP office)', does: 'Threaded on the application so its history is complete. No task, no notification.' },
-  { id: 'gs', n: 4, name: 'GS, interview or funds check', seen: 8524, handling: 'officer', act: 'task', record: 'Application', goesTo: 'region', kind: 'k-gsp-check', task: 'GSP check or book the interview', sla: 2, example: 'RE: Financials on hold – …', does: 'One task: GSP check (finance and background) or book the interview. Later mails in the same thread join the open task.' },
-  { id: 'ack', n: 5, name: 'Application received', seen: 8251, handling: 'auto', act: 'file', record: 'Application', goesTo: 'none', example: '… we’ve received your application', does: 'Filed on the application and the university reference saved. No task.' },
-  { id: 'offer', n: 6, name: 'Offer (type unclear)', seen: 7596, handling: 'officer', act: 'status', record: 'Application', goesTo: 'region', statuses: ['conditions', 'uol'], doc: 'Offer letter', example: 'We’re pleased to offer you a place', does: 'The system suggests the offer status; the officer picks conditional or unconditional and confirms. The letter is filed under Offer letter.' },
-  { id: 'remind', n: 7, name: 'Interview reminder (vendor)', seen: 3784, handling: 'officer', act: 'remind', record: 'Application', goesTo: 'region', kind: 'k-gsp-check', example: 'Action Required On Your Pending Interview', does: 'Added to the open interview task as a reminder. No new task.' },
-  { id: 'info', n: 8, name: 'University needs more information', seen: 3127, handling: 'officer', act: 'task', record: 'Application', goesTo: 'region', kind: 'k-uni-mail', task: 'Request documents', sla: 1, example: 'More Information Required', does: 'One task: request the documents. The list is prefilled from the mail; the officer sends it to the RP in the application’s chat.' },
-  { id: 'bounce', n: 9, name: 'Bounce', seen: 2927, handling: 'auto', act: 'flag', record: 'Contact', goesTo: 'sender', example: 'Undeliverable: …', does: 'Matched to the mail GSP sent. The address is marked Bounced on the contact, and whoever sent that mail gets one notice: “Mail to {address} bounced. Check the address.” Not matched: a Global Ops task “Check bounced mail”.' },
-  { id: 'decision', n: 10, name: 'Decision or status update (type unclear)', seen: 2906, handling: 'officer', act: 'task', record: 'Application', goesTo: 'region', kind: 'k-uni-mail', task: 'Set status', sla: 1, example: 'Application decision', does: 'One task: the officer reads it and picks the status.' },
-  { id: 'unclassified', n: 11, name: 'Unclassified', seen: 2711, handling: 'officer', act: 'read', record: 'Application, if found', goesTo: 'region', kind: 'k-uni-mail', task: 'Read and act', sla: 1, example: 'Message from … regarding …', does: 'An officer task when an application is found; otherwise a Global Ops task “Link to an application”.' },
-  { id: 'visa', n: 12, name: 'Visa', seen: 2355, handling: 'officer', act: 'status', record: 'Application', goesTo: 'region', statuses: ['startdate', 'closed'], end: { closed: 'Visa refused' }, doc: 'Visa', example: 'Visa Documents …', does: 'The system suggests the visa status; the officer confirms it. The document is filed under Visa.' },
-  { id: 'cond', n: 13, name: 'Conditional offer', seen: 2329, handling: 'officer', act: 'status', record: 'Application', goesTo: 'region', statuses: ['conditions'], doc: 'Offer letter', example: 'Conditional Offer : BSc …', does: 'The system suggests “Conditional offer received”; the officer confirms it. The conditions go into the RP’s to-do.' },
-  { id: 'ooo', n: 14, name: 'Out of office', seen: 2073, handling: 'auto', act: 'thread', record: 'Thread', goesTo: 'none', example: 'Automatic reply: …', does: 'Filed on the thread it replies to. No task.' },
-  { id: 'coe', n: 15, name: 'CoE / CAS / LOA', seen: 1908, handling: 'officer', act: 'status', record: 'Application', goesTo: 'region', statuses: ['accrec'], doc: 'Acceptance letter', example: 'COE … – JUL 2026', does: 'The system suggests “Acceptance letter received”; the officer confirms it. The letter is filed and the RP is told.' },
-  { id: 'reject', n: 16, name: 'Rejection, refusal, withdrawal or cancellation', seen: 1248, handling: 'officer', act: 'status', record: 'Application', goesTo: 'region', statuses: ['closed'], end: { closed: 'Rejected by university' }, doc: 'Outcome letter', example: 'Application Closure Notification', does: 'The system suggests closing with the university’s reason; the officer confirms it and the RP is told in the chat.' },
-  { id: 'payment', n: 17, name: 'Payment, deposit or fees', seen: 1210, handling: 'officer', act: 'task', record: 'Application', goesTo: 'region', kind: 'k-payment', task: 'Check payment', sla: 1, doc: 'Deposit receipt', example: 'Tuition deposit receipt …', does: 'One task: check the payment. The receipt is filed under Deposit receipt.' },
-  { id: 'uncond', n: 18, name: 'Unconditional offer', seen: 974, handling: 'officer', act: 'status', record: 'Application', goesTo: 'region', statuses: ['uol'], doc: 'Offer letter', example: 'UNCONDITIONAL OFFER …', does: 'The system suggests “Unconditional offer letter received”; the officer confirms it. The letter is filed.' },
-  { id: 'marketing', n: 19, name: 'University news or marketing', seen: 690, handling: 'auto', act: 'forward', record: 'University', goesTo: 'forward', forward: [{ when: '', to: 'fw-compliance' }], example: 'Scholarship allocations : Spring 2027', does: 'Forwarded to the compliance inbox. No task here.' },
-  { id: 'enrol', n: 20, name: 'Enrolment, orientation or start', seen: 612, handling: 'officer', act: 'status', record: 'Application', goesTo: 'region', statuses: ['enrolled'], doc: 'Proof of enrolment', example: 'Welcome to orientation …', does: 'The system suggests “Student enrolled”; the officer confirms it. Orientation-only mails are filed with no task.' },
-  { id: 'deferral', n: 21, name: 'Deferral or change', seen: 539, handling: 'officer', act: 'task', record: 'Application', goesTo: 'region', kind: 'k-uni-mail', task: 'Handle deferral or change', sla: 1, example: 'Defer Offer letter Requested …', does: 'One task: the officer handles the deferral or course change and updates the intake or course.' },
-  { id: 'code', n: 22, name: 'Code or account email', seen: 238, handling: 'auto', act: 'private', record: 'None', goesTo: 'none', example: 'Account Creation Email', does: 'Shown only to the person who asked for it. Never filed, no task.' },
-  { id: 'rpquery', n: 23, name: 'RP or commission query', seen: 189, handling: 'auto', act: 'forward', record: 'RP', goesTo: 'forward', forward: [{ when: 'commission', to: 'mb-comm' }, { when: '', to: 'mb-bap' }], example: 'Regarding Commission Details', does: 'Forwarded: commission questions to the commissions inbox; account or partnership questions to the BAP inbox. The team there replies on the mail. No task here.' },
-];
 /** Where forwarded mail goes that isn't one of the portal's mailboxes. The address is still to come (Pending Questions). */
 export const FORWARD_TARGETS = [{ id: 'fw-compliance', name: 'Compliance inbox', address: '' }];
-/** The words that make an RP query a commission one (rpquery's first forward). */
-export const FORWARD_WORDS: Record<string, string[]> = { commission: ['commission', 'invoice', 'payout', 'remittance', 'statement'] };
-/** Mail to the other mailboxes isn't typed: it goes to the mailbox's queue as one task. */
-export const BOX_TYPE: MailType = { id: 'box', n: 0, name: 'Mail to this mailbox', seen: 0, handling: 'officer', act: 'task', record: 'None', goesTo: 'region', kind: 'k-exception', task: 'Act on the mail', sla: 2, does: 'One task in the mailbox’s queue.' };
 
 export const MAIL_SETTINGS = { autoFile: 90, suggest: 60, autoAct: false, nudgeRps: true, waitDays: 3 };
 
@@ -259,19 +237,19 @@ export const THREADS = [
 
 /* Filed without a person (a sample; the counts on Filed show the real share). */
 export const FILED = [
-  { id: 'F-1', type: 'system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Enrolment Course update', at: at(0.3) },
-  { id: 'F-2', type: 'system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Student update', at: at(0.9) },
-  { id: 'F-3', type: 'marketing', from: 'Opulence Education Group', subject: 'October at OEG: was anything missed?', at: at(1.1) },
-  { id: 'F-4', type: 'code', from: 'UWA Accounts', subject: 'Your verification code', at: at(1.4), forUser: 'u-tasha-tandon' },
-  { id: 'F-5', type: 'ack', from: 'AUT (ArionSystem)', subject: 'Partners Online Application Received – AUT-26-55190', at: at(1.8), record: 'GSP-24214', ref: 'AUT-26-55190' },
-  { id: 'F-6', type: 'ack', from: 'University of Tasmania', subject: 'Application submitted', at: at(3.3), record: 'GSP-24221', ref: '5523019' },
-  { id: 'F-7', type: 'bounce', from: 'Mail Delivery Subsystem', subject: 'Undeliverable: Document request', at: at(4), record: 'GSP-24222', address: 'docs@leadahead.example', sentBy: 'u-ramish-jafery' },
-  { id: 'F-8', type: 'ooo', from: 'Catherine (UC)', subject: 'Automatic reply: conditions', at: at(5), record: 'GSP-24206' },
-  { id: 'F-9', type: 'marketing', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18) },
-  { id: 'F-10', type: 'copy', from: 'GSP Admissions (Dhaka office)', subject: 'RE: Letter of Offer – Conditional', at: at(2.4), record: 'GSP-24102' },
-  { id: 'F-11', type: 'rpquery', from: 'Ra Global Solutions Bd', subject: 'Regarding commission details for September intake', at: at(2.9) },
-  { id: 'F-12', type: 'rpquery', from: 'Unicampus Global', subject: 'Not able to access our account', at: at(6.5) },
-  { id: 'F-13', type: 'bounce', from: 'Mail Delivery Subsystem', subject: 'Undeliverable: Your application update', at: at(8) },
+  { id: 'F-1', drop: 'system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Enrolment Course update', at: at(0.3) },
+  { id: 'F-2', drop: 'system', from: 'no-reply@globalstudypartners.com', subject: 'GSP System Notification – Student update', at: at(0.9) },
+  { id: 'F-3', from: 'Opulence Education Group', subject: 'October at OEG: was anything missed?', at: at(1.1) },
+  { id: 'F-4', drop: 'code', from: 'UWA Accounts', subject: 'Your verification code', at: at(1.4), forUser: 'u-tasha-tandon' },
+  { id: 'F-5', from: 'AUT (ArionSystem)', subject: 'Partners Online Application Received – AUT-26-55190', at: at(1.8), record: 'GSP-24214', ref: 'AUT-26-55190' },
+  { id: 'F-6', from: 'University of Tasmania', subject: 'Application submitted', at: at(3.3), record: 'GSP-24221', ref: '5523019' },
+  { id: 'F-7', drop: 'bounce', from: 'Mail Delivery Subsystem', subject: 'Undeliverable: Document request', at: at(4), record: 'GSP-24222' },
+  { id: 'F-8', drop: 'ooo', from: 'Catherine (UC)', subject: 'Automatic reply: conditions', at: at(5), record: 'GSP-24206' },
+  { id: 'F-9', from: 'Study Group Admissions', subject: 'Partner update: February 2027 intake', at: at(18) },
+  { id: 'F-10', from: 'GSP Admissions (Dhaka office)', subject: 'RE: Letter of Offer – Conditional', at: at(2.4), record: 'GSP-24102' },
+  { id: 'F-11', from: 'Ra Global Solutions Bd', subject: 'Regarding commission details for September intake', at: at(2.9) },
+  { id: 'F-12', from: 'Unicampus Global', subject: 'Not able to access our account', at: at(6.5) },
+  { id: 'F-13', drop: 'bounce', from: 'Mail Delivery Subsystem', subject: 'Undeliverable: Your application update', at: at(8) },
 ];
 
 /* Conversations no record was found for raise a task (T26, T27, T28): work/recordRules.ts works them out. */
