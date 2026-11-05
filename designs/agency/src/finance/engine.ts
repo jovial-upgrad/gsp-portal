@@ -28,7 +28,9 @@
  *          bands[[from,to,pct]], bandBonus{'2':{kind:'fixed'|'pct', v}}}   (IP2–4, IP12, IP19)
  *   promos: [{id, name, from, to, intakes[], regions[], courses[], levels[], campuses[], pct | amt,
  *             combine:'highest'|'replace'|'additional'}]   university-side promotions (IP9–11, IP19)
- *   bonuses: [{id, name, kind:'fixed'|'pct', v, per:'student'|'threshold', threshold, window, levels[]}]  (IP19)
+ *   bonuses: [{id, name, kind:'fixed'|'pct', v, per:'student'|'threshold'|'band', threshold, window, levels[],
+ *             bands[[from,to,v,kind]], retro}]  (IP19). per 'band': the amount per student depends on how many students
+ *             enrol at the university in the window (retro: the final count sets every student's band; else the student's own place).
  * University groups (cfg.groups[], S5-22): [{id, name, members:[uni ids], tier}]; every member counts toward the group.
  * Settings add: regionGroups {SEA:[countries]}, rpCap (100: an RP never gets more than GSP's line).
  * Applications add: pointsPerYear (credit points the programme is worth a year; NZ full time is 120), course, campus, enrolReady, yearFees[], periods[{census, tuition}], units[{name, fee, census}],
@@ -364,7 +366,18 @@ function compute(cfg, apps, today) {
       (r.tiers || []).forEach((T) => { const bb = (T.t.bandBonus && T.t.bandBonus[String(T.b.i + 1)]) || (T.t.bandFixed && T.t.bandFixed[String(T.b.i + 1)] ? { kind: 'fixed', v: +T.t.bandFixed[String(T.b.i + 1)] } : null); if (bb && +bb.v) { r.uniBonus = bb.kind === 'pct' ? r2((fyBase * bb.v) / 100) : +bb.v; bonusLine(T.who === 'group' ? 'ipbg' : 'ipb', T.name + ' band ' + (T.b.i + 1), bb.kind, +bb.v, tiersTxt.concat([{ h: 'Band bonus', t: 'Band ' + (T.b.i + 1) + ' carries a bonus of ' + (bb.kind === 'pct' ? bb.v + '% of the fee' : money(+bb.v, cur)) + ' per student.', ref: 'IP19' }])); } });
       (u.bonuses || []).forEach((B) => {
         if ((B.levels || []).length && !B.levels.includes(a.level)) return;
-        if ((B.per || 'student') === 'student') bonusLine('bo-' + B.id, B.name || B.id, B.kind, +B.v, [{ h: 'Bonus scheme', t: (B.name || B.id) + ': ' + (B.kind === 'pct' ? B.v + '% of the first-year fee' : money(+B.v, cur)) + ' per student' + ((B.levels || []).length ? ' at ' + B.levels.join(', ') : '') + '.', ref: 'IP19' }]);
+        if (B.per === 'band') {
+          const win = B.window || 'CY'; const k0 = windowKey(win, a.intake, B);
+          const pool = A.filter((x) => x.enrolled && x.uni === a.uni && (!(B.levels || []).length || B.levels.includes(x.level)) && windowKey(win, x.intake, B) === k0 && !(x.withdrawn && x.withdrawn.date <= base[x.id].trigBase)).sort((x, y) => (x.intake + x.id < y.intake + y.id ? -1 : 1));
+          const rank = pool.findIndex((x) => x.id === a.id) + 1; if (!rank) return;
+          const n = B.retro === false ? rank : pool.length;
+          const bi = (B.bands || []).findIndex((b) => n >= b[0] && (b[1] == null || n <= b[1]));
+          const bandsT = (B.bands || []).map((b) => b[0] + (b[1] == null ? '+' : '–' + b[1]) + ': ' + (b[3] === 'pct' ? b[2] + '%' : money(+b[2], cur))).join(', ');
+          const cnt = (B.retro === false ? 'Counted prospectively: this student is number ' + rank : 'Counted retrospectively: ' + pool.length + ' students enrolled') + ' in the ' + winLabel(win, B) + ' (' + k0 + ')' + ((B.levels || []).length ? ' at ' + B.levels.join(', ') : '') + '.';
+          if (bi < 0) { r.bonusProgress = (r.bonusProgress || []).concat([{ B, have: pool.length, th: +B.bands[0][0] }]); return; }
+          const bd = B.bands[bi];
+          bonusLine('bo-' + B.id, B.name || B.id, bd[3] === 'pct' ? 'pct' : 'fixed', +bd[2], [{ h: 'Bonus scheme', t: (B.name || B.id) + ', per student by count: ' + bandsT + '. ' + cnt + ' That is band ' + (bi + 1) + ' (' + bd[0] + (bd[1] == null ? '+' : '–' + bd[1]) + ').', ref: 'IP19' }]);
+        } else if ((B.per || 'student') === 'student') bonusLine('bo-' + B.id, B.name || B.id, B.kind, +B.v, [{ h: 'Bonus scheme', t: (B.name || B.id) + ': ' + (B.kind === 'pct' ? B.v + '% of the first-year fee' : money(+B.v, cur)) + ' per student' + ((B.levels || []).length ? ' at ' + B.levels.join(', ') : '') + '.', ref: 'IP19' }]);
         else {
           const win = B.window || 'CY'; const k0 = windowKey(win, a.intake, B);
           const pool = A.filter((x) => x.enrolled && x.uni === a.uni && (!(B.levels || []).length || B.levels.includes(x.level)) && windowKey(win, x.intake, B) === k0 && !(x.withdrawn && x.withdrawn.date <= base[x.id].trigBase)).sort((x, y) => (x.intake + x.id < y.intake + y.id ? -1 : 1));
