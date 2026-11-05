@@ -242,7 +242,8 @@ export const RULES = [
   R('T27', 'Email', { record: 'Email', name: 'Email not matched', when: 'AI confidence below 60%', task: 'Match this email to a record', kind: 'k-mail', sla: wh(1), closes: 'Matched or marked not needed' }),
   R('T28', 'Email', { record: 'Email', name: 'New application by email', when: 'An RP sends a new application by email', task: 'Create the application, or send the RP to the portal', kind: 'k-verify', sla: wh(3), closes: 'Done' }),
   R('T29', 'Email', { record: 'Email', name: 'Mail to admin.gsp@', when: 'Any email to admin.gsp@', task: 'Handle this request', kind: 'k-admin', sla: wh(24), closes: 'Done' }),
-  R('T31', 'Email', { record: 'Email', name: 'University newsletter', when: 'A university newsletter arrives', task: 'Review the newsletter for an announcement', kind: 'k-announce', sla: wh(6), closes: 'Announcement published or dismissed' }),
+  // T31 (newsletter review) removed, 5 Nov: university news and marketing is forwarded to the compliance inbox (Admissions mail types, row 19)
+  R('T72', 'Email', { record: 'Email', name: 'Bounced mail not matched', when: 'A bounce that can’t be matched to a mail GSP sent', task: 'Check bounced mail', kind: 'k-mail', sla: wh(6), closes: 'Done' }),
 
   // Commission (slice 5 owns what each task does)
   R('T30', 'Commission', { record: 'Email', name: 'Commission remittance', when: 'A remittance or statement, or any mail to commissions.gsp@', task: 'Match the remittance against Commissions', kind: 'k-exception', sla: wh(24), closes: 'Matched to invoices' }),

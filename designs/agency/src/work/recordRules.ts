@@ -101,7 +101,8 @@ export const RECORD_LOGIC = {
   T28: (x) => x.threads.filter((t) => t.state === 'match' && t.intent === 'new').map((t) => ({ key: 'new', rec: mailRec(t), since: lastIn(t) })),
   T29: (x) => x.threads.filter((t) => t.mailbox === 'mb-admin' && (t.state ?? 'needs') !== 'done').map((t) => ({ key: 'admin', rec: mailRec(t), since: lastIn(t) })),
   T30: (x) => x.threads.filter((t) => t.mailbox === 'mb-comm' && (t.state ?? 'needs') !== 'done').map((t) => ({ key: 'remit', rec: mailRec(t), since: lastIn(t) })),
-  T31: (x) => x.filed.filter((f) => f.filter === 'f-marketing' && !f.reviewed).map((f) => ({ key: 'news', rec: { id: f.id, type: 'Email', label: `Newsletter · ${f.subject}`, page: 'mail' }, since: f.at })),
+  // a bounce matched to a mail GSP sent only flags the contact and tells the sender (Mail); one that can't be matched is Global Ops' (Admissions mail types, row 9)
+  T72: (x) => x.filed.filter((f) => f.type === 'bounce' && !f.record && !f.reviewed).map((f) => ({ key: 'bounce', rec: { id: f.id, type: 'Email', label: `Bounce · ${f.subject}`, page: 'mail' }, since: f.at })),
 
   /* ---- commission (slice 5 owns what each task does) ---- */
   T39: (x) => (x.comm?.missingTerms || []).map((m) => ({ key: m.id, rec: commRec(`cm-terms-${m.id}`, `Commission terms · ${m.name}`), since: m.since, vars: { partner: m.name } })),
