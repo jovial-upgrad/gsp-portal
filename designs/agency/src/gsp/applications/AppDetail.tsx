@@ -9,7 +9,7 @@ import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
-import { FLAG, durationText, money } from '../../data/courses';
+import { FLAG, durationText, money, intakeState } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { fullName, readiness, TESTS, type Member, type Student } from '../../data/students';
 import {
@@ -271,6 +271,13 @@ export function AppDetail({
   };
 
   // logged old → new (S3C-11)
+  const setIntake = (m: string) => {
+    const was = a.intake;
+    update((x) => ({ ...x, intake: m }));
+    setLiveFlags(a.id, { intake: m });
+    log(`Changed the intake from ${was} to ${m}`);
+    say(`Intake changed to ${m}. Commission lines move to the new dates.`);
+  };
   const setCensus = (t: number) => {
     const was = desk.census;
     setDesk((x) => ({ ...x, census: t }));
@@ -706,7 +713,8 @@ export function AppDetail({
               {/* Admissions edit it at any time, after a confirmation, logged in Activity (Jovial, 2 Nov); others see it once there is one */}
               {/* after Student enrolled only the census date and final tuition fee stay editable (S3C-11) */}
               {admissions && isOpen(a) ? <RefRow a={a} all={all} students={students} onSave={(r) => setRef(r, a.uniRef)} /> : <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : null} />}
-              <Row k="Intake" v={a.intake} />
+              {/* Admissions move the application to another available intake of the course (Jovial, 5 Nov); commission lines move with it */}
+              {admissions && isOpen(a) ? <IntakeRow a={a} intakes={c.intakes} onSave={setIntake} /> : <Row k="Intake" v={a.intake} />}
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Length" v={durationText(c)} />
               {/* after Student enrolled only these two stay editable; Closed and Withdrawn are fully read-only (S3C-11) */}
@@ -845,6 +853,33 @@ const isoDate = (t: number) => {
 };
 
 /** A Key details line GSP can correct: the value with a pencil, then a field with Save and Cancel. */
+/** The intake, changed to another available intake of the same course (open, or usually opening), never a closed one. */
+function IntakeRow({ a, intakes, onSave }: { a: Application; intakes: { month: string; deadline: string; status: string }[]; onSave: (m: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState(a.intake);
+  const opts = intakes.filter((i) => i.month !== a.intake && ['open', 'likely'].includes(intakeState(i as never)));
+  if (!editing) {
+    return (
+      <div className="cdl__row gedit">
+        <dt>Intake</dt>
+        <dd>{a.intake}{opts.length > 0 && <button type="button" className="gedit__pencil" aria-label="Change the intake" onClick={() => { setV(opts[0].month); setEditing(true); }}><Icon name="edit" size={14} /></button>}</dd>
+      </div>
+    );
+  }
+  return (
+    <div className="cdl__row gedit is-editing">
+      <dt><label htmlFor="gedit-intake">Intake</label></dt>
+      <dd>
+        <SelectMenu id="gedit-intake" label="Intake" ariaLabel="Intake" value={v} onChange={setV} options={opts.map((i) => ({ value: i.month, label: `${i.month} · apply by ${shortDate(new Date(i.deadline))}` }))} />
+        <span className="gedit__acts">
+          <Button size="sm" onClick={() => { if (v !== a.intake) onSave(v); setEditing(false); }}>Save</Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+        </span>
+      </dd>
+    </div>
+  );
+}
+
 function EditRow({ id, k, kind, value, shown, currency, onSave }: { id: string; k: string; kind: 'date' | 'money'; value: number; shown: React.ReactNode; currency?: string; onSave: (v: number) => void }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState('');

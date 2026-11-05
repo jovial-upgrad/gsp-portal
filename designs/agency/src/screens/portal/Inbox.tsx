@@ -1,3 +1,4 @@
+import { readSource } from '../../work/sources';
 import { fmtDate } from '../../data/format';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -108,7 +109,9 @@ export function useInbox(o: {
   }, [o.role, staffId]);
   const notes = useMemo(() => {
     const own = notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps, students: o.students, join: { created: opened, sentAt: o.join?.sentAt }, me: staffId, meName: o.me?.name, work: work.notes, covering: work.covering });
-    return [...own, ...(o.extra ?? []).filter((n) => n.at <= Date.now())].sort((x, y) => y.at - x.at);
+    // commission notices for the RP (Earnings), from Finance's records (finance/store.ts rpNotes)
+    const comm: Note[] = o.role === 'rp' ? (readSource('commission') as { rpNotes?: (a: string) => Note[] } | null)?.rpNotes?.(o.agency) ?? [] : [];
+    return [...own, ...comm, ...(o.extra ?? []).filter((n) => n.at <= Date.now())].sort((x, y) => y.at - x.at);
   }, [o.role, o.access, o.agency, o.apps, o.students, o.join?.sentAt, staffId, o.me?.name, work, opened, o.extra]);
   const notices = useMemo(() => noticesFor(o.role, o.anns.list, o.anns.names, o.country), [o.anns, o.role, o.country]);
 

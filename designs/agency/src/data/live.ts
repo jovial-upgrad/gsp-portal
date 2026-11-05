@@ -10,7 +10,7 @@ import type { Application, EndKind, StatusKey } from './applications';
 export type LiveStatus = { status: StatusKey; at: number; by: string; end?: EndKind; note?: string; via?: 'mail' | 'portal' | 'rp'; /** A close: the stage it closed at, and whether it had gone to the university (S3C-9). */ endStage?: number; submitted?: boolean };
 /** What GSP set on an application besides its status (Jovial, 1 Nov): when the offer's conditions went to the RP, and who lodges the visa. */
 /** condsSent: false while GSP still has to send the conditions, the time it sent them after. No flag: sent (the sample data). */
-export type LiveFlags = { condsSent?: number | false; visaBy?: 'you' | 'gsp'; filed?: { name: string; file: string; at: number; by: string }[]; rpNews?: number; rpWhat?: string; rpSeen?: number; fee?: number; feeBy?: string; feeAt?: number; /** Visa granted: the course start date GSP entered (Jovial, 2 Nov). */ start?: number };
+export type LiveFlags = { condsSent?: number | false; visaBy?: 'you' | 'gsp'; filed?: { name: string; file: string; at: number; by: string }[]; rpNews?: number; rpWhat?: string; rpSeen?: number; fee?: number; feeBy?: string; feeAt?: number; /** Visa granted: the course start date GSP entered (Jovial, 2 Nov). */ start?: number; /** The intake Admissions moved the application to (Jovial, 5 Nov). */ intake?: string };
 const KEY = 'gsp-live-v1';
 const FKEY = 'gsp-live-flags-v1';
 let state: Record<string, LiveStatus> = read();
@@ -85,7 +85,10 @@ export const onLiveChange = (f: () => void) => subscribe(f);
 
 /** The application with any status set elsewhere applied, and any document Mail filed on it. */
 export function withLive<T extends Pick<Application, 'id' | 'status' | 'since' | 'history'> & Partial<Pick<Application, 'end' | 'files'>>>(a: T, live = state): T {
-  const b = withStatus(a, live);
+  const b0 = withStatus(a, live);
+  // an intake Admissions moved the application to shows in every role (Jovial, 5 Nov)
+  const moved = flags[a.id]?.intake;
+  const b = moved && 'intake' in b0 && (b0 as { intake?: string }).intake !== moved ? { ...b0, intake: moved } : b0;
   const filed = flags[a.id]?.filed;
   if (!filed?.length || !b.files) return b;
   const missing = filed.filter((f) => !b.files!.some((x) => x.name === f.name && x.file === f.file));

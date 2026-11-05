@@ -25,19 +25,13 @@ export default function Terms({ c, user, canEdit }) {
   const [edit, setEdit] = useState(null); // { area, item (or null for new) }
   const s = getState();
   const checks = c.checks.filter(k => k.status === 'waiting');
+  // one Finance person enters and saves; no second-person check (Jovial, 5 Nov: Commissions flow Q1)
   const propose = (area, id, before, after, summary) => {
-    if (!opsOf(c.cfg).makerChecker[area === 'settings' ? 'settings' : 'terms']) {
-      update(d => applyChange(d, { area, target: id, after }), `${user.name} changed ${summary} (no check needed: maker-checker is off)`);
-      toast('Saved. Maker-checker is off for this kind of change (Finance setup).'); setEdit(null); return;
-    }
-    const impact = impactOf(c.cfg, c.apps, c.today, area, id, after);
-    proposeChange({ area, id, before, after, summary, impact, user });
-    toast('Sent for checking. Nothing changes until a second Finance person approves it.');
-    setEdit(null);
+    update(d => applyChange(d, { area, target: id, after }), `${user.name} changed ${summary}`);
+    toast('Saved', { text: 'It applies straight away, from its effective date.' }); setEdit(null);
   };
   return (
     <>
-      {checks.length > 0 && <Checks checks={checks} user={user} canEdit={canEdit} selfCheck={c.cfg.settings.selfCheck} />}
       <Tabs label="Terms" options={AREAS} value={area} onChange={setArea} />
       {area === 'unis' && <Unis c={c} canEdit={canEdit} onEdit={u => setEdit({ area, item: u })} />}
       {area === 'rps' && <Rps c={c} canEdit={canEdit} onEdit={r => setEdit({ area, item: r })} />}
@@ -161,12 +155,14 @@ function Schemes({ c, canEdit, onEdit }) {
 
 const NKIND = { tier: 'Tier %', flat: 'Flat %', flatfixed: 'Flat % plus a fixed amount', milestone: 'Milestone lump sums' };
 const COMBINE = { box: 'Separate box (doesn’t count toward the RP’s tier)', highest: 'Highest of the two wins', adds: 'Adds on top' };
+/** How many RPs a notice reaches: its listed RPs, or every RP in its region (Jovial, 5 Nov: one notice, many RPs, the same terms). */
+const reach = (c, n) => ((n.rps || []).length ? n.rps.length : c.cfg.rps.filter(r => r.region === n.region).length);
 function Notices({ c, canEdit, onEdit }) {
   const live = n => (!n.start || n.start <= c.today) && (!n.end || n.end >= c.today);
   return (
     <Card flush>
       <div className="stools"><div className="stools__row"><span className="muted gspx-grow">Notices, addenda, flyers and email approvals that change what RPs are paid, for a time.</span>{canEdit && <Button kind="primary" onClick={() => onEdit(null)}>Add notice</Button>}</div></div>
-      <Table head={['Notice', 'Who', 'When (enrolment dates)', 'Where', 'Structure', '']}>
+      <Table head={['Notice', 'Who', 'In force (enrolment dates)', 'Where', 'Structure', 'Sent', '']}>
         {c.cfg.notices.map(n => (
           <tr key={n.id} className="irow">
             <td className="cfg__strong">{n.id} {n.name}<span className="irow__sub">{n.doc || ''}{n.note ? ` · ${n.note}` : ''}</span></td>
@@ -174,7 +170,9 @@ function Notices({ c, canEdit, onEdit }) {
             <td className="num">{nice(n.start)} – {nice(n.end)}<span className="irow__sub">{live(n) ? 'Live' : n.start > c.today ? 'Not started' : 'Ended'}</span></td>
             <td>{(n.dest || []).length ? n.dest.map(d => DEST[d] || d).join(', ') : 'Any destination'}</td>
             <td><span className="gspx-wrap">{NKIND[n.kind]}{n.kind === 'tier' ? `: ${bandTxt(n.bands || [])}` : n.kind === 'milestone' ? `: ${(n.milestones || []).map(m => `${m[0]} → ${n.fixedCur || 'AUD'} ${m[1]}`).join(', ')}` : n.flat != null ? `: ${n.flat}%` : ''}</span><span className="irow__sub">{COMBINE[n.combine] || ''}</span></td>
-            <td><LinkButton aria-label={`${canEdit ? 'Edit' : 'View'} ${n.id} ${n.name}`} onClick={() => onEdit(n)}>{canEdit ? 'Edit' : 'View'}</LinkButton></td>
+            <td>{n.sentAt ? <>{nice(new Date(n.sentAt).toISOString().slice(0, 10))}<span className="irow__sub">to {reach(c, n)} RPs</span></> : <span className="muted">Not sent</span>}</td>
+            <td><div className="gspx-acts"><LinkButton aria-label={`${canEdit ? 'Edit' : 'View'} ${n.id} ${n.name}`} onClick={() => onEdit(n)}>{canEdit ? 'Edit' : 'View'}</LinkButton>
+              {canEdit && !n.sentAt && <LinkButton onClick={() => update(d => { const x = d.comm.cfg.notices.find(y => y.id === n.id); x.sentAt = Date.now(); }, `Sent notice ${n.id} ${n.name} to ${reach(c, n)} RPs`) || toast('Notice sent', { text: `${reach(c, n)} RPs see it on Earnings.` })}>Send to RPs</LinkButton>}</div></td>
           </tr>))}
       </Table>
     </Card>
@@ -231,7 +229,7 @@ function Bands({ bands, onChange, unit = '%', show = false, label = 'Band' }) {
 }
 
 function Foot({ onClose, onSave, ro, dirty = true }) {
-  return <>{!ro && <span className="muted gspx-grow">A second Finance person approves before it applies.</span>}<Button onClick={onClose}>{ro ? 'Close' : 'Cancel'}</Button>{!ro && <Button kind="primary" disabled={!dirty} onClick={onSave}>Send for checking</Button>}</>;
+  return <><Button onClick={onClose}>{ro ? 'Close' : 'Cancel'}</Button>{!ro && <Button kind="primary" disabled={!dirty} onClick={onSave}>Save</Button>}</>;
 }
 
 function UniSheet({ ro, c, u, onClose, propose }) {
@@ -260,6 +258,8 @@ function UniSheet({ ro, c, u, onClose, propose }) {
           <Field id="u-cap" label="Cap per student (first year)" hint="Leave blank for no cap" error={v.err('cap')}><NumberInput id="u-cap" value={d.cap ?? ''} onBlur={v.blur('cap')} onChange={x => set('cap', num(x))} /></Field>
           <Field id="u-end" label="Agreement ends" hint={u.agreement ? `From the Institution partner record${u.agreement.partner ? ` (${u.agreement.partner}, ${u.agreement.status})` : ''}: the Institution Team changes it there.` : 'No Institution partner record yet.'}><DateField id="u-end" value={d.ends || ''} onChange={() => undefined} readOnly /></Field>
           <Select id="u-cur" label="Currency" required value={d.cur} onChange={x => set('cur', x)} options={cursNow()} />
+          <Select id="u-invper" label="How GSP invoices" required value={d.invoicePer || 'cycle'} onChange={x => set('invoicePer', x)} options={[['cycle', 'One invoice a month for every student'], ['student', 'One invoice per student']]} />
+          <label className="gspx-check"><input type="checkbox" checked={!!d.selfBilling} onChange={e => set('selfBilling', e.target.checked)} /> Self-billing: the university sends its own statement or remittance, so GSP doesn’t invoice it</label>
           <fieldset className="field gspx-fieldset"><legend className="field__label">Rates by level (% of tuition; empty: not paid)</legend>
             <div className="gspx-rates">{lv.map(k => (
               <label key={k} className="gspx-rate"><span>{LEVELS[k]}</span>
@@ -301,8 +301,9 @@ function RpSheet({ ro, c, r, onClose, propose }) {
     id: r ? null : !d.id.trim() ? 'Enter the RP ID, like RP-1042.' : dupError(d.id, c.cfg.rps.map(x => x.id), `There are already terms for ${d.id.trim()}.`),
     name: r ? null : !d.name.trim() ? 'Enter the RP name.' : null,
     region: r ? null : !d.region ? 'Choose the sales region.' : null,
-    flat: own ? pctError(d.flat, 'own flat rate', true) : null,
+    flat: own ? pctError(d.flat, 'own flat rate', true) : d.mp ? 'A Master Partner is paid a flat rate: choose Own flat rate.' : null,
     ann: pctError(d.annuityPct, 'own annuity share'),
+    from: !d.from ? 'Enter the date the terms are in force from.' : null,
   };
   const v = useCheck(errors);
   const save = () => {
@@ -317,6 +318,7 @@ function RpSheet({ ro, c, r, onClose, propose }) {
           <Select id="rp-reg" label="Sales region" required error={v.err('region')} onBlur={v.blur('region')} value={d.region} onChange={setRegion} options={regions} /></>}
         <Select id="rp-terms" label="Terms" required value={own ? 'own' : d.scheme} onChange={x => x === 'own' ? set('flat', 80) : (set('flat', null), set('scheme', x))}
           options={[['own', 'Own flat rate'], ...c.cfg.schemes.map(x => [x.id, `${x.id} ${x.name}`])]} />
+        <Field id="rp-from" label="Terms in force from" required error={v.err('from')} hint="From the agreement: intakes from this date use these terms."><DateField id="rp-from" value={d.from || ''} onBlur={v.blur('from')} onChange={x => set('from', x)} /></Field>
         {own && <Field id="rp-flat" label="Own flat rate (% of GSP’s commission)" required error={v.err('flat')}><NumberInput id="rp-flat" value={d.flat} onBlur={v.blur('flat')} onChange={x => set('flat', x)} /></Field>}
         <Select id="rp-cur" label="Payout currency" required value={d.cur} onChange={x => set('cur', x)} options={cursNow()} />
         <Select id="rp-bank" label="Bank account" required value={d.bank} onChange={x => set('bank', x)} options={[['AU', 'Australian account (batch 1)'], ['Local', 'Local account (batch 2)']]} />
@@ -324,10 +326,10 @@ function RpSheet({ ro, c, r, onClose, propose }) {
         <Field id="rp-ann" label="Own annuity share (%)" error={v.err('ann')} hint={`Blank: the setting (${c.cfg.settings.annuityRp === 'same' ? 'same as year 1' : c.cfg.settings.annuityRp})`}><NumberInput id="rp-ann" value={d.annuityPct ?? ''} onBlur={v.blur('ann')} onChange={x => set('annuityPct', num(x))} /></Field>
         <label className="gspx-check"><input type="checkbox" checked={!!d.gst} onChange={e => set('gst', e.target.checked)} /> Registered for GST</label>
         <label className="gspx-check"><input type="checkbox" checked={!!d.mp} onChange={e => set('mp', e.target.checked)} /> This RP is a Master Partner (other RPs are paid through it)</label>
-        <label className="gspx-check"><input type="checkbox" checked={d.bankVerified !== false} onChange={e => set('bankVerified', e.target.checked)} /> Bank details verified</label>
+        {d.bankVerified === false && <p className="muted">New bank details are waiting for RP Ops to verify them (on the RP’s record). Payouts are held until then.</p>}
         <Field id="rp-note" label="Note"><Input id="rp-note" value={d.note} onChange={x => set('note', x)} /></Field>
       </div>
-      {d.payee && <Notice>GSP pays the Master Partner on the Master Partner’s own terms. What the Master Partner pays this RP stays between them, outside GSP.</Notice>}
+      {d.payee && <Notice>GSP pays the Master Partner its flat rate. What the Master Partner pays this RP stays between them, outside GSP.</Notice>}
     </Sheet>
   );
 }
@@ -377,7 +379,7 @@ function NoticeSheet({ ro, c, x, onClose, propose }) {
       <div className="gspx-form2">
         <Field id="n-n" label="Name" required error={v.err('name')}><Input id="n-n" value={d.name} onBlur={v.blur('name')} onChange={y => set('name', y)} /></Field>
         <Select id="n-doc" label="Source document" required value={d.doc} onChange={y => set('doc', y)} options={[...NOTICE_SOURCES]} />
-        <Field id="n-s" label="Enrolments from" required error={v.err('start')}><DateField id="n-s" value={d.start} onBlur={v.blur('start')} onChange={y => set('start', y)} /></Field>
+        <Field id="n-s" label="In force from (enrolments from)" required error={v.err('start')}><DateField id="n-s" value={d.start} onBlur={v.blur('start')} onChange={y => set('start', y)} /></Field>
         <Field id="n-e" label="Enrolments to" hint="Leave blank for no end" error={v.err('end')}><DateField id="n-e" value={d.end} onBlur={v.blur('end')} onChange={y => set('end', y)} /></Field>
         <Field id="n-r" label="Region (when no RPs are listed)"><Input id="n-r" value={d.region} onChange={y => set('region', y)} /></Field>
         <Select id="n-k" label="Structure" required value={d.kind} onChange={y => set('kind', y)} options={Object.entries(NKIND)} />

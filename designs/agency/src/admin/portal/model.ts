@@ -154,7 +154,7 @@ const SPECS: Record<Variant, VariantSpec> = {
     home: HOME,
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('applications', 'Applications', 'Applications', 'doc')],
     groups: [
-      { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'Payout run', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download'), it('fin-scen', 'Commission scenarios', 'Scenarios', 'checkCircle')] },
+      { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'RP invoices and payout', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download'), it('fin-scen', 'Commission scenarios', 'Scenarios', 'checkCircle')] },
       { key: 'fin-setup', label: 'Setup', icon: 'sliders', items: [it('fin-terms', 'Commission terms', 'Terms', 'key'), it('fin-setup', 'Finance setup', 'Setup', 'sliders'), it('fin-how', 'How Finance works', 'How', 'info')] },
       { key: 'fin-records', label: 'Records', icon: 'building', items: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('universities', 'Universities', 'Universities', 'building')] },
     ],

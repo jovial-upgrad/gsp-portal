@@ -11,7 +11,7 @@ import { update, nameOf } from './store';
 import { Page, Card, Tiles, Table, Pill, Button, LinkButton, Empty, toast } from './kit';
 import { PersonaBar, usePersona, HostContext } from './persona';
 import { nice, addDays } from './engine';
-import { useComm, liveRun, opsOf, jobDue, DAYS, aud, sum, nav } from './shared';
+import { useComm, liveRun, opsOf, jobDue, DAYS, aud, sum, nav, cycleOf } from './shared';
 
 export default function FinanceHome() {
   const { s, c, cfg, res } = useComm();
@@ -27,19 +27,18 @@ export default function FinanceHome() {
   const fxMissing = fxWeek ? adminCfg().rates.map(r => r.code).filter(k => k !== 'AUD').filter(k => fxWeek[k] == null || fxWeek[k] === '') : ['all'];
   const ready = res.ip.filter(x => x.l.st[0] === 'Ready to invoice');
   const overdue = res.ip.filter(x => /overdue|Invoiced/.test(x.l.st[0]));
-  const checks = c.checks.filter(k => k.status === 'waiting');
-  const forMe = checks.filter(k => k.maker !== user.id);
   const mail = s.mail.emails.filter(e => e.mailbox === 'mb-comm' && e.state === 'new');
   const ann = res.ip.filter(x => x.l.annuity && /Ready to invoice|Not yet due/.test(x.l.st[0]) && x.l.date <= addDays(today, opsOf(cfg).lookAhead.annuity));
   const ending = cfg.unis.filter(u => u.ends && u.ends >= today && u.ends <= addDays(today, opsOf(cfg).lookAhead.contracts)).length + cfg.notices.filter(n => n.end && n.end >= today && n.end <= addDays(today, opsOf(cfg).lookAhead.notices)).length;
-  const runText = run.status === 'draft' ? `${Object.keys(run.payees).length} RPs, ${aud(sum(run.lines, L => L.aud))} to prepare` : run.status === 'prepared' ? `Prepared by ${nameOf(s, run.preparedBy)}; ${Object.values(run.invoices).filter(i => i.status === 'approved').length} of ${Object.keys(run.invoices).length} RPs approved` : 'Done';
+  const inv = Object.values(c.rpInv || {});
+  const toCheck = inv.filter(i => i.status === 'review').length, toPay = inv.filter(i => i.status === 'approved').length;
+  const runText = `${toCheck} RP invoices to check, ${toPay} approved to pay by ${nice(cycleOf(cfg, today).payBy)}`;
   const M = {
     fx: [fxMissing.length, fxMissing.length ? `Missing: ${fxMissing.join(', ')}` : 'All rates in'],
-    run: [run.status === 'draft' ? 1 : 0, runText],
+    run: [toCheck + toPay, runText],
     invoices: [ready.length, `${ready.length} ready, ${aud(sum(ready, x => x.l.aud))}`],
     overdue: [overdue.length, `${overdue.length} waiting for payment, ${res.ip.filter(x => x.l.st[0] === 'Payment overdue').length} overdue`],
     exceptions: [res.exc.length, `${res.exc.length} open`],
-    checks: [forMe.length, forMe.length ? `${forMe.length} waiting for you` : 'Nothing for you'],
     mail: [mail.length, `${mail.length} to confirm`],
     annuity: [ann.length, `${ann.length} periods due in the next month`],
     ending: [ending, `${ending} contracts or notices ending soon`],
@@ -56,12 +55,11 @@ export default function FinanceHome() {
   const go = (page, f) => { nav.filter = f || null; openPage && openPage(page); };
 
   const tiles = [
-    { id: 'checks', n: forMe.length, label: 'Changes for you to check', sub: checks.length - forMe.length ? `${checks.length - forMe.length} of yours waiting for someone else` : 'Maker-checker', tone: 'you' },
-    { id: 'run', n: Object.keys(run.payees).length, label: `RPs in the run on ${nice(run.date)}`, sub: aud(sum(run.lines, L => L.aud)), tone: 'gsp' },
+    { id: 'run', n: toCheck, label: 'RP invoices to check', sub: `${toPay} approved, to pay by ${nice(cycleOf(cfg, today).payBy)}`, tone: 'you' },
     { id: 'exc', n: res.exc.length, label: 'Exceptions', sub: 'Stop a line being priced or paid', tone: 'bad' },
     { id: 'od', n: res.ip.filter(x => x.l.st[0] === 'Payment overdue').length, label: 'University payments overdue', sub: aud(sum(res.ip.filter(x => x.l.st[0] === 'Payment overdue'), x => x.l.dueAud)), tone: 'bad' },
   ];
-  const tilePage = { checks: 'gspx-fin-terms', run: 'gspx-fin-run', exc: 'gspx-fin-exc', od: 'gspx-fin-uni' };
+  const tilePage = { run: 'gspx-fin-run', exc: 'gspx-fin-exc', od: 'gspx-fin-uni' };
 
   return (
     <Page title={`Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user.name}`} top={<PersonaBar />}

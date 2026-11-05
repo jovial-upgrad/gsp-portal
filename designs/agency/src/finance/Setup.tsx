@@ -14,8 +14,8 @@ import { PersonaBar, usePersona } from './persona';
 import { useComm, opsOf, DAYS, proposeChange, applyChange, impactOf, aud, ENGINE_EXCEPTIONS } from './shared';
 import { Settings } from './Terms';
 
-const PAGES = [['gspx-fin-home', 'Home'], ['gspx-fin-uni', 'University invoices'], ['gspx-fin-rp', 'RP commission'], ['gspx-fin-run', 'Payout run'], ['gspx-fin-exc', 'Exceptions'], ['gspx-fin-terms', 'Commission terms'], ['gspx-fin-reports', 'Reports'], ['gspx-fin-setup', 'Finance setup'], ['gspx-mail', 'Mail'], ['gspx-mywork', 'My work']];
-const METRICS = [['', 'None'], ['fx', 'FX rates missing'], ['run', 'Payout run status'], ['invoices', 'Lines ready to invoice'], ['overdue', 'Payments waiting'], ['exceptions', 'Exceptions'], ['checks', 'Changes to check'], ['mail', 'Commission mailbox'], ['annuity', 'Annuity due'], ['ending', 'Contracts and notices ending']];
+const PAGES = [['gspx-fin-home', 'Home'], ['gspx-fin-uni', 'University invoices'], ['gspx-fin-rp', 'RP commission'], ['gspx-fin-run', 'RP invoices and payout'], ['gspx-fin-exc', 'Exceptions'], ['gspx-fin-terms', 'Commission terms'], ['gspx-fin-reports', 'Reports'], ['gspx-fin-setup', 'Finance setup'], ['gspx-mail', 'Mail'], ['gspx-mywork', 'My work']];
+const METRICS = [['', 'None'], ['fx', 'FX rates missing'], ['run', 'RP invoices to check and pay'], ['invoices', 'Lines ready to invoice'], ['overdue', 'Payments waiting'], ['exceptions', 'Exceptions'], ['mail', 'Commission mailbox'], ['annuity', 'Annuity due'], ['ending', 'Contracts and notices ending']];
 const FREQ = [['daily', 'Every working day'], ['weekly', 'Weekly'], ['payday', 'Every pay day'], ['monthly', 'Monthly']];
 
 export default function Setup() {
@@ -35,9 +35,11 @@ export default function Setup() {
   const slaErr = d.exceptions.map(x => numError(x.sla, { what: `SLA for ${x.type}`, min: 1, max: 60, int: true, required: true }));
   const dayErr = d.jobs.map(j => j.freq === 'monthly' ? numError(j.day, { what: `day of the month for ${j.name || 'the job'}`, min: 1, max: 28, int: true, required: true }) : null);
   const errors = {
-    pre: !String(d.rctiPrefix || '').trim() ? 'Enter what invoice numbers start with, like RCTI-.' : null,
-    days: d.rpApproves ? numError(d.rpApproveDays, { what: 'working days to approve', min: 1, max: 30, int: true, required: true }) : null,
-    adm: numError(d.adminAbove, { what: 'amount that needs an Admin', min: 0 }),
+    pre: !String(d.rctiPrefix || '').trim() ? 'Enter what system invoice references start with, like INV.' : null,
+    cut: numError(d.cycle.cutoffDay, { what: 'cut-off day', min: 1, max: 31, int: true, required: true }),
+    payby: numError(d.cycle.payByDay, { what: 'pay-by day', min: 1, max: 28, int: true, required: true }),
+    lists: ['invoiceChecks', 'sendBackReasons', 'diffReasons'].some(k => !d[k].some(x => x.trim())) ? 'Each list needs at least one line.' : null,
+    ents: d.entities.some(e => !String(e.name).trim() || !String(e.prefix).trim()) ? 'Give every entity a name and a number prefix.' : null,
     batch: d.batches.some(b => !String(b.name).trim()) ? 'Give every batch a name.' : null,
     sla: slaErr.find(Boolean) || null,
     jobs: d.jobs.some(j => !String(j.name).trim()) ? 'Give every job a name.' : dayErr.find(Boolean) || null,
@@ -49,37 +51,32 @@ export default function Setup() {
 
   const save = () => {
     if (!v.submit()) return;
-    const after = { ...cfg.settings, ops: d };
-    if (!saved.makerChecker.settings) {
-      update(x => applyChange(x, { area: 'settings', target: 'settings', after }), `${user.name} changed Finance setup (no check needed)`);
-      toast('Finance setup saved'); v.reset(); return;
-    }
-    proposeChange({ area: 'settings', id: 'settings', before: cfg.settings, after, summary: 'Finance setup (payout run, approvals, exceptions, jobs)', impact: impactOf(cfg, c.apps, c.today, 'settings', 'settings', after), user });
-    toast('Sent for checking', { text: 'It applies once a second Finance person approves it.' });
-    setD(structuredClone(saved)); v.reset();
+    const clean = k => d[k].map(x => x.trim()).filter(Boolean);
+    const after = { ...cfg.settings, ops: { ...d, invoiceChecks: clean('invoiceChecks'), sendBackReasons: clean('sendBackReasons'), diffReasons: clean('diffReasons') } };
+    update(x => applyChange(x, { area: 'settings', target: 'settings', after }), `${user.name} changed Finance setup`);
+    toast('Finance setup saved'); v.reset();
   };
-  const propose = (area, id, before, after, summary) => {
-    if (!saved.makerChecker.settings) { update(x => applyChange(x, { area, target: id, after }), `${user.name} changed ${summary}`); toast('Settings saved'); return; }
-    proposeChange({ area, id, before, after, summary, impact: impactOf(cfg, c.apps, c.today, area, id, after), user }); toast('Sent for checking.');
-  };
+  const propose = (area, id, before, after, summary) => { update(x => applyChange(x, { area, target: id, after }), `${user.name} changed ${summary}`); toast('Settings saved'); };
+  const lines = k => d[k].join('\n');
+  const setLines = (k, t) => set(k, t.split('\n'));
+  const nums = t => t.split(',').map(x => Number(x.trim())).filter(x => Number.isFinite(x) && x >= 0);
   const row = (k, i, patch) => set(k, d[k].map((x, j) => j === i ? { ...x, ...patch } : x));
 
   return (
     <Page title="Finance setup" top={<PersonaBar />}
-      lead="How Finance works, as settings: pay day, batches, approvals, where exceptions go and the recurring jobs on Finance home. Changes are checked by a second person."
-      actions={canEdit && <div className="gspx-acts">{changed && <Button onClick={() => { setD(structuredClone(saved)); v.reset(); }}>Cancel</Button>}<Button kind="primary" disabled={!changed} onClick={save}>{saved.makerChecker.settings ? 'Send for checking' : 'Save'}</Button></div>}>
+      lead="How Finance works, as settings: the monthly pay cycle, RP and university invoices, where exceptions go and the recurring jobs on Finance home. One Finance person saves them; they apply at once."
+      actions={canEdit && <div className="gspx-acts">{changed && <Button onClick={() => { setD(structuredClone(saved)); v.reset(); }}>Cancel</Button>}<Button kind="primary" disabled={!changed} onClick={save}>Save</Button></div>}>
       <div ref={page} className="gspx-stack">
       {!canEdit && <Notice>Read only. Finance and Admin change these.</Notice>}
-      {pending && <Notice tone="warn">A settings change is waiting for a second person on Commission terms.</Notice>}
 
       <Card>
-        <h2 className="gspx-h3">Payout run</h2>
+        <h2 className="gspx-h3">Monthly pay cycle</h2>
         <div className="gspx-form2">
-          <Select id="o-day" label="Pay day" required disabled={!canEdit} value={String(d.payDay)} onChange={v => set('payDay', Number(v))} options={[1, 2, 3, 4, 5].map(n => [String(n), DAYS[n]])} />
-          <Field id="o-pre" label="Invoice number starts with" required error={v.err('pre')}><Input id="o-pre" value={d.rctiPrefix} onBlur={v.blur('pre')} onChange={x => set('rctiPrefix', x)} disabled={!canEdit} /></Field>
-          <Field id="o-days" label="RPs approve their invoice within (working days)" required={d.rpApproves} error={v.err('days')}><NumberInput id="o-days" decimal={false} min={1} steppers value={d.rpApproveDays} onBlur={v.blur('days')} onChange={x => set('rpApproveDays', x)} disabled={!canEdit || !d.rpApproves} /></Field>
+          <Field id="o-cut" label="Cut-off: day of the month" required error={v.err('cut')} hint="Lines ready by this day go on that month’s invoice. 31 means the last day."><NumberInput id="o-cut" decimal={false} min={1} max={31} steppers value={d.cycle.cutoffDay} onBlur={v.blur('cut')} onChange={x => set('cycle', { ...d.cycle, cutoffDay: x })} disabled={!canEdit} /></Field>
+          <Field id="o-payby" label="Pay by: day of the next month" required error={v.err('payby')}><NumberInput id="o-payby" decimal={false} min={1} max={28} steppers value={d.cycle.payByDay} onBlur={v.blur('payby')} onChange={x => set('cycle', { ...d.cycle, payByDay: x })} disabled={!canEdit} /></Field>
+          <Field id="o-pre" label="System invoice references start with" required error={v.err('pre')}><Input id="o-pre" value={d.rctiPrefix} onBlur={v.blur('pre')} onChange={x => set('rctiPrefix', x)} disabled={!canEdit} /></Field>
+          <Field id="o-rem" label="Remind RPs to invoice (days after the cut-off)" hint="Comma separated, like 3, 7, 14"><Input id="o-rem" value={d.invoiceReminders.join(', ')} onChange={x => set('invoiceReminders', nums(x))} disabled={!canEdit} /></Field>
         </div>
-        <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={d.rpApproves} onChange={e => set('rpApproves', e.target.checked)} /> RPs approve the invoice GSP raises for them (recipient-created tax invoice) before they’re paid</label>
         <h3 className="gspx-h4">Payment batches</h3>
         <Table head={['Batch name', 'Bank accounts', '']}>
           {d.batches.map((b, i) => (
@@ -90,18 +87,35 @@ export default function Setup() {
             </tr>))}
         </Table>
         {v.err('batch') && <p className="field__msg field__msg--error" role="alert">{v.err('batch')}</p>}
-        <p className="muted">Each RP’s account type is on its RP terms. A batch holds every RP with that account type.</p>
       </Card>
 
       <Card>
-        <h2 className="gspx-h3">Approvals</h2>
-        <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={d.makerChecker.terms} onChange={e => set('makerChecker', { ...d.makerChecker, terms: e.target.checked })} /> A second person checks changes to universities, RP terms, schemes and notices</label>
-        <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={d.makerChecker.settings} onChange={e => set('makerChecker', { ...d.makerChecker, settings: e.target.checked })} /> A second person checks changes to defaults, FX and this page</label>
-        <label className="gspx-check"><input type="checkbox" disabled={!canEdit} checked={d.makerChecker.run} onChange={e => set('makerChecker', { ...d.makerChecker, run: e.target.checked })} /> The person who prepares a payout run can’t approve it</label>
+        <h2 className="gspx-h3">RP invoices</h2>
+        <p className="muted">The RP downloads the system invoice, adds its own number and date, signs and uploads it. Finance ticks each check before approving, or sends it back with one of the reasons.</p>
         <div className="gspx-form2">
-          <Field id="o-adm" label="Runs above this also need an Admin (AUD)" hint="Leave blank for no limit" error={v.err('adm')}><NumberInput id="o-adm" value={d.adminAbove ?? ''} onBlur={v.blur('adm')} onChange={x => set('adminAbove', x === '' ? null : x)} disabled={!canEdit} /></Field>
+          <Field id="o-chk" label="Checks on an uploaded invoice" hint="One per line"><textarea id="o-chk" className="gspx-textarea" rows={5} value={lines('invoiceChecks')} onChange={e => setLines('invoiceChecks', e.target.value)} disabled={!canEdit} /></Field>
+          <Field id="o-sb" label="Reasons to send one back" hint="One per line"><textarea id="o-sb" className="gspx-textarea" rows={5} value={lines('sendBackReasons')} onChange={e => setLines('sendBackReasons', e.target.value)} disabled={!canEdit} /></Field>
         </div>
-        <p className="muted">Who can do what in Finance (create, read, change, delete) is set in GSP · Admin › User roles › Permission roles.</p>
+        {v.err('lists') && <p className="field__msg field__msg--error" role="alert">{v.err('lists')}</p>}
+      </Card>
+
+      <Card>
+        <h2 className="gspx-h3">University invoices and upGrad entities</h2>
+        <p className="muted">The entity that invoices universities in each destination and pays RPs in each sales region, and its number prefix.</p>
+        <Table head={['Entity', 'Number prefix', 'Invoices universities in', 'Pays RPs in']}>
+          {d.entities.map((e, i) => (
+            <tr key={e.id} className="irow">
+              <td><Input id={`e-n-${i}`} aria-label={`Entity ${i + 1} name`} value={e.name} onChange={x => row('entities', i, { name: x })} disabled={!canEdit} /></td>
+              <td><Input id={`e-p-${i}`} aria-label={`Entity ${i + 1} prefix`} value={e.prefix} onChange={x => row('entities', i, { prefix: x })} disabled={!canEdit} /></td>
+              <td><Input id={`e-d-${i}`} aria-label={`Entity ${i + 1} destinations`} value={e.destinations.join(', ')} onChange={x => row('entities', i, { destinations: x.split(',').map(y => y.trim().toUpperCase()).filter(Boolean) })} disabled={!canEdit} /></td>
+              <td><Input id={`e-r-${i}`} aria-label={`Entity ${i + 1} RP regions`} value={e.rpRegions.join(', ')} onChange={x => row('entities', i, { rpRegions: x.split(',').map(y => y.trim()).filter(Boolean) })} disabled={!canEdit} /></td>
+            </tr>))}
+        </Table>
+        {v.err('ents') && <p className="field__msg field__msg--error" role="alert">{v.err('ents')}</p>}
+        <div className="gspx-form2">
+          <Field id="o-od" label="Remind universities (days after the due date)" hint="Comma separated, like 0, 7, 14"><Input id="o-od" value={d.overdueReminders.join(', ')} onChange={x => set('overdueReminders', nums(x))} disabled={!canEdit} /></Field>
+          <Field id="o-dr" label="Reasons for a payment difference" hint="One per line"><textarea id="o-dr" className="gspx-textarea" rows={5} value={lines('diffReasons')} onChange={e => setLines('diffReasons', e.target.value)} disabled={!canEdit} /></Field>
+        </div>
       </Card>
 
       <Card flush>

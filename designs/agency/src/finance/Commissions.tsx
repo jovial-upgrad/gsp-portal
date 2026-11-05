@@ -15,8 +15,9 @@ import { addDays, addMonths, nice, money, r2, LEVELS, thursdayOf, traceText } fr
 
 /** A university line's name: the engine's (Year 1, Semester 2, Unit 3, Tier top-up, Bonus…), or the old instalment name. */
 export const lineLabel = (l) => l.label ? (l.type === 'bonus' || l.type === 'additional' || l.type === 'topup' ? l.label : l.annuity ? `${l.label} (after year 1)` : l.label) : l.bonus ? 'University bonus' : l.annuity ? `Annuity, year ${l.y}` : `Instalment ${l.k}${l.n > 1 ? ` of ${l.n}` : ''}`;
-import { useComm, liveRun, TONE, aud, sum, opsOf, nav, downloadCsv, payDayName } from './shared';
+import { useComm, liveRun, TONE, aud, sum, opsOf, nav, downloadCsv, payDayName, convert } from './shared';
 import Payout from './Payout';
+import UniInvoices from './UniInvoices';
 import Terms from './Terms';
 import COMM from './comm.json';
 
@@ -24,7 +25,7 @@ import COMM from './comm.json';
 const VIEW = {
   uni: ['University invoices', 'What each university owes GSP: raise invoices when the trigger date passes, record payments, chase overdue ones.', 'gspx-fin-uni'],
   rp: ['RP commission', 'What GSP owes each RP, line by line, and how each amount was worked out.', 'gspx-fin-rp'],
-  payout: ['Payout run', 'Every pay day: prepare, the RPs approve their invoices, a second person approves payment.', 'gspx-fin-run'],
+  payout: ['RP invoices and payout', 'Each month the RPs upload their signed invoices; Finance checks them and pays by the pay-by day.', 'gspx-fin-run'],
   exceptions: ['Exceptions', 'Anything that stops a line being priced or paid, and who fixes it.', 'gspx-fin-exc'],
   terms: ['Commission terms', 'Universities, RP terms, schemes, notices, defaults and FX. Every change is checked by a second person.', 'gspx-fin-terms'],
   reports: ['Reports', 'Receipts, what’s outstanding and what’s owed, for month-end and Xero reconciliation.', 'gspx-fin-reports'],
@@ -62,7 +63,7 @@ export default function Commissions({ view }) {
   const run = liveRun(c, res);
   const pendingChecks = c.checks.filter(k => k.status === 'waiting');
 
-  const tabs = [['overview', 'Overview'], ['uni', 'University side'], ['rp', 'RP side'], ['payout', 'Payout run'], ['exceptions', `Exceptions (${res.exc.length})`], ['terms', `Terms${pendingChecks.length ? ` (${pendingChecks.length} to check)` : ''}`], ['reports', 'Reports'], ['processes', 'Finance processes']]
+  const tabs = [['overview', 'Overview'], ['uni', 'University side'], ['rp', 'RP side'], ['payout', 'RP invoices'], ['exceptions', `Exceptions (${res.exc.length})`], ['terms', `Terms${pendingChecks.length ? ` (${pendingChecks.length} to check)` : ''}`], ['reports', 'Reports'], ['processes', 'Finance processes']]
     .filter(([k]) => allow[k]);
   const go = (t, f = null) => { if (view && VIEW[t] && openPage) { nav.filter = f; openPage(VIEW[t][2]); return; } setTab(t); setFilter(f); };
   const head = view ? VIEW[view] : ['Commissions', 'What universities owe GSP, what GSP owes each RP, and why. Amounts are worked out from the terms; Finance enters terms once and runs the weekly jobs.'];
@@ -118,17 +119,15 @@ function Overview({ c, res, rpLines, ipLines, run, checks, go, allow }) {
       <Tiles items={tiles} value={null} onChange={v => { if (!v) return; const [t, f] = v.split(':'); go(t, f); }} />
       <div className="gspx-grid2">
         {allow.payout && <Card>
-          <h2 className="gspx-h3">Payout run · {payDayName(c.cfg)} {nice(run.date)}</h2>
-          <p><span className="num">{Object.keys(run.payees).length}</span> RPs, <span className="num">{run.lines.length}</span> lines, about <b className="num">{aud(runTotal)}</b>.</p>
+          <h2 className="gspx-h3">RP invoices · paid by {nice(run.date)}</h2>
+          <p><span className="num">{Object.keys(run.payees).length}</span> RPs have <span className="num">{run.lines.length}</span> lines ready to invoice, about <b className="num">{aud(runTotal)}</b>. {Object.values(c.rpInv || {}).filter(i => i.status === 'review').length} invoices to check.</p>
           {run.hold.length > 0 && <Notice tone="warn">On hold until this week’s rate is entered: {run.hold.join(', ')}.</Notice>}
-          <p className="muted">{run.status === 'draft' ? 'Not prepared yet.' : run.status === 'prepared' ? `Prepared by ${run.preparedBy ? 'Finance' : '—'}; waiting for RPs to approve their invoices and a second person to approve.` : ''}</p>
-          <div><Button kind="primary" onClick={() => go('payout')}>Open the payout run</Button></div>
+          <div><Button kind="primary" onClick={() => go('payout')}>Open RP invoices</Button></div>
         </Card>}
         <Card>
           <h2 className="gspx-h3">Needs attention</h2>
           <ul className="gspx-list">
             <li><span className="num">{res.exc.length}</span> exceptions <LinkButton onClick={() => go('exceptions')}>Open</LinkButton></li>
-            {allow.terms && <li><span className="num">{checks.length}</span> changes waiting for a second person <LinkButton onClick={() => go('terms')}>Open</LinkButton></li>}
             {allow.uni && <li><span className="num">{invoiced.length}</span> invoices waiting for payment ({aud(sum(invoiced, x => x.l.dueAud))})</li>}
             <li><span className="num">{waitUni.length}</span> RP lines waiting for the university to pay GSP</li>
           </ul>
@@ -162,10 +161,12 @@ function UniSide({ res, c, lines, filter, setFilter, canEdit, user }) {
   const f = filter || '';
   let rows = lines.filter(x => !f || (f === 'Held' ? /^Held|recovers|Not payable/.test(x.l.st[0]) : x.l.st[0] === f));
   if (q) rows = rows.filter(x => (x.a.student + x.u.name + x.app).toLowerCase().includes(q.toLowerCase()));
-  const invoice = x => update(d => { const a = d.comm.apps[x.app]; a.inv = { ...(a.inv || {}), [x.l.key]: d.comm.today }; }, `${user.name} raised an invoice to ${x.u.name} for ${x.a.student}`) || toast('Invoice raised. In the live system it is created and sent from Xero.');
-  const pay = x => update(d => { const a = d.comm.apps[x.app]; a.paidIP = { ...(a.paidIP || {}), [x.l.key]: { date: d.comm.today, amt: x.l.ent } }; }, `${user.name} recorded ${money(x.l.ent, x.u.cur)} from ${x.u.name} for ${x.a.student}`) || toast('Payment recorded. The RP’s share is now ready for the next payout run.');
+  const pay = x => update(d => { const a = d.comm.apps[x.app]; a.paidIP = { ...(a.paidIP || {}), [x.l.key]: { date: d.comm.today, amt: x.l.ent } }; }, `${user.name} recorded ${money(x.l.ent, x.u.cur)} from ${x.u.name} for ${x.a.student}`) || toast('Payment recorded from the university’s statement. The RP’s share is now ready to invoice.');
   return (
+    <>
+    <UniInvoices c={c} lines={lines} canEdit={canEdit} user={user} />
     <Card flush>
+      <div className="gspx-pad"><h2 className="gspx-h3">Every line</h2></div>
       <div className="stools"><div className="stools__row">
         <Segmented label="Status" options={UNI_F} value={f} onChange={setFilter} />
         <div className="gspx-grow" />
@@ -182,14 +183,16 @@ function UniSide({ res, c, lines, filter, setFilter, canEdit, user }) {
             <td className="num">{money(x.l.ent, x.u.cur)}{x.l.gst ? <span className="irow__sub">+ GST {money(x.l.gst, x.u.cur)}</span> : null}</td>
             <td><Pill tone={TONE[x.l.st[1]]}>{x.l.st[0]}</Pill>{x.l.st[2] && <span className="irow__sub">{x.l.st[2]}</span>}</td>
             <td><div className="gspx-acts">
-              {canEdit && x.l.st[0] === 'Ready to invoice' && <Button size="sm" onClick={() => invoice(x)}>Raise invoice</Button>}
-              {canEdit && /Invoiced|overdue/.test(x.l.st[0]) && <Button size="sm" onClick={() => pay(x)}>Record payment</Button>}
+              {canEdit && x.u.selfBilling && /^(Ready|Top-up) to invoice/.test(x.l.st[0]) && <Button size="sm" onClick={() => pay(x)}>Record payment</Button>}
+              {/* invoiced before monthly batches (no batch invoice holds it): its payment is recorded on the line */}
+              {canEdit && /Invoiced|overdue/.test(x.l.st[0]) && !Object.values(c.uniInv || {}).some(i => i.lines.some(L => L.app === x.app && L.key === x.l.key)) && <Button size="sm" onClick={() => pay(x)}>Record payment</Button>}
               <LinkButton onClick={() => setWhy(x)}>How it’s worked out</LinkButton>
             </div></td>
           </tr>))}
       </Table>
       {why && <UniWhy x={why} r={res.apps[why.app]} cfg={c.cfg} onClose={() => setWhy(null)} />}
     </Card>
+    </>
   );
 }
 
@@ -351,11 +354,22 @@ function Reports({ c, res, rpLines, ipLines }) {
   const byRp = {}; rpLines.forEach(x => { const p = x.r.payee || x.r.rp; const b = byRp[p.name] = byRp[p.name] || { ready: 0, wait: 0, recover: 0, paid: 0 };
     if (x.due < 0) b.recover += -(x.audDue || 0); else if (x.payable) b.ready += x.audDue || 0; else if (x.st[0] === 'Waiting for university payment') b.wait += x.audEnt || 0; b.paid += x.paid && x.audEnt && x.ent ? x.audEnt * x.paid / x.ent : 0; });
   const r2a = v => aud(Math.round(v * 100) / 100);
+  /* the reports Finance asked for (Jovial, 5 Nov: Commissions flow Q33) */
+  const dayN = (a, b) => Math.floor((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+  const BUCKETS = [['Not due', -Infinity, 0], ['1–30 days', 1, 30], ['31–60 days', 31, 60], ['61–90 days', 61, 90], ['Over 90 days', 91, Infinity]];
+  const ageing = {};
+  ipLines.filter(x => x.l.inv && !x.l.paid).forEach(x => { const dueOn = addDays(x.l.inv, +x.u.payDays || 30); const late = dayN(dueOn, c.today); const b = BUCKETS.findIndex(([, lo, hi]) => late >= lo && late <= hi); const row = ageing[x.u.name] = ageing[x.u.name] || BUCKETS.map(() => 0); row[Math.max(0, b)] += x.l.aud || 0; });
+  const accrual = {};
+  ipLines.filter(x => !x.l.inv && !x.l.paid && x.l.date <= c.today && /Ready|Top-up/.test(x.l.st[0])).forEach(x => { const k = x.l.date.slice(0, 7); accrual[k] = (accrual[k] || 0) + (x.l.aud || 0); });
+  const outBy = {};
+  Object.values(c.rpInv || {}).filter(i => i.status === 'paid').forEach(i => { const k = (i.paidOn || '').slice(0, 7); i.lines.forEach(L => { outBy[k] = (outBy[k] || 0) + (convert(c.cfg, L.pay, L.payCur, 'AUD', i.paidOn) || 0); }); });
+  const cashMonths = [...new Set([...Object.keys(byMonth), ...Object.keys(outBy)])].sort().reverse().slice(0, 12);
+  const excBy = {}; res.exc.forEach(e => { excBy[e.type] = (excBy[e.type] || 0) + 1; });
   const csvIp = () => downloadCsv(`university-ledger-${c.today}.csv`, ['Application', 'Student', 'University', 'Line', 'Trigger date', 'Currency', 'Amount', 'GST', 'Status', 'Invoiced', 'Paid on', 'AUD'],
     res.ip.map(x => [x.app, x.a.student, x.u.name, x.l.key, x.l.date, x.u.cur, x.l.ent, x.l.gst, x.l.st[0], x.l.inv || '', x.l.paid ? x.l.paid.date : '', x.l.aud]));
   const csvRp = () => downloadCsv(`rp-ledger-${c.today}.csv`, ['Application', 'Student', 'RP', 'Payee', 'Line', 'Rate %', 'Currency', 'Amount', 'Paid', 'Due', 'Status', 'AUD due'],
     res.rp.map(x => [x.app, x.a.student, x.r.rp.name, (x.r.payee || x.r.rp).name, x.label, x.lp ?? '', x.cur, x.ent, x.paid, x.due, x.st[0], x.audDue]));
-  const csvRuns = () => downloadCsv(`payout-runs-${c.today}.csv`, ['Pay day', 'RPs', 'Total AUD', 'Prepared by', 'Approved by'], c.runs.map(r => [r.date, r.payees, r.totalAud, nameOf(getState(), r.preparedBy), nameOf(getState(), r.checkedBy)]));
+  const csvRuns = () => downloadCsv(`rp-invoices-${c.today}.csv`, ['Month', 'RP', 'System reference', 'RP invoice number', 'Status', 'Total', 'Paid on', 'Bank reference'], Object.values(c.rpInv || {}).map(i => [i.cycleLabel, i.rpName, i.ref, i.rpNo || '', i.status, Object.entries(i.total).map(([k, v]) => `${k} ${v}`).join(' + '), i.paidOn || '', i.paidRef || '']));
   return (
     <>
       <div className="atiles itiles">
@@ -364,7 +378,7 @@ function Reports({ c, res, rpLines, ipLines }) {
         <div className="atile itile itile--gsp"><span className="atile__n num">{r2a(Object.values(byRp).reduce((t, b) => t + b.ready + b.wait, 0))}</span><span className="atile__label">Owed to RPs</span><span className="itile__sub">Ready to pay and waiting for universities</span></div>
         <div className="atile itile itile--gsp"><span className="atile__n num">{r2a(sum(c.runs, r => r.totalAud))}</span><span className="atile__label">Paid in payout runs</span><span className="itile__sub">{c.runs.length} runs</span></div>
       </div>
-      <Card><div className="gspx-inline"><span className="gspx-h3 gspx-grow">Export for Xero and month-end</span><Button onClick={csvIp}>University ledger (CSV)</Button><Button onClick={csvRp}>RP ledger (CSV)</Button><Button onClick={csvRuns}>Payout runs (CSV)</Button></div></Card>
+      <Card><div className="gspx-inline"><span className="gspx-h3 gspx-grow">Export for Xero and month-end</span><Button onClick={csvIp}>University ledger (CSV)</Button><Button onClick={csvRp}>RP ledger (CSV)</Button><Button onClick={csvRuns}>RP invoices (CSV)</Button></div></Card>
       <div className="gspx-grid2">
         <Card flush><div className="gspx-pad"><h2 className="gspx-h3">Received from universities, by month</h2></div>
           <Table head={['Month', 'Received (AUD)']}>{months.map(k => <tr key={k} className="irow"><td className="num">{nice(k + '-01').slice(2)}</td><td className="num">{r2a(byMonth[k])}</td></tr>)}</Table></Card>
@@ -372,7 +386,18 @@ function Reports({ c, res, rpLines, ipLines }) {
           <Table head={['University', 'Ready', 'Invoiced', 'Overdue']}>{Object.entries(byUni).sort((a, b) => (b[1].overdue + b[1].invoiced) - (a[1].overdue + a[1].invoiced)).map(([k, v]) => (
             <tr key={k} className="irow"><td>{k}</td><td className="num">{r2a(v.ready)}</td><td className="num">{r2a(v.invoiced)}</td><td className="num">{v.overdue ? <b>{r2a(v.overdue)}</b> : '—'}</td></tr>))}</Table></Card>
       </div>
-      <Card flush><div className="gspx-pad"><h2 className="gspx-h3">Balance by RP (AUD)</h2></div>
+      <Card flush><div className="gspx-pad"><h2 className="gspx-h3">Receivables ageing, by university (AUD)</h2><p className="muted">Invoiced and not paid, by days past the due date.</p></div>
+        <Table head={['University', ...BUCKETS.map(b => b[0])]} empty={!Object.keys(ageing).length && <Empty title="Nothing invoiced and unpaid" />}>{Object.entries(ageing).map(([k, v]) => (
+          <tr key={k} className="irow"><td>{k}</td>{v.map((n, i) => <td key={i} className="num">{n ? r2a(n) : '—'}</td>)}</tr>))}</Table></Card>
+      <div className="gspx-grid2">
+        <Card flush><div className="gspx-pad"><h2 className="gspx-h3">Earned, not invoiced (accrual)</h2><p className="muted">Lines past their trigger date with no invoice yet, by the month they were earned.</p></div>
+          <Table head={['Month', 'AUD']} empty={!Object.keys(accrual).length && <Empty title="Nothing to accrue" />}>{Object.keys(accrual).sort().reverse().map(k => <tr key={k} className="irow"><td className="num">{nice(k + '-01').slice(2)}</td><td className="num">{r2a(accrual[k])}</td></tr>)}</Table></Card>
+        <Card flush><div className="gspx-pad"><h2 className="gspx-h3">Cash received and paid out, by month</h2><p className="muted">Paid out is RP invoices marked paid, in AUD at the week’s rate.</p></div>
+          <Table head={['Month', 'Received', 'Paid to RPs']}>{cashMonths.map(k => <tr key={k} className="irow"><td className="num">{nice(k + '-01').slice(2)}</td><td className="num">{r2a(byMonth[k] || 0)}</td><td className="num">{r2a(outBy[k] || 0)}</td></tr>)}</Table></Card>
+      </div>
+      <Card flush><div className="gspx-pad"><h2 className="gspx-h3">Exceptions, by type</h2></div>
+        <Table head={['Exception', 'Open']} empty={!res.exc.length && <Empty title="No exceptions" />}>{Object.entries(excBy).map(([k, n]) => <tr key={k} className="irow"><td>{k}</td><td className="num">{n}</td></tr>)}</Table></Card>
+      <Card flush><div className="gspx-pad"><h2 className="gspx-h3">Payables, by RP (AUD)</h2></div>
         <Table head={['RP', 'Paid', 'Ready to pay', 'Waiting for universities', 'To recover']}>{Object.entries(byRp).sort((a, b) => b[1].ready - a[1].ready).map(([k, v]) => (
           <tr key={k} className="irow"><td>{k}</td><td className="num">{r2a(v.paid)}</td><td className="num">{r2a(v.ready)}</td><td className="num">{r2a(v.wait)}</td><td className="num">{v.recover ? r2a(v.recover) : '—'}</td></tr>))}</Table></Card>
     </>

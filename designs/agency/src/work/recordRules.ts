@@ -78,7 +78,11 @@ export const RECORD_LOGIC = {
   }),
   W23: (x) => x.rdb.rps.filter((r) => ONBOARDING.includes(r.status) && r.bdm && !r.firstCall).map((r) => ({ key: 'assigned', rec: rpRec(x.s, r), since: atDay(r.since), vars: { RP: r.name } })),
   T36: (x) => x.rdb.rps.filter((r) => r.lifecycleRequest?.state === 'open').map((r) => ({ key: String(r.lifecycleRequest.at), rec: rpRec(x.s, r), since: r.lifecycleRequest.at, vars: { RP: r.name } })),
-  T35: (x) => x.rdb.rps.filter((r) => r.bankChange?.state === 'open').map((r) => ({ key: String(r.bankChange.at), rec: rpRec(x.s, r), since: r.bankChange.at, maker: idOf(x.s, r.bankChange.by), vars: { RP: r.name } })),
+  // the RP's bank change waits for RP Ops (Jovial, 5 Nov: Commissions flow Q19); payouts to it are held until then
+  T35: (x) => [
+    ...x.rdb.rps.filter((r) => r.bankChange?.state === 'open').map((r) => ({ key: String(r.bankChange.at), rec: rpRec(x.s, r), since: r.bankChange.at, maker: idOf(x.s, r.bankChange.by), vars: { RP: r.name } })),
+    ...(x.comm?.bankChanges || []).filter((b) => !x.rdb.rps.some((r) => r.name === b.name && r.bankChange?.state === 'open')).map((b) => { const r = x.rdb.rps.find((y) => y.name === b.name); return { key: String(b.at), rec: r ? rpRec(x.s, r) : commRec(`cm-bank-${b.id}`, `Bank details · ${b.name}`), since: b.at, vars: { RP: b.name } }; }),
+  ],
 
   /* ---- institution partners, universities, courses (slice 2) ---- */
   T38: (x, rule) => x.rdb.ips.filter((p) => p.status === EXECUTED || p.status === ENDED).map((p) => {
@@ -101,15 +105,13 @@ export const RECORD_LOGIC = {
 
   /* ---- commission (slice 5 owns what each task does) ---- */
   T39: (x) => (x.comm?.missingTerms || []).map((m) => ({ key: m.id, rec: commRec(`cm-terms-${m.id}`, `Commission terms · ${m.name}`), since: m.since, vars: { partner: m.name } })),
-  T45: (x) => (x.comm?.checks || []).filter((k) => k.status === 'waiting').map((k) => ({ key: k.id, rec: commRec(`cm-check-${k.id}`, k.title || `Change ${k.id}`), since: k.at ?? k.made ?? x.now, maker: k.maker, vars: { record: k.title || k.id } })),
-  T46: (x) => groupLines(x.comm?.lines, (l) => /^(Ready|Top-up) to invoice/.test(l.st?.[0] ?? '')).map((g) => ({ key: g.key, rec: commRec(`cm-inv-${g.key}`, `Invoices due · ${g.name}`), since: g.since, vars: { record: g.name } })),
+  T46: (x) => groupLines(x.comm?.lines, (l) => !l.self && /^(Ready|Top-up) to invoice/.test(l.st?.[0] ?? '')).map((g) => ({ key: g.key, rec: commRec(`cm-inv-${g.key}`, `Invoices due · ${g.name}`), since: g.since, vars: { record: g.name } })),
   T47: (x) => groupLines(x.comm?.lines, (l) => l.st?.[0] === 'Payment overdue').map((g) => ({ key: g.key, rec: commRec(`cm-od-${g.key}`, `Payment overdue · ${g.name}`), since: g.since, vars: { record: g.name } })),
   T48: (x) => (x.comm?.exc || []).map((e, i) => ({ key: `${e.app || 'x'}-${e.type}`, rec: commRec(`cm-exc-${e.app || i}-${e.type}`.replace(/\W+/g, '-'), `Exception · ${e.type}${e.app ? ` · ${e.app}` : ''}`), since: x.comm.since, vars: { record: e.app || e.type } })),
-  T49: (x) => {
-    const mon = lastWeekly(x.now, 1, '01:00');
-    if (!mon || (x.comm?.runs || []).some((r) => (r.approvedAt ?? atDay(r.date)) >= mon)) return [];
-    return [{ key: istYmd(mon), rec: commRec(`cm-run-${istYmd(mon)}`, `Payout run · week of ${istYmd(mon)}`), since: mon }];
-  },
+  // the monthly RP cycle (Jovial, 5 Nov): an uploaded invoice to check (T73), approved ones to pay (T49), a query (T74)
+  T49: (x) => [...new Set((x.comm?.rpInv || []).filter((i) => i.status === 'approved').map((i) => i.cycle))].map((cy) => { const L = (x.comm.rpInv || []).filter((i) => i.status === 'approved' && i.cycle === cy); return { key: cy, rec: commRec(`cm-pay-${cy}`, `RP payouts · ${L[0].cycleLabel}`), since: Math.min(...L.map((i) => i.checkedAt || i.uploadedAt || x.now)), vars: { record: L[0].cycleLabel } }; }),
+  T73: (x) => (x.comm?.rpInv || []).filter((i) => i.status === 'review').map((i) => ({ key: i.id + '|' + i.uploadedAt, rec: commRec(`cm-rpinv-${i.id}`.replace(/\W+/g, '-'), `RP invoice · ${i.rpName} · ${i.cycleLabel}`), since: i.uploadedAt, vars: { record: i.rpName } })),
+  T74: (x) => (x.comm?.queries || []).filter((q) => q.status === 'open').map((q) => ({ key: q.id, rec: commRec(`cm-q-${q.id}`, `Query · ${q.rpName} · ${q.student}`), since: q.at, vars: { record: q.rpName } })),
 
   /* ---- Admin (T50, and S4-28's T60 to T68) ---- */
   T50: (x) => {
