@@ -95,14 +95,9 @@ export const RECORD_LOGIC = {
   }),
 
   /* ---- the shared mailboxes' conversations (Mail) ---- */
-  T6: (x) => x.threads.filter((t) => t.record && (t.state ?? 'needs') === 'needs' && t.conf >= x.mailCfg.autoFile && t.mailbox === 'mb-adm').map((t) => ({ key: 'needs', rec: mailRec(t), app: t.record, since: lastIn(t), vars: { student: x.studentOf(t.record) } })),
-  T26: (x) => x.threads.filter((t) => t.state === 'match' && t.conf >= x.mailCfg.suggest && t.conf < x.mailCfg.autoFile && t.intent !== 'new').map((t) => ({ key: 'check', rec: mailRec(t), since: lastIn(t) })),
-  T27: (x) => x.threads.filter((t) => t.state === 'match' && !t.record && t.conf < x.mailCfg.suggest && t.intent !== 'new').map((t) => ({ key: 'match', rec: mailRec(t), since: lastIn(t) })),
-  T28: (x) => x.threads.filter((t) => t.state === 'match' && t.intent === 'new').map((t) => ({ key: 'new', rec: mailRec(t), since: lastIn(t) })),
+  T27: (x) => x.threads.filter((t) => t.mailbox === 'mb-adm' && !t.record && !t.forwardedTo && !t.dropped).map((t) => ({ key: 'link', rec: mailRec(t), since: lastIn(t) })),
   T29: (x) => x.threads.filter((t) => t.mailbox === 'mb-admin' && (t.state ?? 'needs') !== 'done').map((t) => ({ key: 'admin', rec: mailRec(t), since: lastIn(t) })),
   T30: (x) => x.threads.filter((t) => t.mailbox === 'mb-comm' && (t.state ?? 'needs') !== 'done').map((t) => ({ key: 'remit', rec: mailRec(t), since: lastIn(t) })),
-  // a bounce matched to a mail GSP sent only flags the contact and tells the sender (Mail); one that can't be matched is Global Ops' (Admissions mail types, row 9)
-  T72: (x) => x.filed.filter((f) => f.type === 'bounce' && !f.record && !f.reviewed).map((f) => ({ key: 'bounce', rec: { id: f.id, type: 'Email', label: `Bounce · ${f.subject}`, page: 'mail' }, since: f.at })),
 
   /* ---- commission (slice 5 owns what each task does) ---- */
   T39: (x) => (x.comm?.missingTerms || []).map((m) => ({ key: m.id, rec: commRec(`cm-terms-${m.id}`, `Commission terms · ${m.name}`), since: m.since, vars: { partner: m.name } })),

@@ -235,15 +235,10 @@ export const RULES = [
   // activate each one.
   R('T70', IPG, { record: 'University', name: 'University to activate after reopening', when: 'Its institution partner was Closed and is reopened by hand, and the university isn’t Live', task: 'Activate <university>: <partner> was reopened', share: 'fewest-open', kind: 'k-golive', sla: d(5), closes: 'The university is Live, or Done' }),
 
-  // Mail (later slice) keeps the same clock and states
-  R('T6', 'Email', { record: 'Email', name: 'University email on an application', when: 'An email is matched to an application (90% or more)', task: 'Act on the email for <student>', share: 'officer', kind: 'k-uni-mail', sla: wh(1), closes: 'The officer files or dismisses the email' }),
-  R('T12', 'Email', { record: 'Email', name: 'Interview or GS', when: 'An email asks for an interview or GS assessment', task: 'Book the interview for <student>', share: 'officer', kind: 'k-uni-mail', sla: wh(9), closes: 'Interview booked' }),
-  R('T26', 'Email', { record: 'Email', name: 'Check an email match', when: 'AI confidence 60 to 89%', task: 'Check the match for this email', share: 'officer', kind: 'k-mail', sla: wh(1), closes: 'Match confirmed or changed' }),
-  R('T27', 'Email', { record: 'Email', name: 'Email not matched', when: 'AI confidence below 60%', task: 'Match this email to a record', kind: 'k-mail', sla: wh(1), closes: 'Matched or marked not needed' }),
-  R('T28', 'Email', { record: 'Email', name: 'New application by email', when: 'An RP sends a new application by email', task: 'Create the application, or send the RP to the portal', kind: 'k-verify', sla: wh(3), closes: 'Done' }),
+  // Mail, kept simple (Jovial, 5 Nov): every gsp.admissions@ mail is linked to an application (it shows in the application's
+  // Mail tab, no task) or forwarded; only mail that can't be linked makes a task, for Global Ops. T6, T12, T26, T28, T31 and T72 removed.
+  R('T27', 'Email', { record: 'Email', name: 'Mail not linked', when: 'A mail to gsp.admissions@ can’t be linked to an application and isn’t forwarded (a student with no application yet, say)', task: 'Link this mail to an application', kind: 'k-mail', sla: wh(1), closes: 'Linked or forwarded' }),
   R('T29', 'Email', { record: 'Email', name: 'Mail to admin.gsp@', when: 'Any email to admin.gsp@', task: 'Handle this request', kind: 'k-admin', sla: wh(24), closes: 'Done' }),
-  // T31 (newsletter review) removed, 5 Nov: university news and marketing is forwarded to the compliance inbox (Admissions mail types, row 19)
-  R('T72', 'Email', { record: 'Email', name: 'Bounced mail not matched', when: 'A bounce that can’t be matched to a mail GSP sent', task: 'Check bounced mail', kind: 'k-mail', sla: wh(6), closes: 'Done' }),
 
   // Commission (slice 5 owns what each task does)
   R('T30', 'Commission', { record: 'Email', name: 'Commission remittance', when: 'A remittance or statement, or any mail to commissions.gsp@', task: 'Match the remittance against Commissions', kind: 'k-exception', sla: wh(24), closes: 'Matched to invoices' }),

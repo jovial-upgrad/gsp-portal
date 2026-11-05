@@ -98,17 +98,10 @@
 .mx__rec.is-link { white-space: normal; text-align: left; max-width: 100%; }
 .mx__warn { margin: var(--sp-8, 8px) 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg, #fff6e5); color: var(--warn-ink, #7a4b00); font-size: 14px; }
 
-/* How mail is handled: the 23 Admissions mail types (5 Nov) */
-.mx__rules { grid-column: span 2; max-height: none; padding: var(--sp-16); }
-.mx__rulestop { margin-bottom: var(--sp-12); max-width: 78ch; }
-.mx__rulestop .muted { font-size: var(--t-caption); }
-.mx__tablewrap { overflow-x: auto; }
-.mx__table { width: 100%; border-collapse: collapse; font-size: var(--t-caption); }
-.mx__table th { text-align: left; color: var(--text-2); font-weight: var(--fw-semi); padding: var(--sp-8); border-bottom: 1px solid var(--line); background: var(--surface-2); position: sticky; top: 0; }
-.mx__table td { padding: var(--sp-8); border-bottom: 1px solid var(--line); vertical-align: top; color: var(--text); }
-.mx__table td:nth-child(5) { min-width: 260px; }
-.mx__table td:nth-child(6) { min-width: 180px; color: var(--text-2); }
-.mx__goes { margin-top: var(--sp-8); }
-@media (max-width: 1180px) { .mx__rules { grid-column: 1 / -1; } }
+
 .mx__aigrid .gspx-select, .mx__next .gspx-select { min-width: 0; max-width: 100%; }
 .mx__nextacts .btn { white-space: normal; }
+.mx__rulesbox { display: grid; gap: 4px; margin: 0 0 var(--sp-12); padding: var(--sp-12) var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface-2); font-size: var(--t-caption); color: var(--text-2); }
+.mx__rulesbox p { margin: 0; }
+.mx__rulesbox b { color: var(--text); }
+.mx__row > .mx__rowbtn:only-child { grid-column: 1 / -1; }

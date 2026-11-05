@@ -6,9 +6,13 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 5 Nov, evening: Mail kept simple (Jovial, in chat)
+
+- [x] **Linked or forwarded, nothing else.** A gsp.admissions@ mail is linked to its application and shows in the application's Mail tab, or is forwarded (commission, access or platform, marketing). Mail that can't be linked goes to Global Ops (Mail › To link). The mail types, owners, reasons, states, suggested steps and the How mail is handled table are gone; Admission's menu has no Mail. Replaces the item below. (5 Nov, commit “Mail kept simple: linked or forwarded”)
+
 ## 5 Nov, later: the Admissions mail types (Jovial, Pending Questions › Admissions mail types)
 
-- [x] **Mail follows the 23 agreed mail types.** Each conversation shows its Mail type and Goes to (the application's regional Admissions queue and officer; Global Ops when there's no application). New **How mail is handled** view: the 23 types with share, who acts, what happens, where it goes, and a sample of each. Filed becomes **Filed or forwarded**. Samples added for an unclear offer, an unclear decision, a visa, a deferral and a university's general question, plus a copy of a GSP mail, two RP queries and an unmatched bounce. (5 Nov, commit “Mail: the 23 Admissions mail types”)
+- [x] ~~**Mail follows the 23 agreed mail types.** Each conversation shows its Mail type and Goes to (the application's regional Admissions queue and officer; Global Ops when there's no application). New **How mail is handled** view: the 23 types with share, who acts, what happens, where it goes, and a sample of each. Filed becomes **Filed or forwarded**. Samples added for an unclear offer, an unclear decision, a visa, a deferral and a university's general question, plus a copy of a GSP mail, two RP queries and an unmatched bounce. ~~ Replaced the same evening by Mail kept simple, above. (5 Nov, commit “Mail: the 23 Admissions mail types”)
 - [x] **Forwarding:** university news and marketing to the compliance inbox; commission queries to the commissions inbox, other RP queries to the BAP inbox. T31 (newsletter review) removed. (5 Nov, commit “Mail: the 23 Admissions mail types”)
   - Open question: the compliance inbox's address (Pending Questions).
 - [x] **Bounces:** the address is marked Bounced and the sender of the original mail is told once; an unmatched bounce is T72 "Check bounced mail" for Global Ops. (5 Nov, commit “Mail: the 23 Admissions mail types”)
