@@ -89,6 +89,7 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
   const [sure, setSure] = useState(false);
   const errors = {
     name: !v.name.trim() ? 'Enter the queue name, like India Admissions.' : v.name.trim().length > 60 ? 'Keep the name to 60 characters or fewer.' : dupError(v.name, s.queues.filter(q => q.id !== v.id).map(q => q.name), 'There’s already a queue with this name.'),
+    leader: !v.leader ? 'Choose the queue’s leader.' : null,
   };
   const c = useCheck(errors);
   const dirty = JSON.stringify(v) !== JSON.stringify(queue || init.current);
@@ -113,7 +114,7 @@ function QueueSheet({ queue, onClose, by, canDelete }) {
       footer={<>{!isNew && canDelete && <Button kind="danger-quiet" onClick={() => setSure(true)}>Delete queue</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!isNew && !dirty} onClick={save}>{isNew ? 'Create queue' : 'Save'}</Button></>}>
       <div className="cfg__form gspx-form2">
         <Field id="q-name" label="Queue name" required error={c.err('name')} hint="Up to 60 characters."><Input id="q-name" value={v.name} maxLength={60} onBlur={c.blur('name')} onChange={x => set('name', x)} placeholder="Like: India Admissions" /></Field>
-        <Pick id="q-lead" label="Leader" hint="Gets escalations, covers people on leave, can assign. No leader: escalations go to the Admin queue." value={v.leader || ''} onChange={x => set('leader', x)} placeholder="Choose one person" options={gsp.map(u => [u.id, label(u)])} />
+        <Pick id="q-lead" label="Leader" required error={c.err('leader')} hint="Gets escalations, covers people on leave, can assign. Every queue has one." value={v.leader || ''} onChange={x => set('leader', x)} placeholder="Choose one person" options={gsp.map(u => [u.id, label(u)])} />
         <Pick id="q-assign" label="How work is shared" required value={v.assign in SHARE ? v.assign : 'fewest-open'} onChange={x => set('assign', x)} options={Object.entries(SHARE)} hint={SHARE_HELP[v.assign] || SHARE_HELP['fewest-open']} />
         <div className="field"><span className="field__label">Members</span>
           <MultiPick id="q-members" label="Members" search empty="Just the leader" value={gsp.filter(u => (v.members || []).includes(u.id) && u.id !== v.leader).map(label)} options={gsp.filter(u => u.id !== v.leader).map(label)}
