@@ -12,6 +12,7 @@ How this list works: before changing a page, check its section here. When an ite
 - [x] **University invoices** batched per university per month or per student; self-billing; payment differences with reasons, resolved or written off. (5 Nov, commit “Commissions: the monthly flow”)
 - [x] **Settings:** monthly cycle, reminders, invoice checks, send-back and difference reasons, upGrad entities; no maker-checker; RP terms in force from; notices sent to many RPs; Master Partner flat; tier counts enrolled students; bank details verified by RP Ops; Admissions change the intake; Finance reports. (5 Nov, commit “Commissions: the monthly flow”)
   - Open question: Xero (phase two) and migration of commission in progress (not now).
+- [ ] **Terms forms to match the sandbox,** once the commissions team confirms the sandbox covers every contract: university terms (destination, agreement start, net or gross, how it's paid and chargeable, fixed amounts, rate rows, full tier set-up, promotions, bonus schemes, versions, status), University groups, and notices (several regions, intakes, universities, levels, % of tuition, fixed-amount currency). Until then the sandbox is where terms are set up, and the prototype demos the process flow. (Jovial, 5 Nov)
 
 ## 5 Nov, evening: Mail kept simple (Jovial, in chat)
 
