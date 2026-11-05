@@ -352,6 +352,22 @@ const add = (c) => C.push(c);
     ] });
 }
 
+{
+  const L = [app('ip19b-01', { uni: 'SC-IP19B', rp: 'SC-R80', course: 'Business' }), app('ip19b-02', { uni: 'SC-IP19B', rp: 'SC-R80', course: 'Business' }), app('ip19b-03', { uni: 'SC-IP19B', rp: 'SC-R80', course: 'Business', intake: '2026-07-20', census: '2026-08-31' })];
+  add({ id: 'IP19B', tab: 'IP', sheetNo: 'Scenario 19b', title: 'Bonus by number of students (per student)', sheet: 'A per-student bonus whose amount depends on how many students enrol in the year, kept on its own line apart from the tier commission.',
+    terms: ['Standard commission: UG 15%.', 'Bonus “Volume bonus” (retrospective, calendar year): 1–2 students AUD 800 each; 3+ AUD 1,000 each.', 'Bonus “Early bonus” (prospective, calendar year): 1–2 students AUD 800 each; 3+ AUD 1,000 each.', 'Bonuses are GSP’s and sit on their own lines.'],
+    today: '2026-09-15', focus: 'ip19b-01',
+    cfg: world({ unis: [uni('SC-IP19B', { name: 'Volume Bonus University (sample)', levels: { UG: 15 }, bonuses: [{ id: 'V1', name: 'Volume bonus', kind: 'fixed', v: 0, per: 'band', window: 'CY', bands: [[1, 2, 800, 'fixed'], [3, null, 1000, 'fixed']] }, { id: 'V2', name: 'Early bonus', kind: 'fixed', v: 0, per: 'band', window: 'CY', retro: false, bands: [[1, 2, 800, 'fixed'], [3, null, 1000, 'fixed']] }] })], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    apps: byId(L),
+    checks: [
+      { what: 'Standard commission stays its own line', calc: '30,000 × 15% = 4,500', exp: 4500, got: G.ip('ip19b-01', 'ip1') },
+      { what: 'Retrospective: 3 students, so the 1st student is in band 2', calc: 'AUD 1,000', exp: 1000, got: G.ip('ip19b-01', 'bo-V1') },
+      { what: 'Prospective: the 1st student stays in band 1', calc: 'AUD 800', exp: 800, got: G.ip('ip19b-01', 'bo-V2') },
+      { what: 'Prospective: the 3rd student is in band 2', calc: 'AUD 1,000', exp: 1000, got: G.ip('ip19b-03', 'bo-V2') },
+      { what: 'RP gets no bonus lines', calc: 'standard only = 1 line', exp: 1, got: G.rpCount('ip19b-01') },
+    ] });
+}
+
 /* ---------------- RP: what GSP pays the RP ---------------- */
 const U15 = uni('SC-RPU', { name: 'Partner University (sample)' });
 const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
