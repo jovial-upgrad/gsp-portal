@@ -272,6 +272,8 @@ function UniSheet({ ro, c, u, onClose, propose }) {
           {d.tier && <div className="field"><span className="field__label">University tier ({d.tier.retro ? 'retrospective' : 'prospective'}, all GSP students{d.tier.scope === 'country' ? ' per source country' : ''})</span>
             <Bands bands={d.tier.bands} show={v.shown} onChange={b => set('tier', { ...d.tier, bands: b })} /></div>}
         </div>
+        <h3 className="gspx-h4">What the contract says</h3>
+        <p className="muted">Read from the signed agreement, clause by clause, so the terms above can be checked against it. Read only: it changes when a new agreement is uploaded on the Institution partner.</p>
         <dl className="gspx-dl">
           <dt>Rate</dt><dd>{u.contract?.rate || '—'}</dd>
           <dt>Periods</dt><dd>{u.contract?.periods || '—'}</dd>

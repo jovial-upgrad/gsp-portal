@@ -7,6 +7,7 @@
  * every line is an estimate.
  */
 import { useMemo, useState } from 'react';
+import { finalFeeOf } from '../data/live';
 import { courseOf, startOf, censusOf, earnFor, type Application } from '../data/applications';
 import { compute, money, nice, traceText } from './engine';
 import { getState } from './store';
