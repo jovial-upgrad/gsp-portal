@@ -230,8 +230,8 @@ export type Student = {
   shortlist?: string[];
 };
 
-/** What a team member can do: an RP Admin runs the whole agency, a Branch Admin one branch, a Counsellor their own students. */
-export type TeamRole = 'RP Admin' | 'Branch Admin' | 'Counsellor';
+/** What a team member can do: an RP Admin runs the whole agency, a Branch Manager one branch, a Counsellor their own students. */
+export type TeamRole = 'RP Admin' | 'Branch Manager' | 'Counsellor';
 /** Someone on the agency's team: their contact, role and branch; `invited` until they accept the invitation. */
 export type Member = { id: string; name: string; role: TeamRole; email?: string; dial?: string; phone?: string; branch?: string; invited?: boolean; /** The RP whose team they're on (GSP's lists hold every RP's). */ rp?: string };
 

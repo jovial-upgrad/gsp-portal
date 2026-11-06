@@ -197,7 +197,7 @@ export function RpAgreementCard({ r, by }: { r: RecruitmentPartner; by: string }
 }
 
 /**
- * Profile › Agreement (RP Admin only; Branch Admin and Counsellor don't see it): the active agreement to download,
+ * Profile › Agreement (RP Admin only; Branch Manager and Counsellor don't see it): the active agreement to download,
  * the one to sign now (the same card as Home), and every version with its status.
  */
 export function RpAgreementProfile({ r, by }: { r: RecruitmentPartner; by: string }) {

@@ -69,15 +69,19 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
   return (
     <div className="ipage">
       <PageHead title="Universities" lead="Each university sits under one institution partner and goes live on its own. Course search shows the live ones.">
-        {edit && (
+        {(edit || canEdit(props, OBJ.qs)) && (
           <>
-            {/* every university's QS rank in one go (S2C-17) */}
-            <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setRanking(true)}>
-              Update QS rankings
-            </Button>
+            {/* every university's QS rank in one go (S2C-17): its own row in Permission roles (6 Nov) */}
+            {canEdit(props, OBJ.qs) && (
+              <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setRanking(true)}>
+                Update QS rankings
+              </Button>
+            )}
+            {edit && (
             <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdding(true)}>
               Add a university
             </Button>
+            )}
           </>
         )}
       </PageHead>

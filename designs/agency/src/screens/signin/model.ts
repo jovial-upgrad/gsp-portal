@@ -35,7 +35,7 @@ export type Account = { name: string; first: string; email: string; agency: stri
 
 /**
  * One sample agency (HC35, Jovial 1 Nov): the accounts are the GSP test agency's team, from its one record
- * (data/rpteam.ts): Nesil Noble, its RP Admin (the test account), then its Branch Admin and counsellors.
+ * (data/rpteam.ts): Nesil Noble, its RP Admin (the test account), then its Branch Manager and counsellors.
  */
 const ACCOUNTS: Account[] = rpTeam(TEST_AGENCY).map((m) => ({
   name: m.name,
@@ -47,7 +47,7 @@ const ACCOUNTS: Account[] = rpTeam(TEST_AGENCY).map((m) => ({
 }));
 
 export const SAMPLE_ACCOUNT = ACCOUNTS[0];
-/** The test agency's person for an RP role (Jovial, 2 Nov: one signed-in user for every role): its RP Admin, its Branch Admin, a counsellor. */
+/** The test agency's person for an RP role (Jovial, 2 Nov: one signed-in user for every role): its RP Admin, its Branch Manager, a counsellor. */
 export const accountByRole = (role: string) => ACCOUNTS.find((a) => a.role === role) ?? SAMPLE_ACCOUNT;
 
 /** Matches an email, or the part before the @, against each account's email and aliases. */

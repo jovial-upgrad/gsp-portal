@@ -5,7 +5,7 @@
  */
 
 import { levelFor } from '../admin/data/menus';
-import { ROLES as PERMISSION_ROLES, OVERSIGHT_OBJECT } from '../admin/data/config';
+import { ROLES as PERMISSION_ROLES } from '../admin/data/config';
 
 /*
  * Who can do what (Jovial, 1 Nov, HC46): GSP's roles and their access are GSP · Admin › Permission roles, the one
@@ -28,7 +28,7 @@ const ABOUT = {
 export const roleId = name => String(name).toLowerCase().replace(/ /g, '-');
 const RP_ROLES = [
   { id: 'rp-admin', name: 'RP Admin', side: 'RP', scope: 'agency', about: 'Runs the agency: every branch, every counsellor, students, applications, earnings and the team.' },
-  { id: 'branch-admin', name: 'Branch Admin', side: 'RP', scope: 'branch', about: 'Runs one branch: its counsellors, students and applications.' },
+  { id: 'branch-admin', name: 'Branch Manager', side: 'RP', scope: 'branch', about: 'Runs one branch: its counsellors, students and applications.' },
   { id: 'counsellor', name: 'Counsellor', side: 'RP', scope: 'own', about: 'Works their own students and applications.' },
 ];
 /** GSP's nine roles from Admin › Permission roles, then the RP's three. */
@@ -47,24 +47,32 @@ export const SCOPES = {
 };
 
 
-/* Each module here is a line of Admin › Permission roles (HC46). */
+/* Each module here is a line of Admin › Permission roles (HC46; the objects from Jovial's sheet, 6 Nov). */
 const OBJECT_OF = {
-  students: 'Students', 'student-docs': 'Student documents', applications: 'Applications', 'app-status': 'Applications',
-  'app-docs': 'Application documents and checks', submission: 'Drafts to universities and placed emails', chat: 'Chat threads',
-  'rp-profile': 'Recruitment partner profile and status', 'rp-docs': 'RP onboarding documents', 'rp-team': 'RP branches and team', bdm: 'Settings',
-  ip: 'Institution partners', universities: 'Universities', courses: 'Courses, intakes and entry rules', announcements: 'Announcements',
-  'comm-terms': 'Commission terms', 'comm-lines': 'Commission lines', invoices: 'Invoices and receipts', payouts: 'Payout runs and statements',
-  earnings: 'Payout runs and statements', bank: 'RP bank details',
-  tasks: 'My work and tasks', queues: 'Queues, task rules and SLA', mail: 'Shared mailboxes', dashboards: 'Overview dashboard',
-  users: 'GSP users and roles', regions: 'Settings', logs: 'Download log and audit logs',
+  students: 'Students › Record', 'student-docs': 'Students › Documents', applications: 'Applications › Record', 'app-status': 'Applications › Record',
+  'app-docs': 'Applications › Documents', submission: 'Applications › Submission', chat: 'Applications › Chat',
+  'rp-profile': 'Recruitment Partners › Record', 'rp-docs': 'Recruitment Partners › Documents', 'rp-team': 'Recruitment Partners › Teams', bdm: 'Recruitment Assignment',
+  ip: 'Institution Partners › Record', universities: 'Universities › Record', courses: 'Courses › Record', announcements: 'Announcements › Record',
+  // commissions: Finance edits every commission tab (6 Nov); an application's lines are its Commission tab
+  'comm-terms': 'Institution Partners › Commission', 'comm-lines': 'Applications › Commission', invoices: 'Institution Partners › Commission',
+  payouts: 'Recruitment Partners › Commission', earnings: 'Applications › Commission', bank: 'Recruitment Partners › Record',
+  tasks: 'My Work', queues: 'Work', mail: 'Mail',
+  users: 'User Roles', regions: 'User Roles', logs: 'Other Configurations',
 };
 export const objectOf = moduleId => OBJECT_OF[moduleId];
-/* The RP's own access (the agency portal's; not GSP's to set in Admin). */
-const RP_ACCESS = {
-  'rp-admin': { students: 'CRUD', 'student-docs': 'CRUD', applications: 'CRU', 'app-docs': 'CRU', chat: 'CRU', 'rp-profile': 'RU', 'rp-docs': 'CRU', 'rp-team': 'CRUD', universities: 'R', courses: 'R', announcements: 'R', earnings: 'RU', bank: 'RU', dashboards: 'R' },
-  'branch-admin': { students: 'CRUD', 'student-docs': 'CRUD', applications: 'CRU', 'app-docs': 'CRU', chat: 'CRU', 'rp-profile': 'R', 'rp-docs': 'R', 'rp-team': 'RU', universities: 'R', courses: 'R', announcements: 'R', earnings: 'R', dashboards: 'R' },
-  counsellor: { students: 'CRU', 'student-docs': 'CRU', applications: 'CRU', 'app-docs': 'CRU', chat: 'CRU', 'rp-profile': 'R', 'rp-team': 'R', universities: 'R', courses: 'R', announcements: 'R' },
+/*
+ * The RP's roles read the same matrix for the objects it has a column for (students, applications and their parts,
+ * Find Courses). The agency's own pages (its profile, documents, team, earnings and bank details) aren't GSP objects:
+ * they stay fixed by role.
+ */
+const RP_MATRIX_NAME = { 'rp-admin': 'RP Admin', 'branch-admin': 'Branch Manager', counsellor: 'Counsellor' };
+const RP_OWN = {
+  'rp-admin': { 'rp-profile': 'RU', 'rp-docs': 'CRU', 'rp-team': 'CRUD', earnings: 'RU', bank: 'RU', dashboards: 'R', announcements: 'R' },
+  'branch-admin': { 'rp-profile': 'R', 'rp-docs': 'R', 'rp-team': 'RU', dashboards: 'R', announcements: 'R' },
+  counsellor: { 'rp-profile': 'R', 'rp-team': 'R', announcements: 'R' },
 };
+/* The RP sees universities and courses through Find Courses. */
+const RP_OBJECT_OF = { ...OBJECT_OF, universities: 'Find Courses', courses: 'Find Courses' };
 const ACTS = { E: 'CRUD', V: 'R', N: '' };
 const nameOfRole = id => PERMISSION_ROLES.find(n => roleId(n) === id);
 /** A role's level on a line of Admin's matrix: 'E' View + edit, 'V' View, 'N' No access. Admin has everything. */
@@ -72,8 +80,11 @@ export function levelOf(roleIdOrName, object) {
   // the one helper (admin/data/menus.ts), by the role's matrix name
   return levelFor(nameOfRole(roleIdOrName) || roleIdOrName, object);
 }
-/** Roles that see every mailbox and every queue's tasks, not only their own (HC30): Admin's oversight line. */
-export const oversees = id => levelOf(id, OVERSIGHT_OBJECT) !== 'N';
+/**
+ * Roles that see every mailbox and every queue's tasks, not only their own (HC30): those with access to Work (the
+ * queue and task-rule settings). The matrix has no separate oversight line (6 Nov).
+ */
+export const oversees = id => levelOf(id, 'Work') !== 'N';
 
 export const ACTIONS = [['C', 'Create'], ['R', 'Read'], ['U', 'Update'], ['D', 'Delete']];
 
@@ -82,7 +93,12 @@ export const ACTIONS = [['C', 'Create'], ['R', 'Read'], ['U', 'Update'], ['D', '
  * reads, View + edit does everything); the first argument is kept for the callers and not used.
  */
 export function can(_matrix, roleId, moduleId, action = 'R') {
-  if (RP_ACCESS[roleId]) return (RP_ACCESS[roleId][moduleId] || '').includes(action);
+  if (RP_MATRIX_NAME[roleId]) {
+    const own = RP_OWN[roleId][moduleId];
+    if (own !== undefined) return own.includes(action);
+    const o = RP_OBJECT_OF[moduleId];
+    return !!o && ACTS[levelFor(RP_MATRIX_NAME[roleId], o)].includes(action);
+  }
   const obj = OBJECT_OF[moduleId];
   if (!obj) return roleId === 'admin';
   return ACTS[levelOf(roleId, obj)].includes(action);

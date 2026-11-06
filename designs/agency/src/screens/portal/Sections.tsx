@@ -95,7 +95,7 @@ export function LaterSection({ section }: { section: Section }) {
 }
 
 /** The RP's Profile (Jovial, 3 Nov): one level of tabs so nothing needs a long scroll. Profile (the agency's details and
- * You), Documents (business documents and the agreement; RP Admin), Branches and team (RP Admin and Branch Admin) and
+ * You), Documents (business documents and the agreement; RP Admin), Branches and team (RP Admin and Branch Manager) and
  * Email preferences. The details are the agency's RP record (what it entered when it registered, as GSP holds it). */
 type ProfileTab = 'profile' | 'documents' | 'team' | 'email';
 export function ProfileSection({
@@ -109,7 +109,7 @@ export function ProfileSection({
   recordDocs,
   record,
 }: {
-  /** Profile › Agreement: RP Admin only (Branch Admin and Counsellor don't see it). */
+  /** Profile › Agreement: RP Admin only (Branch Manager and Counsellor don't see it). */
   agreement?: ReactNode;
   /** The agency's business documents on its RP record (GSP · RP Ops sees the same list), for an RP that isn't registering in this session. */
   recordDocs?: RpDoc[];

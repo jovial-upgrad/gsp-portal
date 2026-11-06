@@ -179,7 +179,8 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
   const seeDocs = canSee(props, OBJ.rpDocs);
   // the RP agreement: Finance, RP Ops and Admin all edit it (Jovial, S2C-10), as the matrix's Documents issued to RPs says
   const issueDocs = canEdit(props, OBJ.rpIssued);
-  const editTeam = canEdit(props, OBJ.rpTeam);
+  const editBranches = canEdit(props, OBJ.rpBranches);
+  const seeComm = canSee(props, OBJ.rpComm);
   const editMp = canEdit(props, OBJ.mps);
   const [tab, setTab] = useState<Tab>(start === 'documents' || start === 'activity' || start === 'commission' ? start : checkDocs && r.docs.some((d) => d.state === 'With BAP') ? 'documents' : 'overview');
   const [doc, setDoc] = useState<{ name: string; file: string } | null>(null);
@@ -299,7 +300,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
             { key: 'documents', label: 'Documents', n: r.docs.length + versionsOf(r).length },
             { key: 'activity', label: 'Activity', n: r.activity.length + agreementActivity(r).length },
           ] as { key: Tab; label: string; n?: number }[]
-        ).filter((t) => t.key !== 'documents' || seeDocs)}
+        ).filter((t) => (t.key !== 'documents' || seeDocs) && (t.key !== 'commission' || seeComm))}
       />
       <TabPanel id="irptab" tab={tab}>
         {tab === 'overview' && (
@@ -384,7 +385,7 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
               title="Branches and team"
               id="irp-team"
               note="The same people the RP’s Profile lists, as GSP sees them on applications."
-              action={editTeam ? <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => setBranching(true)}>Add branch</Button> : undefined}
+              action={editBranches ? <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => setBranching(true)}>Add branch</Button> : undefined}
             >
               {branches.length ? (
                 <div className="stab-wrap">
@@ -433,10 +434,10 @@ function RpPage(props: PageProps & { r: RecruitmentPartner; tab?: string; onBack
             </Section>
           </>
         )}
-        {tab === 'commission' && (
+        {tab === 'commission' && seeComm && (
           <Section title="Commission" id="irp-commission" note="Terms are set by Finance in Commissions (read only here).">
-            {/* Jovial, 1 Nov: read-only terms; RP Ops and Finance can change the bank details */}
-            <RpCommission name={r.name} canBank={canEditObject(role, 'RP bank details')} />
+            {/* read-only terms; bank details follow the RP's record (RP Ops verifies them, T35) */}
+            <RpCommission name={r.name} canBank={canEditObject(role, OBJ.rp)} />
             {commissionHeld(r) && <p className="irsec__note">No agreement is active yet: commission on applications enrolled now is held, and paid once the signed agreement is accepted (S2-11).</p>}
             {activeAgreement(r) && openAgreement(r) && <p className="irsec__note">A new agreement is with the RP; {activeAgreement(r)!.version} stays active, so nothing is held.</p>}
           </Section>

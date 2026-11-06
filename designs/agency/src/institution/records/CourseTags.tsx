@@ -23,7 +23,7 @@ export function CourseTags({ db, set, me, say, role = 'Admin' }: { db: Db; set: 
   const err = !name.trim() ? 'Enter the tag name.' : taken(name) ? 'This tag is already on the list.' : null;
   const renameErr = !to.trim() ? 'Enter the tag name.' : taken(to, renaming?.id) ? 'This tag is already on the list.' : null;
   // the matrix's Settings row (admin/data/menus.ts): View Only and other View roles see the list without actions
-  const may = canEditObject(role, 'Settings');
+  const may = canEditObject(role, 'Course Configuration');
   const uses = (t: CourseTag) => db.courses.filter((c) => c.tags.includes(t.name)).length;
   return (
     <div className="ipage">

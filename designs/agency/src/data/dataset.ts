@@ -41,7 +41,7 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 
 export type DataApp = (typeof DATASET.apps)[number];
 /** One person on an RP's team (W21, 1 Nov): the RP's Profile and GSP's RP contact both read these. */
-export type DataRpPerson = { name: string; email: string; dial: string; phone: string; role: 'RP Admin' | 'Branch Admin' | 'Counsellor'; /** The member's id in the portal (the test agency's: 'me' is whoever signs in as its RP Admin). */ key?: string; branch?: string };
+export type DataRpPerson = { name: string; email: string; dial: string; phone: string; role: 'RP Admin' | 'Branch Manager' | 'Counsellor'; /** The member's id in the portal (the test agency's: 'me' is whoever signs in as its RP Admin). */ key?: string; branch?: string };
 /** One of an RP's offices; the head office (`main`) is the one it registered with. */
 export type DataBranch = { id: string; name: string; country: string; state: string; city: string; main?: boolean };
 export type DataRp = { id: string; name: string; region: string; terms: boolean; city?: string; state?: string; country?: string; since?: string; team?: DataRpPerson[]; branches?: DataBranch[]; /** What it entered when it registered (Jovial, 3 Nov). */ owner?: { name: string; email: string; dial: string; phone: string }; commissionEmail?: string; foundUs?: string };

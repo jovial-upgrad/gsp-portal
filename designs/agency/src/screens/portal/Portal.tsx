@@ -122,7 +122,7 @@ export function Portal({
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || TEST_COUNTRY, homeState));
   // students live here too: a new agency starts with none, an established one with its own
   // an RP sees only its own students and applications: GSP's others (with another RP) aren't theirs
-  // slice 1 Roles (S1-1): a Branch Admin sees their branch's students, a Counsellor only those assigned to them
+  // slice 1 Roles (S1-1): a Branch Manager sees their branch's students, a Counsellor only those assigned to them
   const sees = useMemo(() => rpSees(acc), [acc]);
   const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp).filter(sees));
   // and applications, for those students; the student list shows each one's applications from here
@@ -385,7 +385,7 @@ export function Portal({
         // the business documents on the RP's record, for an RP Admin who isn't registering here (Jovial, 3 Nov)
         recordDocs={myRp && isRpAdmin ? myRp.docs : undefined}
         record={myRp}
-        // RP Admin manages the whole team; a Branch Admin their branch's Counsellors (S2C-14); a Counsellor sees none
+        // RP Admin manages the whole team; a Branch Manager their branch's Counsellors (S2C-14); a Counsellor sees none
         team={acc.role === 'Counsellor' ? undefined : { agency: acc.agency, bdm: manager, team, setTeam, branches, setBranches, students, setStudents, viewer: { role: acc.role, email: acc.email } }}
       />
     ) : section === 'students' ? (

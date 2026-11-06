@@ -302,9 +302,9 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
         )}
 
         {tab === 'pictures' && <Pictures u={u} upd={part('pictures')} say={say} updated={u.stamps.pictures} edit={editSite} />}
-        {tab === 'scholarships' && <Scholarships u={u} upd={part('scholarships')} say={say} updated={u.stamps.scholarships} edit={edit} />}
-        {tab === 'territory' && <Territory u={u} rps={db.rps} upd={upd} say={say} me={me} edit={edit} />}
-        {tab === 'submission' && <Submission u={u} p={p} part={part} say={say} me={me} role={role} edit={edit} editLogins={editLogins} seeLogins={seeLogins} />}
+        {tab === 'scholarships' && <Scholarships u={u} upd={part('scholarships')} say={say} updated={u.stamps.scholarships} edit={canEdit(props, OBJ.scholarships) && !ended} />}
+        {tab === 'territory' && <Territory u={u} rps={db.rps} upd={upd} say={say} me={me} edit={canEdit(props, OBJ.territory) && !ended} />}
+        {tab === 'submission' && <Submission u={u} p={p} part={part} say={say} me={me} role={role} edit={canEdit(props, OBJ.submission) && !ended} editLogins={editLogins} seeLogins={seeLogins} />}
         {tab === 'log' && <ChangeLog log={u.log} id="iu-log" />}
       </TabPanel>
 

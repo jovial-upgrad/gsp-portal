@@ -50,7 +50,8 @@ export function PartnerPage(props: PageProps & { p: InstitutionPartner; tab?: st
   const edit = canEdit(props, OBJ.ips);
   const seeDocs = canSee(props, OBJ.ipDocs);
   const editDocs = canEdit(props, OBJ.ipDocs);
-  const tabs = TABS.filter((t) => t !== 'documents' || seeDocs);
+  const seeComm = canSee(props, OBJ.ipComm);
+  const tabs = TABS.filter((t) => (t !== 'documents' || seeDocs) && (t !== 'commission' || seeComm));
   const [tab, setTab] = useState<Tab>(tabs.includes(start as Tab) ? (start as Tab) : 'overview');
   const [status, setStatus] = useState<PartnerStatus>(p.status);
   const [ending, setEnding] = useState<{ to: PartnerStatus; end: boolean } | null>(null);
@@ -269,7 +270,7 @@ export function PartnerPage(props: PageProps & { p: InstitutionPartner; tab?: st
 
         {tab === 'documents' && seeDocs && <Documents p={p} me={me} role={role} edit={editDocs} save={save} say={say} />}
 
-        {tab === 'commission' && (
+        {tab === 'commission' && seeComm && (
           <Section title="Commission" id="ip-commission" note="Set by Finance in Commissions (a later slice). Read only here.">
             <IpCommission unis={unis} />
           </Section>
