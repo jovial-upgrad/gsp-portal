@@ -13,6 +13,7 @@ import { Page, Card, Select, Table, Button, Notice, NumberInput, toast } from '.
 import { PersonaBar, usePersona } from './persona';
 import { useComm } from './shared';
 import { currencyName } from '../admin/data/config';
+import { adminCfg } from '../admin/data/store';
 import { fmtDate } from '../data/format';
 
 const DAY = 864e5;
@@ -23,15 +24,18 @@ const mondayOf = (t) => {
   return d.toISOString().slice(0, 10);
 };
 const fmt = n => (!(n > 0) ? '' : n < 0.01 ? String(Number(n.toPrecision(3))) : n.toLocaleString('en-GB', { maximumFractionDigits: 4 }));
-const ok = v => Number(v) > 0 && !/\.\d{5,}/.test(String(v));
+// a rate above 0 (small currencies like the dong need many decimals: 0.0000585)
+const ok = v => Number(v) > 0;
 
 export default function FxRates() {
   const { c, cfg } = useComm();
   const { user, role } = usePersona();
   const canEdit = can(null, role.id, 'comm-terms', 'U');
   const weeks = [...(cfg.settings.fx || [])].sort((a, b) => (a.week < b.week ? -1 : 1));
-  const thisWeek = mondayOf(Date.now());
-  const nextWeek = mondayOf(Date.now() + 7 * DAY);
+  // Finance's today (the prototype's demo date when it's moved)
+  const now = Date.parse(`${c.today}T12:00:00+05:30`) || Date.now();
+  const thisWeek = mondayOf(now);
+  const nextWeek = mondayOf(now + 7 * DAY);
   // the currencies Finance pays or invoices in, and any already in its table
   const codes = [...new Set([...weeks.flatMap(w => Object.keys(w).filter(k => k !== 'week')), ...cfg.unis.map(u => u.cur), ...cfg.rps.map(r => r.cur)].filter(Boolean))]
     .sort((a, b) => (a === 'AUD' ? -1 : b === 'AUD' ? 1 : a.localeCompare(b)));
@@ -44,7 +48,7 @@ export default function FxRates() {
   const [tried, setTried] = useState(false);
   const value = code => (draft ? draft[code] : row?.[code]) ?? '';
   const start = () => setDraft(Object.fromEntries(codes.map(k => [k, k === 'AUD' ? 1 : row?.[k] ?? before?.[k] ?? ''])));
-  const err = code => (code === 'AUD' || !draft ? null : !ok(draft[code]) ? 'Enter a number above 0, with up to 4 decimals.' : null);
+  const err = code => (code === 'AUD' || !draft ? null : !ok(draft[code]) ? 'Enter a number above 0.' : null);
   const bad = draft ? codes.filter(err) : [];
   const usedBy = code => {
     const u = cfg.unis.filter(x => x.cur === code).length, r = cfg.rps.filter(x => x.cur === code).length;
@@ -52,7 +56,9 @@ export default function FxRates() {
   };
   // Fetch with AI drafts every rate from last week's, as a fetch would; nothing is saved until Finance saves
   const fetchAi = () => {
-    const base = Object.fromEntries(codes.map(k => [k, k === 'AUD' ? 1 : Number(row?.[k] ?? before?.[k]) || '']));
+    // the fetch finds every rate: last week's moved a little, or the market rate (the search rates) for a currency Finance hasn't had yet
+    const market = k => adminCfg().rates.find(r => r.code === k)?.aud;
+    const base = Object.fromEntries(codes.map(k => [k, k === 'AUD' ? 1 : Number(row?.[k] ?? before?.[k]) || Number(market(k)) || '']));
     setDraft(Object.fromEntries(Object.entries(base).map(([k, v]) => [k, k === 'AUD' || !v ? v : Number((v * (1 + ((k.charCodeAt(0) + k.charCodeAt(2)) % 9 - 4) / 1000)).toPrecision(4))])));
     toast('Rates drafted. Check them, then Save.');
   };

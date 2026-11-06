@@ -15,7 +15,7 @@ import { Page, Card, Segmented, Table, Pill, Button, LinkButton, Sheet, Empty, N
 import { PersonaBar, usePersona } from './persona';
 import { nice, money, r2 } from './engine';
 import { useComm, liveRun, opsOf, cycleOf, downloadCsv } from './shared';
-import { UniWhy, WhySheet, lineLabel } from './Commissions';
+import { lineLabel, DemoClock } from './Commissions';
 import { batchesOf, raiseBatch, PaySheet as UniPaySheet, FixSheet } from './UniInvoices';
 import { CheckSheet, PaySheet as RpPaySheet, AnswerSheet } from './Payout';
 import { INV_STATUS, onInvoice } from './rpInvoice';
@@ -35,8 +35,6 @@ export default function CommissionLines({ start = 'uni' }) {
   const [q, setQ] = useState('');
   const [needs, setNeeds] = useState(start === 'exc');
   const [open, setOpen] = useState({});
-  const [whyU, setWhyU] = useState(null);
-  const [whyR, setWhyR] = useState(null);
   const [ov, setOv] = useState(null);
   const [payU, setPayU] = useState(null);
   const [fix, setFix] = useState(null);
@@ -103,7 +101,7 @@ export default function CommissionLines({ start = 'uni' }) {
   return (
     <Page title="Commission lines" top={<PersonaBar />}
       lead="Every application that earns commission has two lines: what the university owes GSP, and what GSP owes the RP. Open a line to see each transaction and its status."
-      actions={<Button onClick={exportCsv}>Export</Button>}>
+      actions={<div className="gspx-acts"><DemoClock c={c} canMove={canAct} /><Button onClick={exportCsv}>Export</Button></div>}>
       <Segmented label="Side" options={[['uni', `University (${uniTx.length})`], ['rp', `Agency (${rpTx.length})`]]} value={side} onChange={(v) => { setSide(v); setStatus([]); setTypes([]); }} />
 
       {/* what needs doing now, on this side */}
@@ -172,7 +170,6 @@ export default function CommissionLines({ start = 'uni' }) {
                     <td className="num">{money(t.amt, t.cur)}</td>
                     <td><Pill tone={t.st[1]}>{t.st[0]}</Pill>{t.note && <span className="irow__sub">{t.note}</span>}{t.ov && <span className="irow__sub">Overridden by {t.ov.byName || 'Finance'}: {t.ov.reason}</span>}{t.query && <span className="irow__sub">Query from the RP: {t.query.text}</span>}</td>
                     <td><div className="gspx-acts">
-                      <LinkButton onClick={() => (side === 'uni' ? setWhyU(t.x) : setWhyR(t.x))}>How it’s worked out</LinkButton>
                       {canAct && side === 'uni' && /Invoiced|Overdue/.test(t.st[0]) && (invOf(t) ? <LinkButton onClick={() => setPayU(invOf(t))}>Record payment</LinkButton> : <LinkButton onClick={() => setSelfPay(t)}>Record payment</LinkButton>)}
                       {canAct && side === 'uni' && t.st[0] === 'Ready to invoice' && t.x.u.selfBilling && <LinkButton onClick={() => setSelfPay(t)}>Record payment</LinkButton>}
                       {canAct && t.query && <LinkButton onClick={() => setAnswer(t.query)}>Answer query</LinkButton>}
@@ -184,8 +181,6 @@ export default function CommissionLines({ start = 'uni' }) {
         </Table>
       </Card>
 
-      {whyU && <UniWhy x={whyU} r={res.apps[whyU.app]} cfg={cfg} onClose={() => setWhyU(null)} />}
-      {whyR && <WhySheet x={whyR} canEdit={false} user={user} onClose={() => setWhyR(null)} />}
       {ov && <OverrideSheet t={ov} user={user} onClose={() => setOv(null)} />}
       {raising && <RaiseSheet batches={batches} cyc={cyc} user={user} onClose={() => setRaising(false)} />}
       {payU && <UniPaySheet inv={payU} c={c} ops={ops} user={user} onClose={() => setPayU(null)} />}
@@ -199,7 +194,9 @@ export default function CommissionLines({ start = 'uni' }) {
 }
 
 /** Raise this month's university invoices: each batch, one click each, or all. */
-function RaiseSheet({ batches, cyc, user, onClose }) {
+function RaiseSheet({ batches: now, cyc, user, onClose }) {
+  // the batches as they were when the sheet opened, so a raised one stays listed as Raised
+  const [batches] = useState(now);
   const [done, setDone] = useState({});
   const left = batches.filter((b) => !done[b.key]);
   const raise = (b) => { raiseBatch(b, cyc, user); setDone((d) => ({ ...d, [b.key]: true })); };

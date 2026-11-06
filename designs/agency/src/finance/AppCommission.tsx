@@ -101,7 +101,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
           </div>
           <div className="stab-wrap">
             <table className="itab">
-              <thead><tr><th scope="col">Line</th><th scope="col">Due</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col"><span className="vh">Working</span></th></tr></thead>
+              <thead><tr><th scope="col">Line</th><th scope="col">Due</th><th scope="col">Amount</th><th scope="col">Status</th></tr></thead>
               <tbody>
                 {ip.map((x) => { const k = 'u' + x.l.key; const [t, tone] = stOf(x.l.st); return [
                   <tr key={k} className="irow">
@@ -109,9 +109,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
                     <td className="num">{nice(x.l.date)}</td>
                     <td className="num">{money(x.l.ent, uni.cur)}{x.l.gst ? <span className="irow__sub">+ GST {money(x.l.gst, uni.cur)}</span> : null}</td>
                     <td><span className={`dpill ${tone}`}>{t}</span></td>
-                    <td><button type="button" className="btn btn--link gspx-link" aria-expanded={open === k} onClick={() => setOpen(open === k ? null : k)}>{open === k ? 'Hide working' : 'How it’s worked out'}</button></td>
                   </tr>,
-                  open === k && <tr key={k + 'w'} className="gspx-working"><td colSpan={5}><ol className="gspx-why">{uniSteps({ ...x, a: { ...x.a, student: '' } }, r, cfg).map((w, i) => <li key={i}>{w}</li>)}</ol></td></tr>,
                 ]; })}
               </tbody>
             </table>
@@ -126,7 +124,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
         </div>
         <div className="stab-wrap">
           <table className="itab">
-            <thead><tr><th scope="col">Payment</th><th scope="col">{side === 'rp' ? 'Your rate' : 'RP rate'}</th><th scope="col">Amount{side === 'rp' ? ` (${cur})` : ''}</th><th scope="col">Status</th><th scope="col"><span className="vh">Working</span></th></tr></thead>
+            <thead><tr><th scope="col">Payment</th><th scope="col">{side === 'rp' ? 'Your rate' : 'RP rate'}</th><th scope="col">Amount{side === 'rp' ? ` (${cur})` : ''}</th><th scope="col">Status</th></tr></thead>
             <tbody>
               {rpLines.map((x) => { const k = 'r' + x.key; const [t, tone] = stOf(x.st); const amt = side === 'rp' ? inRp(x.ent, x.cur) : x.ent; return [
                 <tr key={k} className="irow">
@@ -134,17 +132,7 @@ export function AppCommission({ a, agency, side }: { a: Application; agency: str
                   <td className="num">{x.kind === 'pct' ? (x.lp == null ? '—' : `${x.lp}%`) : 'Fixed'}</td>
                   <td className="num">{money(amt, side === 'rp' ? cur : x.cur)}{x.paid ? <span className="irow__sub">Paid {money(side === 'rp' ? inRp(x.paid, x.cur) : x.paid, side === 'rp' ? cur : x.cur)}</span> : null}</td>
                   <td><span className={`dpill ${tone}`}>{t}</span></td>
-                  <td><button type="button" className="btn btn--link gspx-link" aria-expanded={open === k} onClick={() => setOpen(open === k ? null : k)}>{open === k ? 'Hide working' : 'How it’s worked out'}</button></td>
                 </tr>,
-                open === k && (
-                  <tr key={k + 'w'} className="gspx-working"><td colSpan={5}>
-                    <ol className="gspx-why">
-                      {(side === 'both' && x.trace ? traceText(x.trace) : x.why || [...(r.rpWhy || []), ...(x.annuity ? [r.annWhy] : [])]).map((w, i) => <li key={i}>{w}</li>)}
-                      {side === 'both' && x.ip && <li>GSP’s commission on this line is {money(x.ip.ent, uni.cur)}; {x.lp}% of it is {money(x.ent, x.cur)}.</li>}
-                      {side === 'rp' && x.cur !== cur && <li>Shown in {cur} at this week’s rate; the exact amount is fixed on the payout day.</li>}
-                    </ol>
-                  </td></tr>
-                ),
               ]; })}
             </tbody>
           </table>

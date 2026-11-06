@@ -134,7 +134,7 @@ export default function Earnings() {
                 <td className="num">{state === 'recover' && x.a.withdrawn ? '—' : <>{x.kind === 'pct' ? `${x.lp}%` : 'Bonus'}{x.kind === 'pct' && <span className="irow__sub">{rateWhy(x)}</span>}</>}</td>
                 <td className="num">{state === 'recover' ? money(due, cur) : money(amt, cur)}</td>
                 <td><Pill tone={LINE_STATUS[state][1]}>{LINE_STATUS[state][0]}</Pill>{q && <span className="irow__sub">Query open</span>}</td>
-                <td><div className="gspx-acts"><LinkButton onClick={() => setWhy(x)}>How it’s worked out</LinkButton>{canAct && !q && <LinkButton onClick={() => setAsk(x)}>Query this line</LinkButton>}</div></td>
+                <td><div className="gspx-acts">{canAct && !q && <LinkButton onClick={() => setAsk(x)}>Query this line</LinkButton>}</div></td>
               </tr>);
           })}
         </Table>

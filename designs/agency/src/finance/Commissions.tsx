@@ -88,7 +88,7 @@ export default function Commissions({ view }) {
 
 const TODAY = new Date().toISOString().slice(0, 10);
 /* The commission clock. In the demo Finance can move time to see lines fall due. */
-function DemoClock({ c, canMove }) {
+export function DemoClock({ c, canMove }) {
   const set = d => update(x => { x.comm.today = d; }, `Commission demo date set to ${nice(d)}`);
   return (
     <div className="gspx-clock">

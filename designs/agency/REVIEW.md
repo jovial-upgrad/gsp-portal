@@ -16,7 +16,7 @@ How this list works: before changing a page, check its section here. When an ite
 - [x] **RP Earnings:** the commission terms card is gone; where GSP pays is a one-line nudge at the top with Change bank account. (6 Nov, commit “Commissions made simple”)
 - [x] RP invoices are priced at this week's rates (they were looking for the pay day's week, so lines showed held). (6 Nov, commit “Commissions made simple”)
   - Decisions: Agency side is ready to pay only after the university pays GSP; overrides by Finance and Admin; payments by hand until Xero (phase two).
-  - Open: "How it's worked out" wording still comes from code; the proposal is a Calculation wording table in settings.
+- [x] **How it's worked out removed** from Commission lines, RP Earnings and the application's Commission tab (Jovial, 6 Nov: not needed); Override stays. Recording a payment and marking an RP invoice paid ask for confirmation. Exchange rates follow the demo date, Fetch with AI fills every currency, and small rates (the dong) save. A demo date on Commission lines moves time forward. (6 Nov, commit “Commissions walkthrough fixes”)
 
 ## 6 Nov, afternoon: eligibility for every market (Jovial, in chat)
 
