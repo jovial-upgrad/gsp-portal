@@ -17,7 +17,7 @@ import { ChangeLog, Empty, Facts, Gone, NoMatch, PageHead, Pick, Pill, RecordHea
 import { SearchPick } from './SearchPick';
 import { RpPill } from './RecruitmentPartners';
 import { downloadFile } from './PartnerPage';
-import { OBJ, canEdit, type PageProps } from '../portal/model';
+import { OBJ, canEdit, canSee, type PageProps } from '../portal/model';
 
 const SPEC: LogSpec<MasterPartner> = {
   record: 'Master Partner',
@@ -147,6 +147,9 @@ function MpPage(props: PageProps & { m: MasterPartner; tab?: string; onBack: () 
   const { m, tab: start, onBack, backLabel, db, set, say, me, open } = props;
   const role = props.role ?? 'RP Ops';
   const edit = canEdit(props, OBJ.mps);
+  const seeDocs = canSee(props, OBJ.mpDocs);
+  const editDocs = canEdit(props, OBJ.mpDocs);
+  const seeComm = canSee(props, OBJ.mpComm);
   const [tab, setTab] = useState<Tab>((['overview', 'rps', 'documents', 'commission', 'log'] as Tab[]).includes(start as Tab) ? (start as Tab) : 'overview');
   const [editing, setEditing] = useState(false);
   const [linking, setLinking] = useState(false);
@@ -189,13 +192,13 @@ function MpPage(props: PageProps & { m: MasterPartner; tab?: string; onBack: () 
         label="Master Partner"
         tab={tab}
         setTab={setTab}
-        tabs={[
+        tabs={([
           { key: 'overview', label: 'Overview' },
           { key: 'rps', label: 'RPs', n: m.rps.length },
           { key: 'documents', label: 'Documents', n: m.docs.length },
           { key: 'commission', label: 'Commission' },
           { key: 'log', label: 'Change log', n: m.log.length },
-        ]}
+        ] as { key: Tab; label: string; n?: number }[]).filter((t) => (t.key !== 'documents' || seeDocs) && (t.key !== 'commission' || seeComm))}
       />
       <TabPanel id="imptab" tab={tab}>
         {tab === 'overview' && (
@@ -282,8 +285,8 @@ function MpPage(props: PageProps & { m: MasterPartner; tab?: string; onBack: () 
             )}
           </Section>
         )}
-        {tab === 'documents' && (
-          <Section title="Documents" id="imp-docs" note="Uploaded by RP Ops. No checking, verification or agreement signing (S2-25)." action={edit ? <Button variant="secondary" size="sm" iconLeft={<Icon name="upload" size={16} />} onClick={() => setUploading(true)}>Upload a document</Button> : undefined}>
+        {tab === 'documents' && seeDocs && (
+          <Section title="Documents" id="imp-docs" note="Uploaded by RP Ops. No checking, verification or agreement signing (S2-25)." action={editDocs ? <Button variant="secondary" size="sm" iconLeft={<Icon name="upload" size={16} />} onClick={() => setUploading(true)}>Upload a document</Button> : undefined}>
             {m.docs.length ? (
               <ul className="ilist">
                 {m.docs.map((d) => (
@@ -306,7 +309,7 @@ function MpPage(props: PageProps & { m: MasterPartner; tab?: string; onBack: () 
             )}
           </Section>
         )}
-        {tab === 'commission' && (
+        {tab === 'commission' && seeComm && (
           <Section title="Commission" id="imp-commission" note="Finance sets the Master Partner’s terms in Commissions (read only here). Commission tiers count all of its RPs together.">
             <RpCommission name={m.name} canBank={false} />
           </Section>

@@ -180,8 +180,8 @@ export function CoursePage(props: PageProps & { c: CourseRec; tab?: string; back
         )}
         {tab === 'intakes' && <Intakes key={c.id} c={c} save={save} edit={edit} />}
         {tab === 'fees' && <Fees key={c.id} c={c} save={save} edit={edit} />}
-        {tab === 'academic' && <Academic key={c.id} c={c} save={save} edit={edit} />}
-        {tab === 'english' && <English key={c.id} c={c} save={save} edit={edit} />}
+        {tab === 'academic' && <Academic key={c.id} c={c} save={save} edit={canEdit(props, OBJ.academic)} />}
+        {tab === 'english' && <English key={c.id} c={c} save={save} edit={canEdit(props, OBJ.english)} />}
         {tab === 'log' && <ChangeLog log={c.log} id="ic-log" />}
       </TabPanel>
 

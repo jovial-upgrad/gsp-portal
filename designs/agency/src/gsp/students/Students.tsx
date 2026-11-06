@@ -234,7 +234,7 @@ export function Students({
           <h1 className="page__title">Students</h1>
           <p className="stu__lead">Every RP’s students, with their profiles and applications.</p>
         </div>
-        {list.length > 0 && canEditNow('Students') && (
+        {list.length > 0 && canEditNow('Students › Record') && (
           <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdd({ key: Date.now() })}>
             Add student
           </Button>

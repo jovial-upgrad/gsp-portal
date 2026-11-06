@@ -128,7 +128,7 @@ export function CounsellorPicker({
           <span className="cpick__none">No counsellor</span>
         )}
       </span>
-      {/* slice 1 Roles rule: only an RP Admin or Branch Admin changes a student's counsellor */}
+      {/* slice 1 Roles rule: only an RP Admin or Branch Manager changes a student's counsellor */}
       {currentRole() !== 'rp-counsellor' && <button
         ref={btn}
         type="button"

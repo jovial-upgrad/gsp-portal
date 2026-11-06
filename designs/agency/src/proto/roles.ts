@@ -5,7 +5,7 @@
  * - **Global Ops** reuses GSP · Admissions with every region and the oversight tab, and works Global Admissions.
  * - **IP Ops** reuses GSP · Institution (the Institution Team's portal, which IP Ops shares).
  * - **View Only** reuses GSP · Admin's pages, read only.
- * - **Branch Admin** and **Counsellor** reuse RP Admin with the lists cut to their branch, or their own students, and
+ * - **Branch Manager** and **Counsellor** reuse RP Admin with the lists cut to their branch, or their own students, and
  *   the admin-only actions removed.
  */
 export type Role =
@@ -34,7 +34,7 @@ export const ROLES: { key: Role; label: string; note: string }[] = [
   { key: 'gsp-finance', label: 'GSP · Finance', note: 'Commission terms, invoices, payouts.' },
   { key: 'gsp-view-only', label: 'GSP · View Only', note: 'Leadership and auditors: sees everything, changes nothing.' },
   { key: 'rp-admin', label: 'RP Admin', note: 'The whole RP: every branch, student and application, earnings, the team.' },
-  { key: 'rp-branch-admin', label: 'RP · Branch Admin', note: 'One branch’s students and applications; manages that branch’s counsellors.' },
+  { key: 'rp-branch-admin', label: 'RP · Branch Manager', note: 'One branch’s students and applications; manages that branch’s counsellors.' },
   { key: 'rp-counsellor', label: 'RP · Counsellor', note: 'Only the students and applications assigned to them.' },
 ];
 /** The roles that use GSP Admin's portal, each with its own menu. */
@@ -70,7 +70,7 @@ export const PERM_ROLE: Record<Role, string | null> = {
   'gsp-view-only': 'View Only',
 };
 /** The RP role each RP key signs in as (its person is on the test agency's team). */
-export const RP_ROLE: Partial<Record<Role, string>> = { 'rp-admin': 'RP Admin', 'rp-branch-admin': 'Branch Admin', 'rp-counsellor': 'Counsellor' };
+export const RP_ROLE: Partial<Record<Role, string>> = { 'rp-admin': 'RP Admin', 'rp-branch-admin': 'Branch Manager', 'rp-counsellor': 'Counsellor' };
 
 /** The role the prototype shows now (set by App as the Role menu changes), for pages shared by two roles. */
 let current: Role = 'rp-admin';

@@ -3,10 +3,10 @@ import { rpBranches } from './rpteam';
 import type { Member, TeamRole } from './students';
 
 /**
- * The roles (RP Admin only, Nesil 29 Oct). An RP Admin sees and manages everything; a Branch Admin, their branch;
+ * The roles (RP Admin only, Nesil 29 Oct). An RP Admin sees and manages everything; a Branch Manager, their branch;
  * a Counsellor, only their own students and applications.
  */
-export const TEAM_ROLES: TeamRole[] = ['RP Admin', 'Branch Admin', 'Counsellor'];
+export const TEAM_ROLES: TeamRole[] = ['RP Admin', 'Branch Manager', 'Counsellor'];
 
 /** One of the agency's offices. The head office is the one it registered with; it can't be removed. */
 export type Branch = { id: string; name: string; country: string; state: string; city: string; main?: boolean };

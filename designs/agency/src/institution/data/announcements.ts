@@ -28,7 +28,7 @@ export const SUBCATEGORIES: Partial<Record<(typeof ANN_CATEGORIES)[number], stri
 export const USER_TYPES = ['GSP', 'RP'] as const;
 /** Who an announcement can go to (slice 2 PRD): GSP's nine permission roles (slice 1 names) and the three RP roles. No Master Partner (S2-24). */
 export const GSP_ROLES = ['Admin', 'Admission', 'Global Ops', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'Finance', 'View Only'] as const;
-export const RP_ROLES = ['RP Admin', 'Branch Admin', 'Counsellor'] as const;
+export const RP_ROLES = ['RP Admin', 'Branch Manager', 'Counsellor'] as const;
 export const PERMISSION_ROLES = [...GSP_ROLES, ...RP_ROLES] as const;
 void GSP_PERMISSION_ROLES;
 /** The sales regions (HC38, 1 Nov): GSP · Admin › Sales regions, the only list, read each time it's listed. */

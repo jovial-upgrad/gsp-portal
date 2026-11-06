@@ -8,7 +8,7 @@ import { MoreMenu } from '../../components/MoreMenu';
 import { Field, TextInput } from '../../components/forms';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { PageHead } from '../../institution/records/parts';
-import { LEVELS, LEVEL_SHORT, OBJECTS, REGION_MEANS, ROLES, isSystemRegion, type Level, type Region } from '../data/config';
+import { LEVELS, LEVEL_SHORT, MATRIX_ROLES, OBJECTS, OBJECT_GROUPS, REGION_MEANS, isSystemRegion, type Level, type Region } from '../data/config';
 import { nationalityWord } from '../data/nationalities';
 import { COUNTRIES } from '../../data/partners';
 import { useStore } from '../../work/store';
@@ -438,21 +438,15 @@ function NationalityMap({ cfg, change, say, canEdit }: ConfigProps) {
   );
 }
 
-const GROUPS: [string, number, number][] = [
-  ['Students and applications', 0, 6],
-  ['Recruitment partners', 6, 11],
-  ['Institutions and courses', 11, 20],
-  ['Commissions', 20, 25],
-  ['GSP', 25, 29],
-  ['Work', 29, 33],
-];
+
 const LEVEL_NAME = Object.fromEntries(LEVELS) as Record<Level, string>;
 
 /**
- * Permission roles (PRD slice 1, Permission model): the matrix, 33 objects × the 9 GSP roles, each cell No access
- * (—), View or View + edit (Edit). Read only until Edit; Save or Cancel. Admin always has Edit on everything and
- * can't be lowered. Each changed cell is logged old → new and applies from each person's next request. RP roles
- * aren't here: they're fixed by role. Sales region isolation still applies: only Admin sees every region.
+ * Permission roles (PRD slice 1, Permission model; objects from Jovial's sheet, 6 Nov): the matrix, each module and
+ * its parts × the 9 GSP roles and the RP's 3, each cell No access (—), View or View + edit (Edit). Read only until
+ * Edit; Save or Cancel. Admin always has Edit on everything and can't be lowered. Each changed cell is logged old → new
+ * and applies from each person's next request. Scope still applies: only Admin sees every region; RP users see their
+ * own agency, branch or students.
  */
 export function Permissions({ cfg, change, say, canEdit }: ConfigProps) {
   const d = useDraft(cfg.perms, 'the permission matrix');
@@ -462,7 +456,7 @@ export function Permissions({ cfg, change, say, canEdit }: ConfigProps) {
     const r = trySave();
     if (r !== 'ok') return setResult(r);
     const diffs: string[] = [];
-    for (const o of OBJECTS) for (const role of ROLES) if (role !== 'Admin' && (cfg.perms[o]?.[role] ?? 'N') !== (v[o]?.[role] ?? 'N')) diffs.push(`${role}, ${o}: ${LEVEL_NAME[cfg.perms[o]?.[role] ?? 'N']} → ${LEVEL_NAME[v[o]?.[role] ?? 'N']}`);
+    for (const o of OBJECTS) for (const role of MATRIX_ROLES) if (role !== 'Admin' && (cfg.perms[o]?.[role] ?? 'N') !== (v[o]?.[role] ?? 'N')) diffs.push(`${role}, ${o}: ${LEVEL_NAME[cfg.perms[o]?.[role] ?? 'N']} → ${LEVEL_NAME[v[o]?.[role] ?? 'N']}`);
     change('Permission roles', diffs.join('; ') || 'No changes', (c) => ({ ...c, perms: v }));
     say('Saved.');
     setResult(null);
@@ -471,38 +465,39 @@ export function Permissions({ cfg, change, say, canEdit }: ConfigProps) {
   const cell = (o: string, role: string): Level => (role === 'Admin' ? 'E' : ((v[o]?.[role] ?? 'N') as Level));
   return (
     <>
-      <PageHead title="Permission roles" lead="What each GSP role can see and change: No access (—), View, or View + edit (Edit). A page whose objects are all No access isn’t in that role’s menu. Admin always has Edit on everything. Sales region isolation still applies: only Admin sees every region, every other role sees the sales regions on the person. The RP’s roles are fixed by role.">
+      <PageHead title="Permission roles" lead="What each role, GSP’s and the RP’s, can see and change in each module and its parts: No access (—), View, or View + edit (Edit). A page whose objects are all No access isn’t in that role’s menu. Admin always has Edit on everything. Scope still applies: only Admin sees every region, every other GSP role sees the sales regions on the person, and RP users see their own agency, branch or students.">
         {canEdit && <EditBar name="the permission matrix" editing={d.editing} dirty={d.dirty} onEdit={d.start} onCancel={() => (setResult(null), d.stop())} onSave={save} />}
       </PageHead>
       {!canEdit && <ViewOnlyNote />}
       {d.editing && <SaveBanner result={result} onReload={d.stop} />}
-      <Loaded page="the permission matrix" cols={10}>
+      <Loaded page="the permission matrix" cols={13}>
         <Panel flush>
           <div className="stab-wrap cfg__matrixwrap">
             <table className="itab cfg__tab cfg__matrix">
               <thead>
                 <tr>
                   <th scope="col">Object</th>
-                  {ROLES.map((r) => (
+                  {MATRIX_ROLES.map((r) => (
                     <th key={r} scope="col" className="cfg__lvl">
                       {r}
                     </th>
                   ))}
                 </tr>
               </thead>
-              {GROUPS.map(([g, a, b]) => (
+              {OBJECT_GROUPS.map(([g, objs]) => (
                 <tbody key={g}>
                   <tr className="cfg__grouprow">
-                    <th scope="rowgroup" colSpan={ROLES.length + 1}>
+                    <th scope="rowgroup" colSpan={MATRIX_ROLES.length + 1}>
                       {g}
                     </th>
                   </tr>
-                  {OBJECTS.slice(a, b).map((o) => (
+                  {objs.map((o) => (
                     <tr key={o}>
                       <th scope="row" className="cfg__strong">
-                        {o}
+                        {/* a part shows by its own name under its module's heading */}
+                        {o.startsWith(`${g} › `) ? o.slice(g.length + 3) : o}
                       </th>
-                      {ROLES.map((role) => {
+                      {MATRIX_ROLES.map((role) => {
                         const l = cell(o, role);
                         return (
                           <td key={role} className="cfg__lvl">

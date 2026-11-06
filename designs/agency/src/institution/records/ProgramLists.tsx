@@ -19,7 +19,7 @@ const WORD: Record<Kind, { one: string; many: string }> = { levels: { one: 'prog
  * Settings: View roles see the lists without actions.
  */
 export function ProgramLists({ db, set, me, say, role = 'Admin' }: { db: Db; set: SetDb; me: string; say: (m: string) => void; role?: string }) {
-  const may = canEditObject(role, 'Settings');
+  const may = canEditObject(role, 'Course Configuration');
   return (
     <div className="ipage">
       <PageHead title="Program levels and study areas" lead="The lists a course picks its program level and study area from. Each program level says which level of the application form it counts as." />

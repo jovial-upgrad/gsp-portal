@@ -6,6 +6,12 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 6 Nov: Permission roles from Jovial's sheet (Jovial, in chat)
+
+- [x] **Permission roles match Jovial's sheet:** the objects are now the modules and their parts (My Work; Mail; Find Courses › Commissions; Students › List, Record, Documents; Applications › List, Record, Chat, Mail, Documents, Submission, Commission; Recruitment Partners › List, Record, Commission, Documents, Agreement, Branches, Teams; Master Partners and Institution Partners › List, Record, Documents, Commission; Universities › List, Record, Update QS Rankings, Scholarships, Territory, Submission & Contacts; Courses › List, Record, Academic, English; Announcements › List, Record; User Roles; Recruitment Assignment; Course, Application and Other Configurations; Work). The RP's three roles (RP Admin, Branch Manager, Counsellor) are columns of the same matrix. Each page, tab and menu item reads its row. (6 Nov, commit “Permission roles from Jovial's sheet”)
+  - Decisions: Admin stays at Edit everywhere (the sheet had View on Master Partner and Institution Partner commission); **Finance edits every commission tab** (RP, Master Partner, Institution Partner), the others view; **no My Work for the RP's roles**. "Branch Admin" is renamed **Branch Manager**, as in the PRD.
+  - Open: the matrix has no oversight row, so only roles with access to Work (Admin) see every queue's tasks and every mailbox; Global Ops sees its own queue, level 2 escalations and the mailboxes it's given in Emails. Admission's and Global Ops' portal has no Institution pages yet, though the sheet gives them View on universities, courses and partners.
+
 ## 5 Nov, night: the commissions flow (Jovial, Pending Questions › Commissions flow)
 
 - [x] **Monthly RP invoices:** download the system invoice, add the RP's number, sign and upload; Finance checks (checklist), approves or sends back with a reason, and marks paid with the bank reference by the pay-by day. Line statuses, How it's worked out (fee, share, band; never GSP's side), Query this line, the RP's bell. (5 Nov, commit “Commissions: the monthly flow”)

@@ -1,9 +1,9 @@
 /**
  * The RP's three roles (PRD slice 1, Roles): fixed by role, not in Admin's matrix.
  * - **RP Admin**: the whole RP, every branch, student and application, earnings; the team, branches and bank details.
- * - **Branch Admin**: one branch's students and applications; manages that branch's counsellors.
+ * - **Branch Manager**: one branch's students and applications; manages that branch's counsellors.
  * - **Counsellor**: only the students and applications assigned to them; chat only on those.
- * Only an RP Admin or Branch Admin changes a student's counsellor; earnings are the RP Admin's only.
+ * Only an RP Admin or Branch Manager changes a student's counsellor; earnings are the RP Admin's only.
  */
 import { rpTeam } from './rpteam';
 import type { Student } from './students';
@@ -18,7 +18,7 @@ export function rpSees(acc: Acc): (s: Student) => boolean {
   const me = team.find((m) => m.email === acc.email) ?? team[0];
   if (!me) return () => true;
   if (acc.role === 'Counsellor') return (s) => s.counsellor === me.id;
-  // Branch Admin: students whose counsellor works in their branch
+  // Branch Manager: students whose counsellor works in their branch
   const branch = me.branch ?? 'hq';
   const inBranch = new Set(team.filter((m) => (m.branch ?? 'hq') === branch).map((m) => m.id));
   return (s) => inBranch.has(s.counsellor);
@@ -27,6 +27,6 @@ export function rpSees(acc: Acc): (s: Student) => boolean {
 export const seesEarnings = (acc: { role?: string }) => !acc.role || acc.role === 'RP Admin';
 /**
  * Commission figures (lock answer S3C-7, Jovial, 2 Nov): only the RP Admin sees them, on course cards, the course
- * page, the application's Key details and its Commission tab. Branch Admin and Counsellor see none.
+ * page, the application's Key details and its Commission tab. Branch Manager and Counsellor see none.
  */
 export const seesCommission = seesEarnings;

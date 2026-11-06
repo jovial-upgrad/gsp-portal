@@ -136,7 +136,8 @@ const SPECS: Record<Variant, VariantSpec> = {
   recruitment: {
     brand: 'Recruitment',
     home: HOME,
-    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
+    // every module Recruitment can see in Permission roles (6 Nov); No access ones drop out of the menu by themselves
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('ips', 'Institution partners', 'IPs', 'building'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search'), it('announcements', 'Announcements', 'News', 'megaphone')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'students', 'courses'],
     user: me('saurabh.chaudhary'),
@@ -144,7 +145,7 @@ const SPECS: Record<Variant, VariantSpec> = {
   bap: {
     brand: 'RP Ops',
     home: HOME,
-    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search')],
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('ips', 'Institution partners', 'IPs', 'building'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search')],
     groups: [],
     tabs: ['home', 'rps', 'applications', 'courses'],
     user: me('garima.bhardwaj'),
@@ -152,11 +153,11 @@ const SPECS: Record<Variant, VariantSpec> = {
   finance: {
     brand: 'Finance',
     home: HOME,
-    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('applications', 'Applications', 'Applications', 'doc')],
+    flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search')],
     groups: [
       { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'RP invoices and payout', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download'), it('fin-scen', 'Commission scenarios', 'Scenarios', 'checkCircle')] },
       { key: 'fin-setup', label: 'Setup', icon: 'sliders', items: [it('fin-terms', 'Commission terms', 'Terms', 'key'), it('fin-setup', 'Finance setup', 'Setup', 'sliders'), it('fin-how', 'How Finance works', 'How', 'info')] },
-      { key: 'fin-records', label: 'Records', icon: 'building', items: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('universities', 'Universities', 'Universities', 'building')] },
+      { key: 'fin-records', label: 'Records', icon: 'building', items: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('ips', 'Institution partners', 'IPs', 'building'), it('universities', 'Universities', 'Universities', 'building'), it('catalogue', 'Courses', 'Courses', 'cap')] },
     ],
     tabs: ['home', 'fin-run', 'fin-uni', 'applications', 'fin-terms'],
     user: me('suman1.verma'),

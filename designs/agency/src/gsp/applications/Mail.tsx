@@ -176,7 +176,7 @@ export function MailTab({
                   {mails.length ? ` · ${mails.length === 1 ? '1 mail' : `${mails.length} mails`}` : ''}
                 </p>
               </div>
-              {canEditNow('Shared mailboxes') && (
+              {canEditNow('Applications › Mail') && (
                 <Button size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setView({ mode: 'compose', kind: 'new' })}>
                   New mail
                 </Button>
@@ -289,7 +289,7 @@ function Reader({ m, uni, onBack, onReply, onForward }: { m: Mail; uni: Universi
         </p>
       </div>
       <div className="gmail__acts">
-        {canEditNow('Shared mailboxes') && (
+        {canEditNow('Applications › Mail') && (
           <>
             <Button size="sm" variant="secondary" iconLeft={<Icon name="arrowLeft" size={16} />} onClick={onReply}>
               Reply

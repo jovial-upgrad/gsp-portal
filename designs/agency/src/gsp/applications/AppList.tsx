@@ -167,7 +167,7 @@ export function AppList({
           <Button variant="secondary" iconLeft={<Icon name="download" size={16} />} onClick={exportCsv} disabled={!rows.length}>
             Download
           </Button>
-          {canEditNow('Applications') && (
+          {canEditNow('Applications › Record') && (
             <Button iconLeft={<Icon name="plus" size={18} />} onClick={onAdd}>
               Add application
             </Button>

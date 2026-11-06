@@ -26,7 +26,7 @@ type Props = {
   students: Student[];
   setStudents: (fn: (l: Student[]) => Student[]) => void;
   /**
-   * Who is looking (S2C-14). A Branch Admin sees only their own branch: they invite Counsellors to it and
+   * Who is looking (S2C-14). A Branch Manager sees only their own branch: they invite Counsellors to it and
    * deactivate or reactivate its Counsellors; branches, roles and Remove stay with the RP Admin.
    */
   viewer?: { role?: string; email?: string };
@@ -39,13 +39,13 @@ const location = (b: Pick<Branch, 'city' | 'state' | 'country'>) => [b.city, b.s
  * it is and its branch BDM, set by the system (GSP's partner manager for its city, or the agency's own; just the
  * name, Nesil 30 Oct), and how many of the team work there; Add branch, Edit, Remove (not the head office; its
  * people move to the head office).
- * **Team**: each member's name and email, phone, role (RP Admin, Branch Admin or Counsellor) and branch; Invite team
+ * **Team**: each member's name and email, phone, role (RP Admin, Branch Manager or Counsellor) and branch; Invite team
  * member, Edit (role and branch included, so a member moves branch here), Remove (not yourself, not the last RP
  * Admin; their students move to you). The team is the one Students picks counsellors from.
  */
 export function TeamSection({ agency, bdm, team: all, setTeam, branches: allBranches, setBranches, students, setStudents, viewer }: Props) {
   AGENCY.name = agency;
-  const branchAdmin = viewer?.role === 'Branch Admin';
+  const branchAdmin = viewer?.role === 'Branch Manager';
   const myBranch = branchAdmin ? (all.find((m) => m.email && m.email === viewer?.email)?.branch ?? allBranches.find((b) => b.main)?.id) : undefined;
   const team = branchAdmin ? all.filter((m) => m.branch === myBranch) : all;
   const branches = branchAdmin ? allBranches.filter((b) => b.id === myBranch) : allBranches;

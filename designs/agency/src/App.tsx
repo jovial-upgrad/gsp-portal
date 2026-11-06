@@ -248,7 +248,7 @@ export default function App() {
   if (ADMISSIONS_LIKE.includes(role)) actAsGspRole();
   if (INSTITUTION_LIKE.includes(role)) actAsInstitutionRole();
   const RolePortal = ADMISSIONS_LIKE.includes(role) ? GspPortal : INSTITUTION_LIKE.includes(role) ? InstitutionPortal : ADMIN_LIKE.includes(role) ? ADMIN_PORTALS[role as keyof typeof ADMIN_PORTALS] : Portal;
-  // the RP's roles: the test agency's RP Admin, Branch Admin or a counsellor
+  // the RP's roles: the test agency's RP Admin, Branch Manager or a counsellor
   const rpAccount = RP_ROLE[role] && RP_ROLE[role] !== 'RP Admin' ? accountByRole(RP_ROLE[role]!) : account;
   // the Institution Team and GSP Admin sign in with a GSP email, each in its own scene
   // every GSP role signs in at the GSP portal (PRD slice 1, Sign-in): a GSP email, a password set up the first time

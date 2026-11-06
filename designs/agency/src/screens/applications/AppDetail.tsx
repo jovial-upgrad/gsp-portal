@@ -107,7 +107,7 @@ export function AppDetail({
   onBack: () => void;
   onOpenStudent: (id: string, tab?: RecordTab) => void;
   say: (m: string) => void;
-  /** Commission figures: the RP Admin only (S3C-7). Branch Admin and Counsellor get no Commission tab or Base commission. */
+  /** Commission figures: the RP Admin only (S3C-7). Branch Manager and Counsellor get no Commission tab or Base commission. */
   commission?: boolean;
 }) {
   const reduce = useReducedMotion();

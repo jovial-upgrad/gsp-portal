@@ -95,7 +95,7 @@ export function FindCourses({
   const reduce = useReducedMotion();
   // Program level and Study area: Admin's lists (Admin › Course configuration › Program levels and study areas, S2C-13)
   const [db] = useSharedDb();
-  // GSP's people, and the RP's Branch Admin and Counsellor (S3C-7), see the page as Student view would: no commission
+  // GSP's people, and the RP's Branch Manager and Counsellor (S3C-7), see the page as Student view would: no commission
   const noCommission = gsp || !commission;
   // GSP's people pick from the students in their own sales regions, each shown with its RP (lock answer S3C-6)
   useScope();

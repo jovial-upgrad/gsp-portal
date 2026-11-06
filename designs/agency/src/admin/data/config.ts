@@ -205,49 +205,72 @@ export type Level = (typeof LEVELS)[number][0];
 export const LEVEL_SHORT: Record<Level, string> = { N: '—', V: 'View', E: 'Edit' };
 /** GSP's nine roles, fixed in code, in the PRD matrix's order. */
 export const ROLES = ['Admin', 'Admission', 'Global Ops', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'Finance', 'View Only'] as const;
-const COLS = ROLES;
-/** Each object's level for each role, in the order of ROLES: the PRD's matrix as set on 1 Nov (Jovial's Permissions tab). */
-const P: [string, string][] = [
-  ['Students', 'E E E V V V V V V'],
-  ['Student documents', 'E E E V V V V V V'],
-  ['Applications', 'E E E V V V V V V'],
-  ['Application documents and checks', 'E E E V V V V V V'],
-  ['Drafts to universities and placed emails', 'E E E V V V V V V'],
-  ['Chat threads', 'E E E E E V V V V'],
-  ['Recruitment partner profile and status', 'E V V E E V V V V'],
-  ['RP onboarding documents', 'E N N V E N N V V'],
-  ['Documents issued to RPs', 'E N N V E N N E V'],
-  ['RP branches and team', 'E N N E E V V V V'],
-  ['Master Partners', 'E N N V E V V V V'],
-  ['Institution partners', 'E V V V V E V V V'],
-  ['IP documents and IP changes', 'E N N N N E V V V'],
-  ['Universities', 'E V V V V E E V V'],
-  ['University portal logins', 'E V E N N E E V V'],
-  ['Campuses', 'E V V N N E E V V'],
-  ['Admission requirements', 'E V E N N E E V V'],
-  ['Announcements', 'E V E N N E E V V'],
-  ['University microsites', 'E V V V V E E V V'],
-  ['Courses, intakes and entry rules', 'E V V V V E E V V'],
-  ['Commission terms', 'E N N V V V V E V'],
-  ['Commission lines', 'E N N N N N N E V'],
-  ['Invoices and receipts', 'E N N V N N N E V'],
-  ['Payout runs and statements', 'E N N V N N N E V'],
-  ['RP bank details', 'E N N V E N N E V'],
-  ['Overview dashboard', 'E V V V V V V V V'],
-  ['GSP users and roles', 'E N N N N N N N V'],
-  ['Settings', 'E N N N N N N N V'],
-  ['Download log and audit logs', 'E N N N N N N N V'],
-  ['My work and tasks', 'E E E E E E E E V'],
-  ['Shared mailboxes', 'E E E V E E E E V'],
-  ['Queues, task rules and SLA', 'E V E V V V V V V'],
-  ['Every queue and mailbox (oversight)', 'E N E N N N N N V'],
+/** The RP's three roles: in the same matrix (Jovial's Permission Roles sheet, 6 Nov), set by GSP's Admin. */
+export const RP_PERM_ROLES = ['RP Admin', 'Branch Manager', 'Counsellor'] as const;
+/** Every column of the matrix, GSP's roles then the RP's. */
+export const MATRIX_ROLES = [...ROLES, ...RP_PERM_ROLES] as const;
+/** The order the levels are written in below: Jovial's sheet's columns. */
+const COLS = ['Admin', 'View Only', 'Finance', 'Global Ops', 'Admission', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'RP Admin', 'Branch Manager', 'Counsellor'];
+/**
+ * Each object (a module, or a module's part as "Module › Part"), its group on the page, and its level for each role in
+ * the order of COLS: Jovial's Permission Roles sheet (6 Nov), with Admin at Edit everywhere (it can't be lowered),
+ * Finance editing every commission tab (RP, Master Partner and Institution Partner), and no My Work for the RP's roles.
+ */
+const P: [string, string, string][] = [
+  ['My Work', 'Work and mail', 'E V E E E E E E E N N N'],
+  ['Mail', 'Work and mail', 'E V E E E N V V E N N N'],
+  ['Find Courses', 'Find Courses', 'E E E E E E E E E E E E'],
+  ['Find Courses › Commissions', 'Find Courses', 'E N N N N N N N N V N N'],
+  ['Students › List', 'Students', 'E V E E E V V V N E E E'],
+  ['Students › Record', 'Students', 'E V E E E V V V N E E E'],
+  ['Students › Documents', 'Students', 'E V V E E V V V N E E E'],
+  ['Applications › List', 'Applications', 'E V V E E V V V N E E E'],
+  ['Applications › Record', 'Applications', 'E V V E E V V V N E E E'],
+  ['Applications › Chat', 'Applications', 'E V N E E E V V N E E E'],
+  ['Applications › Mail', 'Applications', 'E V N E E N N V N N N N'],
+  ['Applications › Documents', 'Applications', 'E V N E E V V N N E E E'],
+  ['Applications › Submission', 'Applications', 'E V N E E N N V N N N N'],
+  ['Applications › Commission', 'Applications', 'E V V N N V N N N V N N'],
+  ['Recruitment Partners › List', 'Recruitment Partners', 'E V V V V E E V N N N N'],
+  ['Recruitment Partners › Record', 'Recruitment Partners', 'E V V V V E E V N N N N'],
+  ['Recruitment Partners › Commission', 'Recruitment Partners', 'E V E N N V V N N N N N'],
+  ['Recruitment Partners › Documents', 'Recruitment Partners', 'E V V N N V E V N N N N'],
+  ['Recruitment Partners › Agreement', 'Recruitment Partners', 'E V V N N V E V N N N N'],
+  ['Recruitment Partners › Branches', 'Recruitment Partners', 'E V V N N E E V N N N N'],
+  ['Recruitment Partners › Teams', 'Recruitment Partners', 'E V V N N E E V N N N N'],
+  ['Master Partners › List', 'Master Partners', 'E V V V N V E V N N N N'],
+  ['Master Partners › Record', 'Master Partners', 'E V V V N V E V N N N N'],
+  ['Master Partners › Documents', 'Master Partners', 'E V V N N V E N N N N N'],
+  ['Master Partners › Commission', 'Master Partners', 'E V E N N V V N N N N N'],
+  ['Institution Partners › List', 'Institution Partners', 'E V V V N V E E V N N N'],
+  ['Institution Partners › Record', 'Institution Partners', 'E V V V N V E E V N N N'],
+  ['Institution Partners › Documents', 'Institution Partners', 'E V V V N V E E V N N N'],
+  ['Institution Partners › Commission', 'Institution Partners', 'E V E N N V V V V N N N'],
+  ['Universities › List', 'Universities', 'E V V V V N N E E N N N'],
+  ['Universities › Record', 'Universities', 'E V V E V N N E E N N N'],
+  ['Universities › Update QS Rankings', 'Universities', 'E V N N N N N E E N N N'],
+  ['Universities › Scholarships', 'Universities', 'E V N E V N N E E N N N'],
+  ['Universities › Territory', 'Universities', 'E V N V V N N E E N N N'],
+  ['Universities › Submission & Contacts', 'Universities', 'E V N E V N N E E N N N'],
+  ['Courses › List', 'Courses', 'E V V V V N N V E N N N'],
+  ['Courses › Record', 'Courses', 'E V V V V N N V E N N N'],
+  ['Courses › Academic', 'Courses', 'E V N E V N N V E N N N'],
+  ['Courses › English', 'Courses', 'E V N E V N N V E N N N'],
+  ['Announcements › List', 'Announcements', 'E V N E N N N V E N N N'],
+  ['Announcements › Record', 'Announcements', 'E V N E N N N V E N N N'],
+  ['User Roles', 'Admin settings', 'E N N N N N N N N N N N'],
+  ['Recruitment Assignment', 'Admin settings', 'E N N N N N N N N N N N'],
+  ['Course Configuration', 'Admin settings', 'E N N N N N N N N N N N'],
+  ['Application Configuration', 'Admin settings', 'E N N N N N N N N N N N'],
+  ['Other Configurations', 'Admin settings', 'E N N N N N N N N N N N'],
+  ['Work', 'Admin settings', 'E N N N N N N N N N N N'],
 ];
 export const OBJECTS = P.map(([o]) => o);
-/** The object that decides who sees every mailbox and every queue's tasks, not only their own (HC30). */
-export const OVERSIGHT_OBJECT = 'Every queue and mailbox (oversight)';
+/** The page's groups, in order, each with its objects. */
+export const OBJECT_GROUPS: [string, string[]][] = [...new Set(P.map(([, g]) => g))].map((g) => [g, P.filter((x) => x[1] === g).map(([o]) => o)]);
 export type Perms = Record<string, Record<string, Level>>;
 export const samplePerms = (): Perms =>
-  Object.fromEntries(P.map(([o, ls]) => [o, Object.fromEntries(ls.split(' ').map((l, i) => [COLS[i], l]))])) as Perms;
+  Object.fromEntries(P.map(([o, , ls]) => [o, Object.fromEntries(ls.split(' ').map((l, i) => [COLS[i], l]))])) as Perms;
 
 /* ---------- sign-in security (Jovial, 1 Nov, HC52): every GSP sign-in reads it ---------- */
 export type Security = { maxAttempts: number; lockMinutes: number; resendSeconds: number };

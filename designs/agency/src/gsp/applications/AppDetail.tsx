@@ -79,7 +79,9 @@ const TABS: [AppTab, string, IconName][] = [
  * The tabs this person sees (X-1 proposal, 3 Nov): Commission only for roles with View on slice 1's matrix row
  * "Commission lines" (Admin, Finance, View Only as seeded, and any role Admin ticks); the rest don't see it.
  */
-const tabsNow = () => TABS.filter(([k]) => k !== 'commission' || canSeeNow('Commission lines'));
+/** Each tab is a part of Applications in Admin › Permission roles (6 Nov); Activity follows the record. */
+const TAB_OBJECT: Partial<Record<AppTab, string>> = { chat: 'Applications › Chat', mail: 'Applications › Mail', documents: 'Applications › Documents', submission: 'Applications › Submission', commission: 'Applications › Commission' };
+const tabsNow = () => TABS.filter(([k]) => !TAB_OBJECT[k] || canSeeNow(TAB_OBJECT[k]!));
 /** The one tag in the header's corner: who has the application now, as GSP sees it, never two at once. */
 const HEAD_TAG: Record<AppOwner, string> = OWNER_TAG;
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -199,6 +201,12 @@ export function AppDetail({
     setTab('documents');
     scrollTo(docsRef);
   };
+
+  // a tab this role has No access to isn't shown: open the first one it can see instead
+  useEffect(() => {
+    const shown = tabsNow();
+    if (shown.length && !shown.some(([k]) => k === tab)) setTab(shown[0][0]);
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goReview = () => {
     setDocs('review');
@@ -647,7 +655,7 @@ export function AppDetail({
               />
             )}
             {tab === 'submission' && <SubmissionTab a={a} all={all} students={students} desk={desk} onRef={(r, was) => (finished ? say('This application is finished: it’s read-only.') : setRef(r, was))} say={say} />}
-            {tab === 'commission' && canSeeNow('Commission lines') && <AppCommission a={a} agency={agency} side="both" />}
+            {tab === 'commission' && canSeeNow(TAB_OBJECT.commission!) && <AppCommission a={a} agency={agency} side="both" />}
             {tab === 'activity' && <Activity a={a} agency={agency} />}
           </motion.div>
         </AnimatePresence>

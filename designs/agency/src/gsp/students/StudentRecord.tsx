@@ -155,7 +155,7 @@ export function StudentRecord({
   const panel = useRef<HTMLDivElement>(null);
   // sections open for editing, and their unsaved drafts (kept while switching tabs, until Save or Cancel)
   // a role with View on the matrix's Students row (View Only) sees the record without any action (merge, 2 Nov)
-  const ro = !canEditNow('Students');
+  const ro = !canEditNow('Students › Record');
   const onNewApp = ro ? undefined : onNewAppIn;
   const [editing, setEditing] = useState<Partial<Record<Editable, boolean>>>({});
   const [drafts, setDrafts] = useState<Partial<Record<Editable, Student>>>({});
