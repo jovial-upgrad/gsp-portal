@@ -1,0 +1,15 @@
+{
+  "about": "Sample: units of each currency per US dollar, approximate, for the prototype's search rates (Admin › Currency exchange). The weekly job replaces them in the real build.",
+  "perUsd": {
+    "AED": 3.67, "ALL": 84, "ARS": 1400, "BAM": 1.68, "BDT": 122, "BOB": 6.91, "BRL": 5.4, "BTN": 88, "BYN": 3.3, "CAD": 1.39,
+    "CDF": 2850, "CHF": 0.8, "CLP": 950, "CNY": 7.12, "COP": 3900, "CRC": 505, "CUP": 24, "CZK": 21, "DJF": 178, "DKK": 6.4,
+    "DOP": 63, "EGP": 48, "ERN": 15, "ETB": 140, "EUR": 0.86, "GBP": 0.75, "GHS": 11, "GMD": 72, "GNF": 8680, "GTQ": 7.67,
+    "HNL": 26, "HTG": 131, "HUF": 335, "INR": 88, "ISK": 122, "KES": 129, "KRW": 1400, "LKR": 302, "LRD": 183, "LSL": 17.5,
+    "LYD": 5.4, "MAD": 9.1, "MDL": 17, "MGA": 4450, "MKD": 53, "MMK": 2100, "MRU": 40, "MUR": 45.5, "MWK": 1735, "MXN": 18.5,
+    "MZN": 63.9, "NAD": 17.5, "NGN": 1470, "NIO": 36.8, "NOK": 10, "NPR": 141, "NZD": 1.73, "PAB": 1, "PEN": 3.45, "PHP": 58,
+    "PKR": 282, "PLN": 3.65, "PYG": 7100, "RON": 4.37, "RSD": 101, "RWF": 1450, "SCR": 14.5, "SDG": 600, "SEK": 9.5, "SLE": 23,
+    "SOS": 571, "SSP": 4600, "STN": 21, "SZL": 17.5, "TND": 2.93, "TRY": 41.8, "TZS": 2450, "UAH": 41.5, "UGX": 3480, "USD": 1,
+    "UYU": 40, "VES": 200, "VND": 26300, "XAF": 563, "XOF": 563, "ZAR": 17.5, "ZMW": 23, "ZWG": 26.8, "AUD": 1.52,
+    "IDR": 16600, "MYR": 4.22, "THB": 32.5
+  }
+}

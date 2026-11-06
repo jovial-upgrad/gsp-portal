@@ -44,7 +44,7 @@ export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
           <li><b>2. Finance checks it</b><span className="muted">{open.filter((i) => i.status === 'review').length} to check · {open.filter((i) => i.status === 'sentback').length} sent back</span></li>
           <li><b>3. Finance pays it</b><span className="muted">{open.filter((i) => i.status === 'approved').length} approved, to pay by {nice(cyc.payBy)}</span></li>
         </ol>
-        {run.hold.length > 0 && <Notice tone="warn">Lines in {run.hold.join(', ')} are held: there’s no exchange rate for {run.hold.length > 1 ? 'these currencies' : 'this currency'} this week. Enter it in GSP · Admin › Currency exchange.</Notice>}
+        {run.hold.length > 0 && <Notice tone="warn">Lines in {run.hold.join(', ')} are held: there’s no exchange rate for {run.hold.length > 1 ? 'these currencies' : 'this currency'} this week. Enter it in Finance › Exchange rates.</Notice>}
         {run.bankHold.length > 0 && <Notice tone="warn">Held until RP Ops verifies new bank details: {run.bankHold.join(', ')}.</Notice>}
       </Card>
 

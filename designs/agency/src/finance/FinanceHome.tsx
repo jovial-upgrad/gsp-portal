@@ -24,7 +24,7 @@ export default function FinanceHome() {
 
   /* Live numbers behind each job */
   const fxWeek = [...cfg.settings.fx].sort((a, b) => a.week < b.week ? -1 : 1).filter(w => w.week <= today).pop();
-  const fxMissing = fxWeek ? adminCfg().rates.map(r => r.code).filter(k => k !== 'AUD').filter(k => fxWeek[k] == null || fxWeek[k] === '') : ['all'];
+  const fxMissing = fxWeek ? [...new Set([...cfg.unis.map(u => u.cur), ...cfg.rps.map(r => r.cur)].filter(Boolean))].filter(k => k !== 'AUD').filter(k => fxWeek[k] == null || fxWeek[k] === '') : ['all'];
   const ready = res.ip.filter(x => x.l.st[0] === 'Ready to invoice');
   const overdue = res.ip.filter(x => /overdue|Invoiced/.test(x.l.st[0]));
   const mail = s.mail.emails.filter(e => e.mailbox === 'mb-comm' && e.state === 'new');

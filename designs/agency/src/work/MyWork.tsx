@@ -98,8 +98,8 @@ export default function MyWork() {
     else if (rec && rec.type === 'University' && openUni && rec.page === 'universities') openUni(id);
     else if (rec && rec.type === 'Commission' && openPage) openPage('gspx-comm');
     else if (rec && rec.type === 'Email' && openPage) openPage('gspx-mail');
-    else if (rec && rec.type === 'Setting' && openPage && hostRole === 'gsp-admin') openPage(rec.page);
-    else toast(`Opens the ${rec?.type === 'RP' ? 'RP' : (rec?.type || 'record').toLowerCase()} page${rec?.type === 'Setting' ? ' in GSP · Admin' : ''}.`);
+    else if (rec && rec.type === 'Setting' && openPage && (String(rec.page).startsWith('gspx-fin') ? hostRole === 'gsp-finance' : hostRole === 'gsp-admin')) openPage(rec.page);
+    else toast(`Opens the ${rec?.type === 'RP' ? 'RP' : (rec?.type || 'record').toLowerCase()} page${rec?.type === 'Setting' ? (String(rec.page).startsWith('gspx-fin') ? ' in GSP · Finance' : ' in GSP · Admin') : ''}.`);
   };
   const toggle = id => setPicked(l => (l.includes(id) ? l.filter(x => x !== id) : l.length >= BULK_MAX ? (toast(`Up to ${BULK_MAX} at a time.`), l) : [...l, id]));
   const all = bulkable.slice(0, BULK_MAX).map(t => t.id);

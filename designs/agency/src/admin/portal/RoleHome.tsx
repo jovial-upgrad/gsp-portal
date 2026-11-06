@@ -187,11 +187,9 @@ function AdminHome({ first, go, variant }: Props) {
         },
       });
   }
-  // this week's exchange rates: not saved, or older than 7 days
+  // the search rates update themselves weekly (job J11, Jovial 6 Nov): Admin hears only when this week's didn't arrive
   const week = cfg.fxWeeks.find((w) => w.week <= today && today < istDay(Date.parse(w.week + 'T00:00:00Z') + 7 * DAY));
-  const stale = cfg.rates.filter((r) => r.code !== 'AUD' && now - r.updated > 7 * DAY);
-  if (!week) warns.push({ id: 'fx', title: 'This week’s exchange rates aren’t saved', text: 'Last week’s rates apply until you save.', go: 'currency', action: 'Currency exchange' });
-  else if (stale.length) warns.push({ id: 'fx', title: `${stale.length === 1 ? '1 exchange rate is' : `${stale.length} exchange rates are`} older than 7 days`, text: stale.map((r) => r.code).join(', '), go: 'currency', action: 'Currency exchange' });
+  if (!week) warns.push({ id: 'fx', title: 'This week’s search rates didn’t update', text: 'Course search uses last week’s until the weekly job runs.', go: 'currency', action: 'Currency exchange' });
   // a user with no sales region
   for (const u of cfg.users.filter((x) => x.status !== 'Deactivated' && !x.regions.length)) warns.push({ id: `nr-${u.id}`, title: `${u.name} has no sales region`, text: `${u.role}: sees no records until given one.`, go: 'users', action: 'Edit' });
   // slice 4's queue warnings, from Admin › Work's queues
