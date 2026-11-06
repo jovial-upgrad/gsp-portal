@@ -3,21 +3,22 @@
  * SLA and escalation › Working days. Each has a name, its working days, the day's start and end, its holidays and the
  * sales regions on it. A sales region is on exactly one calendar: its `calendarId` (slice 1's Working calendar picker
  * on the sales region) when set, else the calendar that lists it here. A record with no region uses the calendar that
- * lists Global. One time zone for every calendar: IST (work/clock.ts). RP Home's "working hours" read them too.
+ * lists Global. Each calendar has its own time zone (Jovial, 6 Nov). RP Home's "working hours" read them too.
  * Kept in this browser; in the real build, the work service.
  */
 import { useSyncExternalStore } from 'react';
 import { CALENDARS } from './seed';
 import { regionOfCountry, TEST_AGENCY } from '../data/regions';
 import { salesRegionNames, live } from '../admin/data/config';
-import { istDayStart, istWeekday, istYmd } from './clock';
+import { IST } from './clock';
 
-export type Calendar = { id: string; name: string; days: number[]; start: string; end: string; holidays: [string, string][]; regions: string[] };
+/** A calendar's hours and holidays are in its own time zone (Jovial, 6 Nov): `tz` is an IANA zone, like Asia/Kolkata. */
+export type Calendar = { id: string; name: string; tz: string; days: number[]; start: string; end: string; holidays: [string, string][]; regions: string[] };
 export const DEFAULT_START = '09:30';
 export const DEFAULT_END = '18:30';
 
-const KEY = 'gsp-work-calendars-v2'; // v2: slice 1's region names (Indonesia Malaysia & Thailand, Latin America & Europe)
-const seed = (): Calendar[] => (CALENDARS as unknown as Calendar[]).map((c) => ({ ...c, start: c.start ?? DEFAULT_START, end: c.end ?? DEFAULT_END, holidays: c.holidays.map(([d, n]) => [d, n] as [string, string]), regions: [...c.regions] }));
+const KEY = 'gsp-work-calendars-v3'; // v3 (6 Nov): each calendar's time zone; v2: slice 1's region names
+const seed = (): Calendar[] => (CALENDARS as unknown as Calendar[]).map((c) => ({ ...c, tz: c.tz ?? IST, start: c.start ?? DEFAULT_START, end: c.end ?? DEFAULT_END, holidays: c.holidays.map(([d, n]) => [d, n] as [string, string]), regions: [...c.regions] }));
 let state: Calendar[];
 try {
   const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -53,7 +54,7 @@ export const hoursOf = (hm: string, fallback: string) => {
 };
 /**
  * When a calendar's working day starts and how long it is, in hours. A day that ends at or before its start runs past
- * midnight IST (Jovial, 4 Nov: Latin America works 21:30 to 07:30 IST): it belongs to the day it starts on, so
+ * midnight (Jovial, 4 Nov: Latin America works 21:30 to 07:30 IST): it belongs to the day it starts on, so
  * "Mon to Sat, 21:30 to 07:30" is six shifts, each starting on Monday to Saturday evening and ending the next morning.
  */
 export const dayOf = (cal: Partial<Calendar>) => {
@@ -99,18 +100,47 @@ export function calendarOf(where?: string): Calendar {
   return state.find((c) => c.id === id) ?? state.find((c) => c.regions.includes('Global')) ?? state[0];
 }
 
-/* ---------- working hours, in IST ---------- */
+/* ---------- working hours, in each calendar's own time zone ---------- */
 const H = 36e5;
 const DAY = 864e5;
-export const isWorkingDay = (cal: Calendar, t: number) => cal.days.includes(istWeekday(t)) && !cal.holidays.some((h) => h[0] === istYmd(t));
-/** The moment `hours` working hours after `from`, on a calendar (its days, hours and holidays, in IST). */
+const fmts = new Map<string, Intl.DateTimeFormat>();
+/** A time zone's offset from UTC at a moment, in ms (from the browser's time zone data). */
+export function tzOffset(tz: string, t: number) {
+  let f = fmts.get(tz);
+  if (!f) {
+    try {
+      f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+    } catch {
+      f = new Intl.DateTimeFormat('en-US', { timeZone: IST, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+    }
+    fmts.set(tz, f);
+  }
+  const p = Object.fromEntries(f.formatToParts(t).map((x) => [x.type, x.value]));
+  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+  return Math.round((asUtc - Math.floor(t / 6e4) * 6e4) / 6e4) * 6e4;
+}
+const zoneOf = (cal: Partial<Calendar>) => cal.tz || IST;
+const dayStart = (cal: Calendar, t: number) => { const o = tzOffset(zoneOf(cal), t); return Math.floor((t + o) / DAY) * DAY - o; };
+const weekday = (cal: Calendar, t: number) => new Date(t + tzOffset(zoneOf(cal), t)).getUTCDay();
+const ymd = (cal: Calendar, t: number) => new Date(t + tzOffset(zoneOf(cal), t)).toISOString().slice(0, 10);
+/** Every time zone the browser knows, for the calendar form (the list comes from the platform, not this code). */
+export const timeZones = (): string[] => { try { return (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf('timeZone'); } catch { return [IST]; } };
+/** A calendar's date for a moment, YYYY-MM-DD, in its own time zone. */
+export const localYmd = (cal: Calendar, t: number) => ymd(cal, t);
+/** The moment a calendar's clock shows `hm` on date `day` (YYYY-MM-DD). */
+export const localAt = (cal: Calendar, day: string, hm: string) => {
+  const guess = Date.parse(`${day}T${hm}:00Z`);
+  return guess - tzOffset(zoneOf(cal), guess - tzOffset(zoneOf(cal), guess));
+};
+export const isWorkingDay = (cal: Calendar, t: number) => cal.days.includes(weekday(cal, t)) && !cal.holidays.some((h) => h[0] === ymd(cal, t));
+/** The moment `hours` working hours after `from`, on a calendar (its days, hours and holidays, in its time zone). */
 export function addWorkingHours(cal: Calendar, from: number, hours: number) {
   let left = hours * H;
   // start a day early: an overnight day that began yesterday may still be open (and an ordinary one has closed)
-  let t = istDayStart(from) - DAY;
+  let t = dayStart(cal, from) - DAY;
   const w = dayOf(cal);
   for (let guard = 0; guard < 800; guard++) {
-    const day = istDayStart(t);
+    const day = dayStart(cal, t);
     const open = day + w.open * H;
     const close = open + w.hours * H;
     if (isWorkingDay(cal, day + 12 * H) && Math.max(t, from) < close) {
@@ -127,7 +157,7 @@ export function workingHoursBetween(cal: Calendar, a: number, b: number): number
   if (b < a) return -workingHoursBetween(cal, b, a);
   const w = dayOf(cal);
   let n = 0;
-  for (let day = istDayStart(a) - DAY; day <= b; day += DAY) {
+  for (let day = dayStart(cal, a) - DAY; day <= b; day = dayStart(cal, day + DAY + 2 * H)) {
     if (!isWorkingDay(cal, day + 12 * H)) continue;
     const open = day + w.open * H;
     const close = open + w.hours * H;

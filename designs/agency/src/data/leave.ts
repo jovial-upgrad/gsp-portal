@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 /**
- * Leave (Jovial, 1 Nov): each GSP person sets their own leave on their Profile. While on leave, new applications
- * skip them and their open work is covered by their queue's leader. Kept in this browser; in the real build it's
+ * Leave (Jovial, 1 Nov): each GSP person sets their own leave on their Profile, so their team can see it. Leave
+ * doesn't move work (Jovial, 6 Nov): tasks and new applications still go to them, and a leader on leave is still the leader. Kept in this browser; in the real build it's
  * part of the user record.
  */
 export type Leave = { from: string; to: string; note?: string };

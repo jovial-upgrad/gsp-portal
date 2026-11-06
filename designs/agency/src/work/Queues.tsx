@@ -14,7 +14,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useCheck, numError, dupError, dateError } from '../components/validate';
 import { fmtDate, fmtWhen } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
-import { useCalendars, getCalendars, setCalendars, daysText, clockText, regionsOn, putRegionsOn, dayOf, DEFAULT_START, DEFAULT_END } from './calendars';
+import { useCalendars, getCalendars, setCalendars, daysText, clockText, regionsOn, putRegionsOn, dayOf, timeZones, DEFAULT_START, DEFAULT_END } from './calendars';
+import { IST } from './clock';
 import { salesRegionNames } from '../admin/data/config';
 import { MultiPick } from '../institution/records/MultiPick';
 import { Pick, TimePick } from './ui';
@@ -33,7 +34,7 @@ export default function Queues() {
   const openKind = id => { setKindOpen(id || null); setTab('kinds'); };
   return (
     <Page cfg title="Queues, SLA and escalation" top={<PersonaBar />}
-      lead="A queue is a team’s inbox: a name, one leader, members, and how work is shared. Every task belongs to exactly one queue: the one its kind of work goes to. Set where each kind of work goes and what it’s due in, the working days every SLA counts on, and who is told when a task is late. All times are IST."
+      lead="A queue is a team’s inbox: a name, one leader, members, and how work is shared. Every task belongs to exactly one queue: the one its kind of work goes to. Set where each kind of work goes and what it’s due in, the working days every SLA counts on, and who is told when a task is late. Each calendar keeps its own time zone; other times show in IST."
       actions={tab === 'queues' && may('C') ? <QueueButton by={user} /> : tab === 'kinds' && may('C') ? <KindButton by={user} /> : null}>
       {!may('U') && <Notice>{role.name} can see this page but not change it.</Notice>}
       <Tabs label="Section" value={tab} onChange={setTab}
@@ -64,7 +65,7 @@ function QueueList({ may, by, openKind }) {
         <Table head={['Queue', 'Leader', 'Members', 'How work is shared', 'Receives', '']} className="cfg__tab">
           {s.queues.map(q => (
             <tr key={q.id}>
-              <td className="cfg__strong">{q.name}{q.id === ADMIN_Q && <span className="cfg__sub">Tasks with no queue and level 3 escalations</span>}{q.id === 'q-adm-global' && <span className="cfg__sub">The Global Ops team’s queue</span>}</td>
+              <td className="cfg__strong">{q.name}{q.id === ADMIN_Q && <span className="cfg__sub">Tasks with no queue and level 2 escalations</span>}{q.id === 'q-adm-global' && <span className="cfg__sub">The Global Ops team’s queue</span>}</td>
               <td>{q.leader ? <span className="cfg__strong">{nameOf(s, q.leader)}</span> : <Pill tone="dpill--bad">Not set</Pill>}</td>
               <td>{(q.members || []).length ? <div className="cfg__chips">{q.members.slice(0, 6).map(m => <Chip key={m}>{nameOf(s, m)}</Chip>)}{q.members.length > 6 && <span className="muted">+{q.members.length - 6} more</span>}</div> : <span className="cfg__muted">Just the leader</span>}</td>
               <td>{SHARE[q.assign] || SHARE['fewest-open']}</td>
@@ -123,7 +124,7 @@ function QueueSheet({ queue, onClose, by, canDelete, openKind }) {
       footer={<>{!isNew && canDelete && <Button kind="danger-quiet" onClick={() => setSure(true)}>Delete queue</Button>}<span className="gspx-grow" /><Button onClick={onClose}>Cancel</Button><Button kind="primary" disabled={!isNew && !dirty} onClick={save}>{isNew ? 'Create queue' : 'Save'}</Button></>}>
       <div className="cfg__form gspx-form2">
         <Field id="q-name" label="Queue name" required error={c.err('name')} hint="Up to 60 characters."><Input id="q-name" value={v.name} maxLength={60} onBlur={c.blur('name')} onChange={x => set('name', x)} placeholder="Like: India Admissions" /></Field>
-        <Pick id="q-lead" label="Leader" required error={c.err('leader')} hint="Gets escalations, covers people on leave, can assign. Every queue has one." value={v.leader || ''} onChange={x => set('leader', x)} placeholder="Choose one person" options={gsp.map(u => [u.id, label(u)])} />
+        <Pick id="q-lead" label="Leader" required error={c.err('leader')} hint="Gets level 1 escalations, sees the queue's tasks, can assign. Every queue has one." value={v.leader || ''} onChange={x => set('leader', x)} placeholder="Choose one person" options={gsp.map(u => [u.id, label(u)])} />
         <Pick id="q-assign" label="How work is shared" required value={v.assign in SHARE ? v.assign : 'fewest-open'} onChange={x => set('assign', x)} options={Object.entries(SHARE)} hint={SHARE_HELP[v.assign] || SHARE_HELP['fewest-open']} />
         <div className="field"><span className="field__label">Members</span>
           <MultiPick id="q-members" label="Members" search empty="Just the leader" value={gsp.filter(u => (v.members || []).includes(u.id) && u.id !== v.leader).map(label)} options={gsp.filter(u => u.id !== v.leader).map(label)}
@@ -224,7 +225,7 @@ function KindSheet({ kind, onClose, by, canDelete }) {
 const DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']];
 /**
  * Working days (slice 4 PRD, Working calendars; S4-25, S4-27): Admin adds calendars and picks one for each sales
- * region. Each has a name, its working days, the day's start and end (IST), its holidays and the sales regions on
+ * region. Each has a name, its time zone (Jovial, 6 Nov), its working days, the day's start and end in that zone, its holidays and the sales regions on
  * it. A region is on exactly one calendar; picking it for another moves it (slice 1's Working calendar on the sales
  * region shows the same). A calendar change re-works the due time of open tasks (S4-11). RP Home's working hours read these.
  */
@@ -250,15 +251,16 @@ function Calendars({ may, by }) {
         <Card key={c.id}>
           {may('U') ? <Field id={`cn-${i}`} label="Calendar name" required error={!String(c.name).trim() ? 'Enter the calendar’s name.' : null}><Input id={`cn-${i}`} value={c.name} onChange={x => setCalendars(l => { l[i].name = x; return l; })} onBlur={() => log('calendar.changed', `${by.name} renamed a calendar to ${c.name}`)} /></Field>
             : <h3 className="gspx-h3">{c.name}</h3>}
-          <p className="muted">{daysText(c.days)}, {clockText(c.start || DEFAULT_START)} to {clockText(c.end || DEFAULT_END)}{dayOf(c).overnight ? ' the next day' : ''} IST · {dayOf(c).hours} working hours a day</p>
+          <p className="muted">{daysText(c.days)}, {clockText(c.start || DEFAULT_START)} to {clockText(c.end || DEFAULT_END)}{dayOf(c).overnight ? ' the next day' : ''} {c.tz || IST} · {dayOf(c).hours} working hours a day</p>
           <div className="iseg" role="group" aria-label={`Working days for ${c.name}`}>
             {DAYS.map(([d, t]) => <button key={d} type="button" className="ichip" disabled={!may('U')} aria-pressed={String(c.days.includes(d))}
               onClick={() => { if (c.days.length === 1 && c.days.includes(d)) { toast('A calendar needs at least one working day.'); return; } edit(i, cal => { cal.days = cal.days.includes(d) ? cal.days.filter(y => y !== d) : [...cal.days, d]; }, 'calendar.changed', `${by.name} changed working days for ${c.name}`); }}>{t}</button>)}
           </div>
           <div className="gspx-inline">
             {may('U') ? <>
-              <TimePick id={`cs-${i}`} label="Day starts" value={c.start || DEFAULT_START} error={hoursErr(c)} onChange={x => edit(i, cal => { cal.start = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to start at ${x} IST`)} />
-              <TimePick id={`ce-${i}`} label="Day ends" value={c.end || DEFAULT_END} onChange={x => edit(i, cal => { cal.end = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to end at ${x} IST`)} />
+              <Pick id={`ctz-${i}`} label="Time zone" value={c.tz || IST} options={timeZones().map(z => [z, z])} onChange={x => edit(i, cal => { cal.tz = x; }, 'calendar.changed', `${by.name} set ${c.name}’s time zone to ${x}`)} />
+              <TimePick id={`cs-${i}`} label="Day starts" value={c.start || DEFAULT_START} error={hoursErr(c)} onChange={x => edit(i, cal => { cal.start = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to start at ${x}`)} />
+              <TimePick id={`ce-${i}`} label="Day ends" value={c.end || DEFAULT_END} onChange={x => edit(i, cal => { cal.end = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to end at ${x}`)} />
             </> : null}
           </div>
           {may('U') && <p className="muted gspx-small">An end earlier than the start runs past midnight: the day belongs to the day it starts on, so a holiday on that date takes out that night.</p>}
@@ -291,7 +293,7 @@ function Calendars({ may, by }) {
 }
 
 function NewCalendar({ by, regions, onClose }) {
-  const init = React.useRef({ name: '', days: [1, 2, 3, 4, 5], start: DEFAULT_START, end: DEFAULT_END, regions: [] });
+  const init = React.useRef({ name: '', tz: IST, days: [1, 2, 3, 4, 5], start: DEFAULT_START, end: DEFAULT_END, regions: [] });
   const [v, setV] = useState(() => ({ ...init.current }));
   const set = (k, x) => setV(o => ({ ...o, [k]: x }));
   const cals = getCalendars();
@@ -305,7 +307,7 @@ function NewCalendar({ by, regions, onClose }) {
   const save = () => {
     if (!c.submit()) return;
     const id = 'cal-' + Date.now().toString(36);
-    setCalendars(x => [...x, { id, name: v.name.trim(), days: v.days, start: v.start, end: v.end, holidays: [], regions: [] }]);
+    setCalendars(x => [...x, { id, name: v.name.trim(), tz: v.tz, days: v.days, start: v.start, end: v.end, holidays: [], regions: [] }]);
     if (v.regions.length) putRegionsOn(id, v.regions);
     logChange('calendar.changed', `${by.name} added calendar ${v.name.trim()}`, by.name);
     toast('Calendar added', { text: v.regions.length ? `${v.regions.join(', ')} count on it from now.` : 'Pick the regions that use it.' });
@@ -322,11 +324,12 @@ function NewCalendar({ by, regions, onClose }) {
           </div>
           {c.err('days') && <p className="field__msg field__msg--error" role="alert">{c.err('days')}</p>}
         </div>
+        <Pick id="nc-tz" label="Time zone" value={v.tz} options={timeZones().map(z => [z, z])} onChange={x => set('tz', x)} hint="The working day and holidays are in this zone. Emails go out at 8:30 here." />
         <div className="gspx-inline">
           <TimePick id="nc-start" label="Day starts" value={v.start} error={c.err('hours')} onChange={x => set('start', x)} />
           <TimePick id="nc-end" label="Day ends" value={v.end} onChange={x => set('end', x)} />
         </div>
-        <p className="muted">{v.end && v.start && v.end !== v.start ? (v.end < v.start ? `Runs past midnight: ${clockText(v.start)} to ${clockText(v.end)} the next day IST, ${dayOf(v).hours} working hours.` : `${dayOf(v).hours} working hours a day, IST.`) : 'Times are IST. An end earlier than the start runs past midnight.'}</p>
+        <p className="muted">{v.end && v.start && v.end !== v.start ? (v.end < v.start ? `Runs past midnight: ${clockText(v.start)} to ${clockText(v.end)} the next day, ${v.tz}, ${dayOf(v).hours} working hours.` : `${dayOf(v).hours} working hours a day, ${v.tz}.`) : 'Times are in the calendar’s time zone. An end earlier than the start runs past midnight.'}</p>
         <div className="field"><span className="field__label">Sales regions on it</span>
           <MultiPick id="nc-regions" label="Sales regions on it" value={v.regions} options={regions} empty="No regions yet" search onChange={l => set('regions', l)} />
         </div>
@@ -346,11 +349,10 @@ function Escalation({ may, by }) {
       <Table head={['When', 'Who is told', 'How', 'Task line']} className="cfg__tab">
         <tr><td className="cfg__strong">A task is created</td><td>The assignee</td><td>Bell (“My work: a task for you”) and the task in My work</td><td>—</td></tr>
         <tr><td className="cfg__strong">{num('remindBefore', 'Remind before')} working day(s) before due, only on tasks with an SLA of 18 working hours or more (S4-18)</td><td>The assignee</td><td>Bell and the morning email</td><td>—</td></tr>
-        <tr><td className="cfg__strong">Due, and breached (level 1)</td><td>The assignee and the queue’s leader</td><td>Bell, morning email, red pill</td><td>“&lt;leader&gt; (leader) told”</td></tr>
-        <tr><td className="cfg__strong">Late by {num('opsAfter', 'Ops after')} working days (level 2, “Ops after”)</td><td>The team’s Ops queue: Global Admissions for regional Admissions and Global Admissions tasks, RP Ops for RP Ops and Recruitment, IP Ops for Institution and IP Ops, Finance for Finance, else the Admin queue</td><td>The task shows in that queue’s My work too, for all its members</td><td>“Escalated to &lt;queue&gt;”</td></tr>
-        <tr><td className="cfg__strong">Late by {num('adminAfter', 'Admin after')} working days (level 3, “Admin after”)</td><td>The Admin queue</td><td>Bell; email E21 to every Admin; dashboard alert (slice 6)</td><td>“Escalated to Admin”</td></tr>
+        <tr><td className="cfg__strong">Past its due time and not done (level 1)</td><td>The assignee and the queue’s leader</td><td>Bell, morning email, red pill</td><td>“Late: &lt;leader&gt;, the queue leader, has been notified”</td></tr>
+        <tr><td className="cfg__strong">Late by {num('adminAfter', 'Level 2 after')} working days (level 2)</td><td>The Admin queue</td><td>Bell; email E21 to every Admin; dashboard alert (slice 6)</td><td>“Escalated to Admin”</td></tr>
       </Table>
-      <p className="gspx-pad muted">Escalation doesn’t make a new task and doesn’t change the assignee: the same task is shown to more people (rule T51). The morning email (E19) goes at {may('U') ? <span className="gspx-inline-pick"><TimePick id="esc-digest" label="Morning email time" hideLabel value={e.digestTime} onChange={x => set('digestTime', x, 'the morning email time')} /></span> : <b>{e.digestTime} IST</b>}: one email with everything due or breached, not one per task.</p>
+      <p className="gspx-pad muted">Escalation doesn’t make a new task and doesn’t change the assignee: the same task is shown to more people (rule T51). The morning email (E19) goes at {may('U') ? <span className="gspx-inline-pick"><TimePick id="esc-digest" label="Morning email time" hideLabel value={e.digestTime} onChange={x => set('digestTime', x, 'the morning email time')} /></span> : <b>{e.digestTime}</b>} on each person’s own calendar, in its time zone: one email with everything due or breached, not one per task.</p>
     </Card>
   );
 }

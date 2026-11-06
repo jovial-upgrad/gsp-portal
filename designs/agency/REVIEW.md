@@ -6,11 +6,22 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 6 Nov, later: Queues and My work answers (Jovial, PRD › Queues & My Work)
+
+### GSP · Admin › Work and My work
+- [x] **Two escalation levels.** Level 1 when a task is past its due time and not done: the assignee and the queue's leader get the bell, the morning email and a red pill; the task line reads "Late: <leader>, the queue leader, has been notified". Level 2 after 5 working days late: the Admin queue (bell, E21 to every Admin). The Ops level is gone. (6 Nov, commit “Queues and My work: Jovial's answers”)
+- [x] **Leave doesn't move work.** Tasks and new applications still go to a person on leave; a leader on leave is still the leader. Only a deactivated person's work goes to the leader. The Leave cover job (J5) is gone. (6 Nov, commit “Queues and My work: Jovial's answers”)
+- [x] **No queue types:** anyone can be in any queue. (6 Nov, commit “Queues and My work: Jovial's answers”)
+- [x] **Rules:** W23, T35 and T70 removed; T29, T40 and T41 go to the queue's leader; T27 Fewest open; T50 and T60 are a new Finance kind, Enter exchange rates. (6 Nov, commit “Queues and My work: Jovial's answers”)
+- [x] **Each calendar has its own time zone** (Asia/Kolkata, Asia/Dhaka in the seed); working days, hours, holidays and SLAs count in it, and the morning email goes at 8:30 on each person's own calendar. (6 Nov, commit “Queues and My work: Jovial's answers”)
+- [x] **Who sees which tasks:** the assignee, the queue's leader (the team's tasks), and Admin (All work). Nothing else. (6 Nov, commit “Queues and My work: Jovial's answers”)
+  - Open questions: Q9 (unanswered); Q14 (does every task have its own action?); how admission tasks differ between queues.
+
 ## 6 Nov: Permission roles from Jovial's sheet (Jovial, in chat)
 
 - [x] **Permission roles match Jovial's sheet:** the objects are now the modules and their parts (My Work; Mail; Find Courses › Commissions; Students › List, Record, Documents; Applications › List, Record, Chat, Mail, Documents, Submission, Commission; Recruitment Partners › List, Record, Commission, Documents, Agreement, Branches, Teams; Master Partners and Institution Partners › List, Record, Documents, Commission; Universities › List, Record, Update QS Rankings, Scholarships, Territory, Submission & Contacts; Courses › List, Record, Academic, English; Announcements › List, Record; User Roles; Recruitment Assignment; Course, Application and Other Configurations; Work). The RP's three roles (RP Admin, Branch Manager, Counsellor) are columns of the same matrix. Each page, tab and menu item reads its row. (6 Nov, commit “Permission roles from Jovial's sheet”)
   - Decisions: Admin stays at Edit everywhere (the sheet had View on Master Partner and Institution Partner commission); **Finance edits every commission tab** (RP, Master Partner, Institution Partner), the others view; **no My Work for the RP's roles**. "Branch Admin" is renamed **Branch Manager**, as in the PRD.
-  - Open: the matrix has no oversight row, so only roles with access to Work (Admin) see every queue's tasks and every mailbox; Global Ops sees its own queue, level 2 escalations and the mailboxes it's given in Emails. Admission's and Global Ops' portal has no Institution pages yet, though the sheet gives them View on universities, courses and partners.
+  - Open: the matrix has no oversight row, so only roles with access to Work (Admin) see every queue's tasks and every mailbox; Global Ops sees its own queue and the mailboxes it's given in Emails. Admission's and Global Ops' portal has no Institution pages yet, though the sheet gives them View on universities, courses and partners.
 
 ## 5 Nov, night: the commissions flow (Jovial, Pending Questions › Commissions flow)
 

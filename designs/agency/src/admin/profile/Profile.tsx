@@ -27,7 +27,7 @@ const dayText = (iso: string) => {
 /**
  * A GSP person's own Profile (PRD slice 1, Profile): their details, read only (from Admin › GSP users; nothing Admin
  * owns can be changed here), Change password (the set up or reset flow, for their own email), Leave (from and to,
- * both included; while on leave new work skips them, slice 4) and Email preferences (one switch per email, all On by
+ * both included; shown to their team; work isn't moved, 6 Nov) and Email preferences (one switch per email, all On by
  * default; the 4 account emails On and locked, "Needed to sign in"; turning one off never turns off the bell; each
  * change writes email_preferences.changed). Admin can't change someone else's.
  */
@@ -113,7 +113,7 @@ export function StaffProfile({ email, onSignOut }: { email: string; onSignOut: (
       <Section title="Password" id="sp-password" action={<Button size="sm" variant="secondary" iconLeft={<Icon name="key" size={16} />} onClick={() => setPw(true)}>Change password</Button>}>
         <p className="muted">We email a 6-digit code to {maskEmail(email)} to change it.</p>
       </Section>
-      <Section title="Leave" id="sp-leave" note="From and to, both included. While you’re on leave, new work skips you.">
+      <Section title="Leave" id="sp-leave" note="From and to, both included. Your team sees it; your work still comes to you.">
         {list.length > 0 ? (
           <ul className="ilist">
             {list.map((l) => (

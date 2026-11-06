@@ -19,11 +19,11 @@ export const regionsNow = () => salesRegionNames().filter((r) => r !== 'Global')
 /* Working week per region, for SLA clocks. 1 = Monday … 6 = Saturday, 0 = Sunday. */
 export const CALENDARS = [
   // Jovial, 1 Nov (Queue assignment A17): everyone works Monday to Friday, except Bangladesh, Sunday to Thursday.
-  // Working hours 9:30 to 18:30 local: SLAs in hours count only these.
+  // Working hours 9:30 to 18:30 in the calendar's own time zone (Jovial, 6 Nov): SLAs in hours count only these.
   // the seed for Work › Working days (work/calendars.ts), where they're edited
-  { id: 'cal-mon-fri', name: 'Monday to Friday', days: [1, 2, 3, 4, 5], start: '09:30', end: '18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America & Europe', 'China', 'Rest of world', 'Direct', 'Global'],
+  { id: 'cal-mon-fri', name: 'Monday to Friday', tz: 'Asia/Kolkata', days: [1, 2, 3, 4, 5], start: '09:30', end: '18:30', regions: ['India', 'Nepal', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America & Europe', 'China', 'Rest of world', 'Direct', 'Global'],
     holidays: [['2026-11-08', 'Diwali'], ['2026-12-25', 'Christmas'], ['2027-01-01', 'New Year’s Day']] },
-  { id: 'cal-sun-thu', name: 'Sunday to Thursday', days: [0, 1, 2, 3, 4], start: '09:30', end: '18:30', regions: ['Bangladesh'],
+  { id: 'cal-sun-thu', name: 'Sunday to Thursday', tz: 'Asia/Dhaka', days: [0, 1, 2, 3, 4], start: '09:30', end: '18:30', regions: ['Bangladesh'],
     holidays: [['2026-12-16', 'Victory Day'], ['2026-12-25', 'Christmas']] },
 ];
 
@@ -84,6 +84,8 @@ export const KINDS = [
   { id: 'k-escalation', name: 'SLA escalation', record: 'Any', sla: 9, goesTo: 'q-adm-global' },
   // proposal S4-28: Admin's own tasks (a setting missing, a job failed)
   { id: 'k-admin', name: 'Fix a setting or a failed job', record: 'Setting', sla: 9, goesTo: 'q-admin' },
+  // exchange rates are Finance's (Jovial, 6 Nov): T50 and T60
+  { id: 'k-fx', name: 'Enter exchange rates', record: 'Setting', sla: 9, goesTo: 'q-finance' },
 ];
 
 /** Two role names are the same role (slice 1's names only since the merge: Global Ops, RP Ops, IP Ops). */
@@ -169,7 +171,8 @@ export const STATUS_SLA = [
 ].map(([stage, status, row]) => ({ stage, status, row }));
 
 /* The ladder (slice 4 PRD, Breach and escalation): working days, 0 to 60; the morning email's time, IST. */
-export const ESCALATION = { remindBefore: 1, opsAfter: 2, adminAfter: 5, digestTime: '08:30' };
+// two levels (Jovial, 6 Nov): level 1 at due (assignee and leader), level 2 the Admin queue after adminAfter working days
+export const ESCALATION = { remindBefore: 1, adminAfter: 5, digestTime: '08:30' };
 
 /*
  * Task rules (slice 4 PRD, Every timer; rule numbers are the rows of Jovial's Task triggers sheet). The rules are data
@@ -223,22 +226,19 @@ export const RULES = [
   // working days, and gives RP Ops a task after 10. T59 (notice follow-up) is removed with Issue a notice (S2C-12).
   R('T69', 'RPs', { record: 'RP', name: 'Agreement not signed', when: 'An agreement was sent to the RP and no signed copy is uploaded yet (Sent)', after: d(10), task: 'Chase <RP> for its signed agreement', share: 'fewest-open', kind: 'k-rp-change', sla: wh(18), remind: d(3), remind2: d(7), closes: 'A signed copy is uploaded, or the agreement is withdrawn' }),
   R('T37', 'RPs', { record: 'RP', name: 'RP inactive', when: 'No new application', after: days(90), task: 'Check in with <RP>', share: 'record-owner', kind: 'k-rp-change', sla: wh(45), closes: 'An application is added, or the Recruitment contact notes why' }),
-  R('W23', 'RPs', { record: 'RP', name: 'New RP assigned', when: 'A new RP is assigned to a Recruitment user', task: 'Get in touch with <RP>', share: 'record-owner', kind: 'k-rp-change', sla: wh(18), closes: 'The BDM logs the first call' }),
-  R('T35', 'RPs', { record: 'RP', name: 'New bank details', when: 'The RP sends new bank details (payouts held)', task: 'Verify the new bank details for <RP>', kind: 'k-rp-change', sla: wh(6), closes: 'Approved or rejected' }),
 
   R('T38', IPG, { record: 'Institution partner', name: 'Agreement ending', days: 60, when: '<days> days before the agreement ends (the days are editable here; slice 2’s renewal reminder reads them)', task: 'Renew the agreement with <partner>', share: 'record-owner', kind: 'k-renew', sla: d(30), closes: 'A new agreement is uploaded' }),
-  R('T40', IPG, { record: 'University', name: 'University not live', when: 'Go-live checks incomplete 14 days after the university was created', task: 'Get <university> live', share: 'record-owner', kind: 'k-golive', sla: d(14), closes: 'The university is Live' }),
-  R('T41', IPG, { record: 'Course', name: 'Draft courses', when: 'A course in draft for 7 days', task: 'Finish and publish <course>', share: 'fewest-open', kind: 'k-course', sla: d(5), closes: 'Published' }),
+  R('T40', IPG, { record: 'University', name: 'University not live', when: 'Go-live checks incomplete 14 days after the university was created', task: 'Get <university> live', share: 'to-leader', kind: 'k-golive', sla: d(14), closes: 'The university is Live' }),
+  R('T41', IPG, { record: 'Course', name: 'Draft courses', when: 'A course in draft for 7 days', task: 'Finish and publish <course>', share: 'to-leader', kind: 'k-course', sla: d(5), closes: 'Published' }),
   R('T42', IPG, { record: 'Course', name: 'No open intake', when: 'The last intake’s deadline passed and there’s no next intake', task: 'Add the next intake for <course>', kind: 'k-course', sla: d(5), closes: 'An intake is added' }),
   // no fee year (S2C-6): fees are updated when the team updates them, so T43 (next year's fees) is removed.
   // S2C-19: a Closed institution partner reopened by hand leaves its universities as they are; IP Ops gets a task to
   // activate each one.
-  R('T70', IPG, { record: 'University', name: 'University to activate after reopening', when: 'Its institution partner was Closed and is reopened by hand, and the university isn’t Live', task: 'Activate <university>: <partner> was reopened', share: 'fewest-open', kind: 'k-golive', sla: d(5), closes: 'The university is Live, or Done' }),
 
   // Mail, kept simple (Jovial, 5 Nov): every gsp.admissions@ mail is linked to an application (it shows in the application's
   // Mail tab, no task) or forwarded; only mail that can't be linked makes a task, for Global Ops. T6, T12, T26, T28, T31 and T72 removed.
-  R('T27', 'Email', { record: 'Email', name: 'Mail not linked', when: 'A mail to gsp.admissions@ can’t be linked to an application and isn’t forwarded (a student with no application yet, say)', task: 'Link this mail to an application', kind: 'k-mail', sla: wh(1), closes: 'Linked or forwarded' }),
-  R('T29', 'Email', { record: 'Email', name: 'Mail to admin.gsp@', when: 'Any email to admin.gsp@', task: 'Handle this request', kind: 'k-admin', sla: wh(24), closes: 'Done' }),
+  R('T27', 'Email', { record: 'Email', name: 'Mail not linked', when: 'A mail to gsp.admissions@ can’t be linked to an application and isn’t forwarded (a student with no application yet, say)', task: 'Link this mail to an application', share: 'fewest-open', kind: 'k-mail', sla: wh(1), closes: 'Linked or forwarded' }),
+  R('T29', 'Email', { record: 'Email', name: 'Mail to admin.gsp@', when: 'Any email to admin.gsp@', task: 'Handle this request', share: 'to-leader', kind: 'k-admin', sla: wh(24), closes: 'Done' }),
 
   // Commission (slice 5 owns what each task does)
   R('T30', 'Commission', { record: 'Email', name: 'Commission remittance', when: 'A remittance or statement, or any mail to commissions.gsp@', task: 'Match the remittance against Commissions', kind: 'k-exception', sla: wh(24), closes: 'Matched to invoices' }),
@@ -252,8 +252,8 @@ export const RULES = [
   R('T74', 'Commission', { record: 'Commission', name: 'RP query on a line', when: 'An RP queries a commission line on Earnings', task: 'Answer <record>’s query', kind: 'k-exception', sla: wh(27), closes: 'Answered' }),
 
   // Admin: T50, and the proposal S4-28 (T60 to T68). All in the Admin queue, To the leader.
-  R('T50', 'Admin', { record: 'Setting', name: 'Exchange rates missing', when: 'Friday 01:00 IST and next week has no exchange rates', task: 'Enter next week’s exchange rates', share: 'to-leader', kind: 'k-admin', sla: wh(9), closes: 'The rates are saved' }),
-  R('T60', 'Admin', { record: 'Setting', proposal: true, name: 'Currency with no rate', when: 'A university or a commission terms line uses a currency with no rate for its date', task: 'Add an exchange rate for <currency> from <date>', share: 'to-leader', kind: 'k-admin', sla: wh(9), closes: 'The rate is saved' }),
+  R('T50', 'Admin', { record: 'Setting', name: 'Exchange rates missing', when: 'Friday 01:00 IST and next week has no exchange rates', task: 'Enter next week’s exchange rates', share: 'fewest-open', kind: 'k-fx', sla: wh(9), closes: 'The rates are saved' }),
+  R('T60', 'Admin', { record: 'Setting', proposal: true, name: 'Currency with no rate', when: 'A university or a commission terms line uses a currency with no rate for its date', task: 'Add an exchange rate for <currency> from <date>', share: 'fewest-open', kind: 'k-fx', sla: wh(9), closes: 'The rate is saved' }),
   R('T61', 'Admin', { record: 'Setting', proposal: true, name: 'Application not routed', when: 'Routing finds no rule for an application (it lands in Global Admissions by default)', task: 'Add a routing rule: <student> from <country> wasn’t routed', share: 'to-leader', kind: 'k-admin', sla: wh(18), closes: 'A rule that matches is saved, or Done' }),
   R('T62', 'Admin', { record: 'Setting', proposal: true, name: 'Nationality not mapped', when: 'A student’s nationality isn’t in any sales region’s nationality map', task: 'Map <nationality> to a sales region', share: 'to-leader', kind: 'k-admin', sla: wh(18), closes: 'The nationality is mapped' }),
   R('T63', 'Admin', { record: 'Setting', proposal: true, name: 'Next year’s holidays', when: '1 December, and next year has no holidays on a working calendar in use', task: 'Add <year>’s holidays to <calendar>', share: 'to-leader', kind: 'k-admin', sla: d(5), closes: 'Holidays for that year are saved' }),

@@ -87,13 +87,13 @@ function usersNow(st) {
 }
 const isActive = (s, id) => !!id && s.users.some((u) => u.id === id);
 const canSee = (s, id, rec) => { const u = s.users.find((x) => x.id === id); return !!u && (!rec || !rec.region || inScope(u, rec, s.roles)); };
-/** Can take new work now: active, not on leave today, and can open the record (S4-24 proposal). */
-const canTake = (s, id, rec) => isActive(s, id) && !onLeave(id, istYmd(now())) && canSee(s, id, rec);
+/** Can take new work now: active and can open the record. Leave doesn't move work (Jovial, 6 Nov): a person on leave still gets their tasks. */
+const canTake = (s, id, rec) => isActive(s, id) && canSee(s, id, rec);
 
 /* ---------- sharing (S4-2): Fewest open, Record owner, To the leader ---------- */
 export const SHARE = { 'fewest-open': 'Fewest open', 'record-owner': 'Record owner', 'to-leader': 'To the leader' };
 export const SHARE_HELP = {
-  'fewest-open': 'A new task goes to the member (leader included) with the fewest open tasks in this queue; a tie goes to the name first in alphabetical order. People on leave, deactivated users and anyone who can’t see the record are skipped; if everyone is, the leader gets it.',
+  'fewest-open': 'A new task goes to the member (leader included) with the fewest open tasks in this queue; a tie goes to the name first in alphabetical order. Deactivated users and anyone who can’t see the record are skipped (people on leave are not); if no one is left, the leader gets it, even on leave.',
   'record-owner': 'A new task goes to whoever owns the record: the application’s officer, the RP’s Recruitment contact, the partner’s or university’s relationship manager. No owner: Fewest open.',
   'to-leader': 'A new task goes to the queue’s leader, who does it or assigns it to a member. No leader: the Admin queue’s leader.',
 };
@@ -142,9 +142,7 @@ const listeners = new Set();
 
 syncAdminQueues();
 
-/* ---------- escalation (T51): level 1 the leader, level 2 the team's Ops queue, level 3 the Admin queue ---------- */
-/** The team's Ops queue for level 2 (slice 4 PRD): Global Admissions for Admissions, RP Ops for RP Ops and Recruitment, IP Ops for Institution and IP Ops, Finance for Finance, else Admin. */
-export const opsQueueOf = (qid) => (!qid ? ADMIN_Q : qid.startsWith('q-adm-') ? 'q-adm-global' : qid === 'q-rp-ops' || qid.startsWith('q-rec-') ? 'q-rp-ops' : qid === 'q-institution' || qid === 'q-inst-ops' ? 'q-inst-ops' : qid === 'q-finance' ? 'q-finance' : ADMIN_Q);
+/* ---------- escalation (T51; Jovial, 6 Nov: two levels): level 1 the assignee and the leader, level 2 the Admin queue ---------- */
 
 /*
  * What every page reads: the stored lists, plus the applications as they are now in every module and the tasks the
@@ -283,14 +281,14 @@ function derive() {
     const p = state.pauses[t.id];
     if (t.pausedNow && !p?.open) { const id = t.id, from = t.pausedNow.from; const title = t.pausedNow.title; later(`pz-${id}`, (d) => { if (!d.pauses[id]?.open) d.pauses[id] = { done: d.pauses[id]?.done || 0, open: from, title }; }); }
     if (!t.pausedNow && p?.open) { const id = t.id; later(`pz-${id}`, (d) => { if (!d.pauses[id]?.open) return; const c = calendarOf(rec.region || 'Global'); d.pauses[id] = { done: (d.pauses[id].done || 0) + Math.max(0, workingHoursBetween(c, d.pauses[id].open, t0)), open: null }; }); }
-    // cover (S4-4): on leave or deactivated, the queue's leader has it; back from leave, it's theirs again
+    // cover: a deactivated person's tasks go to the queue's leader; leave doesn't move work (Jovial, 6 Nov)
     const q = base.queues.find((x) => x.id === t.queue);
     const app = t.auto ? apps.find((a) => a.id === t.record) : null;
     const left = app ? officerNote(app) : null;
     let note = left;
-    if (t.assignee && (!isActive(base, t.assignee) || onLeave(t.assignee, istYmd(t0))) && q?.leader && q.leader !== t.assignee) {
+    if (t.assignee && !isActive(base, t.assignee) && q?.leader && q.leader !== t.assignee) {
       const nm = (state.users.find((u) => u.id === t.assignee) || {}).name || 'they';
-      note = isActive(base, t.assignee) ? `Covering while ${nm} is on leave` : `${nm} has left GSP: the leader has it`;
+      note = `${nm} has left GSP: the leader has it`;
       t = { ...t, coverFor: t.assignee, assignee: q.leader };
     }
     if (note) t = { ...t, note };
@@ -303,10 +301,8 @@ function derive() {
     if (sla.state !== 'breached') return t;
     const late = workingHoursBetween(sla.cal, sla.due, t0);
     const q = base.queues.find((x) => x.id === t.queue);
-    const ops = opsQueueOf(t.queue);
-    const esc = late >= e.adminAfter * DAY_HOURS ? { level: 3, to: ADMIN_Q, text: 'Escalated to Admin' }
-      : late >= e.opsAfter * DAY_HOURS ? { level: 2, to: ops, text: `Escalated to ${(base.queues.find((x) => x.id === ops) || {}).name || 'Admin'}` }
-      : { level: 1, to: t.queue, text: `${q?.leader ? nameOfIn(base, q.leader) : 'The leader'} (leader) told` };
+    const esc = late >= e.adminAfter * DAY_HOURS ? { level: 2, to: ADMIN_Q, text: 'Escalated to Admin' }
+      : { level: 1, to: t.queue, text: `Late: ${q?.leader ? nameOfIn(base, q.leader) : 'the leader'}, the queue leader, has been notified` };
     return { ...t, esc };
   });
   // T66 (S4-28): an address that bounced 3 times in 7 days, from the email log the work makes (work/emailLog.ts)
@@ -542,7 +538,7 @@ export const ASSIGN = RULE_SHARE;
 /**
  * What a person's bell holds from My work, worked out from the tasks as they are now: a task for you (created or
  * given to you), due tomorrow (SLA of 18 wh or more, S4-18), late (you and the queue's leader), escalated (level 2:
- * the Ops queue's members; level 3: every Admin), and a task you were covering or gave away. Each opens the task's
+ * every Admin), and a task you were covering or gave away. Each opens the task's
  * record. Only GSP people get these; read state is the bell's (per person).
  */
 export function workNotes(s, me) {
@@ -567,7 +563,7 @@ export function workNotes(s, me) {
     if (mine) {
       const g = gaveTo.get(t.id);
       if (g) out.push({ id: `tk-g-${t.id}-${g.at}`, kind: 'system', title: `${nameOf(s, g.by)} gave you ${t.title}`, text: 'My work: a task for you', at: g.at, to });
-      else out.push({ id: `tk-c-${t.id}`, kind: 'system', title: t.title, text: t.coverFor ? `My work: covering while ${nameOf(s, t.coverFor)} is away` : 'My work: a task for you', at: t.created, to });
+      else out.push({ id: `tk-c-${t.id}`, kind: 'system', title: t.title, text: t.coverFor ? `My work: ${nameOf(s, t.coverFor)} has left GSP` : 'My work: a task for you', at: t.created, to });
       if (sla.hours >= 18) {
         const at = addWorkingHours(sla.cal, t.created, Math.max(0, sla.hours - e.remindBefore * DAY_HOURS));
         if (t1 >= at && t1 < sla.due) out.push({ id: `tk-s-${t.id}`, kind: 'system', title: `Due tomorrow: ${t.title}`, text: `${rec.label || ''}`.trim() || 'My work', at, to });
@@ -575,11 +571,9 @@ export function workNotes(s, me) {
     }
     if (sla.state === 'breached' && (mine || lead)) out.push({ id: `tk-b-${t.id}`, kind: 'system', title: `Late: ${t.title}`, text: `${nameOf(s, t.assignee)} · due ${istDate(sla.due)}, ${istTime(sla.due)}`, at: sla.due, to });
     if (t.esc && t.esc.level >= 2) {
-      const ops = queueById(s, t.esc.to);
-      const inOps = ops && (ops.leader === me || (ops.members || []).includes(me));
-      if ((t.esc.level === 2 && inOps) || (t.esc.level === 3 && isAdmin)) {
+      if (isAdmin) {
         const late = Math.floor(workingHoursBetween(sla.cal, sla.due, t1) / DAY_HOURS);
-        out.push({ id: `tk-e${t.esc.level}-${t.id}`, kind: 'system', title: `Escalated: ${t.title}`, text: `Late by ${late} working day${late === 1 ? '' : 's'} · ${nameOf(s, t.assignee)}`, at: addWorkingHours(sla.cal, sla.due, (t.esc.level === 3 ? e.adminAfter : e.opsAfter) * DAY_HOURS), to });
+        out.push({ id: `tk-e${t.esc.level}-${t.id}`, kind: 'system', title: `Escalated: ${t.title}`, text: `Late by ${late} working day${late === 1 ? '' : 's'} · ${nameOf(s, t.assignee)}`, at: addWorkingHours(sla.cal, sla.due, e.adminAfter * DAY_HOURS), to });
       }
     }
   }
@@ -588,8 +582,8 @@ export function workNotes(s, me) {
 }
 /** For pages outside My work: is this person Admin, Global Ops or View Only (sees every queue)? */
 export const seesAll = (roleId) => oversees(roleId);
-/** The applications a person covers as "the officer" for the bell: their regional queue's leader while the officer is on leave or has left GSP. */
+/** The applications a person covers as "the officer" for the bell: their regional queue's leader once the officer has left GSP (leave doesn't move work, 6 Nov). */
 export function coveringApps(s, me) {
   if (!me) return [];
-  return s.records.filter((r) => r.type === 'Application' && !r.closed && r.officer && r.officer !== me && (onLeave(r.officer, istYmd(now())) || !s.users.some((u) => u.id === r.officer)) && (queueById(s, regionQueueId(r.region || 'Direct', s.queues)) || {}).leader === me).map((r) => r.id);
+  return s.records.filter((r) => r.type === 'Application' && !r.closed && r.officer && r.officer !== me && !s.users.some((u) => u.id === r.officer) && (queueById(s, regionQueueId(r.region || 'Direct', s.queues)) || {}).leader === me).map((r) => r.id);
 }
