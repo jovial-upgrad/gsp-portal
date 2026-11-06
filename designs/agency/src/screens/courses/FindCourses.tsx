@@ -18,6 +18,8 @@ import { HOME_RP } from '../../institution/rps';
 import { FLAG, FLAG_COLOURS, durationText, earnOf, feeAYear, intakeState, money, tagsOf, totalFeeOf, type Course } from '../../data/courses';
 import {
   ANY_DUR,
+  homeCurrency,
+  convert as convertCur,
   DUR_STOPS,
   NEED_LABEL,
   NO_FILTERS,
@@ -115,7 +117,7 @@ export function FindCourses({
   const setNeed = (k: keyof Need, v: string) =>
     set((p) => ({ ...p, need: { ...p.need, [k]: v, ...(k === 'country' ? { state: '' } : {}) }, shown: 20, ...(k === 'dest' ? { filters: { ...p.filters, unis: [], fee: null, destState: '', intake: '' } } : {}) }));
   const setFilter = <K extends keyof Filters>(k: K, v: Filters[K]) =>
-    set((p) => ({ ...p, filters: { ...p.filters, [k]: v, ...(k === 'fee' ? { feeLakh: undefined } : {}) }, shown: 20 }));
+    set((p) => ({ ...p, filters: { ...p.filters, [k]: v, ...(k === 'fee' ? { feeAs: undefined } : {}) }, shown: 20 }));
   // shortlists belong to students (29 Oct): with one picked, the star is theirs; with none, it lists who to shortlist for
   const student = students.find((x) => x.id === s.studentId);
   const [pickFor, setPickFor] = useState<{ c: Course; anchor: HTMLElement } | null>(null);
@@ -361,7 +363,7 @@ export function FindCourses({
               <ul className="fchips" aria-label="Filters in use">
                 {active.map((a) => (
                   <li key={a.key}>
-                    <button type="button" className="fchip" onClick={() => set((p) => ({ ...p, filters: { ...p.filters, ...a.clear(p.filters), ...(a.key === 'fee' ? { feeLakh: undefined } : {}) }, shown: 20 }))} aria-label={`Remove filter: ${a.label}`}>
+                    <button type="button" className="fchip" onClick={() => set((p) => ({ ...p, filters: { ...p.filters, ...a.clear(p.filters), ...(a.key === 'fee' ? { feeAs: undefined } : {}) }, shown: 20 }))} aria-label={`Remove filter: ${a.label}`}>
                       {a.label}
                       <Icon name="close" size={14} />
                     </button>
@@ -597,7 +599,7 @@ function activeFilters(s: CourseSearch) {
   if (f.fee)
     out.push({
       key: 'fee',
-      label: f.feeLakh ? `Tuition fee up to ₹${f.feeLakh} lakh (≈ ${money(f.fee[1], cur)})` : `Tuition fee ${money(f.fee[0], cur)} to ${money(f.fee[1], cur)}`,
+      label: f.feeAs ? `Tuition fee up to ${f.feeAs} (≈ ${money(f.fee[1], cur)})` : `Tuition fee ${money(f.fee[0], cur)} to ${money(f.fee[1], cur)}`,
       clear: () => ({ fee: null }),
     });
   f.tags.forEach((t) => out.push({ key: 'tags', label: t, clear: (x) => ({ tags: x.tags.filter((y) => y !== t) }) }));
@@ -734,8 +736,11 @@ function CourseCard({
   const [why, setWhy] = useState(false);
   // slice 3 PRD, Results: the total tuition fee with the fee a year underneath (S3-20), the application fee or Free,
   // the duration ("36 credits"), the QS rank or "—", and the base commission (≈; hidden in Student view)
+  // the fee in the student's own currency too, at this week's search rates (Jovial, 6 Nov)
+  const home = homeCurrency(s.need);
+  const inHome = (v: number) => (home && home !== c.currency && convertCur(v, c.currency, home) !== v ? ` · ≈ ${money(convertCur(v, c.currency, home), home)}` : '');
   const facts: [string, string, string?, string?][] = [
-    ['Tuition fee', money(totalFeeOf(c), c.currency), undefined, `${money(feeAYear(c), c.currency)} a year`],
+    ['Tuition fee', money(totalFeeOf(c), c.currency), undefined, `${money(feeAYear(c), c.currency)} a year${inHome(totalFeeOf(c))}`],
     ['Application fee', c.appFee ? money(c.appFee, c.currency) : 'Free'],
     ['Duration', durationText(c)],
     ['QS rank', c.uni.qs ? `#${c.uni.qs}` : '—'],

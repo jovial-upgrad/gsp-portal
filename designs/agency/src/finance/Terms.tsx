@@ -17,7 +17,7 @@ import { salesRegionNames } from '../admin/data/config';
 import { proposeChange, applyChange, impactOf, aud, opsOf, payoutCurOf, settingsOf } from './shared';
 
 const AREAS = [['unis', 'Universities'], ['rps', 'RP terms'], ['schemes', 'Schemes'], ['notices', 'Notices'], ['settings', 'Settings and FX']];
-// the currencies: GSP · Admin › Currency exchange, the one source (Jovial, 31 Oct)
+// the currencies to pay in: every currency GSP has a rate for (Admin › Currency exchange lists them all)
 const cursNow = () => adminCfg().rates.map(r => r.code);
 
 export default function Terms({ c, user, canEdit }) {
@@ -397,7 +397,7 @@ export function Settings({ c, canEdit, propose }) {
   const [d, set, setD, changed] = useDraft(S);
   const weekOf = c.today; const rows = [...d.fx].sort((a, b) => a.week < b.week ? -1 : 1);
   const cur = rows.filter(w => w.week <= weekOf).pop();
-  const ccy = cursNow().filter(k => k !== 'AUD');
+  const ccy = Object.keys(cur || {}).filter(k => k !== 'week' && k !== 'AUD');
   // QC, 1 Nov: rates 0 to 100, no negative days or weeks, empty is "not set" (never 0)
   const errors = {
     dp: pctError(d.defaultPct, 'default rate', true),
@@ -466,7 +466,7 @@ export function Settings({ c, canEdit, propose }) {
       </Card>
       <Card>
         <h2 className="gspx-h3">FX rates · week of {cur ? nice(cur.week) : '—'}</h2>
-        <p className="muted">AUD for 1 unit. Set in GSP · Admin › Course configuration › Currency exchange, the one source for every part of GSP; each line is priced at the rate of the week it’s paid. A payout run is held for a currency with no rate this week.</p>
+        <p className="muted">AUD for 1 unit, from Finance › Exchange rates (Finance’s own; Admin’s search rates aren’t used here); each line is priced at the rate of the week it’s paid. A payout run is held for a currency with no rate this week.</p>
         {cur && <div className="gspx-rates">{ccy.map(k => (
           <span key={k} className="gspx-rate"><span>{k}</span><b className="num">{cur[k] ?? 'Missing'}</b></span>))}</div>}
       </Card>

@@ -17,9 +17,10 @@ import { compute } from './engine';
 import { UNI_TERMS } from '../data/dataset';
 import { agreementOf } from '../institution/data/records';
 import { adminCfg, onAdminChange } from '../admin/data/store';
+import { financeFxSeed } from '../admin/data/config';
 import { onLiveChange } from '../data/live';
 
-const KEY = 'gsp-finance-v6'; // v6 (5 Nov): the monthly RP invoice cycle, university invoice batches, no maker-checker
+const KEY = 'gsp-finance-v7'; // v7 (6 Nov): Finance's own exchange rates, not Admin's; v6 (5 Nov): the monthly RP invoice cycle, university invoice batches, no maker-checker
 // v5: roles, access and queues from Admin and Work; Finance setup's defaults (1 Nov)
 
 /* Every GSP person comes from the staff list (data/staff.ts); the RP person is the sample agency's admin. */
@@ -41,8 +42,8 @@ function commFromDataset() {
   const today = new Date().toISOString().slice(0, 10);
   // Finance setup's defaults (HC43–HC45) on the settings from the start
   const cfg = withDatasetTerms({ ...COMM.cfg, settings: settingsOf(COMM.cfg) });
-  // exchange rates: GSP · Admin › Currency exchange is the one source (Jovial, 31 Oct)
-  cfg.settings.fx = structuredClone(adminCfg().fxWeeks);
+  // exchange rates: Finance keeps its own for commissions (Jovial, 6 Nov), in Finance › Exchange rates; Admin's are for search
+  cfg.settings.fx = financeFxSeed();
   cfg.settings.sandboxDate = today;
   return { today, cfg, apps: datasetFinanceApps(cfg, today), runs: COMM.runs, run: null, checks: [], rpInv: {}, uniInv: {}, queries: [], diffs: [] };
 }
@@ -132,25 +133,14 @@ registerSource('commission', () => {
       for (const q of (c.queries || []).filter((q) => q.rp === rp.id && q.status === 'answered')) out.push({ id: `cm-q-${q.id}`, kind: 'system', title: `GSP answered your query on ${q.student}`, text: q.answer, at: q.answeredAt, to: { page: 'earnings' } });
       return out;
     },
-    bankChanges: c.cfg.rps.filter((r) => r.bankVerified === false).map((r) => ({ id: r.id, name: r.name, at: r.bankChange?.at ?? Date.parse(`${c.today}T10:00:00+05:30`) })), currencies: [...new Set(c.cfg.unis.map((u) => u.cur).filter(Boolean))], missingTerms,
+    bankChanges: c.cfg.rps.filter((r) => r.bankVerified === false).map((r) => ({ id: r.id, name: r.name, at: r.bankChange?.at ?? Date.parse(`${c.today}T10:00:00+05:30`) })), currencies: [...new Set([...c.cfg.unis.map((u) => u.cur), ...c.cfg.rps.map((r) => r.cur)].filter(Boolean))], fx: c.cfg.settings.fx || [], missingTerms,
     since: Date.parse(`${c.today}T10:00:00+05:30`),
   };
   commCache = { key, val };
   return val;
 });
 
-/** Admin's rates reach Finance as soon as they're saved. */
-function takeAdminFx() {
-  if (!state) return;
-  const fx = adminCfg().fxWeeks;
-  if (JSON.stringify(fx) === JSON.stringify(state.comm.cfg.settings.fx)) return;
-  state = { ...state, comm: { ...state.comm, cfg: { ...state.comm.cfg, settings: { ...state.comm.cfg.settings, fx: structuredClone(fx) } } } };
-  save();
-  listeners.forEach((f) => f());
-}
-onAdminChange(takeAdminFx);
 onAdminChange(() => { adminTick += 1; view = null; listeners.forEach((f) => f()); });
-takeAdminFx();
 /** The Institution Team's agreement dates and territory reach Finance's terms as they change (W8). */
 function takeInstitution() {
   if (!state) return;

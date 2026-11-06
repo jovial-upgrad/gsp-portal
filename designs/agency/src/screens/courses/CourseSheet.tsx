@@ -1,6 +1,7 @@
 import { fmtDate } from '../../data/format';
 import { UniNews } from '../../components/UniNews';
 
+import { homeCurrency } from './search';
 import { CostsTab } from './CostsTab';
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -190,7 +191,7 @@ export function CourseSheet({
         <div className="csheet" ref={body}>
           <Panel tab={tab} id={c.id}>
             {tab === 'overview' && <Overview c={c} s={s} onPick={pick} />}
-            {tab === 'costs' && <CostsTab c={c} />}
+            {tab === 'costs' && <CostsTab c={c} home={homeCurrency(s.need)} />}
             {tab === 'entry' && <EntryTab c={c} country={from} onCountry={setFrom} student={student} />}
             {tab === 'uni' && <Uni c={c} />}
           </Panel>

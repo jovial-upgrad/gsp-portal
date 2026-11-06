@@ -6,7 +6,8 @@
  */
 import { getDb, liveTags } from '../../institution/data/store';
 import { TEST_AGENCY } from '../../data/rpteam';
-import { adminCfg, inrPer as inrPerOf } from '../../admin/data/store';
+import { adminCfg, searchConvert } from '../../admin/data/store';
+import { countryByName } from '../../data/partners';
 // what Course search reads: the Institution Team's catalogue, in every role (Jovial, 31 Oct)
 import { searchCatalogue } from '../../institution/data/store';
 import {
@@ -43,8 +44,8 @@ export type Filters = {
   unis: string[];
   destState: string;
   intake: string;
-  /** The top of the fee range as it was typed in rupees ("under 25 lakhs"), to say it back the same way. */
-  feeLakh?: number;
+  /** The top of the fee range as it was typed in another currency ("under 25 lakhs", "under 500 million dong"), to say it back the same way. */
+  feeAs?: string;
 };
 /** Four sorts, and no others (slice 3 PRD, Sort). */
 export type Sort = 'recommended' | 'feeHigh' | 'feeLow' | 'qs';
@@ -187,21 +188,72 @@ const AREA_WORDS: [RegExp, Area, boolean][] = [
 ];
 const MONTH: Record<string, string> = { jan: 'Jan', january: 'Jan', feb: 'Feb', february: 'Feb', mar: 'Mar', march: 'Mar', may: 'May', jul: 'Jul', july: 'Jul', aug: 'Aug', august: 'Aug', sep: 'Sep', sept: 'Sep', september: 'Sep', nov: 'Nov', november: 'Nov' };
 
-export type Read = { dest?: Destination; level?: Level; area?: Area; month?: string; maxFee?: number; lakh?: number; keyword: string; said: string[] };
+/** A budget as typed: the amount, its currency when one was named (else the student's own), and how to say it back. */
+export type Budget = { amount: number; cur?: string; as: string };
+export type Read = { dest?: Destination; level?: Level; area?: Area; month?: string; budget?: Budget; keyword: string; said: string[] };
 
-/** Rupees for one unit of each currency: from GSP · Admin › Currency exchange, the one source (Jovial, 31 Oct). */
-export { inrPer } from '../../admin/data/store';
-const LAKH = /^(lakhs?|lacs?|l)$/;
-const CRORE = /^(crores?|cr)$/;
+/** The student's own currency: their country's (Need.country; geo.json, Jovial 6 Nov). Budgets with no currency are in it. */
+export const homeCurrency = (n: Pick<Need, 'country'>) => countryByName(n.country)?.currency ?? '';
+
+/* Words for amounts (Jovial, 6 Nov: lakhs and crores for South Asia, millions and billions for everyone). */
+const MULT: [RegExp, number, string][] = [
+  [/^(k|thousand)$/, 1e3, 'thousand'],
+  [/^(l|lakhs?|lacs?)$/, 1e5, 'lakh'],
+  [/^(m|mn|millions?)$/, 1e6, 'million'],
+  [/^(cr|crores?)$/, 1e7, 'crore'],
+  [/^(b|bn|billions?)$/, 1e9, 'billion'],
+];
+const multOf = (w: string) => MULT.find(([r]) => r.test(w));
+/**
+ * The currencies a budget can name, from the search rates (Admin › Currency exchange): each code ("usd"), and each
+ * name's last word ("taka", "dong", "rupee") and symbol ("£", "৳") from the platform. A word or symbol several
+ * currencies share ("dollar", "$", "rupee") is the destination's, else the student's, else the first.
+ */
+function currencyWords(prefer: string[]) {
+  let codes: string[] = [];
+  try {
+    codes = adminCfg().rates.map((r) => r.code);
+  } catch {
+    /* Admin not loaded */
+  }
+  const words = new Map<string, string[]>();
+  const add = (k: string, code: string) => k && words.set(k, [...(words.get(k) ?? []), code]);
+  for (const code of codes) {
+    add(code.toLowerCase(), code);
+    let name = '';
+    let sym = '';
+    try {
+      name = new Intl.DisplayNames(['en'], { type: 'currency' }).of(code) ?? '';
+      sym = new Intl.NumberFormat('en', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' }).formatToParts(1).find((x) => x.type === 'currency')?.value ?? '';
+    } catch {
+      /* the platform doesn't know it */
+    }
+    const last = name.toLowerCase().split(/\s+/).pop() ?? '';
+    if (last) add(last, code);
+    if (sym && !/[a-z]/i.test(sym)) add(sym, code);
+  }
+  const pick = (k: string) => {
+    const l = words.get(k);
+    if (!l) return undefined;
+    return l.find((c) => prefer[0] === c) ?? l.find((c) => prefer[1] === c) ?? l[0];
+  };
+  return { pick, symbols: [...words.keys()].filter((k) => !/^[a-z]+$/.test(k)) };
+}
+const fmtAmount = (n: number) => n.toLocaleString('en-GB', { maximumFractionDigits: 2 });
 
 /**
  * Reads "MBA in UK under 25 lakhs": the destination, level and the top of the tuition fee range (the PRD's three),
  * plus the area and intake the bar also has; lakhs and crores convert with Admin's Currency exchange. Anything else
  * is a search word.
  */
-export function readBox(text: string): Read {
+export function readBox(text: string, prefer: string[] = []): Read {
   const out: Read = { keyword: '', said: [] };
-  const w = words(text.replace(/new zealand/gi, 'nz').replace(/united kingdom/gi, 'uk').replace(/united states/gi, 'usa'));
+  const cw = currencyWords(prefer);
+  // symbols become their code ("£20k" → "gbp 20k"); thousands separators go ("25,000" → "25000")
+  let t = text.replace(/(\d),(?=\d{3}\b)/g, '$1');
+  for (const sym of cw.symbols.sort((a, b) => b.length - a.length)) t = t.split(sym).join(` ${(cw.pick(sym) ?? '').toLowerCase()} `);
+  const w = words(t.replace(/new zealand/gi, 'nz').replace(/united kingdom/gi, 'uk').replace(/united states/gi, 'usa'));
+  const curOf = (x: string) => cw.pick(x) ?? cw.pick(x.replace(/s$/, ''));
   const rest: string[] = [];
   const areas = new Set<Area>();
   for (let i = 0; i < w.length; i++) {
@@ -212,13 +264,22 @@ export function readBox(text: string): Read {
       out.dest = dest;
       continue;
     }
-    if (/^(under|below|max|upto|within|budget)$/.test(x) && /^\d+(\.\d+)?(k|l|lakhs?|lacs?|cr|crores?)?$/.test(next)) {
-      const unit = next.replace(/^[\d.]+/, '') || (LAKH.test(w[i + 2] ?? '') || CRORE.test(w[i + 2] ?? '') ? w[i + 2] : '');
-      if (LAKH.test(unit)) out.lakh = parseFloat(next);
-      else if (CRORE.test(unit)) out.lakh = parseFloat(next) * 100;
-      else out.maxFee = parseFloat(next) * (unit === 'k' ? 1000 : 1);
-      i += unit && !next.endsWith(unit) ? 2 : 1;
-      continue;
+    // a budget: "under 25 lakhs", "under £20k", "below 500 million dong", "max 30000 usd"
+    if (/^(under|below|max|upto|within|budget|less)$/.test(x)) {
+      let j = i + 1;
+      let cur = curOf(w[j] ?? '') && /^\d/.test(w[j + 1] ?? '') ? curOf(w[j++]) : undefined;
+      const m = /^(\d+(?:\.\d+)?)([a-z]*)$/.exec(w[j] ?? '');
+      if (m && (!m[2] || multOf(m[2]))) {
+        j++;
+        let mult = m[2] ? multOf(m[2]) : undefined;
+        if (!mult && multOf(w[j] ?? '') && !curOf(w[j] ?? '')) mult = multOf(w[j++]);
+        if (!cur && w[j] && curOf(w[j])) cur = curOf(w[j++]);
+        const n = parseFloat(m[1]);
+        const shown = mult && mult[2] !== 'thousand' ? `${fmtAmount(n)} ${mult[2]}` : fmtAmount(n * (mult?.[1] ?? 1));
+        out.budget = { amount: n * (mult?.[1] ?? 1), cur, as: cur ? `${cur} ${shown}` : shown };
+        i = j - 1;
+        continue;
+      }
     }
     if (MONTH[x]) {
       out.month = MONTH[x];
@@ -249,14 +310,14 @@ export function readBox(text: string): Read {
   if (out.level) out.said.push(out.level);
   if (out.area) out.said.push(out.area);
   if (out.month) out.said.push(`${out.month} intake`);
-  if (out.maxFee) out.said.push(`Tuition up to ${out.maxFee.toLocaleString('en-GB')}`);
-  if (out.lakh) out.said.push(`Tuition up to ₹${out.lakh} lakh`);
+  if (out.budget) out.said.push(`Tuition up to ${out.budget.as}`);
   return out;
 }
 
 /** Pressing Search: the box fills what it can (overwriting those fields), a university it names sets the destination, and results show. */
 export function runSearch(s: CourseSearch): CourseSearch {
-  const r = readBox(s.text);
+  const destCur = s.need.dest ? CURRENCY[s.need.dest] : '';
+  const r = readBox(s.text, [destCur, homeCurrency(s.need)]);
   const uni = r.keyword ? universityIn(r.keyword) : null;
   const need = { ...s.need };
   if (r.dest) need.dest = r.dest;
@@ -267,15 +328,34 @@ export function runSearch(s: CourseSearch): CourseSearch {
   if (r.dest && r.dest !== s.need.dest) Object.assign(f, { fee: null, unis: [], destState: '' });
   if (r.month) f.intake = intakeMonths(need).find((m) => m.startsWith(r.month!)) ?? r.month;
   // the top of the tuition fee range (the total fee); the bottom stays where it was
-  if (r.maxFee) {
-    f.fee = [f.fee?.[0] ?? 0, r.maxFee];
-    f.feeLakh = undefined;
-  }
-  if (r.lakh && need.dest) {
-    f.fee = [f.fee?.[0] ?? 0, Math.round((r.lakh * 100_000) / (inrPerOf(CURRENCY[need.dest]) ?? 1) / 100) * 100];
-    f.feeLakh = r.lakh;
-  }
   const said = [...r.said];
+  // the top of the fee range, in the destination's currency: a budget in another currency converts at this week's
+  // search rates; one with no currency named is in the student's own (Jovial, 6 Nov)
+  if (r.budget) {
+    const to = need.dest ? CURRENCY[need.dest] : '';
+    const from = r.budget.cur ?? (homeCurrency(need) || to);
+    const i = said.findIndex((x) => x.startsWith('Tuition up to'));
+    if (!to) {
+      if (i >= 0) said[i] = `${said[i]} (pick a destination to use it)`;
+    } else if (!r.budget.cur && !homeCurrency(need)) {
+      if (i >= 0) said[i] = `${said[i]} (choose the student’s country, or name a currency, to use it)`;
+    } else if (from === to) {
+      f.fee = [f.fee?.[0] ?? 0, r.budget.amount];
+      f.feeAs = undefined;
+    } else {
+      const v = searchConvert(r.budget.amount, from, to);
+      const as = r.budget.cur ? r.budget.as : `${from} ${r.budget.as}`;
+      if (v == null) {
+        f.fee = [f.fee?.[0] ?? 0, r.budget.amount];
+        f.feeAs = undefined;
+        if (i >= 0) said[i] = `Tuition up to ${to} ${fmtAmount(r.budget.amount)} (no rate for ${from} yet)`;
+      } else {
+        f.fee = [f.fee?.[0] ?? 0, Math.round(v / 100) * 100];
+        f.feeAs = as;
+        if (i >= 0) said[i] = `Tuition up to ${as}`;
+      }
+    }
+  }
   if (uni) said.unshift(uni.uni.name);
   return { ...s, need, filters: f, keyword: r.keyword, understood: said, searched: true, shown: 20 };
 }
@@ -294,10 +374,7 @@ const nextDeadline = (c: Course) => {
 export function convert(v: number, from: string, to: string) {
   if (!to || from === to) return v;
   try {
-    const rates = adminCfg().rates;
-    const a = rates.find((r) => r.code === from)?.aud;
-    const b = rates.find((r) => r.code === to)?.aud;
-    return a && b ? (v * a) / b : v;
+    return searchConvert(v, from, to) ?? v;
   } catch {
     return v;
   }

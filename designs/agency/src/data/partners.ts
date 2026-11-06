@@ -3,7 +3,7 @@ import { rpDocsOf, rpRuleFor } from '../admin/data/config';
 import geoJson from './geo.json';
 
 /** A country, its states, and (in GSP's main markets) the cities of its states most students and agencies are in. */
-export type Country = { name: string; iso: string; dial: string; states: string[]; cities?: Record<string, string[]> };
+export type Country = { name: string; iso: string; dial: string; currency: string; states: string[]; cities?: Record<string, string[]> };
 export const COUNTRIES = geoJson as Country[];
 /** A state's cities (HC14: one list, in geo.json); none where the city is typed. */
 export const citiesOf = (country: string, state: string) => countryByName(country)?.cities?.[state] ?? [];

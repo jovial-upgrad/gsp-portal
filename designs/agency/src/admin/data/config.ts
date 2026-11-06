@@ -7,6 +7,7 @@
  */
 import { CURRENCY, type Destination } from '../../data/courses';
 import COMM from '../../finance/comm.json';
+import FX_SEED from './fxSeed.json';
 import { STAFF, label, nameOf } from '../../data/staff';
 /** A GSP person's name, by the start of their email: N('ramish.jafery'). Throws if they're not on the staff list. */
 const N = (local: string) => nameOf(`${local}@upgrad.com`);
@@ -437,8 +438,13 @@ export const sampleBdm = (): BdmRow[] => {
   return out;
 };
 
-/* ---------- currency exchange: the one source (Jovial, 31 Oct). Course search and Finance both read it ---------- */
-/** One unit of a currency in Australian dollars (Finance's base). Course search's rupee budget is worked out from these. */
+/*
+ * ---------- currency exchange (Jovial, 6 Nov: two sets) ----------
+ * Admin › Currency exchange: the search rates, for course search budgets and course costs. They update themselves
+ * every week (job J7); nobody saves them. Finance keeps its own weekly rates for commissions (Finance › Exchange
+ * rates), entered and saved by Finance.
+ */
+/** One unit of a currency in Australian dollars (Finance's base). */
 export type Rate = { code: string; name: string; aud: number; usedFor: string; updated: number };
 /** A week's rates, as Finance prices a line paid that week: { week: '2026-10-26', GBP: 1.95, … } */
 export type FxWeek = { week: string; [code: string]: number | string };
@@ -446,11 +452,23 @@ const CUR_NAME: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound
 /** Course search's old rupee rates, for the currencies Finance's weekly table didn't have (CAD, EUR). */
 const SEED_INR: Record<string, number> = { CAD: 62, EUR: 95 };
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+/** Sample search rates for every currency a GSP market uses (units per US dollar; the weekly job replaces them). */
+const PER_USD: Record<string, number> = FX_SEED.perUsd;
+/** A currency's name, from the platform's own currency names. */
+export const currencyName = (code: string) => {
+  try {
+    return CUR_NAME[code] ?? new Intl.DisplayNames(['en'], { type: 'currency' }).of(code) ?? code;
+  } catch {
+    return CUR_NAME[code] ?? code;
+  }
+};
+const sig4 = (n: number) => Number(n.toPrecision(4));
 /**
  * Finance's weekly table from its sheet, with CAD and EUR added, carried up to this week (each week a copy of the
  * last, as the saved weeks would be). Nothing is saved for next week: Admin enters it, and on Friday T50 asks if not.
  */
-export const sampleFxWeeks = (): FxWeek[] => {
+/** Finance's own weekly rates, from its sheet, carried up to this week (Finance › Exchange rates). */
+export const financeFxSeed = (): FxWeek[] => {
   const rows = (COMM.cfg.settings.fx as FxWeek[]).map((w) => ({ ...w, AUD: 1, ...Object.fromEntries(Object.entries(SEED_INR).map(([c, inr]) => [c, Math.round(inr * Number(w.INR) * 10000) / 10000])) }));
   const today = isoDay(Date.now());
   let last = rows[rows.length - 1];
@@ -460,6 +478,13 @@ export const sampleFxWeeks = (): FxWeek[] => {
   }
   return fillFx(rows);
 };
+/** The search rates' weeks: Finance's sheet as the start, with every other market's currency from the sample. */
+export const sampleFxWeeks = (): FxWeek[] =>
+  financeFxSeed().map((w) => {
+    const audPerUsd = Number(w.USD) || PER_USD.AUD;
+    const extra = Object.fromEntries(Object.entries(PER_USD).filter(([c]) => w[c] === undefined || w[c] === '').map(([c, n]) => [c, c === 'AUD' ? 1 : sig4(audPerUsd / n)]));
+    return { ...w, ...extra };
+  });
 /**
  * Every week has every currency (W14, 1 Nov): a week the sheet left a currency out of (VND from 26 Oct) carries the
  * week before's rate, so Finance never counts a rate Admin shows as missing. With Admin's rates, the week in force
@@ -484,16 +509,18 @@ export const fxWeekOn = (weeks: FxWeek[], day = isoDay(Date.now())) => [...weeks
 export const sampleRates = (): Rate[] => {
   const w = fxWeekOn(sampleFxWeeks())!;
   const dests = (code: string) => (Object.entries(CURRENCY) as [Destination, string][]).filter(([, c]) => c === code).map(([d]) => d);
-  return Object.keys(CUR_NAME).map((code, i) => {
-    const used = [...dests(code).map((d) => `Course search: ${d}`), ...(code === 'INR' ? ['Course search budgets in lakhs'] : [])];
-    return { code, name: CUR_NAME[code], aud: Number(w[code] ?? (code === 'VND' ? 0.0000585 : 0)), usedFor: used.join('; '), updated: Date.now() - (i % 4 + 1) * DAY };
+  const codes = [...new Set([...Object.keys(CUR_NAME), ...Object.keys(PER_USD)])].sort((a, b) => (a === 'AUD' ? -1 : b === 'AUD' ? 1 : a.localeCompare(b)));
+  return codes.map((code) => {
+    const used = dests(code).map((d) => `Course search: ${d}`);
+    return { code, name: currencyName(code), aud: Number(w[code] ?? 0), usedFor: used.join('; '), updated: Date.parse(`${w.week}T00:30:00+05:30`) };
   });
 };
-/** Rupees for one unit of a currency, from the rates (for course search's budget in lakhs). */
-export const inrPerFrom = (rates: Rate[], code: string) => {
-  const a = rates.find((r) => r.code === code)?.aud;
-  const inr = rates.find((r) => r.code === 'INR')?.aud;
-  return a && inr ? a / inr : undefined;
+/** An amount in one currency in another, through the rates (one unit in AUD each); undefined with no rate. */
+export const convertWith = (rates: Pick<Rate, 'code' | 'aud'>[], v: number, from: string, to: string) => {
+  if (from === to) return v;
+  const a = rates.find((r) => r.code === from)?.aud;
+  const b = rates.find((r) => r.code === to)?.aud;
+  return a && b ? (v * a) / b : undefined;
 };
 
 /* ---------- living costs and fees (PRD slice 1, Configuration tables) ---------- */

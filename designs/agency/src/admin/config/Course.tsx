@@ -4,7 +4,8 @@ import { Icon } from '../../components/Icon';
 import { TextInput } from '../../components/forms';
 import { FLAG } from '../../data/courses';
 import { PageHead } from '../../institution/records/parts';
-import { DEST_CURRENCY, inrPerFrom, type FxWeek, type Living, type Rate } from '../data/config';
+import { DEST_CURRENCY, type Living, type Rate } from '../data/config';
+import { COUNTRIES } from '../../data/partners';
 import type { ConfigProps } from './ConfigPage';
 import { CellError, EditBar, History, Panel, useDraft, when } from './parts';
 import { useCheck } from '../../components/validate';
@@ -13,17 +14,7 @@ import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, istDay, trySave, type Sa
 import { NumberField } from '../../components/NumberField';
 
 const num = (v: string) => Number(v.replace(/[^\d.]/g, ''));
-/** A rate as typed: digits and one point, so "0.0" can be typed on the way to "0.05". */
-const rateText = (v: string) => v.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
 const fmt = (n: number) => (!n ? '' : n < 0.01 ? String(Number(n.toPrecision(3))) : n.toLocaleString('en-GB', { maximumFractionDigits: 4 }));
-const nudge4 = (v: number, pct: number) => Number(Math.max(0.0001, v * (1 + (Math.random() * 2 - 1) * pct)).toPrecision(4));
-/** Up to 4 decimals, above 0. */
-const rateOk = (n: number, typed?: string) => n > 0 && !/\.\d{5,}/.test(typed ?? String(n));
-
-/** ISO 4217: the currencies Admin can add (code and name). */
-const ISO_4217: [string, string][] = [
-  ['AED', 'UAE dirham'], ['AUD', 'Australian dollar'], ['BDT', 'Bangladeshi taka'], ['BRL', 'Brazilian real'], ['CAD', 'Canadian dollar'], ['CHF', 'Swiss franc'], ['CNY', 'Chinese yuan'], ['CZK', 'Czech koruna'], ['DKK', 'Danish krone'], ['EUR', 'Euro'], ['GBP', 'Pound sterling'], ['GHS', 'Ghanaian cedi'], ['HKD', 'Hong Kong dollar'], ['HUF', 'Hungarian forint'], ['IDR', 'Indonesian rupiah'], ['INR', 'Indian rupee'], ['JPY', 'Japanese yen'], ['KES', 'Kenyan shilling'], ['KRW', 'South Korean won'], ['LKR', 'Sri Lankan rupee'], ['MMK', 'Myanmar kyat'], ['MUR', 'Mauritian rupee'], ['MXN', 'Mexican peso'], ['MYR', 'Malaysian ringgit'], ['NGN', 'Nigerian naira'], ['NOK', 'Norwegian krone'], ['NPR', 'Nepalese rupee'], ['NZD', 'New Zealand dollar'], ['PHP', 'Philippine peso'], ['PKR', 'Pakistani rupee'], ['PLN', 'Polish złoty'], ['SEK', 'Swedish krona'], ['SGD', 'Singapore dollar'], ['THB', 'Thai baht'], ['USD', 'US dollar'], ['VND', 'Vietnamese dong'], ['ZAR', 'South African rand'],
-];
 const DEST_NAME: Record<string, string> = { UK: 'UK', USA: 'USA' };
 
 /** The Monday of the IST week a day is in. */
@@ -34,87 +25,34 @@ const weekStart = (t = Date.now()) => {
 };
 
 /**
- * Currency exchange (PRD slice 1; Admin › Course configuration): one unit of each currency in AUD (Finance's base),
- * one set of rates per IST week. 1 unit in INR and Used for are worked out. Fetch with AI (the only fetch, S1C-10)
- * fills a draft that Admin saves; a currency the AI can't find keeps last week's rate and is flagged, and each fetch
- * is logged. The week picker shows this week and every past week, read only. A week with no saved rate carries the
- * week before's.
+ * Currency exchange (Admin › Course configuration; Jovial, 6 Nov): the search rates. One unit of each currency in AUD,
+ * one set per IST week, for course search budgets in the student's own currency and course costs. They update
+ * themselves every Monday (job J11): nobody enters or saves them, and a currency the fetch can't find keeps last week's
+ * rate. Commissions don't use them: Finance keeps its own (Finance › Exchange rates). Past weeks are read only.
  */
-export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
-  const d = useDraft<Rate[]>(cfg.rates, 'the exchange rates');
-  const [fetched, setFetched] = useState<{ at: number; missed: string[] } | null>(null);
-  const [typed, setTyped] = useState<Record<number, string>>({});
-  const [adding, setAdding] = useState('');
-  const [result, setResult] = useState<SaveResult | null>(null);
+export function Currency({ cfg }: ConfigProps) {
   const thisWeek = weekStart();
   const [week, setWeek] = useState(thisWeek);
-  const ed = d.editing;
-  const past = week !== thisWeek;
-  const savedThisWeek = cfg.fxWeeks.some((w) => w.week === thisWeek);
-  const weekRow = cfg.fxWeeks.find((w) => w.week === week);
   const weeks = [...new Set([thisWeek, ...cfg.fxWeeks.map((w) => w.week).filter((w) => w <= thisWeek)])].sort().reverse();
-  const errors: Record<string, string | null> = {};
-  d.value.forEach((r, i) => {
-    errors[`fx-${i}`] = r.code === 'AUD' ? null : !rateOk(r.aud, typed[i]) ? 'Enter a number above 0, with up to 4 decimals.' : null;
-  });
-  const v = useCheck(errors);
-  const upd = (i: number, p: Partial<Rate>) => d.set((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
-  // Used for: the destinations in Living costs and fees that use this currency, or course search's lakh budgets for INR
-  const usedFor = (code: string) => (code === 'INR' ? 'Course search budgets in lakhs' : cfg.living.filter((l) => l.currency === code).map((l) => `Course search: ${DEST_NAME[l.country] ?? l.country}`).join('; ') || '—');
-  const fill = () => {
-    if (!ed) d.start();
-    // the AI can't always find a rate: that row keeps last week's and is flagged (the prototype misses the dong)
-    const missed = ['VND'].filter((c) => d.value.some((r) => r.code === c));
-    d.set((l) => l.map((x) => (x.code === 'AUD' || missed.includes(x.code) ? x : { ...x, aud: nudge4(x.aud || 1, 0.012), updated: Date.now() })));
-    setFetched({ at: Date.now(), missed });
-    change('Currency exchange', `Fetch with AI run: ${d.value.length - 1 - missed.length} rates drafted${missed.length ? `; not found: ${missed.join(', ')}` : ''}`, (c) => c);
-    say('Rates drafted. Check them, then Save.');
+  const row = cfg.fxWeeks.find((w) => w.week === week) ?? [...cfg.fxWeeks].filter((w) => w.week <= week).sort((x, y) => (x.week < y.week ? 1 : -1))[0];
+  const shown: Rate[] = cfg.rates.map((r) => ({ ...r, aud: Number(row?.[r.code] ?? r.aud) }));
+  // Used for: the destinations in Living costs and fees that use it, and the student countries whose own currency it is
+  const homes = (code: string) => COUNTRIES.filter((c) => c.currency === code).map((c) => c.name);
+  const usedFor = (code: string) => {
+    const dest = cfg.living.filter((l) => l.currency === code).map((l) => `Destination: ${DEST_NAME[l.country] ?? l.country}`);
+    const h = homes(code);
+    const home = h.length ? [`Students from ${h.length > 3 ? `${h.slice(0, 3).join(', ')} and ${h.length - 3} more` : h.join(', ')}`] : [];
+    return [...dest, ...home].join('; ') || '—';
   };
-  const save = () => {
-    if (!v.submit()) return;
-    const res = trySave();
-    if (res !== 'ok') return setResult(res);
-    const rates = d.value.map((x) => ({ ...x, by: me }));
-    const changed = rates.filter((x) => cfg.rates.find((y) => y.code === x.code)?.aud !== x.aud).map((x) => `${x.code} ${fmt(cfg.rates.find((y) => y.code === x.code)?.aud ?? 0) || 'new'} → ${fmt(x.aud)}`);
-    const row: FxWeek = { week: thisWeek, ...Object.fromEntries(rates.map((x) => [x.code, x.aud])) };
-    change('Currency exchange', `Week of ${fmtDate(thisWeek)}: ${changed.join(', ') || 'no changes'}`, (c) => ({
-      ...c,
-      rates,
-      fxWeeks: [...c.fxWeeks.filter((w) => w.week < thisWeek), row, ...c.fxWeeks.filter((w) => w.week > thisWeek).map((w) => ({ ...w, ...row, week: w.week }))],
-    }));
-    say('Saved.');
-    setFetched(null);
-    setTyped({});
-    setResult(null);
-    v.reset();
-    d.stop();
-  };
-  const shownRates: Rate[] = past ? cfg.rates.map((r) => ({ ...r, aud: Number(weekRow?.[r.code] ?? r.aud) })) : d.value;
+  const missing = shown.filter((r) => r.code !== 'AUD' && !(r.aud > 0));
   return (
     <>
-      <PageHead title="Currency exchange" lead="One unit of each currency in Australian dollars, Finance’s base. Finance prices each commission line at the rate of the week it’s paid, so every week keeps its own rates; course search works out its budgets in lakhs from the rupee column.">
-        <Pick id="fx-week" label="Week of" value={week} options={weeks.map((w) => [w, `Week of ${fmtDate(w)}${w === thisWeek ? ' (this week)' : ''}`] as [string, string])} onChange={(w) => (setWeek(w), w !== thisWeek && d.stop())} />
-        {canEdit && !past && (
-          <>
-            {/* only Fetch with AI (S1C-10): it drafts every rate and flags any it can't find */}
-            <Button variant="secondary" iconLeft={<Icon name="sparkle" size={18} />} onClick={() => fill()}>
-              Fetch with AI
-            </Button>
-            <EditBar name="exchange rates" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (setFetched(null), setTyped({}), setResult(null), v.reset(), d.stop())} onSave={save} />
-          </>
-        )}
+      <PageHead title="Currency exchange" lead="The search rates: one unit of each currency in Australian dollars. Course search reads a budget in the student’s own currency with them, and course costs add up in one currency. They update themselves every Monday at 00:30 IST; nobody saves them. Commissions use Finance’s own rates, not these.">
+        <Pick id="fx-week" label="Week of" value={week} options={weeks.map((w) => [w, `Week of ${fmtDate(w)}${w === thisWeek ? ' (this week)' : ''}`] as [string, string])} onChange={setWeek} />
       </PageHead>
-      {!canEdit && <ViewOnlyNote />}
-      {ed && <SaveBanner result={result} onReload={d.stop} />}
-      {fetched && (
-        <p className="cfg__warnbox cfg__editing">
-          Fetched with AI {when(fetched.at)}. Nothing is saved until you review it and click Save.
-          {fetched.missed.length ? ` Not found: ${fetched.missed.join(', ')} (keeps last week’s rate).` : ''}
-        </p>
-      )}
-      {past && <p className="cfg__muted">The week of {fmtDate(week)}, read only.</p>}
-      {!past && !savedThisWeek && <p className="cfg__warnbox">No rates saved for the week of {fmtDate(thisWeek)}. Last week’s rates apply until you save.</p>}
-      <Loaded page="currency exchange" cols={5}>
+      {week !== thisWeek && <p className="cfg__muted">The week of {fmtDate(week)}.</p>}
+      {missing.length > 0 && <p className="cfg__warnbox">No rate yet for {missing.map((r) => r.code).join(', ')}. Course search reads a budget in these currencies in the destination’s currency instead, and says so.</p>}
+      <Loaded page="currency exchange" cols={4}>
         <Panel flush>
           <div className="stab-wrap">
             <table className="itab cfg__tab cfg__fx">
@@ -122,95 +60,28 @@ export function Currency({ cfg, change, say, canEdit, me }: ConfigProps) {
                 <tr>
                   <th scope="col">Currency</th>
                   <th scope="col">1 unit in AUD</th>
-                  <th scope="col">1 unit in INR</th>
                   <th scope="col" className="cfg__usedfor">Used for</th>
-                  <th scope="col" className="cfg__changed">Last changed</th>
-                  {ed && (
-                    <th scope="col">
-                      <span className="vh">Remove</span>
-                    </th>
-                  )}
+                  <th scope="col" className="cfg__changed">Updated</th>
                 </tr>
               </thead>
               <tbody>
-                {shownRates.map((r, i) => (
+                {shown.map((r) => (
                   <tr key={r.code}>
                     <td>
                       <span className="cfg__strong">{r.code}</span>
                       <span className="cfg__sub">{r.name}</span>
                     </td>
-                    <td>
-                      {ed && !past && r.code !== 'AUD' ? (
-                        <>
-                          <NumberField
-                            id={`fx-${i}`}
-                            aria-label={`1 ${r.code} in Australian dollars`}
-                            decimal
-                            className="cfg__cellinput cfg__num"
-                            value={typed[i] ?? String(r.aud || '')}
-                            invalid={!!v.err(`fx-${i}`)}
-                            aria-describedby={v.err(`fx-${i}`) ? `fx-${i}-error` : undefined}
-                            onBlur={() => v.blur(`fx-${i}`)()}
-                            onChange={(_t) => {
-                              const t = rateText(_t);
-                              setTyped((x) => ({ ...x, [i]: t }));
-                              upd(i, { aud: num(t), updated: Date.now() });
-                            }}
-                          />
-                          <CellError id={`fx-${i}`}>{v.err(`fx-${i}`)}</CellError>
-                          {fetched?.missed.includes(r.code) && (
-                            <span className="cfg__cellwarn">
-                              <Icon name="alert" size={14} /> Not found: last week’s rate kept
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="num">{r.code === 'AUD' ? '1' : fmt(r.aud)}</span>
-                      )}
-                    </td>
-                    <td className="cfg__muted num">{r.code === 'INR' ? '1' : inrPerFrom(shownRates, r.code) ? `₹${fmt(Math.round(inrPerFrom(shownRates, r.code)! * 100) / 100)}` : '–'}</td>
+                    <td><span className="num">{r.code === 'AUD' ? '1' : fmt(r.aud) || '–'}</span></td>
                     <td className="cfg__muted cfg__usedfor">{usedFor(r.code)}</td>
-                    <td className="cfg__muted num cfg__changed">
-                      {when(r.updated)}
-                      {(r as Rate & { by?: string }).by && <span className="cfg__sub">{(r as Rate & { by?: string }).by}</span>}
-                    </td>
-                    {ed && (
-                      <td className="cfg__acts">
-                        {r.code !== 'AUD' && r.code !== 'INR' && !cfg.living.some((l) => l.currency === r.code) && (
-                          <button type="button" className="icon-btn" aria-label={`Remove ${r.code}`} onClick={() => d.set((l) => l.filter((_, j) => j !== i))}>
-                            <Icon name="close" size={16} />
-                          </button>
-                        )}
-                      </td>
-                    )}
+                    <td className="cfg__muted num cfg__changed">{row ? `${fmtDate(row.week)}, weekly job` : '–'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {ed && (
-            <div className="cfg__addrow cfg__add">
-              <Pick id="fx-add" label="Currency to add" value={adding} placeholder="Pick a currency (ISO 4217)" options={ISO_4217.map(([c, n]) => [c, d.value.some((x) => x.code === c) ? `${c} · ${n} (already in the table)` : `${c} · ${n}`] as [string, string])} onChange={setAdding} />
-              <Button
-                variant="secondary"
-                size="sm"
-                iconLeft={<Icon name="plus" size={16} />}
-                disabled={!adding || d.value.some((x) => x.code === adding)}
-                onClick={() => {
-                  const name = ISO_4217.find(([c]) => c === adding)?.[1] ?? adding;
-                  // the default is last week's rate; a new currency starts empty
-                  d.set((l) => [...l, { code: adding, name, aud: 0, usedFor: '', updated: Date.now() }]);
-                  setAdding('');
-                }}
-              >
-                Add currency
-              </Button>
-              {adding && d.value.some((x) => x.code === adding) && <span className="cfg__err">This currency is already in the table.</span>}
-            </div>
-          )}
         </Panel>
       </Loaded>
-      <p className="cfg__muted">Saving sets this week’s rates (the week of {fmtDate(thisWeek)}, an IST week). Earlier weeks stay as they were. If next week has no rates by Friday 01:00 IST, a task goes to the Admin queue.</p>
+      <p className="cfg__muted">Each Monday the weekly job fetches every rate and saves the week. A currency it can’t find keeps last week’s rate. A new currency appears when a country or a destination uses it.</p>
       <History log={cfg.log} area="Currency exchange" />
     </>
   );

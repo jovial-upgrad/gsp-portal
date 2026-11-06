@@ -6,6 +6,14 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 6 Nov, afternoon: exchange rates for every market (Jovial, in chat)
+
+### Find courses, course costs, GSP · Admin › Currency exchange, Finance › Exchange rates
+- [x] **Budgets in the student's own currency.** Each country has its currency (geo data). Course search reads a budget with no currency in the student's country's currency, or in the one named (code, name or symbol: "under £22k", "500 million dong", "30 lakh taka"); lakhs, crores, millions and billions for everyone. It converts to the destination's currency at the search rates and says it back ("Tuition fee up to BDT 30 lakh (≈ AUD …)"). Result cards and the course's Costs show "≈" in the student's currency. (6 Nov, commit “Exchange rates for every market”)
+- [x] **Admin's search rates update themselves weekly** (job J11, Mondays 00:30 IST), for every currency a destination or a student's country uses; nobody saves them; the rupee column is gone. (6 Nov, commit “Exchange rates for every market”)
+- [x] **Finance keeps its own rates for commissions** (Finance › Exchange rates: Fetch with AI, Edit, Save, this week or next); T50 and T60 read them and go to Finance. (6 Nov, commit “Exchange rates for every market”)
+  - Decision: two sets of rates, search (automatic) and commission (Finance, manual) (Jovial, 6 Nov, Option B).
+
 ## 6 Nov, later: Queues and My work answers (Jovial, PRD › Queues & My Work)
 
 ### GSP · Admin › Work and My work

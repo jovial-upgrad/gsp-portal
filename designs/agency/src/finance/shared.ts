@@ -128,7 +128,7 @@ export const DEFAULT_OPS = {
     { type: 'Send to Legal', blocks: true, sla: 5, to: 'legal' },
   ],
   jobs: [
-    { id: 'j-fx', name: 'Confirm this week’s FX rates', freq: 'weekly', day: 1, who: '', page: 'gspx-fin-setup', metric: 'fx' },
+    { id: 'j-fx', name: 'Confirm this week’s FX rates', freq: 'weekly', day: 1, who: '', page: 'gspx-fin-fx', metric: 'fx' },
     // the monthly cycle: check RP invoices as they arrive; pay by the pay-by day
     { id: 'j-rpinv', name: 'Check the RP invoices uploaded', freq: 'daily', day: 0, who: '', page: 'gspx-fin-run', metric: 'run' },
     { id: 'j-appr', name: 'Pay the approved RP invoices', freq: 'monthly', day: 10, who: 'u-suman1-verma', page: 'gspx-fin-run', metric: 'run' },

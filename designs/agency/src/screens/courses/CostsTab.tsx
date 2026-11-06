@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { courseCosts, type CostPart } from '../../admin/data/store';
+import { courseCosts, searchConvert, type CostPart } from '../../admin/data/store';
 import { money, scholarshipsOf, type Course } from '../../data/courses';
 import { Box } from './parts';
 
@@ -11,7 +11,8 @@ import { Box } from './parts';
  * whole course's total, the same four parts for its full length. Then the scholarships: only the university
  * record's that fit this course (Jovial, 1 Nov, HC9), as the record has them.
  */
-export function CostsTab({ c }: { c: Course }) {
+/** `home`: the student's own currency; the whole course is shown in it too, at this week's search rates (Jovial, 6 Nov). */
+export function CostsTab({ c, home = '' }: { c: Course; home?: string }) {
   const { parts, total, span, credits, credit, yearParts, yearTotal, yearSpan, longer } = courseCosts(c);
   const schols = scholarshipsOf(c);
   const short = yearSpan !== '1 year';
@@ -39,7 +40,7 @@ export function CostsTab({ c }: { c: Course }) {
       </section>
 
       {longer && (
-        <Box id="cs-whole" icon="wallet" title={`Whole course, ${span}`} meta={`≈ ${money(total, c.currency)}`}>
+        <Box id="cs-whole" icon="wallet" title={`Whole course, ${span}`} meta={`≈ ${money(total, c.currency)}${home && home !== c.currency && searchConvert(total, c.currency, home) != null ? ` · ≈ ${money(searchConvert(total, c.currency, home)!, home)}` : ''}`}>
           <dl className="cs-whole">
             {parts.map((p) => (
               <div key={p.key} className="cs-whole__row">

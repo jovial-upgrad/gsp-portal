@@ -22,7 +22,7 @@ import {
   sampleRates,
   sampleFxWeeks,
   fillFx,
-  inrPerFrom,
+  convertWith,
   sampleRegions,
   sampleRpDocs,
   sampleRules,
@@ -119,7 +119,7 @@ export const sampleCfg = (): Cfg => {
 };
 
 
-const KEY = 'gsp-admin-v13'; // v13 (6 Nov): Permission roles from Jovial's sheet (modules and their parts, the RP's roles in the matrix); // v12 (4 Nov, admissions feedback): CV, SOP and Class 10 document rules with the student's current location; Turkey in Latin America & Europe; // v11 (3 Nov): nothing seeded in the log; exchange rates only up to this week; // v10 (2 Nov, lock answers merged): slice 3's Highest education and Reasons lists beside slices 1–2's settings; // v9 (2 Nov, lock answers S1–S2): non-EU Europe in Latin America & Europe, admin.gsp@ to the Admin queue, no Area on users, sign-in security and intake timings fixed; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
+const KEY = 'gsp-admin-v14'; // v14 (6 Nov): search rates for every market's currency, updated weekly by job J11; v13 (6 Nov): Permission roles from Jovial's sheet (modules and their parts, the RP's roles in the matrix); // v12 (4 Nov, admissions feedback): CV, SOP and Class 10 document rules with the student's current location; Turkey in Latin America & Europe; // v11 (3 Nov): nothing seeded in the log; exchange rates only up to this week; // v10 (2 Nov, lock answers merged): slice 3's Highest education and Reasons lists beside slices 1–2's settings; // v9 (2 Nov, lock answers S1–S2): non-EU Europe in Latin America & Europe, admin.gsp@ to the Admin queue, no Area on users, sign-in security and intake timings fixed; // v8 (2 Nov briefs): users' own regions (Global only for Admin), mailboxes per user, request categories; // v7: slices 1, 2 and 4 merged (2 Nov): a sales region's calendarId, Work's queues; v6: the slice 1 PRD's roles, region seed, matrix, login states, mailboxes, document rules, living costs and fees
 let state: Cfg | null = null;
 const subs = new Set<() => void>();
 function load(): Cfg {
@@ -135,6 +135,7 @@ function load(): Cfg {
   state = { ...state!, perms: { ...perms, ...state!.perms }, regions: state!.regions.map((r) => ({ ...r, countries: r.countries ?? [] })) };
   // every week carries every currency (W14): older saved settings may have weeks without one
   state = { ...state!, fxWeeks: fillFx(state!.fxWeeks, state!.rates) };
+  state = runSearchRatesJob(state!);
   // living costs and fees are one table (PRD slice 1): visa and health sit on each destination's row
   state = { ...state!, living: state!.living.map(withFees), nationalityChanged: state!.nationalityChanged ?? {}, emailOff: state!.emailOff ?? {} };
   // sign-in security is pre-decided (S1C-11): never a saved copy
@@ -142,6 +143,47 @@ function load(): Cfg {
   state = { ...state!, visaFees: visaFeesOf(state!.living) };
   applyCourseCosts(state!);
   return state!;
+}
+/**
+ * Job J11 (Mondays 00:30 IST; Jovial, 6 Nov): the search rates update themselves. Each week since the last saved one
+ * gets every rate (in the prototype: last week's, moved a little, as a fetch would); a currency with no rate keeps
+ * last week's. Logged as the system. Nobody saves them.
+ */
+function runSearchRatesJob(c: Cfg): Cfg {
+  const monday = (t: number) => {
+    const d = new Date(new Date(t + 5.5 * 36e5).toISOString().slice(0, 10) + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return d.toISOString().slice(0, 10);
+  };
+  const thisWeek = monday(Date.now());
+  const weeks = [...c.fxWeeks].sort((a, b) => (a.week < b.week ? -1 : 1));
+  let last = weeks[weeks.length - 1];
+  if (!last || last.week >= thisWeek) return c;
+  const added: FxWeek[] = [];
+  const log = [...c.log];
+  // a fetch moves each rate a little: a fixed small step per week and currency, so a reload shows the same figures
+  const step = (week: string, code: string) => ((([...`${week}${code}`].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 21) - 10) / 1000);
+  while (last.week < thisWeek) {
+    const d = new Date(`${last.week}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 7);
+    const week = d.toISOString().slice(0, 10);
+    const row: FxWeek = { week };
+    for (const r of c.rates) {
+      const prev = Number(last[r.code]);
+      row[r.code] = r.code === 'AUD' ? 1 : prev > 0 ? Number((prev * (1 + step(week, r.code))).toPrecision(4)) : '';
+    }
+    added.push(row);
+    log.unshift({ id: `l-fx-${week}`, at: Date.parse(`${week}T00:30:00+05:30`), who: 'System', role: 'System', area: 'Currency exchange', text: `Weekly job J11: search rates for the week of ${week} saved (${c.rates.length - 1} currencies)`, kind: 'change' } as Cfg['log'][number]);
+    last = row;
+  }
+  const rates = c.rates.map((r) => ({ ...r, aud: Number(last[r.code]) || r.aud, updated: Date.parse(`${last.week}T00:30:00+05:30`) }));
+  const next = { ...c, fxWeeks: fillFx([...weeks, ...added], rates), rates, log };
+  try {
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    /* storage blocked */
+  }
+  return next;
 }
 /** Every course's living costs and visa and health fees come from Admin › Living costs and fees. */
 function applyCourseCosts(c: Cfg) {
@@ -210,9 +252,7 @@ export function courseCosts(c: Course & { durUnit?: string; durValue?: number; f
   const fmt = (n: number, code = cur) => fmtMoney(Math.round(n), code);
   const conv = (v: number, from: string) => {
     if (from === cur) return v;
-    const a = inrPerFrom(cfg.rates, from);
-    const b = inrPerFrom(cfg.rates, cur);
-    return a && b ? (v * a) / b : v;
+    return convertWith(cfg.rates, v, from, cur) ?? v;
   };
   const credits = c.durUnit === 'Credits';
   const years = credits ? 1 : Math.max(1, c.months) / 12;
@@ -303,8 +343,8 @@ export function courseDocs(c: Pick<Course, 'level' | 'englishFlex'> & { uni: { c
   out.push(['English test score report', c.englishFlex ? 'Optional' : 'Required', c.englishFlex ? `${c.uni.name} can take it later` : 'With the application']);
   return out;
 }
-/** Rupees for one unit of a currency, from Admin's Currency exchange (course search's budget in lakhs). */
-export const inrPer = (code: string) => inrPerFrom(load().rates, code);
+/** An amount in another currency at this week's search rates (Admin › Currency exchange); undefined with no rate. */
+export const searchConvert = (v: number, from: string, to: string) => convertWith(load().rates, v, from, to);
 /** Admin's settings in a component, kept up to date. */
 export const useAdmin = () => useSyncExternalStore(subscribe, load);
 /** For the Admin portal: the same as useState, but saved and shared. */

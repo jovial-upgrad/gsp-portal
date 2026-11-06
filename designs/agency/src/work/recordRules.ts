@@ -39,7 +39,7 @@ const uniRec = (s, u, p) => ({ id: u.id, type: 'University', label: u.name, page
 const courseRec = (c) => ({ id: c.id, type: 'Course', label: `${c.name} · ${c.uni?.name ?? ''}`.replace(/ · $/, ''), page: 'courses' });
 const mailRec = (t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}`, page: 'mail' });
 /** An Admin setting a task points at: the page that fixes it (GSP · Admin). */
-const SETTING_PAGE = { fx: ['Currency exchange', 'currency'], routing: ['Application routing', 'routing'], calendars: ['Working days', 'work-sla'], living: ['Living costs and fees', 'living'], jobs: ['Emails and daily jobs', 'work-mail'], users: ['GSP users', 'users'], queues: ['Queues, SLA and escalation', 'work-sla'], docs: ['Document configuration', 'documents'] };
+const SETTING_PAGE = { fx: ['Exchange rates (Finance)', 'gspx-fin-fx'], routing: ['Application routing', 'routing'], calendars: ['Working days', 'work-sla'], living: ['Living costs and fees', 'living'], jobs: ['Emails and daily jobs', 'work-mail'], users: ['GSP users', 'users'], queues: ['Queues, SLA and escalation', 'work-sla'], docs: ['Document configuration', 'documents'] };
 const setRec = (k, extra = '') => ({ id: `set-${k}${extra ? `-${extra}` : ''}`, type: 'Setting', label: SETTING_PAGE[k][0], page: SETTING_PAGE[k][1] });
 const commRec = (id, label) => ({ id, type: 'Commission', label, page: 'fin-rp' });
 
@@ -107,16 +107,16 @@ export const RECORD_LOGIC = {
   T73: (x) => (x.comm?.rpInv || []).filter((i) => i.status === 'review').map((i) => ({ key: i.id + '|' + i.uploadedAt, rec: commRec(`cm-rpinv-${i.id}`.replace(/\W+/g, '-'), `RP invoice · ${i.rpName} · ${i.cycleLabel}`), since: i.uploadedAt, vars: { record: i.rpName } })),
   T74: (x) => (x.comm?.queries || []).filter((q) => q.status === 'open').map((q) => ({ key: q.id, rec: commRec(`cm-q-${q.id}`, `Query · ${q.rpName} · ${q.student}`), since: q.at, vars: { record: q.rpName } })),
 
-  /* ---- Admin (T50, and S4-28's T60 to T68) ---- */
+  /* ---- Finance's exchange rates (T50, T60; Jovial, 6 Nov), then Admin (S4-28's T61 to T68) ---- */
   T50: (x) => {
     const fri = lastWeekly(x.now, 5, '01:00');
     if (!fri) return [];
     const next = istYmd(fri + 3 * DAY); // the Monday after
-    return x.cfg.fxWeeks.some((w) => w.week === next) ? [] : [{ key: next, rec: setRec('fx'), since: fri }];
+    return (x.comm?.fx || []).some((w) => w.week === next) ? [] : [{ key: next, rec: setRec('fx'), since: fri }];
   },
   T60: (x) => {
-    const wk = x.cfg.fxWeeks.filter((w) => w.week <= istYmd(x.now)).sort((a, b) => b.week.localeCompare(a.week))[0];
-    const used = [...new Set([...(x.comm?.currencies || []), ...x.rdb.courses.filter((c) => c.status === 'Live').map((c) => c.currency)].filter(Boolean))];
+    const wk = (x.comm?.fx || []).filter((w) => w.week <= istYmd(x.now)).sort((a, b) => b.week.localeCompare(a.week))[0];
+    const used = [...new Set((x.comm?.currencies || []).filter(Boolean))];
     return used.filter((c) => c !== 'AUD' && !(wk && Number(wk[c]) > 0)).map((c) => ({ key: `${c}-${wk?.week ?? 'none'}`, rec: setRec('fx', c), since: wk ? atDay(wk.week) : WORK_START, vars: { currency: c, date: fmtDate(wk ? atDay(wk.week) : WORK_START) } }));
   },
   T61: (x) => x.apps.filter((a) => a.status !== 'docs' && a.routed && a.routed.fallback).map((a) => ({ key: a.id, rec: setRec('routing', a.id), since: a.since, vars: { student: a.student, country: a.routed.nationality || a.routed.livesIn || 'an unmapped country' } })),
