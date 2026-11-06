@@ -3,20 +3,19 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
 import { CounsellorPicker } from '../../components/CounsellorPicker';
-import { Toast, notify } from '../../components/Toast';
+import { Toast } from '../../components/Toast';
 import { MoreMenu } from '../../components/MoreMenu';
-import { RequiredNote } from '../../components/forms';
-import { RevealErrors } from '../../components/validate';
-import { useUnsaved } from '../../components/unsaved';
-import { LEVELS, LEVEL_NAME, TESTS, TEST_ORDER, eduDocKey, eduDocName, fullName, levelsFor, readiness, type Member, type Student } from '../../data/students';
+import { LEVELS, LEVEL_NAME, TESTS, TEST_ORDER, eduDocKey, eduDocName, fullName, levelsFor, type Member, type Student } from '../../data/students';
 import { COURSES, FLAG, UNIVERSITIES, money } from '../../data/courses';
 import { UniMark, campusLabel } from '../courses/parts';
-import { Avatar, CopyButton, OWNER, Ring, addedLabel, copyText } from './parts';
+import { Avatar, CopyButton, OWNER, Ring, addedLabel } from './parts';
 import { Personal } from './record/Personal';
 import { Education } from './record/Education';
 import { Work } from './record/Work';
 import { Tests } from './record/Tests';
 import { Background } from './record/Background';
+import { backgroundIssues, rpReadiness, tidyBackground } from './record/checks';
+import { useConfirm } from '../../components/ConfirmDialog';
 import { Documents } from './record/Documents';
 import type { Update } from './record/fields';
 import { addJob, addLevel, addTest } from './record/read';
@@ -54,22 +53,22 @@ const isEditable = (k: RecordTab): k is Editable => EDITABLE.includes(k);
 const hasData = (k: Editable, s: Student) =>
   k === 'personal'
     ? // the passport's own details, or the passport: before either, it opens ready to upload the passport
-      !!(s.docs.passport || s.dob || s.gender || s.city)
+      !!(s.docs.passport || s.dob || s.gender || s.passportExpiry || s.city)
     : k === 'education'
       ? Object.values(s.edu).some((e) => !!(e.level || e.institution || e.qualification || e.score))
       : k === 'work'
         ? s.work.length > 0
         : k === 'tests'
-          ? s.tests.length > 0
-          : !!(s.visa || s.disability || s.marital);
+          ? !!s.englishTest || s.tests.length > 0
+          : !!(s.visa || s.disability || s.marital || s.dependents);
 
 /** What each section owns, so saving one section never touches another (or what an upload read meanwhile). */
 const OWN: Record<Editable, (keyof Student)[]> = {
-  personal: ['first', 'last', 'oneName', 'nationality', 'passport', 'dob', 'gender', 'email', 'dial', 'phone', 'country', 'state', 'city', 'addr1', 'addr2', 'postcode', 'permSame', 'perm'],
+  personal: ['first', 'last', 'oneName', 'nationality', 'passport', 'dob', 'passportExpiry', 'gender', 'email', 'dial', 'phone', 'country', 'state', 'city'],
   education: ['eduCountry', 'highest', 'edu'],
   work: ['work'],
-  tests: ['tests'],
-  background: ['marital', 'marriedOn', 'visa', 'visaNote', 'refusals', 'dependants', 'dependantsCount', 'disability', 'disabilityNote'],
+  tests: ['englishTest', 'englishTestDate', 'tests'],
+  background: ['visa', 'visaNote', 'disability', 'disabilityNote', 'marital', 'marriedOn', 'refusals', 'dependents', 'dependentsCount'],
 };
 // the resume read in Work experience is kept as the CV in Additional documents
 const OWN_DOCS: Partial<Record<Editable, (key: string) => boolean>> = { personal: (x) => x === 'passport', education: (x) => x.startsWith('edu-'), work: (x) => x === 'cv', tests: (x) => x.startsWith('test-') };
@@ -78,9 +77,10 @@ function merge(k: Editable, p: Student, d: Student): Student {
   OWN[k].forEach((f) => (out[f] = d[f]));
   const own = OWN_DOCS[k];
   const docs = own ? { ...Object.fromEntries(Object.entries(p.docs).filter(([x]) => !own(x))), ...Object.fromEntries(Object.entries(d.docs).filter(([x]) => own(x))) } : p.docs;
-  // what an upload read meanwhile, and which documents have filled the profile in (one-time, 1 Nov), stay
-  return { ...(out as Student), docs, read: [...new Set([...p.read, ...d.read])], filled: p.filled || d.filled ? { ...p.filled, ...d.filled } : undefined };
+  return { ...(out as Student), docs, read: [...new Set([...p.read, ...d.read])] };
 }
+/** What English test saves: a tentative test date only while the answer is No. */
+const tidyTests = (s: Student): Student => (s.englishTest === 'no' ? s : { ...s, englishTestDate: '' });
 const without = <T extends object>(o: T, k: keyof T): T => {
   const c = { ...o };
   delete c[k];
@@ -95,9 +95,8 @@ const INTRO: Partial<Record<RecordTab, string>> = {
 };
 
 /**
- * A student's record: everything an application needs. Above it, back to Students and Share with student
- * (a link for the student to add their own details). The header says who the student is, their contact and
- * counsellor, Add application (the only add button, Jovial 2 Nov), and how ready the profile is. A just-added student's profile says
+ * A student's record: everything an application needs. Above it, back to Students (no Share with student, since
+ * 4 Nov). The header says who the student is, their contact and counsellor, Find courses and Start application, and how ready the profile is. A just-added student's profile says
  * so in a notification, bottom left ("Nesil Noble added · Complete the student's profile"), for a few seconds. Documents uploaded all at once in Add a
  * student are already filed and read into their parts.
  * The menu has three things (Nesil, 29 Oct): **Personal details**, in tabs (Personal, Academics, English test, Work
@@ -107,9 +106,6 @@ const INTRO: Partial<Record<RecordTab, string>> = {
  * away. The first time, before a part has its document or details, uploading the document fills it in. Adding to a
  * part (a level, a job, a test) is at its top and opens it for editing. Documents save straight away.
  */
-/** Share with student is hidden in v1 (S3C-10): turn on when the student page is specified. */
-const SHARE_WITH_STUDENT = false as boolean;
-
 export function StudentRecord({
   s,
   list,
@@ -120,6 +116,7 @@ export function StudentRecord({
   fresh,
   onDismissFresh,
   onBack,
+  onFindCourses,
   onCounsellor,
   onOpenApp,
   onNewApp,
@@ -143,21 +140,19 @@ export function StudentRecord({
   say: (m: string) => void;
 }) {
   const reduce = useReducedMotion();
-  const r = readiness(s);
+  // 4 Nov: Background's required answers count too, in this role
+  const r = rpReadiness(s);
   const [saved, setSaved] = useState<number | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
-  useEffect(() => {
-    if (!linkCopied) return;
-    const t = window.setTimeout(() => setLinkCopied(false), 2400);
-    return () => window.clearTimeout(t);
-  }, [linkCopied]);
   const panel = useRef<HTMLDivElement>(null);
   // sections open for editing, and their unsaved drafts (kept while switching tabs, until Save or Cancel)
   const [editing, setEditing] = useState<Partial<Record<Editable, boolean>>>({});
   const [drafts, setDrafts] = useState<Partial<Record<Editable, Student>>>({});
+  // how many times Save was tried with required answers missing (Background, 4 Nov): they show from the first
+  const [tried, setTried] = useState<Partial<Record<Editable, number>>>({});
   useEffect(() => {
     setEditing({});
     setDrafts({});
+    setTried({});
   }, [s.id]);
   const group = groupOf(tab);
   // the tab each group last showed, so coming back to it lands there
@@ -253,7 +248,8 @@ export function StudentRecord({
         </Button>
       );
     }
-    if (k === 'tests') {
+    // tests are added once the student has taken an English test (4 Nov)
+    if (k === 'tests' && d.englishTest === 'yes') {
       return (
         <MoreMenu
           id="radd-test"
@@ -276,49 +272,28 @@ export function StudentRecord({
   const close = (k: Editable) => {
     setDrafts((d) => without(d, k));
     setEditing((e) => without(e, k));
-    setReveal(0);
+    setTried((t) => without(t, k));
   };
-  /** A part's draft differs from what's saved (QC, 1 Nov: Save waits for a change). */
-  const isDirty = (k: Editable) => !!drafts[k] && JSON.stringify(drafts[k]) !== JSON.stringify(s);
-  // QC, 1 Nov (H1): Save shows every field's error first and saves nothing while one shows; the first is focused
-  const [reveal, setReveal] = useState(0);
-  const [attempt, setAttempt] = useState<{ k: Editable; n: number } | null>(null);
   const saveSection = (k: Editable) => {
-    setReveal((n) => n + 1);
-    setAttempt({ k, n: Date.now() });
-  };
-  useEffect(() => {
-    if (!attempt) return;
-    const t = window.setTimeout(() => {
-      const bad = panel.current?.querySelector<HTMLElement>('.rform [aria-invalid="true"]');
-      if (bad) {
-        bad.focus();
-        bad.scrollIntoView?.({ block: 'center' });
+    const d = drafts[k];
+    if (k === 'background') {
+      // its required answers hold Save: each says what's missing, and the first one gets the focus
+      const issues = backgroundIssues(d ?? s);
+      if (issues.length) {
+        setTried((t) => ({ ...t, background: (t.background ?? 0) + 1 }));
+        window.setTimeout(() => {
+          const id = issues[0].id;
+          const el = document.getElementById(id) ?? document.querySelector<HTMLElement>(`input[name="${id}"]`);
+          el?.focus({ preventScroll: true });
+          el?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+        }, 40);
         return;
       }
-      const k = attempt.k;
-      const d = drafts[k];
-      if (d) save((p) => merge(k, p, d));
-      close(k);
-      notify(`${LABEL[k]} saved`);
-      // back to the part's Edit button
-      window.setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-edit]')?.focus(), 80);
-    }, 40);
-    return () => window.clearTimeout(t);
-  }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
-  // QC, 1 Nov (H2): leaving the profile, or Esc in a part being edited, with changes nobody saved asks first
-  const record = useRef<HTMLDivElement>(null);
-  const anyDirty = DETAIL_TABS.some(([k]) => isDirty(k as Editable));
-  useUnsaved(Object.keys(drafts).length > 0 || Object.keys(editing).length > 0, anyDirty, {
-    region: record,
-    what: `${fullName(s)}’s profile`,
-    onDiscard: () => {
-      setDrafts({});
-      setEditing({});
-      setReveal(0);
-      window.setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-edit]')?.focus(), 80);
-    },
-  });
+      if (d) save((p) => merge(k, p, tidyBackground(d)));
+    } else if (d) save((p) => merge(k, p, k === 'tests' ? tidyTests(d) : d));
+    close(k);
+    say(`${LABEL[k]} saved.`);
+  };
 
   // the documents the profile needs are counted in Documents, not in the part they belong to
   const docMissing = ['passport copy', eduDocName(s.highest).toLowerCase()];
@@ -327,7 +302,7 @@ export function StudentRecord({
   const shortlist = (s.shortlist ?? []).map((id) => COURSES.find((c) => c.id === id)).filter((c): c is (typeof COURSES)[number] => !!c);
   /** A part of Personal details: unsaved, incomplete, done, or optional. */
   const tabStatus = (k: Editable) => {
-    if (isDirty(k)) return { text: 'Unsaved', cls: 'is-unsaved' };
+    if (drafts[k]) return { text: 'Unsaved', cls: 'is-unsaved' };
     const sec = r.sections.find((x) => x.key === k)!;
     if (sec.optional) return sec.filled ? { text: 'Completed', cls: 'is-done' } : { text: 'Optional', cls: 'is-opt' };
     return missingIn(k).length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
@@ -335,33 +310,18 @@ export function StudentRecord({
   const status = (g: Group) => {
     if (g === 'apps') return { text: String(s.apps.length), cls: 'is-count' };
     if (g === 'documents') return needDocs ? { text: `${needDocs} missing`, cls: 'is-todo' } : { text: String(Object.keys(s.docs).length), cls: 'is-count' };
-    if (anyDirty) return { text: 'Unsaved', cls: 'is-unsaved' };
-    return missingIn('personal').length || missingIn('education').length || missingIn('background').length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
+    if (DETAIL_TABS.some(([k]) => drafts[k])) return { text: 'Unsaved', cls: 'is-unsaved' };
+    return missingIn('personal').length || missingIn('education').length || missingIn('tests').length || missingIn('background').length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
   };
   const counts: Partial<Record<RecordTab, number>> = { applications: s.apps.length, shortlist: shortlist.length };
 
   return (
-    <div className="record" ref={record}>
+    <div className="record">
       <div className="rtop">
         <button type="button" className="rback" onClick={onBack}>
           <Icon name="arrowLeft" size={18} />
           Students
         </button>
-        {/* Share with student: not in v1 (S3C-10, Jovial 2 Nov): hidden */}
-        {SHARE_WITH_STUDENT && (
-          <Button
-            variant="secondary"
-            size="sm"
-            iconLeft={<Icon name={linkCopied ? 'check' : 'share'} size={16} />}
-            onClick={async () => {
-              await copyText(`https://gsp.upgrad.com/s/${s.id.toLowerCase().replace('s-', '')}`);
-              setLinkCopied(true);
-              say(`Link copied. ${s.first} can add their own details and documents; you check what they add.`);
-            }}
-          >
-            {linkCopied ? 'Link copied' : 'Share with student'}
-          </Button>
-        )}
       </div>
 
       {/* just added: a notification, bottom left, that goes after a few seconds */}
@@ -374,7 +334,7 @@ export function StudentRecord({
                 icon: 'checkCircle',
                 tone: 'ok',
                 title: `${fullName(s)} added`,
-                text: 'Complete the student’s profile.',
+                text: s.consentCheck ? `This passport is also on another agency’s student, so GSP is asking ${s.first} which agency they want. Meanwhile, complete the profile.` : 'Complete the student’s profile.',
               }
             : null
         }
@@ -405,10 +365,12 @@ export function StudentRecord({
           </span>
         </p>
         <div className="rhead__acts">
-          {/* Jovial, 2 Nov: the one way to add an application from the record (no Find courses here, none in Applications) */}
+          <Button variant="secondary" size="sm" iconRight={<Icon name="arrowRight" size={16} />} onClick={() => onFindCourses(s)}>
+            Find courses for {s.first}
+          </Button>
           {onNewApp && (
             <Button size="sm" iconLeft={<Icon name="plus" size={16} />} onClick={() => onNewApp(s)}>
-              Add application
+              Start application
             </Button>
           )}
         </div>
@@ -426,6 +388,16 @@ export function StudentRecord({
           )}
         </div>
       </header>
+
+      {s.consentCheck && (
+        <div className="sflag" role="note">
+          <span className="who who--gsp">With GSP</span>
+          <p>
+            <strong>Checking with {s.first}.</strong> This passport is also on a student at another agency, so GSP has asked {s.first} which agency they want to apply with. Applications can
+            start once they reply, usually within 2 days.
+          </p>
+        </div>
+      )}
 
       <div className="rbody">
         <nav className="rnav" aria-label="Profile sections">
@@ -474,65 +446,48 @@ export function StudentRecord({
           <div id="rsubpanel" role={group === 'documents' ? undefined : 'tabpanel'} aria-labelledby={group === 'documents' ? undefined : `rsub-${tab}`}>
             <AnimatePresence mode="wait" initial={false}>
               <motion.div key={tab} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease }}>
-                {sec ? (
-                  // the section's header (1 Nov, with engineering): its name, what it adds, and one Edit for the whole section
-                  <div className="rsechead">
-                    <h3 id="rsec-title" className="rsechead__title">
-                      {LABEL[sec]}
-                    </h3>
+                {(sec || (INTRO[tab] && group !== 'documents')) && (
+                <div className="rpanel__row">
+                  {INTRO[tab] && group !== 'documents' && <p className="rpanel__text">{INTRO[tab]}</p>}
+                  {sec && (
                     <div className="rpanel__acts">
                       {adder(sec)}
                       {mode === 'view' && (
-                        <Button data-edit variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => startEdit(sec)}>
-                          Edit<span className="vh"> {LABEL[sec].toLowerCase()}</span>
+                        <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => startEdit(sec)} aria-label={`Edit ${LABEL[sec].toLowerCase()}`}>
+                          Edit
                         </Button>
                       )}
                     </div>
-                  </div>
-                ) : (
-                  INTRO[tab] &&
-                  group !== 'documents' && (
-                    <div className="rpanel__row">
-                      <p className="rpanel__text">{INTRO[tab]}</p>
-                    </div>
-                  )
+                  )}
+                </div>
                 )}
                 {sec ? (
                   // saved: the same fields, read-only and shown as text; editing: the draft
-                  <RevealErrors.Provider value={mode === 'edit' ? reveal : 0}>
-                  <fieldset className={`rform ${mode === 'view' ? 'is-view' : ''}`} disabled={mode === 'view'} aria-labelledby="rsec-title">
+                  <fieldset className={`rform ${mode === 'view' ? 'is-view' : ''}`} disabled={mode === 'view'} aria-label={LABEL[sec]}>
                     {sec === 'personal' && <Personal s={shown} list={list} update={sectionUpdate} />}
-                    {sec === 'education' && <Education s={shown} update={sectionUpdate} />}
-                    {sec === 'work' && <Work s={shown} update={sectionUpdate} />}
-                    {sec === 'tests' && <Tests s={shown} update={sectionUpdate} />}
-                    {sec === 'background' && <Background s={shown} update={sectionUpdate} />}
+                    {sec === 'education' && <Education s={shown} saved={s} update={sectionUpdate} />}
+                    {sec === 'work' && <Work s={shown} saved={s} update={sectionUpdate} />}
+                    {sec === 'tests' && <Tests s={shown} saved={s} update={sectionUpdate} />}
+                    {sec === 'background' && <Background s={shown} saved={s} tried={tried.background} update={sectionUpdate} />}
                   </fieldset>
-                  </RevealErrors.Provider>
                 ) : tab === 'documents' ? (
                   <Documents s={s} update={save} />
                 ) : tab === 'shortlist' ? (
-                  <Shortlisted s={s} list={shortlist} onNewApp={onNewApp} onRemove={(id) => save((p) => ({ ...p, shortlist: (p.shortlist ?? []).filter((x) => x !== id) }))} />
+                  <Shortlisted s={s} list={shortlist} onFindCourses={onFindCourses} onNewApp={onNewApp} onRemove={(id) => save((p) => ({ ...p, shortlist: (p.shortlist ?? []).filter((x) => x !== id) }))} />
                 ) : (
-                  <Applications s={s} complete={r.complete} onOpenApp={onOpenApp} />
+                  <Applications s={s} complete={r.complete} onFindCourses={onFindCourses} onOpenApp={onOpenApp} onNewApp={onNewApp} />
                 )}
                 {sec && mode === 'edit' ? (
                   <div className="redit">
-                    <RequiredNote className="redit__req" />
                     <p className="redit__note" aria-live="polite">
-                      {isDirty(sec) ? 'Unsaved changes' : hasData(sec, s) ? 'No changes yet' : ''}
+                      {drafts[sec] ? 'Unsaved changes' : hasData(sec, s) ? 'No changes yet' : ''}
                     </p>
                     {(editing[sec] || drafts[sec]) && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          close(sec);
-                          window.setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-edit]')?.focus(), 80);
-                        }}
-                      >
+                      <Button variant="secondary" onClick={() => close(sec)}>
                         Cancel
                       </Button>
                     )}
-                    <Button onClick={() => saveSection(sec)} disabled={!isDirty(sec)}>
+                    <Button onClick={() => saveSection(sec)} disabled={!drafts[sec] && !editing[sec]}>
                       Save
                     </Button>
                   </div>
@@ -549,11 +504,15 @@ export function StudentRecord({
 function Applications({
   s,
   complete,
+  onFindCourses,
   onOpenApp,
+  onNewApp,
 }: {
   s: Student;
   complete: boolean;
+  onFindCourses: (s: Student) => void;
   onOpenApp?: (id: string) => void;
+  onNewApp?: (s: Student, courseId?: string) => void;
 }) {
   return s.apps.length ? (
     <div className="rsec">
@@ -577,11 +536,28 @@ function Applications({
           </li>
         ))}
       </ul>
+      {onNewApp && (
+        <div>
+          <Button variant="secondary" iconLeft={<Icon name="plus" size={18} />} onClick={() => onNewApp(s)}>
+            Add application
+          </Button>
+        </div>
+      )}
     </div>
   ) : (
     <div className="rempty">
       <p className="rempty__title">No applications yet</p>
-      <p className="rempty__text">{complete ? `Add one with Add application at the top of ${s.first}’s profile.` : `GSP starts checking once the profile has its documents.`}</p>
+      <p className="rempty__text">{complete ? `Find a course ${s.first} can be offered, or start an application if you know the course.` : `You can search now; GSP starts checking once the profile has its documents.`}</p>
+      <div className="rempty__acts">
+        <Button variant="secondary" iconRight={<Icon name="arrowRight" size={18} />} onClick={() => onFindCourses(s)}>
+          Find courses for {s.first}
+        </Button>
+        {onNewApp && (
+          <Button variant="secondary" iconLeft={<Icon name="plus" size={18} />} onClick={() => onNewApp(s)}>
+            Add application
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -590,19 +566,29 @@ function Applications({
 function Shortlisted({
   s,
   list,
+  onFindCourses,
   onNewApp,
   onRemove,
 }: {
   s: Student;
   list: typeof COURSES;
+  onFindCourses: (s: Student) => void;
   onNewApp?: (s: Student, courseId?: string) => void;
   onRemove: (id: string) => void;
 }) {
+  // 4 Nov: taking a course off asks first
+  const { ask, dialog } = useConfirm();
   if (!list.length)
     return (
       <div className="rempty">
         <p className="rempty__title">Nothing shortlisted yet</p>
         <p className="rempty__text">In Find courses, pick {s.first} as the student and star a course: it’s kept here.</p>
+        <div className="rempty__acts">
+          <Button variant="secondary" iconRight={<Icon name="arrowRight" size={18} />} onClick={() => onFindCourses(s)}>
+            Find courses for {s.first}
+          </Button>
+        </div>
+        {dialog}
       </div>
     );
   return (
@@ -620,7 +606,20 @@ function Shortlisted({
             </p>
           </div>
           <div className="rshort__acts">
-            <button type="button" className="icon-btn" aria-label={`Take ${c.name} off the shortlist`} title="Take off the shortlist" onClick={() => onRemove(c.id)}>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={`Take ${c.name} off the shortlist`}
+              title="Take off the shortlist"
+              onClick={() =>
+                ask({
+                  title: `Take ${c.name} off ${s.first}’s shortlist?`,
+                  text: `${c.uni.name}’s course stays in Find courses, where you can star it for ${s.first} again.`,
+                  confirm: 'Take off',
+                  run: () => onRemove(c.id),
+                })
+              }
+            >
               <Icon name="close" size={16} />
             </button>
             {onNewApp && (
@@ -631,6 +630,7 @@ function Shortlisted({
           </div>
         </li>
       ))}
+      {dialog}
     </ul>
   );
 }

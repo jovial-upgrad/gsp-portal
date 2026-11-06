@@ -1,40 +1,46 @@
 import { useEffect, useMemo, useState } from 'react';
+import { EditOnly, useHides } from '../../proto/viewOnly';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { Field, TextInput } from '../../components/forms';
+import { Field, SelectInput, TextInput } from '../../components/forms';
 import { DESTINATIONS, FLAG, type Destination } from '../../data/courses';
 import { UniMark } from '../courses/parts';
 import { UNI_STATUSES, UNI_TYPES, coursesOf, newUniRec, searchable, type UniRec, type UniStatus, type UniType } from '../data/catalogue';
-import { isClosed, type InstitutionPartner } from '../data/records';
-import { audit } from '../data/changelog';
-import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, usePager, useRecord } from './parts';
+import { isClosed, logLine, stampBy, type InstitutionPartner } from '../data/records';
+import { Filter, NoMatch, PageHead, Pager, Tiles, passes, usePaged, useRecord } from './parts';
+import { CsvImport, same, type CsvRead } from './CsvImport';
 import { SearchPick } from './SearchPick';
 import { UNI_TONE, UniPill } from './pills';
 import { UniversityPage } from './UniversityPage';
-import { QsImport } from './QsImport';
-import { OBJ, canEdit, type PageProps } from '../portal/model';
+import type { PageProps } from '../portal/model';
 
-const SUB: Record<UniStatus, string> = { Live: 'In course search', 'Setting up': 'Not live yet', Paused: 'Out of search for now', Ended: 'Its partnership ended' };
+const SUB: Record<UniStatus, string> = { Live: 'In Course search', 'Setting up': 'Not live yet', Paused: 'Out of search for now', Ended: 'No longer with GSP' };
 
 /**
- * Universities (slice 2 PRD): tiles Live, Setting up, Paused, Ended (a tile filters; again clears); search by
- * university, partner or city; filters Country, Institution partner, Status; sorted by name, 25 a page. Add a
- * university and Update QS rankings (a CSV for every university at once, S2C-17) show to Institution, IP Ops and
- * Admin (matrix: Universities); every other role views. An unranked university shows "—".
+ * Universities (29 Oct; 2nd round from the PM prototype's IP team): every university GSP recruits for. Each sits
+ * under one institution partner and goes live on its own: set up, then live (in Course search), paused or ended.
+ * The team keeps each one's profile, campuses, courses, scholarships, territory, how applications are sent, and the
+ * changes the university sends. 29 Oct (4th round): nothing is automated and there's no four-weekly check; a
+ * university is added with its basics and the rest is entered on its page. 4 Nov: the filters pick several; 20 a
+ * page; Update QS ranking has no line under its title, and a file it can't read says "Invalid format, upload again."
  */
 export function Universities(props: PageProps & { appsByUni?: Record<string, number> }) {
   const { db, set, focus, navKey, open, say, scrollTop, me } = props;
   const { cur, show, back } = useRecord(focus, navKey, scrollTop, open);
-  const edit = canEdit(props, OBJ.unis);
+  const [ranking, setRanking] = useState(false);
+  // GSP · Finance and Global Ops (6 Nov): no Update QS ranking; Global Ops: the list to look at (no Add a university)
+  const qsUpdate = useHides('uni.qs-update');
+  const qsAll = useHides('uni.qs');
+  const noQsUpdate = qsUpdate || qsAll;
+  const noAdd = useHides('uni.add');
   const [q, setQ] = useState('');
-  const [country, setCountry] = useState('');
-  const [ip, setIp] = useState('');
+  const [country, setCountry] = useState<string[]>([]);
+  const [ip, setIp] = useState<string[]>([]);
   const [status, setStatus] = useState<UniStatus | ''>('');
   const [adding, setAdding] = useState(false);
-  const [ranking, setRanking] = useState(false);
 
-  const unis = useMemo(() => [...db.unis].sort((a, b) => a.name.localeCompare(b.name)), [db.unis]);
+  const unis = db.unis;
   const ipOf = useMemo(() => new Map(db.ips.map((p) => [p.id, p])), [db.ips]);
   const counts = useMemo(() => {
     const m = new Map<string, [number, number]>();
@@ -47,43 +53,36 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
   const rows = unis.filter((u) => {
     const t = q.trim().toLowerCase();
     if (t && ![u.name, ...(u.aka ?? []), ...u.campuses.map((c) => c.city), ipOf.get(u.ip)?.name ?? ''].some((x) => x.toLowerCase().includes(t))) return false;
-    if (country && u.country !== country) return false;
-    if (ip && u.ip !== ip) return false;
+    if (!passes(country, u.country) || !passes(ip, u.ip)) return false;
     if (status && u.status !== status) return false;
     return true;
   });
-  const { page, pager } = usePager(rows, [q, country, ip, status]);
+  const pg = usePaged(rows, [q, country, ip, status]);
   const clear = () => {
     setQ('');
-    setCountry('');
-    setIp('');
+    setCountry([]);
+    setIp([]);
     setStatus('');
   };
+  const partners = db.ips.filter((p) => unis.some((u) => u.ip === p.id));
+  const ipName = (id: string) => ipOf.get(id)?.name ?? id;
 
-  if (cur) {
-    const shown = db.unis.find((u) => u.id === cur.id);
-    if (!shown) return <Gone back={cur.back?.label ?? 'Universities'} onBack={back} />;
-    return <UniversityPage key={shown.id} u={shown} tab={cur.tab} backLabel={cur.back?.label ?? 'Universities'} onBack={back} {...props} />;
-  }
+  const shown = cur ? unis.find((u) => u.id === cur.id) : undefined;
+  if (cur && shown) return <UniversityPage key={shown.id} u={shown} tab={cur.tab} backLabel={cur.back?.label ?? 'Universities'} onBack={back} {...props} />;
 
   return (
     <div className="ipage">
-      <PageHead title="Universities" lead="Each university sits under one institution partner and goes live on its own. Course search shows the live ones.">
-        {(edit || canEdit(props, OBJ.qs)) && (
-          <>
-            {/* every university's QS rank in one go (S2C-17): its own row in Permission roles (6 Nov) */}
-            {canEdit(props, OBJ.qs) && (
-              <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setRanking(true)}>
-                Update QS rankings
-              </Button>
-            )}
-            {edit && (
-            <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdding(true)}>
-              Add a university
-            </Button>
-            )}
-          </>
-        )}
+      <PageHead title="Universities" lead="Each university sits under one institution partner and goes live on its own.">
+        {!noQsUpdate && <EditOnly>
+          <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setRanking(true)}>
+            Update QS ranking
+          </Button>
+        </EditOnly>}
+        {!noAdd && <EditOnly>
+          <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdding(true)}>
+            Add a university
+          </Button>
+        </EditOnly>}
       </PageHead>
 
       <Tiles label="Where each university is" value={status} onPick={setStatus} items={UNI_STATUSES.map((s) => ({ key: s, label: s, sub: SUB[s], tone: UNI_TONE[s], n: unis.filter((u) => u.status === s).length }))} />
@@ -96,9 +95,8 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
               <span className="vh">Search universities</span>
               <input id="iuni-q" type="search" placeholder="University, partner or city" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <Pick id="iuni-country" label="Country" value={country} all="All countries" options={[...new Set(db.unis.map((u) => u.country))].sort()} onChange={setCountry} />
-            <Pick id="iuni-ip" label="Institution partner" value={ip} all="All partners" options={db.ips.filter((p) => unis.some((u) => u.ip === p.id)).map((p) => ({ value: p.id, label: p.name }))} onChange={setIp} />
-            <Pick id="iuni-status" label="Status" value={status} all="All statuses" options={UNI_STATUSES} onChange={(v) => setStatus(v as UniStatus | '')} />
+            <Filter id="iuni-country" label="Country" all="All countries" value={country} options={DESTINATIONS} onChange={setCountry} />
+            <Filter id="iuni-ip" label="Institution partner" all="All partners" value={ip} options={partners.map((p) => p.id)} onChange={setIp} labels={ipName} search />
           </div>
           <p className="stools__count" id="iuni-count" role="status">
             <span>
@@ -106,10 +104,8 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
             </span>
           </p>
         </div>
-        {unis.length === 0 ? (
-          <Empty text="No universities yet." action={edit ? 'Add a university.' : undefined} onAction={() => setAdding(true)} />
-        ) : rows.length === 0 ? (
-          <NoMatch onClear={clear} />
+        {rows.length === 0 ? (
+          <NoMatch what="universities" onClear={clear} />
         ) : (
           <div className="stab-wrap">
             <table className="itab itab--uni">
@@ -119,12 +115,11 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
                   <th scope="col">Institution partner</th>
                   <th scope="col">Campuses</th>
                   <th scope="col">Courses</th>
-                  <th scope="col">QS rank</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {page.map((u) => {
+                {pg.rows.map((u) => {
                   const p = ipOf.get(u.ip);
                   const [live, all] = counts.get(u.id) ?? [0, 0];
                   return (
@@ -138,20 +133,23 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
                             </button>
                             <span className="irow__sub">
                               {u.utype} · <span aria-hidden="true">{FLAG[u.country]}</span> {u.country}
+                              {u.state && ` · ${u.state}`}
                             </span>
                           </span>
                         </span>
                       </td>
                       <td>
-                        {p?.name ?? <span className="muted">Not set</span>}
+                        {p?.name ?? <span className="muted">Not picked yet</span>}
                         {p && <span className="irow__sub">{p.type}</span>}
                       </td>
-                      <td className="num">{u.campuses.length - u.inactive.length}</td>
                       <td>
-                        <span className="num">{live}</span> live · <span className="num">{all}</span> in all
+                        <span className="num">{u.campuses.length - u.inactive.length}</span>
+                        {u.inactive.length > 0 && <span className="irow__sub">{u.inactive.length} inactive</span>}
                       </td>
-                      {/* unranked: "—" (S2C-17) */}
-                      <td className="num">{u.qs ? `#${u.qs}` : '—'}</td>
+                      <td>
+                        <span className="num">{live}</span> live
+                        {all > live && <span className="irow__sub">{all} in all</span>}
+                      </td>
                       <td>
                         <UniPill s={u.status} />
                       </td>
@@ -162,51 +160,91 @@ export function Universities(props: PageProps & { appsByUni?: Record<string, num
             </table>
           </div>
         )}
-        {pager}
+        <Pager pg={pg} what="universities" />
       </section>
 
-      <QsImport
+      <CsvImport
         open={ranking}
-        unis={db.unis}
-        me={me}
-        role={props.role ?? 'Institution'}
-        onClose={() => setRanking(false)}
-        onApply={(next) => {
-          set((d) => ({ ...d, unis: next }));
-          say('QS rankings updated.');
+        title="Update QS ranking"
+        template={{ name: 'qs-world-ranking-template.csv', rows: [['University', 'Country', 'QS world ranking'], ...unis.map((u) => [u.name, u.country, u.qs ?? ''])] }}
+        columns={
+          <p className="icsv__note">
+            One row for each university, with its rank as a whole number. Leave the rank empty for a university QS doesn’t rank. The template lists every university with its rank today.
+          </p>
+        }
+        read={(rows) => readRanks(rows, unis)}
+        saveLabel={(n) => `Update ${n} ${n === 1 ? 'ranking' : 'rankings'}`}
+        readyText={(n) => `${n} ${n === 1 ? 'ranking changes' : 'rankings change'}.`}
+        onCancel={() => setRanking(false)}
+        onSave={(list) => {
+          const m = new Map(list.map((r) => [r.id, r.qs]));
+          set((d) => ({
+            ...d,
+            unis: d.unis.map((u) => {
+              if (!m.has(u.id)) return u;
+              const qs = m.get(u.id);
+              const what = `QS world ranking ${u.qs ? `changed from ${u.qs} to ${qs ?? 'not ranked'}` : `set to ${qs}`} (CSV upload)`;
+              return { ...u, qs, stamps: { ...u.stamps, profile: stampBy(me) }, log: [logLine(me, 'profile', what), ...u.log] };
+            }),
+          }));
+          setRanking(false);
+          say(`QS world ranking updated for ${list.length} ${list.length === 1 ? 'university' : 'universities'}.`);
         }}
       />
 
       <AddUniversity
         open={adding}
         ips={db.ips}
+        taken={(n) => unis.some((u) => u.name.toLowerCase() === n.trim().toLowerCase())}
         me={me}
-        role={props.role ?? 'Institution'}
-        taken={(n) => db.unis.some((u) => u.name.toLowerCase() === n.trim().toLowerCase())}
         onCancel={() => setAdding(false)}
         onAdd={(u) => {
           set((d) => ({ ...d, unis: [u, ...d.unis] }));
-          audit('Universities', `University created: ${u.name}, Setting up`, me, props.role ?? 'Institution');
           setAdding(false);
           clear();
           show(u.id);
-          say(`${u.name} added as Setting up. Fill in its profile with Edit profile.`);
+          say(`${u.name} added. Fill in its details, campuses and courses, then go live.`);
         }}
       />
     </div>
   );
 }
 
-type Draft = { ip: string; name: string; utype: UniType | ''; country: Destination | '' };
+/** Reads the QS ranking CSV: each row's university by name (or another name it goes by), and its rank. */
+function readRanks(rows: string[][], unis: UniRec[]): CsvRead<{ id: string; qs: number | undefined }> {
+  const head = rows[0].map((h) => h.toLowerCase());
+  const nameAt = head.findIndex((h) => h.includes('university'));
+  const at = head.findIndex((h) => h.includes('rank'));
+  // not the template's headings: the file can't be read
+  if (nameAt < 0 || at < 0) return { ok: [], problems: [], bad: true };
+  const ok: { id: string; qs: number | undefined }[] = [];
+  const problems: string[] = [];
+  let unchanged = 0;
+  rows.slice(1).forEach((r, i) => {
+    const row = i + 2;
+    const name = r[nameAt] ?? '';
+    const u = unis.find((x) => same(x.name, name) || (x.aka ?? []).some((a) => same(a, name)));
+    if (!u) return problems.push(`Row ${row}: no university called “${name || 'nothing'}”.`);
+    const raw = (r[at] ?? '').replace(/[#=,\s]/g, '');
+    const qs = raw === '' ? undefined : Number(raw);
+    if (qs !== undefined && !(Number.isInteger(qs) && qs > 0 && qs <= 2000)) return problems.push(`Row ${row}: ${u.name}’s rank “${r[at]}” isn’t a whole number from 1 to 2000.`);
+    if (ok.some((x) => x.id === u.id)) return problems.push(`Row ${row}: ${u.name} is in the file twice; the first row counts.`);
+    if (qs === u.qs) return void unchanged++;
+    ok.push({ id: u.id, qs });
+  });
+  return { ok, same: unchanged, problems };
+}
+
+type Draft = { ip: string; name: string; utype: UniType | ''; country: Destination | ''; website: string };
 
 /**
- * Add a university (slice 2 PRD): only the basics: name, its institution partner (found by search; any partner that
- * isn't Closed), university type and country. Everything else is entered on its page; nothing is read automatically
- * from the website. It saves as Setting up and writes "University created" to its Change log.
+ * Adding a university (29 Oct, 4th round): its basic details only, the partner found by searching (direct partners
+ * too, and a direct partner can have several). It starts as Setting up, out of Course search; its campuses, courses
+ * and everything else are entered on its page.
  */
-export function AddUniversity({ open, ips, taken, onCancel, onAdd, me, role }: { open: boolean; ips: InstitutionPartner[]; taken: (n: string) => boolean; onCancel: () => void; onAdd: (u: UniRec) => void; me: string; role: string }) {
+export function AddUniversity({ open, ips, taken, me, onCancel, onAdd }: { open: boolean; ips: InstitutionPartner[]; taken: (n: string) => boolean; me: string; onCancel: () => void; onAdd: (u: UniRec) => void }) {
   const pool = ips.filter((p) => !isClosed(p.status));
-  const blank: Draft = { ip: '', name: '', utype: '', country: '' };
+  const blank: Draft = { ip: '', name: '', utype: '', country: '', website: '' };
   const [v, setV] = useState<Draft>(blank);
   const [tried, setTried] = useState(false);
   useEffect(() => {
@@ -215,12 +253,11 @@ export function AddUniversity({ open, ips, taken, onCancel, onAdd, me, role }: {
     setTried(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (p: Partial<Draft>) => setV((x) => ({ ...x, ...p }));
-  const n = v.name.trim();
   const err = {
-    ip: !v.ip ? 'Pick an institution partner.' : null,
-    name: !n ? 'Enter the name.' : n.length < 2 ? 'Use 2 to 120 characters.' : taken(n) ? 'Another university has this name.' : null,
-    utype: !v.utype ? 'Pick a type.' : null,
-    country: !v.country ? 'Pick a country.' : null,
+    ip: !v.ip ? 'Pick its institution partner.' : null,
+    name: !v.name.trim() ? 'Enter the university’s name.' : taken(v.name) ? 'That university is already here.' : null,
+    utype: !v.utype ? 'Pick the type.' : null,
+    country: !v.country ? 'Pick the country.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   return (
@@ -230,38 +267,62 @@ export function AddUniversity({ open, ips, taken, onCancel, onAdd, me, role }: {
       center
       className="iform"
       title="Add a university"
-      sub="Only the basics. Everything else is entered on its page; nothing is read from the website."
       footer={
         <div className="asf">
           <div className="asf__acts">
             <Button variant="secondary" onClick={onCancel}>
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                setTried(true);
-                if (Object.values(err).some(Boolean)) return;
-                onAdd(newUniRec({ name: n, utype: v.utype as UniType, country: v.country as Destination, ip: v.ip, by: me, role }));
-              }}
-            >
-              Save
-            </Button>
+            <EditOnly>
+              <Button
+                onClick={() => {
+                  setTried(true);
+                  if (Object.values(err).some(Boolean)) return;
+                  onAdd(newUniRec({ name: v.name.trim(), utype: v.utype as UniType, country: v.country as Destination, website: v.website.trim().replace(/^https?:\/\//, ''), ip: v.ip, by: me }));
+                }}
+              >
+                Save
+              </Button>
+            </EditOnly>
           </div>
         </div>
       }
     >
       <div className="iform__grid">
-        <Field id="iu-name" label="Name" required error={show('name')} className="iform__wide">
-          <TextInput id="iu-name" value={v.name} maxLength={120} invalid={!!show('name')} onChange={(e) => set({ name: e.target.value })} placeholder="Like: University of Melbourne" />
-        </Field>
         <Field id="iu-ip" label="Institution partner" required error={show('ip')} className="iform__wide">
-          <SearchPick id="iu-ip" label="Institution partners" placeholder="Search partners" value={v.ip} invalid={!!show('ip')} options={pool.map((p) => ({ value: p.id, label: p.name, note: p.type }))} onChange={(id) => set({ ip: id })} />
+          <SearchPick
+            id="iu-ip"
+            label="Institution partners"
+            placeholder="Search partners"
+            value={v.ip}
+            invalid={!!show('ip')}
+            options={pool.map((p) => ({ value: p.id, label: p.name, note: p.type }))}
+            onChange={(id) => set({ ip: id, country: v.country || ((ips.find((x) => x.id === id)?.country as Destination) ?? '') })}
+          />
         </Field>
-        <Field id="iu-type" label="Type" required error={show('utype')}>
-          <Pick id="iu-type" label="Type" value={v.utype} placeholder="Pick a type" invalid={!!show('utype')} options={UNI_TYPES} onChange={(t) => set({ utype: t as UniType })} />
+        <Field id="iu-name" label="University name" required error={show('name')} className="iform__wide">
+          <TextInput id="iu-name" value={v.name} invalid={!!show('name')} onChange={(e) => set({ name: e.target.value })} placeholder="Like: University of Melbourne" />
+        </Field>
+        <Field id="iu-type" label="University type" required error={show('utype')}>
+          <SelectInput id="iu-type" value={v.utype} placeholder="Pick a type" invalid={!!show('utype')} onChange={(e) => set({ utype: e.target.value as UniType })}>
+            {UNI_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
         <Field id="iu-country" label="Country" required error={show('country')}>
-          <Pick id="iu-country" label="Country" value={v.country} placeholder="Pick a country" invalid={!!show('country')} options={DESTINATIONS} onChange={(c) => set({ country: c as Destination })} />
+          <SelectInput id="iu-country" value={v.country} placeholder="Pick a country" invalid={!!show('country')} onChange={(e) => set({ country: e.target.value as Destination })}>
+            {DESTINATIONS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="iu-web" label="Website" optional className="iform__wide">
+          <TextInput id="iu-web" value={v.website} onChange={(e) => set({ website: e.target.value })} placeholder="Like: unimelb.edu.au" />
         </Field>
       </div>
     </Sheet>

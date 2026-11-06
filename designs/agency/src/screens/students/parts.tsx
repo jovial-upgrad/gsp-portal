@@ -1,4 +1,3 @@
-import { RP_OWNER_WORD as OWNER_WORD } from '../../data/owners';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { initialsOf, type Owner, type Student } from '../../data/students';
@@ -38,13 +37,12 @@ export function Ring({ pct, size = 28 }: { pct: number; size?: number }) {
   );
 }
 
-export const OWNER: Record<Owner | 'done' | 'end' | 'wd', [string, string]> = {
-  you: [OWNER_WORD.you, 'who--you'],
-  gsp: [OWNER_WORD.gsp, 'who--gsp'],
-  uni: [OWNER_WORD.uni, 'who--uni'],
-  done: [OWNER_WORD.done, 'who--ok'],
-  end: [OWNER_WORD.end, 'who--end'],
-  wd: [OWNER_WORD.wd, 'who--wd'],
+export const OWNER: Record<Owner | 'done' | 'end', [string, string]> = {
+  you: ['Pending on you', 'who--you'],
+  gsp: ['With GSP', 'who--gsp'],
+  uni: ['With university', 'who--uni'],
+  done: ['Enrolled', 'who--ok'],
+  end: ['Closed', 'who--end'],
 };
 
 /** Copies to the clipboard, falling back to a hidden text box where the clipboard API isn't allowed. */

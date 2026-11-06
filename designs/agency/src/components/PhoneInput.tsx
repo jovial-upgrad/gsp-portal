@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { COUNTRIES, TOP_MARKETS } from '../data/partners';
-import { SelectMenu } from './SelectMenu';
+import { Icon } from './Icon';
+import { SelectInput } from './forms';
 import './phone.css';
 
 /** Dial code + number. The code follows the country picked above but can be changed. */
@@ -26,29 +27,44 @@ export function PhoneInput({
   const options = useMemo(() => {
     const top = TOP_MARKETS.map((n) => COUNTRIES.find((c) => c.name === n)!);
     const rest = COUNTRIES.filter((c) => !TOP_MARKETS.includes(c.name)).sort((a, b) => a.name.localeCompare(b.name));
-    return [
-      ...top.map((c) => ({ value: c.dial, label: c.name, note: c.dial, group: 'Where most partners are' })),
-      ...rest.map((c) => ({ value: c.dial, label: c.name, note: c.dial, group: 'All countries' })),
-    ];
+    return { top, rest };
   }, []);
 
   return (
     <div className={`control phone ${invalid ? 'is-invalid' : ''}`}>
-      <div className="phone__dial">
-        {/* the portal's own list, searchable (Jovial, 2 Nov: no system UI) */}
-        <SelectMenu
-          bare
-          className="phone__pick"
-          value={dial}
-          label="Country code"
-          ariaLabel="Country code"
-          options={options}
-          minWidth={300}
-          search
-          onChange={onDial}
-          render={() => <span className="phone__code num">{dial || 'Code'}</span>}
-        />
-      </div>
+      {/* the dial code: the product's dropdown, its list as wide as the whole phone field */}
+      <SelectInput
+        aria-label="Country code"
+        value={dial}
+        onChange={(e) => onDial(e.target.value)}
+        wrapClass="phone__dial"
+        btnClass="phone__btn"
+        nativeClass="phone__select"
+        anchorTo=".phone"
+        minListWidth={300}
+        noChevron
+        display={() => (
+          <>
+            <span className="phone__code num">{dial}</span>
+            <Icon name="chevronDown" size={16} className="phone__chev" />
+          </>
+        )}
+      >
+          <optgroup label="Where most partners are">
+            {options.top.map((c) => (
+              <option key={c.iso} value={c.dial}>
+                {c.name} {c.dial}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="All countries">
+            {options.rest.map((c) => (
+              <option key={c.iso} value={c.dial}>
+                {c.name} {c.dial}
+              </option>
+            ))}
+          </optgroup>
+      </SelectInput>
       <input
         id={id}
         className="control__input"

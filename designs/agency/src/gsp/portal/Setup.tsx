@@ -5,8 +5,8 @@ import { CountryCombobox } from '../../components/CountryCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { CITY_EXAMPLE, FOUND_US, countryByName } from '../../data/partners';
-import { DETAILS_ORDER, validateDetails, type SignupForm as Form, type SignupState } from '../../screens/signup/model';
+import { CITY_EXAMPLE, FOUND_US, countryByName, partnerManagerFor } from '../../data/partners';
+import { DETAILS_ORDER, WHATSAPP_MARKETS, validateDetails, type SignupForm as Form, type SignupState } from '../../screens/signup/model';
 import { DocSlotRow, previews, slug, useDocUploads } from '../../screens/signup/Documents';
 import { FILE_RULES, docsFor, missingRequired, slotOf } from '../../screens/signup/docs';
 import { Track, type TrackStep } from './Track';
@@ -181,6 +181,9 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
     onSaved();
   };
 
+  const manager = partnerManagerFor(f.country, f.city, f.ref);
+  const refKnown = f.ref.trim() && manager?.role.includes('referral');
+  const whatsapp = WHATSAPP_MARKETS.includes(f.country);
   const fade = reduce ? {} : { initial: { opacity: 0, y: -6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -6 } };
 
   return (
@@ -239,12 +242,12 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
               onBlur={() => touch('biz')}
             />
           </Field>
-          <Field id="su-country" required label="Country" error={show('country')}>
+          <Field id="su-country" required label="Country" hint="Decides the documents we ask for and who your GSP contact is." error={show('country')}>
             <CountryCombobox
               id="su-country"
               value={f.country}
               invalid={!!show('country')}
-              describedBy={describedBy('su-country', show('country'))}
+              describedBy={describedBy('su-country', show('country'), true)}
               onChange={(name) => {
                 if (name === f.country) return;
                 const c = countryByName(name);
@@ -298,7 +301,7 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
             id="su-phone"
             required
             label="Mobile number"
-            hint="Your GSP contact calls you on this number."
+            hint={whatsapp ? 'We send application updates and your daily task list on WhatsApp to this number.' : 'Your GSP contact calls you on this number.'}
             error={show('phone')}
           >
             <PhoneInput
@@ -395,6 +398,26 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
                   <option key={o}>{o}</option>
                 ))}
               </SelectInput>
+            </Field>
+            <Field
+              id="su-ref"
+              label="Referral code"
+              hint={
+                f.ref.trim() && !refKnown
+                  ? 'We don’t recognise this code. You can still go on; your GSP contact will check it.'
+                  : 'From a GSP team member or another partner.'
+              }
+              success={refKnown && manager ? `Code from ${manager.name}. ${manager.name.split(' ')[0]} will be your GSP contact.` : undefined}
+            >
+              <TextInput
+                id="su-ref"
+                placeholder="e.g. ADI-204"
+                autoCapitalize="characters"
+                value={f.ref}
+                valid={!!refKnown}
+                aria-describedby="su-ref-hint"
+                onChange={(e) => up({ ref: e.target.value.toUpperCase() })}
+              />
             </Field>
           </div>
         </fieldset>

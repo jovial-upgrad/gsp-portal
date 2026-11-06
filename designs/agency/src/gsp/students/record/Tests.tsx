@@ -1,41 +1,97 @@
 import { useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icon } from '../../../components/Icon';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import { TESTS, inRange, rangeText, testDocKey, type Student, type Test } from '../../../data/students';
 import { fillFromTest, saveTest } from './read';
 import { parseDate, shortDate, typeDate } from '../../../data/dates';
-import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
-import { Txt, type Update } from './fields';
-import { useRevealErrors } from '../../../components/validate';
+import { ReadBox, ReadNote, readMs } from '../ReadBox';
+import { Choice, Txt, type Update } from './fields';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 /**
- * English test: optional. English tests (IELTS, TOEFL, PTE, Duolingo) and admission tests (SAT, ACT, GMAT, GRE),
- * added from "Add test" at the top of the section, each with its certificate ID, date and scores in their
- * own ranges. Once a test is added, every field is required (Jovial's Test fields sheet, 1 Nov): the score report,
- * the certificate ID, the date of examination, the overall and every part; Save shows what's missing. The first time, uploading the score report fills it in; after that it's edited by hand, and the
- * report is kept in Documents. Scores past their validity say so.
+ * English test (Nesil, 4 Nov): first, "Has the student taken an English test?" (required). No: a tentative test date,
+ * optional. Yes: the tests, added from "Add test" at the top of the section: English tests (IELTS, TOEFL, PTE,
+ * Duolingo), whose certificate ID, date and scores are then required, and admission tests (SAT, ACT, GMAT, GRE),
+ * optional; each with its scores in their own ranges. The first time, uploading the score report fills it in; after
+ * that it's edited by hand, and the report is kept in Documents. Scores past their validity say so. Tests already
+ * added stay on the record if the answer changes to No, out of sight until it's Yes again.
  */
-export function Tests({ s, update }: { s: Student; update: Update }) {
-  const remove = (t: Test) =>
-    update((p) => {
-      const docs = { ...p.docs };
-      delete docs[testDocKey(t)];
-      return { ...p, tests: p.tests.filter((x) => x.id !== t.id), docs, read: p.read.filter((k) => !k.startsWith(`test.${t.id}.`)) };
-    });
+export function Tests({ s, update, saved }: { s: Student; update: Update; /** The profile as saved: removing a test on it asks first (4 Nov). */ saved?: Student }) {
+  const { ask, dialog } = useConfirm();
+  const remove = (t: Test) => {
+    const run = () =>
+      update((p) => {
+        const docs = { ...p.docs };
+        delete docs[testDocKey(t)];
+        return { ...p, tests: p.tests.filter((x) => x.id !== t.id), docs, read: p.read.filter((k) => !k.startsWith(`test.${t.id}.`)) };
+      });
+    if (saved?.tests.some((x) => x.id === t.id))
+      ask({ title: `Remove ${TESTS[t.type].name}?`, text: `Its scores${saved.docs[testDocKey(t)] ? ' and score report' : ''} come off the profile when you save. Cancel keeps them.`, run });
+    else run();
+  };
+
+  const reduce = useReducedMotion();
+  // the height animates; once open, the field's focus ring isn't cut off
+  const fade = reduce
+    ? {}
+    : {
+        initial: { opacity: 0, height: 0, overflow: 'hidden' as const },
+        animate: { opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' as const } },
+        exit: { opacity: 0, height: 0, overflow: 'hidden' as const },
+        transition: { duration: 0.2 },
+      };
+  const planned = parseDate(s.englishTestDate ?? '');
+  const today = new Date().setHours(0, 0, 0, 0);
 
   return (
     <div className="rsec">
-      {s.tests.map((t) => (
-        <TestCard key={t.id} t={t} s={s} update={update} onRemove={() => remove(t)} />
-      ))}
-      {s.tests.length === 0 && (
-        <div className="rempty">
-          <p className="rempty__title">No tests added</p>
-          <p className="rempty__text">Use Add test at the top.</p>
-        </div>
+      <div className="card rq">
+        <Choice
+          id="rt-english"
+          label="Has the student taken an English test?"
+          required
+          value={s.englishTest ?? ''}
+          onChange={(v) => update((p) => ({ ...p, englishTest: v }))}
+          options={[
+            ['no', 'No'],
+            ['yes', 'Yes'],
+          ]}
+        />
+        <AnimatePresence initial={false}>
+          {s.englishTest === 'no' && (
+            <motion.div key="n" className="rq__open" {...fade}>
+              <div className="grid2">
+                <Txt
+                  id="rt-planned"
+                  label="Tentative test date"
+                  value={s.englishTestDate ?? ''}
+                  placeholder="DD/MM/YYYY"
+                  inputMode="numeric"
+                  format={typeDate}
+                  onChange={(v) => update((p) => ({ ...p, englishTestDate: v }))}
+                  error={s.englishTestDate && !planned ? 'Enter the date as DD/MM/YYYY, like 15/01/2027.' : planned && planned.getTime() < today ? 'The test date can’t be in the past.' : null}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {s.englishTest === 'yes' && (
+        <>
+          {s.tests.map((t) => (
+            <TestCard key={t.id} t={t} s={s} update={update} onRemove={() => remove(t)} />
+          ))}
+          {s.tests.length === 0 && (
+            <div className="rempty">
+              <p className="rempty__title">No tests added</p>
+              <p className="rempty__text">Use Add test at the top.</p>
+            </div>
+          )}
+        </>
       )}
+      {dialog}
     </div>
   );
 }
@@ -44,11 +100,11 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
   const reduce = useReducedMotion();
   const [reading, setReading] = useState(false);
   const def = TESTS[t.type];
+  // with Yes to "Has the student taken an English test?", an English test's details are required; admission tests stay optional
+  const need = s.englishTest === 'yes' && def.kind === 'English';
   const id = (f: string) => `rt-${t.id}-${f}`;
   const doc = s.docs[testDocKey(t)];
   const read = (f: string) => (s.read.includes(`test.${t.id}.${f}`) ? 'score report' : null);
-  // autofill is one-time (1 Nov): once the score report filled this in, it's corrected by hand
-  const filled = filledAt(s, testDocKey(t));
   const set = (patch: Partial<Test>, field: string) =>
     update((p) => ({ ...p, tests: p.tests.map((x) => (x.id === t.id ? { ...x, ...patch } : x)), read: p.read.filter((k) => k !== `test.${t.id}.${field}`) }));
   const date = parseDate(t.date);
@@ -63,10 +119,7 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
       setReading(false);
     }, readMs(reduce));
   };
-  const scoreError = (v: string, range: [number, number, number], what: string) => (!v.trim() ? `Enter the ${what}.` : !inRange(v, range) ? `Enter a score from ${rangeText(range)}.` : null);
-  // the score report is required too: Save says so under the upload (HC Test fields, 1 Nov)
-  const reveal = useRevealErrors();
-  const noReport = !doc && !reading && reveal > 0;
+  const scoreError = (v: string, range: [number, number, number]) => (v && !inRange(v, range) ? `Enter a score from ${rangeText(range)}.` : null);
 
   return (
     <motion.section className="card rlevel" aria-labelledby={id('title')} initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}>
@@ -84,56 +137,46 @@ function TestCard({ t, s, update, onRemove }: { t: Test; s: Student; update: Upd
           <Icon name="close" size={16} />
         </button>
       </header>
-      {reading || (!filled && !doc && !(t.cert || t.date || t.overall)) ? (
-        <>
-          <ReadBox id={id('file')} compact title="Fill this in from the score report *" text="Upload it and we fill in the scores below. It’s kept in Documents." button="Upload report" file={doc?.file} reading={reading} onFile={readFile} />
-          {noReport && (
-            <p className="field__msg field__msg--error" id={id('file-error')} role="alert" tabIndex={-1} aria-invalid="true">
-              <span>Upload the score report.</span>
-            </p>
-          )}
-        </>
-      ) : !doc ? (
-        <>
-          <ReadBox id={id('file')} compact title="Score report *" text="Upload the score report. It’s kept in Documents." button="Upload report" reading={reading} onFile={(f) => update((p) => saveTest(p, t, f.name))} />
-          {noReport && (
-            <p className="field__msg field__msg--error" id={id('file-error')} role="alert" tabIndex={-1} aria-invalid="true">
-              <span>Upload the score report.</span>
-            </p>
-          )}
-        </>
-      ) : null}
-      {filled && !reading && <ReadNote text={filledText(`${def.name} score report`, filled)} />}
+      {reading || (!doc && !(t.cert || t.date || t.overall)) ? (
+        <ReadBox id={id('file')} compact title="Fill this in from the score report" text="Upload it and we fill in the scores below. It’s kept in Documents." button="Upload report" file={doc?.file} reading={reading} onFile={readFile} />
+      ) : (
+        doc && s.read.some((k) => k.startsWith(`test.${t.id}.`)) && <ReadNote text="Filled in from the score report, which is in Documents. What was read is highlighted: check it." />
+      )}
       <div className="grid2">
-        <Txt id={id('cert')} label="Certificate ID" required error={t.cert.trim() ? null : 'Enter the certificate ID.'} value={t.cert} read={read('cert')} hint={def.cert} onChange={(v) => set({ cert: v }, 'cert')} />
+        <Txt id={id('cert')} label="Certificate ID" required={need} value={t.cert} read={read('cert')} hint={def.cert} onChange={(v) => set({ cert: v }, 'cert')} />
         <Txt
           id={id('date')}
           label="Date of examination"
-          required
+          required={need}
           value={t.date}
           read={read('date')}
           placeholder="DD/MM/YYYY"
           inputMode="numeric"
           format={typeDate}
           onChange={(v) => set({ date: v }, 'date')}
-          error={!t.date ? 'Enter the date of examination.' : !date ? 'Enter the date as DD/MM/YYYY, like 12/08/2026.' : date && date.getTime() > Date.now() ? 'The test date can’t be in the future.' : null}
+          error={t.date && !date ? 'Enter the date as DD/MM/YYYY, like 12/08/2026.' : date && date.getTime() > Date.now() ? 'The test date can’t be in the future.' : null}
           hint={`Scores count for ${def.years} years.`}
         />
       </div>
       <div className={`rscores ${def.parts.length > 4 ? 'is-wide' : ''}`}>
-        <Txt id={id('overall')} label="Overall" required value={t.overall} read={read('overall')} inputMode="decimal" hint={rangeText(def.overall)} onChange={(v) => set({ overall: v.replace(/[^\d.]/g, '') }, 'overall')} error={scoreError(t.overall, def.overall, 'overall score')} />
+        <Txt id={id('overall')} label="Overall" required={need} value={t.overall} read={read('overall')} inputMode="decimal" hint={rangeText(def.overall)} onChange={(v) => set({ overall: v.replace(/[^\d.]/g, '') }, 'overall')} error={scoreError(t.overall, def.overall)} />
         {def.parts.map((p) => (
           <Txt
             key={p.key}
             id={id(p.key)}
-            label={p.label}
-            required
+            label={
+              <>
+                {p.label}
+                {p.optional && <span className="field__optional"> (optional)</span>}
+              </>
+            }
+            required={need && !p.optional}
             value={t.parts[p.key] ?? ''}
             read={read(p.key)}
             inputMode="decimal"
             hint={rangeText(p.range)}
             onChange={(v) => set({ parts: { ...t.parts, [p.key]: v.replace(/[^\d.]/g, '') } }, p.key)}
-            error={scoreError(t.parts[p.key] ?? '', p.range, `${p.label.toLowerCase()} score`)}
+            error={scoreError(t.parts[p.key] ?? '', p.range)}
           />
         ))}
       </div>

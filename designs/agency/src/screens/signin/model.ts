@@ -1,7 +1,5 @@
-import { adminCfg, onAdminChange } from '../../admin/data/store';
 /** Sign-in and forgot-password state. Prototype rules are listed in the Prototype panel. */
 import { TEST_PASSWORD } from '../../data/testing';
-import { TEST_AGENCY, rpTeam } from '../../data/rpteam';
 
 export type ForgotStep = 'request' | 'code' | 'new' | 'done';
 
@@ -33,22 +31,16 @@ export type AuthState = {
 
 export type Account = { name: string; first: string; email: string; agency: string; role: string; aliases?: string[] };
 
-/**
- * One sample agency (HC35, Jovial 1 Nov): the accounts are the GSP test agency's team, from its one record
- * (data/rpteam.ts): Nesil Noble, its RP Admin (the test account), then its Branch Manager and counsellors.
- */
-const ACCOUNTS: Account[] = rpTeam(TEST_AGENCY).map((m) => ({
-  name: m.name,
-  first: m.name.split(' ')[0],
-  email: m.email ?? '',
-  ...(m.id === 'me' ? { aliases: ['nesil@upgrad.com'] } : {}),
-  agency: TEST_AGENCY,
-  role: m.role,
-}));
+/** The test account first, then sample people from the PM prototype's agencies. */
+const ACCOUNTS: Account[] = [
+  { name: 'Nesil Noble', first: 'Nesil', email: 'nesil@upgard.com', aliases: ['nesil@upgrad.com'], agency: 'GSP test agency', role: 'RP admin' },
+  { name: 'Ananya Rao', first: 'Ananya', email: 'ananya@horizonoverseas.in', agency: 'Horizon Overseas', role: 'RP admin' },
+  { name: 'Vikram Desai', first: 'Vikram', email: 'vikram@horizonoverseas.in', agency: 'Horizon Overseas · Pune', role: 'Branch admin' },
+  { name: 'Rahul Verma', first: 'Rahul', email: 'rahul@horizonoverseas.in', agency: 'Horizon Overseas · Lucknow', role: 'Counsellor' },
+  { name: 'Lan Tran', first: 'Lan', email: 'lan@saigonbridge.vn', agency: 'Saigon Bridge Education', role: 'RP admin' },
+];
 
 export const SAMPLE_ACCOUNT = ACCOUNTS[0];
-/** The test agency's person for an RP role (Jovial, 2 Nov: one signed-in user for every role): its RP Admin, its Branch Manager, a counsellor. */
-export const accountByRole = (role: string) => ACCOUNTS.find((a) => a.role === role) ?? SAMPLE_ACCOUNT;
 
 /** Matches an email, or the part before the @, against each account's email and aliases. */
 export function accountFor(id: string): Account | null {
@@ -67,12 +59,8 @@ export function verify(id: string, pw: string): Account | null {
   return acc && pw === (changed.get(acc.email) ?? TEST_PASSWORD) ? acc : null;
 }
 
-// both portals read Admin › Sign-in security at every sign-in (PRD slice 1): 3 wrong passwords, a 10-minute pause
-export let MAX_ATTEMPTS = adminCfg().security.maxAttempts;
-export let LOCK_MINUTES = adminCfg().security.lockMinutes;
-onAdminChange(() => {
-  ({ maxAttempts: MAX_ATTEMPTS, lockMinutes: LOCK_MINUTES } = adminCfg().security);
-});
+export const MAX_ATTEMPTS = 5;
+export const LOCK_MINUTES = 15;
 
 export function maskEmail(email: string) {
   const [user, domain] = email.split('@');
@@ -122,11 +110,6 @@ export const AUTH_PRESETS: Record<string, { label: string; make: () => AuthState
       submitted: true,
       error: 'That username and password don’t match. Check both, or reset your password.',
     }),
-  },
-  // an RP person whose RP is Suspended (slice 2), with the right password (PRD slice 1)
-  'signin-agency-paused': {
-    label: 'Agency paused',
-    make: () => ({ ...initialAuth(DEMO), submitted: true, error: 'Your agency’s access is paused. Your Recruitment contact at GSP can tell you more.' }),
   },
   'signin-locked': {
     label: 'Sign-in paused',

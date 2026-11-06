@@ -1,0 +1,102 @@
+/* RP Ops' own pages (4 Nov): Recruitment partners and Master Partners. Every class starts "ops-" (CSS is global). */
+
+/* inline values with an action beside them, and stacked lines in a cell */
+.ops-inline { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-10); }
+.ops-stack { display: grid; gap: 2px; justify-items: start; }
+.ops-stack .muted { font-size: var(--t-caption); line-height: var(--lh-caption); }
+.ops-strong { font-weight: var(--fw-semi); color: var(--text); }
+.btn--link.ops-strong { color: var(--text); text-align: left; }
+.btn--link.ops-strong:hover { color: var(--link); }
+.ops-empty { margin: 0; font-size: var(--t-label); }
+.ops-empty--pad { padding: var(--sp-20) var(--sp-24) var(--sp-24); }
+.ops-why { max-width: 32ch; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--you); }
+.ops-acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.ops-end { text-align: right; white-space: nowrap; }
+.ops-page .irsec__head .btn--secondary:disabled { border-color: transparent; background: var(--surface-2); color: var(--text-3); box-shadow: none; }
+.ops-headacts { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sp-12); }
+
+/* tables inside a section */
+.ops-tab td { vertical-align: top; }
+.ops-tab .irow__sub + .irow__sub { margin-top: 0; }
+.ops-agr { margin-top: var(--sp-4, 4px); }
+
+/* the onboarding documents (and a Master Partner's), one row each */
+.ops-docs { display: grid; gap: var(--sp-10); margin: 0; padding: 0; list-style: none; }
+.ops-doc { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-12); padding: var(--sp-12) var(--sp-16); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.ops-doc > .icon, .ops-doc > svg { justify-self: center; color: var(--text-3); }
+.ops-doc__t { display: grid; gap: 2px; min-width: 0; }
+.ops-doc__name { font-weight: var(--fw-semi); color: var(--text); }
+.ops-doc__meta { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); overflow-wrap: anywhere; }
+.ops-doc__meta.is-back { color: var(--you); }
+.ops-doc__acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sp-8) var(--sp-12); }
+@media (max-width: 720px) {
+  .ops-doc { grid-template-columns: 28px minmax(0, 1fr); }
+  .ops-doc__acts { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* prototype only: plays the RP's side */
+.ops-proto { justify-self: start; padding: 2px 8px; border: 1px dashed var(--line-strong); border-radius: var(--r-pill); background: transparent; color: var(--text-2); font: inherit; font-size: var(--t-micro); cursor: pointer; }
+.ops-proto:hover { border-color: var(--text-3); color: var(--text); }
+
+/* pop-up forms */
+.ops-form { display: grid; gap: var(--sp-16); }
+.ops-form--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-16) var(--sp-20); align-items: start; }
+.ops-form--2 .ops-wide { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .ops-form--2 { grid-template-columns: minmax(0, 1fr); }
+  .ops-gap { display: none; }
+}
+
+/* a file: drop it or choose it, then its name with Replace */
+.ops-drop { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-12); padding: var(--sp-14, 14px) var(--sp-16); border: 1px dashed var(--line-strong); border-radius: 14px; background: var(--surface-2); cursor: pointer; transition: border-color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out); }
+.ops-drop:hover { border-color: var(--text-3); }
+.ops-drop.is-over { border-style: solid; border-color: var(--primary); background: var(--primary-soft); }
+.ops-drop.is-invalid { border-color: var(--bad-line); background: var(--bad-bg); }
+.ops-drop__icon, .ops-file__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--surface); color: var(--text-3); box-shadow: inset 0 0 0 1px var(--line); }
+.ops-drop__t, .ops-file__t { display: grid; gap: 2px; min-width: 0; }
+.ops-drop__t .muted, .ops-file__t .muted { font-size: var(--t-caption); line-height: var(--lh-caption); }
+.ops-file { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-12); padding: var(--sp-12) var(--sp-16); border: 1px solid var(--ok-line); border-radius: 14px; background: color-mix(in srgb, var(--ok-bg) 45%, var(--surface)); }
+.ops-file__t .ops-strong { overflow-wrap: anywhere; }
+.ops-filein:focus-visible + .ops-drop, .ops-filein:focus-visible + .ops-file { outline: 2px solid var(--focus, var(--primary)); outline-offset: 2px; }
+@media (max-width: 480px) {
+  .ops-drop { grid-template-columns: 40px minmax(0, 1fr); }
+  .ops-drop > .btn { display: none; }
+}
+
+/* 4 Nov (later): a title with no line under it; dates that stay on one line; Logs with the year and time; rows with a menu */
+.stu__head.ops-head { align-items: center; }
+.ops-nowrap { white-space: nowrap; }
+.ops-page .ilog__item { grid-template-columns: 128px minmax(0, 1fr); }
+.ops-tab--mid td { vertical-align: middle; }
+.ops-tab--mid td .dpill { margin-top: 2px; }
+
+/* red for what takes something away (Set inactive, Remove, Delete): filled in a confirmation, outlined on the page */
+.btn.ops-danger { background: var(--bad); color: var(--surface); }
+.btn.ops-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--bad) 88%, #000); box-shadow: none; }
+.btn--secondary.ops-danger-line { color: var(--bad); border-color: var(--bad-line); }
+.btn--secondary.ops-danger-line:hover:not(:disabled) { border-color: var(--bad); background: var(--bad-bg); }
+
+/* filters of several (MultiPick) in a list's tools, the size of the search */
+.ops-tools .stools__row > .imp { flex: 1 1 160px; max-width: 210px; }
+.ops-tools .imp__btn { min-height: 44px; height: 44px; }
+@container app (max-width: 760px) {
+  .ops-tools .stools__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ops-tools .stools__row > .imp { max-width: none; }
+  /* after the search, an odd one out takes the whole row */
+  .ops-tools .stools__row > .ssearch ~ .imp:last-child:nth-child(even) { grid-column: 1 / -1; }
+}
+
+/* the searchable picker's list (Pick): a long note gives way to the name; on phones the note goes under it */
+.ops-picklist .cbx__name { flex: 1 0 auto; max-width: 100%; }
+.ops-picklist .cbx__dial { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@container app (max-width: 600px) {
+  .ops-picklist .cbx__opt { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: center; column-gap: var(--sp-8); padding-block: var(--sp-6); }
+  .ops-picklist .cbx__dial { grid-column: 1; grid-row: 2; white-space: normal; }
+  .ops-picklist .cbx__tick { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+/* places picked from a list (Places): waiting for a country, invalid, and adding one as typed */
+.imp__btn:disabled { background: var(--surface-2); border-color: var(--line); cursor: not-allowed; }
+.imp__btn.is-invalid { border-color: var(--bad-dot); }
+.ops-addopt { width: 100%; border: 0; background: none; font: inherit; font-size: var(--t-label); color: var(--link); text-align: left; cursor: pointer; }
+.ops-addopt > svg { flex: none; }

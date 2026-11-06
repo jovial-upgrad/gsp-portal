@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Field, Form, TextInput, Switch, describedBy } from '../../components/forms';
 import { PasswordInput } from '../../components/PasswordInput';
@@ -20,8 +20,6 @@ import {
   memberFor,
   setPassword,
   verify,
-  resendFrom,
-  RESEND_SECONDS,
   type Member,
   type PwMode,
   type PwStep,
@@ -47,7 +45,10 @@ const remembered = () => {
  * time (a GSP admin gives access; there's no registering), or reset a forgotten one. Its own scene, with
  * "Institution Team" beside the logo.
  */
-export function TeamSignIn({ preset, notice, onSignedIn }: { preset: string | null; notice: string | null; onSignedIn: (m: Member) => void }) {
+/** The portal's name in the sign-in's words: the Institution Team, or GSP View Only (6 Nov). */
+const TeamName = createContext('the Institution Team');
+
+export function TeamSignIn({ preset, notice, onSignedIn, brand }: { preset: string | null; notice: string | null; onSignedIn: (m: Member) => void; brand?: [string, string] }) {
   const [a, setA] = useState<TeamAuth>(() =>
     preset && preset !== 'signin' && preset in TEAM_AUTH_PRESETS ? TEAM_AUTH_PRESETS[preset].make() : { ...initialTeamAuth(remembered()), notice },
   );
@@ -62,9 +63,11 @@ export function TeamSignIn({ preset, notice, onSignedIn }: { preset: string | nu
     onSignedIn(m);
   };
   return (
-    <AuthScene sceneKey="team" hero={<TeamHero />} heroKey="team">
-      <TeamPanel a={a} set={set} onSignedIn={signedIn} />
-    </AuthScene>
+    <TeamName.Provider value={brand ? `${brand.join(' ')}` : 'the Institution Team'}>
+      <AuthScene sceneKey="team" hero={<TeamHero />} heroKey="team" brand={brand}>
+        <TeamPanel a={a} set={set} onSignedIn={signedIn} />
+      </AuthScene>
+    </TeamName.Provider>
   );
 }
 
@@ -127,6 +130,7 @@ function useNow(active: boolean) {
 }
 
 function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; set: Set; onForgot: () => void; onSetup: () => void; onSignedIn: (m: Member) => void }) {
+  const team = useContext(TeamName);
   const reduce = useReducedMotion();
   const pwRef = useRef<HTMLInputElement>(null);
   const [caps, setCaps] = useState(false);
@@ -147,11 +151,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
     // someone with access who hasn't set a password: no password to check, so offer to set one up
     const m = memberFor(a.id);
     if (m && !hasPassword(m)) return set((p) => ({ ...p, submitted: true, unset: true, error: null, notice: null, pw: '' }));
-    if (!a.id.trim() || !a.pw) {
-      // the first field with an error takes focus (QC, 1 Nov)
-      window.setTimeout(() => (!a.id.trim() ? document.getElementById('si-id') : pwRef.current)?.focus(), 40);
-      return set((p) => ({ ...p, submitted: true, error: null, notice: null, unset: false }));
-    }
+    if (!a.id.trim() || !a.pw) return set((p) => ({ ...p, submitted: true, error: null, notice: null, unset: false }));
     set((p) => ({ ...p, submitted: true, status: 'checking', error: null, notice: null, unset: false }));
     timer.current = window.setTimeout(() => {
       const ok = verify(a.id, a.pw);
@@ -162,7 +162,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
         set((p) => ({
           ...p,
           status: 'idle',
-          // QC, 1 Nov (H20): the password stays; only the banner says what's wrong
+          pw: '',
           attempts,
           lockedUntil,
           error: lockedUntil
@@ -171,10 +171,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
               ? `That email and password don’t match. ${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses for ${LOCK_MINUTES} minutes.`
               : 'That email and password don’t match. Check both, or reset your password.',
         }));
-        window.setTimeout(() => {
-          pwRef.current?.focus();
-          pwRef.current?.select();
-        }, 40);
+        window.setTimeout(() => pwRef.current?.focus(), 40);
       } else {
         set((p) => ({ ...p, status: 'success' }));
         timer.current = window.setTimeout(() => onSignedIn(ok), 1500);
@@ -184,7 +181,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
 
   if (a.status === 'success') {
     const m = memberFor(a.id) ?? TEAM_MEMBER;
-    return <Welcome title={`Welcome back, ${m.first}`} text="Opening the Institution Team portal…" bar />;
+    return <Welcome title={`Welcome back, ${m.first}`} text={`Opening ${team} portal…`} bar />;
   }
 
   const mm = Math.floor(left / 60000);
@@ -192,7 +189,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
   return (
     <div className="auth-form">
       <h1 className="auth-form__title">Welcome back</h1>
-      <p className="auth-form__lead">Sign in to the Institution Team with your GSP email.</p>
+      <p className="auth-form__lead">Sign in to upGrad GSP.</p>
 
       <AnimatePresence initial={false} mode="popLayout">
         {stillLocked ? (
@@ -243,7 +240,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             spellCheck={false}
             placeholder="name@gsp.upgrad.com"
             value={a.id}
-            invalid={!!idErr}
+            invalid={!!idErr || !!a.error}
             aria-describedby={describedBy('si-id', idErr)}
             onChange={(e) => set((p) => ({ ...p, id: e.target.value, error: null, unset: false }))}
           />
@@ -264,7 +261,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             name="password"
             autoComplete="current-password"
             value={a.pw}
-            invalid={!!pwErr}
+            invalid={!!pwErr || !!a.error}
             aria-describedby={pwErr ? 'si-pw-error' : caps ? 'si-pw-caps' : undefined}
             onCaps={setCaps}
             onChange={(e) => set((p) => ({ ...p, pw: e.target.value, error: null }))}
@@ -350,6 +347,7 @@ function PasswordFlow({ a, set, onBack, onSignedIn }: { a: TeamAuth; set: Set; o
 }
 
 function RequestStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }) {
+  const team = useContext(TeamName);
   const setup = f.mode === 'setup';
   const m = memberFor(f.id);
   // setting up says plainly when an email has no access, or already has a password: these are GSP's own people
@@ -358,7 +356,7 @@ function RequestStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: 
     : !f.id.trim()
       ? 'Enter your GSP email.'
       : setup && !m
-        ? 'That email doesn’t have access to the Institution Team yet. Ask your GSP admin to give you access.'
+        ? `That email doesn’t have access to ${team} yet. Ask your GSP admin to give you access.`
         : setup && m && hasPassword(m)
           ? 'That email already has a password. Go back and sign in, or reset it if you’ve forgotten it.'
           : null;
@@ -366,14 +364,14 @@ function RequestStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: 
     const bad = !f.id.trim() || (setup && (!m || hasPassword(m)));
     if (bad) return patch({ submitted: true });
     patch({ busy: true });
-    window.setTimeout(() => go('code', 1, { code: '', codeError: null, resendAt: resendFrom() }), 800);
+    window.setTimeout(() => go('code', 1, { code: '', codeError: null, resendAt: Date.now() + 30_000 }), 800);
   };
   return (
     <>
       <h1 className="auth-form__title">{setup ? 'Set up your password' : 'Reset your password'}</h1>
       <p className="auth-form__lead">
         {setup
-          ? 'Your GSP admin gave you access to the Institution Team. Enter your GSP email and we’ll email you a 6-digit code to set your password.'
+          ? `Your GSP admin gave you access to ${team}. Enter your GSP email and we’ll email you a 6-digit code to set your password.`
           : 'Enter your GSP email. We’ll email you a 6-digit code to set a new password.'}
       </p>
       <Form className="auth-form__fields" onSubmit={send}>
@@ -410,7 +408,7 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
     window.setTimeout(() => codeRef.current?.focus(), 260);
     return () => window.clearInterval(t);
   }, []);
-  const wait = Math.min(RESEND_SECONDS, Math.max(0, Math.ceil((f.resendAt - now) / 1000)));
+  const wait = Math.min(30, Math.max(0, Math.ceil((f.resendAt - now) / 1000)));
   const dest = codeDestination(f.id);
   const check = (code: string) => {
     patch({ busy: true, codeError: null });
@@ -466,7 +464,7 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
               Send a new code in <span className="num">0:{String(wait).padStart(2, '0')}</span>
             </span>
           ) : (
-            <button type="button" className="btn btn--link" onClick={() => patch({ resendAt: resendFrom(), code: '', codeError: null })}>
+            <button type="button" className="btn btn--link" onClick={() => patch({ resendAt: Date.now() + 30_000, code: '', codeError: null })}>
               Send a new code
             </button>
           )}
@@ -484,10 +482,7 @@ function NewStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }
   const hintState = ok ? 'ok' : f.submitted || usesName ? 'error' : 'idle';
   const pw2Err = f.submitted && ok && !match ? 'The two passwords don’t match yet.' : null;
   const save = () => {
-    if (!ok || !match) {
-      window.setTimeout(() => document.getElementById(!ok ? 'fp-pw' : 'fp-pw2')?.focus(), 40);
-      return patch({ submitted: true });
-    }
+    if (!ok || !match) return patch({ submitted: true });
     patch({ busy: true });
     window.setTimeout(() => {
       const m = memberFor(f.id);

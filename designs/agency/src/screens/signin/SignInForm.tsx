@@ -25,12 +25,15 @@ export function SignInForm({
   onForgot,
   onJoin,
   onSignedIn,
+  lead = 'Sign in to your partner account.',
 }: {
   a: AuthState;
   set: Set;
   onForgot: () => void;
   onJoin: () => void;
   onSignedIn: (acc: Account) => void;
+  /** The line under "Welcome back": GSP Team shares this sign-in and says its own (4 Nov). */
+  lead?: string;
 }) {
   const reduce = useReducedMotion();
   const pwRef = useRef<HTMLInputElement>(null);
@@ -54,8 +57,6 @@ export function SignInForm({
     if (stillLocked || a.status !== 'idle') return;
     if (!a.id.trim() || !a.pw) {
       set((p) => ({ ...p, submitted: true, error: null, notice: null }));
-      // the first field with an error takes focus (QC, 1 Nov)
-      window.setTimeout(() => (!a.id.trim() ? document.getElementById('si-id') : pwRef.current)?.focus(), 40);
       return;
     }
     set((p) => ({ ...p, submitted: true, status: 'checking', error: null, notice: null }));
@@ -68,19 +69,16 @@ export function SignInForm({
         set((p) => ({
           ...p,
           status: 'idle',
-          // QC, 1 Nov (H20): the password stays, so a slip can be fixed; only the banner says what's wrong
+          pw: '',
           attempts,
           lockedUntil,
           error: lockedUntil
             ? null
             : tries <= 2
-              ? `That username and password don’t match. Check both, or reset your password. ${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses.`
+              ? `That username and password don’t match. ${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses for ${LOCK_MINUTES} minutes.`
               : 'That username and password don’t match. Check both, or reset your password.',
         }));
-        window.setTimeout(() => {
-          pwRef.current?.focus();
-          pwRef.current?.select();
-        }, 40);
+        window.setTimeout(() => pwRef.current?.focus(), 40);
       } else {
         set((p) => ({ ...p, status: 'success' }));
         timer.current = window.setTimeout(() => onSignedIn(acc), 1500);
@@ -130,7 +128,7 @@ export function SignInForm({
   return (
     <div className="auth-form">
       <h1 className="auth-form__title">Welcome back</h1>
-      <p className="auth-form__lead">Sign in to your partner account.</p>
+      <p className="auth-form__lead">{lead}</p>
 
       <AnimatePresence initial={false} mode="popLayout">
         {stillLocked ? (
@@ -168,7 +166,7 @@ export function SignInForm({
             autoCapitalize="none"
             spellCheck={false}
             value={a.id}
-            invalid={!!idErr}
+            invalid={!!idErr || !!a.error}
             aria-describedby={describedBy('si-id', idErr)}
             onChange={(e) => set((p) => ({ ...p, id: e.target.value, error: null }))}
           />
@@ -189,7 +187,7 @@ export function SignInForm({
             name="password"
             autoComplete="current-password"
             value={a.pw}
-            invalid={!!pwErr}
+            invalid={!!pwErr || !!a.error}
             aria-describedby={pwErr ? 'si-pw-error' : caps ? 'si-pw-caps' : undefined}
             onCaps={setCaps}
             onChange={(e) => set((p) => ({ ...p, pw: e.target.value, error: null }))}
@@ -211,7 +209,7 @@ export function SignInForm({
                   transition={{ duration: 0.16 }}
                 >
                   <Icon name="capslock" size={16} />
-                  <span>Caps Lock is on.</span>
+                  <span>Caps Lock is on</span>
                 </motion.p>
               )}
             </AnimatePresence>

@@ -10,10 +10,10 @@ import { expectedBy, phaseOf, resend, sentDocs, whenLabel } from './model';
 
 type SetState = (fn: (s: SignupState) => SignupState) => void;
 const noop: SetState = () => undefined;
-const extOf = (name: string) => (name.split('.').pop() ?? '').toUpperCase();
+export const extOf = (name: string) => (name.split('.').pop() ?? '').toUpperCase();
 
 /** Each document's status in words, in the colour of who has it. */
-function Status({ slot, optional }: { slot: DocSlot; optional?: boolean }) {
+export function Status({ slot, optional }: { slot: DocSlot; optional?: boolean }) {
   switch (slot.status) {
     case 'checking':
       return <span className="pill pill--gsp">Verifying</span>;
@@ -94,7 +94,7 @@ export function DocumentsSheet({
   const contactLine = manager && (
     <>
       {' '}
-      Questions? {manager.phone ? <>Call {who} on <span className="num">{manager.phone}</span>.</> : <>Email {who} at {manager.email}.</>}
+      Questions? Call {who} on <span className="num">{manager.phone}</span>.
     </>
   );
 
@@ -105,7 +105,7 @@ export function DocumentsSheet({
           {left.length === 0 && !uploading && <Icon name="checkCircle" size={16} />}
           {count}
         </p>
-        <Button block loading={sending} onClick={sendAgain} iconRight={<Icon name="arrowRight" size={18} />}>
+        <Button loading={sending} onClick={sendAgain} iconRight={<Icon name="arrowRight" size={18} />}>
           {sending ? 'Sending to GSP…' : 'Send to GSP again'}
         </Button>
       </div>
@@ -122,7 +122,7 @@ export function DocumentsSheet({
     );
 
   return (
-    <Sheet open={open} onClose={onClose} center title="Business documents" sub={`${f.biz} · ${f.country}`} footer={footer}>
+    <Sheet open={open} onClose={onClose} center keepCentre title="Business documents" sub={`${f.biz} · ${f.country}`} footer={footer}>
       <div className={`dstatus ${phase === 'sent-back' ? 'is-you' : phase === 'verifying' ? 'is-gsp' : 'is-ok'}`} aria-live="polite">
         {phase === 'sent-back' ? (
           <>
@@ -134,8 +134,8 @@ export function DocumentsSheet({
             <span className="who who--gsp">With GSP</span>
             <p className="dstatus__title">GSP is verifying your documents</p>
             <p className="dstatus__text">
-              {(join.rounds ?? 1) > 1 ? 'Sent again' : 'Sent'} {whenLabel(join.sentAt)}. Expect it by{' '}
-              <span className="num">{expectedBy(join.sentAt, join.form.country)}</span>.
+              {(join.rounds ?? 1) > 1 ? 'Sent again' : 'Sent'} {whenLabel(join.sentAt)}. Usually within 1 working day, so expect it by{' '}
+              <span className="num">{expectedBy(join.sentAt)}</span>.
             </p>
           </>
         ) : (

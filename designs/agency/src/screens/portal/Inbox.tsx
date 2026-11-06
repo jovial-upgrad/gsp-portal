@@ -1,5 +1,3 @@
-import { readSource } from '../../work/sources';
-import { fmtDate } from '../../data/format';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -7,10 +5,9 @@ import { Icon, type IconName } from '../../components/Icon';
 import { UNIVERSITIES } from '../../data/courses';
 import { GlassRim } from '../../components/GlassRim';
 import { Toast, type ToastMsg } from '../../components/Toast';
-import { BELL_SHOWS, NOTE_KINDS, noticesFor, notesFor, notesFromChange, type Note, type NoteKind, type NoteTarget, type Notice } from '../../data/inbox';
+import { NOTE_KINDS, noticesFor, notesFor, notesFromChange, type Note, type NoteKind, type NoteTarget, type Notice } from '../../data/inbox';
 import { courseOf, type Application } from '../../data/applications';
 import { fullName, type Student } from '../../data/students';
-import { staffByEmail } from '../../data/staff';
 import type { Announcement } from '../../institution/data/announcements';
 import { ANN_CATEGORIES } from '../../institution/data/announcements';
 import { UniMark } from '../courses/parts';
@@ -29,17 +26,17 @@ function agoLabel(at: number) {
   const d = Math.floor(h / 24);
   if (d === 1) return 'Yesterday';
   if (d < 7) return `${d} days ago`;
-  return fmtDate(at, { list: true });
+  return new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 const isToday = (at: number) => new Date(at).toDateString() === new Date().toDateString();
 /** "Deakin", "Wollongong", "RMIT": a university's name without "University (of)". */
 const shortName = (name: string) => name.replace(/University of |\s*University/g, '').trim();
 
 /**
- * Everything a portal needs for its bell and megaphone (30 Oct; every role): the notifications built from its own
- * applications (HC53, data/inbox.ts) and, for GSP, the signed-in person's My work tasks; the bottom-left notification
- * when the other role changes an application while connected (`onIncoming`, for `useLinkedData`); and the
- * announcements it's sent.
+ * Everything a portal needs for its bell and megaphone (30 Oct; every role): the sample notifications for its role
+ * and state, plus real ones from the other role while connected (`onIncoming`, for `useLinkedData`), and the
+ * announcements it's sent. A change from the other role while the portal is open also shows as the bottom-left
+ * notification, with Open.
  */
 export function useInbox(o: {
   role: 'rp' | 'gsp';
@@ -48,71 +45,19 @@ export function useInbox(o: {
   country?: string;
   apps: Application[];
   students: Student[];
-  /** Who's signed in: their tasks (GSP) and the students they added themselves (RP) aren't news to them. */
-  me?: { name: string; email?: string };
-  /** The registration's times, while registering. */
-  join?: { sentAt?: number };
   /** Announcements in the Institution Team's model, and its universities' names. */
   anns: { list: Announcement[]; names: Record<string, string> };
   onOpen: (t: NoteTarget) => void;
   onCourses: (university: string) => void;
-  /** Notifications worked out elsewhere from the agency's own record (its agreement: data/agreements.ts). */
-  extra?: Note[];
 }) {
-  // read state is saved per person (slice 4 PRD, S4-15): this browser keeps it for whoever is signed in
-  const readKey = `gsp-bell-read-v1:${o.me?.email || o.agency || o.role}`;
-  const [readIds, setReadIdsRaw] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(readKey) || '[]') || [];
-    } catch {
-      return [];
-    }
-  });
-  const setReadIds = (fn: (l: string[]) => string[]) =>
-    setReadIdsRaw((l) => {
-      const next = fn(l).slice(-3000);
-      try {
-        localStorage.setItem(readKey, JSON.stringify(next));
-      } catch {
-        /* storage blocked: this session keeps it */
-      }
-      return next;
-    });
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [live, setLive] = useState<Note[]>([]);
   const [toast, setToast] = useState<ToastMsg | null>(null);
-  const [opened] = useState(() => Date.now());
-  // My work's notifications, for GSP's roles (work/store.ts workNotes): the bell follows the tasks as they change.
-  // The work store is loaded after the page starts (it reads every module's applications), so it's imported here.
-  const staffId = o.me?.email ? staffByEmail(o.me.email)?.id : undefined;
-  const [work, setWork] = useState<{ notes: Note[]; covering: string[] }>({ notes: [], covering: [] });
-  useEffect(() => {
-    if (o.role !== 'gsp') return;
-    let off: (() => void) | undefined;
-    let live = true;
-    void import('../../work/store').then((m) => {
-      if (!live) return;
-      const read = () => {
-        try {
-          const st = m.getState();
-          setWork({ notes: m.workNotes(st, staffId) as Note[], covering: m.coveringApps(st, staffId) as string[] });
-        } catch {
-          setWork({ notes: [], covering: [] });
-        }
-      };
-      read();
-      const un = m.subscribe(read);
-      off = () => void un();
-    });
-    return () => {
-      live = false;
-      off?.();
-    };
-  }, [o.role, staffId]);
-  const notes = useMemo(() => {
-    const own = notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps, students: o.students, join: { created: opened, sentAt: o.join?.sentAt }, me: staffId, meName: o.me?.name, work: work.notes, covering: work.covering });
-    // commission notices for the RP (Earnings), from Finance's records (finance/store.ts rpNotes)
-    const comm: Note[] = o.role === 'rp' ? (readSource('commission') as { rpNotes?: (a: string) => Note[] } | null)?.rpNotes?.(o.agency) ?? [] : [];
-    return [...own, ...comm, ...(o.extra ?? []).filter((n) => n.at <= Date.now())].sort((x, y) => y.at - x.at);
-  }, [o.role, o.access, o.agency, o.apps, o.students, o.join?.sentAt, staffId, o.me?.name, work, opened, o.extra]);
+  const sample = useMemo(
+    () => notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps.map((a) => a.id), students: o.students.map((s) => s.id) }),
+    [o.access, o.agency, o.apps.length, o.students.length], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const notes = useMemo(() => [...live, ...sample], [live, sample]);
   const notices = useMemo(() => noticesFor(o.role, o.anns.list, o.anns.names, o.country), [o.anns, o.role, o.country]);
 
   const open = (n: Note) => {
@@ -125,8 +70,8 @@ export function useInbox(o: {
     const c = courseOf(after);
     const got = notesFromChange(o.role, before, after, { student: s ? fullName(s) : 'A new student', uni: c?.uni.name ?? 'the university', agency: o.agency });
     if (!got.length) return;
-    // the bell already has it (it's built from the applications); this is the bottom-left notification
-    const n = got.sort((x, y) => x.at - y.at)[got.length - 1];
+    setLive((l) => [...got.filter((n) => !l.some((x) => x.id === n.id)), ...l]);
+    const n = got[got.length - 1];
     setToast({
       key: Date.now(),
       title: n.title,
@@ -349,7 +294,6 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
 }) {
   const reduce = useReducedMotion();
   const [kind, setKind] = useState<K | ''>('');
-  const [older, setOlder] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const layer = typeof document === 'undefined' ? null : document.getElementById('layer');
@@ -366,7 +310,6 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
   useLayoutEffect(() => {
     if (!anchor) return;
     setKind('');
-    setOlder(false);
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
@@ -392,9 +335,7 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
     };
   }, [anchor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the newest 40, then "Show older" for the rest of the 90 days (S4-15)
-  const all = [...items].sort((a, b) => b.at - a.at).filter((x) => !kind || x.kind === kind);
-  const list = older ? all : all.slice(0, BELL_SHOWS);
+  const list = [...items].sort((a, b) => b.at - a.at).filter((x) => !kind || x.kind === kind);
   const unread = (k: K | '') => items.filter((x) => (!k || x.kind === k) && !isRead(x)).length;
   const groups: [string, T[]][] = [
     ['Today', list.filter((x) => isToday(x.at))],
@@ -426,11 +367,16 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
               </h2>
               {sub && <p className="inbox__sub">{sub}</p>}
             </div>
-            {unread('') > 0 && (
-              <button type="button" className="inbox__all" onClick={onAllRead}>
-                Mark all as read
+            <div className="inbox__acts">
+              {unread('') > 0 && (
+                <button type="button" className="inbox__all" onClick={onAllRead}>
+                  Mark all as read
+                </button>
+              )}
+              <button type="button" className="icon-btn inbox__close" aria-label={`Close ${title.toLowerCase()}`} onClick={() => onClose()}>
+                <Icon name="close" size={18} />
               </button>
-            )}
+            </div>
           </div>
           <div className="ichips" role="group" aria-label={`Show ${title.toLowerCase()}`}>
             {([['', 'All'], ...kinds] as [K | '', string][]).map(([k, label]) => (
@@ -461,11 +407,6 @@ function Panel<K extends string, T extends { id: string; kind: K; at: number; re
                 ))
             ) : (
               <p className="inbox__none">{empty(kind)}</p>
-            )}
-            {!older && all.length > list.length && (
-              <button type="button" className="inbox__all" onClick={() => setOlder(true)}>
-                Show older ({all.length - list.length})
-              </button>
             )}
           </div>
         </motion.div>

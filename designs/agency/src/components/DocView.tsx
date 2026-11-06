@@ -46,6 +46,10 @@ export function Paper({ d, s }: { d: DocRef; s?: Student }) {
                 <dt>Date of birth</dt>
                 <dd className="num">{s.dob || '14/03/2002'}</dd>
               </div>
+              <div>
+                <dt>Date of expiry</dt>
+                <dd className="num">{s.passportExpiry || '09/11/2033'}</dd>
+              </div>
             </dl>
           </div>
           <p className="dpp__mrz num" aria-hidden="true">
@@ -131,6 +135,15 @@ export function downloadDoc(d: DocRef, s?: Student) {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Opens the document in a new tab (the Inbox's View). False when the browser won't open one. */
+export function openDoc(d: DocRef, s?: Student) {
+  const url = URL.createObjectURL(pdfFor([d.name, `File: ${d.file}`, ...(s ? [`Student: ${fullName(s)}`] : []), 'A stand-in from the GSP prototype: the real file opens here in the product.']));
+  const w = window.open(url, '_blank');
+  if (w) w.opener = null;
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return !!w;
 }
 
 /** The document, opened: its first page, with Download. */

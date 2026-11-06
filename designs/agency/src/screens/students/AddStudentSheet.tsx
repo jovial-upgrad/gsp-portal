@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
-import { Checkbox, Field, Form, TextInput, describedBy } from '../../components/forms';
+import { Icon } from '../../components/Icon';
+import { Checkbox, Field, Form, SelectInput, TextInput, describedBy } from '../../components/forms';
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { countryByName } from '../../data/partners';
-import { readPassport, type Member, type Student } from '../../data/students';
-import { SelectMenu } from '../../components/SelectMenu';
-import { HIGHEST_EDUCATION, levelOfEd, type HighestEducation } from '../../data/education';
-import { FIELD_ORDER, isDirty, makeStudent, newAdd, sameStudent, validate, type AddForm, type AddState, type FieldKey } from './form';
+import { HIGHEST, fullName, readPassport, type Level, type Member, type Student } from '../../data/students';
+import { FIELD_ORDER, atOtherAgency, isDirty, makeStudent, newAdd, sameStudent, validate, type AddForm, type AddState, type FieldKey } from './form';
 import { ReadBox, readMs } from './ReadBox';
 import { addedLabel } from './parts';
 import { AddDocs, fileError, type BulkFile, type Failed } from './AddDocs';
@@ -61,10 +60,10 @@ export function AddStudentSheet({
   const keepRef = useRef<HTMLButtonElement>(null);
   const f = a.f;
   const errors = useMemo(() => validate(f, list), [f, list]);
-  // the duplicate check: same passport number, this agency only (1 Nov); it blocks, and says who straight away
   const dup = sameStudent(f, list);
+  const other = atOtherAgency(f.passport) && !dup.byPassport;
 
-  const show = (k: FieldKey) => (a.submitted || a.touched[k] || (k === 'passport' && dup.byPassport) ? errors[k] ?? null : null);
+  const show = (k: FieldKey) => (a.submitted || a.touched[k] ? errors[k] ?? null : null);
   const touch = (k: FieldKey) => setA((p) => ({ ...p, touched: { ...p.touched, [k]: true } }));
   const up = (patch: Partial<AddForm>) => setA((p) => ({ ...p, f: { ...p.f, ...patch }, auto: p.auto.filter((k) => !(k in patch)) }));
   const isAuto = (k: keyof AddForm) => a.auto.includes(k);
@@ -186,6 +185,12 @@ export function AddStudentSheet({
         <p className="vh" role="status">
           {listed.length > 0 ? `${listed.length} ${listed.length === 1 ? 'field needs' : 'fields need'} attention.` : ''}
         </p>
+        <p className="asheet__req">
+          <span className="field__req" aria-hidden="true">
+            *
+          </span>{' '}
+          Required
+        </p>
 
         <ReadBox
           id="as-file"
@@ -241,7 +246,7 @@ export function AddStudentSheet({
               onChange={(name) => name !== f.nationality && up({ nationality: name, dial: countryByName(name)?.dial ?? f.dial })}
             />
           </Field>
-          <Field id="as-country" required label="Current country of residence" error={show('country')}>
+          <Field id="as-country" required label="Current country" hint="Where the student lives now." error={show('country')}>
             <CountryCombobox
               id="as-country"
               value={f.country}
@@ -251,23 +256,30 @@ export function AddStudentSheet({
             />
           </Field>
           <div>
-            <Field id="as-passport" required label="Passport number" error={show('passport')} hint={autoHint('passport')}>
+            <Field id="as-passport" label="Passport number" error={show('passport')} hint={autoHint('passport') ?? 'Optional now, needed to apply. It lets GSP spot a student another agency already added.'}>
               <TextInput
                 id="as-passport"
                 autoComplete="off"
                 value={f.passport}
                 className={isAuto('passport') ? 'is-auto' : ''}
                 invalid={!!show('passport')}
-                aria-describedby={describedBy('as-passport', show('passport'), autoHint('passport'))}
+                aria-describedby={describedBy('as-passport', show('passport'), true)}
                 onChange={(e) => up({ passport: e.target.value.toUpperCase() })}
                 onBlur={() => touch('passport')}
               />
             </Field>
             <AnimatePresence initial={false}>
               {dup.byPassport && <Dupe key="dp" s={dup.byPassport} team={team} onOpen={onOpenStudent} fade={fade} pick={forApplication} />}
+              {other && (
+                <motion.p key="other" className="anote" {...fade}>
+                  <Icon name="info" size={16} />
+                  <span>This passport is on a student at another agency. You can still add them: GSP will ask the student which agency they want to apply with.</span>
+                </motion.p>
+              )}
             </AnimatePresence>
           </div>
-          <Field id="as-email" required label="Email" error={show('email')}>
+          <div>
+            <Field id="as-email" required label="Email" hint="Used on university applications. GSP never sends students marketing." error={show('email')}>
               <TextInput
                 id="as-email"
                 type="email"
@@ -279,6 +291,10 @@ export function AddStudentSheet({
                 onBlur={() => touch('email')}
               />
             </Field>
+            <AnimatePresence initial={false}>
+              {dup.byEmail && dup.byEmail !== dup.byPassport && <Dupe key="de" s={dup.byEmail} team={team} onOpen={onOpenStudent} fade={fade} pick={forApplication} />}
+            </AnimatePresence>
+          </div>
           <Field id="as-phone" required label="Phone number" error={show('phone')}>
             <PhoneInput
               id="as-phone"
@@ -292,17 +308,21 @@ export function AddStudentSheet({
             />
           </Field>
           <Field id="as-highest" required label="Highest education" error={show('highest')}>
-            {/* the one list (S3C-1), in the level check's order; the record's education level follows from it */}
-            <SelectMenu
+            <SelectInput
               id="as-highest"
-              label="Highest education"
-              value={f.highestEd ?? ''}
+              value={f.highest}
               placeholder="Choose"
               invalid={!!show('highest')}
-              describedBy={describedBy('as-highest', show('highest'))}
-              options={HIGHEST_EDUCATION.map((x) => ({ value: x, label: x }))}
-              onChange={(v) => (up({ highestEd: v as HighestEducation, highest: levelOfEd(v) }), touch('highest'))}
-            />
+              aria-describedby={describedBy('as-highest', show('highest'))}
+              onChange={(e) => up({ highest: e.target.value as Level })}
+              onBlur={() => touch('highest')}
+            >
+              {HIGHEST.map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </SelectInput>
           </Field>
           {/* not a choice here: whoever adds the student is their counsellor */}
           <Field id="as-counsellor" label="Counsellor" hint="Students start with whoever adds them. An admin can reassign them later.">
@@ -321,11 +341,14 @@ export function AddStudentSheet({
   );
 }
 
-/** The student who already has this passport number (the field's error names them): when and with whom, and a way to open them instead. */
+/** Someone already in this agency's students: who, when and with whom, and a way to open them instead. */
 function Dupe({ s, team, onOpen, fade, pick = false }: { s: Student; team: Member[]; onOpen: (s: Student) => void; fade: object; pick?: boolean }) {
   const who = team.find((m) => m.id === s.counsellor)?.name;
   return (
     <motion.div className="dupe" {...fade}>
+      <p className="dupe__t">
+        <strong>{fullName(s)}</strong> is already in your students.
+      </p>
       <p className="dupe__meta">
         {addedLabel(s.added)}
         {who ? ` · with ${who}` : ''}

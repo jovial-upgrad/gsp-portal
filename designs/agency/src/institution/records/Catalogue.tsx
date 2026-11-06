@@ -1,26 +1,16 @@
 import { useMemo, useState } from 'react';
+import { EditOnly } from '../../proto/viewOnly';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { money } from '../../data/courses';
+import { AREAS, DESTINATIONS, LEVELS, money } from '../../data/courses';
 import { COURSE_STATUSES, type CourseRec, type CourseStatus } from '../data/catalogue';
-import { dateText } from '../data/records';
-import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, usePager, useRecord } from './parts';
+import { Filter, NoMatch, PageHead, Pager, Tiles, passes, usePaged, useRecord } from './parts';
 import { COURSE_TONE, CoursePill } from './pills';
 import { CoursePage } from './CoursePage';
+import { CourseColumns, CourseForm, blankCourse, courseTemplate, newCourse, readCourses, type CourseDraft } from './CourseForm';
 import { CsvImport } from './CsvImport';
-import { OBJ, canEdit, type PageProps } from '../portal/model';
-
-/** The soonest intake that isn't Closed, as the lists show it ("—" if none). */
-export const nextIntake = (c: CourseRec) => {
-  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const key = (m: string) => {
-    const [mo, y] = m.split(' ');
-    return Number(y) * 12 + MON.indexOf(mo);
-  };
-  return [...c.intakes].filter((i) => i.status !== 'closed').sort((a, b) => key(a.month) - key(b.month))[0]?.month ?? '—';
-};
-/** "55% · IELTS 6.5": the summary academic minimum and IELTS Academic overall. */
-export const entryText = (c: CourseRec) => (c.academic > 0 || c.ielts[0] > 0 ? [c.academic > 0 ? `${c.academic}%` : '', c.ielts[0] > 0 ? `IELTS ${c.ielts[0]}` : ''].filter(Boolean).join(' · ') : '');
+import { logLine, stampBy } from '../data/records';
+import type { PageProps } from '../portal/model';
 
 const SUB: Record<CourseStatus, string> = { Live: 'In Course search', Draft: 'Not in search yet', Hidden: 'Taken out of search' };
 
@@ -28,19 +18,22 @@ const SUB: Record<CourseStatus, string> = { Live: 'In Course search', Draft: 'No
  * Courses (29 Oct; 2nd round from the PM prototype's IP team): every course, where its details came from, and its
  * status (Live, Draft or Hidden: no Needs a check since the 5th round). 6th round, as in the PM prototype and with
  * no bots: nothing is held back for approval, and everything is entered by the team. A course is added with its
- * basics, as a draft, and filled in on its page. A long list, so it shows 40 at a time.
+ * basics, as a draft, and filled in on its page. 4 Nov: 20 a page, with the pages under it (no Show more); every
+ * filter picks several, and Study area is one of them.
  */
 export function Catalogue(props: PageProps) {
-  const { db, set, focus, navKey, open, scrollTop, me } = props;
+  const { db, set, focus, navKey, open, say, scrollTop, me } = props;
   const { cur, show, back } = useRecord(focus, navKey, scrollTop, open);
-  const edit = canEdit(props, OBJ.courses);
-  const [importing, setImporting] = useState(false);
   const [q, setQ] = useState('');
-  const [uni, setUni] = useState('');
-  const [level, setLevel] = useState('');
-  const [country, setCountry] = useState('');
+  const [uni, setUni] = useState<string[]>([]);
+  const [level, setLevel] = useState<string[]>([]);
+  const [area, setArea] = useState<string[]>([]);
+  const [country, setCountry] = useState<string[]>([]);
   const [status, setStatus] = useState<CourseStatus | ''>('');
-  const courses = useMemo(() => [...db.courses].sort((a, b) => a.name.localeCompare(b.name)), [db.courses]);
+  const [form, setForm] = useState<CourseDraft | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  const courses = db.courses;
   const byId = useMemo(() => new Map(db.unis.map((u) => [u.id, u])), [db.unis]);
   const live = (c: CourseRec): CourseRec => ({ ...c, uni: byId.get(c.uni.id) ?? c.uni });
   const rows = useMemo(
@@ -48,37 +41,62 @@ export function Catalogue(props: PageProps) {
       courses.filter((c) => {
         const t = q.trim().toLowerCase();
         if (t && !`${c.name} ${c.uni.name} ${c.campus.city} ${c.code}`.toLowerCase().includes(t)) return false;
-        if (uni && c.uni.id !== uni) return false;
-        if (level && c.level !== level) return false;
-        if (country && c.uni.country !== country) return false;
+        if (!passes(uni, c.uni.id) || !passes(level, c.level) || !passes(area, c.area) || !passes(country, c.uni.country)) return false;
         if (status && c.status !== status) return false;
         return true;
       }),
-    [courses, q, uni, level, country, status],
+    [courses, q, uni, level, area, country, status],
   );
-  const { page, pager } = usePager(rows, [q, uni, level, country, status]);
+  const pg = usePaged(rows, [q, uni, level, area, country, status]);
+  // the universities in the countries picked
+  const uniOptions = db.unis.filter((u) => passes(country, u.country));
+  const uniName = (id: string) => byId.get(id)?.name ?? id;
   const clear = () => {
     setQ('');
-    setUni('');
-    setLevel('');
-    setCountry('');
+    setUni([]);
+    setLevel([]);
+    setArea([]);
+    setCountry([]);
     setStatus('');
   };
 
-  if (cur) {
-    const shown = db.courses.find((c) => c.id === cur.id);
-    if (!shown) return <Gone back={cur.back?.label ?? 'Courses'} onBack={back} />;
-    return <CoursePage key={shown.id} c={live(shown)} tab={cur.tab} backLabel={cur.back?.label ?? 'Courses'} onBack={back} {...props} />;
-  }
+  const shown = cur ? courses.find((c) => c.id === cur.id) : undefined;
+
+  /** Adds the courses, and a line to each university's Logs tab. */
+  const addAll = (recs: CourseRec[], what: (n: string[]) => string) => {
+    const byUni = new Map<string, string[]>();
+    recs.forEach((r) => byUni.set(r.uni.id, [...(byUni.get(r.uni.id) ?? []), r.name]));
+    set((d) => ({
+      ...d,
+      courses: [...recs, ...d.courses],
+      unis: d.unis.map((u) => (byUni.has(u.id) ? { ...u, stamps: { ...u.stamps, courses: stampBy(me) }, log: [logLine(me, 'courses', what(byUni.get(u.id)!)), ...u.log] } : u)),
+    }));
+  };
+  const save = (f: CourseDraft) => {
+    const rec = newCourse(f, db.unis, courses, me);
+    addAll([rec], ([n]) => `Added ${n} as a draft`);
+    setForm(null);
+    clear();
+    say(`${rec.name} saved as a draft. Fill in its intakes, fees, academic and English, then publish it.`);
+    show(rec.id);
+  };
+
+  const formSheet = <CourseForm f={form} unis={db.unis} courses={courses} onCancel={() => setForm(null)} onSave={save} />;
+  if (cur && shown) return <CoursePage key={shown.id} c={live(shown)} tab={cur.tab} backLabel={cur.back?.label ?? 'Courses'} onBack={back} {...props} />;
 
   return (
     <div className="ipage">
-      <PageHead title="Courses" lead="Every course, where its details came from, and its status. Add a course from its university’s Courses tab.">
-        {edit && (
+      <PageHead title="Courses" lead="Every course, where its details came from, and its status. Open one to edit it.">
+        <EditOnly>
           <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setImporting(true)}>
             Import CSV
           </Button>
-        )}
+        </EditOnly>
+        <EditOnly>
+          <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setForm({ ...blankCourse, uni: uni.length === 1 ? uni[0] : '' })}>
+            Add a course
+          </Button>
+        </EditOnly>
       </PageHead>
 
       <Tiles label="Where each course is" value={status} onPick={setStatus} items={COURSE_STATUSES.map((s) => ({ key: s, label: s, sub: SUB[s], tone: COURSE_TONE[s], n: courses.filter((c) => c.status === s).length }))} />
@@ -91,9 +109,21 @@ export function Catalogue(props: PageProps) {
               <span className="vh">Search courses</span>
               <input id="icrs-q" type="search" placeholder="Course, university, city or code" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <Pick id="icrs-country" label="Country" value={country} all="All countries" options={[...new Set(db.unis.map((u) => u.country))].sort()} onChange={setCountry} />
-            <Pick id="icrs-uni" label="University" value={uni} all="All universities" options={db.unis.filter((u) => !country || u.country === country).map((u) => ({ value: u.id, label: u.name }))} onChange={setUni} />
-            <Pick id="icrs-level" label="Program level" value={level} all="All levels" options={db.levels.map((l) => l.name)} onChange={setLevel} />
+            <Filter
+              id="icrs-country"
+              label="Country"
+              all="All countries"
+              value={country}
+              options={DESTINATIONS}
+              onChange={(l) => {
+                setCountry(l);
+                // a university outside the countries picked no longer applies
+                setUni((x) => x.filter((id) => passes(l, byId.get(id)?.country ?? '')));
+              }}
+            />
+            <Filter id="icrs-uni" label="University" all="All universities" value={uni} options={uniOptions.map((u) => u.id)} onChange={setUni} labels={uniName} search />
+            <Filter id="icrs-level" label="Program level" all="All levels" value={level} options={LEVELS} onChange={setLevel} />
+            <Filter id="icrs-area" label="Study area" all="All study areas" value={area} options={AREAS} onChange={setArea} search />
           </div>
           <p className="stools__count" id="icrs-count" role="status">
             <span>
@@ -101,10 +131,8 @@ export function Catalogue(props: PageProps) {
             </span>
           </p>
         </div>
-        {courses.length === 0 ? (
-          <Empty text="No courses yet. Add one from its university’s Courses tab, or import a CSV." />
-        ) : rows.length === 0 ? (
-          <NoMatch onClear={clear} />
+        {rows.length === 0 ? (
+          <NoMatch what="courses" onClear={clear} />
         ) : (
           <>
             <div className="stab-wrap">
@@ -120,7 +148,7 @@ export function Catalogue(props: PageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {page.map((raw) => {
+                  {pg.rows.map((raw) => {
                     const c = live(raw);
                     return (
                       <tr key={c.id} className="irow" onClick={() => show(c.id)}>
@@ -129,15 +157,15 @@ export function Catalogue(props: PageProps) {
                             {c.name}
                           </button>
                           <span className="irow__sub">
-                            {c.uni.name} · {c.campus.name}
+                            {c.uni.name} · {c.campus.city}
                           </span>
                         </td>
-                        <td className="num">{c.tuition > 0 ? money(c.tuition, c.currency) : <span className="muted">Not set</span>}</td>
-                        <td>{nextIntake(c)}</td>
-                        <td className="num">{entryText(c) || <span className="muted">Not set</span>}</td>
+                        <td className="num">{c.tuition > 0 ? money(c.tuition, c.currency) : <span className="muted">Not added</span>}</td>
+                        <td>{c.intakes[0]?.month ?? <span className="muted">Not added</span>}</td>
+                        <td className="num">{c.academic > 0 && c.ielts[0] > 0 ? `${c.academic}% · IELTS ${c.ielts[0]}` : <span className="muted">Not added</span>}</td>
                         <td>
                           {c.source}
-                          <span className="irow__sub">Checked {dateText(c.checked)}</span>
+                          <span className="irow__sub">{c.checked}</span>
                         </td>
                         <td>
                           <CoursePill s={c.status} />
@@ -148,19 +176,29 @@ export function Catalogue(props: PageProps) {
                 </tbody>
               </table>
             </div>
-            {pager}
+            <Pager pg={pg} what="courses" />
           </>
         )}
       </section>
 
+      {formSheet}
       <CsvImport
         open={importing}
-        unis={db.unis}
-        courses={db.courses}
-        me={me}
-        role={props.role ?? 'Institution'}
-        onClose={() => setImporting(false)}
-        onLoad={(recs) => recs.length && set((d) => ({ ...d, courses: [...recs, ...d.courses] }))}
+        title="Import courses from a CSV"
+        template={{ name: 'courses-template.csv', rows: courseTemplate(true) }}
+        columns={<CourseColumns />}
+        read={(rows) => readCourses(rows, db.unis, courses)}
+        saveLabel={(n) => `Add ${n} ${n === 1 ? 'course' : 'courses'}`}
+        readyText={(n) => `${n} ${n === 1 ? 'course' : 'courses'} to add as drafts.`}
+        onCancel={() => setImporting(false)}
+        onSave={(list) => {
+          const recs = list.map((f) => newCourse(f, db.unis, courses, me, 'CSV upload'));
+          addAll(recs, (names) => `Added ${names.length} ${names.length === 1 ? 'course' : 'courses'} as drafts from a CSV upload: ${names.join(', ')}`);
+          setImporting(false);
+          clear();
+          setStatus('Draft');
+          say(recs.length === 1 ? `${recs[0].name} added as a draft.` : `${recs.length} courses added as drafts.`);
+        }}
       />
     </div>
   );

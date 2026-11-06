@@ -1,259 +1,378 @@
-import { useEffect, useState } from 'react';
-import { RP_DOC_APPLIES } from '../data/config';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
-import { Field, Switch, TextInput } from '../../components/forms';
-import { useCheck } from '../../components/validate';
+import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { COUNTRIES } from '../../data/partners';
-import { PageHead } from '../../institution/records/parts';
 import { MultiPick } from '../../institution/records/MultiPick';
-import { DOC_LEVELS, DOC_WHERE, STAGES, editCond, rpDocsOf, whenText, type DocCond, type DocRule, type RpDoc, type RpDocRule } from '../data/config';
+import { PageHead } from '../../institution/records/parts';
+import { DOC_UNI_COUNTRIES, STAGES, whenText, type DocRule, type RpDocRule } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
-import { OTHER_CATEGORY, requestCatsOf, withRequestCats } from '../../data/chat';
-import { EditBar, History, Panel, useDraft } from './parts';
-import { Empty, Loaded, Pick, SaveBanner, ViewOnlyNote, trySave, type SaveResult } from './states';
+import { EditActions, History, Panel, useAsk, type Ask } from './parts';
 
-type Draft = { docRules: DocRule[]; rpDocs: RpDocRule[] };
+type Draft = { docRules: DocRule[]; rpDocs: RpDocRule[]; reasons: string[]; categories: string[] };
 
 /**
- * Document configuration (PRD slice 1; Admin › Application configuration). **Application documents**: one table
- * decides which documents an application asks for (nobody sets documents per course): the 10 rules, all asked at
- * New and uploaded by the RP. GSP's own uploads on a status change (the offer letters, one Acceptance letter for
- * every destination, the visa grant) are slice 3's. A rule an application has asked for can only be switched off
- * (proposal S1C-12). **Recruitment partner documents**: what a new RP uploads to be verified, by its head-office
- * country. Read only until Edit; changes apply only to applications that haven't reached that stage yet.
+ * Document Configuration (PM: Settings › Document rules and Agency documents). **Application documents**: one table
+ * decides what an application asks for, at which stage, when, mandatory or optional, and who uploads it; nobody sets
+ * documents on a course. **Recruitment partner documents**: what a partner sends to be verified, by its country.
+ * 3 Nov (Nesil): **send-back reasons** too, the ones GSP picks from when it sends a document back; and the page reads
+ * as it is until Edit, then Save Changes keeps everything changed. 4 Nov (Nesil): a rule applies by program level,
+ * study area, university country and the student's current country, several of each; **request categories**, what
+ * GSP asks a partner for; no icon before a reason; and every delete or remove is asked first.
  */
-export function Documents({ cfg, change, say, canEdit }: ConfigProps) {
-  const d = useDraft<Draft>({ docRules: cfg.docRules, rpDocs: cfg.rpDocs.map((r) => ({ ...r, docs: rpDocsOf(r) })) }, 'the document rules');
-  const [rule, setRule] = useState<DocRule | 'new' | null>(null);
-  const [result, setResult] = useState<SaveResult | null>(null);
-  const [rpTried, setRpTried] = useState(false);
-  const ed = d.editing;
-  const v = d.value;
-  const setRow = (id: string, patch: Partial<DocRule>) => d.set((x) => ({ ...x, docRules: x.docRules.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
-  const rpErrors = rpRuleErrors(v.rpDocs);
+export function Documents({ cfg, change, say }: ConfigProps) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [ask, asking] = useAsk();
+  const saved: Draft = { docRules: cfg.docRules, rpDocs: cfg.rpDocs, reasons: cfg.reasons, categories: cfg.categories };
+  const d: Draft = draft ?? saved;
+  const dirty = !!draft && JSON.stringify(draft) !== JSON.stringify(saved);
+  const set = (r: DocRule, patch: Partial<DocRule>) => setDraft((x) => ({ ...x!, docRules: x!.docRules.map((y) => (y.id === r.id ? { ...y, ...patch } : y)) }));
   const save = () => {
-    if (Object.values(rpErrors).some(Boolean)) return setRpTried(true);
-    const res = trySave();
-    if (res !== 'ok') return setResult(res);
-    const diffs: string[] = [];
-    for (const r of v.docRules) {
-      const was = cfg.docRules.find((x) => x.id === r.id);
-      if (!was) diffs.push(`added ${r.doc} (${r.stage}, ${r.setting}, ${r.by})`);
-      else if (JSON.stringify(was) !== JSON.stringify(r)) diffs.push(`${r.doc}: ${[was.on !== r.on && `${was.on ? 'On' : 'Off'} → ${r.on ? 'On' : 'Off'}`, was.setting !== r.setting && `${was.setting} → ${r.setting}`, was.stage !== r.stage && `${was.stage} → ${r.stage}`, was.when !== r.when && `applies when ${was.when} → ${r.when}`, was.by !== r.by && `uploaded by ${was.by} → ${r.by}`, (was.note ?? '') !== (r.note ?? '') && `note ${was.note || 'none'} → ${r.note || 'none'}`, was.doc !== r.doc && `named ${was.doc}`].filter(Boolean).join(', ')}`);
-    }
-    cfg.docRules.filter((x) => !v.docRules.some((r) => r.id === x.id)).forEach((x) => diffs.push(`deleted ${x.doc}`));
-    if (JSON.stringify(v.rpDocs) !== JSON.stringify(cfg.rpDocs)) diffs.push('recruitment partner documents');
-    change('Document configuration', diffs.join('; ') || 'No changes', (c) => ({ ...c, ...v }));
-    say('Saved.');
-    setResult(null);
-    setRpTried(false);
-    d.stop();
+    const x = draft!;
+    const what: string[] = [];
+    x.docRules.forEach((r) => {
+      const was = cfg.docRules.find((y) => y.id === r.id);
+      if (!was) what.push(`added ${r.doc} (${r.stage}, ${whenText(r)}, ${r.setting.toLowerCase()}, uploaded by ${r.by})`);
+      else {
+        const ch = [was.stage !== r.stage && `stage → ${r.stage}`, was.setting !== r.setting && r.setting.toLowerCase(), was.by !== r.by && `uploaded by ${r.by}`, was.on !== r.on && (r.on ? 'switched on' : 'switched off')].filter(Boolean);
+        if (ch.length) what.push(`${r.doc}: ${ch.join(', ')}`);
+      }
+    });
+    cfg.docRules.filter((r) => !x.docRules.some((y) => y.id === r.id)).forEach((r) => what.push(`deleted ${r.doc}`));
+    if (JSON.stringify(x.rpDocs) !== JSON.stringify(cfg.rpDocs)) what.push('recruitment partner documents changed');
+    x.reasons.filter((r) => !cfg.reasons.includes(r)).forEach((r) => what.push(`added send-back reason “${r}”`));
+    cfg.reasons.filter((r) => !x.reasons.includes(r)).forEach((r) => what.push(`removed send-back reason “${r}”`));
+    x.categories.filter((r) => !cfg.categories.includes(r)).forEach((r) => what.push(`added request category “${r}”`));
+    cfg.categories.filter((r) => !x.categories.includes(r)).forEach((r) => what.push(`removed request category “${r}”`));
+    change('Document configuration', what.join('; '), (c) => ({ ...c, docRules: x.docRules, rpDocs: x.rpDocs, reasons: x.reasons, categories: x.categories }));
+    say('Saved. Applies to stages an open application hasn’t reached yet.');
+    setDraft(null);
   };
   return (
     <>
-      <PageHead title="Document configuration" lead="Which documents an application asks for, and which a new recruitment partner sends to be verified. Changes apply only to applications that haven’t reached that stage yet.">
-        {canEdit && <EditBar name="document rules" editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (setResult(null), setRpTried(false), d.stop())} onSave={save} />}
+      <PageHead title="Document Configuration" lead="Which documents an application asks for, which a partner sends, and why GSP sends one back.">
+        <EditActions editing={!!draft} dirty={dirty} onEdit={() => setDraft(saved)} onCancel={() => setDraft(null)} onSave={save} />
       </PageHead>
-      {!canEdit && <ViewOnlyNote />}
-      {ed && <SaveBanner result={result} onReload={d.stop} />}
-      <Loaded page="document configuration" cols={7}>
-        <Panel
-          title="Application documents"
-          note="One table decides which documents an application asks for; nobody sets documents per course. All Applies when parts empty (and Anywhere) means always. Documents GSP uploads when it moves an application to a status that needs them (the offer letters, the Acceptance letter for every destination, the visa grant) are set in the application’s status changes, not here."
-          action={
-            ed && (
-              <Button variant="secondary" iconLeft={<Icon name="plus" size={16} />} onClick={() => setRule('new')}>
-                Add rule
-              </Button>
-            )
-          }
-          flush
-        >
-          {!v.docRules.length ? (
-            <Empty>No document rules. Applications won’t ask for any documents.</Empty>
-          ) : (
-            <div className="stab-wrap">
-              <table className="itab cfg__tab cfg__docs">
-                <thead>
-                  <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Document</th>
-                    <th scope="col">Application stage</th>
-                    <th scope="col">Applies when</th>
-                    <th scope="col">Setting</th>
-                    <th scope="col">Uploaded by</th>
-                    <th scope="col">On</th>
-                    {ed && (
-                      <th scope="col">
-                        <span className="vh">Actions</span>
-                      </th>
+      <Panel
+        title="Application Documents"
+        note="One table decides which documents an application asks for; nobody sets documents on a course. The RP only sees what’s needed for the current stage."
+        action={
+          draft ? (
+            <Button variant="secondary" iconLeft={<Icon name="plus" size={16} />} onClick={() => setAdding(true)}>
+              Add Rule
+            </Button>
+          ) : undefined
+        }
+        flush
+      >
+        <div className="stab-wrap">
+          <table className="itab cfg__tab cfg__docs">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Document</th>
+                <th scope="col">Application stage</th>
+                <th scope="col">Applies when</th>
+                <th scope="col">Setting</th>
+                <th scope="col">Uploaded by</th>
+                <th scope="col">Status</th>
+                {draft && (
+                  <th scope="col">
+                    <span className="vh">Delete</span>
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {d.docRules.map((r, i) => (
+                <tr key={r.id} className={r.on ? '' : 'is-off'}>
+                  <td className="cfg__muted num">{i + 1}</td>
+                  <td className="cfg__strong">{r.doc}</td>
+                  <td>
+                    {draft ? (
+                      <SelectInput id={`dr-st-${r.id}`} aria-label={`${r.doc}: stage`} value={r.stage} onChange={(e) => set(r, { stage: e.target.value as DocRule['stage'] })}>
+                        {STAGES.map((st) => (
+                          <option key={st}>{st}</option>
+                        ))}
+                      </SelectInput>
+                    ) : (
+                      r.stage
                     )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {v.docRules.map((r, i) => (
-                    <tr key={r.id} className={r.on ? '' : 'is-off'}>
-                      <td className="cfg__muted num">{i + 1}</td>
-                      <td className="cfg__strong">{r.doc}</td>
-                      <td>{r.stage}</td>
-                      <td className="cfg__muted">
-                        {r.when}
-                        {r.note && <span className="cfg__muted"> · Note: {r.note}</span>}
-                      </td>
-                      <td>{r.setting}</td>
-                      <td>{r.by}</td>
-                      <td>
-                        {ed ? (
-                          <Switch id={`dr-on-${r.id}`} checked={r.on} onChange={(on) => setRow(r.id, { on })}>
-                            <span className="vh">{r.doc}</span>
-                          </Switch>
-                        ) : (
-                          <span className="cfg__muted">{r.on ? 'On' : 'Off'}</span>
-                        )}
-                      </td>
-                      {ed && (
-                        <td className="cfg__acts">
-                          <span className="cfg__rowacts">
-                            <button type="button" className="icon-btn" aria-label={`Edit the ${r.doc} rule`} onClick={() => setRule(r)}>
-                              <Icon name="edit" size={16} />
-                            </button>
-                            {/* a rule an application has asked for can only be switched off (proposal S1C-12) */}
-                            {!r.asked && (
-                              <button type="button" className="icon-btn" aria-label={`Delete the ${r.doc} rule`} onClick={() => d.set((x) => ({ ...x, docRules: x.docRules.filter((y) => y.id !== r.id) }))}>
-                                <Icon name="close" size={16} />
-                              </button>
-                            )}
-                          </span>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Panel>
-        <RequestCategories cfg={cfg} change={change} say={say} canEdit={canEdit} />
-        <RpDocs ed={ed} rules={v.rpDocs} errors={rpTried ? rpErrors : {}} set={(fn) => d.set((x) => ({ ...x, rpDocs: fn(x.rpDocs) }))} />
-      </Loaded>
+                  </td>
+                  <td className="cfg__muted">{whenText(r)}</td>
+                  <td>
+                    {draft ? (
+                      <SelectInput id={`dr-se-${r.id}`} aria-label={`${r.doc}: setting`} value={r.setting} onChange={(e) => set(r, { setting: e.target.value as DocRule['setting'] })}>
+                        <option>Mandatory</option>
+                        <option>Optional</option>
+                      </SelectInput>
+                    ) : (
+                      r.setting
+                    )}
+                  </td>
+                  <td>
+                    {draft ? (
+                      <SelectInput id={`dr-by-${r.id}`} aria-label={`${r.doc}: uploaded by`} value={r.by} onChange={(e) => set(r, { by: e.target.value as DocRule['by'] })}>
+                        <option>RP</option>
+                        <option>GSP</option>
+                      </SelectInput>
+                    ) : (
+                      r.by
+                    )}
+                  </td>
+                  <td>
+                    {draft ? (
+                      <Switch id={`dr-on-${r.id}`} checked={r.on} onChange={(v) => set(r, { on: v })}>
+                        <span className="vh">{r.doc}</span>
+                      </Switch>
+                    ) : (
+                      <span className={`cfg__state ${r.on ? 'is-on' : ''}`}>{r.on ? 'On' : 'Off'}</span>
+                    )}
+                  </td>
+                  {draft && (
+                    <td className="cfg__acts">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label={`Delete the ${r.doc} rule`}
+                        onClick={() =>
+                          ask({
+                            title: `Delete the ${r.doc} rule?`,
+                            confirm: 'Delete Rule',
+                            body: 'Once you save, applications stop asking for it at the stages they haven’t reached.',
+                            run: () => setDraft((x) => ({ ...x!, docRules: x!.docRules.filter((y) => y.id !== r.id) })),
+                          })
+                        }
+                      >
+                        <Icon name="close" size={16} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <RpDocs rules={d.rpDocs} editing={!!draft} ask={ask} set={(fn) => setDraft((x) => ({ ...x!, rpDocs: fn(x!.rpDocs) }))} />
+
+      <TextList
+        id="rs"
+        title="Send-back Reasons"
+        note="What GSP picks from when it sends a document back to the recruitment partner, with its own note under it."
+        items={d.reasons}
+        editing={!!draft}
+        ask={ask}
+        set={(fn) => setDraft((x) => ({ ...x!, reasons: fn(x!.reasons) }))}
+        what="Reason"
+        placeholder="Add a reason, like: Signature missing"
+        gone="GSP can’t pick it when it sends a document back."
+      />
+
+      {/* 4 Nov (Nesil): laid out like Send-back Reasons; the samples are the requests GSP already makes */}
+      <TextList
+        id="rc"
+        title="Request Categories"
+        note="What GSP picks from when it asks the recruitment partner for something on an application."
+        items={d.categories}
+        editing={!!draft}
+        ask={ask}
+        set={(fn) => setDraft((x) => ({ ...x!, categories: fn(x!.categories) }))}
+        what="Category"
+        placeholder="Add a category, like: Proof of address"
+        gone="GSP can’t pick it for a request."
+      />
       <History log={cfg.log} area="Document configuration" />
-      <RuleDialog
-        open={!!rule}
-        rule={rule === 'new' ? null : rule}
-        rules={v.docRules}
-        onClose={() => setRule(null)}
+      {asking}
+      <AddRule
+        open={adding}
+        levels={cfg.levels.filter((l) => l.on).map((l) => l.name)}
+        areas={cfg.areas.filter((a) => a.on).map((a) => a.name)}
+        onClose={() => setAdding(false)}
         onSave={(r) => {
-          d.set((x) => ({ ...x, docRules: x.docRules.some((y) => y.id === r.id) ? x.docRules.map((y) => (y.id === r.id ? r : y)) : [...x.docRules, r] }));
-          setRule(null);
+          setDraft((x) => ({ ...x!, docRules: [...x!.docRules, r] }));
+          setAdding(false);
         }}
       />
     </>
   );
 }
 
-/** Each recruitment partner rule's errors: countries (unless All countries; a country in one Only-these rule only), and at least one document. */
-function rpRuleErrors(rules: RpDocRule[]): Record<string, string | null> {
-  const out: Record<string, string | null> = {};
-  rules.forEach((r, i) => {
-    const taken = rules.filter((x, j) => j !== i && x.applies === 'Only these countries').flatMap((x) => x.countries);
-    const clash = r.applies === 'Only these countries' ? r.countries.find((c) => taken.includes(c)) : undefined;
-    out[`c-${r.id}`] = r.applies !== 'All countries' && !r.countries.length ? 'Pick at least one country.' : clash ? `${clash} is already in another Only these countries rule.` : null;
-    out[`d-${r.id}`] = !r.docs.length ? 'Add at least one document.' : r.docs.some((x) => x.name.trim().length < 2 || x.name.trim().length > 80) ? 'Each document’s name is 2 to 80 characters.' : null;
-  });
-  return out;
+/**
+ * A list of short texts, each changed in place while editing, taken out with × (asked first) or added at the foot:
+ * the send-back reasons and the request categories. No icon before each one (Nesil, 4 Nov).
+ */
+function TextList({
+  id,
+  title,
+  note,
+  items,
+  editing,
+  ask,
+  set,
+  what,
+  placeholder,
+  gone,
+}: {
+  id: string;
+  title: string;
+  note: ReactNode;
+  items: string[];
+  editing: boolean;
+  ask: (a: Ask) => void;
+  set: (fn: (l: string[]) => string[]) => void;
+  /** One of them, as a button names it: Reason, Category. */
+  what: string;
+  placeholder: string;
+  /** What happens once one is taken out and saved. */
+  gone: string;
+}) {
+  const [v, setV] = useState('');
+  useEffect(() => {
+    if (!editing) setV('');
+  }, [editing]);
+  const t = v.trim();
+  return (
+    <Panel title={title} note={note}>
+      <ul className="cfg__reasons">
+        {items.map((r, i) => (
+          <li key={`${i}-${r}`}>
+            {editing ? (
+              <TextInput id={`${id}-${i}`} aria-label={`${what} ${i + 1}`} defaultValue={r} onBlur={(e) => e.target.value.trim() && set((l) => l.map((y, j) => (j === i ? e.target.value.trim() : y)))} />
+            ) : (
+              <span>{r}</span>
+            )}
+            {editing && (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`Remove “${r}”`}
+                disabled={items.length === 1}
+                onClick={() => ask({ title: `Remove “${r}”?`, confirm: `Remove ${what}`, body: `Once you save, ${gone}`, run: () => set((l) => l.filter((_, j) => j !== i)) })}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {editing && (
+        <div className="cfg__add">
+          <TextInput id={`${id}-new`} aria-label={`A new ${what.toLowerCase()}`} placeholder={placeholder} value={v} onChange={(e) => setV(e.target.value)} />
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!t || items.some((x) => x.toLowerCase() === t.toLowerCase())}
+            onClick={() => {
+              set((l) => [...l, t]);
+              setV('');
+            }}
+          >
+            Add {what}
+          </Button>
+        </div>
+      )}
+    </Panel>
+  );
 }
 
-/**
- * Recruitment partner documents: what a new RP uploads to be verified, by its head-office country. Each rule has a
- * Type, its Countries and its Documents (each Mandatory or Optional). An RP gets the first rule that names its
- * country, else the All countries rule, which can't be deleted. Files: PDF, JPG or PNG up to 20 MB (slice 2).
- */
-function RpDocs({ ed, rules, errors, set }: { ed: boolean; rules: RpDocRule[]; errors: Record<string, string | null>; set: (fn: (l: RpDocRule[]) => RpDocRule[]) => void }) {
+/** What a recruitment partner sends to be verified: every rule matching its country applies, and their documents add up. */
+function RpDocs({ rules, editing, ask, set }: { rules: RpDocRule[]; editing: boolean; ask: (a: Ask) => void; set: (fn: (l: RpDocRule[]) => RpDocRule[]) => void }) {
   const [doc, setDoc] = useState<Record<string, string>>({});
-  const upd = (id: string, patch: Partial<RpDocRule>) => set((l) => l.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const updDoc = (id: string, i: number, patch: Partial<RpDoc>) => set((l) => l.map((x) => (x.id === id ? { ...x, docs: x.docs.map((y, j) => (j === i ? { ...y, ...patch } : y)) } : x)));
+  const upd = (r: RpDocRule, patch: Partial<RpDocRule>) => set((l) => l.map((x) => (x.id === r.id ? { ...x, ...patch } : x)));
+  // the patch is worked out when the answer comes, from the rule as it is then
+  const updWith = (id: string, fn: (r: RpDocRule) => Partial<RpDocRule>) => set((l) => l.map((x) => (x.id === id ? { ...x, ...fn(x) } : x)));
   return (
     <Panel
-      title="Recruitment partner documents"
-      note="What a new RP uploads to be verified, by its head-office country. An RP gets the first rule that names its country, else the All countries rule. Changes apply to RPs that haven’t sent their documents yet."
+      title="Recruitment Partner Documents"
+      note="Every rule that matches the partner’s country applies, and their documents add up (each document is asked for once). All are mandatory."
       action={
-        ed && (
+        editing ? (
           <Button variant="secondary" iconLeft={<Icon name="plus" size={16} />} onClick={() => set((l) => [...l, { id: `r${Date.now()}`, applies: 'Only these countries', countries: [], docs: [] }])}>
-            Add rule
+            Add Rule
           </Button>
-        )
+        ) : undefined
       }
     >
       <div className="cfg__rprules">
         {rules.map((r, i) => (
           <div key={r.id} className="cfg__rprule">
             <div className="cfg__rphead">
-              <p className="cfg__strong">{r.name ?? `Rule ${i + 1}`}</p>
-              {ed ? (
+              <p className="cfg__strong">Rule {i + 1}</p>
+              {editing ? (
                 <>
-                  <Pick id={`rpa-${r.id}`} label={`${r.name ?? `Rule ${i + 1}`}: type`} value={r.applies} options={[...RP_DOC_APPLIES]} onChange={(x) => upd(r.id, { applies: x as RpDocRule['applies'] })} />
-                  {r.applies !== 'All countries' && (
-                    <button type="button" className="icon-btn" aria-label={`Delete ${r.name ?? `rule ${i + 1}`}`} onClick={() => set((l) => l.filter((x) => x.id !== r.id))}>
-                      <Icon name="close" size={16} />
-                    </button>
-                  )}
+                  <SelectInput id={`rpa-${r.id}`} aria-label={`Rule ${i + 1}: applies to`} value={r.applies} onChange={(e) => upd(r, { applies: e.target.value as RpDocRule['applies'] })}>
+                    <option>Only these countries</option>
+                    <option>All countries except</option>
+                    <option>All countries</option>
+                  </SelectInput>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={`Delete rule ${i + 1}`}
+                    onClick={() => ask({ title: `Delete rule ${i + 1}?`, confirm: 'Delete Rule', body: 'Once you save, partners aren’t asked for its documents, unless another rule asks for them.', run: () => set((l) => l.filter((x) => x.id !== r.id)) })}
+                  >
+                    <Icon name="close" size={16} />
+                  </button>
                 </>
               ) : (
-                <span className="cfg__muted">{r.applies}</span>
+                <span className="cfg__tag">{r.applies}</span>
               )}
             </div>
-            {r.applies !== 'All countries' &&
-              (ed ? (
-                <Field id={`rpc-${r.id}`} label="Countries" required error={errors[`c-${r.id}`]}>
-                  <MultiPick id={`rpc-${r.id}`} label="Countries" value={r.countries} options={COUNTRIES.map((c) => c.name)} invalid={!!errors[`c-${r.id}`]} empty="Pick countries" search onChange={(countries) => upd(r.id, { countries })} />
-                </Field>
-              ) : (
-                <p className="cfg__muted">{r.countries.join(', ')}</p>
-              ))}
-            <ul className="cfg__doclist">
-              {r.docs.map((x, j) => (
-                <li key={`${x.name}-${j}`}>
-                  <Icon name="file" size={16} />
-                  <span>{x.name}</span>
-                  {ed ? (
-                    <>
-                      <span className="cfg__segment" role="group" aria-label={`${x.name}: Mandatory or Optional`}>
-                        {(['Mandatory', 'Optional'] as const).map((s) => (
-                          <button key={s} type="button" aria-pressed={x.setting === s} onClick={() => updDoc(r.id, j, { setting: s })}>
-                            {s}
-                          </button>
-                        ))}
-                      </span>
-                      <button type="button" className="icon-btn" aria-label={`Remove ${x.name}`} onClick={() => upd(r.id, { docs: r.docs.filter((_, k) => k !== j) })}>
-                        <Icon name="close" size={14} />
+            {r.applies !== 'All countries' && (
+              <div className="cfg__chips">
+                {r.countries.map((c) => (
+                  <span key={c} className="cfg__chip">
+                    {c}
+                    {editing && (
+                      <button type="button" aria-label={`Remove ${c}`} onClick={() => ask({ title: `Remove ${c} from rule ${i + 1}?`, confirm: 'Remove Country', body: `It comes out of rule ${i + 1} when you save.`, run: () => updWith(r.id, (x) => ({ countries: x.countries.filter((y) => y !== c) })) })}>
+                        <Icon name="close" size={12} />
                       </button>
-                    </>
-                  ) : (
-                    <span className="cfg__muted">{x.setting}</span>
+                    )}
+                  </span>
+                ))}
+                {!r.countries.length && !editing && <span className="cfg__muted">No countries yet</span>}
+                {editing && (
+                  <SelectInput id={`rpc-${r.id}`} aria-label={`Rule ${i + 1}: add a country`} className="cfg__mini" value="" placeholder="Add country" onChange={(e) => e.target.value && upd(r, { countries: [...r.countries, e.target.value] })}>
+                    {COUNTRIES.filter((c) => !r.countries.includes(c.name)).map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </SelectInput>
+                )}
+              </div>
+            )}
+            <ul className="cfg__doclist">
+              {r.docs.map((dname) => (
+                <li key={dname}>
+                  <Icon name="file" size={16} />
+                  <span>{dname}</span>
+                  {editing && (
+                    <button type="button" className="icon-btn" aria-label={`Remove ${dname}`} onClick={() => ask({ title: `Remove ${dname}?`, confirm: 'Remove Document', body: `Rule ${i + 1} stops asking for it when you save.`, run: () => updWith(r.id, (x) => ({ docs: x.docs.filter((y) => y !== dname) })) })}>
+                      <Icon name="close" size={14} />
+                    </button>
                   )}
                 </li>
               ))}
+              {!r.docs.length && <li className="cfg__muted">No documents yet</li>}
             </ul>
-            {errors[`d-${r.id}`] && (
-              <p className="field__msg field__msg--error" role="alert">
-                {errors[`d-${r.id}`]}
-              </p>
-            )}
-            {ed && (
+            {editing && (
               <div className="cfg__add">
-                <TextInput id={`rpd-${r.id}`} aria-label={`${r.name ?? `Rule ${i + 1}`}: add a document`} placeholder="Add a document" maxLength={80} value={doc[r.id] ?? ''} onChange={(e) => setDoc((x) => ({ ...x, [r.id]: e.target.value }))} />
+                <TextInput id={`rpd-${r.id}`} aria-label={`Rule ${i + 1}: add a document`} placeholder="Add a document" value={doc[r.id] ?? ''} onChange={(e) => setDoc((x) => ({ ...x, [r.id]: e.target.value }))} />
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={(doc[r.id]?.trim().length ?? 0) < 2}
+                  disabled={!doc[r.id]?.trim()}
                   onClick={() => {
-                    upd(r.id, { docs: [...r.docs, { name: doc[r.id].trim(), setting: 'Mandatory' }] });
+                    upd(r, { docs: [...r.docs, doc[r.id].trim()] });
                     setDoc((x) => ({ ...x, [r.id]: '' }));
                   }}
                 >
-                  Add
+                  Add Document
                 </Button>
               </div>
             )}
@@ -264,141 +383,84 @@ function RpDocs({ ed, rules, errors, set }: { ed: boolean; rules: RpDocRule[]; e
   );
 }
 
-/** Add or edit an application document rule (PRD slice 1, Document configuration › Fields). */
-function RuleDialog({ open, rule, rules, onClose, onSave }: { open: boolean; rule: DocRule | null; rules: DocRule[]; onClose: () => void; onSave: (r: DocRule) => void }) {
-  const blankCond: DocCond = { levels: [], countries: [], where: 'Anywhere', other: '', from: [] };
-  const blank = (): DocRule => ({ id: `d${Date.now()}`, doc: '', stage: '' as DocRule['stage'], when: 'Always', setting: 'Mandatory', by: 'RP', on: true, cond: blankCond });
-  const [v, setV] = useState<DocRule>(blank);
-  const [c, setC] = useState<DocCond>(blankCond);
+/**
+ * A new application document rule: the document, its stage, when it applies, mandatory or optional, and who uploads
+ * it. 4 Nov (Nesil): when it applies is the **program levels**, **study areas**, **university countries** and the
+ * **student's current countries**, several of each (none picked: any).
+ */
+function AddRule({ open, levels, areas, onClose, onSave }: { open: boolean; levels: string[]; areas: string[]; onClose: () => void; onSave: (r: DocRule) => void }) {
+  const blank = { doc: '', stage: 'New' as DocRule['stage'], levels: [] as string[], areas: [] as string[], uni: [] as string[], now: [] as string[], setting: 'Mandatory' as DocRule['setting'], by: 'RP' as DocRule['by'] };
+  const [v, setV] = useState(blank);
+  const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
-    const r = rule ?? blank();
-    setV(r);
-    setC(editCond(r));
-    k.reset();
-  }, [open, rule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const name = v.doc.trim();
-  const k = useCheck({
-    doc: name.length < 2 || name.length > 80 ? 'Enter the document’s name.' : rules.some((r) => r.id !== v.id && r.doc.toLowerCase() === name.toLowerCase()) ? `There’s already a rule for ${name}.` : null,
-    stage: !v.stage ? 'Pick the stage.' : null,
-  });
-  const when = whenText(c);
+    setV(blank);
+    setTried(false);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const err = !v.doc.trim() ? 'Name the document.' : null;
+  const rule: DocRule = { id: `d${Date.now()}`, ...v, doc: v.doc.trim(), on: true };
   return (
     <Sheet
       open={open}
       onClose={onClose}
       center
       className="iform cfg__sheet"
-      title={rule ? `Edit the ${rule.doc} rule` : 'Add a document rule'}
-      sub="Kept when you Save the page."
+      title="Add Document Rule"
       footer={
         <div className="asf">
           <div className="asf__acts">
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={() => k.submit() && onSave({ ...v, doc: name, when, cond: c, note: v.note?.trim() || undefined })}>{rule ? 'Done' : 'Add rule'}</Button>
+            <Button
+              onClick={() => {
+                setTried(true);
+                if (!err) onSave(rule);
+              }}
+            >
+              Add Rule
+            </Button>
           </div>
         </div>
       }
     >
       <div className="iform__grid">
-        <Field id="ar-doc" label="Document" required error={k.err('doc')} className="iform__wide">
-          <TextInput id="ar-doc" value={v.doc} maxLength={80} invalid={!!k.err('doc')} placeholder="Like: Medical certificate" onBlur={k.blur('doc')} onChange={(e) => setV((x) => ({ ...x, doc: e.target.value }))} />
+        <Field id="ar-doc" label="Document" required error={tried ? err : null} className="iform__wide">
+          <TextInput id="ar-doc" value={v.doc} invalid={tried && !!err} placeholder="Like: Medical certificate" onChange={(e) => setV((x) => ({ ...x, doc: e.target.value }))} />
         </Field>
-        <Field id="ar-stage" label="Stage" required error={k.err('stage')}>
-          <Pick id="ar-stage" label="Stage" value={v.stage} placeholder="Pick the stage" options={[...STAGES]} invalid={!!k.err('stage')} onChange={(x) => (setV((y) => ({ ...y, stage: x as DocRule['stage'] })), k.blur('stage')())} />
+        <Field id="ar-stage" label="Application stage" required>
+          <SelectInput id="ar-stage" value={v.stage} onChange={(e) => setV((x) => ({ ...x, stage: e.target.value as DocRule['stage'] }))}>
+            {STAGES.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </SelectInput>
         </Field>
-        <Field id="ar-set" label="Setting" required>
-          <Pick id="ar-set" label="Setting" value={v.setting} options={['Mandatory', 'Optional']} onChange={(x) => setV((y) => ({ ...y, setting: x as DocRule['setting'] }))} />
+        <Field id="ar-level" label="Program level">
+          <MultiPick id="ar-level" label="Program level" value={v.levels} options={levels} onChange={(x) => setV((y) => ({ ...y, levels: x }))} empty="Any program level" />
         </Field>
-        <Field id="ar-by" label="Uploaded by" required>
-          <Pick id="ar-by" label="Uploaded by" value={v.by} options={['RP', 'GSP']} onChange={(x) => setV((y) => ({ ...y, by: x as DocRule['by'] }))} />
+        <Field id="ar-area" label="Study area">
+          <MultiPick id="ar-area" label="Study area" value={v.areas} options={areas} onChange={(x) => setV((y) => ({ ...y, areas: x }))} empty="Any study area" />
         </Field>
-        <p className="cfg__k iform__wide">Applies when</p>
-        <Field id="ar-level" label="Program levels" optional hint="Empty means any level.">
-          <MultiPick id="ar-level" label="Program levels" value={c.levels} options={DOC_LEVELS} empty="Any program level" onChange={(levels) => setC((x) => ({ ...x, levels }))} />
+        <Field id="ar-uni" label="University country">
+          <MultiPick id="ar-uni" label="University country" value={v.uni} options={DOC_UNI_COUNTRIES} onChange={(x) => setV((y) => ({ ...y, uni: x }))} empty="Any country" />
         </Field>
-        <Field id="ar-uni" label="University countries" optional hint="Empty means any country.">
-          <MultiPick id="ar-uni" label="University countries" value={c.countries} options={COUNTRIES.map((x) => x.name)} empty="Any country" search onChange={(countries) => setC((x) => ({ ...x, countries }))} />
+        <Field id="ar-now" label="Student’s current country">
+          <MultiPick id="ar-now" label="Student’s current country" value={v.now} options={COUNTRIES.map((c) => c.name)} onChange={(x) => setV((y) => ({ ...y, now: x }))} empty="Any country" search />
         </Field>
-        <Field id="ar-from" label="Student’s current location" optional hint="Where the student lives now (their profile’s country of residence). Empty means anywhere.">
-          <MultiPick id="ar-from" label="Student’s current location" value={c.from ?? []} options={COUNTRIES.map((x) => x.name)} empty="Anywhere" search onChange={(from) => setC((x) => ({ ...x, from }))} />
+        <Field id="ar-set" label="Setting">
+          <SelectInput id="ar-set" value={v.setting} onChange={(e) => setV((x) => ({ ...x, setting: e.target.value as DocRule['setting'] }))}>
+            <option>Mandatory</option>
+            <option>Optional</option>
+          </SelectInput>
         </Field>
-        <Field id="ar-where" label="Where the student is" required>
-          <Pick id="ar-where" label="Where the student is" value={c.where === 'Outside the destination' ? 'Outside it' : c.where} options={DOC_WHERE} onChange={(where) => setC((x) => ({ ...x, where }))} />
+        <Field id="ar-by" label="Uploaded by">
+          <SelectInput id="ar-by" value={v.by} onChange={(e) => setV((x) => ({ ...x, by: e.target.value as DocRule['by'] }))}>
+            <option>RP</option>
+            <option>GSP</option>
+          </SelectInput>
         </Field>
-        <Field id="ar-other" label="Other condition" optional hint="Read by GSP people; the system doesn’t check it, except “The university has its own form”.">
-          <TextInput id="ar-other" value={c.other} maxLength={120} placeholder="Like: The university has its own form" onChange={(e) => setC((x) => ({ ...x, other: e.target.value }))} />
-        </Field>
-        <Field id="ar-note" label="Note for the RP" optional hint="Shown beside the document when an application asks for it." className="iform__wide">
-          <TextInput id="ar-note" value={v.note ?? ''} maxLength={120} placeholder="Like: May be needed" onChange={(e) => setV((x) => ({ ...x, note: e.target.value }))} />
-        </Field>
-        <p className="cfg__note iform__wide">Applies when: {when}.</p>
+        <p className="cfg__note iform__wide">Applies when: {whenText(rule)}.</p>
       </div>
     </Sheet>
-  );
-}
-
-/**
- * Request categories (Jovial, 2 Nov): what GSP picks from in the application chat's Request a document. Admin adds,
- * renames, reorders by removing and adding, and removes them; **Other** (the officer types the name) is always offered
- * after the list and isn't one of them. Read only until Edit; saved and logged like every setting here.
- */
-function RequestCategories({ cfg, change, say, canEdit }: Pick<ConfigProps, 'cfg' | 'change' | 'say' | 'canEdit'>) {
-  const saved = requestCatsOf(cfg);
-  const d = useDraft<string[]>(saved, 'the request categories');
-  const [adding, setAdding] = useState('');
-  const [tried, setTried] = useState(false);
-  const list = d.value;
-  const name = adding.trim();
-  const err = !name ? 'Type the category’s name.' : name.toLowerCase() === OTHER_CATEGORY.toLowerCase() ? `${OTHER_CATEGORY} is always offered.` : list.some((x) => x.toLowerCase() === name.toLowerCase()) ? `${name} is in the list already.` : null;
-  const save = () => {
-    const added = list.filter((x) => !saved.includes(x));
-    const gone = saved.filter((x) => !list.includes(x));
-    change('Document configuration', `Request categories: ${[added.length && `added ${added.join(', ')}`, gone.length && `removed ${gone.join(', ')}`].filter(Boolean).join('; ') || 'no changes'}`, (c) => withRequestCats(c, list));
-    say('Saved.');
-    d.stop();
-  };
-  return (
-    <Panel
-      title="Request categories"
-      note={`What GSP picks from in the chat’s Request a document. ${OTHER_CATEGORY} is always there too: the officer types the document’s name.`}
-      action={canEdit && <EditBar name="the request categories" editing={d.editing} dirty={d.dirty} onEdit={d.start} onCancel={() => (setAdding(''), setTried(false), d.stop())} onSave={save} />}
-    >
-      <ul className="cfg__chips" aria-label="Request categories">
-        {list.map((x) => (
-          <li key={x} className="cfg__chip cfg__chip--plain">
-            {x}
-            {d.editing && (
-              <button type="button" className="icon-btn" aria-label={`Remove ${x}`} onClick={() => d.set((l) => l.filter((y) => y !== x))}>
-                <Icon name="close" size={14} />
-              </button>
-            )}
-          </li>
-        ))}
-        <li className="cfg__chip cfg__chip--plain cfg__muted">{OTHER_CATEGORY} (always)</li>
-      </ul>
-      {d.editing && (
-        <div className="cfg__foot cfg__addusers">
-          <Field id="rc-add" label="Add a category" error={tried ? err : null}>
-            <TextInput id="rc-add" value={adding} maxLength={60} placeholder="Like: Sponsor letter" invalid={tried && !!err} onChange={(e) => setAdding(e.target.value)} />
-          </Field>
-          <Button
-            variant="secondary"
-            iconLeft={<Icon name="plus" size={16} />}
-            onClick={() => {
-              setTried(true);
-              if (err) return;
-              d.set((l) => [...l, name]);
-              setAdding('');
-              setTried(false);
-            }}
-          >
-            Add
-          </Button>
-        </div>
-      )}
-    </Panel>
   );
 }

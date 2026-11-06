@@ -6,7 +6,6 @@ import { AppList, NEW_LIST, type ListState } from './AppList';
 import { AppDetail, type AppTab } from './AppDetail';
 import { NewApplication, type NewSeed } from './NewApplication';
 import { deskFor, type Desk } from './desk';
-import { useStore as useWork } from '../../work/store';
 import '../../screens/applications/applications.css';
 import '../gsp.css';
 
@@ -76,16 +75,7 @@ export function Applications({
 
   const open = apps.find((a) => a.id === openId) ?? null;
   const openStudent = open ? students.find((s) => s.id === open.studentId)! : null;
-  // gsp.admissions@ mail the system linked to this application (Mail, kept simple: Jovial, 5 Nov) joins its Mail tab
-  const mailThreads = useWork((w) => w.mail.threads);
-  const withLinked = (d: Desk, id: string): Desk => {
-    const linked = mailThreads.filter((t: any) => t.mailbox === 'mb-adm' && t.record === id).flatMap((t: any) => t.messages.map((m: any) => ({
-      id: `wm-${t.id}-${m.id}`, at: m.at, from: { name: m.from[0], email: m.from[1] }, to: m.to ? [m.to] : ['gsp.admissions@upgrad.com'], subject: t.subject, body: m.body, files: m.attachments || [], box: m.dir === 'out' ? 'sent' : 'in', read: m.dir === 'out', org: t.org,
-    })));
-    const fresh = linked.filter((m: any) => !d.mails.some((x) => x.id === m.id));
-    return fresh.length ? { ...d, mails: [...fresh, ...d.mails].sort((x, y) => y.at - x.at) } : d;
-  };
-  const desk = open && openStudent ? withLinked(desks[open.id] ?? deskFor(open, openStudent), open.id) : null;
+  const desk = open && openStudent ? (desks[open.id] ?? deskFor(open, openStudent)) : null;
   const openApp = (id: string, t: AppTab = 'chat') => {
     setOpenId(id);
     setTab(t);
@@ -101,10 +91,11 @@ export function Applications({
           team={team}
           agency={agency}
           desk={desk!}
-          setDesk={(fn) => setDesks((m) => ({ ...m, [open.id]: fn(withLinked(m[open.id] ?? deskFor(open, openStudent!), open.id)) }))}
+          setDesk={(fn) => setDesks((m) => ({ ...m, [open.id]: fn(m[open.id] ?? deskFor(open, openStudent!)) }))}
           tab={tab}
           setTab={setTab}
           update={(fn) => setApps((l) => l.map((x) => (x.id === open.id ? fn(x) : x)))}
+          studentApps={apps.filter((x) => x.studentId === open.studentId)}
           updateStudent={(fn) => setStudents((l) => l.map((x) => (x.id === open.studentId ? fn(x) : x)))}
           onBack={() => {
             setOpenId(null);
@@ -112,8 +103,6 @@ export function Applications({
           }}
           onOpenStudent={onOpenStudent}
           say={setMsg}
-          all={apps}
-          students={students}
         />
       ) : (
         <AppList apps={apps} students={students} team={team} st={list} set={setList} onOpen={openApp} onAdd={() => setAdd({ key: Date.now() })} onFindCourses={onFindCourses} say={setMsg} />

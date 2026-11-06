@@ -79,6 +79,7 @@
 .inbox__lead { display: grid; gap: 2px; }
 .inbox__title { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); font-weight: var(--fw-semi); }
 .inbox__sub { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.inbox__acts { flex: none; display: flex; align-items: center; gap: var(--sp-4); margin: -4px -6px 0 0; }
 .inbox__all { flex: none; margin-top: 2px; padding: var(--sp-4) var(--sp-6); border: 0; border-radius: var(--r-sm); background: none; color: var(--link); font: inherit; font-size: var(--t-label); font-weight: var(--fw-medium); }
 .inbox__all:hover { background: var(--surface-2); }
 

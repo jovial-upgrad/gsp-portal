@@ -1,20 +1,12 @@
-import { RP_OWNER_TAG as OWNER_TAG } from '../../data/owners';
-import { requestCategories } from '../../data/chat';
-import { isWithdrawal } from '../../data/reasons';
-import { KeyGroup, WithdrawDialog, appliedAt } from '../../gsp/applications/AppDetail';
-import { RP_WITHDRAW_OFF, autoName, rpCanWithdraw } from '../../data/appRules';
-import { uploadAckLine } from '../../data/chat';
-import { activityFor, activityKind } from '../../data/activity';
-import { UPLOAD } from '../../data/uploads';
-import { setLiveStatus, setLiveFlags, useLiveAll, finalFeeOf } from '../../data/live';
-import { NameDialog } from '../../gsp/applications/NameDialog';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AppCommission, earnEstimate } from '../../finance/AppCommission';
+import { useHides } from '../../proto/viewOnly';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AppRank } from '../../components/RankTag';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
+import { ConfirmDialog, useConfirm } from '../../components/ConfirmDialog';
 import { MoreMenu } from '../../components/MoreMenu';
-import { FLAG, durationText, money } from '../../data/courses';
+import { FLAG, money } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { eduDocName, fullName, readiness, TESTS, type Member, type Student } from '../../data/students';
 import {
@@ -23,6 +15,7 @@ import {
   STATUS,
   clock,
   courseOf,
+  earnFor,
   gspContact,
   arriveAt,
   docLines,
@@ -42,7 +35,7 @@ import {
   type EndKind,
   type Need,
 } from '../../data/applications';
-import { campusLabel, UniMark } from '../courses/parts';
+import { campusLabel, duration, UniMark } from '../courses/parts';
 import { Avatar, CopyButton } from '../students/parts';
 import { DocButtons } from '../../components/DocView';
 import { Celebrate } from '../../components/Celebrate';
@@ -53,17 +46,17 @@ import type { RecordTab } from '../students/StudentRecord';
 import { AssistMark, StageTrack, Thinking } from './parts';
 import { Assist } from './Assist';
 
-export type AppTab = 'chat' | 'documents' | 'commission' | 'activity';
+export type AppTab = 'chat' | 'documents' | 'activity';
 const TABS: [AppTab, string, IconName][] = [
   ['chat', 'Chat', 'chat'],
   ['documents', 'Documents', 'folder'],
-  ['commission', 'Commission', 'wallet'],
-  ['activity', 'Activity', 'clock'],
+  // 4 Nov: "Logs", as every log in the portal is named
+  ['activity', 'Logs', 'clock'],
 ];
 /** The one tag in the header's corner: who has the application now, never two at once. */
 /** A due date with its year: "31 Oct 26". */
 const dueDate = (t: number) => `${shortDate(new Date(t))} ${String(new Date(t).getFullYear()).slice(2)}`;
-const HEAD_TAG: Record<AppOwner, string> = OWNER_TAG;
+const HEAD_TAG: Record<AppOwner, string> = { you: 'Pending on you', gsp: 'GSP', uni: 'University', done: 'Done', end: 'Closed' };
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 /** A need is met when its file reads as the right document, a profile detail is filled, or a payment is confirmed. */
@@ -78,7 +71,7 @@ export function needMet(n: Need, s: Student) {
 /**
  * One application, led by the student: the course and university under their name, the status in the corner
  * with the one party who has it, the stage path, the one thing to do now, and everything else in tabs that
- * never move (Chat, Documents, Activity) beside the key details and the GSP contact. GSP Assist reads uploads
+ * never move (Chat, Documents, Logs) beside the key details and the GSP contact. GSP Assist reads uploads
  * before GSP does. The documents the application asks for were set when it was added; anything needed later is
  * a document GSP asks for in the chat, which shows in Documents too.
  */
@@ -91,10 +84,10 @@ export function AppDetail({
   setTab,
   update,
   updateStudent,
+  studentApps: mine,
   onBack,
   onOpenStudent,
   say,
-  commission = true,
 }: {
   a: Application;
   s: Student;
@@ -104,22 +97,24 @@ export function AppDetail({
   setTab: (t: AppTab) => void;
   update: (fn: (a: Application) => Application) => void;
   updateStudent: (fn: (s: Student) => Student) => void;
+  /** The student's applications, for the primary tag (6 Nov). */
+  studentApps: Application[];
   onBack: () => void;
   onOpenStudent: (id: string, tab?: RecordTab) => void;
   say: (m: string) => void;
-  /** Commission figures: the RP Admin only (S3C-7). Branch Manager and Counsellor get no Commission tab or Base commission. */
-  commission?: boolean;
 }) {
+  // 6 Nov (access sheet): GSP Branch Manager and GSP Counsellor see no commission
+  const noBaseCommission = useHides('app.base-commission');
   const reduce = useReducedMotion();
-  const tabs = TABS.filter(([k]) => commission || k !== 'commission');
   const c = courseOf(a);
   const d = c.uni.country;
   const o = ownerOf(a);
-  const gsp = gspContact(a);
+  const gsp = gspContact(d);
   const counsellor = team.find((m) => m.id === s.counsellor);
-  useLiveAll(); // the final tuition fee prices the base commission
-  const earn = earnEstimate(a);
+  const earn = earnFor(a);
   const [withdraw, setWithdraw] = useState(false);
+  // 4 Nov: removing a file that's on the application asks first
+  const { ask, dialog: askDialog } = useConfirm();
   const needsRef = useRef<HTMLElement>(null);
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
@@ -141,12 +136,12 @@ export function AppDetail({
   };
 
   const onTabKey = (e: KeyboardEvent) => {
-    const i = tabs.findIndex(([k]) => k === tab);
-    const n = e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i + tabs.length - 1) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
+    const i = TABS.findIndex(([k]) => k === tab);
+    const n = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
     if (n < 0) return;
     e.preventDefault();
-    setTab(tabs[n][0]);
-    document.getElementById(`atab-${tabs[n][0]}`)?.focus();
+    setTab(TABS[n][0]);
+    document.getElementById(`atab-${TABS[n][0]}`)?.focus();
   };
 
   /* ---------- acting on the application ---------- */
@@ -159,13 +154,15 @@ export function AppDetail({
       ...x,
       needs: x.needs.filter((y) => y.id !== n.id),
       files: [...x.files, { name: n.title, file, from: 'you', at: now, status: 'checking', via: 'request', req: n.id }],
-      // the automatic acknowledgement (Jovial, 2 Nov), from the chat templates, under the officer's name (S3-13)
-      chat: [...x.chat, { id: `m${now}-ack`, at: now + 1, from: 'gsp' as const, name: autoName(x, gsp.name), text: uploadAckLine(n.title) }],
       history: [...x.history, { at: now, who: 'you', text: `Uploaded the ${named(n.title)} GSP asked for`, by: me }, ...(note ? [{ at: now, who: 'ai' as const, text: `GSP Assist read it first: ${note}` }] : [])],
     }));
-    setLiveFlags(a.id, { rpNews: now, rpWhat: `the ${named(n.title)}` });
-    // the acknowledgement is the chat template's; anything more GSP answers in the chat themselves (HC26)
     say(`${n.title} sent to ${n.request?.by ?? 'GSP'}.`);
+    timers.current.push(
+      window.setTimeout(() => {
+        const at = Date.now();
+        update((x) => ({ ...x, chat: [...x.chat, { id: `m${at}`, at, from: 'gsp', name: n.request?.by ?? gsp.name, text: `Thanks, got the ${named(n.title)}. I’ll take it from here.` }] }));
+      }, reduce ? 300 : 1800),
+    );
   };
 
   // an offer's conditions, answered in the form and sent to GSP together
@@ -180,8 +177,13 @@ export function AppDetail({
       history: [...x.history, { at: now, who: 'you', text: `Answered the ${named(n.title)} and sent them to GSP`, by: me }],
     }));
     setAnswering(null);
-    setLiveFlags(a.id, { rpNews: now, rpWhat: `the ${named(n.title)}` });
     say(`${n.title} sent to ${by}.`);
+    timers.current.push(
+      window.setTimeout(() => {
+        const at = Date.now();
+        update((x) => ({ ...x, chat: [...x.chat, { id: `m${at}`, at, from: 'gsp', name: by, text: `Thanks, got the ${named(n.title)}. I’ll check them and send them to ${c.uni.name}.` }] }));
+      }, reduce ? 300 : 1800),
+    );
   };
 
   // GSP Assist reads a file for a need; a request goes on to GSP as soon as it reads as right
@@ -198,8 +200,16 @@ export function AppDetail({
     );
   };
   const onFile = (n: Need, f: File | null) => f && takeFile(n, f.name);
-  // BR-50: a flagged upload (not clear, the wrong document, another person's name) can't be kept: Replace it
-  const removeFile = (n: Need) => update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, file: undefined, check: undefined, note: undefined } : y)) }));
+  const keepAnyway = (n: Need) => {
+    if (n.request && n.file) return fulfil(n, n.file);
+    update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, check: 'ok', note: 'Kept as uploaded. GSP checks it next.' } : y)) }));
+  };
+  const removeFile = (n: Need) =>
+    ask({
+      title: `Remove ${n.file}?`,
+      text: `It comes off ${s.first}’s application, and ${n.title} goes back to your to-dos.`,
+      run: () => update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, file: undefined, check: undefined, note: undefined } : y)) })),
+    });
   const confirmAction = (n: Need) => update((x) => ({ ...x, needs: x.needs.map((y) => (y.id === n.id ? { ...y, check: 'ok', note: `Marked as done ${shortDate(new Date())}` } : y)) }));
 
   /** One of the application's own documents that isn't a need yet: kept on the application (and the profile, for the profile's documents), for GSP to check. */
@@ -241,8 +251,6 @@ export function AppDetail({
         ],
       };
     });
-    // New to Pre-screening: the one move the RP makes, seen by every module (Jovial, 1 Nov)
-    setLiveStatus(a.id, { status: next, at: now, by: me, note: STATUS[next].text(d), via: 'rp' });
     say(`Sent. ${STATUS[next].text(d)}.`);
   };
 
@@ -251,11 +259,10 @@ export function AppDetail({
     update((x) => ({
       ...x,
       chased: now,
-      // Activity keeps the request; GSP's own reply comes from GSP (HC26: no automatic answer)
-      history: [...x.history, { at: now, who: 'you', text: `Asked GSP to chase ${c.uni.name}`, by: me }],
+      history: [...x.history, { at: now, who: 'you', text: `Asked GSP to chase ${c.uni.name}`, by: me }, { at: now, who: 'gsp', text: `Reminded ${c.uni.name} about the decision`, by: gsp.name }],
+      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: gsp.name, text: `I’ve asked ${c.uni.name} for an update and flagged it as overdue. I’ll post their reply here.` }],
     }));
-    setLiveFlags(a.id, { rpNews: now, rpWhat: `a request to chase ${c.uni.name}` });
-    say(`Asked ${gsp.first} to chase ${c.uni.name}.`);
+    say(`GSP is chasing ${c.uni.name}. ${gsp.first} will post the reply in the chat.`);
   };
 
   // the visa is lodged by the agency or by GSP: asking GSP hands the step over
@@ -266,40 +273,20 @@ export function AppDetail({
       visaBy: 'gsp',
       needs: x.needs.filter((n) => n.id !== 'visa'),
       history: [...x.history, { at: now, who: 'you', text: 'Asked GSP to lodge the visa', by: me }],
+      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: gsp.name, text: `Happy to. I’ll lodge ${s.first}’s visa and upload the lodgement proof here.` }],
     }));
-    setLiveFlags(a.id, { visaBy: 'gsp', rpNews: now, rpWhat: 'a request for GSP to lodge the visa' });
     say(`GSP will lodge ${s.first}’s visa.`);
   };
 
-  /**
-   * Withdraw (More › Withdraw application, S3-26): ends at Withdrawn with the reason; every open request is cancelled
-   * ("Closed with the application"); the chat says "Application withdrawn by <name>: <reason>" under the assigned
-   * officer's name (S3-14); GSP gets a bell. The application goes read-only.
-   */
   const close = (kind: EndKind, reason: string) => {
     const now = Date.now();
-    update((x) => {
-      const open = new Set(x.needs.map((n) => n.id));
-      return {
-        ...x,
-        status: 'closed',
-        since: now,
-        needs: [],
-        parked: [],
-        end: { kind, reason, stage: stageOf(x), at: now },
-        chat: [...x.chat.map((m) => (m.request && open.has(m.request) ? { ...m, ended: { kind: 'closed' as const, at: now } } : m)), { id: `m${now}`, at: now, from: 'gsp' as const, name: autoName(x, me), text: `Application withdrawn by ${me}: ${reason}` }],
-        history: [...x.history, { at: now, who: 'you', text: `Withdrew the application: ${reason}`, by: me }],
-      };
-    });
-    setLiveStatus(a.id, { status: 'closed', at: now, by: me, end: kind, note: reason, via: 'rp', endStage: stageOf(a), submitted: false });
-    setLiveFlags(a.id, { rpNews: now, rpWhat: `the withdrawal of ${s.first}’s application` });
+    update((x) => ({ ...x, status: 'closed', since: now, needs: [], end: { kind, reason, stage: stageOf(x), at: now }, history: [...x.history, { at: now, who: 'you', text: `${kind}: ${reason}`, by: me }] }));
     say(`${a.id} withdrawn.`);
   };
 
   // the offer's facts sit in Key details until the deposit is paid; its conditions are needs, in Documents
-  // S3F-2: Offer, Accept by and Deposit show only what GSP Assist read from the letter; hidden while empty
-  const offer = a.offer?.read && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
-  const acceptLeft = offer?.read?.acceptBy ? Math.max(0, Math.ceil((offer.read.acceptBy - Date.now()) / 86_400_000)) : 0;
+  const offer = a.offer && isOpen(a) && stageOf(a) <= 5 ? a.offer : undefined;
+  const acceptLeft = offer ? Math.max(0, Math.ceil((offer.acceptBy - Date.now()) / 86_400_000)) : 0;
   const chaseable = isOpen(a) && STATUS[a.status].owner === 'uni' && clock(a).late && !a.chased;
   // older applications may still carry profile details as to-dos: they don't show, and don't hold Send to GSP
   const sendable = isOpen(a) && !!NEXT_AFTER_YOU[a.status] && a.needs.some((n) => !n.request);
@@ -314,6 +301,7 @@ export function AppDetail({
       met={needMet(n, s)}
       onFile={(f) => onFile(n, f)}
       onRemove={() => removeFile(n)}
+      onKeep={() => keepAnyway(n)}
       onAction={() => confirmAction(n)}
       onForm={() => setAnswering(n)}
     />
@@ -330,22 +318,12 @@ export function AppDetail({
         <div className="ahead__top">
           <Avatar s={s} big />
           <div className="ahead__names">
-            {/* the application ID, and the university reference once submitted, both copyable (slice 3 PRD, Application page) */}
-            <p className="ahead__kicker num">
-              {a.id}
-              <CopyButton text={a.id} what="Application ID" onDone={say} />
-              {a.uniRef && (
-                <>
-                  <span className="ahead__dot" aria-hidden="true">·</span> University reference {a.uniRef}
-                  <CopyButton text={a.uniRef} what="University reference" onDone={say} />
-                </>
-              )}
-            </p>
             <h1 className="ahead__title">
               <button type="button" className="ahead__stu" onClick={() => onOpenStudent(s.id)} title={`Open ${s.first}’s profile`}>
                 {fullName(s)}
               </button>
             </h1>
+            <AppRank a={a} s={s} apps={mine} canMark={false} by={''} update={update} updateStudent={updateStudent} say={say} />
             <p className="ahead__course">
               <UniMark u={c.uni} />
               <span>
@@ -375,8 +353,7 @@ export function AppDetail({
               items={[
                 { id: 'student', label: 'Student profile', icon: 'user', onPick: () => onOpenStudent(s.id) },
                 ...(chaseable ? [{ id: 'chase', label: `Ask GSP to chase ${c.uni.name}`, icon: 'refresh' as IconName, onPick: chase }] : []),
-                // up to Ready to submit; after submission it's off, with the reason (Jovial, 2 Nov)
-                ...(isOpen(a) ? [{ id: 'withdraw', label: 'Withdraw application', icon: 'close' as IconName, danger: true, disabled: !rpCanWithdraw(a), reason: rpCanWithdraw(a) ? undefined : RP_WITHDRAW_OFF, onPick: () => setWithdraw(true) }] : []),
+                ...(isOpen(a) ? [{ id: 'withdraw', label: 'Withdraw application', icon: 'close' as IconName, danger: true, onPick: () => setWithdraw(true) }] : []),
               ]}
             />
           </div>
@@ -390,7 +367,7 @@ export function AppDetail({
           <motion.section
             key="needs"
             className="aneed"
-            aria-label={OWNER_TAG.you}
+            aria-label="Pending on you"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -401,7 +378,7 @@ export function AppDetail({
             </span>
             <div className="aneed__t">
               <p className="aneed__title">
-                {OWNER_TAG.you}: {open.length === 1 ? '1 thing to do' : `${open.length} things to do`}
+                Pending on you: {open.length === 1 ? '1 thing to do' : `${open.length} things to do`}
                 {open.some((n) => n.due) && <span className="aneed__due"> · due {dueDate(Math.min(...open.filter((n) => n.due).map((n) => n.due!)))}</span>}
               </p>
               <p className="aneed__text">{open.map((n) => n.title).join(' · ')}</p>
@@ -425,9 +402,9 @@ export function AppDetail({
               <Icon name="close" size={20} />
             </span>
             <div className="aneed__t">
-              <p className="aneed__title">{isWithdrawal(a.end.kind) ? 'Withdrawn' : `Closed: ${a.end.kind}`}</p>
+              <p className="aneed__title">{a.end.kind}</p>
               <p className="aneed__text">
-                {isWithdrawal(a.end.kind) && a.end.reason ? `${a.end.reason}. ` : ''}{isWithdrawal(a.end.kind) ? 'Withdrawn' : 'Closed'} at {STAGES[a.end.stage]} on {shortDate(new Date(a.end.at))}. It’s read-only. The documents stay on {s.first}’s profile for other applications.
+                {a.end.reason ? `${a.end.reason}. ` : ''}Closed at {STAGES[a.end.stage]} on {shortDate(new Date(a.end.at))}. The documents stay on {s.first}’s profile for other applications.
               </p>
             </div>
           </motion.section>
@@ -435,7 +412,7 @@ export function AppDetail({
       </AnimatePresence>
 
       <div className="atabs" role="tablist" aria-label="Application" onKeyDown={onTabKey}>
-        {tabs.map(([k, label, icon]) => (
+        {TABS.map(([k, label, icon]) => (
           <button
             key={k}
             type="button"
@@ -487,12 +464,6 @@ export function AppDetail({
                 pendRef={needsRef}
                 onDoc={addDoc}
                 onForm={setAnswering}
-                onExtra={(name, file) => {
-                  const now = Date.now();
-                  update((x) => ({ ...x, files: [...x.files, { name, file, from: 'you', at: now, status: 'checking' }], history: [...x.history, { at: now, who: 'you', text: `Uploaded “${name}”`, by: me }] }));
-                  setLiveFlags(a.id, { rpNews: now, rpWhat: `“${name}”` });
-                  say(`${name} sent to GSP to check.`);
-                }}
                 sendBar={
                   (sendable || handOver) && (
                     <div className="aneeds__send">
@@ -520,8 +491,7 @@ export function AppDetail({
                 }
               />
             )}
-            {tab === 'commission' && commission && <AppCommission a={a} agency={''} side="rp" />}
-            {tab === 'activity' && <Activity a={a} commission={commission} />}
+            {tab === 'activity' && <Activity a={a} />}
           </motion.div>
         </AnimatePresence>
 
@@ -541,18 +511,16 @@ export function AppDetail({
               </span>
             </div>
             <dl className="aperson__ways">
-              {gsp.phone && (
-                <div className="aperson__line">
-                  <dt>
-                    <Icon name="phone" size={16} />
-                    <span className="vh">Phone</span>
-                  </dt>
-                  <dd>
-                    <span>{gsp.phone}</span>
-                    <CopyButton text={gsp.phone} what={`${gsp.first}’s number`} onDone={say} />
-                  </dd>
-                </div>
-              )}
+              <div className="aperson__line">
+                <dt>
+                  <Icon name="phone" size={16} />
+                  <span className="vh">Phone</span>
+                </dt>
+                <dd>
+                  <span>{gsp.phone}</span>
+                  <CopyButton text={gsp.phone} what={`${gsp.first}’s number`} onDone={say} />
+                </dd>
+              </div>
               <div className="aperson__line">
                 <dt>
                   <Icon name="mail" size={16} />
@@ -567,56 +535,47 @@ export function AppDetail({
               </div>
             </dl>
           </section>
-          {/* Key details in three groups (Jovial, 2 Nov): sections with headings, not tabs; an empty field isn't shown */}
           <section className="card acard">
             <h2 className="acard__title">Key details</h2>
-            <KeyGroup title="Application details">
+            <dl className="cdl">
               <Row k="Application" v={<span className="num">{a.id}</span>} />
-              <Row k="University reference" v={a.uniRef ? <span className="num">{a.uniRef}</span> : null} />
+              {a.uniRef && <Row k="University reference" v={<span className="num">{a.uniRef}</span>} />}
               <Row k="Intake" v={a.intake} />
-              <Row k="Campus" v={campusLabel(c.campus)} />
-              <Row k="Duration" v={durationText(c)} />
-              <Row k="Final tuition fee" v={<span className="num">{money(finalFeeOf(a.id, c.tuition), c.currency)}</span>} />
+              <Row k="Duration" v={duration(c.months)} />
+              <Row k="Tuition, per year" v={<span className="num">{money(c.tuition, c.currency)}</span>} />
+              {c.scholarship > 0 && <Row k="Scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}
               {offer && (
                 <>
-                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.read!.at))}`} />
+                  <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
                   <Row
                     k="Accept by"
                     v={
-                      offer.read?.acceptBy && <span>
-                        {shortDate(new Date(offer.read.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
+                      <span>
+                        {shortDate(new Date(offer.acceptBy))} <span className="cdl__soft num">· {acceptLeft === 1 ? '1 day left' : `${acceptLeft} days left`}</span>
                       </span>
                     }
                   />
-                  <Row k="Deposit" v={offer.read?.deposit != null ? <span className="num">{money(offer.read.deposit, c.currency)}</span> : null} />
+                  <Row k="Deposit" v={<span className="num">{money(offer.deposit, c.currency)}</span>} />
                 </>
               )}
-              <Row k={a.status === 'docs' ? 'Started' : 'Applied'} v={shortDate(new Date(appliedAt(a)), true)} />
-            </KeyGroup>
-            <KeyGroup title="GSP details">
-              <Row k="Admissions" v={gsp.name} />
-              {stageOf(a) >= 6 && a.status !== 'closed' && <Row k="Visa lodged by" v={a.visaBy === 'gsp' ? 'GSP' : 'Your agency'} />}
-            </KeyGroup>
-            <KeyGroup title="RP details">
               <Row
                 k="Counsellor"
                 v={
-                  counsellor ? (
-                    <span>
-                      {counsellor.name}
-                      {counsellor.id === 'me' ? <span className="cdl__soft"> (you)</span> : ''}
-                    </span>
-                  ) : null
+                  <span>
+                    {counsellor?.name}
+                    {counsellor?.id === 'me' ? <span className="cdl__soft"> (you)</span> : ''}
+                  </span>
                 }
               />
-              {/* the RP sees only its own commission, and only its RP Admin (S3C-7) */}
-              {commission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
-            </KeyGroup>
+              {!noBaseCommission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
+              <Row k="Started" v={shortDate(new Date(a.created))} />
+            </dl>
           </section>
         </aside>
       </div>
 
-      <WithdrawDialog open={withdraw} a={a} s={s} onCancel={() => setWithdraw(false)} onConfirm={(r) => (setWithdraw(false), close('Withdrawn', r))} />
+      <WithdrawDialog open={withdraw} a={a} s={s} onCancel={() => setWithdraw(false)} onConfirm={(r) => (setWithdraw(false), close('Student withdrawn', r))} />
+      {askDialog}
       <CondForm n={answering} s={s} onClose={() => setAnswering(null)} onSend={sendConds} />
     </div>
   );
@@ -628,9 +587,7 @@ function stageDates(a: Application): (number | undefined)[] {
   return [a.created, at(/checked the documents|Sent to GSP/i), at(/^Submitted to/i), at(/conditional offer/i), at(/Verified the financial|unconditional offer/i), at(/Deposit/i), at(/uploaded the (CoE|CAS|I-20|LOA)|Visa/i), undefined];
 }
 
-/** A Key details line; an empty value hides it (Jovial, 2 Nov). */
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
-  if (v === null || v === undefined || v === '') return null;
   return (
     <div className="cdl__row">
       <dt>{k}</dt>
@@ -647,6 +604,7 @@ function NeedRow({
   met,
   onFile,
   onRemove,
+  onKeep,
   onAction,
   onForm,
 }: {
@@ -655,6 +613,7 @@ function NeedRow({
   met: boolean;
   onFile: (f: File | null) => void;
   onRemove: () => void;
+  onKeep: () => void;
   onAction: () => void;
   /** An offer's conditions: the form opens. */
   onForm: () => void;
@@ -720,6 +679,11 @@ function NeedRow({
           )
         ) : state === 'reading' ? null : n.file ? (
           <>
+            {state === 'flag' && (
+              <Button variant="ghost" size="sm" onClick={onKeep}>
+                Keep it
+              </Button>
+            )}
             <label className="btn btn--secondary btn--sm nrow__pick" htmlFor={id}>
               Replace
             </label>
@@ -737,7 +701,7 @@ function NeedRow({
             id={id}
             className="vh"
             type="file"
-            accept={UPLOAD.accept}
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             aria-label={`Upload ${n.title}`}
             onChange={(e) => {
               onFile(e.target.files?.[0] ?? null);
@@ -815,7 +779,6 @@ function DocsTab({
   sendBar,
   onDoc,
   onForm,
-  onExtra,
 }: {
   a: Application;
   s: Student;
@@ -828,8 +791,6 @@ function DocsTab({
   onDoc: (d: AppDoc, f: File | null) => void;
   /** An offer's conditions: the form opens. */
   onForm: (n: Need) => void;
-  /** Another document, named by the RP. */
-  onExtra?: (name: string, file: string) => void;
 }) {
   // the needs show as their own rows; the rest of the documents by state
   const rows = docRows(a, s).filter((r) => !r.need);
@@ -877,7 +838,7 @@ function DocsTab({
           {empty && (
             <p className="adocs__empty">
               {tab === 'pending'
-                ? `Nothing ${OWNER_TAG.you.toLowerCase()}.`
+                ? 'Nothing pending on you.'
                 : tab === 'review'
                   ? 'Nothing with GSP right now.'
                   : tab === 'approved'
@@ -927,7 +888,7 @@ function DocsTab({
                             id={id}
                             className="vh"
                             type="file"
-                            accept={UPLOAD.accept}
+                            accept=".pdf,.jpg,.jpeg,.png"
                             aria-label={`Upload ${r.name}`}
                             onChange={(e) => {
                               const f = e.target.files?.[0] ?? null;
@@ -985,28 +946,8 @@ function DocsTab({
           )}
         </div>
       </section>
-      {isOpen(a) && onExtra && <ExtraDoc onAdd={onExtra} />}
       <CondDialog v={viewing ? views.find((v) => v.id === viewing) ?? null : null} s={s} onClose={() => setViewing(null)} />
     </div>
-  );
-}
-
-/** Any other document the RP wants GSP to have, with a name the RP gives it (Jovial, 1 Nov). */
-function ExtraDoc({ onAdd }: { onAdd: (name: string, file: string) => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  return (
-    <section className="card aextra">
-      <div>
-        <h3 className="aextra__t">Another document</h3>
-        <p className="aextra__s">Anything else GSP should have for this application. You name it; GSP checks it.</p>
-      </div>
-      <Button variant="secondary" onClick={() => input.current?.click()}>
-        <Icon name="upload" size={16} /> Upload a document
-      </Button>
-      <input ref={input} type="file" hidden accept={UPLOAD.accept} onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
-      <NameDialog file={file} usual={requestCategories()} onCancel={() => setFile(null)} onAdd={(n) => { if (file) onAdd(n, file.name); setFile(null); }} />
-    </section>
   );
 }
 
@@ -1014,16 +955,15 @@ function ExtraDoc({ onAdd }: { onAdd: (name: string, file: string) => void }) {
 
 const WHO: Record<string, [string, IconName]> = { you: ['Your agency', 'user'], gsp: ['GSP', 'shield'], uni: ['University', 'building'], ai: ['GSP Assist', 'chat'], system: ['Automatic', 'refresh'] };
 
-function Activity({ a, commission }: { a: Application; commission: boolean }) {
+function Activity({ a }: { a: Application }) {
   const reduce = useReducedMotion();
-  // the RP sees chat, documents, commission and status activity (Jovial, 2 Nov; L-3); commission lines only for the RP Admin (S3C-7)
-  const list = activityFor('rp', [...a.history]).filter((e) => commission || activityKind(e) !== 'commission').sort((x, y) => y.at - x.at);
+  const list = [...a.history].sort((x, y) => y.at - x.at);
   return (
     <section className="card acard" aria-labelledby="aact-title">
       <h2 id="aact-title" className="acard__title">
         What has happened
       </h2>
-      <p className="acard__text">{commission ? 'The chat, documents, status changes and commission' : 'The chat, documents and status changes'} on this application, with who or what did each.</p>
+      <p className="acard__text">Every step, including the automatic ones, with who or what did it.</p>
       <ol className="aact">
         {list.map((e, i) => (
           <motion.li
@@ -1039,7 +979,7 @@ function Activity({ a, commission }: { a: Application; commission: boolean }) {
             <span className="aact__t">
               <span className="aact__text">{e.text}</span>
               <span className="aact__meta">
-                {e.by ?? WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true })}
+                {e.by ?? WHO[e.who][0]} · {shortDate(new Date(e.at))}, {new Date(e.at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}
               </span>
             </span>
           </motion.li>
@@ -1049,3 +989,25 @@ function Activity({ a, commission }: { a: Application; commission: boolean }) {
   );
 }
 
+/* ---------- withdrawing ---------- */
+
+const REASONS = ['The student chose another offer', 'The student is deferring to a later intake', 'The student isn’t going to study abroad', 'Another reason'];
+
+function WithdrawDialog({ open, a, s, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; onCancel: () => void; onConfirm: (reason: string) => void }) {
+  const [reason, setReason] = useState(REASONS[0]);
+  const c = courseOf(a);
+  return (
+    <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw" cancel="Keep it" onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
+      <p>GSP tells {c.uni.name}, and the application closes. {s.first}’s documents stay on the profile for other applications.</p>
+      <fieldset className="wreasons">
+        <legend className="wreasons__legend">Why?</legend>
+        {REASONS.map((r) => (
+          <label key={r} className="wreason">
+            <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
+            <span>{r}</span>
+          </label>
+        ))}
+      </fieldset>
+    </ConfirmDialog>
+  );
+}

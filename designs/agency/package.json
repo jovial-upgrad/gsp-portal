@@ -9,14 +9,7 @@
     "build:artifact": "vite build --mode artifact && node scripts/artifact.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test:commissions": "node scripts/test-commissions.mjs",
-    "build:sandbox": "node scripts/build-sandbox.mjs",
-    "test:agreements": "node scripts/test-rp-agreements.mjs",
-    "test:lock-rules": "node scripts/test-lock-rules.mjs",
-    "test:derived": "node scripts/test-derived.mjs",
-    "test:budgets": "node scripts/test-budgets.mjs",
-    "test:eligibility": "node scripts/test-eligibility.mjs",
-    "scan:hardcoded": "node scripts/scan-hardcoded.mjs"
+    "build:design-pdf": "mkdir -p dist-artifact docs && python3 scripts/design-pdf/mkpdf.py DESIGN-SYSTEM.md dist-artifact/design-system.html && node scripts/design-pdf/print.cjs dist-artifact/design-system.html docs/GSP-Design-System.pdf"
   },
   "dependencies": {
     "motion": "^12.23.12",

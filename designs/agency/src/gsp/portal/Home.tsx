@@ -1,6 +1,3 @@
-import { istParts } from '../../data/dates';
-import { regionOfCountry } from '../../data/regions';
-import { TEST_COUNTRY } from '../../data/rpteam';
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -9,25 +6,23 @@ import { Icon, type IconName } from '../../components/Icon';
 import type { Contact } from '../../data/partners';
 import type { Account } from '../../screens/signin/model';
 import { Setup } from './Setup';
-import { type SignupState } from '../../screens/signup/model';
+import { WHATSAPP_MARKETS, type SignupState } from '../../screens/signup/model';
 import { inSentence, returnedDocs, stillToReplace } from '../../screens/signup/docs';
 import { LOCKED_COPY, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { Track, type StepState } from './Track';
-import { hoursText } from '../../work/calendars';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const rise = (reduce: boolean | null, i: number) =>
   reduce ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.32, ease, delay: 0.06 + i * 0.07 } };
 
 const greeting = () => {
-  const h = istParts(Date.now()).h;
+  const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 
 const LOCKED: { key: Section; icon: IconName }[] = [
   { key: 'students', icon: 'people' },
   { key: 'applications', icon: 'doc' },
-  { key: 'earnings', icon: 'wallet' },
 ];
 
 /** Home: while GSP verifies, what's happening and what opens next; once verified, where to start. */
@@ -149,9 +144,9 @@ export function Home({
                 <p className="side-card__text">Once you upload your documents and send them for verification, we’ll assign one.</p>
               </div>
             ) : manager ? (
-              <ContactCard person={{ ...manager, role: 'Recruitment' }} hours={hoursText(regionOfCountry(join?.form.country || TEST_COUNTRY))} />
+              <ContactCard person={{ ...manager, role: 'Partner manager' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
             ) : (
-              <p className="side-card__text">Your Recruitment contact at GSP will be in touch. Their name and number will show here.</p>
+              <p className="side-card__text">Your partner manager will be in touch within 1 working day. Their name and number will show here.</p>
             )}
           </section>
         </motion.aside>
@@ -164,6 +159,7 @@ export function Home({
 function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () => void; reduce: boolean | null }) {
   const f = join.form;
   const sent = sentDocs(join).filter((d) => d.slot.file);
+  const whatsapp = WHATSAPP_MARKETS.includes(f.country);
   const again = (join.rounds ?? 1) > 1;
   const steps: { title: string; note?: string; state: StepState }[] = [
     { title: 'Account created', state: 'done' },
@@ -180,8 +176,8 @@ function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
           Document verification in progress
         </h2>
         <p className="vcard__text">
-          GSP is verifying your business details and documents. Expect it by{' '}
-          <strong className="num">{expectedBy(join.sentAt, join.form.country)}</strong>.
+          GSP is verifying your business details and documents, usually within 1 working day. Expect it by{' '}
+          <strong className="num">{expectedBy(join.sentAt)}</strong>.
         </p>
       </div>
 
@@ -219,7 +215,8 @@ function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
           View documents
         </Button>
         <p className="vcard__note">
-          We’ll email {f.email} when it’s done.
+          We’ll email {f.email}
+          {whatsapp ? ' and message you on WhatsApp' : ''} when it’s done.
         </p>
       </div>
     </motion.section>
@@ -256,7 +253,7 @@ function ReturnCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
         </h2>
         <p className="vcard__text">
           GSP couldn’t verify {one ? `your ${inSentence(back[0].name)}` : `${back.length} of your documents`}. Upload{' '}
-          {one ? 'a new copy' : 'new copies'}, then send {one ? 'it' : 'them'} again.
+          {one ? 'a new copy' : 'new copies'}, then send {one ? 'it' : 'them'} again. GSP usually verifies within 1 working day after that.
         </p>
       </div>
 
@@ -333,7 +330,7 @@ function VerifiedCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () 
           {join.form.biz} is verified
         </h2>
         <p className="okcard__text">
-          GSP verified your business and documents {whenLabel(join.verifiedAt)}. Students, applications and earnings are open.
+          GSP verified your business and documents {whenLabel(join.verifiedAt)}. Students and applications are open.
         </p>
         <Button variant="secondary" size="sm" onClick={onDocs}>
           View documents

@@ -1,16 +1,16 @@
-import { phoneError } from '../../../components/validate';
 import { useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Checkbox, Field, Switch } from '../../../components/forms';
+import { Checkbox, Field, describedBy } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
+import { PhoneInput } from '../../../components/PhoneInput';
+import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
-import { citiesOf, emptyAddress, type Address, type Student } from '../../../data/students';
-import { POSTCODE_MAX } from '../../../data/reference';
+import { CITIES, fullName, type Student } from '../../../data/students';
 import { fillFromPassport, savePassport } from './read';
-import { parseDate, typeDate, yearsSince } from '../../../data/dates';
-import { isEmail, passportError, sameStudent } from '../form';
-import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
-import { Choice, Phone, Sel, Txt, type Update } from './fields';
+import { expiryNote, parseDate, typeDate, yearsSince } from '../../../data/dates';
+import { atOtherAgency, isEmail, passportOk, sameStudent } from '../form';
+import { ReadBox, ReadNote, readMs } from '../ReadBox';
+import { Choice, Sel, Txt, type Update } from './fields';
 
 const PASSPORT = 'passport';
 
@@ -24,15 +24,13 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
   const [reading, setReading] = useState(false);
   const [otherCity, setOtherCity] = useState(false);
   const states = countryByName(s.country)?.states ?? [];
-  const cities = citiesOf(s.country, s.state);
+  const cities = CITIES[s.state];
   const typedCity = otherCity || (!!s.city && !!cities && !cities.includes(s.city));
   const read = (k: string) => (s.read.includes(k) ? PASSPORT : null);
   /** Sets fields and drops their "read from a document" mark. */
   const set = (patch: Partial<Student>) => update((p) => ({ ...p, ...patch, read: p.read.filter((k) => !(k in patch)) }));
-  // the same passport number on another of this RP's students (1 Nov: passport only, within one RP)
   const dup = sameStudent(s, list, s.id);
-  // autofill is one-time (1 Nov): once the passport filled this in, it's corrected by hand
-  const filled = filledAt(s, PASSPORT);
+  const exp = expiryNote(s.passportExpiry);
   const dob = parseDate(s.dob);
 
   const readFile = (file: File) => {
@@ -46,7 +44,7 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
 
   return (
     <div className="rsec">
-      {reading || (!filled && !s.docs.passport && !(s.dob || s.gender)) ? (
+      {reading || (!s.docs.passport && !(s.dob || s.gender || s.passportExpiry)) ? (
         <ReadBox
           id="rp-file"
           title="Fill this in from the passport"
@@ -57,7 +55,8 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
           onFile={readFile}
         />
       ) : (
-        filled && <ReadNote text={filledText('passport', filled)} />
+        s.docs.passport &&
+        s.read.some((k) => ['gender', 'dob', 'passportExpiry', 'first', 'last', 'passport'].includes(k)) && <ReadNote text="Filled in from the passport, which is in Documents. What was read is highlighted: check it." />
       )}
 
       <fieldset className="rgroup">
@@ -81,8 +80,14 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
               value={s.passport}
               read={read('passport')}
               onChange={(v) => set({ passport: v.toUpperCase() })}
-              error={passportError(s.passport, dup.byPassport)}
+              error={!passportOk(s.passport) ? 'A passport number is 6 to 9 letters and digits.' : dup.byPassport ? `This passport number is already on ${fullName(dup.byPassport)}.` : null}
             />
+            {atOtherAgency(s.passport) && !s.consentCheck && (
+              <p className="anote">
+                <Icon name="info" size={16} />
+                <span>This passport is on a student at another agency. GSP will ask the student which agency they want to apply with.</span>
+              </p>
+            )}
           </div>
           <Txt
             id="rp-dob"
@@ -96,6 +101,26 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
             onChange={(v) => set({ dob: v })}
             hint={dob ? `Age ${yearsSince(dob)}` : undefined}
             error={s.dob && !dob ? 'Enter the date as DD/MM/YYYY, like 19/05/2002.' : dob && dob.getTime() > Date.now() ? 'The date of birth can’t be in the future.' : null}
+          />
+          <Txt
+            id="rp-expiry"
+            label="Passport expiry"
+            required
+            value={s.passportExpiry}
+            read={read('passportExpiry')}
+            placeholder="DD/MM/YYYY"
+            inputMode="numeric"
+            format={typeDate}
+            onChange={(v) => set({ passportExpiry: v })}
+            error={s.passportExpiry && !parseDate(s.passportExpiry) ? 'Enter the date as DD/MM/YYYY, like 11/02/2033.' : null}
+            after={
+              exp && (
+                <p className={`field__msg field__msg--${exp.level === 'bad' ? 'error' : 'warn'}`} id="rp-expiry-hint">
+                  <Icon name="alert" size={16} />
+                  <span>{exp.text}</span>
+                </p>
+              )
+            }
           />
         </div>
         <Choice
@@ -124,16 +149,18 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
             value={s.email}
             onChange={(v) => set({ email: v })}
             hint="Used on university applications."
-            error={!s.email.trim() ? 'Enter the student’s email.' : !isEmail(s.email) ? 'Enter a full email address, like name@gmail.com.' : null}
+            error={!isEmail(s.email) ? 'Enter a full email address, like name@gmail.com.' : dup.byEmail ? `This email is already on ${fullName(dup.byEmail)}.` : null}
           />
-          <Phone id="rp-phone" required dial={s.dial} number={s.phone} error={phoneError(s.dial, s.phone, { required: true, what: 'student’s mobile number' })} onDial={(v) => set({ dial: v })} onNumber={(v) => set({ phone: v })} />
+          <Field id="rp-phone" label="Phone number" required>
+            <PhoneInput id="rp-phone" dial={s.dial} number={s.phone} describedBy={describedBy('rp-phone', null)} onDial={(v) => set({ dial: v })} onNumber={(v) => set({ phone: v })} />
+          </Field>
         </div>
       </fieldset>
 
       <fieldset className="rgroup">
-        <legend className="rgroup__title">Present address</legend>
+        <legend className="rgroup__title">Where they live now</legend>
         <div className="grid2">
-          <Field id="rp-country" label="Current country of residence" required hint={s.country === s.nationality ? 'Same as their nationality.' : undefined}>
+          <Field id="rp-country" label="Current country" required hint={s.country === s.nationality ? 'Same as their nationality.' : undefined}>
             <CountryCombobox id="rp-country" value={s.country} describedBy={s.country === s.nationality ? 'rp-country-hint' : undefined} onChange={(v) => v !== s.country && set({ country: v, state: '', city: '' })} />
           </Field>
           {states.length > 0 ? (
@@ -166,38 +193,8 @@ export function Personal({ s, list, update }: { s: Student; list: Student[]; upd
               disabled={states.length > 0 && !s.state}
             />
           )}
-          {/* the rest of the present address (4 Nov: used for application lodgement) */}
-          <Txt id="rp-addr1" label="Address line 1" required value={s.addr1 ?? ''} onChange={(v) => set({ addr1: v })} placeholder="House or flat, street" />
-          <Txt id="rp-addr2" label="Address line 2" value={s.addr2 ?? ''} onChange={(v) => set({ addr2: v })} placeholder="Area or landmark (optional)" />
-          <Txt id="rp-postcode" label="Postcode" required value={s.postcode ?? ''} onChange={(v) => set({ postcode: v.slice(0, POSTCODE_MAX) })} />
         </div>
       </fieldset>
-
-      <fieldset className="rgroup">
-        <legend className="rgroup__title">Permanent address</legend>
-        <Switch id="rp-permsame" checked={!!s.permSame} onChange={(v) => set({ permSame: v, perm: v ? undefined : (s.perm ?? emptyAddress(s.country)) })}>
-          Permanent address is the same as present
-        </Switch>
-        {!s.permSame && <AddressFields id="rp-perm" a={s.perm ?? emptyAddress(s.country)} onChange={(perm) => set({ perm })} />}
-      </fieldset>
-    </div>
-  );
-}
-
-/** A full address: line 1, line 2 (optional), city, state or province (where the country has them), postcode, country. */
-function AddressFields({ id, a, onChange }: { id: string; a: Address; onChange: (a: Address) => void }) {
-  const states = countryByName(a.country)?.states ?? [];
-  const put = (patch: Partial<Address>) => onChange({ ...a, ...patch });
-  return (
-    <div className="grid2">
-      <Field id={`${id}-country`} label="Country" required>
-        <CountryCombobox id={`${id}-country`} value={a.country} onChange={(v) => v !== a.country && put({ country: v, state: '', city: '' })} />
-      </Field>
-      {states.length > 0 ? <Sel id={`${id}-state`} label={`State or province in ${a.country}`} required value={a.state} options={states} onChange={(v) => put({ state: v })} placeholder="Choose a state or province" /> : <span />}
-      <Txt id={`${id}-city`} label="City" required value={a.city} onChange={(v) => put({ city: v })} />
-      <Txt id={`${id}-postcode`} label="Postcode" required value={a.postcode} onChange={(v) => put({ postcode: v.slice(0, POSTCODE_MAX) })} />
-      <Txt id={`${id}-line1`} label="Address line 1" required value={a.line1} onChange={(v) => put({ line1: v })} placeholder="House or flat, street" />
-      <Txt id={`${id}-line2`} label="Address line 2" value={a.line2} onChange={(v) => put({ line2: v })} placeholder="Area or landmark (optional)" />
     </div>
   );
 }

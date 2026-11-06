@@ -65,10 +65,12 @@
 .rhead__names { grid-area: names; display: grid; gap: 2px; min-width: 0; }
 .rhead__name { font-size: var(--t-title); line-height: var(--lh-title); font-weight: var(--fw-semi); letter-spacing: -0.01em; }
 .rhead__meta { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
-.rhead__contact { grid-area: contact; align-self: center; display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); min-width: 0; font-size: var(--t-label); color: var(--text); }
+/* 4 Nov: the contact line never widens the header's columns (contain), so the counsellor at its right end keeps the
+   header's own margin from the card's edge, the same as the avatar's on the left */
+.rhead__contact { grid-area: contact; align-self: center; display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); min-width: 0; contain: inline-size; font-size: var(--t-label); color: var(--text); }
 .rhead__line { display: inline-flex; align-items: center; gap: 2px; }
 /* the counsellor reads like the email and phone on its line, with the pencil in place of the copy button, at the right end */
-.rhead__c { margin-left: auto; min-width: 0; }
+.rhead__c { margin-left: auto; min-width: 0; max-width: 100%; }
 .rhead__k { margin-right: var(--sp-6); color: var(--text-3); }
 .rhead__c .cpick__name { color: var(--text); }
 .rhead__acts { grid-area: acts; margin-left: var(--sp-8); display: flex; align-items: flex-start; justify-content: flex-end; gap: var(--sp-8); }
@@ -195,8 +197,6 @@
 .rform.is-view .control.is-empty::after,
 .rform.is-view .control:has(> .control__input[value=''])::after { position: absolute; left: 0; top: 50%; transform: translateY(-50%); pointer-events: none; }
 .rform.is-view .radio span::before { display: none; }
-/* a disabled input's own dimming (opacity .5) showed the native radio under the answer */
-.rform.is-view .radio input[type='radio']:disabled { opacity: 0; }
 .rform.is-view .field__label { color: var(--text-3); }
 /* a section's own document: on file, its box without buttons; missing, its name and "Not added", like a field */
 .auto__none { display: none; }
@@ -217,9 +217,6 @@
 .rpanel__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); margin-bottom: var(--sp-16); }
 .rpanel__text { flex: 1 1 280px; color: var(--text-2); font-size: var(--t-label); line-height: var(--lh-label); }
 .rpanel__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-8); }
-/* a section's header (1 Nov): its name on the left; what it adds and its one Edit on the right */
-.rsechead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); min-height: 36px; margin-bottom: var(--sp-16); }
-.rsechead__title { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); font-weight: var(--fw-semi); }
 /* the tabs inside Personal details and Applications (Nesil, 29 Oct, against the "no tabs inside tabs" Decision):
    underlined, so they read apart from the menu beside them */
 .rtabs { display: flex; gap: var(--sp-20); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
@@ -321,13 +318,17 @@
 
 .rq { padding: var(--sp-20); display: grid; gap: var(--sp-16); }
 .rq__more { overflow: hidden; }
-/* visa refusals (4 Nov): the country picker's list opens out of the card */
-.rq__more.rrefusals { overflow: visible; display: grid; gap: var(--sp-16); justify-items: start; }
-.rrefusal { width: 100%; margin: 0; padding: var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-ctl); min-width: 0; }
-.rrefusal__title { display: flex; align-items: center; gap: var(--sp-8); padding: 0 var(--sp-4); font-size: var(--t-label); font-weight: var(--fw-medium); color: var(--text-2); }
-.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-20) var(--sp-16); }
-.grid3 > * { min-width: 0; }
-.rrefusal .cbx, .rrefusal .control { min-width: 0; width: 100%; }
+/* RP Admin's Background (4 Nov): each refusal in a box of its own, Refusal 1, Refusal 2…, then Add another refusal */
+.rrefusals { display: grid; gap: var(--sp-12); }
+.rrefusal { position: relative; margin: 0; padding: var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); min-width: 0; }
+.rrefusal__title { float: left; width: 100%; padding: 0 var(--sp-32) var(--sp-12) 0; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
+.rrefusal__remove { position: absolute; top: var(--sp-8); right: var(--sp-8); }
+.rrefusal__grid { clear: both; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(0, 0.8fr); gap: var(--sp-16) var(--sp-12); }
+/* narrow columns: the inputs (the country picker's too) shrink to fit rather than push out of them */
+.rrefusal__grid .cbx { min-width: 0; }
+.rrefusal__grid .control__input { width: 0; }
+.rform.is-view .rrefusal { background: none; }
+.rform.is-view .rrefusals__add { display: none; }
 
 /* compact upload box inside a card */
 .auto--compact { padding: var(--sp-12) var(--sp-14, 14px); }
@@ -384,7 +385,8 @@
   .rq { padding: var(--sp-16); }
   .rlevel .grid2,
   .rgroup .grid2,
-  .rrefusal .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .rq .grid2,
+  .rrefusal__grid { grid-template-columns: minmax(0, 1fr); }
   .rscores,
   .rscores.is-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .drow { flex-wrap: wrap; padding: var(--sp-12); }

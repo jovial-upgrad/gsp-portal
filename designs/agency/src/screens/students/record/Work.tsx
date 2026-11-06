@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Checkbox } from '../../../components/forms';
 import { Icon } from '../../../components/Icon';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import type { Student, Work as Job } from '../../../data/students';
 import { parseMonth, typeMonth } from '../../../data/dates';
-import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
+import { ReadBox, ReadNote, readMs } from '../ReadBox';
 import { Txt, type Update } from './fields';
 import { fillFromResume, saveResume } from './read';
 
@@ -27,8 +28,9 @@ const span = (m: number) => {
  * (and keeps it as the CV in Documents); "Add job" at the top of the section adds one by hand. Any number of jobs,
  * with the time worked added up.
  */
-export function Work({ s, update }: { s: Student; update: Update }) {
+export function Work({ s, update, saved }: { s: Student; update: Update; /** The profile as saved: removing a job on it asks first (4 Nov). */ saved?: Student }) {
   const reduce = useReducedMotion();
+  const { ask, dialog } = useConfirm();
   const [reading, setReading] = useState(false);
   const total = s.work.reduce((n, j) => n + monthsOf(j), 0);
   const readFile = (file: File) => {
@@ -42,13 +44,16 @@ export function Work({ s, update }: { s: Student; update: Update }) {
   const setJob = (id: string, patch: Partial<Job>) =>
     update((p) => ({ ...p, work: p.work.map((j) => (j.id === id ? { ...j, ...patch } : j)), read: p.read.filter((k) => !Object.keys(patch).some((f) => k === `work.${id}.${f}`)) }));
   const read = (id: string, f: keyof Job) => (s.read.includes(`work.${id}.${f}`) ? 'resume' : null);
-  // autofill is one-time (1 Nov): once the resume filled this in, jobs are corrected or added by hand
-  const filled = filledAt(s, 'cv');
-  const remove = (id: string) => update((p) => ({ ...p, work: p.work.filter((j) => j.id !== id) }));
+  const remove = (id: string) => {
+    const run = () => update((p) => ({ ...p, work: p.work.filter((j) => j.id !== id) }));
+    const was = saved?.work.find((j) => j.id === id);
+    if (was) ask({ title: `Remove ${was.org.trim() || 'this job'}?`, text: 'The job comes off Work experience when you save. Cancel keeps it.', run });
+    else run();
+  };
 
   return (
     <div className="rsec">
-      {reading || (!filled && !s.docs.cv && s.work.length === 0) ? (
+      {reading || (!s.docs.cv && s.work.length === 0) ? (
         <ReadBox
           id="rw-file"
           title="Fill this in from the resume"
@@ -59,7 +64,7 @@ export function Work({ s, update }: { s: Student; update: Update }) {
           onFile={readFile}
         />
       ) : (
-        filled && <ReadNote text={filledText('resume', filled)} />
+        s.docs.cv && s.read.some((k) => k.startsWith('work.')) && <ReadNote text="Jobs read from the resume, which is in Documents as the CV, are highlighted: check them." />
       )}
       {s.work.length > 0 && total > 0 && (
         <p className="rtotal">
@@ -111,6 +116,7 @@ export function Work({ s, update }: { s: Student; update: Update }) {
           <p className="rempty__text">Upload a resume above, or use Add job at the top.</p>
         </div>
       )}
+      {dialog}
     </div>
   );
 }

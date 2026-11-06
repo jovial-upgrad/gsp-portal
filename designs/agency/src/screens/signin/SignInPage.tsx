@@ -35,11 +35,14 @@ export function SignInPanel({
   set,
   onJoin,
   onSignedIn,
+  lead,
 }: {
   a: AuthState;
   set: Set;
   onJoin: () => void;
   onSignedIn: (acc: Account) => void;
+  /** The line under "Welcome back", when the role says its own. */
+  lead?: string;
 }) {
   const { reduce } = useScene();
   const toForgot = () =>
@@ -58,7 +61,7 @@ export function SignInPanel({
         transition={{ duration: 0.22, ease }}
       >
         {a.view === 'signin' ? (
-          <SignInForm a={a} set={set} onForgot={toForgot} onJoin={onJoin} onSignedIn={onSignedIn} />
+          <SignInForm a={a} set={set} onForgot={toForgot} onJoin={onJoin} onSignedIn={onSignedIn} lead={lead} />
         ) : (
           <ForgotFlow a={a} set={set} onBack={toSignIn} />
         )}

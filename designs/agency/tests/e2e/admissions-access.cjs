@@ -1,0 +1,71 @@
+// GSP · Admissions, checked against Nesil's access sheet (6 Nov: E edit, V view, - not shown).
+const { chromium } = require('playwright');
+const URL = process.env.GSP_URL || require('url').pathToFileURL(require('path').resolve(__dirname, '../../dist-artifact/index.html')).href;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let pass = 0;
+const fails = [];
+const ok = (c, m) => (c ? (pass++, console.log('PASS ', m)) : (fails.push(m), console.log('FAIL ', m)));
+const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|Master)|Import|Upload|Update QS|Assign(\s|$)|Reassign|Mark as completed|Publish|Go live|Pause|Resume|Withdraw|Change|Start application|Send|Reject|Accept|Request|Verify|Link|Unlink|Set (in)?active|Hide|Show again|Make (in)?active)/i;
+(async () => {
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
+  await ctx.addInitScript(() => { try { if (!sessionStorage.getItem('init')) { localStorage.setItem('gsp-proto-role', 'gsp-team'); localStorage.setItem('gsp-theme', 'light'); localStorage.setItem('gsp-proto-link', JSON.stringify({ mode: 'off', app: '' })); sessionStorage.setItem('init', '1'); } } catch {} });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', (e) => errs.push(e.message));
+  await p.goto(URL + '#home');
+  await wait(1800);
+  const labels = () => p.locator('main button:visible:not(.mbx__folder):not([role=tab]), main label.btn:visible').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ')));
+  const edits = async () => (await labels()).filter((l) => EDIT.test(l));
+  const has = async (re) => (await labels()).some((l) => re.test(l));
+  const nav = (label) => p.locator('.shell__side nav button', { hasText: new RegExp(`^${label}$`) }).first();
+  const tab = (name) => p.locator('main [role=tab]', { hasText: new RegExp(`^${name}`) }).first();
+  const tabNames = async () => (await p.locator('main [role=tab]').allInnerTexts()).map((x) => x.trim().split('\n')[0].replace(/\s*\d+$/, ''));
+  const text = async () => p.locator('main').innerText();
+
+  const menu = (await p.locator('.shell__side nav button').allInnerTexts()).map((x) => x.trim());
+  ok(menu.join('|') === 'Home|Inbox|My work|Find courses|Applications|Students|Recruitment partners|Universities|Courses', 'menu: ' + menu.join(', '));
+  ok(!menu.includes('Earnings') && !menu.includes('Profile') && !menu.includes('Master Partners') && !menu.includes('Institution partners') && !menu.includes('Announcements'), 'not shown: Earnings, Profile, Master Partners, Institution partners, Announcements');
+
+  await nav('Inbox').click(); await wait(700);
+  ok(await has(/^New mail$/), 'Mail: E');
+  await nav('My work').click(); await wait(700);
+  ok(await has(/Mark as completed/), 'My work: E');
+  await nav('Find courses').click(); await wait(700);
+  await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click(); await wait(1200);
+  ok((await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) > 0, 'Find courses: E');
+  ok(!(await text()).includes('Base commission') && (await p.locator('#fc-view').count()) === 0, 'Find courses › Commissions: not shown');
+  await nav('Students').click(); await wait(700);
+  ok(await has(/^Add student$/), 'Students list: E');
+  await p.locator('main tr.srow').first().click(); await wait(800);
+  ok(await has(/^(Edit|Save)/), 'Student record: E');
+  await tab('Documents').click(); await wait(400);
+  ok(await has(/^Upload a document$/), 'Student documents: E');
+  await nav('Applications').click(); await wait(700);
+  ok(await has(/^Add application$/), 'Applications list: E');
+  await p.locator('main .arow, main tbody tr').first().click(); await wait(900);
+  const at = await tabNames();
+  ok(['Chat', 'Mail', 'Documents', 'Submission'].every((t) => at.includes(t)) && !at.includes('Commission'), 'Application record: Chat, Mail, Documents, Submission (' + at.join(', ') + ')');
+  ok(!(await text()).includes('Base commission'), 'Application › Commission: not shown');
+  await nav('Recruitment partners').click(); await wait(700);
+  ok((await edits()).length === 0 && (await p.locator('.iviewonly--page').count()) === 1, 'Recruitment partners list: V');
+  await p.locator('main tbody tr, main .irow__open').first().click(); await wait(800);
+  ok((await tabNames()).join('|') === 'Overview|Logs', 'Recruitment partner record: Overview and Logs (' + (await tabNames()).join(', ') + ')');
+  const rpt = await text();
+  ok((await edits()).length === 0 && !rpt.includes('Commission statements') && !rpt.includes('Master Partner') && !/\bBranches\b/.test(rpt), 'Recruitment partner record: V; no commission, documents, agreement, branches, team or Master Partner');
+  await nav('Universities').click(); await wait(700);
+  ok((await edits()).length === 0, 'Universities list: V, no Update QS ranking ' + (await edits()).join(', '));
+  await p.locator('main .irow__open').first().click(); await wait(800);
+  const ut = await tabNames();
+  ok(['Scholarships', 'Territory', 'Submission and contacts'].every((t) => ut.includes(t)), 'University record: Scholarships, Territory, Submission and contacts shown');
+  for (const t of ut) { await tab(t).click(); await wait(300); const e = await edits(); ok(e.length === 0, `University › ${t}: V${e.length ? ' (found ' + e.join(', ') + ')' : ''}`); }
+  await nav('Courses').click(); await wait(700);
+  ok((await edits()).length === 0, 'Courses list: V');
+  await p.locator('main .irow__open').first().click(); await wait(800);
+  for (const t of await tabNames()) { await tab(t).click(); await wait(300); const e = await edits(); ok(e.length === 0, `Course › ${t}: V${e.length ? ' (found ' + e.join(', ') + ')' : ''}`); }
+  await p.locator('.topend__me, .shell__sidefoot .acct').first().click().catch(() => {}); await wait(300);
+  ok(errs.length === 0, 'no page errors ' + errs.join(' | '));
+  await b.close();
+  console.log(`${pass} passed, ${fails.length} failed`);
+  process.exit(fails.length ? 1 : 0);
+})();

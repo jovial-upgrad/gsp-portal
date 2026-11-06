@@ -1,16 +1,14 @@
-import { istParts } from '../../data/dates';
 import { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Icon } from '../../components/Icon';
-import { SelectInput } from '../../components/forms';
 import { ANYONE, TASK_TYPES, tasksFor, type Task } from '../data/queue';
 import { waitedText } from '../data/records';
-import { Pill, Tiles } from './parts';
+import { Filter, Pager, Pill, Tiles, passes, usePaged } from './parts';
 import type { PageProps } from '../portal/model';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const greeting = () => {
-  const h = istParts(Date.now()).h;
+  const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 
@@ -23,15 +21,17 @@ export function TeamHome({ first, db, open, me }: Pick<PageProps, 'db' | 'open' 
   const reduce = useReducedMotion();
   const tasks = useMemo(() => tasksFor(db.ips, db.unis, db.courses), [db]);
   const [tile, setTile] = useState<'open' | 'late' | 'mine' | ''>('');
-  const [type, setType] = useState('');
+  const [type, setType] = useState<string[]>([]);
   const [mine, setMine] = useState(false);
   const isMine = (t: Task) => t.who === me;
   const rows = tasks.filter((t) => {
     if (tile === 'late' && !t.late) return false;
     if ((tile === 'mine' || mine) && !isMine(t)) return false;
-    if (type && t.type !== type) return false;
+    if (!passes(type, t.type)) return false;
     return true;
   });
+  // 4 Nov (Nesil): 20 a page, as every table in this role
+  const pg = usePaged(rows, [tile, type, mine]);
   const mineN = tasks.filter(isMine);
   const go = (t: Task) => open({ ...t.open, back: undefined });
 
@@ -63,13 +63,7 @@ export function TeamHome({ first, db, open, me }: Pick<PageProps, 'db' | 'open' 
       <motion.section className="card stable" aria-labelledby="iq-count" initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease, delay: 0.08 }}>
         <div className="stools">
           <div className="stools__row">
-            <SelectInput id="iq-type" aria-label="Task type" value={type} placeholder="All tasks" allowEmpty onChange={(e) => setType(e.target.value)}>
-              {TASK_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </SelectInput>
+            <Filter id="iq-type" label="Task type" all="All tasks" value={type} options={TASK_TYPES} onChange={setType} />
             <div className="iseg" role="group" aria-label="Whose tasks">
               <button type="button" className="ichip" aria-pressed={!mine && tile !== 'mine'} onClick={() => (setMine(false), tile === 'mine' && setTile(''))}>
                 Everyone
@@ -102,7 +96,7 @@ export function TeamHome({ first, db, open, me }: Pick<PageProps, 'db' | 'open' 
                 </tr>
               </thead>
               <tbody>
-                {rows.map((t) => (
+                {pg.rows.map((t) => (
                   <tr key={t.id} className="irow" onClick={() => go(t)}>
                     <td>
                       <button type="button" className="irow__open" onClick={(e) => (e.stopPropagation(), go(t))}>
@@ -124,6 +118,7 @@ export function TeamHome({ first, db, open, me }: Pick<PageProps, 'db' | 'open' 
             </table>
           </div>
         )}
+        <Pager pg={pg} what="tasks" />
       </motion.section>
       <p className="ihome__foot">
         <Icon name="info" size={16} /> Tasks come from the records themselves: add the renewal, get the university live or publish the draft, and the task goes.

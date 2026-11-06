@@ -1,735 +1,573 @@
 /**
  * What GSP Admin configures (Nesil, 30 Oct). Taken from the PM prototype's Super Admin › Settings wherever it has
- * them (sales regions, permissions, queues, Recruitment assignment, application routing, document rules, the download log);
+ * them (sales regions, permissions, queues, BDM assignment, application routing, document rules, the download log);
  * the currency exchange, living costs and filters tables aren't in it, so they're built from the figures this
  * prototype already uses (course search's rates, the course dialog's visa figures, course search's filters).
  * Every change is logged (`log`), and Logs shows them with the download log. Sample data.
  */
-import { CURRENCY, type Destination } from '../../data/courses';
-import COMM from '../../finance/comm.json';
-import FX_SEED from './fxSeed.json';
-import { STAFF, label, nameOf } from '../../data/staff';
-/** A GSP person's name, by the start of their email: N('ramish.jafery'). Throws if they're not on the staff list. */
-const N = (local: string) => nameOf(`${local}@upgrad.com`);
+import { ROLES as PROTO_ROLES } from '../../proto/roles';
+import { SALES_REGIONS } from '../../institution/data/announcements';
+import { AREAS, CURRENCY, LEVELS as PROGRAM_LEVELS, type Destination } from '../../data/courses';
+import { INR_PER } from '../../screens/courses/search';
+import { REGIONS_OF } from '../../institution/records/CountryPicker';
+import type { QueueType, Sharing } from './work';
 
-/**
- * One audit log entry (PRD slice 1, Audit). Kinds: a Change (any setting saved, a user created or changed, a login
- * email sent, a Fetch with AI run), a Download (any export), a Job run (slice 4's daily jobs) and an Email (every
- * email sent). Kept forever; nobody edits or deletes one. `role` is the actor's role at the time.
- */
-export type LogEntry = {
-  id: string;
-  at: number;
-  who: string;
-  area: string;
-  text: string;
-  kind: 'change' | 'download' | 'job' | 'email';
-  role?: string;
-  filters?: string;
-  size?: string;
-  format?: string;
-  /** Job runs: when it ended, records checked and changed, emails sent, any error with its record. */
-  end?: number;
-  checked?: number;
-  changed?: number;
-  sent?: number;
-  error?: string;
-  /** Emails: to whom, about which record, Amazon SES's message id, delivered or bounced. */
-  to?: string;
-  record?: string;
-  ses?: string;
-  delivered?: boolean;
-};
+/** `area` is the source: the page a change was made on, or where a download came from. `records`: how many rows a
+ *  download had. */
+export type LogEntry = { id: string; at: number; who: string; email?: string; area: string; text: string; kind: 'change' | 'download'; role?: string; region?: string; filters?: string; records?: number; format?: string };
 
-/* ---------- sales regions (PM: Settings › Sales regions and Admissions contacts) ---------- */
-/**
- * A sales region (Jovial, 1 Nov, HC38/HC42/HC48/HC50): Admin › Sales regions is the only list of sales regions
- * anywhere, and each region keeps the countries it's made of (editable there). Every country list by region in the
- * prototype reads this one.
- */
-/** `calendarId`: the region's working calendar (Admin › Work › Working days, work/calendars.ts); the same setting as Sales regions' Working calendar picker. */
-export type Region = { name: string; contact: string; countries: string[]; calendarId?: string };
-/** The three system regions (PRD slice 1): no Delete; their names and countries are fixed. */
-export const SYSTEM_REGIONS = ['Rest of world', 'Direct', 'Global'];
-export const isSystemRegion = (name: string) => SYSTEM_REGIONS.includes(name);
-/** The sales regions as the slice 1 PRD seeds them (17), in order: the seed for Admin › Sales regions. */
-const SEED_REGION_NAMES = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Pakistan', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan', 'Australia', 'Philippines', 'Africa', 'Latin America & Europe', 'China', 'Rest of world', 'Direct', 'Global'];
-/**
- * Countries that make up a region, where it isn't the country itself, as the PRD's seed table lists them (named as
- * the country list names them: Cape Verde, Cote D'Ivoire (Ivory Coast), Swaziland, The Gambia, Czech Republic,
- * Sao Tome and Principe). Non-EU Europe (UK, Switzerland, Norway…) and Turkey (4 Nov) are in Latin America & Europe; Russia stays Rest of world; the Caribbean stays Rest of world;
- * North Africa stays Africa (S1C-6).
- */
-const SEED_COUNTRIES: Record<string, string[]> = {
-  'Indonesia Malaysia & Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
-  Africa: ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cape Verde', 'Cameroon', 'Central African Republic', 'Chad', 'Comoros', 'Congo', "Cote D'Ivoire (Ivory Coast)", 'Democratic Republic of the Congo', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Swaziland', 'Ethiopia', 'Gabon', 'The Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'],
-  'Latin America & Europe': [
-    'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Costa Rica', 'Cuba', 'Dominican Republic', 'Ecuador', 'El Salvador', 'Guatemala', 'Haiti', 'Honduras', 'Mexico', 'Nicaragua', 'Panama', 'Paraguay', 'Peru', 'Uruguay', 'Venezuela',
-    'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden',
-    // non-EU Europe (S1C-6)
-    'United Kingdom', 'Switzerland', 'Norway', 'Iceland', 'Liechtenstein', 'Andorra', 'Monaco', 'San Marino', 'Vatican City State (Holy See)', 'Albania', 'Bosnia and Herzegovina', 'Kosovo', 'Macedonia', 'Montenegro', 'Serbia', 'Moldova', 'Ukraine', 'Belarus',
-    // Jovial, 4 Nov: Turkey is Latin America & Europe; Russia stays Rest of world
-    'Turkey',
-  ],
-  // every country not in another region; students who apply without an RP; GSP people who cover every region
-  'Rest of world': [],
-  Direct: [],
-  Global: [],
+/* ---------- sales regions (PM: Settings › Sales regions and Admissions contacts; Nesil, 3 Nov: countries, BDM
+   contact and admission queues, all needed; 4 Nov: one admission queue) ---------- */
+export type Region = { name: string; contact: string; countries: string[]; bdm: string; queue: string };
+/** The regions GSP keeps itself: they can't be edited or deleted here. */
+export const FIXED_REGIONS = ['Rest of world', 'Direct', 'Global'];
+/** Countries that make up a region, where it isn't the country itself (PM: salesRegionOf). */
+export const REGION_COUNTRIES: Record<string, string[]> = {
+  'Indonesia, Malaysia and Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
+  'Myanmar and Bhutan': ['Myanmar', 'Bhutan'],
+  Africa: ['Nigeria', 'Kenya', 'Ghana', 'Egypt', 'South Africa', 'Uganda', 'Ethiopia', 'Tanzania', 'and 46 more'],
+  'Latin America and Europe': ['Brazil', 'Colombia', 'Mexico', 'Peru', 'United Kingdom', 'Germany', 'France', 'Spain', 'and 46 more'],
+  'Rest of world': ['Every country not in another region'],
+  Direct: ['Students who apply to GSP without a recruitment partner'],
+  Global: ['Every region: for GSP people who cover them all'],
 };
-/** Each region's Admissions contact (Jovial's sheet, 31 Oct). */
 const CONTACT: Record<string, string> = {
-  India: N('ramish.jafery'), Bangladesh: N('kamrun.nahar'), Nepal: N('supriya.shrestha'), 'Sri Lanka': N('subodya.suraweera'), Vietnam: N('truc.nguyen'), Pakistan: N('sabrina.hyder'),
-  'Indonesia Malaysia & Thailand': N('truc.nguyen'), Myanmar: N('truc.nguyen'), Bhutan: N('truc.nguyen'), Australia: N('jo.qiu'), Philippines: N('kimberly.olaes'), Africa: N('kamrun.nahar'),
-  'Latin America & Europe': N('valentina.castillo'), China: N('jo.qiu'), 'Rest of world': N('tasha.tandon'), Direct: N('tasha.tandon'), Global: N('tasha.tandon'),
+  India: 'Ramish', Nepal: 'Supriya', 'Sri Lanka': 'Subbhodya', Bangladesh: 'Kamrun', Pakistan: 'Kamrun', Africa: 'Kamrun',
+  'Latin America and Europe': 'Valentina', Vietnam: 'Truc', 'Indonesia, Malaysia and Thailand': 'Truc', 'Myanmar and Bhutan': 'Truc', Philippines: 'Truc',
+  Australia: 'Jo', China: 'Jo',
 };
-export const sampleRegions = (): Region[] => SEED_REGION_NAMES.map((name) => ({ name, contact: CONTACT[name] ?? '', countries: SEED_COUNTRIES[name] ?? [name] }));
-/** Regions with no countries of their own: what they stand for, said where the countries would be. */
-export const REGION_MEANS: Record<string, string> = { 'Rest of world': 'Every country not in another region', Direct: 'Students who apply to GSP without a recruitment partner', Global: 'Every region: for GSP people who cover them all' };
-/** Nationality to sales region (Jovial, 1 Nov, HC42): editable on Admin › Sales regions. Seeded from the regions' countries; UAE, Canada and the US go to Rest of world (31 Oct). */
-export const sampleNationality = (): Record<string, string> => ({
-  ...Object.fromEntries(sampleRegions().flatMap((r) => r.countries.map((c) => [c, r.name]))),
-  'United Arab Emirates': 'Rest of world', Canada: 'Rest of world', 'United States': 'Rest of world',
-});
-/** When each nationality's row was last changed (system): the seed's day for the seeded rows. */
-export const sampleNationalityChanged = (): Record<string, number> => Object.fromEntries(Object.keys(sampleNationality()).map((k) => [k, Date.parse('2026-11-01T09:00:00+05:30')]));
-
-/**
- * Admin's settings as they are now, for the few readers that can't wait for the store (admin/data/store.ts sets
- * `live.cfg` as it loads). Before then, the seeds.
- */
-export const live: { cfg?: () => { regions: Region[]; nationality: Record<string, string>; regionQueue: Record<string, string>; queues: Queue[]; lists: Record<string, string[]> } | null } = {};
-/** A record that always reads the current value (a nationality map that follows Admin's edits). */
-function liveRecord<T>(get: () => Record<string, T>): Record<string, T> {
-  return new Proxy({} as Record<string, T>, {
-    get: (_, k) => (typeof k === 'string' ? get()[k] : undefined),
-    has: (_, k) => typeof k === 'string' && k in get(),
-    ownKeys: () => Reflect.ownKeys(get()),
-    getOwnPropertyDescriptor: (_, k) => {
-      const o = get();
-      return typeof k === 'string' && k in o ? { value: o[k], enumerable: true, configurable: true, writable: false } : undefined;
-    },
-  });
-}
-/** Nationality to sales region, as Admin › Sales regions has it now. */
-export const NATIONALITY: Record<string, string> = liveRecord(() => live.cfg?.()?.nationality ?? sampleNationality());
-/** Countries that make up each sales region, as Admin › Sales regions has them now (one map for every country list by region). */
-export const REGION_COUNTRIES: Record<string, string[]> = liveRecord(() => Object.fromEntries((live.cfg?.()?.regions ?? sampleRegions()).map((r) => [r.name, r.countries ?? []])));
-/** The sales region names, as Admin › Sales regions has them now. */
-/**
- * Where a place is (S1F-2 proposal, 3 Nov): the sales region whose Countries list the country, else Rest of world.
- * An RP's head office and each branch read this; only a student's nationality reads the Nationality map.
- */
-export const placeRegion = (country: string): string => {
-  const c = ({ UK: 'United Kingdom', USA: 'United States' } as Record<string, string>)[country] ?? country;
-  return Object.entries(REGION_COUNTRIES).find(([, list]) => list.includes(c))?.[0] ?? 'Rest of world';
+/** Each region's countries, as the country list names them. */
+const COUNTRIES_OF: Record<string, string[]> = {
+  'Indonesia, Malaysia and Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
+  'Myanmar and Bhutan': ['Myanmar', 'Bhutan'],
+  Africa: REGIONS_OF.Africa,
+  'Latin America and Europe': [...REGIONS_OF['Latin America'], 'Germany', 'France', 'Spain', 'Italy', 'Netherlands', 'Poland'],
 };
-export const salesRegionNames = () => (live.cfg?.()?.regions ?? sampleRegions()).map((r) => r.name);
+export const sampleRegions = (queues: Queue[]): Region[] =>
+  SALES_REGIONS.map((name) => ({
+    name,
+    contact: CONTACT[name] ?? '',
+    countries: FIXED_REGIONS.includes(name) ? [] : (COUNTRIES_OF[name] ?? [name]),
+    bdm: REGION_BDM[name] ?? '',
+    // a region without its own Admissions queue is worked by Admission Ops
+    queue: FIXED_REGIONS.includes(name) ? '' : ((queues.find((q) => q.name === `${name} Admissions`) ?? queues.find((q) => q.name === 'Admission Ops'))?.id ?? ''),
+  }));
 /** The regions a queue or a routing can point to (not Global, which only GSP people cover). */
 export const workRegions = (rs: Region[]) => rs.filter((r) => r.name !== 'Global' && r.name !== 'Direct');
 
 /* ---------- GSP users and their roles (Nesil, 30 Oct: Create roles; people from the PM's samples) ---------- */
-/** The roles a GSP user can have (Nesil's list). */
-export const GSP_ROLES = ['Admin', 'Admission', 'Global Ops', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'Finance', 'View Only'] as const;
-export type GspRole = (typeof GSP_ROLES)[number];
-/**
- * Login status (PRD slice 1, GSP users): Link sent (created; the login email's link works for 7 days), Active (has
- * signed in at least once), Deactivated (can't sign in; kept for history).
- */
-/** A GSP user's login status (slice 1). */
-export const USER_STATUSES = ['Link sent', 'Active', 'Deactivated'] as const;
-export type UserStatus = (typeof USER_STATUSES)[number];
-/**
- * A GSP user (PRD slice 1). `id` is stable (never the email). `role` is '' only while a new user is being created.
- * No Area field (Jovial, S1C-3): every Recruitment user has just their sales regions; where someone is the default
- * recruitment contact for a state or city is a setting (Admin › Recruitment assignment), not part of the user.
- */
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  dial: string;
-  phone: string;
-  role: GspRole;
-  title: string;
-  region: string;
-  regions: string[];
-  status: UserStatus;
-  /** When the current login email went out (Link sent). */
-  sentAt?: number;
-  createdAt?: number;
-  lastSignIn?: number;
-  deactivatedAt?: number;
-};
+/** The roles a user can have (Nesil, 6 Nov): every role built in the prototype, but RP Admin's backup copy. */
+export const GSP_ROLES: string[] = PROTO_ROLES.filter((r) => r.key !== 'rp-admin-backup').map((r) => r.label);
+export type GspRole = string;
+/** The roles the samples were written with (Nesil's first eight, 30 Oct), and the prototype role each is now. */
+const WAS: Record<string, string> = { Admin: 'GSP · Admin', Admission: 'GSP · Admissions', 'Admission Ops': 'GSP · Admissions', Recruitment: 'GSP · Recruitment', 'Recruitment Ops': 'GSP · RP Ops', Institution: 'GSP · Institution', 'Institution Ops': 'GSP · Institution Ops', Finance: 'GSP · Finance' };
+/** Not sent: added, no link yet; Link sent: waiting for them to set a password; Active: they've signed in;
+ *  Deactivated (Nesil, 3 Nov): can't sign in until they're reactivated. */
+export type UserStatus = 'Not sent' | 'Link sent' | 'Active' | 'Deactivated';
+export type User = { id: string; name: string; email: string; dial: string; phone: string; role: GspRole; title: string; region: string; status: UserStatus; sentAt?: number };
 const DAY = 86_400_000;
-/** How long the Set up your account link works. */
-export const LINK_DAYS = 7;
-/** A Link sent user's link has run out. */
-export const linkExpired = (u: Pick<User, 'status' | 'sentAt'>, now = Date.now()) => u.status === 'Link sent' && !!u.sentAt && now - u.sentAt > LINK_DAYS * DAY;
-/**
- * Whether a Set up your account link opens the new-password step (S1C-5): only for a Link sent user whose link is the
- * latest one sent and hasn't run out. Deactivating someone revokes their link at once (BR-9, NFR-4): it opens the
- * expired step even after they're reactivated, since Reactivate sends a new link.
- */
-export const linkWorks = (u: Pick<User, 'status' | 'sentAt'> | undefined, issuedAt?: number, now = Date.now()) =>
-  !!u && u.status === 'Link sent' && !!u.sentAt && (issuedAt == null || issuedAt === u.sentAt) && !linkExpired(u, now);
-/** A seeded day and hour, so the samples read the same every day of the review. */
-const daysAgo = (d: number, h = 10) => Date.now() - d * DAY - (h % 24) * 3_600_000;
-/** Seeded login states, to show each (the rest have signed in): new users waiting, one link about to run out, one run out, one deactivated. */
-const SEED_STATE: Record<string, Partial<User>> = {
-  'prakriti.nanda@upgrad.com': { status: 'Link sent', sentAt: daysAgo(2) },
-  'riya1.shah@upgrad.com': { status: 'Link sent', sentAt: daysAgo(6, 14) },
-  'khushal.doriya@upgrad.com': { status: 'Link sent', sentAt: daysAgo(9) },
-  'dzung.hoang@upgrad.com': { status: 'Deactivated', deactivatedAt: Date.parse('2026-10-24T11:00:00+05:30') },
-};
-/** GSP's people: every user comes from the staff list (data/staff.ts, Jovial's export of 31 Oct). The export has no phone numbers or titles. */
-export const sampleUsers = (): User[] =>
-  STAFF.map((s, i): User => {
-    const seed = SEED_STATE[s.email] ?? {};
-    const status = seed.status ?? 'Active';
-    return {
-      id: s.id, name: label(s), email: s.email, dial: s.dial, phone: s.phone, role: s.role, title: s.title, region: s.regions.join(', '), regions: s.regions, status,
-      createdAt: status === 'Link sent' ? seed.sentAt : Date.parse('2026-10-31T18:00:00+05:30') - (i % 40) * DAY,
-      lastSignIn: status === 'Active' ? daysAgo(i % 9, 9 + (i % 8)) : status === 'Deactivated' ? Date.parse('2026-10-22T16:40:00+05:30') : undefined,
-      ...seed,
-    };
-  }).sort((a, b) => a.name.localeCompare(b.name));
+let seq = 0;
+/** Several people with the same role, title and region, each with a phone number of their own (sample). */
+const team = (role: GspRole, title: string, region: string, dial: string, names: string[]) =>
+  names.map((name) => {
+    const n = String(41000 + ++seq * 137).padStart(5, '0');
+    return u(name, role, title, region, dial, dial === '+91' ? `98${n.slice(0, 3)} ${n.slice(1)}` : `${n.slice(0, 3)} ${n.slice(2)} ${n.slice(1, 4)}`);
+  });
+const u = (name: string, was: string, title: string, region: string, dial: string, phone: string, status: UserStatus = 'Active'): User => ({
+  id: `u-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`,
+  name,
+  email: `${name.toLowerCase().replace(/[^a-z ]/g, '').trim().replace(/\s+/g, '.')}@gsp.upgrad.com`,
+  dial,
+  phone,
+  role: WAS[was] ?? was,
+  title,
+  region,
+  status,
+  sentAt: status === 'Link sent' ? Date.now() - 2 * DAY : undefined,
+});
+export const sampleUsers = (): User[] => [
+  u('Ishaan Verma', 'Admin', 'GSP Admin', 'Global', '+91', '98110 20031'),
+  u('Megha Malhotra', 'Admission Ops', 'Admissions Head', 'India', '+91', '98110 40552'),
+  u('Ramish', 'Admission', 'Admissions Officer', 'India', '+91', '98450 11872'),
+  u('Supriya', 'Admission', 'Admissions Officer', 'Nepal', '+977', '980 114 2290'),
+  u('Subbhodya', 'Admission', 'Admissions Officer', 'Sri Lanka', '+94', '77 410 2283'),
+  u('Kamrun', 'Admission', 'Admissions Officer', 'Bangladesh', '+880', '1711 409 118'),
+  u('Valentina', 'Admission', 'Admissions Officer', 'Latin America and Europe', '+44', '7700 900 412'),
+  u('Truc', 'Admission', 'Admissions Officer', 'Vietnam', '+84', '90 812 3341'),
+  u('Thi Tuyet Hoa Nguyen', 'Admission', 'Admissions Officer', 'Vietnam', '+84', '90 812 7710', 'Link sent'),
+  u('Jo', 'Admission', 'Admissions Officer', 'Australia', '+61', '412 300 118'),
+  u('Meera Pillai', 'Admission Ops', 'Admission Ops Lead', 'Global', '+91', '98450 30021'),
+  u('Saurabh', 'Recruitment', 'Recruitment Head', 'India', '+91', '98110 77201'),
+  u('Nadia', 'Recruitment', 'BDM', 'India', '+91', '98950 22018'),
+  u('Harsh', 'Recruitment', 'BDM', 'India', '+91', '98110 41870'),
+  u('Aditya Rao', 'Recruitment', 'BDM', 'India', '+91', '98110 40217'),
+  u('Sania', 'Recruitment', 'BDM', 'Bangladesh', '+880', '1711 409 552'),
+  u('Faisal', 'Recruitment', 'BDM', 'Africa', '+880', '1711 420 019'),
+  u('Tina', 'Recruitment', 'BDM', 'Vietnam', '+84', '90 812 0042'),
+  u('Arielle', 'Recruitment', 'BDM', 'Philippines', '+63', '917 300 2281'),
+  u('Camilo', 'Recruitment', 'BDM', 'Latin America and Europe', '+44', '7700 900 177'),
+  u('Kanchani', 'Recruitment', 'BDM', 'Sri Lanka', '+94', '77 410 9921', 'Not sent'),
+  u('Anil Shrestha', 'Recruitment', 'BDM', 'Nepal', '+977', '980 114 2271'),
+  u('Judy', 'Recruitment', 'BDM', 'Australia', '+61', '412 300 771'),
+  u('Leena Thomas', 'Recruitment Ops', 'Partner Verification Lead', 'Global', '+91', '98450 66120'),
+  u('Lalaine Dizon', 'Institution', 'Relationship Manager', 'Global', '+63', '917 300 4410'),
+  u('Namita Nath', 'Institution', 'Relationship Manager', 'Global', '+91', '98110 55093'),
+  u('Raj Shamani', 'Institution', 'Relationship Manager', 'Global', '+91', '98110 70014'),
+  u('Kavya Menon', 'Institution', 'Relationship Manager', 'Global', '+91', '98450 88110', 'Link sent'),
+  u('Rohit Bansal', 'Admission', 'Admissions Officer', 'India', '+91', '98450 72093', 'Deactivated'),
+  u('Riya Sen', 'Institution Ops', 'Course Data Analyst', 'Global', '+91', '98110 31188'),
+  u('Arjun Mehta', 'Institution Ops', 'Course Data Analyst', 'Global', '+91', '98450 41022'),
+  u('Lav Likhi', 'Finance', 'Commissions Manager', 'Global', '+91', '98110 60075'),
+  // 5 Nov (Nesil's Queues reference): the people in each queue
+  ...team('Admission', 'Admissions Officer', 'India', '+91', ['Alfiya Khan', 'Anand Mishra', 'Prachi Pilani', 'Sakshi Shashi', 'Prachi Sharma', 'Piyush Varshney']),
+  ...team('Admission', 'Admissions Officer', 'Bangladesh', '+880', ['Humyra Rahman', 'Shabnaj Islam', 'Jannati Nusrat', 'Raihana Kabir Nishi', 'Nigara Rahman', 'Mahfuza Akter']),
+  ...team('Admission', 'Admissions Officer', 'Nepal', '+977', ['Swornim Prajapati', 'Alisha Kapali', 'Niruta Dahal', 'Ashmita Shrestha', 'Lalita Baade']),
+  ...team('Admission', 'Admissions Officer', 'Sri Lanka', '+94', ['Dasuni De Silva', 'Shevini Fernando', 'Rashmi Arora']),
+  ...team('Admission', 'Admissions Officer', 'Vietnam', '+84', ['Le Minh Ngoc Nguyen', 'Nhung Thi Tuyet Dinh', 'Chi Dao', 'Hieu Ngan Do', 'Ngoc Mai']),
+  ...team('Admission', 'Admissions Lead', 'Pakistan', '+92', ['Sabrina Hyder']),
+  ...team('Admission', 'Admissions Officer', 'Pakistan', '+92', ['Dur E Kashaf Awan']),
+  ...team('Admission', 'Admissions Lead', 'Australia', '+61', ['Caixia Qiu']),
+  ...team('Admission', 'Admissions Officer', 'Australia', '+61', ['Afroza Khatun Moni', 'Meenu Mishra Dubey', 'Meetu Malhotra', 'Jihan Khansa Pradila']),
+  ...team('Admission', 'Admissions Lead', 'Philippines', '+63', ['Kimberly Olaes']),
+  ...team('Admission', 'Admissions Officer', 'Philippines', '+63', ['Leigh Penullar', 'Lyka Gutierrez', 'Ryn Enor']),
+  ...team('Recruitment', 'BDM', 'Latin America and Europe', '+44', ['Maria Boscan']),
+  ...team('Recruitment', 'BDM', 'China', '+86', ['Annie Gu']),
+  ...team('Recruitment', 'BDM', 'Rest of world', '+92', ['Ali Butt']),
+  ...team('Recruitment Ops', 'Partner Verification Officer', 'Global', '+91', ['Garima Bhardwaj', 'Rohan Desai', 'Nisha Kapoor']),
+  ...team('Institution Ops', 'IP Ops Lead', 'Global', '+91', ['Gauri Bhardwaj']),
+  ...team('Institution Ops', 'IP Ops Executive', 'Global', '+91', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi']),
+  ...team('Finance', 'Finance Lead', 'Global', '+91', ['Suman Verma']),
+  ...team('Finance', 'Commissions Executive', 'Global', '+91', ['Rhythm Jain', 'Pallavi Thakur', 'Nandini Sharma']),
+  ...team('Finance', 'Commissions Executive', 'Global', '+63', ['Joana Cabrera', 'Arcelin Landayan']),
+  ...team('Admin', 'Product Manager', 'Global', '+91', ['Jovial Lejo']),
+];
 
-/* ---------- permission roles × objects (PRD slice 1, Permission model) ---------- */
-/** Three levels: No access (—), View, and View + edit (Edit). */
+/* ---------- permission roles × objects (PM: Settings › Permissions, decided 25 Oct; Nesil, 4 Nov: three levels) ---------- */
 export const LEVELS = [
-  ['N', 'No access'],
+  ['N', 'No Access'],
   ['V', 'View'],
-  ['E', 'View + edit'],
+  ['E', 'View and Edit'],
 ] as const;
 export type Level = (typeof LEVELS)[number][0];
-/** The matrix's short words for each level (—, View, Edit). */
-export const LEVEL_SHORT: Record<Level, string> = { N: '—', V: 'View', E: 'Edit' };
-/** GSP's nine roles, fixed in code, in the PRD matrix's order. */
-export const ROLES = ['Admin', 'Admission', 'Global Ops', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'Finance', 'View Only'] as const;
-/** The RP's three roles: in the same matrix (Jovial's Permission Roles sheet, 6 Nov), set by GSP's Admin. */
-export const RP_PERM_ROLES = ['RP Admin', 'Branch Manager', 'Counsellor'] as const;
-/** Every column of the matrix, GSP's roles then the RP's. */
-export const MATRIX_ROLES = [...ROLES, ...RP_PERM_ROLES] as const;
-/** The order the levels are written in below: Jovial's sheet's columns. */
-const COLS = ['Admin', 'View Only', 'Finance', 'Global Ops', 'Admission', 'Recruitment', 'RP Ops', 'Institution', 'IP Ops', 'RP Admin', 'Branch Manager', 'Counsellor'];
-/**
- * Each object (a module, or a module's part as "Module › Part"), its group on the page, and its level for each role in
- * the order of COLS: Jovial's Permission Roles sheet (6 Nov), with Admin at Edit everywhere (it can't be lowered),
- * Finance editing every commission tab (RP, Master Partner and Institution Partner), and no My Work for the RP's roles.
- */
-const P: [string, string, string][] = [
-  ['My Work', 'Work and mail', 'E V E E E E E E E N N N'],
-  ['Mail', 'Work and mail', 'E V E E E N V V E N N N'],
-  ['Find Courses', 'Find Courses', 'E E E E E E E E E E E E'],
-  ['Find Courses › Commissions', 'Find Courses', 'E N N N N N N N N V N N'],
-  ['Students › List', 'Students', 'E V E E E V V V N E E E'],
-  ['Students › Record', 'Students', 'E V E E E V V V N E E E'],
-  ['Students › Documents', 'Students', 'E V V E E V V V N E E E'],
-  ['Applications › List', 'Applications', 'E V V E E V V V N E E E'],
-  ['Applications › Record', 'Applications', 'E V V E E V V V N E E E'],
-  ['Applications › Chat', 'Applications', 'E V N E E E V V N E E E'],
-  ['Applications › Mail', 'Applications', 'E V N E E N N V N N N N'],
-  ['Applications › Documents', 'Applications', 'E V N E E V V N N E E E'],
-  ['Applications › Submission', 'Applications', 'E V N E E N N V N N N N'],
-  ['Applications › Commission', 'Applications', 'E V V N N V N N N V N N'],
-  ['Recruitment Partners › List', 'Recruitment Partners', 'E V V V V E E V N N N N'],
-  ['Recruitment Partners › Record', 'Recruitment Partners', 'E V V V V E E V N N N N'],
-  ['Recruitment Partners › Commission', 'Recruitment Partners', 'E V E N N V V N N N N N'],
-  ['Recruitment Partners › Documents', 'Recruitment Partners', 'E V V N N V E V N N N N'],
-  ['Recruitment Partners › Agreement', 'Recruitment Partners', 'E V V N N V E V N N N N'],
-  ['Recruitment Partners › Branches', 'Recruitment Partners', 'E V V N N E E V N N N N'],
-  ['Recruitment Partners › Teams', 'Recruitment Partners', 'E V V N N E E V N N N N'],
-  ['Master Partners › List', 'Master Partners', 'E V V V N V E V N N N N'],
-  ['Master Partners › Record', 'Master Partners', 'E V V V N V E V N N N N'],
-  ['Master Partners › Documents', 'Master Partners', 'E V V N N V E N N N N N'],
-  ['Master Partners › Commission', 'Master Partners', 'E V E N N V V N N N N N'],
-  ['Institution Partners › List', 'Institution Partners', 'E V V V N V E E V N N N'],
-  ['Institution Partners › Record', 'Institution Partners', 'E V V V N V E E V N N N'],
-  ['Institution Partners › Documents', 'Institution Partners', 'E V V V N V E E V N N N'],
-  ['Institution Partners › Commission', 'Institution Partners', 'E V E N N V V V V N N N'],
-  ['Universities › List', 'Universities', 'E V V V V N N E E N N N'],
-  ['Universities › Record', 'Universities', 'E V V E V N N E E N N N'],
-  ['Universities › Update QS Rankings', 'Universities', 'E V N N N N N E E N N N'],
-  ['Universities › Scholarships', 'Universities', 'E V N E V N N E E N N N'],
-  ['Universities › Territory', 'Universities', 'E V N V V N N E E N N N'],
-  ['Universities › Submission & Contacts', 'Universities', 'E V N E V N N E E N N N'],
-  ['Courses › List', 'Courses', 'E V V V V N N V E N N N'],
-  ['Courses › Record', 'Courses', 'E V V V V N N V E N N N'],
-  ['Courses › Academic', 'Courses', 'E V N E V N N V E N N N'],
-  ['Courses › English', 'Courses', 'E V N E V N N V E N N N'],
-  ['Announcements › List', 'Announcements', 'E V N E N N N V E N N N'],
-  ['Announcements › Record', 'Announcements', 'E V N E N N N V E N N N'],
-  ['User Roles', 'Admin settings', 'E N N N N N N N N N N N'],
-  ['Recruitment Assignment', 'Admin settings', 'E N N N N N N N N N N N'],
-  ['Course Configuration', 'Admin settings', 'E N N N N N N N N N N N'],
-  ['Application Configuration', 'Admin settings', 'E N N N N N N N N N N N'],
-  ['Other Configurations', 'Admin settings', 'E N N N N N N N N N N N'],
-  ['Work', 'Admin settings', 'E N N N N N N N N N N N'],
+/** The PM's six levels folded into the three (4 Nov): export goes with View or Edit, and Manage is View and Edit. */
+const FOLD: Record<string, Level> = { N: 'N', V: 'V', VX: 'V', E: 'E', EX: 'E', M: 'E' };
+export const ROLES = ['Admissions', 'Admissions Head', 'BAP', 'Data team', 'IP team', 'Recruitment (BDM)', 'Recruitment Head', 'Commissions & Finance', 'Super Admin', 'Leadership', 'RP admin', 'RP branch manager', 'RP counsellor', 'Master Partner admin'] as const;
+/** Each object's level for each role, in ROLES' order (the PM's defaults, in its six levels). */
+const P: [string, string][] = [
+  ['Students', 'E EX VX VX VX V VX VX M VX EX E E V'],
+  ['Student documents', 'E E VX VX VX V VX VX M V E E E V'],
+  ['Applications', 'EX M VX VX VX V VX VX M VX EX E E V'],
+  ['Application documents and checks', 'E M VX VX VX V VX VX M V E E E V'],
+  ['Drafts to universities and placed emails', 'E M VX VX VX V VX VX M V N N N N'],
+  ['Chat threads', 'E E E E E E E E M V E E E V'],
+  ['Recruitment partner profile and status', 'V V M VX VX V EX V M VX E V N V'],
+  ['RP onboarding documents', 'V V M V V V VX V M V E N N N'],
+  ['Documents issued to RPs', 'V V M V V V VX E M V V N N V'],
+  ['RP branches and team', 'V V M V V V E VX M V M E N N'],
+  ['Master Partners', 'V V M V V V VX V M V N N N V'],
+  ['Institution partners', 'V V V V M V V V M VX N N N N'],
+  ['IP documents and IP changes', 'V V V V E N V V M V N N N N'],
+  ['Universities', 'V V V E M V V V M VX V V V V'],
+  ['University portal logins', 'V VX V E E N V V M V N N N N'],
+  ['Campuses', 'V V V E E V V V M V V V V V'],
+  ['Admission requirements', 'V V V M E V V V M V V V V V'],
+  ['Announcements', 'V V V E E V V V M V V V V V'],
+  ['University microsites', 'V V V E E V V V M V V V V V'],
+  ['Courses, intakes and entry rules', 'V V V M E V V V M VX V V V V'],
+  ['Held changes', 'V V V M E N V V M V N N N N'],
+  ['Commission terms', 'N N N N V N V M M V N N N N'],
+  ['Commission lines', 'N N N N N N N M M VX V N N V'],
+  ['Invoices and receipts', 'N N N N N N V M M V N N N N'],
+  ['Payout runs and statements', 'N N N N N N V M M V V N N V'],
+  ['RP bank details', 'N N N N N N V M M V E N N E'],
+  ['Overview dashboard', 'N V N N N N V V M V N N N N'],
+  ['GSP users and roles', 'N N N N N N N N M V N N N N'],
+  ['Settings', 'N N N N N N N N M V N N N N'],
+  ['Download log and audit logs', 'N N N N N N N N M V N N N N'],
 ];
 export const OBJECTS = P.map(([o]) => o);
-/** The page's groups, in order, each with its objects. */
-export const OBJECT_GROUPS: [string, string[]][] = [...new Set(P.map(([, g]) => g))].map((g) => [g, P.filter((x) => x[1] === g).map(([o]) => o)]);
 export type Perms = Record<string, Record<string, Level>>;
 export const samplePerms = (): Perms =>
-  Object.fromEntries(P.map(([o, , ls]) => [o, Object.fromEntries(ls.split(' ').map((l, i) => [COLS[i], l]))])) as Perms;
-
-/* ---------- sign-in security (Jovial, 1 Nov, HC52): every GSP sign-in reads it ---------- */
-export type Security = { maxAttempts: number; lockMinutes: number; resendSeconds: number };
-/**
- * Decided 1 Nov (S1-6): 3 wrong passwords, a 10-minute pause, 30 seconds before a new code. Pre-decided values, not
- * configurable in Admin (Jovial, S1C-11): Admin › Sign-in security shows them read only.
- */
-export const SECURITY: Readonly<Security> = Object.freeze({ maxAttempts: 3, lockMinutes: 10, resendSeconds: 30 });
-export const sampleSecurity = (): Security => ({ ...SECURITY });
-/** A code works for this long, and once (S1-6: engineering's; not editable). */
-export const CODE_MINUTES = 10;
-/** Wrong codes before a code stops working; codes an hour per account (proposal). */
-export const MAX_WRONG_CODES = 5;
-export const CODES_PER_HOUR = 5;
+  Object.fromEntries(P.map(([o, ls]) => [o, Object.fromEntries(ls.split(' ').map((l, i) => [ROLES[i], FOLD[l]]))]));
 
 /* ---------- queues (Nesil, 30 Oct: a name, a leader and members, from the PM's queues) ---------- */
-export type Queue = { id: string; name: string; lead: string; members: string[] };
+/** A queue (Nesil, 5 Nov: Work › Queues, SLA and escalation): a team's inbox, with one leader, members (the leader
+ *  is always in it), how its work is shared, and its type: each sales region has an Admissions and a Recruitment queue,
+ *  and the teams have their own. What lands in it comes from Kinds of work. */
+export type Queue = { id: string; name: string; lead: string; members: string[]; type: QueueType; region?: string; sharing: Sharing; note?: string };
 const byName = (users: User[], names: string[]) => names.map((n) => users.find((x) => x.name === n)?.id).filter((x): x is string => !!x);
-/**
- * Admin's copy of the queue names and leaders, kept only to seed the settings that point to a queue by name (a sales
- * region's Admissions queue, a mailbox's queues). Queues are edited in one place, Admin › Work › Queues, SLA and
- * escalation (S4-1); there is no queue editor under User roles. Global Ops and Global Admissions are one queue,
- * Global Admissions, worked by the Global Ops team (S4-20).
- */
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, '-');
+/** The regions with their own Admissions and Recruitment queues: every sales region but Direct and Global. */
+const QUEUE_REGIONS = SALES_REGIONS.filter((r) => !['Direct', 'Global'].includes(r));
+/** Each region's Admissions queue: its leader and members (Nesil's reference, 5 Nov). */
+const ADMISSIONS: Record<string, [string, string[]]> = {
+  India: ['Ramish', ['Alfiya Khan', 'Anand Mishra', 'Prachi Pilani', 'Sakshi Shashi', 'Prachi Sharma', 'Piyush Varshney', 'Rohit Bansal']],
+  Bangladesh: ['Kamrun', ['Humyra Rahman', 'Shabnaj Islam', 'Jannati Nusrat', 'Raihana Kabir Nishi', 'Nigara Rahman', 'Mahfuza Akter']],
+  Nepal: ['Supriya', ['Swornim Prajapati', 'Alisha Kapali', 'Niruta Dahal', 'Ashmita Shrestha', 'Lalita Baade']],
+  'Sri Lanka': ['Subbhodya', ['Dasuni De Silva', 'Shevini Fernando', 'Rashmi Arora']],
+  Vietnam: ['Truc', ['Thi Tuyet Hoa Nguyen', 'Le Minh Ngoc Nguyen', 'Nhung Thi Tuyet Dinh', 'Chi Dao', 'Hieu Ngan Do', 'Ngoc Mai']],
+  Pakistan: ['Sabrina Hyder', ['Dur E Kashaf Awan']],
+  'Indonesia, Malaysia and Thailand': ['Truc', []],
+  'Myanmar and Bhutan': ['Truc', []],
+  Australia: ['Caixia Qiu', ['Jo', 'Afroza Khatun Moni', 'Meenu Mishra Dubey', 'Meetu Malhotra', 'Jihan Khansa Pradila']],
+  Philippines: ['Kimberly Olaes', ['Leigh Penullar', 'Lyka Gutierrez', 'Ryn Enor']],
+  Africa: ['Kamrun', []],
+  'Latin America and Europe': ['Valentina', []],
+  China: ['Caixia Qiu', []],
+};
+/** Each region's Recruitment queue: its leader (the region's BDM) and members. */
+const RECRUITMENT: Record<string, [string, string[]]> = {
+  India: ['Saurabh', ['Nadia', 'Harsh', 'Aditya Rao']],
+  Bangladesh: ['Sania', []],
+  Nepal: ['Anil Shrestha', []],
+  'Sri Lanka': ['Kanchani', []],
+  Vietnam: ['Tina', []],
+  Pakistan: ['Ali Butt', []],
+  'Indonesia, Malaysia and Thailand': ['Tina', []],
+  'Myanmar and Bhutan': ['Tina', []],
+  Australia: ['Judy', []],
+  Philippines: ['Arielle', []],
+  Africa: ['Faisal', []],
+  'Latin America and Europe': ['Camilo', ['Maria Boscan']],
+  China: ['Annie Gu', []],
+  'Rest of world': ['Ali Butt', []],
+};
 export const sampleQueues = (users: User[]): Queue[] => {
-  const region = (r: string) => users.filter((u) => u.role === 'Admission' && u.regions.includes(r)).map((u) => u.name);
-  const role = (r: GspRole) => users.filter((u) => u.role === r).map((u) => u.name);
-  return (
-    [
-      ['India Admissions', N('ramish.jafery'), region('India')],
-      ['Bangladesh Admissions', N('kamrun.nahar'), region('Bangladesh')],
-      ['Africa Admissions', N('kamrun.nahar'), region('Africa')],
-      ['Pakistan Admissions', N('sabrina.hyder'), region('Pakistan')],
-      ['Nepal Admissions', N('supriya.shrestha'), region('Nepal')],
-      ['Sri Lanka Admissions', N('subodya.suraweera'), region('Sri Lanka')],
-      ['SEA Admissions', N('truc.nguyen'), [...new Set(SEA.flatMap(region))]],
-      ['Philippines Admissions', N('kimberly.olaes'), region('Philippines')],
-      ['Australia Admissions', N('jo.qiu'), region('Australia')],
-      ['China Admissions', N('jo.qiu'), region('China')],
-      ['Latin America & Europe Admissions', N('valentina.castillo'), region('Latin America & Europe')],
-      ['Global Admissions', N('tasha.tandon'), role('Global Ops')],
-      ['RP Ops', N('garima.bhardwaj'), role('RP Ops')],
-      ['Institution', N('matt.beazley'), role('Institution')],
-      ['IP Ops', N('gauri.bhardwaj'), role('IP Ops')],
-      ['Finance', N('suman1.verma'), role('Finance')],
-      ['Admin', N('jovial.lejo'), role('Admin')],
-    ] as [string, string, string[]][]
-  ).map(([name, lead, members], i) => {
-    const leadId = byName(users, [lead])[0] ?? '';
-    return { id: `q${i + 1}`, name, lead: leadId, members: byName(users, members).filter((id) => id !== leadId) };
-  });
+  const q = (id: string, name: string, type: QueueType, lead: string, members: string[], sharing: Sharing, region?: string, note?: string): Queue => ({ id, name, type, region, sharing, note, lead: byName(users, [lead])[0] ?? '', members: byName(users, members) });
+  return [
+    ...QUEUE_REGIONS.filter((r) => ADMISSIONS[r]).map((r) => q(`q-adm-${slug(r)}`, `${r} Admissions`, 'Admissions', ADMISSIONS[r][0], ADMISSIONS[r][1], 'fewest', r)),
+    ...QUEUE_REGIONS.filter((r) => RECRUITMENT[r]).map((r) => q(`q-rec-${slug(r)}`, `${r} Recruitment`, 'Recruitment', RECRUITMENT[r][0], RECRUITMENT[r][1], 'owner', r)),
+    q('q-rp-ops', 'RP Ops', 'Team', 'Leena Thomas', ['Garima Bhardwaj', 'Rohan Desai', 'Nisha Kapoor'], 'fewest'),
+    q('q-ip-ops', 'IP Ops', 'Team', 'Gauri Bhardwaj', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi', 'Riya Sen', 'Arjun Mehta'], 'fewest'),
+    q('q-finance', 'Finance', 'Team', 'Suman Verma', ['Rhythm Jain', 'Joana Cabrera', 'Arcelin Landayan', 'Lav Likhi', 'Pallavi Thakur', 'Nandini Sharma'], 'fewest'),
+    q('q-admission-ops', 'Admission Ops', 'Team', 'Meera Pillai', ['Megha Malhotra'], 'leader', undefined, 'Level 2 escalations on applications'),
+    q('q-admin', 'Admin', 'Team', 'Jovial Lejo', [], 'fewest', undefined, 'Tasks with no queue, and level 3 escalations'),
+  ];
 };
 
-/* ---------- shared mailboxes (PRD slice 1, Shared mailboxes) ---------- */
-/** Can view: read only. Can send: reply and send from this address. */
+/* ---------- email groups (Nesil, 30 Oct): shared inboxes, and who can see or send from them ---------- */
 export type EmailPerm = 'view' | 'send';
-/**
- * A shared mailbox: its address (locked after the first save), what it's for, whether the portal syncs it and from
- * when, the queues whose members get it (Can view and Can send, following the queue's membership), and the people
- * Admin adds by hand (each Can view, the default, or Can send). A mailbox can't be deleted in this release
- * (proposal S1C-12): switch sync off to stop it.
- */
-export type EmailGroup = { id: string; email: string; for: string; sync: boolean; since: string; queues: string[]; users: { id: string; perm: EmailPerm }[]; savedAt?: number };
-/** The queue names that stand for "every regional Admissions queue" (all but Global Admissions). */
-export const isRegionalAdmissions = (name: string) => / Admissions$/.test(name) && name !== 'Global Admissions';
-/** The seeded mailboxes, as the PRD lists them: what each is for and its queues (S1C-14: admin.gsp@ is the Admin queue's; Admin forwards anything for RP Ops). */
-export const MAILBOX_SEED: [string, string, string[] | 'admissions'][] = [
-  ['gsp.admissions@upgrad.com', 'Application conversations with RPs and universities', 'admissions'],
-  ['bap.gsp@upgrad.com', 'Partner onboarding', ['RP Ops']],
-  ['admin.gsp@upgrad.com', 'New users, role changes, admin requests', ['Admin']],
-  ['commissions.gsp@upgrad.com', 'Commission conversations', ['Finance']],
-  ['data-team.gsp@upgrad.com', 'Course update requests', ['IP Ops']],
-];
-/**
- * Access is per user (Jovial, 2 Nov): each mailbox lists its people, each View or View and send; not per queue or
- * region. The seed gives the people of the queues each mailbox fed before (as records), View and send.
- */
+export type EmailGroup = { id: string; email: string; purpose?: string; sync: boolean; since: string; users: { id: string; perm: EmailPerm }[] };
+const iso = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY).toISOString().slice(0, 10);
 export const sampleEmails = (users: User[]): EmailGroup[] => {
-  const qs0 = sampleQueues(users);
-  return MAILBOX_SEED.map(([email, what, qs], i) => {
-    const names = qs === 'admissions' ? [...qs0.map((q) => q.name).filter(isRegionalAdmissions), 'Global Admissions'] : qs;
-    const ids = [...new Set(qs0.filter((q) => names.includes(q.name)).flatMap((q) => [q.lead, ...q.members]).filter(Boolean))];
+  const ids = (names: string[], send: string[] = []) => byName(users, names).map((id) => ({ id, perm: (byName(users, send).includes(id) ? 'send' : 'view') as EmailPerm }));
+  return [
+    { id: 'e1', email: 'admissions.india@gsp.upgrad.com', purpose: 'Application conversations with Indian RPs and universities', sync: true, since: iso(90), users: ids(['Megha Malhotra', 'Ramish', 'Meera Pillai'], ['Megha Malhotra', 'Ramish']) },
+    { id: 'e2', email: 'admissions.vietnam@gsp.upgrad.com', purpose: 'Application conversations for Vietnam', sync: true, since: iso(60), users: ids(['Truc', 'Thi Tuyet Hoa Nguyen'], ['Truc']) },
+    { id: 'e3', email: 'institutions@gsp.upgrad.com', purpose: 'Agreements and course updates from universities', sync: true, since: iso(120), users: ids(['Lalaine Dizon', 'Namita Nath', 'Raj Shamani', 'Kavya Menon'], ['Lalaine Dizon']) },
+    { id: 'e4', email: 'partners@gsp.upgrad.com', purpose: 'Partner onboarding', sync: false, since: iso(0), users: ids(['Leena Thomas', 'Saurabh'], ['Leena Thomas']) },
+    { id: 'e5', email: 'commissions@gsp.upgrad.com', purpose: 'Commission conversations', sync: true, since: iso(30), users: ids(['Lav Likhi'], ['Lav Likhi']) },
+  ];
+};
+
+/* ---------- BDM assignment (PM: Settings › BDM assignment; Nesil, 4 Nov: state and city apart) ---------- */
+/** `state` and `city` are lists (comma-separated), '' for none; neither: the whole country. "Rest of India" is a state. */
+export type BdmRow = { id: string; country: string; state: string; city: string; bdm: string; fallback?: boolean };
+let n = 0;
+const row = (country: string, state: string, city: string, bdm: string, fallback = false): BdmRow => ({ id: `b${++n}`, country, state, city, bdm, fallback });
+export const sampleBdm = (): BdmRow[] => [
+  row('India', 'Kerala', '', 'Nadia'),
+  row('India', 'Haryana, Delhi', '', 'Harsh'),
+  row('India', 'Punjab', 'Ludhiana, Amritsar, Jalandhar', 'Ramandeep'),
+  row('India', 'Karnataka, Andhra Pradesh, Telangana', '', 'Aditya'),
+  row('India', 'Rest of India', '', 'Saurabh'),
+  row('Bangladesh', '', 'Dhaka', 'Sania'),
+  row('Bangladesh', 'Rest of Bangladesh', '', 'Faisal'),
+  row('Vietnam', '', 'Ho Chi Minh City', 'Tina'),
+  row('Vietnam', 'Rest of Vietnam', '', 'Hoang'),
+  row('Philippines', '', '', 'Arielle'),
+  row('Myanmar', '', '', 'Nilar'),
+  row('Indonesia', '', '', 'Rifaldo'),
+  row('Malaysia', '', '', 'Rifaldo'),
+  row('Pakistan', '', '', 'Ali'),
+  row('Latin America and Europe', '', '', 'Camilo'),
+  row('Africa', '', '', 'Faisal'),
+  row('Sri Lanka', '', '', 'Kanchani'),
+  row('Nepal', '', '', 'Anil Shrestha'),
+  row('Australia', '', '', 'Judy'),
+  row('Thailand', '', '', 'Rifaldo'),
+  row('Bhutan', '', '', 'Nilar'),
+  row('China', '', '', 'Judy'),
+  row('All other countries', '', '', 'Ali', true),
+];
+export const REGION_ROWS = ['Latin America and Europe', 'Africa'];
+
+/* ---------- currency exchange (Nesil, 3 Nov): a week's rates, each currency in AUD, Finance's base ---------- */
+export type FxRow = { code: string; name: string; aud: number; usedFor: string; updated: number; by: string };
+/** A week's rates: each currency in AUD, and one AUD in rupees (the rupee column follows from it). */
+export type FxWeek = { week: string; inrPerAud: number; rows: FxRow[] };
+const CUR_NAME: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound sterling', CAD: 'Canadian dollar', NZD: 'New Zealand dollar', EUR: 'Euro', USD: 'US dollar' };
+/** The Monday a date's week starts on, as yyyy-mm-dd. */
+export const weekOf = (t: number) => {
+  const d = new Date(t);
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+};
+/** The last eight weeks, this one first; older weeks drift a little from course search's rates. */
+export const sampleFx = (): FxWeek[] => {
+  const dests = (code: string) => (Object.entries(CURRENCY) as [Destination, string][]).filter(([, c]) => c === code).map(([d]) => `Course search: ${d}`).join(', ');
+  const codes = Object.keys(INR_PER);
+  return Array.from({ length: 8 }, (_, w) => {
+    const week = weekOf(Date.now() - w * 7 * DAY);
+    const wiggle = (i: number) => 1 + (((w * 7 + i * 3) % 9) - 4) / 400;
+    const inrPerAud = Math.round(INR_PER.AUD * (1 + ((w % 5) - 2) / 300) * 100) / 100;
     return {
-      id: `e${i + 1}`,
-      email,
-      for: what,
-      sync: true,
-      since: ['2026-01-05', '2026-03-02', '2026-03-02', '2026-04-01', '2026-06-15'][i],
-      queues: [],
-      users: ids.map((id) => ({ id, perm: 'send' as EmailPerm })),
+      week,
+      inrPerAud,
+      rows: codes.map((code, i) => ({
+        code,
+        name: CUR_NAME[code] ?? code,
+        aud: code === 'AUD' ? 1 : Math.round((INR_PER[code] / INR_PER.AUD) * wiggle(i) * 10_000) / 10_000,
+        usedFor: dests(code),
+        updated: Math.min(new Date(`${week}T12:06:00`).getTime() + (i % 3) * DAY, Date.now() - (i + 1) * 3_600_000),
+        by: 'Lav Likhi',
+      })),
     };
   });
 };
 
-/**
- * The shared mailboxes a person can send from (S3F-1 proposal; slice 1 AC-40): those where Admin gave them View and
- * send. The Admissions mailbox (the first seeded, application conversations) comes first, then the rest in Admin's order.
- */
-export function sendableMailboxes(c: { emails: EmailGroup[]; users: User[] }, email: string): EmailGroup[] {
-  const u = c.users.find((x) => x.email.toLowerCase() === email.toLowerCase());
-  if (!u) return [];
-  const mine = c.emails.filter((m) => m.users.some((x) => x.id === u.id && x.perm === 'send'));
-  const first = MAILBOX_SEED[0][0];
-  return [...mine.filter((m) => m.email === first), ...mine.filter((m) => m.email !== first)];
-}
-/** A person's access to one shared mailbox by its address (B-6: per person, View or View and send), or null. */
-export function mailboxAccess(c: { emails: EmailGroup[]; users: User[] }, email: string, address: string): EmailPerm | null {
-  const u = c.users.find((x) => x.email.toLowerCase() === String(email || '').toLowerCase());
-  const m = c.emails.find((x) => x.email.toLowerCase() === address.toLowerCase());
-  return (u && m?.users.find((x) => x.id === u.id)?.perm) || null;
-}
-/** A new mail's subject to a university (S3F-1 proposal, as the 1 pm brief): "<GSP ID> · <university reference>". */
-export const uniMailSubject = (a: { id: string; uniRef?: string }) => [a.id, a.uniRef].filter(Boolean).join(' · ');
-
-/* ---------- Recruitment assignment (PRD slice 1, Recruitment assignment) ---------- */
-/**
- * A row: a country (or "All other countries", the fallback row only), its states or cities ("All", "Rest of
- * <country>", or a list), the BDM, an optional note, and when and who last changed it.
- */
-export type BdmRow = { id: string; country: string; area: string; bdm: string; fallback?: boolean; note?: string; changedAt?: number; changedBy?: string };
-let n = 0;
-const row = (country: string, area: string, bdm: string, fallback = false, note = ''): BdmRow => ({ id: `b${++n}`, country, area, bdm, fallback, note: note || undefined, changedAt: Date.parse('2026-10-31T20:00:00+05:30'), changedBy: 'Seeded from the staff export' });
-/** Where several BDMs share an area, who owns it for new RPs, and who else covers it (the PRD's example: Ahmedabad, Riya Shah). */
-const AREA_OWNER: Record<string, string> = { ahmedabad: 'riya1.shah@upgrad.com' };
-/**
- * Recruitment assignment from the staff export's BDM areas (31 Oct): each Recruitment person's cities or states is a row for
- * their country; whoever covers the whole country takes "Rest of <country>" (or "All" when nobody else is named).
- * A region of several countries gets a row per country. Anything else goes to the fallback row (Ali Butt).
- */
-export const sampleBdm = (): BdmRow[] => {
-  n = 0;
-  const out: BdmRow[] = [];
-  // the fallback person (Ali Butt: Rest of world and Direct) has no country rows of their own
-  const rec = STAFF.filter((x) => x.role === 'Recruitment' && !x.regions.includes('Global') && !x.regions.every(isSystemRegion));
-  const regions = [...new Set(rec.flatMap((x) => x.regions))];
-  const countriesOf = (reg: string) => (REGION_COUNTRIES[reg]?.length ? REGION_COUNTRIES[reg] : [reg]);
-  for (const reg of regions) {
-    const ppl = rec.filter((x) => x.regions.includes(reg));
-    // the person whose area is the whole region (Saurabh Chaudhary: India) owns the rest of it, before anyone with no area (W7)
-    const whole = ppl.find((x) => x.area === reg) ?? ppl.find((x) => !x.area) ?? ppl[0];
-    const multi = countriesOf(reg).length > 1;
-    for (const country of countriesOf(reg)) {
-      if (out.some((r) => r.country === country)) continue;
-      const placed: string[] = [];
-      if (!multi)
-        for (const x of ppl) {
-          if (!x.area || x.area === reg) continue;
-          const areas = x.area.split(',').map((a) => a.trim()).filter((a) => a && !placed.includes(a.toLowerCase()) && (!AREA_OWNER[a.toLowerCase()] || AREA_OWNER[a.toLowerCase()] === x.email));
-          if (!areas.length) continue;
-          areas.forEach((a) => placed.push(a.toLowerCase()));
-          // the others who also cover the owner's city go in the note
-          const also = areas.flatMap((a) => (AREA_OWNER[a.toLowerCase()] === x.email ? ppl.filter((y) => y !== x && y.area.toLowerCase().split(',').map((z) => z.trim()).includes(a.toLowerCase())).map((y) => label(y)) : []));
-          out.push(row(country, areas.join(', '), label(x), false, also.length ? `${also.join(', ')} also cover it` : ''));
-        }
-      out.push(row(country, placed.length ? `Rest of ${country}` : 'All', label(whole)));
-    }
-  }
-  // a region with a default recruitment contact but nobody based there (Bhutan: Ishwor Acharya) gets its own rows
-  for (const [reg, who] of Object.entries(REGION_BDM)) {
-    if (isSystemRegion(reg)) continue;
-    for (const country of countriesOf(reg)) if (!out.some((r) => r.country === country)) out.push(row(country, 'All', who));
-  }
-  out.push(row('All other countries', 'All', N('ali.butt'), true));
-  return out;
-};
-
-/*
- * ---------- currency exchange (Jovial, 6 Nov: two sets) ----------
- * Admin › Currency exchange: the search rates, for course search budgets and course costs. They update themselves
- * every week (job J7); nobody saves them. Finance keeps its own weekly rates for commissions (Finance › Exchange
- * rates), entered and saved by Finance.
- */
-/** One unit of a currency in Australian dollars (Finance's base). */
-export type Rate = { code: string; name: string; aud: number; usedFor: string; updated: number };
-/** A week's rates, as Finance prices a line paid that week: { week: '2026-10-26', GBP: 1.95, … } */
-export type FxWeek = { week: string; [code: string]: number | string };
-const CUR_NAME: Record<string, string> = { AUD: 'Australian dollar', GBP: 'Pound sterling', CAD: 'Canadian dollar', NZD: 'New Zealand dollar', EUR: 'Euro', USD: 'US dollar', INR: 'Indian rupee', NPR: 'Nepalese rupee', BDT: 'Bangladeshi taka', LKR: 'Sri Lankan rupee', VND: 'Vietnamese dong' };
-/** Course search's old rupee rates, for the currencies Finance's weekly table didn't have (CAD, EUR). */
-const SEED_INR: Record<string, number> = { CAD: 62, EUR: 95 };
-const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
-/** Sample search rates for every currency a GSP market uses (units per US dollar; the weekly job replaces them). */
-const PER_USD: Record<string, number> = FX_SEED.perUsd;
-/** A currency's name, from the platform's own currency names. */
-export const currencyName = (code: string) => {
-  try {
-    return CUR_NAME[code] ?? new Intl.DisplayNames(['en'], { type: 'currency' }).of(code) ?? code;
-  } catch {
-    return CUR_NAME[code] ?? code;
-  }
-};
-const sig4 = (n: number) => Number(n.toPrecision(4));
-/**
- * Finance's weekly table from its sheet, with CAD and EUR added, carried up to this week (each week a copy of the
- * last, as the saved weeks would be). Nothing is saved for next week: Admin enters it, and on Friday T50 asks if not.
- */
-/** Finance's own weekly rates, from its sheet, carried up to this week (Finance › Exchange rates). */
-export const financeFxSeed = (): FxWeek[] => {
-  const rows = (COMM.cfg.settings.fx as FxWeek[]).map((w) => ({ ...w, AUD: 1, ...Object.fromEntries(Object.entries(SEED_INR).map(([c, inr]) => [c, Math.round(inr * Number(w.INR) * 10000) / 10000])) }));
-  const today = isoDay(Date.now());
-  let last = rows[rows.length - 1];
-  while (isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) <= today) {
-    last = { ...last, week: isoDay(Date.parse(last.week + 'T00:00:00Z') + 7 * DAY) };
-    rows.push(last);
-  }
-  return fillFx(rows);
-};
-/** The search rates' weeks: Finance's sheet as the start, with every other market's currency from the sample. */
-export const sampleFxWeeks = (): FxWeek[] =>
-  financeFxSeed().map((w) => {
-    const audPerUsd = Number(w.USD) || PER_USD.AUD;
-    const extra = Object.fromEntries(Object.entries(PER_USD).filter(([c]) => w[c] === undefined || w[c] === '').map(([c, n]) => [c, c === 'AUD' ? 1 : sig4(audPerUsd / n)]));
-    return { ...w, ...extra };
-  });
-/**
- * Every week has every currency (W14, 1 Nov): a week the sheet left a currency out of (VND from 26 Oct) carries the
- * week before's rate, so Finance never counts a rate Admin shows as missing. With Admin's rates, the week in force
- * also takes any currency only the rates table has.
- */
-export function fillFx(weeks: FxWeek[], rates?: Pick<Rate, 'code' | 'aud'>[]): FxWeek[] {
-  const out: FxWeek[] = [];
-  let prev: FxWeek | undefined;
-  for (const w of [...weeks].sort((a, b) => (a.week < b.week ? -1 : 1))) {
-    const row: FxWeek = { ...w };
-    if (prev) for (const [k, v] of Object.entries(prev)) if (k !== 'week' && (row[k] === undefined || row[k] === '' || row[k] === null)) row[k] = v;
-    out.push(row);
-    prev = row;
-  }
-  const now = isoDay(Date.now());
-  const cur = [...out].filter((w) => w.week <= now).pop();
-  if (cur && rates) for (const r of rates) if (r.aud && (cur[r.code] === undefined || cur[r.code] === '')) cur[r.code] = r.aud;
-  return out;
-}
-/** The week's row in force on a day. */
-export const fxWeekOn = (weeks: FxWeek[], day = isoDay(Date.now())) => [...weeks].sort((a, b) => (a.week < b.week ? -1 : 1)).filter((w) => w.week <= day).pop();
-export const sampleRates = (): Rate[] => {
-  const w = fxWeekOn(sampleFxWeeks())!;
-  const dests = (code: string) => (Object.entries(CURRENCY) as [Destination, string][]).filter(([, c]) => c === code).map(([d]) => d);
-  const codes = [...new Set([...Object.keys(CUR_NAME), ...Object.keys(PER_USD)])].sort((a, b) => (a === 'AUD' ? -1 : b === 'AUD' ? 1 : a.localeCompare(b)));
-  return codes.map((code) => {
-    const used = dests(code).map((d) => `Course search: ${d}`);
-    return { code, name: currencyName(code), aud: Number(w[code] ?? 0), usedFor: used.join('; '), updated: Date.parse(`${w.week}T00:30:00+05:30`) };
-  });
-};
-/** An amount in one currency in another, through the rates (one unit in AUD each); undefined with no rate. */
-export const convertWith = (rates: Pick<Rate, 'code' | 'aud'>[], v: number, from: string, to: string) => {
-  if (from === to) return v;
-  const a = rates.find((r) => r.code === from)?.aud;
-  const b = rates.find((r) => r.code === to)?.aud;
-  return a && b ? (v * a) / b : undefined;
-};
-
-/* ---------- living costs and fees (PRD slice 1, Configuration tables) ---------- */
-/**
- * One row per destination: its currency (read only, from the destination), the living expense a year, the visa fee
- * (paid once), health insurance a year, where Admin found the figures (Note), and when it was last changed. The
- * course page's Costs reads it for the course's length (1 year when the length is in credits).
- */
-export type Living = { country: string; currency: string; perYear: number; visa: number; health: number; note: string; updated: number; by?: string; basis?: string };
-/** Each destination country's currency (ISO 4217): the destinations a row can be added for. */
-export const DEST_CURRENCY: Record<string, string> = {
-  Australia: 'AUD', UK: 'GBP', Canada: 'CAD', 'New Zealand': 'NZD', Ireland: 'EUR', USA: 'USD',
-  Germany: 'EUR', France: 'EUR', Netherlands: 'EUR', Spain: 'EUR', Italy: 'EUR', Austria: 'EUR', Belgium: 'EUR', Finland: 'EUR', Portugal: 'EUR', Malta: 'EUR', Cyprus: 'EUR', Latvia: 'EUR', Lithuania: 'EUR',
-  Sweden: 'SEK', Denmark: 'DKK', Poland: 'PLN', 'Czech Republic': 'CZK', Hungary: 'HUF', Switzerland: 'CHF', Norway: 'NOK',
-  Singapore: 'SGD', Malaysia: 'MYR', Japan: 'JPY', 'South Korea': 'KRW', 'Hong Kong': 'HKD', China: 'CNY', 'United Arab Emirates': 'AED', Mauritius: 'MUR', 'South Africa': 'ZAR',
-};
-const L = (country: string, perYear: number, visa: number, health: number, note: string, days: number): Living => ({ country, currency: DEST_CURRENCY[country], perYear, visa, health, note, updated: Date.now() - days * DAY, by: N('jovial.lejo') });
+/* ---------- living costs and fees (Nesil, 3 Nov): a year's living costs, the visa fee and a year's health cover;
+   4 Nov: a country can be added, and within one, a city's own living costs ---------- */
+/** A city's own living costs a year, in its country's currency. */
+export type CityCost = { name: string; perYear: number };
+/** `visa` and `health` are 0 when not set (a country added with its living costs only). */
+export type Living = { country: string; currency: string; perYear: number; visa: number; health: number; basis: string; updated: number; by: string; cities: CityCost[] };
+const city = (name: string, perYear: number): CityCost => ({ name, perYear });
 export const sampleLiving = (): Living[] => [
-  L('Australia', 29710, 2000, 700, 'Department of Home Affairs; OSHC providers', 12),
-  L('UK', 12006, 524, 776, 'UKVI, 9 months outside London; Immigration Health Surcharge', 30),
-  L('Canada', 20635, 235, 900, 'IRCC, study permit; provincial health plans', 40),
-  L('New Zealand', 20000, 850, 700, 'Immigration New Zealand', 55),
-  L('Ireland', 12000, 300, 500, 'Irish Immigration Service', 60),
-  L('USA', 18000, 535, 2500, 'US Department of State; university health plans', 70),
+  { country: 'Australia', currency: 'AUD', perYear: 29710, visa: 2000, health: 700, basis: 'Department of Home Affairs; OSHC providers', updated: Date.now() - 12 * DAY, by: 'Jovial Lejo', cities: [city('Sydney', 33000), city('Melbourne', 31000)] },
+  { country: 'UK', currency: 'GBP', perYear: 12006, visa: 524, health: 776, basis: 'UKVI, 9 months outside London; Immigration Health Surcharge', updated: Date.now() - 30 * DAY, by: 'Jovial Lejo', cities: [city('London', 13347)] },
+  { country: 'Canada', currency: 'CAD', perYear: 20635, visa: 235, health: 900, basis: 'IRCC, study permit; provincial health plans', updated: Date.now() - 40 * DAY, by: 'Jovial Lejo', cities: [city('Toronto', 24000), city('Vancouver', 24500)] },
+  { country: 'New Zealand', currency: 'NZD', perYear: 20000, visa: 850, health: 700, basis: 'Immigration New Zealand', updated: Date.now() - 55 * DAY, by: 'Jovial Lejo', cities: [] },
+  { country: 'Ireland', currency: 'EUR', perYear: 12000, visa: 300, health: 500, basis: 'Irish Immigration Service', updated: Date.now() - 60 * DAY, by: 'Jovial Lejo', cities: [city('Dublin', 14500)] },
+  { country: 'USA', currency: 'USD', perYear: 18000, visa: 535, health: 2500, basis: 'US Department of State; university health plans', updated: Date.now() - 70 * DAY, by: 'Jovial Lejo', cities: [] },
 ];
-/** An older saved row (before visa and health sat on it) gets the seed's figures. */
-export const withFees = (l: Partial<Living> & { country: string }): Living => {
-  const seed = sampleLiving().find((x) => x.country === l.country);
-  return { currency: DEST_CURRENCY[l.country] ?? l.currency ?? '', perYear: 0, visa: seed?.visa ?? 0, health: seed?.health ?? 0, note: l.basis ?? seed?.note ?? '', updated: Date.now(), ...l } as Living;
-};
-/** Kept for older readers: visa and health fees as separate lines, from Living costs and fees. */
-export type VisaFee = { id: string; country: string; currency: string; label: string; amount: number; per: 'once' | 'year'; basis: string; updated: number };
-export const visaFeesOf = (living: Living[]): VisaFee[] =>
-  living.flatMap((l) => [
-    { id: `vf-${l.country}-v`, country: l.country, currency: l.currency, label: 'Visa fee', amount: l.visa, per: 'once' as const, basis: l.note, updated: l.updated },
-    { id: `vf-${l.country}-h`, country: l.country, currency: l.currency, label: 'Health insurance', amount: l.health, per: 'year' as const, basis: l.note, updated: l.updated },
-  ]);
-export const sampleVisaFees = (): VisaFee[] => visaFeesOf(sampleLiving());
 
-/* ---------- application routing (PRD slice 1, Application routing) ---------- */
+/* ---------- course tags, program levels and study areas (Nesil, 3 Nov) ---------- */
+/** `was`: its earlier names, so a renamed tag still counts its courses. */
+export type Tag = { name: string; on: boolean; was?: string[] };
+export const sampleTags = (names: readonly string[]): Tag[] => names.map((name) => ({ name, on: true }));
+/** 6 Nov (Nesil): no application form level any more. `was`: its earlier names, so a renamed level or area still counts its courses. */
+export type ProgramLevel = { name: string; on: boolean; was?: string[] };
+export const sampleLevels = (): ProgramLevel[] => PROGRAM_LEVELS.map((name) => ({ name, on: true }));
+export type StudyArea = { name: string; on: boolean; was?: string[] };
+export const sampleAreas = (): StudyArea[] => AREAS.map((name) => ({ name, on: true }));
+
+/* ---------- grade conversion and English test equivalence (Nesil, 3 Nov, after the reference screens) ---------- */
+/** How a grading system becomes a percentage: as it is, times a number, or grade by grade. */
+export const GRADE_METHODS = ['As is', 'Multiplier', 'Bands'] as const;
+export type GradeMethod = (typeof GRADE_METHODS)[number];
+export type Band = { grade: string; pct: number };
+export type GradeSystem = { id: string; name: string; countries: string[]; method: GradeMethod; factor?: number; bands?: Band[]; on: boolean };
+const gs = (name: string, countries: string[], method: GradeMethod, values?: number | Band[]): GradeSystem => ({
+  id: `g-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+  name,
+  countries,
+  method,
+  factor: typeof values === 'number' ? values : undefined,
+  bands: Array.isArray(values) ? values : undefined,
+  on: true,
+});
+const b = (grade: string, pct: number): Band => ({ grade, pct });
+export const sampleGrades = (): GradeSystem[] => [
+  gs('Percentage', ['India', 'Pakistan', 'Bangladesh', 'Nepal', 'Sri Lanka'], 'As is'),
+  gs('CGPA out of 10', ['India'], 'Multiplier', 9.5),
+  gs('GPA out of 4', ['Nepal', 'United States'], 'Multiplier', 25),
+  gs('GPA out of 5', ['Bangladesh'], 'Bands', [b('5.00', 80), b('4.00', 70), b('3.50', 60), b('3.00', 50)]),
+  gs('Division', ['India', 'Pakistan'], 'Bands', [b('First', 60), b('Second', 45), b('Third', 33)]),
+  gs('UK degree class', ['United Kingdom', 'Sri Lanka'], 'Bands', [b('First', 70), b('2:1', 60), b('2:2', 50), b('Third', 40)]),
+  gs('10-point scale', ['Vietnam'], 'Multiplier', 10),
+  gs('GWA, 1.0 to 5.0', ['Philippines'], 'Bands', [b('1.0', 97), b('1.5', 91), b('2.0', 85), b('2.5', 80), b('3.0', 75)]),
+];
+/** A row of equal scores, one a test. */
+export const ENGLISH_TESTS = [
+  ['ielts', 'IELTS Academic'],
+  ['toefl', 'TOEFL iBT'],
+  ['pte', 'PTE Academic'],
+  ['duolingo', 'Duolingo English Test'],
+] as const;
+export type EnglishRow = { id: string; ielts: number; toefl: number; pte: number; duolingo: number };
+export const sampleEnglish = (): EnglishRow[] =>
+  (
+    [
+      [5.5, 46, 42, 95],
+      [6.0, 60, 50, 105],
+      [6.5, 79, 58, 115],
+      [7.0, 94, 65, 125],
+      [7.5, 102, 73, 135],
+    ] as const
+  ).map(([ielts, toefl, pte, duolingo], i) => ({ id: `en${i + 1}`, ielts, toefl, pte, duolingo }));
+
+/* ---------- application routing (PM: Settings › Application routing) ---------- */
 export type RouteRule = { id: 'direct' | 'list' | 'keep' | 'onshore' | 'nat' | 'fb'; title: string; when: string; region: string; bdm: string; on: boolean };
-/** The six rules, in code: Admin owns each one's On or Off (not the Fallback) and the order (the Fallback stays last). */
 export const sampleRules = (): RouteRule[] => [
-  { id: 'direct', title: 'Direct application', when: 'The application has no RP', region: 'Direct', bdm: 'Direct’s default recruitment contact', on: true },
-  { id: 'list', title: 'RP is on a regional list', when: 'The RP is on one of the regional RP lists (nationality not used; Australia included)', region: 'The list’s region', bdm: 'The RP’s Recruitment contact', on: true },
-  { id: 'keep', title: 'Student in Australia, RP has no Australian branch', when: 'Student in Australia, applying to Australia, RP’s region is Vietnam or Latin America & Europe, and the RP has no Australian branch', region: 'The RP’s region', bdm: 'The RP’s Recruitment contact', on: true },
-  { id: 'onshore', title: 'Student in Australia, applying to Australia', when: 'Student in Australia, applying to Australia', region: 'Australia', bdm: 'Australia’s default recruitment contact', on: true },
-  { id: 'nat', title: 'Student’s nationality', when: 'The nationality is in the country map', region: 'That region', bdm: 'That region’s default recruitment contact', on: true },
-  { id: 'fb', title: 'Fallback', when: 'Nothing above matched', region: 'Direct', bdm: 'Direct’s default recruitment contact', on: true },
+  { id: 'direct', title: 'Direct application', when: 'The application has no RP (the student applied to GSP directly).', region: 'Direct', bdm: 'Direct region default BDM', on: true },
+  { id: 'list', title: 'RP is on a regional list', when: 'The RP is on one of the regional RP lists. Every application from that RP goes to the list’s region, onshore included. Nationality is not used.', region: 'The list’s region', bdm: 'The RP’s BDM', on: true },
+  { id: 'keep', title: 'Onshore, RP has no Australian branch', when: 'Onshore application, the RP’s sales region is Vietnam or Latin America and Europe, and the RP has no branch in Australia.', region: 'The RP’s own region', bdm: 'The RP’s BDM', on: true },
+  { id: 'onshore', title: 'Onshore application', when: 'The student’s current country is Australia and the destination is Australia.', region: 'Australia', bdm: 'Judy (region default)', on: true },
+  { id: 'nat', title: 'Student’s nationality', when: 'The student’s nationality is mapped to a region (Sales Regions › Nationality Map).', region: 'The nationality’s region', bdm: 'That region’s default BDM', on: true },
+  { id: 'fb', title: 'Fallback', when: 'Nothing above matched, for example a nationality that is not in the map.', region: 'Direct', bdm: 'That region’s default BDM', on: true },
 ];
-/** Each region's default recruitment contact (PRD seed table, from Jovial's Sales regions tab, 1 Nov). */
 export const REGION_BDM: Record<string, string> = {
-  India: N('saurabh.chaudhary'), Bangladesh: N('gsp.bangladesh'), Nepal: N('anil.shrestha'), 'Sri Lanka': N('kanchani.jayawardhana'), Vietnam: N('quan.hoang'), Pakistan: N('faryal.abbas+BDM'),
-  'Indonesia Malaysia & Thailand': N('rifaldo.marbun'), Myanmar: N('nilar.win'), Bhutan: N('ishwor.acharya'), Australia: N('judy.tan'), Philippines: N('arielle.sevilleno'),
-  Africa: N('gsp.bangladesh'), 'Latin America & Europe': N('camilo.penaranda'), China: N('annie.gu'), 'Rest of world': N('ali.butt'), Direct: N('ali.butt'), Global: N('ali.butt'),
+  India: 'Nadia', Bangladesh: 'Sania', Nepal: 'Anil Shrestha', 'Sri Lanka': 'Kanchani', Vietnam: 'Tina', Pakistan: 'Ali', 'Indonesia, Malaysia and Thailand': 'Rifaldo',
+  'Myanmar and Bhutan': 'Nilar', Australia: 'Judy', Philippines: 'Arielle', Africa: 'Faisal', 'Latin America and Europe': 'Camilo', China: 'Judy',
 };
-/** Each region's Admissions queue at the start, by queue name (PRD seed table): South-East Asia shares one; the three system regions → Global Admissions. */
-const SEA = ['Vietnam', 'Indonesia Malaysia & Thailand', 'Myanmar', 'Bhutan'];
-export const seedQueueName = (region: string) => (isSystemRegion(region) ? 'Global Admissions' : SEA.includes(region) ? 'SEA Admissions' : `${region} Admissions`);
-/**
- * A region's Admissions queue, by name (S4-1): the queue picked for it on Admin › User roles › Sales regions, from
- * Admin › Work's queues. A region whose queue was deleted, or that has none, falls back to Global Admissions.
- */
-export const regionQueueName = (region: string) => {
-  const c = live.cfg?.();
-  if (!c) return seedQueueName(region);
-  const v = c.regionQueue[region];
-  // older saved settings stored Admin's own queue id (q12); newer ones store the Work queue's name
-  return (v && (c.queues.find((q) => q.id === v)?.name ?? v)) || 'Global Admissions';
-};
-/** An RP as the routing rules see it: its sales region, whether it has an Australian branch, and its BDM. From the RP records (data/regions.ts routingRps). */
+/** The PM's sample RPs, for the regional lists and the test. */
 export type RoutingRp = { name: string; region: string; auBranch: boolean; bdm: string };
-/** The regional RP lists at the start: real RPs from the records (seeded: Vietnam, Latin America & Europe, Philippines). */
-export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Edunetwork Australia', 'IEMC Global Pty Ltd'], 'Latin America & Europe': ['Latin Education and Migration'], Philippines: ['Pathway To Aus'] });
+export const ROUTING_RPS: RoutingRp[] = [
+  { name: 'BrightPath Overseas', region: 'India', auBranch: false, bdm: 'Aditya' },
+  { name: 'Horizon Overseas', region: 'India', auBranch: true, bdm: 'Harsh' },
+  { name: 'Kathmandu Study Hub', region: 'Nepal', auBranch: false, bdm: 'Anil Shrestha' },
+  { name: 'Dhaka Global Education', region: 'Bangladesh', auBranch: false, bdm: 'Sania' },
+  { name: 'Saigon Study Link', region: 'Vietnam', auBranch: false, bdm: 'Tina' },
+  { name: 'Mekong Edu Partners', region: 'Vietnam', auBranch: true, bdm: 'Hoang' },
+  { name: 'Andes Education Group', region: 'Latin America and Europe', auBranch: false, bdm: 'Camilo' },
+  { name: 'Manila Abroad Consultancy', region: 'Philippines', auBranch: false, bdm: 'Arielle' },
+  { name: 'Colombo Pathways', region: 'Sri Lanka', auBranch: false, bdm: 'Kanchani' },
+  { name: 'Lagos Study Partners', region: 'Africa', auBranch: false, bdm: 'Faisal' },
+];
+export const sampleLists = (): Record<string, string[]> => ({ Vietnam: ['Saigon Study Link', 'Mekong Edu Partners'], 'Latin America and Europe': ['Andes Education Group'], Philippines: ['Manila Abroad Consultancy'] });
+/** The nationalities the test offers; their regions come from the Nationality Map (Sales Regions, 4 Nov). */
+export const TEST_NATIONALITIES = ['India', 'Nepal', 'Bangladesh', 'Sri Lanka', 'Pakistan', 'Vietnam', 'Philippines', 'China', 'Indonesia', 'Malaysia', 'Thailand', 'Myanmar', 'Bhutan', 'Nigeria', 'Kenya', 'Ghana', 'Brazil', 'Colombia', 'Germany', 'United Arab Emirates', 'Canada', 'United States'];
+export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United States', 'New Zealand', 'Ireland'];
 
-/** One rule in the test's trace: Matched, No, Not reached, or Off. */
-export type TraceState = 'Matched' | 'No' | 'Not reached' | 'Off';
-/** Runs the rules from the top: the first that matches sets the region and BDM (with every rule's trace). */
-export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string; rpInfo?: RoutingRp }, defaults: Record<string, string> = REGION_BDM, nationality: Record<string, string> = NATIONALITY) {
-  // the RP from its record: the caller says where it is (data/regions.ts routingRps)
-  const rp = a.rp ? a.rpInfo : undefined;
+/** Runs the rules from the top: the first that matches sets the region and BDM (PM: routing with its trace). */
+export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string }, nationalities: Record<string, string>) {
+  const rp = ROUTING_RPS.find((r) => r.name === a.rp);
   const listRegion = rp && Object.entries(lists).find(([, l]) => l.includes(rp.name))?.[0];
   const onshore = a.now === 'Australia' && a.dest === 'Australia';
   const test: Record<RouteRule['id'], () => { region: string; bdm: string; why: string } | null> = {
-    direct: () => (!rp ? { region: 'Direct', bdm: defaults.Direct || 'Not set', why: 'The application has no RP' } : null),
+    direct: () => (!rp ? { region: 'Direct', bdm: REGION_BDM.Direct ?? 'Not set', why: 'No RP: the student applied to GSP directly' } : null),
     list: () => (listRegion ? { region: listRegion, bdm: rp!.bdm, why: `${rp!.name} is on the ${listRegion} list` } : null),
-    keep: () => (rp && onshore && ['Vietnam', 'Latin America & Europe'].includes(rp.region) && !rp.auBranch ? { region: rp.region, bdm: rp.bdm, why: `Student in Australia, and ${rp.name} (${rp.region}) has no Australian branch` } : null),
-    onshore: () => (onshore ? { region: 'Australia', bdm: defaults.Australia || 'Not set', why: 'The student is in Australia and applying to Australia' } : null),
-    nat: () => (nationality[a.nationality] ? { region: nationality[a.nationality], bdm: defaults[nationality[a.nationality]] || 'Not set', why: `${a.nationality} is in the map: ${nationality[a.nationality]}` } : null),
-    fb: () => ({ region: 'Direct', bdm: defaults.Direct || 'Not set', why: 'Nothing above matched' }),
+    keep: () => (rp && onshore && ['Vietnam', 'Latin America and Europe'].includes(rp.region) && !rp.auBranch ? { region: rp.region, bdm: rp.bdm, why: `Onshore, and ${rp.name} (${rp.region}) has no Australian branch` } : null),
+    onshore: () => (onshore ? { region: 'Australia', bdm: REGION_BDM.Australia, why: 'The student is in Australia and applying to Australia' } : null),
+    nat: () => (nationalities[a.nationality] ? { region: nationalities[a.nationality], bdm: REGION_BDM[nationalities[a.nationality]] ?? 'Not set', why: `${a.nationality} maps to ${nationalities[a.nationality]} on the Nationality Map` } : null),
+    fb: () => ({ region: 'Direct', bdm: 'Not set', why: nationalities[a.nationality] ? 'Nothing above matched' : `Nothing above matched (${a.nationality} isn’t on the Nationality Map)` }),
   };
   let hit: { region: string; bdm: string; why: string; rule: RouteRule; n: number } | null = null;
-  const trace = rules.map((r, i): { r: RouteRule; state: TraceState; why: string } => {
-    if (hit) return { r, state: 'Not reached', why: 'An earlier rule matched' };
-    if (!r.on && r.id !== 'fb') return { r, state: 'Off', why: 'Switched off' };
+  const trace = rules.map((r, i) => {
+    if (hit) return { r, state: 'Skipped' as const, why: 'Not checked: an earlier rule matched' };
+    if (!r.on && r.id !== 'fb') return { r, state: 'Off' as const, why: 'Rule is switched off' };
     const x = test[r.id]();
     if (x) {
       hit = { ...x, rule: r, n: i + 1 };
-      return { r, state: 'Matched', why: x.why };
+      return { r, state: 'Match' as const, why: x.why };
     }
-    return { r, state: 'No', why: 'Doesn’t apply' };
+    return { r, state: 'No' as const, why: 'Does not apply' };
   });
   return { hit: hit as { region: string; bdm: string; why: string; rule: RouteRule; n: number } | null, trace, source: rp ? rp.region : 'Direct' };
 }
 
-/* ---------- document configuration (PRD slice 1, Document configuration) ---------- */
-/** Slice 3's 8 stages. */
-export const STAGES = ['New', 'Pre-screening', 'Application', 'Offer', 'Verification', 'Acceptance', 'Visa', 'Enrolment'] as const;
-export type DocRule = { id: string; doc: string; stage: (typeof STAGES)[number]; when: string; setting: 'Mandatory' | 'Optional'; by: 'RP' | 'GSP'; on: boolean; cond?: DocCond; /** A line for the RP beside the document (“May be needed”), 4 Nov. */ note?: string; /** An application has asked for it: it can only be switched off (proposal S1C-12). */ asked?: boolean };
+/* ---------- document configuration (PM: Settings › Document rules and Agency documents) ---------- */
+export const STAGES = ['New', 'Pre-Screening', 'Application', 'Offer', 'Verification', 'Acceptance', 'Visa', 'Enrolled'] as const;
 /**
- * When a document rule applies: Program levels, university countries, where the student is against the destination,
- * the student's current location (their country of residence, 4 Nov; `from`, missing on older rules), and an other
- * condition. Empty = any.
+ * An application document rule. 4 Nov (Nesil): when it applies is four lists, each picked from several (an empty one
+ * is any): the **program levels**, the **study areas**, the **university's country** and the **student's current
+ * country**; `note` is a condition the team checks by hand (the university has its own form).
  */
-export type DocCond = { levels: string[]; countries: string[]; where: string; other: string; from?: string[] };
-/** The student's current location a rule asks for (empty = anywhere). */
-export const fromOf = (c: Pick<DocCond, 'from'>) => c.from ?? [];
-/** Does a student living in `country` meet the rule's current location? */
-export const fromMatches = (c: Pick<DocCond, 'from'>, country: string) => !fromOf(c).length || fromOf(c).includes(country);
-/** Slice 2's Program levels (Admin › Program levels, S2-17). */
-export const DOC_LEVELS = ['Foundation', 'Diploma', 'Bachelor’s degree', 'Postgraduate diploma', 'Master’s degree', 'PhD or research'];
-/** The catalogue's short names for two countries (its universities say UK and USA). */
-const CAT_NAME: Record<string, string> = { 'United Kingdom': 'UK', 'United States': 'USA' };
-const LIST_NAME: Record<string, string> = { UK: 'United Kingdom', USA: 'United States' };
-export const DOC_WHERE = ['Anywhere', 'Already in the destination', 'Outside it'];
-export const listOr = (l: string[]) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} or ${l[l.length - 1]}` : l[0] ?? '');
-export const whenText = (c: DocCond) =>
-  [c.levels.length && listOr(c.levels), fromOf(c).length && `student living in ${listOr(fromOf(c))}`, c.countries.length && `University in ${listOr(c.countries.map((x) => CAT_NAME[x] ?? x).map((x) => (x === 'UK' || x === 'USA' ? `the ${x}` : x)))}`, c.where === 'Already in the destination' ? 'already in the destination' : c.where === 'Outside it' || c.where === 'Outside the destination' ? 'outside the destination' : '', c.other.trim()].filter(Boolean).join(', ') || 'Always';
-/**
- * The rule's conditions, for matching against a course: its countries as the catalogue names them (UK, USA), and
- * "Outside it" as the readers know it. Read from the rule's sentence for rules made before conditions were stored.
- */
-export function condOf(r: DocRule): DocCond {
-  const c0 = r.cond ?? { levels: [], countries: [], where: 'Anywhere', other: '' };
-  return { ...c0, from: fromOf(c0), countries: c0.countries.map((x) => CAT_NAME[x] ?? x), where: c0.where === 'Outside it' ? 'Outside the destination' : c0.where };
-}
-/** The rule's conditions as Admin edits them (country list names). */
-export const editCond = (r: DocRule): DocCond => {
-  const c = r.cond ?? { levels: [], countries: [], where: 'Anywhere', other: '' };
-  return { ...c, from: fromOf(c), countries: c.countries.map((x) => LIST_NAME[x] ?? x) };
-};
+export type DocRule = { id: string; doc: string; stage: (typeof STAGES)[number]; levels: string[]; areas: string[]; uni: string[]; now: string[]; note?: string; setting: 'Mandatory' | 'Optional'; by: 'RP' | 'GSP'; on: boolean };
+/** The universities' countries a rule can name. */
+export const DOC_UNI_COUNTRIES = ['Australia', 'UK', 'Canada', 'USA', 'New Zealand', 'Ireland', 'Malaysia'];
+type When = Partial<Pick<DocRule, 'levels' | 'areas' | 'uni' | 'now' | 'note'>>;
 let d = 0;
-const dr = (doc: string, cond: Partial<DocCond>, setting: DocRule['setting'], note?: string): DocRule => {
-  const c: DocCond = { levels: [], countries: [], where: 'Anywhere', other: '', from: [], ...cond };
-  return { id: `d${++d}`, doc, stage: 'New', when: whenText(c), setting, by: 'RP', on: true, cond: c, asked: true, ...(note ? { note } : {}) };
-};
-/** Slice 2's postgraduate and undergraduate Program levels, as the seed rules name them. */
-const PG_LEVELS = ['Postgraduate diploma', 'Master’s degree', 'PhD or research'];
-const UG_LEVELS = ['Foundation', 'Diploma', 'Bachelor’s degree'];
+const dr = (doc: string, stage: DocRule['stage'], when: When, setting: DocRule['setting'], by: DocRule['by']): DocRule => ({ id: `d${++d}`, doc, stage, levels: [], areas: [], uni: [], now: [], ...when, setting, by, on: true });
+const PG_UP = ['Postgraduate diploma', 'Master’s degree', 'PhD or research'];
+export const sampleDocRules = (): DocRule[] => [
+  dr('Passport', 'New', {}, 'Mandatory', 'RP'),
+  dr('Class 10 marksheet', 'New', {}, 'Mandatory', 'RP'),
+  dr('Class 12 marksheet', 'New', {}, 'Mandatory', 'RP'),
+  dr('UG degree and transcripts', 'New', { levels: PG_UP }, 'Mandatory', 'RP'),
+  dr('PG degree and transcripts', 'New', { levels: ['PhD or research'] }, 'Mandatory', 'RP'),
+  dr('SOP', 'New', { uni: ['UK'] }, 'Mandatory', 'RP'),
+  dr('LORs', 'New', { uni: ['UK'] }, 'Mandatory', 'RP'),
+  dr('University application form, filled', 'New', { note: 'The university has its own form' }, 'Mandatory', 'RP'),
+  dr('IP transfer proof', 'New', { uni: ['Australia'], now: ['Australia'] }, 'Optional', 'RP'),
+  dr('RPL proof', 'New', { uni: ['Australia'], now: ['Australia'] }, 'Optional', 'RP'),
+  dr('Conditional offer letter', 'Offer', {}, 'Mandatory', 'GSP'),
+  dr('Financial documents', 'Verification', {}, 'Optional', 'RP'),
+  dr('GS outcome', 'Verification', { uni: ['Australia'] }, 'Mandatory', 'GSP'),
+  dr('Unconditional offer letter', 'Offer', {}, 'Mandatory', 'GSP'),
+  dr('Pre-visa approval (AIP / EMGS)', 'Acceptance', { uni: ['New Zealand', 'Malaysia'] }, 'Mandatory', 'RP'),
+  dr('Deposit receipt', 'Acceptance', {}, 'Mandatory', 'RP'),
+  dr('Acceptance letter (CoE, CAS, I-20, LOA and PAL)', 'Acceptance', {}, 'Mandatory', 'GSP'),
+  dr('Visa lodgement proof', 'Visa', {}, 'Mandatory', 'RP'),
+  dr('Visa outcome', 'Visa', {}, 'Mandatory', 'RP'),
+  dr('Proof of enrolment', 'Enrolled', {}, 'Mandatory', 'GSP'),
+];
+const the = (c: string) => (c === 'UK' || c === 'USA' ? `the ${c}` : c);
+const or = (l: string[]) => (l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} or ${l[l.length - 1]}`);
+/** When a rule applies, as the table reads it: "Program level: Master’s degree; University in the UK", or Always. */
+export const whenText = (r: DocRule) =>
+  [
+    r.levels.length && `Program level: ${r.levels.join(', ')}`,
+    r.areas.length && `Study area: ${r.areas.join(', ')}`,
+    r.uni.length && `University in ${or(r.uni.map(the))}`,
+    r.now.length && `Student now in ${or(r.now.map(the))}`,
+    r.note,
+  ]
+    .filter(Boolean)
+    .join('; ') || 'Always';
+const any = (l: string[], v: string) => !l.length || l.includes(v);
+/** Whether a rule asks an application for its document: each list it sets must hold the application's value. */
+export const docRuleApplies = (r: DocRule, a: { level: string; area: string; uni: string; now: string }) => r.on && any(r.levels, a.level) && any(r.areas, a.area) && any(r.uni, a.uni) && any(r.now, a.now);
+
 /**
- * The 11 application document rules (PRD slice 1, with the admissions teams' feedback, 4 Nov: a CV for every
- * postgraduate application; the SOP for UK postgraduate only; the Class 10 marksheet optional, "May be needed", for
- * undergraduate applications from students living in Bangladesh, Nepal, Sri Lanka and India), all asked at New and
- * uploaded by the RP. GSP's own
- * uploads on a status change (the offer letters, one Acceptance letter for every destination, the visa grant) are
- * slice 3's (S3-9, S3-23): no CoE, CAS, I-20, LOA or Offer of place here.
+ * Request categories (Nesil, 4 Nov): what GSP asks a recruitment partner for on an application, from the requests GSP
+ * already makes: a document it needs (the chat's Request document), more the university asks for (Additional
+ * documents requested), an offer's conditions (Request conditions), an assessment or interview, the tuition or deposit
+ * payment, and the visa lodgement proof.
  */
-export const sampleDocRules = (): DocRule[] => {
-  d = 0;
-  return [
-    dr('Passport', {}, 'Mandatory'),
-    dr('Class 10 marksheet', { levels: UG_LEVELS, from: ['Bangladesh', 'Nepal', 'Sri Lanka', 'India'] }, 'Optional', 'May be needed'),
-    { ...dr('Class 12 marksheet', {}, 'Mandatory'), when: 'Any program level' },
-    dr('UG degree and transcripts', { levels: PG_LEVELS }, 'Mandatory'),
-    dr('PG degree and transcripts', { levels: ['PhD or research'] }, 'Mandatory'),
-    dr('CV', { levels: PG_LEVELS }, 'Mandatory'),
-    dr('SOP', { levels: PG_LEVELS, countries: ['United Kingdom'] }, 'Mandatory'),
-    dr('LORs', { countries: ['United Kingdom'] }, 'Mandatory'),
-    dr('University application form, filled', { other: 'The university has its own form' }, 'Mandatory'),
-    dr('IP transfer proof', { countries: ['Australia'], where: 'Already in the destination' }, 'Optional'),
-    dr('RPL proof', { countries: ['Australia'], where: 'Already in the destination' }, 'Optional'),
-  ];
-};
-/** A recruitment partner document: its name and whether it's needed. */
-export type RpDoc = { name: string; setting: 'Mandatory' | 'Optional' };
-/** How an RP document rule's countries apply. */
-export const RP_DOC_APPLIES = ['Only these countries', 'All countries except', 'All countries'] as const;
-export type RpDocRule = { id: string; name?: string; applies: (typeof RP_DOC_APPLIES)[number]; countries: string[]; docs: RpDoc[] };
-/** Older saved rules kept documents as plain names ("GST certificate (if registered)" was the optional one). */
-export const rpDocsOf = (r: { docs: (RpDoc | string)[] }): RpDoc[] => r.docs.map((x) => (typeof x === 'string' ? { name: x.replace(/\s*\(if [^)]*\)/i, ''), setting: /\(if /i.test(x) ? 'Optional' : 'Mandatory' } : x));
+export const sampleCategories = (): string[] => ['Missing document', 'Additional documents for the university', 'Offer conditions', 'University assessment or interview', 'Tuition or deposit receipt', 'Visa lodgement proof'];
+export type RpDocRule = { id: string; applies: 'Only these countries' | 'All countries except' | 'All countries'; countries: string[]; docs: string[] };
 export const sampleRpDocs = (): RpDocRule[] => [
-  { id: 'r1', name: 'India', applies: 'Only these countries', countries: ['India'], docs: [{ name: 'Business registration certificate', setting: 'Mandatory' }, { name: 'PAN card', setting: 'Mandatory' }, { name: 'GST certificate', setting: 'Optional' }] },
-  { id: 'r2', name: 'Everywhere else', applies: 'All countries', countries: [], docs: [{ name: 'Business registration certificate', setting: 'Mandatory' }, { name: 'Company profile', setting: 'Mandatory' }, { name: 'Owner’s ID', setting: 'Mandatory' }, { name: 'Reference (name, email, phone)', setting: 'Mandatory' }] },
-];
-/** The rule a recruitment partner gets: the first that names its head-office country, else the All countries rule. */
-export const rpRuleFor = (rules: RpDocRule[], country: string) =>
-  rules.find((r) => (r.applies === 'Only these countries' && r.countries.includes(country)) || (r.applies === 'All countries except' && !r.countries.includes(country))) ?? rules.find((r) => r.applies === 'All countries');
-
-/* ---------- filters (not in the PM prototype: course search's own filters) ---------- */
-export type FilterSet = { page: string; filters: { id: string; label: string; shown: boolean }[] };
-export const sampleFilters = (): FilterSet[] => [
-  {
-    page: 'Course search',
-    // Regression 6 (2 Nov): no "Deadline within" filter; Countdown only sets "closes in N days"
-    filters: ['University', 'Tuition a year, up to', 'IELTS needed, up to', 'Intake open now', 'Scholarship available', 'No application fee', 'English test can wait or be waived', 'Post-study work visa', 'Shortlisted only'].map((label, i) => ({ id: `c${i}`, label, shown: true })),
-  },
-  {
-    page: 'Applications',
-    filters: ['Destination', 'Counsellor', 'Intake', 'Stage', 'Status', 'University', 'Started between'].map((label, i) => ({ id: `a${i}`, label, shown: i < 3 || i === 4 })),
-  },
-  {
-    page: 'Students',
-    filters: ['Status', 'Counsellor', 'Nationality', 'Highest education', 'Added between'].map((label, i) => ({ id: `s${i}`, label, shown: i < 2 })),
-  },
+  { id: 'r1', applies: 'Only these countries', countries: ['India'], docs: ['Business registration certificate', 'PAN card', 'GST certificate (if registered)'] },
+  { id: 'r2', applies: 'All countries except', countries: ['India'], docs: ['Business registration certificate', 'Company profile', 'Owner’s ID', 'Reference (name, email, phone)'] },
 ];
 
-/* ---------- logs (PRD slice 1, Audit: change log and download log) ---------- */
-/**
- * The log starts empty (Jovial, 2 Nov: nothing hard-coded): Change history entries are written by saves, download
- * entries by exports (data/downloads.ts), and the daily jobs' runs are worked out on Work › Emails and daily jobs.
- */
-export const sampleLog = (): LogEntry[] => [];
+/* ---------- logs (PM: Download log; plus every change here; Nesil, 4 Nov: who by email, and each one's sales
+   region) ---------- */
+const at = (daysAgo: number, h: number, m: number) => {
+  const x = new Date(Date.now() - daysAgo * DAY);
+  x.setHours(h, m, 0, 0);
+  return x.getTime();
+};
+const JOVIAL = { who: 'Jovial Lejo', email: 'jovial.lejo@gsp.upgrad.com', role: 'Super Admin', region: 'Global' };
+const MEGHA = { who: 'Megha Malhotra', email: 'megha.malhotra@gsp.upgrad.com', role: 'Admissions Head', region: 'India' };
+const RAMISH = { who: 'Ramish', email: 'ramish@gsp.upgrad.com', role: 'Admissions', region: 'India' };
+const KAMRUN = { who: 'Kamrun', email: 'kamrun@gsp.upgrad.com', role: 'Admissions', region: 'Bangladesh' };
+const TRUC = { who: 'Truc', email: 'truc@gsp.upgrad.com', role: 'Admissions', region: 'Vietnam' };
+const ANANYA = { who: 'Ananya Rao', email: 'ananya@horizonoverseas.in', role: 'RP admin', region: 'India' };
+const LAN = { who: 'Lan Nguyen', email: 'lan@saigonbridge.vn', role: 'RP admin', region: 'Vietnam' };
+const LAV = { who: 'Lav Likhi', email: 'lav.likhi@gsp.upgrad.com', role: 'Commissions & Finance', region: 'Global' };
+const LALAINE = { who: 'Lalaine Dizon', email: 'lalaine.dizon@gsp.upgrad.com', role: 'IP team', region: 'Global' };
+const RIYA = { who: 'Riya Sen', email: 'riya.sen@gsp.upgrad.com', role: 'Data team', region: 'Global' };
+const SAURABH = { who: 'Saurabh', email: 'saurabh@gsp.upgrad.com', role: 'Recruitment Head', region: 'India' };
+const TINA = { who: 'Tina', email: 'tina@gsp.upgrad.com', role: 'Recruitment (BDM)', region: 'Vietnam' };
+const LEENA = { who: 'Leena Thomas', email: 'leena.thomas@gsp.upgrad.com', role: 'BAP', region: 'Global' };
+const dl = (id: string, t: number, p: typeof JOVIAL, area: string, text: string, records: number, format: string, filters: string): LogEntry => ({ id, at: t, ...p, area, text, kind: 'download', records, format, filters });
+export const sampleLog = (): LogEntry[] => [
+  { id: 'l1', at: Date.now() - 3 * 3_600_000, ...JOVIAL, area: 'BDM assignment', text: 'Edited India · Kerala → Nadia', kind: 'change' },
+  dl('l2', at(0, 10, 12), RAMISH, 'Applications', 'Applications list', 46, 'CSV', 'India · Ready to submit'),
+  dl('l3', at(0, 9, 30), TRUC, 'Students', 'Students list', 128, 'CSV', 'Vietnam · Added this month'),
+  dl('l4', at(1, 16, 5), SAURABH, 'Recruitment partners', 'Recruitment partners', 214, 'CSV', 'India · Agreement signed'),
+  dl('l5', at(1, 12, 41), MEGHA, 'Applications', 'Applications list', 312, 'CSV', 'India · With university'),
+  dl('l6', at(1, 11, 2), ANANYA, 'Course search', 'Course shortlist', 8, 'CSV', '8 courses · 6 fields'),
+  dl('l7', at(1, 9, 48), TINA, 'Recruitment partners', 'Recruitment partners', 37, 'CSV', 'Vietnam'),
+  dl('l8', at(2, 18, 20), LAV, 'Commissions', 'Confirmed commissions', 1204, 'XLSX', 'Oct 2026'),
+  { id: 'l9', at: at(2, 15, 5), ...JOVIAL, area: 'Application routing', text: 'Moved “Onshore, RP has no Australian branch” above “Onshore application”', kind: 'change' },
+  dl('l10', at(2, 10, 15), LALAINE, 'Universities', 'Universities', 86, 'CSV', 'Australia'),
+  dl('l11', at(2, 9, 2), KAMRUN, 'Applications', 'Applications list', 58, 'CSV', 'Bangladesh · Offer'),
+  dl('l12', at(3, 17, 22), RIYA, 'Courses', 'Courses', 2410, 'CSV', 'Live courses'),
+  { id: 'l13', at: at(3, 16, 40), ...JOVIAL, area: 'Permission roles', text: 'Recruitment Head: RP branches and team → View and Edit', kind: 'change' },
+  dl('l14', at(3, 11, 18), LAN, 'Course search', 'Course comparison', 4, 'PDF', '4 courses'),
+  dl('l15', at(4, 15, 51), LEENA, 'Recruitment partners', 'Partners to verify', 19, 'CSV', 'Documents to check'),
+  dl('l16', at(4, 12, 7), LAV, 'Commissions', 'Payout statement', 342, 'XLSX', 'Sep 2026'),
+  dl('l17', at(5, 14, 33), ANANYA, 'Students', 'Students list', 64, 'CSV', 'Horizon Overseas'),
+  dl('l18', at(5, 10, 40), MEGHA, 'Students', 'Students list', 590, 'CSV', 'India'),
+  dl('l19', at(6, 16, 12), RIYA, 'Universities', 'Universities', 312, 'CSV', 'All countries'),
+  dl('l20', at(6, 11, 25), TRUC, 'Applications', 'Applications list', 77, 'CSV', 'Vietnam · Visa'),
+  dl('l21', at(7, 17, 3), SAURABH, 'Applications', 'Applications list', 940, 'XLSX', 'India · This intake'),
+  dl('l22', at(8, 9, 55), LALAINE, 'Courses', 'Courses', 1180, 'CSV', 'UK'),
+  dl('l23', at(9, 13, 16), KAMRUN, 'Students', 'Students list', 210, 'CSV', 'Bangladesh'),
+  { id: 'l24', at: at(10, 12, 0), ...JOVIAL, area: 'Sales regions', text: 'Edited Vietnam: BDM contact Tina', kind: 'change' },
+];

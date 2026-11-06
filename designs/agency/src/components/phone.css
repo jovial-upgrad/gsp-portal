@@ -1,18 +1,25 @@
 .phone__dial {
   position: relative;
   flex: none;
+  height: 100%;
+  border-right: 1px solid var(--line);
+}
+/* the dial code opens the product's dropdown (4 Nov), its list as wide as the phone field */
+.phone__btn {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
   height: 100%;
   padding: 0 var(--sp-10) 0 var(--sp-16);
-  border-right: 1px solid var(--line);
+  border: 0;
+  border-radius: var(--r-ctl) 0 0 var(--r-ctl);
+  background: none;
   color: var(--text);
+  font: inherit;
   font-size: var(--t-input);
+  cursor: pointer;
 }
-.phone__dial svg { color: var(--text-3); }
+.phone__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.phone__chev { color: var(--text-3); transition: transform var(--dur-2) var(--ease-out); }
+.phone__dial.is-open .phone__chev { transform: rotate(180deg); }
 .phone .control__input { padding-left: var(--sp-12); }
-.phone__pick { height: 100%; }
-.phone__pick .smenu__btn--bare { height: 100%; font-size: var(--t-input); color: var(--text); }
-.phone__dial:has(.smenu__btn--bare:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-ctl) 0 0 var(--r-ctl); }
-.phone__pick .smenu__btn--bare:focus-visible { outline: none; }

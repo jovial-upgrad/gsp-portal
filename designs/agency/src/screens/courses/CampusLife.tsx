@@ -1,19 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import type { University } from '../../data/courses';
+import photos from '../../data/campus-photos.json';
+import sample1 from '../../assets/campus/sample-1.webp';
+import sample2 from '../../assets/campus/sample-2.webp';
+import sample3 from '../../assets/campus/sample-3.webp';
+import sample4 from '../../assets/campus/sample-4.webp';
+import sample5 from '../../assets/campus/sample-5.webp';
 
-/** A photo, described for screen readers (no caption shows); one without an image is a placeholder with its file name. */
-export type Photo = { src?: string; caption: string; author?: string; license?: string; source?: string };
+/** A photo, described for screen readers (no caption shows); a university's own photos also carry their credit, linked to where they're from. */
+export type Photo = { src: string; caption: string; author?: string; license?: string; source?: string };
+type OwnPhoto = Omit<Photo, 'src'> & { file: string };
 
 const MAX = 10;
+const FILES = import.meta.glob('../../assets/campus/*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 
-/**
- * The university's photos (up to 10), from the Pictures on its record (Jovial, 1 Nov, HC11). None on the record: no
- * photos, and no samples in their place. A picture uploaded in the prototype keeps only its name, so it shows as a
- * placeholder with that name.
- */
+/** Sample photos every university shows until it has its own (Nesil, 27 Oct). */
+const SAMPLES: Photo[] = [
+  { src: sample1, caption: 'Students on the campus lawn' },
+  { src: sample2, caption: 'Walking between classes' },
+  { src: sample3, caption: 'Students on campus' },
+  { src: sample4, caption: 'Study spaces in the library' },
+  { src: sample5, caption: 'Graduation day' },
+];
+
+/** The university's photos (up to 10): its own, or the shared samples until it has some. */
 export function photosOf(u: University): Photo[] {
-  return (u.pictures ?? []).slice(0, MAX).map((p) => ({ src: p.src, caption: `${u.name}: ${p.name}` }));
+  const own = ((photos as Record<string, OwnPhoto[]>)[u.id] ?? [])
+    .map(({ file, ...p }) => ({ ...p, src: FILES[`../../assets/campus/${file}`] }))
+    .filter((p) => p.src);
+  return (own.length ? own : SAMPLES).slice(0, MAX);
 }
 
 /**
@@ -42,15 +58,8 @@ export function CampusLife({ list }: { list: Photo[] }) {
     <div className="cs-life">
       <ul ref={row} className="cs-life__row" onScroll={measure} aria-label={`${list.length} campus photos`}>
         {list.map((p, i) => (
-          <li key={(p.src ?? p.caption) + i} className="cs-photo">
-            {p.src ? (
-              <img className="cs-photo__img" src={p.src} alt={p.caption} loading="lazy" decoding="async" />
-            ) : (
-              <span className="cs-photo__img cs-photo__ph" role="img" aria-label={p.caption}>
-                <Icon name="file" size={24} />
-                <span>{p.caption.split(': ').slice(1).join(': ')}</span>
-              </span>
-            )}
+          <li key={p.src + i} className="cs-photo">
+            <img className="cs-photo__img" src={p.src} alt={p.caption} loading="lazy" decoding="async" />
             {p.author && (
               <p className="cs-photo__credit">
                 {p.source ? (

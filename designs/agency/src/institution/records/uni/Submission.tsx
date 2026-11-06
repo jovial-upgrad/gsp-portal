@@ -1,130 +1,120 @@
 import { useEffect, useRef, useState } from 'react';
+import { EditOnly } from '../../../proto/viewOnly';
 import { Button } from '../../../components/Button';
 import { Icon } from '../../../components/Icon';
-import { ConfirmDialog } from '../../../components/ConfirmDialog';
-import { Field, TextInput } from '../../../components/forms';
+import { Field, SelectInput, TextInput } from '../../../components/forms';
 import { CHANNELS, FORM_FOR, REGIONS, type Channel, type FormFor, type UniRec } from '../../data/catalogue';
 import { dateText, inDays, type InstitutionPartner } from '../../data/records';
-import { acceptOf, audit, checkFile } from '../../data/changelog';
-import { AddButton, Pick, Section, Updated } from '../parts';
-import { Contacts, downloadFile } from '../PartnerPage';
+import { AddButton, ErrorText, Section, Updated, useAsk } from '../parts';
+import { FILE_TYPES } from '../PartnerPage';
+import { useContacts } from '../Contacts';
 import type { UniUpd } from '../UniversityPage';
 
+/** 3 Nov: StudyLink shows what Own portal does: its portal address, and the logins GSP uses there. */
 const LINK: Record<Channel, [string, string]> = {
-  'Own portal': ['Portal link', 'https://apply.university.edu'],
-  StudyLink: ['StudyLink', 'studylink.com'],
-  Email: ['Email address', 'admissions@university.edu'],
+  'Own portal': ['Portal address', 'Like: apply.university.edu'],
+  StudyLink: ['Portal address', 'Like: apply.university.edu'],
+  Email: ['Email applications go to', 'Like: admissions@university.edu'],
 };
-const FORM_KINDS = ['pdf', 'word', 'jpg', 'png'] as const;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Own portal and StudyLink: GSP applies on a portal, with its logins (4 Nov: at least one). */
+export const onPortal = (c: Channel | '') => c === 'Own portal' || c === 'StudyLink';
+const ON_PORTAL = onPortal;
 
 /**
- * Submission and contacts (slice 2 PRD): the application forms the university needs (name, file, level), how
- * applications are sent (own portal with its https:// link, StudyLink, or email with a valid address: required to go
- * Live), portal logins by sales region, inside How applications are sent (Jovial, 3 Nov; Institution, IP Ops, Global Ops and Admin edit; Admission, Finance and View
- * Only can Show; each Show is in the audit log), and the university's contacts.
+ * Submission and contacts (29 Oct, 2nd round, after the PM prototype): the forms the university needs for each level,
+ * how GSP sends applications to it (its own portal, StudyLink or email), the logins GSP uses on its portal, kept in
+ * the secrets store, and who to talk to about admissions and marketing. 29 Oct (7th round): in that order, and no
+ * log of who looked at a password. `part` changes one section and says who did, and when. 3 Nov: the portal logins
+ * sit in How applications are sent, for Own portal and StudyLink alike, and not for Email. 4 Nov: a login can be
+ * edited; Own portal and StudyLink need at least one, so they can't be saved without it, and the last one can't go;
+ * removing a form or a login asks first.
  */
-export function Submission({ u, p, part, say, me, role, edit, editLogins, seeLogins }: { u: UniRec; p?: InstitutionPartner; part: (k: string) => UniUpd; say: (m: string) => void; me: string; role: string; edit: boolean; editLogins: boolean; seeLogins: boolean }) {
+export function Submission({ u, part, say, me }: { u: UniRec; p?: InstitutionPartner; part: (k: string) => UniUpd; say: (m: string) => void; me: string }) {
   const [channel, setChannel] = useState<Channel | ''>(u.channel);
   const [link, setLink] = useState(u.link);
-  const [tried, setTried] = useState(false);
-  useEffect(() => {
-    setChannel(u.channel);
-    setLink(u.link);
-  }, [u.channel, u.link]);
   const changed = channel !== u.channel || link !== u.link;
   const upd = part('submission');
-  const err = !channel ? 'Pick how applications are sent.' : channel === 'Own portal' && !/^https:\/\/\S+\.\S+/.test(link.trim()) ? 'Enter the whole web address, starting with https://.' : channel === 'Email' && !EMAIL.test(link.trim()) ? 'Enter a valid email, like name@university.edu.' : null;
+  const noLogin = ON_PORTAL(channel) && !u.logins.length;
   return (
     <>
-      <Forms u={u} upd={part('forms')} say={say} edit={edit} />
-      <Section title="How applications are sent" id="iu-sub" updated={u.stamps.submission} note="One of own portal (with its link), StudyLink, or email (with the address). Required to go Live.">
-        {edit ? (
-          <>
-            <div className="itypes itypes--3" role="radiogroup" aria-label="How applications are sent">
-              {CHANNELS.map((c) => (
-                <button key={c} type="button" role="radio" aria-checked={channel === c} className={`itype ${channel === c ? 'is-on' : ''}`} onClick={() => (setChannel(c), setLink(c === 'StudyLink' ? 'studylink.com' : c === u.channel ? u.link : ''))}>
-                  <span className="itype__t">{c}</span>
-                </button>
-              ))}
-            </div>
-            {channel && channel !== 'StudyLink' && (
-              <div className="iaddform__grid">
-                <Field id="ius-link" label={LINK[channel][0]} required error={tried ? err : null}>
-                  <TextInput id="ius-link" value={link} invalid={tried && !!err} onChange={(e) => setLink(e.target.value)} placeholder={LINK[channel][1]} />
-                </Field>
-              </div>
-            )}
-            {changed && (
-              <div className="isave" role="region" aria-label="Unsaved changes">
-                <p className="isave__t">{tried && err ? err : 'Not saved yet.'}</p>
-                <Button variant="secondary" size="sm" onClick={() => (setChannel(u.channel), setLink(u.link), setTried(false))}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setTried(true);
-                    if (err) return;
-                    upd((x) => ({ ...x, channel, link: link.trim(), studylink: channel === 'StudyLink' }));
-                    setTried(false);
-                    say('Submission saved.');
-                  }}
-                >
-                  Save
-                </Button>
-              </div>
-            )}
-          </>
-        ) : (
-          <p>{u.channel ? `${u.channel}${u.channel !== 'StudyLink' && u.link ? `: ${u.link}` : ''}` : <span className="muted">Not set</span>}</p>
+      <Forms u={u} upd={part('forms')} say={say} />
+      <Section title="How applications are sent" id="iu-sub" updated={u.stamps.submission}>
+        <div className="itypes itypes--3" role="radiogroup" aria-label="Channel">
+          {CHANNELS.map((c) => (
+            <label key={c} className={`itype ${channel === c ? 'is-on' : ''}`}>
+              <input type="radio" name={`ius-ch-${u.id}`} className="vh" checked={channel === c} onChange={() => (setChannel(c), setLink(c === u.channel || (ON_PORTAL(c) && ON_PORTAL(u.channel)) ? u.link : ''))} />
+              <span className="itype__k">{c}</span>
+              <span className="itype__v">{c === 'Own portal' ? 'GSP applies on the university’s own portal' : c === 'StudyLink' ? 'GSP applies through StudyLink' : 'GSP emails each application'}</span>
+            </label>
+          ))}
+        </div>
+        {channel && (
+          <div className="iaddform__grid">
+            <Field id="ius-link" label={LINK[channel][0]}>
+              <TextInput id="ius-link" value={link} onChange={(e) => setLink(e.target.value)} placeholder={LINK[channel][1]} />
+            </Field>
+          </div>
         )}
-        {/* the logins are part of how applications are sent (Jovial, 3 Nov), for Own portal and StudyLink only (2 Nov): an email submission has no login */}
-        {seeLogins && (u.channel === 'Own portal' || u.channel === 'StudyLink') && <Logins u={u} upd={part('logins')} say={say} me={me} role={role} edit={editLogins} />}
+        {changed && (
+          <div className="isave">
+            <p className="isave__t">{noLogin ? `Add at least one portal login for ${channel}, then save.` : 'Not saved yet.'}</p>
+            <Button variant="secondary" size="sm" onClick={() => (setChannel(u.channel), setLink(u.link))}>
+              Discard
+            </Button>
+            <EditOnly>
+              <Button
+                size="sm"
+                disabled={!channel || !link.trim() || noLogin}
+                onClick={() => {
+                  upd((x) => ({ ...x, channel, link: link.trim(), studylink: channel === 'StudyLink' }), `${channel === u.channel ? channel : `${u.channel || 'Not set'} → ${channel}`}; ${LINK[channel as Channel][0].toLowerCase()} ${link.trim()}`);
+                  say('Submission saved.');
+                }}
+              >
+                Save submission
+              </Button>
+            </EditOnly>
+          </div>
+        )}
+        {ON_PORTAL(channel) && <Logins u={u} channel={channel as Channel} keepOne={ON_PORTAL(u.channel)} upd={part('logins')} say={say} me={me} />}
       </Section>
-      <Contacts
-        id="iu-contacts"
-        list={u.contacts}
-        edit={edit}
-        say={say}
-        note={`The university’s own contacts.${p ? ` The agreement, commission and renewal are with ${p.name}.` : ''}`}
-        save={(fn) => part('contacts')((x) => ({ ...x, contacts: fn(x.contacts) }))}
-      />
+      <UniContacts u={u} upd={part('contacts')} say={say} />
     </>
   );
 }
 
-/**
- * Application forms the university needs: a name, a file (PDF, Word or image) and a level. Every application to the
- * university at that level gets the mandatory document "University application form, filled" (slice 1, rule 8).
- */
-function Forms({ u, upd, say, edit }: { u: UniRec; upd: UniUpd; say: (m: string) => void; edit: boolean }) {
+/** The forms the university asks for, each for all courses or one level: an application asks for every one that matches. */
+function Forms({ u, upd, say }: { u: UniRec; upd: UniUpd; say: (m: string) => void }) {
   const [adding, setAdding] = useState(false);
-  const [v, setV] = useState<{ name: string; for: FormFor | ''; file: string }>({ name: '', for: '', file: '' });
+  const [v, setV] = useState({ name: '', for: 'All courses' as FormFor, file: '' });
   const [tried, setTried] = useState(false);
-  const [fileErr, setFileErr] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<UniRec['forms'][number] | null>(null);
   const pick = useRef<HTMLInputElement>(null);
-  const err = { name: !v.name.trim() ? 'Enter the name.' : null, for: !v.for ? 'Pick a level.' : null, file: fileErr ?? (!v.file ? 'Choose a file.' : null) };
+  const { ask, dialog } = useAsk();
+  const err = { name: !v.name.trim() ? 'Name the form.' : null, file: !v.file ? 'Choose the template.' : null };
   const close = () => {
     setAdding(false);
     setTried(false);
-    setFileErr(null);
-    setV({ name: '', for: '', file: '' });
+    setV({ name: '', for: 'All courses', file: '' });
   };
   return (
-    <Section title="Application forms the university needs" id="iu-forms" updated={u.stamps.forms} note="A form for All courses applies at every level. The RP downloads the blank form beside the document “University application form, filled” and uploads it filled in." action={edit && !adding ? <AddButton onClick={() => setAdding(true)}>Add a form</AddButton> : undefined}>
+    <Section title="Forms the university needs" id="iu-forms" updated={u.stamps.forms} action={!adding ? <AddButton onClick={() => setAdding(true)}>Add a form</AddButton> : undefined}>
+      {dialog}
       {adding && (
         <div className="iaddform">
           <div className="iaddform__grid">
-            <Field id="iuf-name" label="Name" required error={tried ? err.name : null}>
-              <TextInput id="iuf-name" value={v.name} maxLength={120} invalid={tried && !!err.name} onChange={(e) => setV({ ...v, name: e.target.value })} placeholder="Like: International application form" />
+            <Field id="iuf-name" label="Form" required error={tried ? err.name : null}>
+              <TextInput id="iuf-name" value={v.name} invalid={tried && !!err.name} onChange={(e) => setV({ ...v, name: e.target.value })} placeholder="Like: International application form" />
             </Field>
-            <Field id="iuf-for" label="Level" required error={tried ? err.for : null}>
-              <Pick id="iuf-for" label="Level" value={v.for} placeholder="Pick a level" invalid={tried && !!err.for} options={FORM_FOR} onChange={(f) => setV({ ...v, for: f as FormFor })} />
+            <Field id="iuf-for" label="For">
+              <SelectInput id="iuf-for" value={v.for} onChange={(e) => setV({ ...v, for: e.target.value as FormFor })}>
+                {FORM_FOR.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </SelectInput>
             </Field>
-            <Field id="iuf-file" label="File" required error={tried || fileErr ? err.file : null} hint="PDF, Word or an image, up to 20 MB">
-              <button id="iuf-file" type="button" className={`ipick ${(tried || fileErr) && err.file ? 'is-invalid' : ''}`} onClick={() => pick.current?.click()}>
+            <Field id="iuf-file" label="Template" required error={tried ? err.file : null} hint="PDF, Word or an image">
+              <button id="iuf-file" type="button" className={`ipick ${tried && err.file ? 'is-invalid' : ''}`} onClick={() => pick.current?.click()}>
                 <Icon name={v.file ? 'file' : 'upload'} size={18} />
                 <span className="ipick__t">{v.file || 'Choose a file'}</span>
               </button>
@@ -133,7 +123,7 @@ function Forms({ u, upd, say, edit }: { u: UniRec; upd: UniUpd; say: (m: string)
           <input
             ref={pick}
             type="file"
-            accept={acceptOf([...FORM_KINDS])}
+            accept={FILE_TYPES}
             className="vh"
             tabIndex={-1}
             aria-hidden="true"
@@ -141,28 +131,27 @@ function Forms({ u, upd, say, edit }: { u: UniRec; upd: UniUpd; say: (m: string)
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
-              if (!f) return;
-              const bad = checkFile(f, [...FORM_KINDS], 20);
-              setFileErr(bad);
-              setV((x) => ({ ...x, file: bad ? '' : f.name }));
+              if (f) setV((x) => ({ ...x, file: f.name, name: x.name || f.name.replace(/\.[a-z]+$/i, '').replace(/[_-]+/g, ' ') }));
             }}
           />
           <div className="iaddform__acts">
             <Button variant="secondary" size="sm" onClick={close}>
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setTried(true);
-                if (Object.values(err).some(Boolean)) return;
-                upd((x) => ({ ...x, forms: [...x.forms, { id: `fm-${Date.now().toString(36)}`, name: v.name.trim(), file: v.file, for: v.for as FormFor }] }));
-                say(`${v.name.trim()} added.`);
-                close();
-              }}
-            >
-              Add form
-            </Button>
+            <EditOnly>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setTried(true);
+                  if (Object.values(err).some(Boolean)) return;
+                  upd((x) => ({ ...x, forms: [...x.forms, { id: `fm-${Date.now().toString(36)}`, name: v.name.trim(), for: v.for, file: v.file }] }), `Added ${v.name.trim()} (${v.for})`);
+                  say(`${v.name.trim()} added.`);
+                  close();
+                }}
+              >
+                Add form
+              </Button>
+            </EditOnly>
           </div>
         </div>
       )}
@@ -173,80 +162,113 @@ function Forms({ u, upd, say, edit }: { u: UniRec; upd: UniUpd; say: (m: string)
               <Icon name="file" size={18} />
               <span className="ilist__t">
                 {f.name}
-                <span className="irow__sub">
+                <span className="ilist__sub">
                   {f.for} · {f.file}
                 </span>
               </span>
-              <button type="button" className="btn btn--link" onClick={() => downloadFile(f.file)}>
-                Download<span className="vh"> {f.name}</span>
-              </button>
-              {edit && (
-                <button type="button" className="btn btn--link idanger" onClick={() => setRemoving(f)}>
+              <EditOnly>
+                <button
+                  type="button"
+                  className="btn btn--link idanger"
+                  onClick={() =>
+                    ask(`Remove ${f.name}?`, 'Remove', <p>New applications stop asking for it. Applications that already have it keep it.</p>, () => {
+                      upd((x) => ({ ...x, forms: x.forms.filter((y) => y.id !== f.id) }), `Removed ${f.name}`);
+                      say(`${f.name} removed.`);
+                    })
+                  }
+                >
                   Remove<span className="vh"> {f.name}</span>
                 </button>
-              )}
+              </EditOnly>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="iempty">No application forms. Applications to this university don’t ask for one.</p>
+        <p className="iempty">No forms: applications need only the student’s own documents.</p>
       )}
-      <ConfirmDialog
-        open={!!removing}
-        title={`Remove ${removing?.name}?`}
-        confirm="Remove form"
-        danger
-        onCancel={() => setRemoving(null)}
-        onConfirm={() => {
-          if (removing) upd((x) => ({ ...x, forms: x.forms.filter((y) => y.id !== removing.id) }));
-          say(`${removing?.name} removed.`);
-          setRemoving(null);
-        }}
-      >
-        <p>New applications stop asking for it. Applications that already have it keep theirs.</p>
-      </ConfirmDialog>
+    </Section>
+  );
+}
+
+function UniContacts({ u, upd, say }: { u: UniRec; upd: UniUpd; say: (m: string) => void }) {
+  const c = useContacts(u.contacts, (fn, what) => upd((x) => ({ ...x, contacts: fn(x.contacts) }), what), say);
+  return (
+    <Section title="University contacts" id="iu-contacts" updated={u.stamps.contacts} action={<AddButton onClick={c.add}>Add a contact</AddButton>}>
+      {u.contacts.length ? c.table : <p className="iempty">No contacts yet.</p>}
+      {c.form(u.country)}
     </Section>
   );
 }
 
 /**
- * The logins for the portal applications are sent through, inside How applications are sent (Jovial, 3 Nov): by sales
- * region (or All regions); the secret is hidden until shown, and every Show is logged.
+ * Portal logins: the password shows for a few seconds when asked. 4 Nov: each can be edited in the same form as
+ * adding one, and removing one asks first; Own portal and StudyLink need at least one (`keepOne` once it's saved
+ * that way), so it says so when there's none, and the last one can't be removed.
  */
-function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: (m: string) => void; me: string; role: string; edit: boolean }) {
-  const [adding, setAdding] = useState(false);
-  const [v, setV] = useState({ region: '', username: '', secret: '' });
+function Logins({ u, channel, keepOne, upd, say, me }: { u: UniRec; channel: Channel; keepOne: boolean; upd: UniUpd; say: (m: string) => void; me: string }) {
+  // the form: adding a login, or editing one (by its id)
+  const [form, setForm] = useState<'new' | string | null>(null);
+  const [v, setV] = useState({ region: 'All regions', username: '', secret: '' });
   const [tried, setTried] = useState(false);
   const [showing, setShowing] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<UniRec['logins'][number] | null>(null);
+  const { ask, dialog } = useAsk();
   useEffect(() => {
     if (!showing) return;
     const t = window.setTimeout(() => setShowing(null), 10000);
     return () => window.clearTimeout(t);
   }, [showing]);
-  const err = { region: !v.region ? 'Pick a sales region.' : null, username: !v.username.trim() ? 'Enter the username.' : null, secret: !v.secret ? 'Enter the password.' : null };
+  const editing = form && form !== 'new' ? u.logins.find((l) => l.id === form) : undefined;
+  const err = { username: !v.username.trim() ? 'Enter the username.' : null, secret: v.secret.length < 6 ? 'Enter the password.' : null };
   const close = () => {
-    setAdding(false);
+    setForm(null);
     setTried(false);
-    setV({ region: '', username: '', secret: '' });
+    setV({ region: 'All regions', username: '', secret: '' });
+  };
+  const last = keepOne && u.logins.length === 1;
+  // pressing Remove on the last one says why it stays, until the logins change
+  const [lastTried, setLastTried] = useState(false);
+  useEffect(() => setLastTried(false), [u.logins.length, form]);
+  const save = () => {
+    setTried(true);
+    if (Object.values(err).some(Boolean)) return;
+    const f = { region: v.region, username: v.username.trim(), secret: v.secret };
+    if (editing) {
+      upd((x) => ({ ...x, logins: x.logins.map((y) => (y.id === editing.id ? { ...y, ...f } : y)) }), `Changed the ${f.region} login (${f.username})`);
+      say(`Login for ${f.region} saved.`);
+    } else {
+      upd((x) => ({ ...x, logins: [...x.logins, { id: `lg-${Date.now().toString(36)}`, ...f, added: inDays(0), by: me }] }), `Added the ${f.region} login (${f.username})`);
+      say(`Login for ${f.region} added to the secrets store.`);
+    }
+    close();
   };
   return (
-    <div className="isubsec" role="group" aria-labelledby="iu-logins">
-      <div className="irsec__head">
+    <div className="iblock ilogins" role="group" aria-labelledby="iu-logins">
+      {dialog}
+      <div className="iblock__head">
         <div className="irsec__t">
-          <h3 className="isubsec__title" id="iu-logins">
-            {u.channel === 'StudyLink' ? 'StudyLink logins' : 'Portal logins'}
+          <h3 className="iblock__title" id="iu-logins">
+            Portal logins
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+            <span className="vh"> (at least one)</span>
           </h3>
-          <p className="irsec__note">Username and password by sales region{u.channel === 'StudyLink' ? ' (StudyLink has one for each)' : ''}. Applications use the login for their own region, else the All regions one. Passwords are kept in the secrets store, never in the Change log; each Show is logged.</p>
           <Updated s={u.stamps.logins} />
         </div>
-        {edit && !adding ? <AddButton onClick={() => setAdding(true)}>Add a login</AddButton> : undefined}
+        {!form && <AddButton onClick={() => (close(), setForm('new'))}>Add a login</AddButton>}
       </div>
-      {adding && (
-        <div className="iaddform">
+      {!u.logins.length && !form && <ErrorText>{channel} needs at least one portal login. Add one.</ErrorText>}
+      {form && (
+        <div className="iaddform" role="group" aria-label={editing ? `Edit the ${editing.region} login` : 'Add a login'}>
           <div className="iaddform__grid">
-            <Field id="iul-region" label="Sales region" required error={tried ? err.region : null}>
-              <Pick id="iul-region" label="Sales region" value={v.region} placeholder="Pick a region" invalid={tried && !!err.region} options={REGIONS} onChange={(region) => setV({ ...v, region })} />
+            <Field id="iul-region" label="Region">
+              <SelectInput id="iul-region" value={v.region} onChange={(e) => setV({ ...v, region: e.target.value })}>
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </SelectInput>
             </Field>
             <Field id="iul-user" label="Username" required error={tried ? err.username : null}>
               <TextInput id="iul-user" value={v.username} autoComplete="off" invalid={tried && !!err.username} onChange={(e) => setV({ ...v, username: e.target.value })} />
@@ -259,17 +281,8 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
             <Button variant="secondary" size="sm" onClick={close}>
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setTried(true);
-                if (Object.values(err).some(Boolean)) return;
-                upd((x) => ({ ...x, logins: [...x.logins, { id: `lg-${Date.now().toString(36)}`, region: v.region, username: v.username.trim(), secret: v.secret, added: inDays(0), by: me }] }));
-                say(`Login for ${v.region} added to the secrets store.`);
-                close();
-              }}
-            >
-              Add login
+            <Button size="sm" onClick={save}>
+              {editing ? 'Save' : 'Add login'}
             </Button>
           </div>
         </div>
@@ -279,20 +292,18 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
           <table className="itab">
             <thead>
               <tr>
-                <th scope="col">Sales region</th>
+                <th scope="col">Region</th>
                 <th scope="col">Username</th>
                 <th scope="col">Password</th>
-                <th scope="col">Added by and on</th>
-                {edit && (
-                  <th scope="col">
-                    <span className="vh">Remove</span>
-                  </th>
-                )}
+                <th scope="col">Added</th>
+                <th scope="col">
+                  <span className="vh">Edit or remove</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {u.logins.map((l) => (
-                <tr key={l.id}>
+                <tr key={l.id} className={editing?.id === l.id ? 'is-editing' : ''}>
                   <td>{l.region}</td>
                   <td className="num">{l.username}</td>
                   <td>
@@ -302,7 +313,6 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
                         type="button"
                         className="btn btn--link"
                         onClick={() => {
-                          if (showing !== l.id) audit('Universities', `Showed the ${l.region} portal login password for ${u.name}`, me, role);
                           setShowing(showing === l.id ? null : l.id);
                         }}
                       >
@@ -312,38 +322,50 @@ function Logins({ u, upd, say, me, role, edit }: { u: UniRec; upd: UniUpd; say: 
                     </span>
                   </td>
                   <td>
-                    {l.by}
-                    <span className="irow__sub num">{dateText(l.added)}</span>
+                    <span className="num">{dateText(l.added)}</span>
+                    <span className="irow__sub">{l.by}</span>
                   </td>
-                  {edit && (
-                    <td>
-                      <button type="button" className="btn btn--link idanger" onClick={() => setRemoving(l)}>
-                        Remove<span className="vh"> the {l.region} login</span>
-                      </button>
-                    </td>
-                  )}
+                  <td>
+                    <span className="irowacts">
+                      <EditOnly>
+                        <button
+                          type="button"
+                          className="btn btn--link"
+                          onClick={() => {
+                            setForm(l.id);
+                            setTried(false);
+                            setV({ region: l.region, username: l.username, secret: l.secret });
+                          }}
+                        >
+                          Edit<span className="vh"> the {l.region} login</span>
+                        </button>
+                      </EditOnly>
+                      <EditOnly>
+                        <button
+                          type="button"
+                          className="btn btn--link idanger"
+                          onClick={() =>
+                            last
+                              ? setLastTried(true)
+                              : ask(`Remove the ${l.region} login?`, 'Remove', <p>{l.username} leaves the secrets store. Admissions can’t use it on the portal any more.</p>, () => {
+                                  if (form === l.id) close();
+                                  upd((x) => ({ ...x, logins: x.logins.filter((y) => y.id !== l.id) }), `Removed the ${l.region} login (${l.username})`);
+                                  say(`${l.region} login removed.`);
+                                })
+                          }
+                        >
+                          Remove<span className="vh"> the {l.region} login</span>
+                        </button>
+                      </EditOnly>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      ) : (
-        <p className="iempty">No logins yet.</p>
-      )}
-      <ConfirmDialog
-        open={!!removing}
-        title={`Remove the ${removing?.region} login?`}
-        confirm="Remove login"
-        danger
-        onCancel={() => setRemoving(null)}
-        onConfirm={() => {
-          if (removing) upd((x) => ({ ...x, logins: x.logins.filter((y) => y.id !== removing.id) }));
-          say(`${removing?.region} login removed.`);
-          setRemoving(null);
-        }}
-      >
-        <p>Its password is deleted from the secrets store.</p>
-      </ConfirmDialog>
+      ) : null}
+      {last && lastTried && <ErrorText>{u.channel} needs at least one portal login, so the last one can’t be removed. Edit it, or add another first.</ErrorText>}
     </div>
   );
 }

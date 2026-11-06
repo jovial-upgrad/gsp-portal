@@ -1,6 +1,3 @@
-import { MasterPartners } from '../records/MasterPartners';
-import { TEST_COUNTRY } from '../../data/rpteam';
-import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
@@ -10,11 +7,20 @@ import { AccountMenu } from '../../components/AccountMenu';
 import { Icon } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import type { SignupState } from '../../screens/signup/model';
-import { NAV, TABS, type Focus, type PageProps, type Section, type Target } from './model';
+import { NAV, TABS, VIEW, type Focus, type PageProps, type Section, type Target } from './model';
+// 6 Nov (Nesil's access sheet): RP Ops' Recruitment partners (agreements, branches and team) and Master Partners, to look at
+import { RecruitmentPartners as OpsRecruitmentPartners } from '../../rpops/records/RecruitmentPartners';
+import { MasterPartners } from '../../rpops/records/MasterPartners';
+import { sampleOps, type OpsRp } from '../../rpops/records/data';
+import { sampleMps, type MasterPartner } from '../../rpops/records/masters';
+import type { OpsFocus, OpsTarget } from '../../rpops/records/parts';
+import '../../rpops/records/rpops.css';
+import { AccessProvider, type Feature } from '../../proto/viewOnly';
+import { MyWork } from '../work/MyWork';
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, setCatalogue, type CourseSearch } from '../courses/search';
 import { Students } from '../students/Students';
-import { fullName, sampleStudents, type Student } from '../../data/students';
+import { fullName, sampleStudents, teamFor, type Student } from '../../data/students';
 import type { AddState } from '../students/form';
 import type { RecordTab } from '../students/StudentRecord';
 import { Applications, type AppsStart } from '../applications/Applications';
@@ -23,25 +29,25 @@ import { useLinkedData } from '../../proto/link';
 import { useInbox } from '../../screens/portal/Inbox';
 import type { NoteTarget } from '../../data/inbox';
 import type { Desk } from '../applications/desk';
-import { GSP_USER } from '../user';
-import { useSharedDb } from '../data/store';
+import { GSP_USER as TEAM_USER, VIEW_USER } from '../user';
+import { ViewOnlyNote, ViewOnlyProvider } from '../../proto/viewOnly';
+
+/** What GSP · Institution leaves out of the pages it shares (6 Nov access sheet; src/proto/viewOnly.tsx). */
+const HIDE: Feature[] = ['courses.commission', 'app.documents', 'app.base-commission', 'rp.commission-email', 'mp.documents', 'mp.commission'];
+import { sampleDb } from '../data/store';
 import { forSearch, searchable } from '../data/catalogue';
 import { TeamHome } from '../records/Home';
-import { WorkPage } from '../../work/WorkPage';
 import { Universities } from '../records/Universities';
 import { Catalogue } from '../records/Catalogue';
 import { InstitutionPartners } from '../records/InstitutionPartners';
-import { RecruitmentPartners } from '../records/RecruitmentPartners';
 import { Announcements } from '../records/Announcements';
-import { StaffProfile } from '../../gsp/portal/StaffPages';
+import { AccountPage } from '../records/Account';
 import { Toast } from '../records/parts';
+import { MailInbox } from '../../mailbox/MailInbox';
+import { sampleMailbox, type Mailbox } from '../../data/mailbox';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 import '../institution.css';
-import { useLiveApps } from '../../data/live';
-import { setSession } from '../../data/downloads';
-import { setScope } from '../../data/scope';
-import { PERM_ROLE, currentRole } from '../../proto/roles';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -69,7 +75,7 @@ export type { Focus };
  * and keep the records of the institutions GSP works with: universities, their courses, the institution partners
  * GSP has agreements with, and the recruitment partners who send students. It began as a copy of GSP Team (whose
  * Students, Applications and Course search it keeps as they are) and changes here never touch GSP Team or RP
- * Admin. Signed in as Kevin Mcewan, GSP · Institution; there's no registering or verification here.
+ * Admin. Signed in as Raj Shamani, GSP · Institution; there's no registering or verification here.
  */
 export function Portal({
   acc,
@@ -77,6 +83,7 @@ export function Portal({
   scrollTop,
   onSignOut,
   start,
+  viewOnly = false,
 }: {
   acc: Account;
   /** The agency registration a review state carries: only its country is used, for course search. */
@@ -85,27 +92,29 @@ export function Portal({
   scrollTop: () => void;
   onSignOut: () => void;
   start?: PortalStart;
+  /** GSP · View Only (6 Nov): these pages to look at, with only Course search to use. */
+  viewOnly?: boolean;
 }) {
+  const GSP_USER = viewOnly ? VIEW_USER : TEAM_USER;
   const reduce = useReducedMotion();
   const [section, setSection] = useState<Section>(sectionOf(start?.section));
-  const country = join?.form.country || TEST_COUNTRY;
-  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch('', ''));
+  const country = join?.form.country || 'India';
+  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(country, join?.form.state || ''));
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? sampleStudents(acc.name));
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));
-  // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
-  useLiveApps(setApps);
-  // who's signed in, for the download log (data/downloads.ts)
-  setSession(GSP_USER.name, GSP_USER.role);
-  setScope('gsp-institution', GSP_USER.email);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
-  // every RP's team (data/rpteam.ts, W21): a student's counsellor is on their RP's
-  const team = useMemo(allRpMembers, []);
+  // the Inbox: the shared inboxes this person has connected, and their mail (kept while moving between pages)
+  const [mailbox, setMailbox] = useState<Mailbox>(() => sampleMailbox('institution', apps, students, GSP_USER));
+  const team = teamFor(acc.name);
 
   // the records the team keeps; its changes stay in this portal
-  // the catalogue and records: one copy for every role (institution/data/store.ts)
-  const [db, setDb] = useSharedDb();
+  const [db, setDb] = useState(sampleDb);
   const [focus, setFocus] = useState<Focus | null>(null);
+  // RP Ops' recruitment partners and Master Partners, and which one is open
+  const [rps, setRps] = useState<OpsRp[]>(sampleOps);
+  const [mps, setMps] = useState<MasterPartner[]>(sampleMps);
+  const [ofocus, setOfocus] = useState<OpsFocus | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
   const say = (text: string) => setMsg({ text, key: Date.now() });
 
@@ -116,8 +125,6 @@ export function Portal({
     role: 'gsp',
     access: 'all',
     agency: acc.agency,
-    // slice 4: the signed-in person's own My work notifications, and only the applications they're the officer on
-    me: GSP_USER,
     country,
     apps,
     students,
@@ -138,7 +145,7 @@ export function Portal({
     const courses = db.courses.filter((c) => searchable(c) && unis.has(c.uni.id) && unis.get(c.uni.id)!.campuses.some((x) => x.name === c.campus.name)).map((c) => ({ ...c, uni: unis.get(c.uni.id)! }));
     return { courses, unis: [...unis.values()] };
   }, [db.ips, db.unis, db.courses]);
-  setCatalogue(catalogue.courses, catalogue.unis);
+  setCatalogue(catalogue.courses, catalogue.unis, db.anns);
   const appsByUni = useMemo(() => {
     const m: Record<string, number> = {};
     apps.forEach((a) => {
@@ -173,6 +180,7 @@ export function Portal({
   const go = (k: Section) => {
     setSection(k);
     setFocus(null);
+    setOfocus(null);
     setNavKey((n) => n + 1);
     scrollTop();
   };
@@ -181,7 +189,14 @@ export function Portal({
     else if ('student' in t) jumpTo({ section: 'students', open: t.student, tab: 'personal' });
     else go(t.page === 'profile' ? 'profile' : 'home');
   };
+  const openOps = (t: OpsTarget) => {
+    setSection(t.section);
+    setOfocus({ ...t, key: Date.now() });
+    scrollTop();
+  };
   const openRecord = (t: Target) => {
+    // recruitment partners are RP Ops' pages now (6 Nov): open the list
+    if (t.section === 'rps') return go('rps');
     setSection(t.section);
     setFocus({ ...t, key: Date.now() });
     scrollTop();
@@ -230,14 +245,17 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name, role: PERM_ROLE[currentRole()] ?? 'Institution' };
+  const ops = { focus: ofocus?.section === section ? ofocus : null, navKey, open: openOps, say, scrollTop, me: GSP_USER.name };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name };
   const content =
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
-    ) : section === 'mywork' ? (
-      <WorkPage section="mywork" role={currentRole()} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} openUni={(id) => openRecord({ section: 'universities', id })} />
+    ) : section === 'work' ? (
+      <MyWork />
+    ) : section === 'inbox' ? (
+      <MailInbox box={mailbox} setBox={setMailbox} me={GSP_USER} apps={apps} students={students} navKey={navKey} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'profile' ? (
-      <StaffProfile email={GSP_USER.email} onSignOut={onSignOut} />
+      <AccountPage name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (
       <Students
         list={studentsView}
@@ -283,7 +301,7 @@ export function Portal({
         agency={acc.agency}
         onApply={(c) => jumpTo({ section: 'applications', app: { add: { courseId: c.id, studentId: search.studentId } } })}
         students={studentsView}
-        home={{ country: '', state: '' }}
+        home={{ country, state: join?.form.state || '' }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: 'upGrad GSP', name: GSP_USER.name, email: GSP_USER.email }}
@@ -292,19 +310,19 @@ export function Portal({
       <Universities {...page} appsByUni={appsByUni} />
     ) : section === 'catalogue' ? (
       <Catalogue {...page} />
-    ) : section === 'mps' ? (
-      <MasterPartners {...page} />
     ) : section === 'ips' ? (
       <InstitutionPartners {...page} appsByUni={appsByUni} />
     ) : section === 'announcements' ? (
       <Announcements {...page} />
+    ) : section === 'mps' ? (
+      <MasterPartners mps={mps} setMps={setMps} rps={rps} link={() => undefined} {...ops} />
     ) : (
-      <RecruitmentPartners {...page} />
+      <OpsRecruitmentPartners rps={rps} setRps={setRps} mps={mps} link={() => undefined} {...ops} />
     );
 
   return (
     <AppShell
-      brand={['GSP', GSP_USER.role === 'IP Ops' ? 'IP Ops' : 'Institution']}
+      brand={viewOnly ? ['GSP', 'View Only'] : ['Institution', 'Team']}
       sidebar={sidebar}
       footer={<AccountMenu name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />}
       tools={<ThemeToggle />}
@@ -334,7 +352,15 @@ export function Portal({
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
           transition={{ duration: 0.22, ease }}
         >
-          {content}
+          <AccessProvider hide={viewOnly ? [] : HIDE}>
+            <ViewOnlyProvider on={viewOnly ? section !== 'courses' : VIEW.includes(section)}>
+              {viewOnly && section !== 'courses' && section !== 'profile' && (
+                <ViewOnlyNote page>View only: you can look at everything here. Course search is the one page you can use.</ViewOnlyNote>
+              )}
+              {!viewOnly && VIEW.includes(section) && <ViewOnlyNote page>View only: the Institution Team can look at this page, not change it.</ViewOnlyNote>}
+              {content}
+            </ViewOnlyProvider>
+          </AccessProvider>
         </motion.div>
       </AnimatePresence>
       <Toast msg={msg} />

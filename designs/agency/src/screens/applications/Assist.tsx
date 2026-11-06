@@ -1,18 +1,15 @@
-import { UPLOAD } from '../../data/uploads';
-import { setLiveFlags } from '../../data/live';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { gspContact, isOpen, type Application, type Msg, type Need } from '../../data/applications';
-import { isWithdrawal } from '../../data/reasons';
+import { courseOf, gspContact, type Application, type Msg, type Need } from '../../data/applications';
 import { DocButtons } from '../../components/DocView';
 import { AssistLabel, Thinking } from './parts';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
-const time = (t: number) => new Date(t).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true });
+const time = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
 const when = (t: number) => (new Date(t).toDateString() === new Date().toDateString() ? time(t) : `${shortDate(new Date(t))}, ${time(t)}`);
 const initials = (n: string) =>
   n
@@ -52,9 +49,10 @@ export function Assist({
   say: (m: string) => void;
 }) {
   const reduce = useReducedMotion();
-  const g = gspContact(a);
+  const c = courseOf(a);
+  const g = gspContact(c.uni.country);
   const [text, setText] = useState('');
-  const busy = false; // nothing answers automatically (HC26)
+  const [busy, setBusy] = useState(false);
   const list = useRef<HTMLOListElement>(null);
   const timers = useRef<number[]>([]);
   const chat = a.chat.filter((m) => m.from !== 'ai');
@@ -68,15 +66,28 @@ export function Assist({
     update((x) => ({ ...x, chat: [...x.chat, { ...m, id: `m${now}${Math.round(Math.random() * 1000)}`, at: now }] }));
   };
 
-  /** The message goes to GSP; GSP's person answers in the chat themselves (HC26: no automatic reply). */
+  /** The message goes to GSP; in the prototype, the contact says they're on it. */
   const send = (q: string) => {
     const v = q.trim();
     if (!v || busy) return;
+    const first = !chat.some((m) => m.from === 'gsp' && m.at > Date.now() - 60 * 60_000);
     push({ from: 'you', name: me, text: v });
-    // the officer gets a "Needs you" for it (W11, Jovial, 1 Nov)
-    setLiveFlags(a.id, { rpNews: Date.now(), rpWhat: 'a message' });
     setText('');
-    say(`Sent to ${g.name}.`);
+    setBusy(true);
+    timers.current.push(
+      window.setTimeout(
+        () => {
+          push({
+            from: 'gsp',
+            name: g.name,
+            text: first ? `Hi ${me.split(' ')[0]}, ${g.first} here. I’ll look into it and reply here by ${time(Date.now() + 2 * 3_600_000)}.` : 'Thanks, noted. I’ll come back to you here.',
+          });
+          setBusy(false);
+          say(`${g.name} replied.`);
+        },
+        reduce ? 300 : 2200,
+      ),
+    );
   };
 
   return (
@@ -129,7 +140,7 @@ export function Assist({
                       <DocButtons d={{ name: f, file: f }} s={s} />
                     </span>
                   ))}
-                  {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} ended={m.ended} onFile={onNeedFile} onForm={onForm} />}
+                  {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} onFile={onNeedFile} onForm={onForm} />}
                 </div>
               </div>
             </motion.li>
@@ -156,10 +167,6 @@ export function Assist({
         )}
       </ol>
 
-      {/* a finished application's chat is read-only (slice 3 PRD) */}
-      {!isOpen(a) ? (
-        <p className="achat__ro">This application is {a.status === 'enrolled' ? 'enrolled' : a.end && isWithdrawal(a.end.kind) ? 'withdrawn' : 'closed'}. The chat is read-only.</p>
-      ) : (
       <form
         className="achat__compose"
         onSubmit={(e) => {
@@ -175,7 +182,6 @@ export function Assist({
           rows={1}
           value={text}
           placeholder="Ask GSP…"
-          maxLength={2000}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -188,28 +194,13 @@ export function Assist({
           Send
         </Button>
       </form>
-      )}
     </section>
   );
 }
 
 /** GSP's document request, answered in place: upload here, or see that it's done (or no longer needed). An offer's conditions come as a form. */
-function RequestCard({ a, s, id, name, ended, onFile, onForm }: { a: Application; s: Student; id: string; name?: string; ended?: Msg['ended']; onFile: (n: Need, file: string) => void; onForm: (n: Need) => void }) {
+function RequestCard({ a, s, id, name, onFile, onForm }: { a: Application; s: Student; id: string; name?: string; onFile: (n: Need, file: string) => void; onForm: (n: Need) => void }) {
   const n = a.needs.find((x) => x.id === id);
-  // withdrawn by GSP ("Withdrawn by <name>") or cancelled when the application closed
-  if (ended && !n)
-    return (
-      <div className="areq is-done">
-        <span className="areq__ic" aria-hidden="true">
-          <Icon name="close" size={16} />
-        </span>
-        <div className="areq__t">
-          <p className="areq__k">Request</p>
-          <p className="areq__title">{name ?? 'Document'}</p>
-          <p className="areq__ended">{ended.kind === 'withdrawn' ? `Withdrawn by ${ended.by}` : 'Closed with the application'}</p>
-        </div>
-      </div>
-    );
   const done = !n ? a.files.find((f) => f.req === id) : undefined;
   const answered = !n ? a.conds?.find((x) => x.id === id) : undefined;
   const inputId = `req-${id}`;
@@ -267,7 +258,7 @@ function RequestCard({ a, s, id, name, ended, onFile, onForm }: { a: Application
             id={inputId}
             className="vh"
             type="file"
-            accept={UPLOAD.accept}
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             aria-label={`Upload ${n.title}`}
             onChange={(e) => {
               const f = e.target.files?.[0];

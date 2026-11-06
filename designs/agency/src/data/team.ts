@@ -1,18 +1,20 @@
 import { partnerManagerFor, type Contact } from './partners';
-import { rpBranches } from './rpteam';
 import type { Member, TeamRole } from './students';
 
 /**
- * The roles (RP Admin only, Nesil 29 Oct). An RP Admin sees and manages everything; a Branch Manager, their branch;
+ * The roles (RP Admin only, Nesil 29 Oct). An RP Admin sees and manages everything; a Branch Admin, their branch;
  * a Counsellor, only their own students and applications.
  */
-export const TEAM_ROLES: TeamRole[] = ['RP Admin', 'Branch Manager', 'Counsellor'];
+export const TEAM_ROLES: TeamRole[] = ['RP Admin', 'Branch Admin', 'Counsellor'];
 
 /** One of the agency's offices. The head office is the one it registered with; it can't be removed. */
 export type Branch = { id: string; name: string; country: string; state: string; city: string; main?: boolean };
 
-/** The agency's branches: the test agency's record (HC13: its head office and Mumbai, in the data set). */
-export const sampleBranches = (): Branch[] => rpBranches();
+/** The agency's branches (sample): the head office it registered with, and one more. */
+export const sampleBranches = (): Branch[] => [
+  { id: 'hq', name: 'Bengaluru head office', country: 'India', state: 'Karnataka', city: 'Bengaluru', main: true },
+  { id: 'mumbai', name: 'Mumbai', country: 'India', state: 'Maharashtra', city: 'Mumbai' },
+];
 
 /**
  * Who looks after a branch for GSP, set by the system: the partner manager for its city when GSP has one there,

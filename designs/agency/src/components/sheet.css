@@ -83,6 +83,11 @@
 .sheet__foot { flex: none; }
 .sheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-20) var(--sp-24) var(--sp-24); }
 .sheet__foot { padding: var(--sp-16) var(--sp-24) var(--sp-20); border-top: 1px solid var(--line); background: var(--surface-2); }
+/* every pop-up's buttons at the bottom right (Nesil, 4 Nov): a lone button goes right; a note and its buttons share
+   the row, the note on the left; Cancel (secondary) first, the main action last */
+.sheet__foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-12); }
+.sheet__foot > :not(.btn) { flex: 1 1 auto; min-width: 0; }
+.asf__acts { margin-left: auto; justify-content: flex-end; }
 
 /* Phones: a bottom sheet with a grabber, most of the screen tall */
 @container app (max-width: 900px) {
@@ -113,4 +118,11 @@
   .sheet__head { padding: var(--sp-12) var(--sp-16) var(--sp-12); }
   .sheet__body { padding: var(--sp-16) var(--sp-16) var(--sp-20); }
   .sheet__foot { padding: var(--sp-12) var(--sp-16) max(var(--sp-16), env(safe-area-inset-bottom, 0px)); }
+}
+
+/* A centred dialog that stays centred down to tablet widths (RP Admin's business documents, 4 Nov); phones still get the bottom sheet */
+@container app (min-width: 601px) and (max-width: 900px) {
+  .sheet-wrap--keep.sheet-wrap--center { display: grid; place-items: center; padding: var(--sp-24); }
+  .sheet-wrap--keep > .sheet.sheet--center { position: relative; inset: auto; width: min(720px, 100%); max-height: 100%; border-radius: var(--r-lg); border-bottom: 1px solid var(--line); }
+  .sheet-wrap--keep .sheet__grab { display: none; }
 }

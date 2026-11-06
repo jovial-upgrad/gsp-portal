@@ -1,6 +1,6 @@
-import { Children, Fragment, createContext, forwardRef, isValidElement, useContext, type FormHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { Children, Fragment, forwardRef, isValidElement, useCallback, useLayoutEffect, useRef, useState, type FormHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { Icon } from './Icon';
-import { SelectMenu, type MenuOption } from './SelectMenu';
+import { Dropdown, type MenuOption } from './SelectMenu';
 import './forms.css';
 
 /**
@@ -30,19 +30,11 @@ export function Form({ onSubmit, children, ...rest }: Omit<FormHTMLAttributes<HT
   );
 }
 
-/** The field a control sits in: its id, and whether it shows an error or a hint, so the control can point at them. */
-const FieldCtx = createContext<{ id: string; error: boolean; hint: boolean } | null>(null);
-
-/**
- * Label → control → hint / error / success line. Ids wire the control to its messages for screen readers: a
- * TextInput, SelectInput or DateInput with the field's id is marked invalid and described by its message on its own.
- * Required fields have a red asterisk, explained once by "* Required" (RequiredNote; a Sheet adds it by itself).
- * `optional` is kept for old callers and shows nothing: nothing is ever labelled "(optional)" (QC, 1 Nov).
- */
+/** Label → control → hint / error / success line. Ids wire the control to its messages for screen readers. */
 export function Field({
   id,
   label,
-  optional: _optional,
+  optional,
   required,
   hint,
   error,
@@ -73,8 +65,9 @@ export function Field({
             <span className="vh"> (required)</span>
           </>
         )}
+        {optional && <span className="field__optional"> (optional)</span>}
       </label>
-      <FieldCtx.Provider value={{ id, error: !!error, hint: !error && !!(success || hint) }}>{children}</FieldCtx.Provider>
+      {children}
       {error ? (
         <p className="field__msg field__msg--error" id={`${id}-error`} role="alert">
           <Icon name="alert" size={16} />
@@ -94,25 +87,6 @@ export function Field({
   );
 }
 
-/** "* Required", once per form, where its required fields are explained. */
-export const RequiredNote = ({ className = '' }: { className?: string }) => (
-  <p className={`req-note ${className}`}>
-    <span className="field__req" aria-hidden="true">
-      *
-    </span>{' '}
-    Required
-  </p>
-);
-
-/** What the control in a Field gets by itself: aria-invalid and aria-describedby, unless it says otherwise. */
-function useFieldAria(id: string | undefined, invalid: boolean | undefined, describedByProp: string | undefined) {
-  const f = useContext(FieldCtx);
-  const mine = !!f && !!id && f.id === id;
-  const bad = invalid || (mine && f!.error);
-  const desc = describedByProp ?? (mine ? (f!.error ? `${id}-error` : f!.hint ? `${id}-hint` : undefined) : undefined);
-  return { bad, desc };
-}
-
 export const describedBy = (id: string, error?: string | null, hint?: unknown) =>
   error ? `${id}-error` : hint ? `${id}-hint` : undefined;
 
@@ -124,99 +98,141 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
 };
 
 export const TextInput = forwardRef<HTMLInputElement, InputProps>(function TextInput(
-  { invalid: inv, valid, trailing, leading, className = '', ...rest },
+  { invalid, valid, trailing, leading, className = '', ...rest },
   ref,
 ) {
-  const { bad: invalid, desc } = useFieldAria(rest.id, inv, rest['aria-describedby']);
   return (
     <div className={`control ${invalid ? 'is-invalid' : ''} ${valid ? 'is-valid' : ''} ${rest.disabled ? 'is-disabled' : ''} ${rest.readOnly ? 'is-readonly' : ''} ${className}`}>
       {leading && <span className="control__leading">{leading}</span>}
-      <input ref={ref} className="control__input" aria-invalid={invalid || undefined} {...rest} aria-describedby={desc} />
+      <input ref={ref} className="control__input" aria-invalid={invalid || undefined} {...rest} />
       {trailing && <span className="control__trailing">{trailing}</span>}
     </div>
   );
 });
 
-/** `allowEmpty`: an optional question can go back to no answer, so its placeholder stays selectable. */
-type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value' | 'onBlur'> & {
+/** `allowEmpty`: an optional question can go back to no answer, so its placeholder stays selectable. The rest place a
+ *  compact variant: `wrapClass` for the field (instead of the 48px box), `btnClass` for its button, `display` for what
+ *  the button shows, `minListWidth` for a narrow field's list. */
+type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   invalid?: boolean;
   placeholder?: string;
   allowEmpty?: boolean;
-  value?: string | number | null;
-  /** Called with the value picked, as `e.target.value`, the same as a select's change. */
-  onChange?: (e: { target: { value: string; name?: string }; currentTarget: { value: string } }) => void;
-  onBlur?: () => void;
-  /** A search box over the list; on by itself for more than ten choices. */
-  search?: boolean;
+  wrapClass?: string;
+  btnClass?: string;
+  display?: (picked: MenuOption | undefined) => ReactNode;
+  minListWidth?: number;
+  /** See `Dropdown`: the box the list drops from, and no arrow when the field draws its own. */
+  anchorTo?: string;
+  noChevron?: boolean;
+  /** Added to the hidden native select, for code (and tests) that find it by class. */
+  nativeClass?: string;
 };
 
-/** The text of an option's children ("Jo Bloggs · Kerala, India"). */
+/** The text inside an option ("BrightPath (India)" from `{name} ({region})`). */
 const textOf = (n: ReactNode): string =>
   n === null || n === undefined || typeof n === 'boolean' ? '' : typeof n === 'string' || typeof n === 'number' ? String(n) : Array.isArray(n) ? n.map(textOf).join('') : isValidElement(n) ? textOf((n.props as { children?: ReactNode }).children) : '';
 
-/** `<option>`s and `<optgroup>`s, read into the portal menu's choices. */
-function readOptions(children: ReactNode, group?: string, out: MenuOption[] = []) {
-  Children.forEach(children, (c) => {
-    if (!isValidElement(c)) return;
-    const p = c.props as { value?: string | number; label?: string; disabled?: boolean; children?: ReactNode };
-    if (c.type === 'option') {
-      const label = textOf(p.children).replace(/\s+/g, ' ').trim();
-      out.push({ value: p.value === undefined ? label : String(p.value), label, disabled: p.disabled, group });
-    } else if (c.type === 'optgroup') readOptions(p.children, p.label, out);
-    else if (c.type === Fragment) readOptions(p.children, group, out);
+/** The choices a select's `<option>`s and `<optgroup>`s describe, in order. */
+function readOptions(children: ReactNode, group?: string): MenuOption[] {
+  const out: MenuOption[] = [];
+  Children.forEach(children, (ch) => {
+    if (!isValidElement(ch)) return;
+    const el = ch as ReactElement<{ value?: string | number; children?: ReactNode; disabled?: boolean; label?: string }>;
+    if (el.type === 'option') {
+      const label = textOf(el.props.children);
+      out.push({ value: String(el.props.value ?? label), label, disabled: !!el.props.disabled, group });
+    } else if (el.type === 'optgroup') out.push(...readOptions(el.props.children, el.props.label));
+    else if (el.type === Fragment) out.push(...readOptions(el.props.children, group));
   });
   return out;
 }
 
 /**
- * The shared select (Jovial, 2 Nov: no system UI). Callers write `<option>`s as for a native select and get the
- * portal's SelectMenu: its list drops down from the field, styled by the design system in both themes, and a list
- * of more than ten has a search box.
+ * A select (Nesil, 4 Nov): GSP's dropdown in every role, never the browser's own list. Written like a native select
+ * (`<option>` children, `value`, `onChange(e)` with `e.target.value`), it shows the product's field and its white
+ * list dropping from it (`Dropdown`). A hidden native select keeps the value, the id the label points to and the
+ * change event, as Radix's Select does for forms; picking in the list sets it and fires `change`.
  */
-export const SelectInput = forwardRef<HTMLDivElement, SelectProps>(function SelectInput(
-  { invalid: inv, placeholder, allowEmpty = false, children, className = '', value, onChange, onBlur, disabled, search, id, name, ...rest },
-  _ref,
+export const SelectInput = forwardRef<HTMLSelectElement, SelectProps>(function SelectInput(
+  { invalid, placeholder, allowEmpty = false, children, className = '', value, defaultValue, id, disabled, wrapClass, btnClass, display, minListWidth, anchorTo, noChevron, nativeClass = '', 'aria-label': ariaLabel, 'aria-labelledby': labelledBy, 'aria-describedby': describedBy, ...rest },
+  ref,
 ) {
-  const { bad: invalid, desc } = useFieldAria(id, inv, rest['aria-describedby']);
-  const listed = readOptions(children);
-  const options: MenuOption[] = placeholder && allowEmpty && !listed.some((o) => o.value === '') ? [{ value: '', label: placeholder }, ...listed] : listed;
-  const v = value === null || value === undefined ? '' : String(value);
-  const label = rest['aria-label'] ?? (typeof placeholder === 'string' ? placeholder : 'Choices');
+  const native = useRef<HTMLSelectElement | null>(null);
+  const setRef = useCallback(
+    (el: HTMLSelectElement | null) => {
+      native.current = el;
+      if (typeof ref === 'function') ref(el);
+      else if (ref) ref.current = el;
+    },
+    [ref],
+  );
+  // the field's name: its aria-label, or the label that points to it (or wraps it)
+  const [named, setNamed] = useState<string | undefined>(labelledBy);
+  useLayoutEffect(() => {
+    if (labelledBy || ariaLabel) return setNamed(labelledBy);
+    const el = native.current;
+    const label = (id ? document.querySelector<HTMLLabelElement>(`label[for="${CSS.escape(id)}"]`) : null) ?? el?.closest('label') ?? null;
+    if (!label) return;
+    if (!label.id) label.id = `${id ?? 'sel'}-label-${Math.random().toString(36).slice(2, 7)}`;
+    setNamed(label.id);
+  }, [id, labelledBy, ariaLabel]);
+
+  const own = readOptions(children);
+  // an empty choice that can't be picked is the field's placeholder, not a row in the list
+  const blank = own.find((o) => o.value === '');
+  const options: MenuOption[] = [...(placeholder && allowEmpty ? [{ value: '', label: placeholder }] : []), ...own.filter((o) => !(o.value === '' && o.disabled))];
+  const current = String(value ?? defaultValue ?? '');
+  // picking in the list sets the hidden select and fires its change event, so every onChange(e) works as before
+  const fire = (v: string) => {
+    const el = native.current;
+    if (!el) return;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(el, v);
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  };
   return (
-    <SelectMenu
-      id={id}
-      value={v}
+    <Dropdown
+      id={id ? `${id}-field` : undefined}
+      value={current}
       options={options}
-      placeholder={placeholder ?? options.find((o) => o.value === '')?.label ?? 'Pick one'}
-      label={label}
-      ariaLabel={rest['aria-label']}
-      labelledBy={rest['aria-labelledby']}
+      onPick={fire}
+      placeholder={placeholder ?? blank?.label ?? 'Choose'}
+      ariaLabel={ariaLabel}
+      labelledBy={named}
+      describedBy={describedBy}
       invalid={invalid}
-      describedBy={desc}
       disabled={disabled}
-      search={search}
-      onBlur={onBlur}
-      className={`control--select ${className}`}
-      onChange={(x) => onChange?.({ target: { value: x, name }, currentTarget: { value: x } })}
+      wrapClass={wrapClass ?? `control control--select smenu ${className}`}
+      btnClass={btnClass}
+      display={display}
+      minListWidth={minListWidth}
+      anchorTo={anchorTo}
+      chevron={!noChevron}
+      before={
+        <select
+          ref={setRef}
+          id={id}
+          className={`dd__native ${nativeClass}`}
+          tabIndex={-1}
+          aria-hidden="true"
+          aria-invalid={invalid || undefined}
+          value={value}
+          defaultValue={defaultValue}
+          disabled={disabled}
+          {...rest}
+          // a label's click lands here: the field's button takes it
+          onFocus={(e) => (e.currentTarget.parentElement?.querySelector<HTMLButtonElement>('button[role="combobox"]')?.focus(), rest.onFocus?.(e))}
+        >
+          {placeholder && (
+            <option value="" disabled={!allowEmpty}>
+              {placeholder}
+            </option>
+          )}
+          {children}
+        </select>
+      }
     />
   );
 });
-
-/**
- * One date field (QC, 1 Nov; Jovial, 2 Nov): typed DD/MM/YYYY, or picked from the portal's calendar. See DatePicker.
- */
-export { DatePicker as DateInput } from './DatePicker';
-
-/** A search box with its magnifier, as on every list (Students, Applications, Create roles). */
-export function SearchInput({ id, label, value, onChange, placeholder, className = '' }: { id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
-  return (
-    <label className={`ssearch ${className}`}>
-      <Icon name="search" size={18} />
-      <span className="vh">{label}</span>
-      <input id={id} type="search" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  );
-}
 
 /**
  * On/off switch for settings that apply straight away. While pressed, the knob stretches and turns

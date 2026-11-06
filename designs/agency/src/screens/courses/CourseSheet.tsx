@@ -1,22 +1,18 @@
-import { fmtDate } from '../../data/format';
-import { UniNews } from '../../components/UniNews';
-
-import { homeCurrency } from './search';
-import { CostsTab } from './CostsTab';
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useHides } from '../../proto/viewOnly';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { searchCatalogue } from '../../institution/data/store';
-import { FLAG, FLAG_COLOURS, blockedFor, daysTo, durationText, earnOf, feeAYear, intakeState, money, totalFeeOf, type Campus, type Course, type University, intakeDates } from '../../data/courses';
-import type { Student } from '../../data/students';
+import { COURSES, FLAG, FLAG_COLOURS, blockedFor, coursePage, earnOf, intakeState, money, scholarshipsOf, type Course } from '../../data/courses';
+import { RP_COUNTRY } from '../../data/entry';
 import { EntryTab } from './EntryTab';
 import type { CourseSearch } from './search';
-import { Box, Tile, UniLogo, UniMark, campusLabel } from './parts';
-import { CampusLife, photosOf } from './CampusLife';
+import { ScholarshipCards } from './Scholarships';
+import { CampusCard, UniTab } from './UniTab';
+import { Box, UniLogo, UniMark, campusLabel, duration } from './parts';
 
-const day = (iso: string) => fmtDate(iso.length > 10 ? new Date(iso) : iso);
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 const TABS = [
@@ -31,7 +27,7 @@ type Tab = (typeof TABS)[number][0];
 /** The same course for the same student at other universities in the destination, closest in price first. */
 function similarTo(c: Course, s: CourseSearch) {
   const seen = new Set<string>([c.uni.id]);
-  return searchCatalogue().courses.filter((x) => x.uni.country === c.uni.country && x.level === c.level && x.area === c.area && !blockedFor(x.uni, s.need.country, s.need.state))
+  return COURSES.filter((x) => x.uni.country === c.uni.country && x.level === c.level && x.area === c.area && !blockedFor(x.uni, s.need.country, s.need.state))
     .sort((a, b) => Math.abs(a.tuition - c.tuition) - Math.abs(b.tuition - c.tuition))
     .filter((x) => !seen.has(x.uni.id) && seen.add(x.uni.id))
     .slice(0, 3);
@@ -63,22 +59,26 @@ export function CourseSheet({
   c,
   s,
   onClose,
+  shortlisted,
+  onShort,
+  compared = false,
+  comparable = true,
+  onCompare,
   canApply,
   agency,
   onApply,
   onPick,
-  student,
 }: {
   c: Course | null;
   s: CourseSearch;
-  /** The student picked in the search: the Eligibility tab shows each rule's verdict for them. */
-  student?: Student;
   onClose: () => void;
   shortlisted: boolean;
   /** Shortlist: for the student picked in the search, or a list of students to pick from (shown under the button). */
   onShort: (anchor: HTMLElement) => void;
-  /** Why Shortlist is off (no students yet), when it is. */
-  shortOff?: string;
+  /** Ticked to compare (up to five), beside Shortlist. */
+  compared?: boolean;
+  comparable?: boolean;
+  onCompare?: () => void;
   canApply: boolean;
   agency: string;
   onApply: () => void;
@@ -86,9 +86,8 @@ export function CourseSheet({
   onPick: (c: Course) => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
-  // whose entry requirements: the search's student country to start with (the selected student's), kept from tab to tab
-  const [from, setFrom] = useState(s.need.country || 'India');
-  useEffect(() => setFrom(s.need.country || 'India'), [s.need.country]);
+  // whose entry requirements: the RP's own country to start with, kept from tab to tab
+  const [from, setFrom] = useState(RP_COUNTRY);
   // the button that opened the next course goes away with this one, so focus moves to the new course's tabs
   const pick = (x: Course) => {
     onPick(x);
@@ -152,11 +151,11 @@ export function CourseSheet({
             <span>
               {c.uni.name} · {campusLabel(c.campus)}
             </span>
-            {c.uni.website && (
-              <a className="cs-web" href={`https://${c.uni.website}`} target="_blank" rel="noreferrer">
-                {c.uni.website}
+            {coursePage(c) && (
+              <a className="cs-web" href={coursePage(c)} target="_blank" rel="noreferrer" title={coursePage(c)}>
+                Course page
                 <Icon name="external" size={14} />
-                <span className="vh"> (opens in a new tab)</span>
+                <span className="vh"> on {c.uni.website ?? 'the university’s website'} (opens in a new tab)</span>
               </a>
             )}
           </span>
@@ -168,7 +167,20 @@ export function CourseSheet({
           <div className={`cm-bar ${stuck ? 'is-stuck' : ''}`}>
             <Tabs tab={tab} setTab={setTab} />
             <div className="csheet__acts">
-              {/* slice 3 PRD: Apply only; no Compare or Shortlist in the course page (both stay on the result cards) */}
+              {onCompare && (
+                <label className={`ccmp ccmp--sheet ${compared ? 'is-on' : ''} ${comparable ? '' : 'is-off'}`} title={comparable ? undefined : 'Up to 5 courses'}>
+                  <input type="checkbox" className="vh" checked={compared} disabled={!comparable} onChange={onCompare} aria-label={`Compare ${c.name}`} />
+                  <span className="ccmp__box" aria-hidden="true">
+                    <Icon name="check" size={12} strokeWidth={2.8} />
+                  </span>
+                  <span className="cm-acts__label" aria-hidden="true">
+                    Compare
+                  </span>
+                </label>
+              )}
+              <Button variant="secondary" onClick={(e) => onShort(e.currentTarget)} aria-pressed={shortlisted} aria-label={shortlisted ? 'Shortlisted' : 'Shortlist'} iconLeft={<Icon name="star" size={18} className={shortlisted ? 'is-on' : undefined} />}>
+                <span className="cm-acts__label">{shortlisted ? 'Shortlisted' : 'Shortlist'}</span>
+              </Button>
               <Button onClick={onApply} disabled={!canApply} iconRight={canApply ? <Icon name="arrowRight" size={18} /> : undefined}>
                 Apply
               </Button>
@@ -181,7 +193,7 @@ export function CourseSheet({
           <p className="csheet__src">
             <Icon name="refresh" size={14} />
             <span>
-              Last updated {fmtDate(c.checked)}.
+              Last updated on {c.checked} 26, from {c.uni.website ?? 'the university’s website'}.
             </span>
           </p>
         )
@@ -191,9 +203,9 @@ export function CourseSheet({
         <div className="csheet" ref={body}>
           <Panel tab={tab} id={c.id}>
             {tab === 'overview' && <Overview c={c} s={s} onPick={pick} />}
-            {tab === 'costs' && <CostsTab c={c} home={homeCurrency(s.need)} />}
-            {tab === 'entry' && <EntryTab c={c} country={from} onCountry={setFrom} student={student} />}
-            {tab === 'uni' && <Uni c={c} />}
+            {tab === 'costs' && <Costs c={c} />}
+            {tab === 'entry' && <EntryTab c={c} country={from} onCountry={setFrom} />}
+            {tab === 'uni' && <UniTab c={c} courses={COURSES} />}
           </Panel>
         </div>
       )}
@@ -205,22 +217,10 @@ export function CourseSheet({
 
 const MODE_NOTE: Record<Course['mode'], string> = { 'Full time': 'On campus', 'Part time': 'On campus', Blended: 'On campus and online', Online: 'Online only' };
 
-/** The course's tags and CRICOS code, from the Institution Team's course record (Jovial, 31 Oct). */
-const recordOf = (c: Course) => c as Course & { tags?: string[]; code?: string };
 function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canApply: boolean; agency: string }) {
-  const rec = recordOf(c);
+  const noCommission = useHides('courses.commission');
   return (
     <div className="cm-band">
-      {(rec.tags?.length || (c.uni.country === 'Australia' && c.cricos)) && (
-        <div className="csheet__tags">
-          {rec.tags?.map((t) => (
-            <span key={t} className="tag">
-              {t}
-            </span>
-          ))}
-          {c.uni.country === 'Australia' && c.cricos && <span className="tag">CRICOS {c.cricos}</span>}
-        </div>
-      )}
       <dl className={`cs-stats ${s.studentView ? 'is-3' : ''}`}>
         <div className="cs-stat">
           <dt>Study mode</dt>
@@ -229,16 +229,16 @@ function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canAppl
         </div>
         <div className="cs-stat">
           <dt>Duration</dt>
-          <dd className="cs-stat__v">{durationText(c)}</dd>
+          <dd className="cs-stat__v">{duration(c.months)}</dd>
         </div>
         <div className="cs-stat">
           <dt>Total tuition</dt>
           <dd className="cs-stat__v">
-            <Money v={totalFeeOf(c)} cur={c.currency} />
+            <Money v={Math.round((c.tuition * c.months) / 12)} cur={c.currency} />
           </dd>
-          <dd className="cs-stat__sub">{money(feeAYear(c), c.currency)} a year</dd>
+          <dd className="cs-stat__sub">{money(c.tuition, c.currency)} a year</dd>
         </div>
-        {!s.studentView && (
+        {!s.studentView && !noCommission && (
           <div className="cs-stat is-earn">
             <dt>Base commission</dt>
             <dd className="cs-stat__v">
@@ -308,13 +308,10 @@ function Panel({ tab, id, children }: { tab: Tab; id: string; children: ReactNod
 /* ---------- overview: the course and its campus ---------- */
 
 function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Course) => void }) {
-  const elsewhere = searchCatalogue().courses.filter((x) => x.uni.id === c.uni.id && x.name === c.name && x.id !== c.id);
+  const elsewhere = COURSES.filter((x) => x.uni.id === c.uni.id && x.name === c.name && x.id !== c.id);
   const similar = similarTo(c, s);
   // in pairs, row by row, so the cards beside each other start and end together
   return (
-    <>
-      {/* the university's announcements (Jovial, 31 Oct) */}
-      <UniNews c={c} audience="RP" />
     <div className="cm-grid">
       <Box id="cs-intakes" icon="calendar" title="Intakes">
         <ol className="cm-intakes">
@@ -324,17 +321,12 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
             return (
               <li key={i.month} className={`cm-intake ${st === 'closed' ? 'is-closed' : ''}`}>
                 <span className="cm-cal" aria-hidden="true">
-                  <span className="cm-cal__m">{fmtDate(by, { year: false }).split(' ')[1]}</span>
+                  <span className="cm-cal__m">{by.toLocaleDateString('en-GB', { month: 'short' }).slice(0, 3)}</span>
                   <span className="cm-cal__d">{by.getDate()}</span>
                 </span>
                 <span className="cm-intake__t">
                   <span className="cm-intake__name">{i.month} intake</span>
-                  <span className="cm-intake__by">{st === 'closed' ? `Closed ${day(i.deadline)}` : st === 'late' ? `Closed ${day(i.deadline)}: likelihood is low` : `Apply by ${day(i.deadline)} · ${daysTo(i.deadline)} ${daysTo(i.deadline) === 1 ? 'day' : 'days'} left`}</span>
-                  {intakeDates(c.id, i.month)?.start && (
-                    <span className="cm-intake__by">
-                      Starts {day(intakeDates(c.id, i.month)!.start)} · Census {day(intakeDates(c.id, i.month)!.census)}
-                    </span>
-                  )}
+                  <span className="cm-intake__by">{st === 'closed' ? `Closed ${day(i.deadline)}` : `Apply by ${day(i.deadline)}`}</span>
                 </span>
                 {st === 'closed' && (
                   <span className="cm-state cm-state--closed">
@@ -380,8 +372,8 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
                     </span>
                   </span>
                   <span className="cs-sim__fee">
-                    {money(totalFeeOf(x), x.currency)}
-                    <span className="cs-sim__per"> in all</span>
+                    {money(x.tuition, x.currency)}
+                    <span className="cs-sim__per"> a year</span>
                   </span>
                   <Icon name="chevronRight" size={18} />
                 </button>
@@ -391,92 +383,120 @@ function Overview({ c, s, onPick }: { c: Course; s: CourseSearch; onPick: (c: Co
         </Box>
       )}
     </div>
+  );
+}
+
+
+/* ---------- costs ---------- */
+
+function Costs({ c }: { c: Course }) {
+  const schols = scholarshipsOf(c);
+  const others = c.otherFees.reduce((n, [, v]) => n + v, 0);
+  const firstYear = c.tuition - c.scholarship + c.appFee + c.living + others;
+  // the first year, part by part, in a fixed order: each part keeps its colour whatever the course
+  const parts = [
+    { key: 'tuition', label: c.scholarship ? 'Tuition, after the scholarship' : 'Tuition', v: c.tuition - c.scholarship },
+    { key: 'living', label: 'Living costs', v: c.living },
+    { key: 'visa', label: 'Visa and health cover', v: others },
+    { key: 'app', label: 'Application fee', v: c.appFee },
+  ].filter((x) => x.v > 0);
+  return (
+    <>
+      <section className="cm-total" aria-labelledby="cs-total">
+        <div className="cm-total__head">
+          <h3 id="cs-total" className="cm-total__k">
+            First year, all in
+          </h3>
+          <p className="cm-total__v">
+            <Money v={firstYear} cur={c.currency} approx />
+          </p>
+          <p className="cm-total__note">For one student: tuition{c.scholarship ? ' after the scholarship' : ''}, living costs, visa and health cover{c.appFee ? ' and the application fee' : ''}.</p>
+        </div>
+        <CostBar parts={parts} total={firstYear} cur={c.currency} />
+      </section>
+
+      <div className="cm-grid">
+        <Box id="cs-fees" icon="wallet" title="Fees">
+          <dl className="cdl">
+            <Row k="Total tuition" v={money(Math.round((c.tuition * c.months) / 12), c.currency)} />
+            <Row k="Application fee" v={c.appFee ? money(c.appFee, c.currency) : 'Free'} />
+          </dl>
+        </Box>
+        <Box id="cs-other" icon="globe" title="Other costs">
+          <dl className="cdl">
+            <Row k="Living costs a year (visa figure)" v={money(c.living, c.currency)} />
+            {c.otherFees.map(([k, v]) => (
+              <Row key={k} k={k} v={`≈ ${money(v, c.currency)}`} />
+            ))}
+          </dl>
+          <p className="cs-fine">Visa and health cover are approximate, for one student. Check the official sites before quoting them.</p>
+        </Box>
+        <Box id="cs-schol" icon="award" title="Scholarships" meta={schols.length === 1 ? '1 listed' : `${schols.length} listed`}>
+          {schols.length ? (
+            <ScholarshipCards list={schols} />
+          ) : (
+            <p className="cnote">No scholarships listed for this course.</p>
+          )}
+        </Box>
+      </div>
     </>
   );
 }
 
-/** A campus with a map tile, from the campus record: its address, setting and its Google Maps link (30 Oct: nothing about regional visas). */
-function CampusCard({ k, current = false }: { u: University; k: Campus; current?: boolean }) {
+/**
+ * The first year as one bar split into its parts, with the parts listed under it in aligned columns (amount,
+ * share), so no part relies on its colour alone. Pointing at a part shows its amount and share.
+ */
+function CostBar({ parts, total, cur }: { parts: { key: string; label: string; v: number }[]; total: number; cur: string }) {
+  const [hover, setHover] = useState<string | null>(null);
+  const pct = (v: number) => Math.round((v / total) * 100);
+  // where each part's middle falls along the bar, for the tip over it (kept inside the bar's ends)
+  let at = 0;
+  const mid = Object.fromEntries(parts.map((p) => [p.key, (at += p.v) - p.v / 2]));
+  const on = parts.find((p) => p.key === hover);
   return (
-    <div className={`cs-campus ${current ? 'is-current' : ''}`}>
-      <span className="cs-campus__tile" aria-hidden="true">
-        <Icon name="pin" size={20} />
-      </span>
-      <div className="cs-campus__t">
-        <p className="cs-campus__name">
-          {k.name === k.city ? k.city : `${k.name} campus`}
-          {current && <span className="tag tag--here">This course</span>}
-        </p>
-        <p className="cs-campus__addr">{k.address ?? k.city}</p>
-        <p className="cs-campus__meta">
-          {[k.name !== k.city && k.city, k.setting].filter(Boolean).join(' · ')}
-        </p>
+    <div className="cbar">
+      <div className="cbar__track" aria-hidden="true" onMouseLeave={() => setHover(null)}>
+        {parts.map((p) => (
+          <span key={p.key} className={`cbar__seg cbar__seg--${p.key} ${hover && hover !== p.key ? 'is-dim' : ''}`} style={{ flexGrow: p.v }} onMouseEnter={() => setHover(p.key)} />
+        ))}
+        {on && (
+          <div className="cbar__tip" style={{ left: `clamp(110px, ${(mid[on.key] / total) * 100}%, calc(100% - 110px))` }}>
+            <strong>{on.label}</strong>
+            <span>
+              {money(on.v, cur)} · {pct(on.v)}%
+            </span>
+          </div>
+        )}
       </div>
-      {/* the campus record's Google Maps link (HC3); none, no link */}
-      {k.map && (
-        <a className="cs-campus__map" href={k.map} target="_blank" rel="noreferrer">
-          View on map
-          <Icon name="external" size={14} />
-          <span className="vh"> of {k.name}, opens in a new tab</span>
-        </a>
-      )}
+      <dl className="cbar__legend">
+        {parts.map((p) => (
+          <div key={p.key} className={`cbar__item ${hover === p.key ? 'is-on' : ''}`} onMouseEnter={() => setHover(p.key)} onMouseLeave={() => setHover(null)}>
+            <dt>
+              <span className={`cbar__key cbar__seg--${p.key}`} aria-hidden="true" />
+              {p.label}
+            </dt>
+            <dd className="cbar__amt">{money(p.v, cur)}</dd>
+            <dd className="cbar__pct">{pct(p.v)}%</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
 
 /* ---------- the university and its campuses ---------- */
 
-function Uni({ c }: { c: Course }) {
-  const u = c.uni;
-  const life = photosOf(u);
-  const facts: [string, string][] = [
-    // from the university record (Jovial, 1 Nov, HC2, HC3): its type and sector, founding year and QS rank
-    ...(u.utype ? ([['Type', `${u.sector ?? ''} ${u.sector ? u.utype.toLowerCase() : u.utype}`.trim()]] as [string, string][]) : []),
-    ...(u.founded ? ([['Founded', String(u.founded)]] as [string, string][]) : []),
-    ['QS world ranking', u.qs ? `#${u.qs}` : 'Not ranked'],
-  ];
+
+
+function Row({ k, v, ok }: { k: string; v: string; ok?: boolean }) {
   return (
-    <>
-      <section className="cs-uni" aria-labelledby="cs-uni-name">
-        <div className="cs-uni__head">
-          <UniLogo u={u} />
-          <div className="cs-uni__titles">
-            <h3 id="cs-uni-name" className="cs-uni__name">
-              {u.name}
-            </h3>
-            {u.website && (
-              <a className="cs-web" href={`https://${u.website}`} target="_blank" rel="noreferrer">
-                {u.website}
-                <Icon name="external" size={14} />
-                <span className="vh"> (opens in a new tab)</span>
-              </a>
-            )}
-          </div>
-        </div>
-        {u.about && <p className="cs-uni__about">{u.about}</p>}
-        <dl className="cm-tiles">
-          {facts.map(([k, v]) => (
-            <Tile key={k} k={k} v={v} />
-          ))}
-        </dl>
-      </section>
-
-      {/* the university record's Pictures (HC11); none, no Campus life */}
-      {life.length > 0 && (
-        <Box id="cs-life" icon="building" title="Campus life">
-          <CampusLife list={life} />
-        </Box>
-      )}
-
-      <Box id="cs-campuses" icon="pin" title={u.campuses.length === 1 ? 'Campus' : `${u.campuses.length} campuses`}>
-        <ul className="cs-campuses">
-          {u.campuses.map((k) => (
-            <li key={k.name}>
-              <CampusCard u={u} k={k} current={k.name === c.campus.name} />
-            </li>
-          ))}
-        </ul>
-      </Box>
-    </>
+    <div className="cdl__row">
+      <dt>{k}</dt>
+      <dd className={ok === undefined ? undefined : ok ? 'is-yes' : 'is-no'}>
+        {ok !== undefined && <Icon name={ok ? 'checkCircle' : 'close'} size={16} />}
+        {v}
+      </dd>
+    </div>
   );
 }

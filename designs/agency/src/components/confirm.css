@@ -12,6 +12,8 @@
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-pop);
 }
+.confirm__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-12); }
+.confirm__close { flex: none; margin: -6px -8px 0 0; }
 .confirm__title { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); font-weight: var(--fw-semi); }
 .confirm__text { display: grid; gap: var(--sp-6); font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
 .confirm__text strong { color: var(--text); font-weight: var(--fw-medium); }

@@ -2,139 +2,251 @@ import { useEffect, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
-import { DateInput, Field, Switch, TextInput } from '../../components/forms';
-import { useCheck, isEmail, dateError } from '../../components/validate';
-import { fmtDate } from '../../data/format';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { MoreMenu } from '../../components/MoreMenu';
+import { Checkbox, Field, SelectInput, TextInput, describedBy } from '../../components/forms';
 import { PageHead } from '../../institution/records/parts';
+import { MultiPick } from '../../institution/records/MultiPick';
 import type { EmailGroup, EmailPerm } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
-import { EditBar, History, Panel, useDraft } from './parts';
-import { Empty, Loaded, Pager, Pick, SaveBanner, usePaged, ViewOnlyNote, istDay, trySave, type SaveResult } from './states';
+import { EditActions, History, Panel, useAsk } from './parts';
 
-/** Jovial, 2 Nov: View, or View and send, for each person. */
-const PERM: Record<EmailPerm, string> = { view: 'View', send: 'View and send' };
+const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+const dateText = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+// 4 Nov (Nesil): View only, or View and Send
+const PERM: Record<EmailPerm, string> = { view: 'View only', send: 'View and Send' };
 
 /**
- * Shared mailboxes (PRD slice 1; Admin › User roles › Emails): GSP's shared inboxes the portal syncs, and who can use
- * each one. Each has an email (locked after the first save), a note, email sync and the date it syncs from, and its
- * people: access is per user (Jovial, 2 Nov), each View or View and send; not per queue or region. A mailbox can't be
- * deleted in this release (proposal S1C-12): switch sync off to stop it. Reading and acting on the mail is Mail.
+ * Emails (Nesil, 30 Oct): GSP's email groups, the shared inboxes it syncs. **Add email group**: its address, what it's
+ * for, whether it syncs, and the date the sync starts from. **Who can use it**: pick a group to see its people and
+ * whether each can only view it or send from it too. 3 Nov (Nesil): it reads as it is until **Edit**; then people can
+ * be added or taken off and their access changed, and **Save Changes** keeps it. 4 Nov (Nesil): access is View only
+ * or View and Send, and taking someone off is asked first.
  */
-export function Emails({ cfg, change, say, canEdit }: ConfigProps) {
+export function Emails({ cfg, change, say }: ConfigProps) {
   const [cur, setCur] = useState(cfg.emails[0]?.id ?? '');
   const [edit, setEdit] = useState<EmailGroup | 'new' | null>(null);
+  const [removing, setRemoving] = useState<EmailGroup | null>(null);
+  const [draft, setDraft] = useState<EmailGroup['users'] | null>(null);
+  const [adding, setAdding] = useState<string[]>([]);
+  const [ask, asking] = useAsk();
   const g = cfg.emails.find((x) => x.id === cur) ?? cfg.emails[0];
+  useEffect(() => {
+    setAdding([]);
+    setDraft(null);
+  }, [g?.id]);
+  const nameOf = (id: string) => cfg.users.find((u) => u.id === id);
+  const people = draft ?? g?.users ?? [];
+  const notIn = g ? cfg.users.filter((u) => !people.some((x) => x.id === u.id) && u.status !== 'Deactivated') : [];
+  const dirty = !!draft && !!g && JSON.stringify(draft) !== JSON.stringify(g.users);
+  const pick = (id: string) => (draft ? say('Save or cancel the changes to this group first.') : setCur(id));
+  const saveDraft = () => {
+    const before = new Map(g.users.map((x) => [x.id, x.perm]));
+    const after = new Map(draft!.map((x) => [x.id, x.perm]));
+    const nm = (id: string) => nameOf(id)?.name ?? id;
+    const added = draft!.filter((x) => !before.has(x.id)).map((x) => `added ${nm(x.id)} (${PERM[x.perm]})`);
+    const gone = g.users.filter((x) => !after.has(x.id)).map((x) => `took ${nm(x.id)} off`);
+    const moved = draft!.filter((x) => before.has(x.id) && before.get(x.id) !== x.perm).map((x) => `${nm(x.id)} → ${PERM[x.perm]}`);
+    const text = [...added, ...gone, ...moved];
+    change('Emails', `${g.email}: ${text.join('; ')}`, (c) => ({ ...c, emails: c.emails.map((x) => (x.id === g.id ? { ...x, users: draft! } : x)) }));
+    say(`${g.email}: ${text.length} ${text.length === 1 ? 'change' : 'changes'} saved.`);
+    setDraft(null);
+    setAdding([]);
+  };
   return (
     <>
-      <PageHead title="Shared mailboxes" lead="GSP’s shared inboxes that the portal syncs, and who can use each one. Reading and acting on the mail is Mail; this page only sets them up.">
-        {canEdit && (
-          <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
-            Add mailbox
-          </Button>
-        )}
+      <PageHead title="Emails" lead="GSP’s shared mailboxes, and who can view each one or send from it.">
+        <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
+          Add Email Group
+        </Button>
       </PageHead>
-      {!canEdit && <ViewOnlyNote />}
-      <Loaded page="shared mailboxes" cols={3}>
-        {!cfg.emails.length ? (
-          <Panel>
-            <Empty>No shared mailboxes yet.</Empty>
-          </Panel>
-        ) : (
-          <div className="cfg__emails">
-            <Panel title="Mailboxes" note={`${cfg.emails.length} mailboxes. A mailbox can’t be deleted in this release: switch sync off to stop it.`}>
-              <ul className="cfg__groups" role="listbox" aria-label="Shared mailboxes">
-                {cfg.emails.map((x) => {
-                  const n = new Set(x.users.map((u) => u.id)).size;
-                  return (
-                    <li key={x.id} className={`cfg__group ${x.id === g?.id ? 'is-on' : ''}`}>
-                      <button type="button" role="option" aria-selected={x.id === g?.id} className="cfg__groupbtn" onClick={() => setCur(x.id)}>
-                        <span className="cfg__groupicon" aria-hidden="true">
-                          <Icon name="mail" size={18} />
-                        </span>
-                        <span className="cfg__groupt">
-                          <span className="cfg__strong">{x.email}</span>
-                          <span className="cfg__sub">{x.for || '–'}</span>
-                          <span className="cfg__sub">
-                            {x.sync ? `Syncing from ${fmtDate(x.since)}` : 'Sync off'} · {n} {n === 1 ? 'person' : 'people'}
-                          </span>
-                        </span>
-                      </button>
-                      {canEdit && (
-                        <button type="button" className="icon-btn" aria-label={`Edit ${x.email}`} onClick={() => setEdit(x)}>
-                          <Icon name="edit" size={16} />
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </Panel>
-            {g && <Access key={g.id} g={g} cfg={cfg} change={change} say={say} canEdit={canEdit} />}
-          </div>
-        )}
-      </Loaded>
-      <History log={cfg.log} area="Emails" />
+      <div className="cfg__emails">
+        <Panel title="Email Groups" note={`${cfg.emails.length} ${cfg.emails.length === 1 ? 'group' : 'groups'}. Pick one to see who can use it.`}>
+          <ul className="cfg__groups" role="listbox" aria-label="Email groups">
+            {cfg.emails.map((x) => (
+              <li key={x.id} className={`cfg__group ${x.id === g?.id ? 'is-on' : ''}`}>
+                <button type="button" role="option" aria-selected={x.id === g?.id} className="cfg__groupbtn" onClick={() => pick(x.id)}>
+                  <span className="cfg__groupicon" aria-hidden="true">
+                    <Icon name="mail" size={18} />
+                  </span>
+                  <span className="cfg__groupt">
+                    <span className="cfg__strong">{x.email}</span>
+                    {x.purpose && <span className="cfg__sub cfg__purpose">{x.purpose}</span>}
+                    <span className="cfg__sub">
+                      {x.sync ? `Syncing from ${dateText(x.since)}` : 'Not syncing'} · {x.users.length} {x.users.length === 1 ? 'person' : 'people'}
+                    </span>
+                  </span>
+                </button>
+                <MoreMenu
+                  id={`em-${x.id}`}
+                  label={`More for ${x.email}`}
+                  items={[
+                    { id: 'edit', label: 'Edit Email Group', icon: 'edit', onPick: () => setEdit(x) },
+                    { id: 'remove', label: 'Delete Email Group', icon: 'close', danger: true, onPick: () => setRemoving(x) },
+                  ]}
+                />
+              </li>
+            ))}
+            {!cfg.emails.length && <li className="cfg__note">No email groups yet. Add one.</li>}
+          </ul>
+        </Panel>
 
-      <MailboxDialog
+        {g && (
+          <Panel
+            title="Who Can Use It"
+            note={
+              <>
+                <b>{g.email}</b>
+                {g.purpose ? ` · ${g.purpose}` : ''}. {g.sync ? `Syncing from ${dateText(g.since)}.` : 'Not syncing.'}
+              </>
+            }
+            action={<EditActions editing={!!draft} dirty={dirty} onEdit={() => setDraft(g.users)} onCancel={() => (setDraft(null), setAdding([]))} onSave={saveDraft} />}
+            flush
+          >
+            {draft && (
+              <div className="cfg__foot cfg__addusers">
+                <MultiPick id={`eu-${g.id}`} label="People to add" value={adding} options={notIn.map((u) => u.name)} onChange={setAdding} empty="Pick people" search />
+                <Button
+                  variant="secondary"
+                  iconLeft={<Icon name="plus" size={16} />}
+                  disabled={!adding.length}
+                  onClick={() => {
+                    const ids = adding.map((n) => cfg.users.find((u) => u.name === n)?.id).filter((x): x is string => !!x);
+                    setDraft((d) => [...d!, ...ids.map((id) => ({ id, perm: 'view' as EmailPerm }))]);
+                    setAdding([]);
+                  }}
+                >
+                  Add People
+                </Button>
+              </div>
+            )}
+            {people.length ? (
+              <div className="stab-wrap">
+                <table className="itab cfg__tab">
+                  <thead>
+                    <tr>
+                      <th scope="col">Person</th>
+                      <th scope="col">Role</th>
+                      <th scope="col">Access</th>
+                      {draft && (
+                        <th scope="col">
+                          <span className="vh">Take off</span>
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {people.map((x) => {
+                      const u = nameOf(x.id);
+                      if (!u) return null;
+                      const isNew = !!draft && !g.users.some((y) => y.id === x.id);
+                      return (
+                        <tr key={x.id} className={isNew ? 'is-changed' : ''}>
+                          <td>
+                            <span className="cfg__strong">{u.name}</span>
+                            <span className="cfg__sub">{u.email}</span>
+                          </td>
+                          <td className="cfg__muted">{u.role}</td>
+                          <td>
+                            {draft ? (
+                              <SelectInput id={`ep-${g.id}-${x.id}`} aria-label={`${u.name}: access`} value={x.perm} onChange={(e) => setDraft((d) => d!.map((z) => (z.id === x.id ? { ...z, perm: e.target.value as EmailPerm } : z)))}>
+                                <option value="view">{PERM.view}</option>
+                                <option value="send">{PERM.send}</option>
+                              </SelectInput>
+                            ) : (
+                              <span className={`cfg__access cfg__access--${x.perm}`}>{PERM[x.perm]}</span>
+                            )}
+                          </td>
+                          {draft && (
+                            <td className="cfg__acts">
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                aria-label={`Take ${u.name} off ${g.email}`}
+                                onClick={() =>
+                                  ask({
+                                    title: `Take ${u.name} off?`,
+                                    confirm: 'Take Off',
+                                    body: `${u.name} can no longer use ${g.email} once you save.`,
+                                    run: () => setDraft((d) => d!.filter((z) => z.id !== x.id)),
+                                  })
+                                }
+                              >
+                                <Icon name="close" size={16} />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="cfg__empty">{draft ? 'Nobody yet. Pick people above.' : 'Nobody can use this group yet. Edit to add people.'}</p>
+            )}
+          </Panel>
+        )}
+      </div>
+      <History log={cfg.log} area="Emails" />
+      {asking}
+
+      <GroupDialog
         open={!!edit}
-        box={edit === 'new' ? null : edit}
-        boxes={cfg.emails}
+        group={edit === 'new' ? null : edit}
+        groups={cfg.emails}
         onClose={() => setEdit(null)}
         onSave={(x) => {
-          const was = cfg.emails.find((y) => y.id === x.id);
-          if (!was) change('Emails', `Added ${x.email} (${x.for || 'no note'}): ${x.sync ? `syncs from ${fmtDate(x.since)}` : 'sync off'}`, (c) => ({ ...c, emails: [...c.emails, { ...x, savedAt: Date.now() }] }));
-          else {
-            const diffs = (
-              [
-                ['note', was.for || '–', x.for || '–'],
-                ['email sync', was.sync ? 'On' : 'Off', x.sync ? 'On' : 'Off'],
-                ['sync from', fmtDate(was.since), fmtDate(x.since)],
-              ] as [string, string, string][]
-            )
-              .filter(([, a, b]) => a !== b)
-              .map(([k, a, b]) => `${k} ${a} → ${b}`);
-            change('Emails', `${x.email}: ${diffs.join('; ')}`, (c) => ({ ...c, emails: c.emails.map((y) => (y.id === x.id ? x : y)) }));
-          }
-          say('Saved.');
-          setCur(x.id);
+          const isNew = !cfg.emails.some((y) => y.id === x.id);
+          change('Emails', `${isNew ? 'Added' : 'Edited'} ${x.email}: ${x.sync ? `syncs from ${dateText(x.since)}` : 'no sync'}`, (c) => ({ ...c, emails: isNew ? [...c.emails, x] : c.emails.map((y) => (y.id === x.id ? { ...x, users: y.users } : y)) }));
+          say(isNew ? `${x.email} added. Now add who can use it.` : `${x.email} saved.`);
+          if (isNew) setCur(x.id);
           setEdit(null);
         }}
       />
+      <ConfirmDialog
+        open={!!removing}
+        title={`Delete ${removing?.email}?`}
+        confirm="Delete Email Group"
+        cancel="Keep"
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          const x = removing!;
+          change('Emails', `Deleted ${x.email}`, (c) => ({ ...c, emails: c.emails.filter((y) => y.id !== x.id) }));
+          say(`${x.email} deleted.`);
+          if (x.id === g?.id) setCur(cfg.emails.find((y) => y.id !== x.id)?.id ?? '');
+          setRemoving(null);
+        }}
+      >
+        <p>It stops syncing, and its {removing?.users.length ?? 0} people can no longer use it. Emails already synced stay where they were filed.</p>
+      </ConfirmDialog>
     </>
   );
 }
 
-/** Add or edit a mailbox (PRD slice 1, Shared mailboxes › Fields). The email is locked after the first save. */
-function MailboxDialog({ open, box, boxes, onClose, onSave }: { open: boolean; box: EmailGroup | null; boxes: EmailGroup[]; onClose: () => void; onSave: (g: EmailGroup) => void }) {
-  const today = istDay(Date.now());
-  const blank = (): EmailGroup => ({ id: `e${Date.now()}`, email: '', for: '', sync: true, since: today, queues: [], users: [] });
-  const [v, setV] = useState<EmailGroup>(blank);
-  const [start, setStart] = useState<EmailGroup>(v);
-  const [result, setResult] = useState<SaveResult | null>(null);
-  const email = v.email.trim().toLowerCase();
-  const locked = !!box;
-  const c = useCheck({
-    email: locked ? null : !isEmail(email) || !email.endsWith('@upgrad.com') ? 'Enter a valid email.' : boxes.some((x) => x.id !== v.id && x.email.toLowerCase() === email) ? 'This mailbox is already set up.' : null,
-    since: v.sync ? (!v.since ? 'Pick the date to sync from.' : dateError(v.since) ? 'Pick the date to sync from.' : v.since > today ? 'Pick today or an earlier date.' : null) : null,
-  });
+/** Add or edit an email group: the address, whether it syncs, and the date the sync starts from. */
+function GroupDialog({ open, group, groups, onClose, onSave }: { open: boolean; group: EmailGroup | null; groups: EmailGroup[]; onClose: () => void; onSave: (g: EmailGroup) => void }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [v, setV] = useState<EmailGroup>({ id: '', email: '', sync: true, since: today, users: [] });
+  const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
-    const x = box ?? blank();
-    setV(x);
-    setStart(x);
-    setResult(null);
-    c.reset();
-  }, [open, box?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const dirty = JSON.stringify(v) !== JSON.stringify(start);
+    setV(group ?? { id: `e${Date.now()}`, email: '', sync: true, since: today, users: [] });
+    setTried(false);
+  }, [open, group?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const email = v.email.trim().toLowerCase();
+  const err = {
+    email: !isEmail(email) ? 'Enter the group’s email, like admissions@gsp.upgrad.com.' : groups.some((x) => x.id !== v.id && x.email === email) ? 'There’s already a group with this email.' : null,
+    since: v.sync && !v.since ? 'Pick the date the sync starts from.' : null,
+  };
+  const show = (k: keyof typeof err) => (tried ? err[k] : null);
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      dirty={dirty}
-      what={box ? box.email : 'the new mailbox'}
       center
       className="iform cfg__sheet"
-      title={box ? `Edit ${box.email}` : 'Add mailbox'}
+      title={group ? 'Edit Email Group' : 'Add Email Group'}
       footer={
         <div className="asf">
           <div className="asf__acts">
@@ -142,146 +254,33 @@ function MailboxDialog({ open, box, boxes, onClose, onSave }: { open: boolean; b
               Cancel
             </Button>
             <Button
-              disabled={!!box && !dirty}
               onClick={() => {
-                if (!c.submit()) return;
-                const r = trySave();
-                if (r !== 'ok') return setResult(r);
-                onSave({ ...v, email: locked ? v.email : email, for: v.for.trim() });
+                setTried(true);
+                if (!Object.values(err).some(Boolean)) onSave({ ...v, email, purpose: v.purpose?.trim() || undefined });
               }}
             >
-              {box ? 'Save' : 'Add mailbox'}
+              {group ? 'Save Changes' : 'Add Email Group'}
             </Button>
           </div>
         </div>
       }
     >
-      <SaveBanner result={result} onReload={onClose} />
       <div className="cfg__form">
-        <Field id="eg-email" label="Email" required error={c.err('email')} hint={locked ? 'Locked after the first save.' : 'An @upgrad.com address.'}>
-          <TextInput id="eg-email" type="email" value={v.email} disabled={locked} placeholder="name@upgrad.com" invalid={!!c.err('email')} onBlur={c.blur('email')} onChange={(e) => setV((x) => ({ ...x, email: e.target.value }))} />
+        <Field id="eg-email" label="Email" required error={show('email')}>
+          <TextInput id="eg-email" type="email" value={v.email} invalid={!!show('email')} placeholder="name@gsp.upgrad.com" aria-describedby={describedBy('eg-email', show('email'))} onChange={(e) => setV((x) => ({ ...x, email: e.target.value }))} />
         </Field>
-        <Field id="eg-for" label="Note" optional>
-          <TextInput id="eg-for" value={v.for} maxLength={120} placeholder="Like: Partner onboarding" onChange={(e) => setV((x) => ({ ...x, for: e.target.value }))} />
+        <Field id="eg-purpose" label="What it’s for" optional>
+          <TextInput id="eg-purpose" value={v.purpose ?? ''} placeholder="Like: Commission conversations" onChange={(e) => setV((x) => ({ ...x, purpose: e.target.value }))} />
         </Field>
-        <Switch id="eg-sync" checked={v.sync} onChange={(sync) => setV((x) => ({ ...x, sync }))}>
+        <Checkbox id="eg-sync" checked={v.sync} onChange={(sync) => setV((x) => ({ ...x, sync }))} hint="Brings this inbox’s emails into the portal, from the start date on.">
           Email sync
-        </Switch>
+        </Checkbox>
         {v.sync && (
-          <Field id="eg-since" label="Sync from" required error={c.err('since')} hint="Mail before this date isn’t read.">
-            <DateInput id="eg-since" value={v.since} invalid={!!c.err('since')} onBlur={c.blur('since')} onChange={(since) => setV((x) => ({ ...x, since }))} />
+          <Field id="eg-since" label="Sync email start date" required error={show('since')}>
+            <TextInput id="eg-since" type="date" value={v.since} max={today} invalid={!!show('since')} onChange={(e) => setV((x) => ({ ...x, since: e.target.value }))} />
           </Field>
         )}
       </div>
     </Sheet>
-  );
-}
-
-/**
- * Who can use a mailbox (Jovial, 2 Nov): the people Admin picks, each View or View and send; not per queue or region.
- * Read only until Edit; removing someone takes them off at once, and drafts they started stay with the mailbox.
- */
-function Access({ g, cfg, change, say, canEdit }: { g: EmailGroup; cfg: ConfigProps['cfg']; change: ConfigProps['change']; say: (m: string) => void; canEdit: boolean }) {
-  const d = useDraft(g.users, `who can use ${g.email}`);
-  const [adding, setAdding] = useState('');
-  const [result, setResult] = useState<SaveResult | null>(null);
-  const ed = d.editing;
-  const list = d.value;
-  const userOf = (id: string) => cfg.users.find((u) => u.id === id);
-  const notIn = cfg.users.filter((u) => u.status === 'Active' && !list.some((x) => x.id === u.id));
-  // the people, A to Z, paged like every Admin list (Jovial, 3 Nov)
-  const people = list.filter((x) => userOf(x.id)).sort((a, b) => (userOf(a.id)?.name ?? '').localeCompare(userOf(b.id)?.name ?? ''));
-  const { shown, pager } = usePaged(people, [g.id]);
-  const save = () => {
-    const r = trySave();
-    if (r !== 'ok') return setResult(r);
-    const added = list.filter((x) => !g.users.some((y) => y.id === x.id)).map((x) => `${userOf(x.id)?.name} (${PERM[x.perm]})`);
-    const gone = g.users.filter((x) => !list.some((y) => y.id === x.id)).map((x) => userOf(x.id)?.name);
-    const moved = list.filter((x) => g.users.some((y) => y.id === x.id && y.perm !== x.perm)).map((x) => `${userOf(x.id)?.name}: ${PERM[x.perm === 'send' ? 'view' : 'send']} → ${PERM[x.perm]}`);
-    change('Emails', `${g.email}: ${[added.length && `added ${added.join(', ')}`, gone.length && `removed ${gone.join(', ')}`, ...moved].filter(Boolean).join('; ') || 'no changes'}`, (c) => ({ ...c, emails: c.emails.map((x) => (x.id === g.id ? { ...x, users: list } : x)) }));
-    say('Saved.');
-    setResult(null);
-    d.stop();
-  };
-  return (
-    <Panel
-      title="Who can use it"
-      note={
-        <>
-          <b>{g.email}</b>{g.for ? ` · ${g.for}` : ''}. {g.sync ? `Syncing from ${fmtDate(g.since)}.` : 'Sync off.'} View: read only. View and send: reply and send from this address.
-        </>
-      }
-      action={canEdit && <EditBar name={`who can use ${g.email}`} editing={ed} dirty={d.dirty} onEdit={d.start} onCancel={() => (setAdding(''), setResult(null), d.stop())} onSave={save} />}
-      flush
-    >
-      {ed && <SaveBanner result={result} onReload={d.stop} />}
-      {ed && (
-        <div className="cfg__foot cfg__addusers">
-          <Pick id={`eu-${g.id}`} label="Person to add" value={adding} placeholder="Pick a person" options={notIn.map((u) => [u.id, `${u.name} · ${u.role}`] as [string, string])} onChange={setAdding} />
-          <Button
-            variant="secondary"
-            iconLeft={<Icon name="plus" size={16} />}
-            disabled={!adding}
-            onClick={() => {
-              d.set((l) => [...l, { id: adding, perm: 'view' as EmailPerm }]);
-              setAdding('');
-            }}
-          >
-            Add a person
-          </Button>
-        </div>
-      )}
-      <p className="cfg__k cfg__foot">People</p>
-      {list.length ? (
-        <div className="stab-wrap">
-          <table className="itab cfg__tab">
-            <thead>
-              <tr>
-                <th scope="col">Person</th>
-                <th scope="col">Role</th>
-                <th scope="col">Access</th>
-                {ed && (
-                  <th scope="col">
-                    <span className="vh">Remove</span>
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((x) => {
-                const u = userOf(x.id);
-                if (!u) return null;
-                return (
-                  <tr key={x.id}>
-                    <td>
-                      <span className="cfg__strong">{u.name}</span>
-                      <span className="cfg__sub">{u.email}</span>
-                    </td>
-                    <td className="cfg__muted">{u.role}</td>
-                    <td>
-                      {ed ? (
-                        <Pick id={`ep-${g.id}-${x.id}`} label={`${u.name}: access`} value={x.perm} options={Object.entries(PERM) as [string, string][]} onChange={(val) => d.set((l) => l.map((z) => (z.id === x.id ? { ...z, perm: val as EmailPerm } : z)))} />
-                      ) : (
-                        PERM[x.perm]
-                      )}
-                    </td>
-                    {ed && (
-                      <td className="cfg__acts">
-                        <button type="button" className="icon-btn" aria-label={`Remove ${u.name} from ${g.email}`} onClick={() => d.set((l) => l.filter((z) => z.id !== x.id))}>
-                          <Icon name="close" size={16} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <Pager {...pager} thing="People" />
-        </div>
-      ) : (
-        <Empty>No one can use this mailbox yet.</Empty>
-      )}
-    </Panel>
   );
 }

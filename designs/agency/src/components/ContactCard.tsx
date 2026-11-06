@@ -44,16 +44,14 @@ export function ContactCard({ person, hours }: { person: Contact; hours?: string
         </div>
       </div>
       <dl className="contact__lines">
-        {person.phone && (
-          <div>
-            <dt className="vh">Phone</dt>
-            <dd>
-              <Icon name="phone" size={16} />
-              <span className="num">{person.phone}</span>
-              <CopyButton value={person.phone} what="phone number" />
-            </dd>
-          </div>
-        )}
+        <div>
+          <dt className="vh">Phone</dt>
+          <dd>
+            <Icon name="phone" size={16} />
+            <span className="num">{person.phone}</span>
+            <CopyButton value={person.phone} what="phone number" />
+          </dd>
+        </div>
         <div>
           <dt className="vh">Email</dt>
           <dd>

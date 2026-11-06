@@ -2,11 +2,9 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icon } from './Icon';
-import { askDiscard } from './unsaved';
-import { RequiredNote } from './forms';
 import './sheet.css';
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([tabindex="-1"]), textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
  * A sheet over the page: from the right on wide screens (centred for a short form, or as `modal` a larger dialog in the
@@ -28,10 +26,9 @@ export function Sheet({
   modal = false,
   center = false,
   expandable = false,
+  keepCentre = false,
   className = '',
   style,
-  dirty = false,
-  what,
 }: {
   open: boolean;
   onClose: () => void;
@@ -54,31 +51,16 @@ export function Sheet({
   center?: boolean;
   /** With `center` or `modal`: a button beside Close makes the dialog fill the window, with a margin all round, and back. */
   expandable?: boolean;
+  /** With `center`: stays a dialog in the middle down to tablet widths; only phones (600px or less) get the bottom sheet. */
+  keepCentre?: boolean;
   className?: string;
   style?: CSSProperties;
-  /** Changes nobody saved: Esc, Close and the scrim ask "Discard changes?" first (QC, 1 Nov). */
-  dirty?: boolean;
-  /** What the changes are to, for that question ("the queue"). */
-  what?: string;
 }) {
   const reduce = useReducedMotion();
   const panel = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const layer = typeof document === 'undefined' ? null : document.getElementById('layer');
   const [full, setFull] = useState(false);
-  // "* Required" once, at the top, when the form has a required field
-  const [req, setReq] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const t = window.setTimeout(() => setReq(!!panel.current?.querySelector('.sheet__body .field__req')), 40);
-    return () => window.clearTimeout(t);
-  });
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
-  const tryClose = () => {
-    if (!dirtyRef.current) return onClose();
-    void askDiscard(what).then((ok) => ok && onClose());
-  };
 
   // it opens at its normal size every time
   useEffect(() => {
@@ -87,9 +69,7 @@ export function Sheet({
 
   useEffect(() => {
     if (!open) return;
-    // opened from a menu (a row's More menu): focus goes back to the menu's button, as the item itself goes away
-    const at = document.activeElement as HTMLElement | null;
-    opener.current = at?.closest('[role=menu]') ? (document.querySelector<HTMLElement>('[aria-haspopup="menu"][aria-expanded="true"]') ?? at) : at;
+    opener.current = document.activeElement as HTMLElement | null;
     const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>('.sheet__close')?.focus(), 30);
     return () => {
       window.clearTimeout(t);
@@ -100,9 +80,7 @@ export function Sheet({
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      // a menu or picker open inside the sheet closes first
-      if (e.defaultPrevented) return;
-      tryClose();
+      onClose();
       return;
     }
     if (e.key !== 'Tab' || !panel.current) return;
@@ -121,14 +99,14 @@ export function Sheet({
 
   if (!layer) return null;
   // the layer is as wide as the app (or the phone frame): phones get a bottom sheet
-  const phone = layer.clientWidth <= 900;
+  const phone = layer.clientWidth <= (keepCentre && center ? 600 : 900);
   const sizer = expandable && (center || modal) && !phone && (
     <button type="button" className="icon-btn sheet__size" aria-label={full ? 'Back to normal size' : 'Expand to full page'} title={full ? 'Back to normal size' : 'Expand to full page'} onClick={() => setFull((f) => !f)}>
       <Icon name={full ? 'collapse' : 'expand'} size={18} />
     </button>
   );
   const close = (
-    <button type="button" className="icon-btn sheet__close" aria-label="Close" onClick={tryClose}>
+    <button type="button" className="icon-btn sheet__close" aria-label="Close" onClick={onClose}>
       <Icon name="close" size={18} />
     </button>
   );
@@ -154,10 +132,7 @@ export function Sheet({
       </header>
       {band}
       {nav}
-      <div className="sheet__body">
-        {req && <RequiredNote className="sheet__req" />}
-        {children}
-      </div>
+      <div className="sheet__body">{children}</div>
       {footer && <footer className="sheet__foot">{footer}</footer>}
     </>
   );
@@ -165,11 +140,11 @@ export function Sheet({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className={`sheet-wrap ${modal ? 'is-modal' : ''} ${center ? 'sheet-wrap--center' : ''} ${full ? 'is-full' : ''}`} onKeyDown={onKey}>
+        <div className={`sheet-wrap ${modal ? 'is-modal' : ''} ${center ? 'sheet-wrap--center' : ''} ${center && keepCentre ? 'sheet-wrap--keep' : ''} ${full ? 'is-full' : ''}`} onKeyDown={onKey}>
           <motion.div
             className="sheet__scrim"
             aria-hidden="true"
-            onClick={tryClose}
+            onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

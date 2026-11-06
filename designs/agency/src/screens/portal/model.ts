@@ -1,6 +1,4 @@
-import { nextWorkingDay } from '../../data/workdays';
 /** The portal around a partner: which sections they can use, and the verification that opens the rest. */
-import { fmtDate } from '../../data/format';
 import type { IconName } from '../../components/Icon';
 import type { Account } from '../signin/model';
 import { SAMPLE, accountCreated, type SignupState } from '../signup/model';
@@ -10,7 +8,7 @@ export type Section = 'home' | 'applications' | 'students' | 'courses' | 'earnin
 
 /**
  * setup: the account exists, but the business details and documents haven't gone to GSP; only Home is open.
- * verifying: GSP has the business details and documents; Home and Find courses (Select student off) are open, and Applications, Students, Earnings and Profile wait until verified (S2-28 B).
+ * verifying: GSP has the business details and documents; course search and the profile are open, the rest waits.
  * all: GSP verified the business and its documents, so every section is open.
  */
 export type Access = 'setup' | 'verifying' | 'all';
@@ -22,7 +20,7 @@ export const NAV: { key: Section; label: string; short: string; icon: IconName; 
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people', locked: true },
   { key: 'earnings', label: 'Earnings', short: 'Earnings', icon: 'wallet', locked: true },
-  { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: true },
+  { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: false },
 ];
 
 /** What each locked section is for, said on its locked page and on Home. */
@@ -55,12 +53,13 @@ export type Phase = 'setup' | 'verifying' | 'sent-back' | 'verified';
 export const phaseOf = (s: SignupState | null): Phase =>
   !s || s.stage === 'verified' ? 'verified' : inSetup(s) ? 'setup' : s.stage === 'sent-back' ? 'sent-back' : 'verifying';
 
-/** GSP verifies the business and every document it was sent. */
+/** GSP verifies the business and every document it was sent; the partner agreement comes next (4 Nov). */
 export function verifyAll(s: SignupState): SignupState {
   return {
     ...s,
     stage: 'verified',
     verifiedAt: Date.now(),
+    agreement: s.agreement ?? { status: 'to-sign' },
     docs: Object.fromEntries(Object.entries(s.docs).map(([k, v]) => [k, v.file ? { ...v, status: 'accepted' as const, reason: undefined } : v])),
   };
 }
@@ -75,6 +74,45 @@ export function resend(s: SignupState): SignupState {
     docs: Object.fromEntries(Object.entries(s.docs).map(([k, v]) => [k, v.status === 'uploaded' ? { ...v, status: 'checking' as const, reason: undefined } : v])),
   };
 }
+
+/* ---------- The partner agreement (Nesil, 4 Nov) ---------- */
+
+/** The agreement GSP sends once it has verified the business. */
+export const AGREEMENT = { title: 'GSP Partner Agreement', version: 'v2 · Oct 2026', file: 'GSP-Partner-Agreement-v2-Oct-2026.pdf', size: 902_000 };
+/** Where the agreement is: 'none' before the business is verified, 'accepted' for a partner who signed in without registering here. */
+export type AgreementPhase = 'none' | 'to-sign' | 'with-gsp' | 'sent-back' | 'accepted';
+export function agreementOf(s: SignupState | null): AgreementPhase {
+  if (!s) return 'accepted';
+  if (s.stage !== 'verified') return 'none';
+  const st = s.agreement?.status ?? 'to-sign';
+  return st === 'sending' ? (s.agreement?.reason ? 'sent-back' : 'to-sign') : st;
+}
+/** Earnings waits for GSP to accept the signed agreement; everything else opens with the business verified. */
+export const earningsLocked = (s: SignupState | null) => { const a = agreementOf(s); return a !== 'accepted' && a !== 'none'; };
+
+/** GSP accepts the signed copy: Earnings opens. */
+export const acceptAgreement = (s: SignupState): SignupState => ({ ...s, agreement: { ...(s.agreement ?? { status: 'to-sign' }), status: 'accepted', reason: undefined, acceptedAt: Date.now() } });
+const SIGNED_SAMPLE = (biz: string) => ({ name: `${biz.replace(/[^A-Za-z0-9]+/g, '-')}-Partner-Agreement-signed.pdf`, size: 1_480_000, type: 'application/pdf' });
+const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+/** The agency's signed copy, with GSP: theirs if they sent one, otherwise the sample's. */
+const withGsp = (s: SignupState): SignupState => {
+  const a = s.agreement;
+  return a?.file && (a.status === 'with-gsp' || a.status === 'accepted' || a.status === 'sent-back')
+    ? { ...s, agreement: { ...a, status: 'with-gsp', reason: undefined } }
+    : { ...s, agreement: { status: 'with-gsp', downloaded: true, file: SIGNED_SAMPLE(s.form.biz), signedOn: today(), sentAt: Date.now() - 25 * 60_000, rounds: 1 } };
+};
+/** GSP can't accept the signed copy and says why: a page isn't signed. */
+export const returnAgreement = (s: SignupState): SignupState => {
+  const w = withGsp(s).agreement!;
+  return {
+    ...s,
+    agreement: {
+      ...w,
+      status: 'sent-back',
+      reason: 'Page 4 isn’t signed, and the signature on page 9 needs the owner’s name and the date under it. Sign every page where it’s marked, then upload the whole agreement again.',
+    },
+  };
+};
 
 const MIN = 60_000;
 /** The sample agency, its details and documents sent a little while ago. */
@@ -91,6 +129,8 @@ function sampleSent(): SignupState {
     },
   };
 }
+/** A verified agency's documents, for a partner who signed in without registering in this browser (3 Nov: Profile's Documents tab). */
+export const sampleVerified = () => acceptAgreement(withGsp(verifyAll(sampleSent())));
 const hasAccount = (s: SignupState | null): s is SignupState => !!s && ['details', 'sending', 'sent', 'sent-back', 'verified'].includes(s.stage);
 const wasSent = (s: SignupState | null): s is SignupState => !!s && ['sent', 'sent-back', 'verified'].includes(s.stage);
 
@@ -189,9 +229,28 @@ export const PORTAL_PRESETS: Record<string, { label: string; make: (prev: Signup
       return sendBack(s, [{ doc: a, kind: 'wrong' }, ...(b ? [{ doc: b, kind: 'unclear' as const }] : [])]);
     },
   },
+  // 4 Nov: after the business is verified, the partner agreement; Earnings opens once GSP accepts it
+  'portal-agreement': {
+    label: 'Verified: Agreement to sign',
+    make: (prev) => {
+      const s = verifyAll(wasSent(prev) ? prev : sampleSent());
+      return { ...s, agreement: { status: 'to-sign' } };
+    },
+  },
+  'portal-agreement-sent': {
+    label: 'Agreement: With GSP',
+    make: (prev) => withGsp(verifyAll(wasSent(prev) ? prev : sampleSent())),
+  },
+  'portal-agreement-back': {
+    label: 'Agreement: Not accepted',
+    make: (prev) => returnAgreement(verifyAll(wasSent(prev) ? prev : sampleSent())),
+  },
   'portal-verified': {
-    label: 'Verified: All Access',
-    make: (prev) => verifyAll(wasSent(prev) ? prev : sampleSent()),
+    label: 'Agreement accepted: All Access',
+    make: (prev) => {
+      const s = verifyAll(wasSent(prev) ? prev : sampleSent());
+      return acceptAgreement(withGsp(s));
+    },
   },
 };
 
@@ -203,8 +262,8 @@ export function sentDocs(s: SignupState) {
 /* ---------- Dates, in the partner's terms ---------- */
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-const time = (d: Date) => d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true });
-const day = (d: Date) => fmtDate(d, { year: false });
+const time = (d: Date) => d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
+const day = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
 /** "today, 10:42 am" or "24 Oct, 10:42 am" */
 export function whenLabel(ts?: number) {
@@ -213,7 +272,10 @@ export function whenLabel(ts?: number) {
   return `${sameDay(d, new Date()) ? 'today' : day(d)}, ${time(d)}`;
 }
 
-/** The date to expect GSP's verification by (HC32): the next working day in GSP's calendar for the agency's country. */
-export function expectedBy(ts?: number, country = '') {
-  return nextWorkingDay(ts ?? Date.now(), country).toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short' });
+/** GSP works Monday to Saturday; "usually within 1 working day" lands on the next one. */
+export function expectedBy(ts?: number) {
+  const d = new Date(ts ?? Date.now());
+  d.setDate(d.getDate() + 1);
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }

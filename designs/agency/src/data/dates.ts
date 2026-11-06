@@ -28,24 +28,20 @@ export function parseMonth(v: string) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** "14 Oct", or "18 Sep 2032" with the year (en-GB would say "Sept"). */
-/**
- * A moment's calendar parts in IST (slice 1 NFR-1: one time zone, Asia/Kolkata, for every date and time shown),
- * whatever the viewer's own zone. IST is UTC+5:30 all year.
- */
-export function istParts(d: Date | number) {
-  const x = new Date((typeof d === 'number' ? d : d.getTime()) + 5.5 * 3_600_000);
-  return { y: x.getUTCFullYear(), m: x.getUTCMonth(), d: x.getUTCDate(), h: x.getUTCHours(), min: x.getUTCMinutes(), wd: x.getUTCDay() };
-}
-export const shortDate = (d: Date, year = false) => {
-  const p = istParts(d);
-  return `${p.d} ${MONTHS[p.m]}${year ? ` ${p.y}` : ''}`;
-};
-export const monthLabel = (d: Date) => {
-  const p = istParts(d);
-  return `${MONTHS[p.m]} ${p.y}`;
-};
+export const shortDate = (d: Date, year = false) => `${d.getDate()} ${MONTHS[d.getMonth()]}${year ? ` ${d.getFullYear()}` : ''}`;
+export const monthLabel = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
-/* No passport-validity rule here (HC17, Jovial 1 Nov): how long a passport must still run is the visa's rule, not ours. */
+const monthsUntil = (d: Date) => (d.getTime() - Date.now()) / (30.44 * 86_400_000);
+
+/** A passport that runs out within 6 months can't be used for most student visas. */
+export function expiryNote(v: string) {
+  const d = parseDate(v);
+  if (!d) return null;
+  const m = monthsUntil(d);
+  if (m < 0) return { level: 'bad' as const, text: 'Expired. The student needs a new passport before applying.' };
+  if (m < 6) return { level: 'warn' as const, text: `Expires in ${Math.max(1, Math.round(m))} ${Math.round(m) === 1 ? 'month' : 'months'}. Most student visas need 6 months or more.` };
+  return null;
+}
 
 /** Whole years since a date: an age, or how old a test score is. */
 export const yearsSince = (d: Date) => Math.floor((Date.now() - d.getTime()) / (365.25 * 86_400_000));

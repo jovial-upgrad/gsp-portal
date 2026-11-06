@@ -5,18 +5,17 @@ import { Icon } from '../../components/Icon';
 import { courseOf, stageOf, statusText, type Application } from '../../data/applications';
 import { CopyButton } from '../students/parts';
 import { CHANNEL_NAME, type Desk } from './desk';
-import { refError } from '../../data/appRules';
-import type { Student } from '../../data/students';
 
 /** Submitted to the university: past "Ready to submit", or closed after it had a reference. */
 export const isSubmitted = (a: Application) => (a.status === 'closed' ? !!a.uniRef : stageOf(a) > 2 || (stageOf(a) === 2 && a.status !== 'ready'));
+const REF = /^[A-Za-z0-9][A-Za-z0-9/_-]{2,29}$/;
 
 /**
  * Submission: where the application goes in (by mail, through StudyLink or the university's portal, with the
  * sign-in to copy), and the university's reference for it, added once it's submitted and changed only after
  * a confirmation.
  */
-export function SubmissionTab({ a, all, students, desk, onRef, say }: { a: Application; all: Application[]; students: Student[]; desk: Desk; onRef: (ref: string, was?: string) => void; say: (m: string) => void }) {
+export function SubmissionTab({ a, desk, onRef, say }: { a: Application; desk: Desk; onRef: (ref: string, was?: string) => void; say: (m: string) => void }) {
   const c = courseOf(a);
   const ch = desk.channel;
   const [shown, setShown] = useState(false);
@@ -26,9 +25,7 @@ export function SubmissionTab({ a, all, students, desk, onRef, say }: { a: Appli
   const [tried, setTried] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const clean = value.trim().toUpperCase();
-  // the one reference rule, as Key details and the Submitted to university popup (data/appRules.ts)
-  const err = clean === (a.uniRef ?? '').toUpperCase() ? null : refError(all, a, clean, students);
-  const valid = !err;
+  const valid = REF.test(clean);
 
   const submit = () => {
     setTried(true);
@@ -50,8 +47,7 @@ export function SubmissionTab({ a, all, students, desk, onRef, say }: { a: Appli
             Where it’s submitted
           </h2>
           <span className={`gsub__via gsub__via--${ch.via}`}>
-            {/* a chip, not a link (Jovial, 2 Nov) */}
-            <Icon name={ch.via === 'mail' ? 'mail' : 'globe'} size={14} />
+            <Icon name={ch.via === 'mail' ? 'mail' : 'external'} size={14} />
             {CHANNEL_NAME[ch.via]}
           </span>
         </div>
@@ -179,7 +175,7 @@ export function SubmissionTab({ a, all, students, desk, onRef, say }: { a: Appli
           {!submitted
             ? `You can add it once the application is submitted. It’s at “${statusText(a)}”.`
             : tried && !valid
-              ? err
+              ? 'Use 3 to 30 letters, numbers or dashes, as the university wrote it.'
               : a.uniRef && !editing
                 ? ''
                 : 'As the university wrote it, like the one in their acknowledgement mail.'}
@@ -201,7 +197,7 @@ export function SubmissionTab({ a, all, students, desk, onRef, say }: { a: Appli
         }}
       >
         <p>
-          From <strong className="gsub__mono">{a.uniRef}</strong> to <strong className="gsub__mono">{clean}</strong>. GSP tracks the submission with the new one from now on, and the change shows in Activity.
+          From <strong className="gsub__mono">{a.uniRef}</strong> to <strong className="gsub__mono">{clean}</strong>. GSP tracks the submission with the new one from now on, and the change shows in Logs.
         </p>
       </ConfirmDialog>
     </div>

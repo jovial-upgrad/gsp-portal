@@ -1,8 +1,7 @@
 /**
- * Sample course data: the seed of the Institution Team's catalogue, which Find courses reads in every role (HC1).
- * Real university names, made-up fees and dates, in the shape the brief and the PM prototype use: intakes with
- * deadlines and a status, English scores, the commission rate GSP gets (the agency earns 70% of it), and the date
- * each course was last checked.
+ * Sample course data for Find courses. Real university names, made-up fees and dates, in the shape the brief
+ * and the PM prototype use: intakes with deadlines and a status, English scores, offer time, the commission
+ * rate GSP gets (the agency earns 70% of it), and the date each record was last checked.
  * Universities can be closed to students from some countries or states (territory rules).
  */
 
@@ -24,12 +23,10 @@ export const AREAS = [
 ] as const;
 export type Area = (typeof AREAS)[number];
 
-import { fmtMoney } from './format';
 import canberraLogo from '../assets/unis/canberra.png';
 import canberraMark from '../assets/unis/canberra-mark.png';
 import uniscLogo from '../assets/unis/unisc.svg';
 import uniscMark from '../assets/unis/unisc-mark.svg';
-import DATASET from './dataset.json';
 
 export const CURRENCY: Record<Destination, string> = { Australia: 'AUD', UK: 'GBP', Canada: 'CAD', 'New Zealand': 'NZD', Ireland: 'EUR', USA: 'USD' };
 export const FLAG: Record<Destination, string> = { Australia: '🇦🇺', UK: '🇬🇧', Canada: '🇨🇦', 'New Zealand': '🇳🇿', Ireland: '🇮🇪', USA: '🇺🇸' };
@@ -47,12 +44,10 @@ export const FLAG_COLOURS: Record<Destination, [string, string]> = {
 };
 
 /**
- * A campus, as its record keeps it (Institution › Campuses): where it is, its address and Google Maps link, what kind
- * of place, and (Australia) whether it's in a regional area (the sample's Regional tag).
+ * A campus: where it is, what kind of place, and (Australia) whether it's in a regional area for visa purposes,
+ * which usually lets graduates stay longer on a post-study work visa.
  */
-export type Campus = { name: string; city: string; address?: string; setting?: 'City centre' | 'Suburban' | 'Regional town'; regional?: boolean; /** Its Google Maps link, from the campus record (HC3). */ map?: string };
-/** A picture on the university's record (HC11): its file name, and the image when there is one (an upload in the prototype keeps only its name). */
-export type Picture = { id: string; name: string; src?: string; /** Optional, shown under it (slice 2 PRD). */ caption?: string };
+export type Campus = { name: string; city: string; address?: string; setting?: 'City centre' | 'Suburban' | 'Regional town'; regional?: boolean };
 
 export type University = {
   id: string;
@@ -73,131 +68,58 @@ export type University = {
   group?: string;
   /** GSP's IP team pushes these for students from some countries: they show first. */
   priorityFor?: string[];
+  /** GSP · Institution's Search priority, 1 to 10 (3 Nov): Best match puts the highest first. Other roles don't set it. */
+  priority?: number;
   /** Students the university doesn't take through GSP: a whole country, or some of its states. */
   blocked?: { country: string; states?: string[] }[];
-  /** Recruitment partners (record ids) this university is hidden from in course search (its territory). */
-  hiddenFrom?: string[];
   rate: number;
-  /** A pathway provider (Jovial, 1 Nov, HC2): a university-level field on its record (Institution › Profile). */
-  pathway?: boolean;
-  /** The university record's type and sector (Institution › Profile), when it's read from the catalogue. */
-  utype?: string;
-  sector?: 'Public' | 'Private';
-  /** The record's pictures (Institution › Pictures, HC11): course search's campus photos. None: no photos. */
-  pictures?: Picture[];
+  offerDays: number;
+  checked: string;
   /** Colleges award diplomas and certificates, not degrees. */
   college?: boolean;
-  /**
-   * Search priority (slice 2 PRD; renamed from Display priority, S3-1/S3-19): a whole number from 1 to 10, default 5
-   * (Jovial, S2C-1: SEARCH_PRIORITY), set by Institution or IP Ops on the university. Course search's Recommended
-   * sort orders by it first, highest first.
-   */
-  searchPriority?: number;
-  /** The QS ranking's year, from the QS ranking CSV on Universities (S2-2, S2C-17): "#415 · QS 2026". */
-  qsYear?: number;
 };
 
 export const UNIVERSITIES: University[] = [
-  { id: 'flinders', name: 'Flinders University', country: 'Australia', campuses: [{ name: 'Bedford Park', city: 'Adelaide' }], qs: 415, rate: 15, priorityFor: ['India'] },
-  { id: 'adelaide', name: 'Adelaide University', aka: ['University of Adelaide', 'University of South Australia', 'UniSA'], country: 'Australia', campuses: [{ name: 'City East', city: 'Adelaide' }, { name: 'North Terrace', city: 'Adelaide' }], qs: 82, group: 'Group of Eight', rate: 12 },
-  { id: 'deakin', name: 'Deakin University', country: 'Australia', campuses: [{ name: 'Burwood', city: 'Melbourne' }, { name: 'Waurn Ponds', city: 'Geelong' }], qs: 197, rate: 15 },
-  { id: 'newcastle', name: 'University of Newcastle', country: 'Australia', campuses: [{ name: 'Callaghan', city: 'Newcastle' }, { name: 'Sydney', city: 'Sydney' }], qs: 179, rate: 15 },
-  { id: 'uow', name: 'University of Wollongong', country: 'Australia', campuses: [{ name: 'Wollongong', city: 'Wollongong' }], qs: 162, rate: 15 },
-  { id: 'cqu', name: 'CQUniversity', aka: ['Central Queensland University'], country: 'Australia', campuses: [{ name: 'Sydney', city: 'Sydney' }, { name: 'Melbourne', city: 'Melbourne' }, { name: 'Brisbane', city: 'Brisbane' }], rate: 18, blocked: [{ country: 'India', states: ['Punjab'] }] },
-  { id: 'vu', name: 'Victoria University', country: 'Australia', campuses: [{ name: 'Footscray Park', city: 'Melbourne' }, { name: 'Sydney', city: 'Sydney' }], rate: 18, blocked: [{ country: 'India', states: ['Punjab', 'Haryana'] }] },
-  { id: 'murdoch', name: 'Murdoch University', country: 'Australia', campuses: [{ name: 'Perth', city: 'Perth' }], qs: 591, rate: 16 },
-  { id: 'rmit', name: 'RMIT University', country: 'Australia', campuses: [{ name: 'City', city: 'Melbourne' }], qs: 123, rate: 12 },
-  { id: 'feduni', name: 'Federation University', aka: ['University of Ballarat'], country: 'Australia', campuses: [{ name: 'Berwick', city: 'Melbourne' }, { name: 'Mt Helen', city: 'Ballarat' }], rate: 20, blocked: [{ country: 'India', states: ['Punjab', 'Haryana', 'Gujarat'] }, { country: 'Nepal' }] },
+  { id: 'flinders', name: 'Flinders University', country: 'Australia', campuses: [{ name: 'Bedford Park', city: 'Adelaide' }], qs: 415, rate: 15, offerDays: 6, checked: '30 Sep', priorityFor: ['India'] },
+  { id: 'adelaide', name: 'Adelaide University', aka: ['University of Adelaide', 'University of South Australia', 'UniSA'], country: 'Australia', campuses: [{ name: 'City East', city: 'Adelaide' }, { name: 'North Terrace', city: 'Adelaide' }], qs: 82, group: 'Group of Eight', rate: 12, offerDays: 12, checked: '21 Oct' },
+  { id: 'deakin', name: 'Deakin University', country: 'Australia', campuses: [{ name: 'Burwood', city: 'Melbourne' }, { name: 'Waurn Ponds', city: 'Geelong' }], qs: 197, rate: 15, offerDays: 8, checked: '14 Oct' },
+  { id: 'newcastle', name: 'University of Newcastle', country: 'Australia', campuses: [{ name: 'Callaghan', city: 'Newcastle' }, { name: 'Sydney', city: 'Sydney' }], qs: 179, rate: 15, offerDays: 9, checked: '30 Sep' },
+  { id: 'uow', name: 'University of Wollongong', country: 'Australia', campuses: [{ name: 'Wollongong', city: 'Wollongong' }], qs: 162, rate: 15, offerDays: 7, checked: '7 Oct' },
+  { id: 'cqu', name: 'CQUniversity', aka: ['Central Queensland University'], country: 'Australia', campuses: [{ name: 'Sydney', city: 'Sydney' }, { name: 'Melbourne', city: 'Melbourne' }, { name: 'Brisbane', city: 'Brisbane' }], rate: 18, offerDays: 4, checked: '21 Oct', blocked: [{ country: 'India', states: ['Punjab'] }] },
+  { id: 'vu', name: 'Victoria University', country: 'Australia', campuses: [{ name: 'Footscray Park', city: 'Melbourne' }, { name: 'Sydney', city: 'Sydney' }], rate: 18, offerDays: 5, checked: '30 Sep', blocked: [{ country: 'India', states: ['Punjab', 'Haryana'] }] },
+  { id: 'murdoch', name: 'Murdoch University', country: 'Australia', campuses: [{ name: 'Perth', city: 'Perth' }], qs: 591, rate: 16, offerDays: 7, checked: '14 Oct' },
+  { id: 'rmit', name: 'RMIT University', country: 'Australia', campuses: [{ name: 'City', city: 'Melbourne' }], qs: 123, rate: 12, offerDays: 14, checked: '7 Oct' },
+  { id: 'feduni', name: 'Federation University', aka: ['University of Ballarat'], country: 'Australia', campuses: [{ name: 'Berwick', city: 'Melbourne' }, { name: 'Mt Helen', city: 'Ballarat' }], rate: 20, offerDays: 4, checked: '21 Oct', blocked: [{ country: 'India', states: ['Punjab', 'Haryana', 'Gujarat'] }, { country: 'Nepal' }] },
 
-  { id: 'abertay', name: 'Abertay University', country: 'UK', campuses: [{ name: 'Dundee', city: 'Dundee' }], rate: 15, priorityFor: ['India', 'Bangladesh'] },
-  { id: 'coventry', name: 'Coventry University', country: 'UK', campuses: [{ name: 'Coventry', city: 'Coventry' }, { name: 'London', city: 'London' }], qs: 532, rate: 15 },
-  { id: 'herts', name: 'University of Hertfordshire', country: 'UK', campuses: [{ name: 'Hatfield', city: 'Hatfield' }], rate: 15 },
-  { id: 'northumbria', name: 'Northumbria University', country: 'UK', campuses: [{ name: 'Newcastle', city: 'Newcastle upon Tyne' }, { name: 'London', city: 'London' }], qs: 263, rate: 14 },
-  { id: 'greenwich', name: 'University of Greenwich', country: 'UK', campuses: [{ name: 'Greenwich', city: 'London' }], rate: 16, blocked: [{ country: 'Bangladesh' }] },
-  { id: 'ulster', name: 'Ulster University', country: 'UK', campuses: [{ name: 'Belfast', city: 'Belfast' }, { name: 'London', city: 'London' }, { name: 'Birmingham', city: 'Birmingham' }], rate: 16 },
-  { id: 'leeds', name: 'University of Leeds', country: 'UK', campuses: [{ name: 'Leeds', city: 'Leeds' }], qs: 82, group: 'Russell Group', rate: 10 },
-  { id: 'birmingham', name: 'University of Birmingham', country: 'UK', campuses: [{ name: 'Edgbaston', city: 'Birmingham' }], qs: 76, group: 'Russell Group', rate: 10 },
+  { id: 'abertay', name: 'Abertay University', country: 'UK', campuses: [{ name: 'Dundee', city: 'Dundee' }], rate: 15, offerDays: 5, checked: '30 Sep', priorityFor: ['India', 'Bangladesh'] },
+  { id: 'coventry', name: 'Coventry University', country: 'UK', campuses: [{ name: 'Coventry', city: 'Coventry' }, { name: 'London', city: 'London' }], qs: 532, rate: 15, offerDays: 6, checked: '14 Oct' },
+  { id: 'herts', name: 'University of Hertfordshire', country: 'UK', campuses: [{ name: 'Hatfield', city: 'Hatfield' }], rate: 15, offerDays: 7, checked: '7 Oct' },
+  { id: 'northumbria', name: 'Northumbria University', country: 'UK', campuses: [{ name: 'Newcastle', city: 'Newcastle upon Tyne' }, { name: 'London', city: 'London' }], qs: 263, rate: 14, offerDays: 8, checked: '21 Oct' },
+  { id: 'greenwich', name: 'University of Greenwich', country: 'UK', campuses: [{ name: 'Greenwich', city: 'London' }], rate: 16, offerDays: 5, checked: '30 Sep', blocked: [{ country: 'Bangladesh' }] },
+  { id: 'ulster', name: 'Ulster University', country: 'UK', campuses: [{ name: 'Belfast', city: 'Belfast' }, { name: 'London', city: 'London' }, { name: 'Birmingham', city: 'Birmingham' }], rate: 16, offerDays: 6, checked: '14 Oct' },
+  { id: 'leeds', name: 'University of Leeds', country: 'UK', campuses: [{ name: 'Leeds', city: 'Leeds' }], qs: 82, group: 'Russell Group', rate: 10, offerDays: 21, checked: '7 Oct' },
+  { id: 'birmingham', name: 'University of Birmingham', country: 'UK', campuses: [{ name: 'Edgbaston', city: 'Birmingham' }], qs: 76, group: 'Russell Group', rate: 10, offerDays: 18, checked: '21 Oct' },
 
-  { id: 'windsor', name: 'University of Windsor', country: 'Canada', campuses: [{ name: 'Windsor', city: 'Windsor, Ontario' }], rate: 15 },
-  { id: 'algoma', name: 'Algoma University', country: 'Canada', campuses: [{ name: 'Brampton', city: 'Brampton, Ontario' }, { name: 'Sault Ste. Marie', city: 'Sault Ste. Marie, Ontario' }], rate: 18 },
-  { id: 'fanshawe', name: 'Fanshawe College', country: 'Canada', campuses: [{ name: 'London', city: 'London, Ontario' }], rate: 15, college: true },
-  { id: 'tru', name: 'Thompson Rivers University', country: 'Canada', campuses: [{ name: 'Kamloops', city: 'Kamloops, British Columbia' }], rate: 15 },
+  { id: 'windsor', name: 'University of Windsor', country: 'Canada', campuses: [{ name: 'Windsor', city: 'Windsor, Ontario' }], rate: 15, offerDays: 14, checked: '30 Sep' },
+  { id: 'algoma', name: 'Algoma University', country: 'Canada', campuses: [{ name: 'Brampton', city: 'Brampton, Ontario' }, { name: 'Sault Ste. Marie', city: 'Sault Ste. Marie, Ontario' }], rate: 18, offerDays: 10, checked: '14 Oct' },
+  { id: 'fanshawe', name: 'Fanshawe College', country: 'Canada', campuses: [{ name: 'London', city: 'London, Ontario' }], rate: 15, offerDays: 9, checked: '7 Oct', college: true },
+  { id: 'tru', name: 'Thompson Rivers University', country: 'Canada', campuses: [{ name: 'Kamloops', city: 'Kamloops, British Columbia' }], rate: 15, offerDays: 12, checked: '21 Oct' },
 
-  { id: 'massey', name: 'Massey University', country: 'New Zealand', campuses: [{ name: 'Auckland', city: 'Auckland' }, { name: 'Manawatū', city: 'Palmerston North' }], qs: 230, rate: 15 },
-  { id: 'waikato', name: 'University of Waikato', country: 'New Zealand', campuses: [{ name: 'Hamilton', city: 'Hamilton' }, { name: 'Tauranga', city: 'Tauranga' }], qs: 235, rate: 15 },
-  { id: 'lincoln', name: 'Lincoln University', country: 'New Zealand', campuses: [{ name: 'Lincoln', city: 'Christchurch' }], qs: 362, rate: 15 },
+  { id: 'massey', name: 'Massey University', country: 'New Zealand', campuses: [{ name: 'Auckland', city: 'Auckland' }, { name: 'Manawatū', city: 'Palmerston North' }], qs: 230, rate: 15, offerDays: 8, checked: '30 Sep' },
+  { id: 'waikato', name: 'University of Waikato', country: 'New Zealand', campuses: [{ name: 'Hamilton', city: 'Hamilton' }, { name: 'Tauranga', city: 'Tauranga' }], qs: 235, rate: 15, offerDays: 9, checked: '14 Oct' },
+  { id: 'lincoln', name: 'Lincoln University', country: 'New Zealand', campuses: [{ name: 'Lincoln', city: 'Christchurch' }], qs: 362, rate: 15, offerDays: 10, checked: '7 Oct' },
 
-  { id: 'griffith', name: 'Griffith College', country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 15, college: true },
-  { id: 'dbs', name: 'Dublin Business School', aka: ['DBS'], country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 16, college: true },
-  { id: 'ul', name: 'University of Limerick', country: 'Ireland', campuses: [{ name: 'Limerick', city: 'Limerick' }], qs: 421, rate: 12 },
+  { id: 'griffith', name: 'Griffith College', country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 15, offerDays: 6, checked: '21 Oct', college: true },
+  { id: 'dbs', name: 'Dublin Business School', aka: ['DBS'], country: 'Ireland', campuses: [{ name: 'Dublin', city: 'Dublin' }], rate: 16, offerDays: 5, checked: '30 Sep', college: true },
+  { id: 'ul', name: 'University of Limerick', country: 'Ireland', campuses: [{ name: 'Limerick', city: 'Limerick' }], qs: 421, rate: 12, offerDays: 14, checked: '14 Oct' },
 
-  { id: 'pace', name: 'Pace University', country: 'USA', campuses: [{ name: 'New York City', city: 'New York' }], rate: 12 },
-  { id: 'usf', name: 'University of South Florida', country: 'USA', campuses: [{ name: 'Tampa', city: 'Tampa, Florida' }], qs: 586, rate: 12 },
+  { id: 'pace', name: 'Pace University', country: 'USA', campuses: [{ name: 'New York City', city: 'New York' }], rate: 12, offerDays: 14, checked: '7 Oct' },
+  { id: 'usf', name: 'University of South Florida', country: 'USA', campuses: [{ name: 'Tampa', city: 'Tampa, Florida' }], qs: 586, rate: 12, offerDays: 18, checked: '21 Oct' },
 
   // added with their logos; kept last so the courses generated before them stay the same
-  { id: 'canberra', name: 'University of Canberra', aka: ['UC'], country: 'Australia', campuses: [{ name: 'Bruce', city: 'Canberra' }], rate: 15, priorityFor: ['India', 'Nepal'] },
-  { id: 'unisc', name: 'University of the Sunshine Coast', aka: ['UniSC', 'USC'], country: 'Australia', campuses: [{ name: 'Sunshine Coast', city: 'Sippy Downs' }, { name: 'Moreton Bay', city: 'Petrie' }], rate: 16 },
+  { id: 'canberra', name: 'University of Canberra', aka: ['UC'], country: 'Australia', campuses: [{ name: 'Bruce', city: 'Canberra' }], rate: 15, offerDays: 6, checked: '21 Oct', priorityFor: ['India', 'Nepal'] },
+  { id: 'unisc', name: 'University of the Sunshine Coast', aka: ['UniSC', 'USC'], country: 'Australia', campuses: [{ name: 'Sunshine Coast', city: 'Sippy Downs' }, { name: 'Moreton Bay', city: 'Petrie' }], rate: 16, offerDays: 5, checked: '14 Oct' },
 ];
-
-/**
- * The seed for two course fields (Jovial, 1 Nov, HC3): the date each course was last checked (`checked`, which the
- * Institution Team sets on the course record from then on) and the sample `offerDays` that only GSP's application
- * mail still reads. Neither is a university field any more; universities added from the dataset take the fallback.
- */
-const SEED: Record<string, [number, string]> = {
-  flinders: [6, '2026-09-30'],
-  adelaide: [12, '2026-10-21'],
-  deakin: [8, '2026-10-14'],
-  newcastle: [9, '2026-09-30'],
-  uow: [7, '2026-10-07'],
-  cqu: [4, '2026-10-21'],
-  vu: [5, '2026-09-30'],
-  murdoch: [7, '2026-10-14'],
-  rmit: [14, '2026-10-07'],
-  feduni: [4, '2026-10-21'],
-  abertay: [5, '2026-09-30'],
-  coventry: [6, '2026-10-14'],
-  herts: [7, '2026-10-07'],
-  northumbria: [8, '2026-10-21'],
-  greenwich: [5, '2026-09-30'],
-  ulster: [6, '2026-10-14'],
-  leeds: [21, '2026-10-07'],
-  birmingham: [18, '2026-10-21'],
-  windsor: [14, '2026-09-30'],
-  algoma: [10, '2026-10-14'],
-  fanshawe: [9, '2026-10-07'],
-  tru: [12, '2026-10-21'],
-  massey: [8, '2026-09-30'],
-  waikato: [9, '2026-10-14'],
-  lincoln: [10, '2026-10-07'],
-  griffith: [6, '2026-10-21'],
-  dbs: [5, '2026-09-30'],
-  ul: [14, '2026-10-14'],
-  pace: [14, '2026-10-07'],
-  usf: [18, '2026-10-21'],
-  canberra: [6, '2026-10-21'],
-  unisc: [5, '2026-10-14'],
-};
-const seedOf = (id: string): [number, string] => SEED[id] ?? [10, '2026-10-31'];
-
-/**
- * The universities GSP's applications use that this list didn't have (Jovial, 31 Oct: one application data set).
- * Added at the end so every course above keeps its id and figures. From data/dataset.json.
- */
-for (const u of DATASET.unis) {
-  UNIVERSITIES.push({ id: u.id, name: u.name, country: u.country as Destination, campuses: [{ name: u.city, city: u.city }], rate: 0, college: u.college || undefined });
-}
-/** GSP's commission rate on each university comes from Finance's terms (the contract, or sample terms until it's loaded). */
-const RATES = DATASET.rates as unknown as Record<string, Record<string, number>>;
-const FIN_LEVEL: Record<string, string> = { 'Master’s degree': 'PG', 'Postgraduate diploma': 'PG', 'PhD or research': 'RES', 'Bachelor’s degree': 'UG', Diploma: 'DIP', Foundation: 'FDN' };
-/** GSP's rate for a university at a level, from Finance's terms; undefined when Finance has no terms for it. */
-export const termsRate = (uniId: string, level?: string) => {
-  const r = RATES[uniId];
-  if (!r) return undefined;
-  const v = (level && r[FIN_LEVEL[level] ?? level]) ?? r.PG ?? r.UG ?? Object.values(r)[0];
-  return v == null ? undefined : Number(v);
-};
-for (const u of UNIVERSITIES) u.rate = termsRate(u.id) ?? 0;
 
 /** Website, type, founding year, a line about the university, logo, and each campus's address and setting (sample data). */
 const PROFILES: Record<string, { web: string; kind: string; founded: number; about: string; logo?: string; mark?: string; places: Record<string, [string, Campus['setting'], boolean?]> }> = {
@@ -247,8 +169,7 @@ for (const u of UNIVERSITIES) {
   });
 }
 
-/** `late`: the deadline passed less than two weeks ago; it still shows, with a low likelihood (Jovial, 31 Oct). */
-export type IntakeStatus = 'open' | 'likely' | 'late' | 'closed';
+export type IntakeStatus = 'open' | 'likely' | 'closed';
 export type Intake = { month: string; deadline: string; status: IntakeStatus };
 
 export type Course = {
@@ -264,7 +185,7 @@ export type Course = {
   currency: string;
   appFee: number;
   deposit: number;
-  /** Sample: seeds the university record's scholarships and Finance's lines; course search shows only the record's (HC9). */
+  /** Up to this much off the first year; 0 if none is listed. */
   scholarship: number;
   /** Visa figure for a year's living costs. */
   living: number;
@@ -272,54 +193,36 @@ export type Course = {
   ielts: [number, number];
   pte: [number, number];
   toefl: [number, number];
-  /** Duolingo English Test [overall, no subscore below], from the course's English rule (HC15). */
-  duolingo?: [number, number];
   /** The minimum percentage asked of students from the main markets. */
   academic: number;
-  /**
-   * Removed from course search (Jovial, 1 Nov, HC2: no "English test can wait"): always false. The field stays only
-   * because GSP · Admin's courseDocs and data/applications.ts still read it.
-   */
+  /** The English test can wait (conditional offer) or be waived with Grade 12 English. */
   englishFlex: boolean;
+  psw: boolean;
   intakes: Intake[];
-  /** Sample only, and shown nowhere in course search (HC3): GSP's application mail (desk.ts) and applications.ts still read it. */
   offerDays: number;
   rate: number;
-  /** When the course was last checked: an ISO date on the course record, set by the Institution Team (HC3). */
   checked: string;
   /** How it's taught: Full time, Part time, Blended (on campus and online) or Online. */
   mode: StudyMode;
   /** Australia registers every course for international students under a CRICOS code. */
   cricos?: string;
-  /** The seed for the university record's scholarships (institution/data/catalogue.ts); course search shows only the record's (HC9). */
+  placement: boolean;
+  /** A pathway (foundation, diploma or English) if the student doesn't meet entry yet. */
+  pathway: boolean;
+  recognition?: string;
+  careers: string[];
   scholarshipName?: string;
+  /** The scholarship comes with the offer, or needs its own application. */
+  scholarshipAuto?: boolean;
+  /** What the application needs: document, needed or optional, and when. */
+  docs: [string, 'Required' | 'Optional' | 'Can come later', string][];
   /** Costs on top of tuition, approximate. */
   otherFees: [string, number][];
   /** Postgraduate courses: the most backlogs (subjects failed and cleared later) accepted in the student's degree. */
   backlogs?: number;
-  /** The full course fee (slice 2 PRD, S3-20): course search's total tuition fee; `tuition` is the fee a year under it. */
-  totalFee?: number;
-  /**
-   * Minimum highest education required (slice 2 PRD, S3-18): one per course. Empty on courses saved before the field
-   * existed; slice 3's eligibility check shows the level check as Not specified until it's filled.
-   */
-  minEducation?: string;
-  /**
-   * The minimum score in that highest education (Jovial, S2C-3): required with `minEducation` on the course's
-   * Academic tab, on the scale in `minScoreScale` (the catalogue's SCALES: Percentage, GPA 4, GPA 10, UK class, where
-   * UK class is 4 First … 1 Third). Slice 3's eligibility compares the student's highest qualification with these two.
-   */
-  minScore?: number;
-  minScoreScale?: string;
-  /** Optional, with the minimum score: the most backlogs accepted in that highest education; empty for no limit. */
-  minBacklogs?: number;
+  /** Its page on the university's website (4 Nov: the course dialog links to it). */
+  url?: string;
 };
-
-/**
- * The values of Minimum highest education required (slice 2 PRD, S3-18): since the lock answers (S3C-1, 2 Nov) the
- * one ordered Highest education list Admin edits (data/education.ts), the same the students use.
- */
-export { COMPARABLE_EDUCATION as MIN_EDUCATION } from './education';
 
 /* ---------- generated, the same every time ---------- */
 
@@ -343,7 +246,6 @@ const TUITION: Record<Destination, Record<Level, number>> = {
   USA: { Foundation: 22000, Diploma: 21000, 'Bachelor’s degree': 32000, 'Postgraduate diploma': 28000, 'Master’s degree': 34000, 'PhD or research': 33000 },
 };
 
-/** The seed for Admin › Living costs, which is the source now (admin/data/store.ts applies it to every course). */
 const LIVING: Record<Destination, number> = { Australia: 29710, UK: 12006, Canada: 20635, 'New Zealand': 20000, Ireland: 12000, USA: 18000 };
 
 const MONTHS: Record<Destination, [string, string][]> = {
@@ -384,8 +286,6 @@ function build(): Course[] {
     return (seed - 1) / 2147483646;
   };
   const pick = <T,>(a: readonly T[]) => a[Math.floor(rnd() * a.length)];
-  /** Draws that are no longer kept: made anyway, so every value after them stays as it was. */
-  const drawn = (..._: unknown[]) => false;
   const out: Course[] = [];
   const seen = new Set<string>();
   // most agency business is master's and bachelor's degrees
@@ -418,7 +318,7 @@ function build(): Course[] {
         campus,
         level,
         area,
-        months: level === 'Foundation' || level === 'Diploma' || level === 'Postgraduate diploma' ? 12 : level === 'Bachelor’s degree' ? (u.country === 'UK' ? 36 : u.country === 'USA' || u.country === 'Canada' ? 48 : 36) : level === 'Master’s degree' ? (u.country === 'UK' || u.country === 'Ireland' ? 12 : u.country === 'USA' ? 24 : pick([18, 24])) : 36,
+        months: lengthOf(`${u.id}-${made}`, level, u.country, level === 'Foundation' || level === 'Diploma' || level === 'Postgraduate diploma' ? 12 : level === 'Bachelor’s degree' ? (u.country === 'UK' ? 36 : u.country === 'USA' || u.country === 'Canada' ? 48 : 36) : level === 'Master’s degree' ? (u.country === 'UK' || u.country === 'Ireland' ? 12 : u.country === 'USA' ? 24 : pick([18, 24])) : 36),
         tuition,
         currency: CURRENCY[u.country],
         appFee: u.country === 'UK' || u.country === 'Ireland' || rnd() < 0.4 ? 0 : u.country === 'USA' ? 85 : u.country === 'Canada' ? 120 : 150,
@@ -429,12 +329,12 @@ function build(): Course[] {
         pte: [ieltsBase >= 7 ? 65 : ieltsBase >= 6.5 ? 58 : ieltsBase >= 6 ? 50 : 42, ieltsBase >= 6.5 ? 50 : 36],
         toefl: [ieltsBase >= 7 ? 94 : ieltsBase >= 6.5 ? 79 : ieltsBase >= 6 ? 60 : 46, ieltsBase >= 6.5 ? 18 : 12],
         academic: level === 'PhD or research' ? 65 : level === 'Master’s degree' ? Math.round(55 + rnd() * 15) : level === 'Bachelor’s degree' ? Math.round(55 + rnd() * 15) : 50,
-        // drawn, but not kept (HC2): the English test can wait, and (outside the USA) post-study work, so the courses after keep their figures
-        englishFlex: drawn(rnd(), u.country !== 'USA' && rnd()),
+        englishFlex: rnd() < 0.3,
+        psw: u.country !== 'USA' ? rnd() < 0.85 : false,
         intakes,
-        offerDays: Math.max(2, seedOf(u.id)[0] + Math.round(rnd() * 4 - 2)),
+        offerDays: Math.max(2, u.offerDays + Math.round(rnd() * 4 - 2)),
         rate: u.rate,
-        checked: seedOf(u.id)[1],
+        checked: u.checked,
       };
       out.push({ ...base, ...extrasFor(base) });
     }
@@ -444,10 +344,7 @@ function build(): Course[] {
 
 /* ---------- the detail a course page needs (its own random stream, so adding it changed no other data) ---------- */
 
-/** A course's study modes, and a campus's setting (slice 2). */
-export const STUDY_MODES = ['Full time', 'Part time', 'Blended', 'Online'] as const;
-export type StudyMode = (typeof STUDY_MODES)[number];
-export const CAMPUS_SETTINGS = ['City centre', 'Suburban', 'Regional town'] as const;
+export type StudyMode = 'Full time' | 'Part time' | 'Blended' | 'Online';
 /** Most courses for international students are full time; a few are blended, part time or online. From the course's id, so no other data moves. */
 function modeOf(id: string): StudyMode {
   let h = 0;
@@ -456,7 +353,34 @@ function modeOf(id: string): StudyMode {
   return n < 72 ? 'Full time' : n < 84 ? 'Blended' : n < 94 ? 'Part time' : 'Online';
 }
 
-type Extras = Pick<Course, 'mode' | 'cricos' | 'scholarshipName' | 'otherFees' | 'backlogs'>;
+/**
+ * 4 Nov: courses at one level differ in length, as they do (a master's with a placement year, an honours year, a
+ * fast-track or extended foundation), so the Duration filter has a range. From the course's id, so no other data moves.
+ */
+function lengthOf(id: string, level: Level, country: Destination, usual: number): number {
+  let h = 0;
+  for (const ch of `${id}:length`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const n = h % 100;
+  switch (level) {
+    case 'Master’s degree':
+      return usual === 12 ? (n < 20 ? 24 : n < 30 ? 18 : 12) : n < 20 ? 12 : usual;
+    case 'Bachelor’s degree':
+      return usual === 36 ? (n < 25 ? 48 : 36) : country === 'Canada' && n < 15 ? 36 : usual;
+    case 'Postgraduate diploma':
+      return n < 20 ? 18 : n < 30 ? 24 : usual;
+    case 'Diploma':
+      return n < 25 ? 24 : n < 35 ? 18 : usual;
+    case 'Foundation':
+      return n < 20 ? 18 : n < 35 ? 6 : usual;
+    default:
+      return n < 35 ? 48 : usual;
+  }
+}
+
+/** A course's page on its university's website, as GSP · Institution's catalogue builds it (sample data). */
+const pageFor = (u: University, name: string) => `https://${u.website ?? `${u.id}.edu`}/courses/${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+
+type Extras = Pick<Course, 'mode' | 'cricos' | 'placement' | 'pathway' | 'recognition' | 'careers' | 'scholarshipName' | 'scholarshipAuto' | 'docs' | 'otherFees' | 'backlogs' | 'url'>;
 
 /** How many backlogs universities in each destination usually accept from Indian students on postgraduate courses. */
 const BACKLOGS: Record<Destination, number[]> = { UK: [10, 12, 15], Australia: [5, 8, 10], Canada: [5, 6, 8], 'New Zealand': [5, 8], Ireland: [8, 10, 12], USA: [5, 8, 10] };
@@ -483,8 +407,7 @@ const NURSING: Partial<Record<Destination, string>> = { Australia: 'ANMAC: gradu
 const SCHOLARSHIPS = ['International Merit Scholarship', 'Global Excellence Scholarship', 'Vice-Chancellor’s International Scholarship', 'South Asia Achievers Scholarship'];
 
 /** Costs on top of tuition, by country (approximate, for a single student). */
-/** The visa and health fees each destination's courses started with: the seed for Admin › Visa and health fees, which is their source now. */
-export const OTHER_FEES: Record<Destination, [string, number][]> = {
+const OTHER_FEES: Record<Destination, [string, number][]> = {
   Australia: [['Overseas Student Health Cover, a year', 700], ['Student visa, once', 2000]],
   UK: [['Immigration Health Surcharge, a year', 776], ['Student visa, once', 524]],
   Canada: [['Health insurance, a year', 900], ['Study permit and biometrics, once', 235]],
@@ -507,170 +430,130 @@ function extrasFor(c: Omit<Course, keyof Extras>): Extras {
   const dest = c.uni.country;
   const nursing = /Nursing/.test(c.name);
   const body = nursing ? NURSING[dest] : BODIES[c.area]?.[dest];
-  // careers, placement, pathway, recognition and the scholarship's timing are gone (REVIEW 31 Oct; HC2): their draws
-  // are still made, in the same order, so every value after them stays as it was
-  [...CAREERS[c.area]].sort(() => rnd() - 0.5);
-  const cricos = dest === 'Australia' ? `0${String(10000 + Math.floor(rnd() * 89999))}${'ABCDEFGHJKM'[Math.floor(rnd() * 11)]}` : undefined;
-  if (!(nursing || /Physiotherapy/.test(c.name)) && c.level !== 'Foundation') rnd();
-  if (degree) rnd();
-  if (body && degree && !nursing) rnd();
-  const scholarshipName = c.scholarship ? SCHOLARSHIPS[Math.floor(rnd() * SCHOLARSHIPS.length)] : undefined;
-  if (c.scholarship) rnd();
+  const careers = [...CAREERS[c.area]].sort(() => rnd() - 0.5).slice(0, 3);
+  const docs: Extras['docs'] = [
+    ['Passport', 'Required', 'With the application'],
+    [pg ? 'Bachelor’s transcripts and degree certificate' : c.level === 'Foundation' ? 'Class 10 and 11 mark sheets' : 'Class 10 and 12 mark sheets', 'Required', 'With the application'],
+    ['English test score', c.englishFlex ? 'Can come later' : 'Required', c.englishFlex ? 'GSP asks for it before the offer is final' : 'With the application'],
+    ['Statement of purpose', pg ? 'Required' : 'Optional', 'With the application'],
+    ['CV', pg ? 'Required' : 'Optional', 'With the application'],
+  ];
+  if (/MBA/.test(c.name)) docs.push(['Work experience letters, 2 years or more', 'Required', 'With the application']);
+  if (c.area === 'Arts and design') docs.push(['Portfolio', 'Required', 'With the application']);
+  if (c.level === 'PhD or research') docs.push(['Research proposal', 'Required', 'With the application']);
+  if (pg) docs.push(['Two references', 'Optional', 'GSP asks for them if the university wants them']);
+  docs.push(['Gap explanation document', 'Optional', 'GSP asks for it if there’s a gap in study']);
+  docs.push(['Financial documents', 'Required', dest === 'UK' ? 'GSP asks for them after the offer, before the CAS' : 'GSP asks for them after the offer, for the visa']);
   return {
     mode: modeOf(c.id),
-    cricos,
-    scholarshipName,
+    cricos: dest === 'Australia' ? `0${String(10000 + Math.floor(rnd() * 89999))}${'ABCDEFGHJKM'[Math.floor(rnd() * 11)]}` : undefined,
+    placement: nursing || /Physiotherapy/.test(c.name) || (c.level !== 'Foundation' && rnd() < 0.35),
+    pathway: degree && rnd() < 0.55,
+    recognition: body && degree && (nursing || rnd() < 0.75) ? body : undefined,
+    careers,
+    scholarshipName: c.scholarship ? SCHOLARSHIPS[Math.floor(rnd() * SCHOLARSHIPS.length)] : undefined,
+    scholarshipAuto: c.scholarship ? rnd() < 0.6 : undefined,
+    docs,
     otherFees: OTHER_FEES[dest],
     // drawn last, so the values above stay as they were
     backlogs: pg ? (c.level === 'PhD or research' ? 3 : BACKLOGS[dest][Math.floor(rnd() * BACKLOGS[dest].length)]) : undefined,
+    url: pageFor(c.uni, c.name),
   };
 }
 
-export const COURSES: Course[] = build();
-// each course's rate at its level, from Finance's terms
-for (const c of COURSES) c.rate = termsRate(c.uni.id, c.level) ?? 0;
-/** The courses GSP's applications are for, by name, where the generated list doesn't have one (a copy of a course at the same university and level). */
-for (const a of DATASET.apps) {
-  if (COURSES.some((c) => c.uni.id === a.uni && c.name === a.course)) continue;
-  const like = COURSES.find((c) => c.uni.id === a.uni && c.level === a.level) ?? COURSES.find((c) => c.uni.id === a.uni);
-  if (like) COURSES.push({ ...like, id: `${a.uni}-n${COURSES.filter((c) => c.uni.id === a.uni).length + 1}`, name: a.course, level: a.level as Level });
+/**
+ * Closed intakes (Nesil, 4 Nov): about half the courses with three intakes have had the third close already,
+ * a few days to six weeks ago, so Add an application has a closed one to show. From the course's id, so no
+ * other data moves.
+ */
+function closeThird(c: Course): Course {
+  if (c.intakes.length !== 3) return c;
+  const hash = (s: string) => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 0);
+  if (hash(`${c.id}:closed`) % 2) return c;
+  const on = new Date(Date.now() - (4 + (hash(`${c.id}:days`) % 38)) * 86_400_000);
+  const iso = `${on.getFullYear()}-${String(on.getMonth() + 1).padStart(2, '0')}-${String(on.getDate()).padStart(2, '0')}`;
+  return { ...c, intakes: c.intakes.map((i, n) => (n === 2 ? { ...i, deadline: iso, status: 'closed' as const } : i)) };
 }
 
-/**
- * The sample's Minimum highest education required on the shared course list (the catalogue's records set the same,
- * slice 2's sampleCourseRecs): applications read this list, so the eligibility check's level check works there too.
- */
-COURSES.forEach((c) => {
-  // every course has its minimum highest education and its minimum score (required since S2C-3; eligibility reads
-  // only these, S3C-2): the sample's academic minimum, as a percentage
-  if (c.minEducation === undefined) c.minEducation = c.level === 'Master’s degree' || c.level === 'Postgraduate diploma' || c.level === 'PhD or research' ? 'Bachelor’s (3 years)' : 'Grade 12';
-  if (c.minScore === undefined) (c.minScore = c.academic), (c.minScoreScale = 'Percentage'), (c.minBacklogs = c.backlogs);
-});
+export const COURSES: Course[] = build().map(closeThird);
 
-/* ---------- the course's figures as course search shows them (slice 3 PRD) ---------- */
+/** What the agency earns: 70% of GSP's commission on first-year tuition after any scholarship. */
+export const earnOf = (c: Course) => Math.round(((c.tuition - c.scholarship) * c.rate * 0.7) / 100 / 10) * 10;
 
-/** What the Institution Team's record adds to a course (the catalogue's CourseRec): its duration unit and its fees. */
-type Rec = Course & { durUnit?: string; durValue?: number; fullFee?: number; firstYearFee?: number; tags?: string[]; url?: string };
-const rec = (c: Course) => c as Rec;
-/** Whether the course's length is in credits (no length in months: it matches every duration range, S3-3). */
-export const inCredits = (c: Course) => rec(c).durUnit === 'Credits';
-/** The course's total tuition fee (S3-2, S3-20): its `totalFee` (the Full course fee), else worked out from the fee a year. */
-export const totalFeeOf = (c: Course) => {
-  const f = c.totalFee ?? rec(c).fullFee;
-  return f && f > 0 ? f : Math.round(c.tuition * Math.max(1, c.months / 12));
-};
-/** The fee a year: the full course fee ÷ the length in years; a course in credits shows its first-year fee, or the full fee when that's empty. */
-export const feeAYear = (c: Course) => {
-  const r = rec(c);
-  if (inCredits(c)) return r.firstYearFee && r.firstYearFee > 0 ? r.firstYearFee : totalFeeOf(c);
-  return Math.round(totalFeeOf(c) / Math.max(1, c.months / 12));
-};
-/** The course's tags, from its record. */
-export const tagsOf = (c: Course) => rec(c).tags ?? [];
-/** The course's page on the university's website, from its record. */
-export const urlOf = (c: Course) => rec(c).url;
-/** "2 years", "18 months", "36 credits" (slice 2's display rules). */
-export const durationText = (c: Course) => (inCredits(c) ? `${rec(c).durValue ?? ''} credits`.trim() : c.months % 12 === 0 ? `${c.months / 12} ${c.months === 12 ? 'year' : 'years'}` : `${c.months} months`);
-/**
- * The application form level a Program level counts as (S2C-13: Admin › Program levels and study areas). The
- * institution store sets the reader; until then a level counts as itself.
- */
-let formLevelReader: (level: string) => string = (l) => l;
-export const setFormLevelReader = (f: (level: string) => string) => {
-  formLevelReader = f;
-};
-export const formLevelOf = (level: string) => formLevelReader(level);
-
-/** Search priority's range and default (Jovial, S2C-1): a whole number from 1 to 10; a new university starts at 5. */
-export const SEARCH_PRIORITY = { min: 1, max: 10, default: 5 } as const;
-/**
- * The university's Search priority (S3-1, S3-19): its `searchPriority` (slice 2's field, 1 to 10), the default
- * when unset. Display priority is gone since the merge.
- */
-export const searchPriorityOf = (u: University) => u.searchPriority ?? SEARCH_PRIORITY.default;
-
-/** Base commission in course search: 70% of the university's rate on the course's first-year tuition fee (no scholarship taken off: Jovial, 1 Nov). */
-export const earnOf = (c: Course) => Math.round((c.tuition * c.rate * 0.7) / 100 / 10) * 10;
-
-/** One money format everywhere (QC, 1 Nov): "INR 6,69,598", "AUD 2,295.00". */
-export const money = (n: number, cur: string) => fmtMoney(n, cur);
+export const money = (n: number, cur: string) => `${cur} ${n.toLocaleString('en-GB')}`;
 
 /** Days from today to a date (negative once it's passed). */
 export const daysTo = (iso: string) => Math.ceil((new Date(iso + 'T23:59:59').getTime() - Date.now()) / 86_400_000);
 
-/**
- * An intake's timings (Jovial, 1 Nov, HC8), set in GSP · Admin › Living costs › Intake timings: how many days after
- * its deadline an intake still shows as late, how close a deadline is marked as soon, and how close it shows a
- * countdown (and the "Deadline within" filter). admin/data/store.ts sets the reader; these are its defaults.
- */
-export type IntakeTimes = { lateDays: number; warnDays: number; countdownDays: number };
-export const INTAKE_TIMES: IntakeTimes = { lateDays: 14, warnDays: 21, countdownDays: 45 };
-let intakeTimesOf: () => IntakeTimes = () => INTAKE_TIMES;
-export const setIntakeTimesReader = (f: typeof intakeTimesOf) => {
-  intakeTimesOf = f;
-};
-export const intakeTimes = () => intakeTimesOf();
-
-/** An intake is open until its deadline passes, then late for Admin's late days. */
-export const intakeState = (i: Intake): IntakeStatus => {
-  const d = daysTo(i.deadline);
-  return d < -intakeTimes().lateDays ? 'closed' : d < 0 ? 'late' : i.status;
-};
+/** An intake is open until its deadline passes. */
+export const intakeState = (i: Intake): IntakeStatus => (daysTo(i.deadline) < 0 ? 'closed' : i.status);
+/** Whole days since a closed intake's deadline. */
+export const daysSince = (iso: string) => Math.max(1, Math.round((new Date().setHours(0, 0, 0, 0) - new Date(iso + 'T00:00:00').getTime()) / 86_400_000));
 
 /** Does the university take students from this country and state through GSP? */
 export function blockedFor(u: University, country: string, state: string) {
   return (u.blocked ?? []).some((b) => b.country === country && (!b.states || b.states.includes(state)));
 }
 
-/* ---------- scholarships: the university record's ---------- */
+/** The course's page on the university's website, as a link (4 Nov: the course dialog's header). None when it has none. */
+export const coursePage = (c: Course) => (c.url ? (/^https?:\/\//i.test(c.url) ? c.url : `https://${c.url}`) : undefined);
+
+/* ---------- scholarships: the course's own, then the university's awards that fit it ---------- */
+
+/** How much a scholarship is worth: a percentage of tuition, or an amount in a currency, from and to (the same twice is fixed). */
+export type AmountType = 'Percentage' | 'Absolute amount';
+/**
+ * A scholarship as GSP · Institution keeps it on a university's page (4 Nov: every role's course dialog shows it the
+ * same way): how much, then who it's for (students from these countries, at these program levels, in these study
+ * areas; an empty list is all), and a description.
+ */
+export type Scholarship = { id: string; name: string; amountType: AmountType; low: number; high: number; currency: string; from: string[]; levels: Level[]; areas: Area[]; description: string };
+
+/** It's for this course's program level and study area. */
+export const scholarshipFits = (s: Scholarship, c: Course) => (!s.levels.length || s.levels.includes(c.level)) && (!s.areas.length || s.areas.includes(c.area));
+
+const SOUTH_ASIA = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka'];
+/** Fixed amounts in each currency, against an Australian dollar. */
+const SCALE: Record<string, number> = { AUD: 1, NZD: 1, CAD: 0.9, USD: 0.7, GBP: 0.5, EUR: 0.6 };
 
 /**
- * A scholarship as the university's record keeps it (Jovial, 1 Nov, HC9: only from the record, no fallbacks): its
- * name, amount, the countries it's for and its conditions.
+ * Sample data until GSP's scholarship feed is in. The course's own scholarship, from and to the most and least it
+ * gives on the university's courses that name it (as GSP · Institution lists it), then those of the university's own
+ * awards that fit the course: two or three for each university, from its id, so no other data moves.
  */
-export type Scholarship = { name: string; amount: string; from: 'university'; forCountries?: string[]; conditions?: string };
-
-/** An intake's dates and a university's submission channel as the Institution Team keeps them (set by institution/data/store.ts). */
-export type IntakeDates = { deposit: string; accept: string; start: string; census: string };
-export type Submission = { channel: string; link: string; username?: string; secret?: string };
-let intakeDatesOf: (courseId: string, month: string) => IntakeDates | undefined = () => undefined;
-let submissionOf: (uniId: string, region?: string) => Submission | undefined = () => undefined;
-/** The university's own application forms (Institution › Submission and contacts), each with who it's for. */
-export type UniForm = { name: string; file: string; for: string };
-let formsOf: (uniId: string) => UniForm[] = () => [];
-export const setFormsReader = (f: typeof formsOf) => {
-  formsOf = f;
-};
-/** The forms for a course's level: "All courses", or the level's own (Jovial, 1 Nov). */
-export function uniForms(uniId: string, level: string) {
-  const want = /Bachelor/.test(level) ? 'Undergraduate' : /Master|Postgraduate/.test(level) ? 'Postgraduate' : /PhD|research/i.test(level) ? 'Research' : 'Foundation and diploma';
-  return formsOf(uniId).filter((f) => f.for === 'All courses' || f.for === want);
-}
-export const setCatalogueReaders = (dates: typeof intakeDatesOf, sub: typeof submissionOf) => {
-  intakeDatesOf = dates;
-  submissionOf = sub;
-};
-/** An intake's start, census and deposit dates, from the catalogue. */
-export const intakeDates = (courseId: string, month: string) => intakeDatesOf(courseId, month);
-/** How the university takes applications, from the catalogue. */
-/** `region`: the application's sales region, for its own login (StudyLink has one per sales region, Jovial 2 Nov). */
-export const submission = (uniId: string, region?: string) => submissionOf(uniId, region);
-
-/** A university's scholarships as the Institution Team keeps them (set by institution/data/store.ts, to keep the modules apart). */
-type UniScholarship = { name: string; amountType: string; low: number; high: number; currency: string; from: string[]; levels: string[]; areas: string[]; conditions: string };
-let uniScholarshipsOf: (uniId: string) => UniScholarship[] | undefined = () => undefined;
-export const setUniScholarships = (f: typeof uniScholarshipsOf) => {
-  uniScholarshipsOf = f;
-};
 export function scholarshipsOf(c: Course): Scholarship[] {
+  let h = 0;
+  for (const ch of `${c.uni.id}:schol`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const list: Scholarship[] = [];
-  // the university's scholarships from the Institution Team's catalogue, where the course's level and area fit (Jovial, 31 Oct)
-  for (const x of uniScholarshipsOf(c.uni.id) ?? []) {
-    if (x.levels.length && !x.levels.includes(c.level)) continue;
-    if (x.areas.length && !x.areas.includes(c.area)) continue;
-    if (list.some((y) => y.name === x.name)) continue;
-    const amount = x.amountType === 'Percentage' ? (x.low === x.high ? `${x.high}% off tuition` : `${x.low}–${x.high}% off tuition`) : x.low === x.high ? money(x.high, x.currency) : `Up to ${money(x.high, x.currency)}`;
-    list.push({ name: x.name, amount, from: 'university', forCountries: x.from.length ? x.from : undefined, conditions: x.conditions.trim() || undefined });
+  if (c.scholarship) {
+    const same = [c, ...COURSES.filter((x) => x.id !== c.id && x.uni.id === c.uni.id && !!c.scholarshipName && x.scholarshipName === c.scholarshipName)];
+    const name = c.scholarshipName ?? 'Course scholarship';
+    list.push({
+      id: `${c.uni.id}:${name}`,
+      name,
+      amountType: 'Absolute amount',
+      low: Math.min(...same.map((x) => x.scholarship)),
+      high: Math.max(...same.map((x) => x.scholarship)),
+      currency: c.currency,
+      from: /South Asia/.test(name) ? SOUTH_ASIA : [],
+      levels: LEVELS.filter((l) => same.some((x) => x.level === l)),
+      areas: [],
+      description: c.scholarshipAuto ? '' : 'Students apply for it once they hold an offer.',
+    });
+  }
+  const fixed = (n: number) => Math.round((n * (SCALE[c.currency] ?? 1)) / 500) * 500;
+  const base = { currency: c.currency, from: [] as string[], levels: [] as Level[], areas: [] as Area[] };
+  const awards: Scholarship[] = [
+    { ...base, id: `${c.uni.id}:early`, name: 'Early acceptance bursary', amountType: 'Percentage', low: 5, high: 5, description: 'For students who pay the deposit within 30 days of the offer.' },
+    { ...base, id: `${c.uni.id}:achiever`, name: 'High achiever award', amountType: 'Percentage', low: 10, high: 25, levels: ['Bachelor’s degree', 'Master’s degree'], description: 'For students with 80% or more in their last qualification. The higher the mark, the larger the award.' },
+    { ...base, id: `${c.uni.id}:south-asia`, name: 'Postgraduate Merit Scholarship', amountType: 'Absolute amount', low: fixed(3000), high: fixed(6000), from: SOUTH_ASIA, levels: ['Postgraduate diploma', 'Master’s degree'], description: 'Students apply for it once they hold an offer.' },
+    { ...base, id: `${c.uni.id}:stem`, name: 'STEM Excellence Scholarship', amountType: 'Absolute amount', low: fixed(5000), high: fixed(10000), areas: ['Computing and IT', 'Data and analytics', 'Engineering'], description: 'For students starting in the first intake of the year.' },
+    { ...base, id: `${c.uni.id}:family`, name: 'Family discount', amountType: 'Percentage', low: 10, high: 10, description: 'For students whose brother, sister, parent or partner studied here, every year of the course.' },
+  ];
+  const n = 2 + (h % 2);
+  for (let i = 0; i < n; i++) {
+    const s = awards[(h + i) % awards.length];
+    if (scholarshipFits(s, c)) list.push(s);
   }
   return list;
 }

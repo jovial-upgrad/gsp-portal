@@ -3,14 +3,11 @@ import { motion, useReducedMotion } from 'motion/react';
 import { Field } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
 import { Icon } from '../../../components/Icon';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import { countryByName } from '../../../data/partners';
-import { systemOf, bandNamed } from '../../../admin/data/eligibility';
-import { activeEducation, levelOfEd } from '../../../data/education';
-import { highestEdOf } from '../../../data/eligibility';
 import {
-  gradingOptions,
-  scaleMax,
-  scoreOk,
+  GRADING,
+  HIGHEST,
   LANGUAGES,
   LEVEL_NAME,
   STUDY_LEVELS,
@@ -18,7 +15,6 @@ import {
   eduDocName,
   eduFields,
   emptyEdu,
-  isOtherGrading,
   isSchool,
   levelsFor,
   pctOf,
@@ -27,20 +23,29 @@ import {
   type Student,
 } from '../../../data/students';
 import { parseMonth, typeMonth } from '../../../data/dates';
-import { ReadBox, ReadNote, filledAt, filledText, readMs } from '../ReadBox';
+import { ReadBox, ReadNote, readMs } from '../ReadBox';
 import { Sel, Txt, type Update } from './fields';
 import { fillFromEducation, saveEducation } from './read';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 /**
- * Academics: the highest education, then its card, which is mandatory with its marksheet or transcript.
+ * Academics: the highest education, then its card, which is mandatory with its marksheet or transcript (but for its
+ * state or province, grading system and score, optional since 4 Nov).
  * Other levels are optional, added from "Add education" at the top of the section, each with its own country.
  * The first time, before a level has its document or details, uploading the document fills the card; after that
  * it's edited by hand, and the document is kept in Documents (Nesil, 29 Oct).
  */
-export function Education({ s, update }: { s: Student; update: Update }) {
+export function Education({ s, update, saved }: { s: Student; update: Update; /** The profile as saved: removing a level on it asks first (4 Nov). */ saved?: Student }) {
   const levels = levelsFor(s.highest);
+  const { ask, dialog } = useConfirm();
+  const remove = (l: Level) => {
+    const run = () => update((p) => removeLevel(p, l));
+    const doc = !!saved?.docs[eduDocKey(l)];
+    if (saved?.edu[l] || doc)
+      ask({ title: `Remove ${LEVEL_NAME[l]}?`, text: `Its details${doc ? ` and ${isSchool(l) ? 'marksheet' : 'transcript'}` : ''} come off the profile when you save. Cancel keeps them.`, run });
+    else run();
+  };
   const setLevel = (l: Level, patch: Partial<Edu>) =>
     update((p) => ({
       ...p,
@@ -55,13 +60,12 @@ export function Education({ s, update }: { s: Student; update: Update }) {
           id="re-highest"
           label="Highest education"
           required
-          value={highestEdOf(s)}
-          options={[...activeEducation(), ...(activeEducation().includes(highestEdOf(s)) ? [] : [highestEdOf(s)])]}
+          value={s.highest}
+          options={HIGHEST}
           hint="The highest education is required. Other levels are optional."
           onChange={(v) => {
-            // the one list (S3C-1, Admin › Course configuration › Highest education); its level names the section
-            const h = levelOfEd(v);
-            update((p) => ({ ...p, highestEd: v, highest: h, edu: { ...p.edu, [h]: p.edu[h] ?? emptyEdu(p.eduCountry) } }));
+            const h = v as Level;
+            update((p) => ({ ...p, highest: h, edu: { ...p.edu, [h]: p.edu[h] ?? emptyEdu(p.eduCountry) } }));
           }}
         />
       </div>
@@ -70,8 +74,9 @@ export function Education({ s, update }: { s: Student; update: Update }) {
         const required = l === s.highest;
         // the highest level always shows; another once it's added (or read from an upload)
         const open = required || !!s.edu[l] || !!s.docs[eduDocKey(l)];
-        return open ? <LevelCard key={l} l={l} s={s} required={required} setLevel={setLevel} update={update} onRemove={required ? undefined : () => update((p) => removeLevel(p, l))} /> : null;
+        return open ? <LevelCard key={l} l={l} s={s} required={required} setLevel={setLevel} update={update} onRemove={required ? undefined : () => remove(l)} /> : null;
       })}
+      {dialog}
     </div>
   );
 }
@@ -106,8 +111,6 @@ function LevelCard({
   const doc = s.docs[eduDocKey(l)];
   const from = isSchool(l) ? 'marksheet' : 'transcript';
   const read = (f: keyof Edu) => (s.read.includes(`edu.${l}.${f}`) ? from : null);
-  // autofill is one-time (1 Nov): once the document filled this level in, it's corrected by hand
-  const filled = filledAt(s, eduDocKey(l));
   const states = countryByName(e.country)?.states ?? [];
   const left = eduFields(l, e).filter(([, , ok]) => !ok).length;
   const pct = pctOf(e);
@@ -139,7 +142,7 @@ function LevelCard({
         )}
       </header>
 
-      {reading || (!filled && !doc && !(e.level || e.institution || e.qualification || e.score)) ? (
+      {reading || (!doc && !(e.level || e.institution || e.qualification || e.score)) ? (
         <ReadBox
           id={id('file')}
           compact
@@ -151,7 +154,7 @@ function LevelCard({
           onFile={readFile}
         />
       ) : (
-        filled && <ReadNote text={filledText(eduDocName(l).toLowerCase(), filled)} />
+        doc && s.read.some((k) => k.startsWith(`edu.${l}.`)) && <ReadNote text={`Filled in from the ${from}, which is in Documents. What was read is highlighted: check it.`} />
       )}
 
       <div className="grid2">
@@ -160,7 +163,7 @@ function LevelCard({
         </Field>
         {states.length > 0 ? <Sel id={id('state')} label="State or province" value={e.state} read={read('state')} options={states} onChange={(v) => setLevel(l, { state: v })} /> : <span />}
         <Sel id={id('level')} label="Program Level" required={required} value={e.level} read={read('level')} options={STUDY_LEVELS[l]} onChange={(v) => setLevel(l, { level: v })} />
-        <Txt id={id('institution')} label={isSchool(l) ? 'School board' : 'University or institution'} value={e.institution} read={read('institution')} onChange={(v) => setLevel(l, { institution: v })} hint={isSchool(l) ? 'Like CBSE, ICSE or a state board.' : undefined} />
+        <Txt id={id('institution')} label={isSchool(l) ? 'School board' : 'University'} required={required} value={e.institution} read={read('institution')} onChange={(v) => setLevel(l, { institution: v })} hint={isSchool(l) ? 'Like CBSE, ICSE or a state board.' : undefined} />
         <Txt
           id={id('qualification')}
           label={isSchool(l) ? 'Qualification' : 'Qualification or degree'}
@@ -170,29 +173,18 @@ function LevelCard({
           onChange={(v) => setLevel(l, { qualification: v })}
           hint={isSchool(l) ? (l === 'g12' ? 'Like PUC, Science (PCMB) or HSC, Commerce.' : 'Like SSLC or Secondary School Certificate.') : 'Like B.Tech, Computer Science.'}
         />
-        <Sel id={id('grading')} label="Grading system" required={required} value={e.grading} read={read('grading')} options={gradingOptions(e.grading)} onChange={(v) => setLevel(l, { grading: v as Edu['grading'], score: '', gradingNote: isOtherGrading(v) ? e.gradingNote : undefined })} hint={isOtherGrading(e.grading) ? 'The eligibility check can’t convert this one, so GSP reads it.' : 'The eligibility check converts the score to a percentage.'} />
-        {isOtherGrading(e.grading) && (
-          <Txt id={id('gradingNote')} label="How was the student graded?" required={required} value={e.gradingNote ?? ''} onChange={(v) => setLevel(l, { gradingNote: v.slice(0, 120) })} placeholder="Like: Grade points out of 20" error={e.gradingNote?.trim() ? null : 'Describe the grading system.'} />
-        )}
-        {(() => {
-          // a grading system of named grades only (UK class, Division, ECTS…): the score is picked from its grades (Jovial, 6 Nov)
-          const sys = e.grading && !isOtherGrading(e.grading) ? systemOf(e.grading) : undefined;
-          const named = sys?.by === 'Bands' && sys.bands.length > 0 && sys.bands.every((b) => Number.isNaN(Number(b.from)));
-          if (!named) return null;
-          const pick = sys.bands.find((b) => bandNamed(b, e.score));
-          return <Sel id={id('score')} label="Grade" value={pick?.from ?? ''} read={read('score')} options={sys.bands.map((b) => b.from)} onChange={(v) => setLevel(l, { score: v })} hint={pick ? `Counts as ${pick.pct}%` : undefined} />;
-        })()}
-        {!(e.grading && !isOtherGrading(e.grading) && systemOf(e.grading)?.by === 'Bands' && (systemOf(e.grading)?.bands ?? []).length > 0 && (systemOf(e.grading)?.bands ?? []).every((b) => Number.isNaN(Number(b.from)))) && <Txt
+        <Sel id={id('grading')} label="Grading system" value={e.grading} read={read('grading')} options={GRADING} onChange={(v) => setLevel(l, { grading: v as Edu['grading'] })} />
+        <Txt
           id={id('score')}
           label="Score"
           value={e.score}
           read={read('score')}
           inputMode="decimal"
           disabled={!e.grading}
-          onChange={(v) => setLevel(l, { score: v.slice(0, 12) })}
-          hint={!e.grading ? 'Choose the grading system first.' : isOtherGrading(e.grading) ? 'Optional. As on the marksheet or transcript.' : pct !== null && systemOf(e.grading)?.by !== 'As is' ? `About ${pct}%` : scaleMax(e.grading) ? `Out of ${scaleMax(e.grading)}` : `A grade: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}`}
-          error={e.score && e.grading && !scoreOk(e) ? (systemOf(e.grading)?.by === 'Bands' && Number.isNaN(Number(e.score)) ? `Enter one of the grades: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}.` : `Enter a score from 0 to ${scaleMax(e.grading)}.`) : null}
-        />}
+          onChange={(v) => setLevel(l, { score: v.replace(/[^\d.]/g, '') })}
+          hint={!e.grading ? 'Choose the grading system first.' : pct !== null && e.grading !== '100' ? `About ${pct}%` : `Out of ${e.grading}`}
+          error={e.score && e.grading && Number(e.score) > Number(e.grading) ? `${GRADING.find(([k]) => k === e.grading)?.[1]} can’t be more than ${e.grading}.` : null}
+        />
         <Sel id={id('language')} label="Primary language of instruction" required={required} value={e.language} read={read('language')} options={LANGUAGES} onChange={(v) => setLevel(l, { language: v })} hint="English can waive the English test for some universities." />
         {!isSchool(l) && (
           <Txt

@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from './Button';
+import { Icon } from './Icon';
 import './confirm.css';
 
 /**
@@ -17,18 +18,14 @@ export function ConfirmDialog({
   cancel = 'Cancel',
   onConfirm,
   onCancel,
-  danger = false,
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
-  /** The action's name. Left out: the dialog only explains why the action can't happen, with one button (`cancel`, say "Close"). */
-  confirm?: string;
+  confirm: string;
   cancel?: string;
-  onConfirm?: () => void;
+  onConfirm: () => void;
   onCancel: () => void;
-  /** Deletes, discards or takes something away: the confirm button is red and names the action ("Delete queue"). */
-  danger?: boolean;
 }) {
   const reduce = useReducedMotion();
   const box = useRef<HTMLDivElement>(null);
@@ -86,9 +83,15 @@ export function ConfirmDialog({
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
           >
-            <h2 id="confirm-title" className="confirm__title">
-              {title}
-            </h2>
+            <div className="confirm__head">
+              <h2 id="confirm-title" className="confirm__title">
+                {title}
+              </h2>
+              {/* every pop-up has a close icon in its top-right corner (Nesil, 4 Nov); here it cancels */}
+              <button type="button" className="icon-btn confirm__close" aria-label="Close" onClick={onCancel}>
+                <Icon name="close" size={18} />
+              </button>
+            </div>
             <div id="confirm-text" className="confirm__text">
               {children}
             </div>
@@ -96,11 +99,7 @@ export function ConfirmDialog({
               <Button variant="secondary" ref={cancelRef} onClick={onCancel}>
                 {cancel}
               </Button>
-              {confirm && onConfirm && (
-                <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
-                  {confirm}
-                </Button>
-              )}
+              <Button onClick={onConfirm}>{confirm}</Button>
             </div>
           </motion.div>
         </div>
@@ -108,4 +107,35 @@ export function ConfirmDialog({
     </AnimatePresence>,
     layer,
   );
+}
+
+/** A question asked before removing something saved: its title, what happens, the action's name and what it does. */
+export type Ask = { title: string; text: ReactNode; confirm?: string; cancel?: string; run: () => void };
+
+/**
+ * Asks first, one question at a time (4 Nov: every delete or remove of a saved record asks first). `ask(...)` opens
+ * the dialog; render `dialog` once in the component. Cancel keeps the record; the action runs `run`. The words stay
+ * while the dialog fades out.
+ */
+export function useConfirm() {
+  const [q, setQ] = useState<Ask | null>(null);
+  const last = useRef<Ask | null>(null);
+  if (q) last.current = q;
+  const shown = last.current;
+  const dialog = (
+    <ConfirmDialog
+      open={!!q}
+      title={shown?.title ?? ''}
+      confirm={shown?.confirm ?? 'Remove'}
+      cancel={shown?.cancel ?? 'Cancel'}
+      onCancel={() => setQ(null)}
+      onConfirm={() => {
+        q?.run();
+        setQ(null);
+      }}
+    >
+      {typeof shown?.text === 'string' ? <p>{shown.text}</p> : shown?.text}
+    </ConfirmDialog>
+  );
+  return { ask: setQ as (a: Ask) => void, dialog };
 }

@@ -1,88 +1,74 @@
-import { istParts } from '../../data/dates';
-import { RP_OWNER_WORD } from '../../data/owners';
-import { regionOfCountry } from '../../data/regions';
-import { TEST_COUNTRY } from '../../data/rpteam';
-import { useState, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { ContactCard } from '../../components/ContactCard';
-import { Icon, type IconName } from '../../components/Icon';
-import type { Contact } from '../../data/partners';
+import { Icon } from '../../components/Icon';
+import { countryByName, partnerManagerFor, type Contact } from '../../data/partners';
 import type { Account } from '../signin/model';
+import type { Application } from '../../data/applications';
+import type { Student } from '../../data/students';
 import { Setup } from './Setup';
-import { type SignupState } from '../signup/model';
+import { WHATSAPP_MARKETS, type SignupForm, type SignupState } from '../signup/model';
 import { inSentence, returnedDocs, stillToReplace } from '../signup/docs';
-import { LOCKED_COPY, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
+import { agreementOf, expectedBy, phaseOf, sentDocs, whenLabel, type Access, type Section } from './model';
 import { Track, type StepState } from './Track';
-import { adminCfg } from '../../admin/data/store';
-import { STAFF, label } from '../../data/staff';
-import { courseOf, isOpen, needsYou, statusText, type Application } from '../../data/applications';
-import { fullName, type Student } from '../../data/students';
-import { shortDate } from '../../data/dates';
-import { hoursText } from '../../work/calendars';
-
-/** The agency's region's Admissions contact (W15): GSP · Admin › Sales regions, as a person from the staff list. */
-export function admissionsContactFor(country: string): Contact | null {
-  const region = regionOfCountry(country); // the agency's location: the regions' Countries (S1F-2)
-  const name = adminCfg().regions.find((g) => g.name === region)?.contact;
-  const s = name ? STAFF.find((x) => label(x) === name) : undefined;
-  if (!s) return null;
-  return { name: label(s), role: `Admissions contact · ${region}`, phone: s.phone ? `${s.dial} ${s.phone}` : '', email: s.email, initials: `${s.first[0] ?? ''}${s.last[0] ?? ''}` };
-}
+import { AgreementCard, DoneStrip, dayText } from './Agreement';
+import { Summary } from './Summary';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const rise = (reduce: boolean | null, i: number) =>
   reduce ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.32, ease, delay: 0.06 + i * 0.07 } };
 
 const greeting = () => {
-  const h = istParts(Date.now()).h;
+  const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 
-const LOCKED: { key: Section; icon: IconName }[] = [
-  { key: 'students', icon: 'people' },
-  { key: 'applications', icon: 'doc' },
-  { key: 'earnings', icon: 'wallet' },
-];
-
-/** Home: while GSP verifies, what's happening and what opens next; once verified, where to start. */
+/**
+ * Home, in every state (4 Nov): finishing registering; GSP verifying (no "Opens after verification" tiles any more);
+ * the business verified, as a small strip, with the partner agreement under it (and nothing else); and only once the
+ * agreement is accepted (or for an established partner), a summary of what matters now.
+ */
 export function Home({
   acc,
   join,
   access,
   manager,
   onDocs,
+  onProfileDocs,
+  onAgreementPreview,
   go,
   set,
   scrollTop,
   startKey,
-  apps = [],
-  students = [],
+  apps,
+  students,
   onOpenApp,
-  pending,
 }: {
-  /** Something the agency has to do first (its agreement to sign): at the top of Home. */
-  pending?: ReactNode;
-  /** The agency's applications and students, for what's pending on it (W24). */
-  apps?: Application[];
-  students?: Student[];
-  onOpenApp?: (id: string) => void;
   acc: Account;
   join: SignupState | null;
   access: Access;
   manager: Contact | null;
   onDocs: () => void;
+  /** Profile's Documents tab: the documents and the agreement, once verified. */
+  onProfileDocs: () => void;
+  onAgreementPreview: () => void;
   go: (k: Section) => void;
   /** Updates the registration while the partner finishes it here. */
   set?: (fn: (s: SignupState) => SignupState) => void;
   scrollTop: () => void;
   /** Changes when a review state is picked, so registering starts again from that state. */
   startKey?: string;
+  apps: Application[];
+  students: Student[];
+  onOpenApp: (id: string) => void;
 }) {
   const reduce = useReducedMotion();
   const setup = access === 'setup' && join && set ? join : null;
   const verifying = access === 'verifying' && join;
   const phase = phaseOf(join);
+  const agreement = agreementOf(join);
+  const signing = !!join && access === 'all' && agreement !== 'accepted';
 
   return (
     <div className="home">
@@ -99,32 +85,12 @@ export function Home({
 
       <div className="home__grid">
         <div className="home__main">
-          {pending}
           {setup ? (
             <Setup key={startKey} join={setup} set={set!} scrollTop={scrollTop} />
           ) : verifying ? (
             <>
-              {phase === 'sent-back' ? <ReturnCard join={join} onDocs={onDocs} reduce={reduce} /> : pending ? null : <VerifyCard join={join} onDocs={onDocs} reduce={reduce} />}
-              <motion.section className="home__sec" aria-labelledby="after-title" {...rise(reduce, 2)}>
-                <h2 id="after-title" className="home__h2">
-                  Opens after verification
-                </h2>
-                <ul className="ltiles">
-                  {LOCKED.map((l) => (
-                    <li key={l.key} className="ltile">
-                      <span className="ltile__icon" aria-hidden="true">
-                        <Icon name={l.icon} size={20} />
-                      </span>
-                      <span className="ltile__lock" aria-hidden="true">
-                        <Icon name="lock" size={14} />
-                      </span>
-                      <span className="ltile__title">{LOCKED_COPY[l.key]?.title}</span>
-                      <span className="ltile__text">{LOCKED_COPY[l.key]?.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </motion.section>
-              <motion.section className="card ccard" aria-labelledby="courses-title" {...rise(reduce, 3)}>
+              {phase === 'sent-back' ? <ReturnCard join={join} onDocs={onDocs} reduce={reduce} /> : <VerifyCard join={join} onDocs={onDocs} reduce={reduce} />}
+              <motion.section className="card ccard" aria-labelledby="courses-title" {...rise(reduce, 2)}>
                 <span className="ccard__icon" aria-hidden="true">
                   <Icon name="search" size={22} />
                 </span>
@@ -140,20 +106,28 @@ export function Home({
                 </Button>
               </motion.section>
             </>
+          ) : signing && join && set ? (
+            <>
+              {/* 4 Nov: the business verified, as a strip; the agreement under it */}
+              <DoneStrip
+                title={`${join.form.biz} is verified`}
+                text={`GSP verified your business and documents ${whenLabel(join.verifiedAt)}. Students and applications are open.`}
+                action="View documents"
+                onAction={onProfileDocs}
+              />
+              <AgreementCard join={join} set={set} onPreview={onAgreementPreview} />
+            </>
           ) : (
             <>
-              {join && <VerifiedCard join={join} onDocs={onDocs} reduce={reduce} />}
-              <PendingCard apps={apps} students={students} onOpen={onOpenApp} go={go} reduce={reduce} />
-              <motion.section className="home__sec" aria-labelledby="start-title" {...rise(reduce, 2)}>
-                <h2 id="start-title" className="vh">
-                  Start here
-                </h2>
-                <ul className="stiles">
-                  <StartTile icon="people" title="Add a student" text="Fill their details once and reuse them for every application." onClick={() => go('students')} />
-                  <StartTile icon="search" title="Find a course" text="Search by subject, country and intake, with entry requirements." onClick={() => go('courses')} />
-                  <StartTile icon="doc" title="Start an application" text="Pick a student and a course, and GSP takes it from there." onClick={() => go('applications')} />
-                </ul>
-              </motion.section>
+              {join?.agreement?.acceptedAt && (
+                <DoneStrip
+                  title="Your partner agreement is accepted"
+                  text={`Signed on ${dayText(join.agreement.signedOn)}, accepted ${whenLabel(join.agreement.acceptedAt)}. Every page is open now, Earnings too.`}
+                  action="View documents"
+                  onAction={onProfileDocs}
+                />
+              )}
+              <Summary apps={apps} students={students} go={go} onOpenApp={onOpenApp} />
             </>
           )}
         </div>
@@ -161,33 +135,17 @@ export function Home({
         <motion.aside className="home__side" aria-label="Help" {...rise(reduce, 2)}>
           <section className="card side-card" aria-labelledby="contact-title">
             <h2 id="contact-title" className="side-card__title">
-              Your GSP contacts
+              Your GSP contact
             </h2>
             {setup ? (
-              // no one is assigned until the documents go to GSP
-              <div className="cempty">
-                <span className="cempty__art" aria-hidden="true">
-                  <Icon name="user" size={24} />
-                  <span className="cempty__badge">
-                    <Icon name="clock" size={13} />
-                  </span>
-                </span>
-                <p className="cempty__title">Your GSP relationship manager isn’t assigned yet</p>
-                <p className="side-card__text">Once you upload your documents and send them for verification, we’ll assign one.</p>
-              </div>
+              <AssignContact form={setup.form} detailsOpen={!setup.detailsDone} />
             ) : manager ? (
-              <>
-                <ContactCard person={{ ...manager, role: 'Recruitment' }} hours={hoursText(regionOfCountry(join?.form.country || TEST_COUNTRY))} />
-                {/* and the region's Admissions contact, for applications (W15) */}
-                {(() => {
-                  const adm = admissionsContactFor(join?.form.country || TEST_COUNTRY);
-                  return adm ? <ContactCard person={adm} hours={hoursText(regionOfCountry(join?.form.country || TEST_COUNTRY))} /> : null;
-                })()}
-              </>
+              <ContactCard person={{ ...manager, role: 'GSP Recruitment contact' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
             ) : (
-              <p className="side-card__text">Your Recruitment contact at GSP will be in touch. Their name and number will show here.</p>
+              <p className="side-card__text">Your GSP Recruitment contact will be in touch within 1 working day. Their name and number will show here.</p>
             )}
           </section>
+          {/* 4 Nov (Nesil): no "Latest from universities" here; announcements stay at the top right */}
         </motion.aside>
       </div>
     </div>
@@ -198,12 +156,14 @@ export function Home({
 function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () => void; reduce: boolean | null }) {
   const f = join.form;
   const sent = sentDocs(join).filter((d) => d.slot.file);
+  const whatsapp = WHATSAPP_MARKETS.includes(f.country);
   const again = (join.rounds ?? 1) > 1;
   const steps: { title: string; note?: string; state: StepState }[] = [
     { title: 'Account created', state: 'done' },
     { title: again ? 'Documents sent again' : 'Details and documents sent', note: whenLabel(join.sentAt), state: 'done' },
     { title: 'Verification', state: 'now' },
-    { title: 'All access', state: 'end' },
+    { title: 'Agreement', state: 'wait' },
+    { title: 'All Access', state: 'end' },
   ];
 
   return (
@@ -214,8 +174,8 @@ function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
           Document verification in progress
         </h2>
         <p className="vcard__text">
-          GSP is verifying your business details and documents. Expect it by{' '}
-          <strong className="num">{expectedBy(join.sentAt, join.form.country)}</strong>.
+          GSP is verifying your business details and documents, usually within 1 working day. Expect it by{' '}
+          <strong className="num">{expectedBy(join.sentAt)}</strong>.
         </p>
       </div>
 
@@ -253,7 +213,8 @@ function VerifyCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
           View documents
         </Button>
         <p className="vcard__note">
-          We’ll email {f.email} when it’s done.
+          We’ll email {f.email}
+          {whatsapp ? ' and message you on WhatsApp' : ''} when it’s done.
         </p>
       </div>
     </motion.section>
@@ -277,7 +238,8 @@ function ReturnCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
     { title: 'Documents sent', note: whenLabel(join.sentAt), state: 'done' },
     { title: one ? 'Replace document' : 'Replace documents', state: 'back' },
     { title: 'Verification', state: 'wait' },
-    { title: 'All access', state: 'end' },
+    { title: 'Agreement', state: 'wait' },
+    { title: 'All Access', state: 'end' },
   ];
   const action = left.length === 0 ? 'Send to GSP again' : one ? 'Replace document' : 'Replace documents';
 
@@ -290,7 +252,7 @@ function ReturnCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
         </h2>
         <p className="vcard__text">
           GSP couldn’t verify {one ? `your ${inSentence(back[0].name)}` : `${back.length} of your documents`}. Upload{' '}
-          {one ? 'a new copy' : 'new copies'}, then send {one ? 'it' : 'them'} again.
+          {one ? 'a new copy' : 'new copies'}, then send {one ? 'it' : 'them'} again. GSP usually verifies within 1 working day after that.
         </p>
       </div>
 
@@ -340,103 +302,105 @@ function ReturnCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () =>
 
 const listOf = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 
-/** The moment it lands: the business is verified and everything is open. It can be put away. */
-function VerifiedCard({ join, onDocs, reduce }: { join: SignupState; onDocs: () => void; reduce: boolean | null }) {
-  const [hidden, setHidden] = useState(false);
-  if (hidden) return null;
-  return (
-    <motion.section className="card okcard" aria-labelledby="ok-title" {...rise(reduce, 1)}>
-      <span className="okcard__mark" aria-hidden="true">
-        <motion.svg viewBox="0 0 24 24" width="26" height="26">
-          <motion.path
-            d="M5 12.5l4.2 4.2L19 7"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            initial={reduce ? false : { pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.45, ease, delay: 0.3 }}
-          />
-        </motion.svg>
-      </span>
-      <div className="okcard__body">
-        <span className="who who--ok">Verified</span>
-        <h2 id="ok-title" className="okcard__title">
-          {join.form.biz} is verified
-        </h2>
-        <p className="okcard__text">
-          GSP verified your business and documents {whenLabel(join.verifiedAt)}. Students, applications and earnings are open.
-        </p>
-        <Button variant="secondary" size="sm" onClick={onDocs}>
-          View documents
-        </Button>
-      </div>
-      <button type="button" className="icon-btn okcard__close" aria-label="Hide this message" onClick={() => setHidden(true)}>
-        <Icon name="close" size={16} />
-      </button>
-    </motion.section>
-  );
-}
 
-function StartTile({ icon, title, text, onClick }: { icon: IconName; title: string; text: string; onClick: () => void }) {
-  return (
-    <li>
-      <button type="button" className="stile" onClick={onClick}>
-        <span className="stile__icon" aria-hidden="true">
-          <Icon name={icon} size={20} />
-        </span>
-        <span className="stile__title">{title}</span>
-        <span className="stile__text">{text}</span>
-        <Icon name="arrowRight" size={18} className="stile__go" />
-      </button>
-    </li>
-  );
-}
+const FACES = ['AR', 'SK', 'RM', 'AS', 'MP', 'SS', 'RA', 'DP'];
 
 /**
- * What's pending on the agency (W24, 1 Nov): each application waiting on it, what it needs and by when, soonest first.
+ * The GSP contact while registering (Nesil, 4 Nov): "Add your state and city: they decide your GSP Recruitment
+ * contact, who helps you get started." Once both are in (and they've stopped typing), GSP is seen assigning someone,
+ * faces trying each other on, then the contact lands with a check. A change of state or city assigns again.
  */
-function PendingCard({ apps, students, onOpen, go, reduce }: { apps: Application[]; students: Student[]; onOpen?: (id: string) => void; go: (k: Section) => void; reduce: boolean | null }) {
-  const mine = apps.filter((a) => isOpen(a) && needsYou(a));
-  if (!apps.length) return null;
-  const dueOf = (a: Application) => Math.min(...a.needs.map((n) => n.due ?? Infinity), a.offer && a.status === 'conditions' ? a.offer.acceptBy : Infinity);
-  const rows = mine.map((a) => ({ a, due: dueOf(a) })).sort((x, y) => x.due - y.due);
-  const stu = (a: Application) => students.find((x) => x.id === a.studentId);
+function AssignContact({ form, detailsOpen }: { form: SignupForm; detailsOpen: boolean }) {
+  const reduce = useReducedMotion();
+  const states = countryByName(form.country)?.states ?? [];
+  const ready = form.city.trim().length >= 2 && (states.length === 0 || !!form.state);
+  const key = ready ? `${form.country}|${form.state}|${form.city.trim().toLowerCase()}` : '';
+  // what's on screen: the contact for `shown`, or the assigning moment while `busy`
+  const [shown, setShown] = useState(key);
+  const [busy, setBusy] = useState(false);
+  const [face, setFace] = useState(0);
+  useEffect(() => {
+    if (!key) {
+      setBusy(false);
+      setShown('');
+      return;
+    }
+    if (key === shown && !busy) return;
+    const wait = window.setTimeout(() => setBusy(true), 700); // they've stopped typing
+    const done = window.setTimeout(() => (setShown(key), setBusy(false)), 700 + (reduce ? 400 : 2200));
+    return () => (window.clearTimeout(wait), window.clearTimeout(done));
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!busy || reduce) return;
+    const t = window.setInterval(() => setFace((f) => (f + 1) % FACES.length), 240);
+    return () => window.clearInterval(t);
+  }, [busy, reduce]);
+  const person = shown ? partnerManagerFor(form.country, form.city, '', form.state) : null;
+  const where = [form.city.trim(), form.state].filter(Boolean).join(', ');
+  const focusPlace = () => {
+    const el = document.getElementById(states.length && !form.state ? 'su-state' : 'su-city');
+    el?.focus({ preventScroll: true });
+    el?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+  };
+
   return (
-    <motion.section className="card side-card pend" aria-labelledby="pend-title" {...rise(reduce, 1)}>
-      <div className="pend__head">
-        <h2 id="pend-title" className="home__h2">
-          {RP_OWNER_WORD.you}
-        </h2>
-        <Button variant="secondary" size="sm" onClick={() => go('applications')}>
-          All applications
-        </Button>
-      </div>
-      {rows.length === 0 ? (
-        <p className="side-card__text">Nothing is waiting on you. GSP and the universities have the rest.</p>
-      ) : (
-        <ul className="pend__list">
-          {rows.slice(0, 6).map(({ a, due }) => {
-            const s = stu(a);
-            const what = a.needs.filter((n) => !n.profile).map((n) => n.title);
-            const late = Number.isFinite(due) && due < Date.now();
-            return (
-              <li key={a.id} className="pend__item">
-                <button type="button" className="pend__open" onClick={() => (onOpen ? onOpen(a.id) : go('applications'))}>
-                  <span className="pend__who">
-                    {s ? fullName(s) : a.studentId} <span className="muted">· {courseOf(a).uni.name}</span>
-                  </span>
-                  <span className="pend__what">{what.length ? what.join(', ') : statusText(a)}</span>
-                </button>
-                <span className={`pend__due num ${late ? 'is-late' : ''}`}>{Number.isFinite(due) ? `${late ? 'Was due' : 'Due'} ${shortDate(new Date(due), true)}` : 'No due date'}</span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {rows.length > 6 && <p className="side-card__text">and {rows.length - 6} more in Applications.</p>}
-    </motion.section>
+    <div className="cassign" aria-live="polite">
+      <AnimatePresence mode="wait" initial={false}>
+        {busy ? (
+          <motion.div key="busy" className="cassign__busy" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <span className="cassign__ring" aria-hidden="true">
+              <span className="cassign__seat">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={face}
+                  className="cassign__face"
+                  initial={reduce ? false : { opacity: 0, y: 10, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.9 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {FACES[face]}
+                </motion.span>
+              </AnimatePresence>
+              </span>
+            </span>
+            <p className="cempty__title">Assigning your GSP Recruitment contact…</p>
+            <p className="side-card__text">Matching {where} to GSP’s recruitment team.</p>
+            <span className="cassign__bar" aria-hidden="true">
+              <span />
+            </span>
+          </motion.div>
+        ) : person ? (
+          <motion.div
+            key={`p-${shown}`}
+            className="cassign__done"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.32, ease }}
+          >
+            <span className="pill pill--ok cassign__pill">
+              <Icon name="check" size={13} strokeWidth={2.6} /> Assigned to {form.biz || 'you'}
+            </span>
+            <ContactCard person={{ ...person, role: 'GSP Recruitment contact' }} hours="Mon–Sat, 9:30 am to 6:30 pm" />
+          </motion.div>
+        ) : (
+          <motion.div key="ask" className="cempty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <span className="cempty__art" aria-hidden="true">
+              <Icon name="user" size={24} />
+              <span className="cempty__badge">
+                <Icon name="pin" size={13} />
+              </span>
+            </span>
+            <p className="cempty__title">Add your state and city</p>
+            <p className="side-card__text">They decide your GSP Recruitment contact, who helps you get started.</p>
+            {detailsOpen && (
+              <button type="button" className="btn btn--link cassign__add" onClick={focusPlace}>
+                Add them
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

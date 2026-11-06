@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useViewOnly } from '../proto/viewOnly';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icon } from './Icon';
-import { currentRole } from '../proto/roles';
 import './counsellor.css';
 
 export type PickerMember = { id: string; name: string };
@@ -47,6 +47,7 @@ export function CounsellorPicker({
   const btn = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const current = team.find((m) => m.id === value);
+  const viewOnly = useViewOnly();
   const layer = typeof document === 'undefined' ? null : document.getElementById('layer');
 
   const place = () => {
@@ -116,6 +117,8 @@ export function CounsellorPicker({
     }
   };
 
+  // view only (6 Nov): who it is, with nothing to change
+  if (viewOnly) return <span className="cpick__ro">{current?.name ?? 'No one yet'}</span>;
   return (
     <span className={`cpick cpick--${size}`} onClick={(e) => e.stopPropagation()}>
       <span className="cpick__name" title={current?.name}>
@@ -128,8 +131,7 @@ export function CounsellorPicker({
           <span className="cpick__none">No counsellor</span>
         )}
       </span>
-      {/* slice 1 Roles rule: only an RP Admin or Branch Manager changes a student's counsellor */}
-      {currentRole() !== 'rp-counsellor' && <button
+      <button
         ref={btn}
         type="button"
         id={id}
@@ -142,7 +144,7 @@ export function CounsellorPicker({
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name="edit" size={16} />
-      </button>}
+      </button>
       {layer &&
         createPortal(
           <AnimatePresence>

@@ -1,6 +1,4 @@
 import { useState, type ReactNode } from 'react';
-import { PhoneInput } from '../../../components/PhoneInput';
-import { useRevealErrors } from '../../../components/validate';
 import { Field, SelectInput, TextInput, describedBy } from '../../../components/forms';
 import type { Student } from '../../../data/students';
 
@@ -50,9 +48,7 @@ export function Txt({
   after?: ReactNode;
 }) {
   const [left, setLeft] = useState(false);
-  // shown once the field's been left, or when Save is pressed (QC, 1 Nov)
-  const reveal = useRevealErrors();
-  const err = (left || reveal > 0) && error ? error : null;
+  const err = left && error ? error : null;
   const note = read ? readNote(read) : hint;
   return (
     <Field id={id} label={label} required={required} error={err} hint={after ? undefined : note}>
@@ -163,17 +159,5 @@ export function Choice<T extends string>({
         </p>
       )}
     </div>
-  );
-}
-
-/** The phone number, with its country code; its error (the length its country needs) shows once it's left or on Save. */
-export function Phone({ id, dial, number, onDial, onNumber, error, required }: { id: string; dial: string; number: string; onDial: (v: string) => void; onNumber: (v: string) => void; error?: string | null; required?: boolean }) {
-  const [left, setLeft] = useState(false);
-  const reveal = useRevealErrors();
-  const err = (left || reveal > 0) && error ? error : null;
-  return (
-    <Field id={id} label="Phone number" required={required} error={err}>
-      <PhoneInput id={id} dial={dial} number={number} invalid={!!err} describedBy={err ? `${id}-error` : undefined} onBlur={() => setLeft(true)} onDial={onDial} onNumber={onNumber} />
-    </Field>
   );
 }

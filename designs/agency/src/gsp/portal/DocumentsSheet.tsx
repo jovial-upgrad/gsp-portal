@@ -94,7 +94,7 @@ export function DocumentsSheet({
   const contactLine = manager && (
     <>
       {' '}
-      Questions? {manager.phone ? <>Call {who} on <span className="num">{manager.phone}</span>.</> : <>Email {who} at {manager.email}.</>}
+      Questions? Call {who} on <span className="num">{manager.phone}</span>.
     </>
   );
 
@@ -105,7 +105,7 @@ export function DocumentsSheet({
           {left.length === 0 && !uploading && <Icon name="checkCircle" size={16} />}
           {count}
         </p>
-        <Button block loading={sending} onClick={sendAgain} iconRight={<Icon name="arrowRight" size={18} />}>
+        <Button loading={sending} onClick={sendAgain} iconRight={<Icon name="arrowRight" size={18} />}>
           {sending ? 'Sending to GSP…' : 'Send to GSP again'}
         </Button>
       </div>
@@ -139,8 +139,8 @@ export function DocumentsSheet({
             <span className="who who--gsp">With GSP</span>
             <p className="dstatus__title">GSP is verifying your documents</p>
             <p className="dstatus__text">
-              {(join.rounds ?? 1) > 1 ? 'Sent again' : 'Sent'} {whenLabel(join.sentAt)}. Expect it by{' '}
-              <span className="num">{expectedBy(join.sentAt, join.form.country)}</span>.
+              {(join.rounds ?? 1) > 1 ? 'Sent again' : 'Sent'} {whenLabel(join.sentAt)}. Usually within 1 working day, so expect it by{' '}
+              <span className="num">{expectedBy(join.sentAt)}</span>.
             </p>
           </>
         ) : (

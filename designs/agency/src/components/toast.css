@@ -4,7 +4,7 @@
    ========================================================================== */
 
 .toast-wrap { position: fixed; z-index: 70; left: calc(var(--sidebar-w) + var(--sp-12) + var(--sp-24)); bottom: var(--sp-24); width: min(420px, calc(100% - var(--sidebar-w) - 64px)); pointer-events: none; }
-.toast { display: flex; align-items: flex-start; gap: var(--sp-12); padding: var(--sp-12) var(--sp-12) var(--sp-12) var(--sp-14, 14px); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 16px 40px -12px rgba(9, 30, 66, 0.35); pointer-events: auto; }
+.toast { display: flex; align-items: center; gap: var(--sp-12); padding: var(--sp-12) var(--sp-12) var(--sp-12) var(--sp-14, 14px); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 16px 40px -12px rgba(9, 30, 66, 0.35); pointer-events: auto; }
 :root[data-theme='dark'] .toast { border-color: var(--line-strong); background: var(--surface-2); }
 .toast__icon { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--surface-2); color: var(--text-3); }
 .toast--ok .toast__icon { background: var(--ok-bg); color: var(--ok); }
@@ -14,11 +14,10 @@
 .toast__title { font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
 .toast__text { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
 .toast__link { padding: 0; border: 0; background: none; color: var(--link); font: inherit; font-weight: var(--fw-semi); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
-.toast__x { flex: none; margin: -4px -4px 0 0; color: var(--text-3); }
+.toast__x { flex: none; margin: -4px -4px -4px 0; color: var(--text-3); }
+/* the icon, the words and the close sit on one centre line, whether the message is one line or more (Nesil, 5 Nov) */
 
 /* phones: no menu beside the page; above the tab bar and the prototype's buttons */
 @container app (max-width: 900px) {
   .toast-wrap { left: var(--sp-16); width: min(420px, calc(100% - 32px)); bottom: 150px; }
 }
-.toast__act { flex: none; align-self: center; height: 32px; padding: 0 var(--sp-12); border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--t-label); font-weight: var(--fw-semi); cursor: pointer; }
-.toast__act:hover { background: var(--surface-2); border-color: var(--text-3); }

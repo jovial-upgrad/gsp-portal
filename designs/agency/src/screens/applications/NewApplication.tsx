@@ -1,15 +1,12 @@
-import { UPLOAD, uploadError, sizeText } from '../../data/uploads';
-import { destinations } from '../../data/reference';
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { downloadDoc } from '../../components/DocView';
 import { Field, SelectInput } from '../../components/forms';
-import { COURSES, FLAG, type Destination, UNIVERSITIES, daysTo, intakeState, money, type Course } from '../../data/courses';
+import { AREAS, COURSES, DESTINATIONS, FLAG, LEVELS, UNIVERSITIES, daysTo, intakeState, money, type Course } from '../../data/courses';
 import { shortDate } from '../../data/dates';
-import { eduDocName, fullName, type Member, type Student } from '../../data/students';
+import { LEVEL_NAME, eduDocName, fullName, type Member, type Student } from '../../data/students';
 import {
   STATUS,
   checkFit,
@@ -28,15 +25,10 @@ import {
   type Verdict,
 } from '../../data/applications';
 import { campusLabel, UniMark } from '../courses/parts';
-import { blockMessage, blockingApp } from '../../data/appRules';
 import { AddStudentSheet } from '../students/AddStudentSheet';
 import { readMs } from '../students/ReadBox';
 import type { RecordTab } from '../students/StudentRecord';
 import { AssistLabel, AssistMark, StageTrack, Thinking } from './parts';
-import { getDb, liveAreas, liveLevels } from '../../institution/data/store';
-import { scoreText } from '../../institution/data/catalogue';
-import { highestEdOf, minScoreOf } from '../../data/eligibility';
-import { eduName } from '../../data/education';
 
 export type NewSeed = { studentId?: string; courseId?: string; intake?: string };
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -48,16 +40,17 @@ const NEW_STUDENT = '__new';
 type Up = { file: string; size: number; phase: 'sending' | 'reading' | 'ok' | 'flag'; pct: number; note?: string; issue?: DocIssue };
 /** "statement of purpose", "CV", "10th marksheet": a document's name inside a sentence. */
 const named = (n: string) => n.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase());
+const MAX_MB = 10;
 const TYPES = /\.(pdf|jpe?g|png)$/i;
+const sizeText = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 /**
  * Starting an application takes three choices: the student (or a new one, added without leaving), the
  * course (by destination, university, program level and study area, or by name) and the intake. GSP Assist then checks the student
  * can be offered a place, with the reason for each part, and suggests close courses when they can't.
  * Documents: what this application asks for (the course's list, read for the student), reused from the profile
- * or uploaded here, read by GSP Assist as it arrives. Anything needed later, GSP asks for in the chat. GSP Assist's eligibility check is only
- * a guide (engineering review, 1 Nov): it never stops the application. What stops it: the student already has an
- * open application for the same course (any intake); one that's closed doesn't count, so they can apply again.
+ * or uploaded here, read by GSP Assist as it arrives. Anything needed later, GSP asks for in the chat. Only hard rules stop it: a university that doesn't take students from
+ * where they live, a closed intake, or the same application twice.
  */
 export function NewApplication({
   open,
@@ -144,12 +137,8 @@ export function NewApplication({
   }, [toCheck]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fit = s && c && intake ? checkFit(s, c, intake) : null;
-  // one open application per student and course, whatever the intake (engineering review, 1 Nov); a closed one doesn't block
-  // uniqueness (slice 3 PRD): an open or Enrolled application for this course blocks, whatever the intake (S3-28);
-  // checked as soon as both are picked, and again on Start; outside the person's regions the message leaves out the
-  // ID, status and link (S3-7)
-  const dupe = s && c ? blockingApp(apps, s.id, c.id) : undefined;
-  const dupeMsg = dupe && s ? blockMessage(dupe, s.first) : undefined;
+  const hard = fit?.reasons.some((r) => r.ok === 'no' && (r.title === 'Where they live' || r.title === 'Intake'));
+  const dupe = s && c ? apps.find((a) => a.studentId === s.id && a.courseId === c.id && a.intake === intake && a.status !== 'closed') : undefined;
   // what this application asks for: the course's documents, read for the student (required ones first)
   const docs = s && c ? docsFor(s, c).sort((x, y) => Number(y.need === 'required') - Number(x.need === 'required')) : [];
   const required = docs.filter((d) => d.need === 'required');
@@ -175,7 +164,7 @@ export function NewApplication({
   const pickFile = (m: AppDoc, file: File | null) => {
     if (!file || !s) return;
     if (!TYPES.test(file.name)) return setBad((b) => ({ ...b, [m.key]: `${file.name} can’t be used. Upload a PDF, JPG or PNG.` }));
-    if (uploadError(file)) return setBad((b) => ({ ...b, [m.key]: uploadError(file) }));
+    if (file.size > MAX_MB * 1048576) return setBad((b) => ({ ...b, [m.key]: `${file.name} is ${sizeText(file.size)}. Upload one up to ${MAX_MB} MB.` }));
     setBad((b) => ({ ...b, [m.key]: undefined }));
     const mine = (x?: Up) => x?.file === file.name;
     setUp((u) => ({ ...u, [m.key]: { file: file.name, size: file.size, phase: 'sending', pct: 0 } }));
@@ -195,7 +184,7 @@ export function NewApplication({
   };
 
   const start = () => {
-    if (!s || !c || !intake || dupe) return;
+    if (!s || !c || !intake || hard || dupe) return;
     // only what reads as right goes with it; one to upload again stays on the application's to-do list
     const sent = docs.filter((d) => up[d.key]?.phase === 'ok');
     const uploads = sent.map((d) => ({ key: d.key, name: d.name, file: up[d.key]!.file }));
@@ -214,7 +203,7 @@ export function NewApplication({
   const ready = !!(s && c && intake && !checking);
   // where each step stands: done, the one to do now (the first not done), or still to come
   const docsDone = !!s && required.every((d) => (up[d.key] ? up[d.key]!.phase === 'ok' : !!s.docs[d.key]));
-  const done = [!!s, !!c && !dupe, !!(c && intake), !!fit && !checking, docsDone];
+  const done = [!!s, !!c, !!(c && intake), !!fit && !checking, docsDone];
   const now = done.indexOf(false);
   const stateOf = (i: number): StepState => (done[i] ? 'done' : i === now ? 'now' : 'next');
   const footer = made ? (
@@ -247,17 +236,19 @@ export function NewApplication({
           : !c
             ? 'Pick a course.'
             : dupe
-              ? `${s.first} already has an open application for this course. Change the student or the course.`
-              : fit?.verdict === 'Not eligible'
-                ? 'You can still start it, but the university will likely say no.'
-                : ''}
+              ? `${s.first} already has this application.`
+              : hard
+                ? 'This one can’t go ahead: see why above.'
+                : fit?.verdict === 'Not eligible'
+                  ? 'You can still start it, but the university will likely say no.'
+                  : ''}
       </p>
       <div className="asf__acts">
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={start} disabled={!ready || !!dupe}>
-          {fit?.verdict === 'Not eligible' ? 'Start anyway' : 'Start application'}
+        <Button onClick={start} disabled={!ready || !!hard || !!dupe}>
+          {fit?.verdict === 'Not eligible' && !hard ? 'Start anyway' : 'Start application'}
         </Button>
       </div>
     </div>
@@ -287,7 +278,7 @@ export function NewApplication({
             </h3>
             <p className="nadone__text">
               {made.status === 'checking'
-                ? 'Sent to GSP. GSP checks the documents, then submits to the university.'
+                ? 'Sent to GSP. GSP checks the documents, usually within the hour, then submits to the university.'
                 : 'Waiting for documents.'}
             </p>
             <div className="nadone__track">
@@ -341,7 +332,6 @@ export function NewApplication({
             {/* 2. the course */}
             <Step id="na-s2" n={2} title="Course" state={stateOf(1)}>
               {c ? (
-                <>
                 <div className="nacourse">
                   <UniMark u={c.uni} />
                   <div className="nacourse__t">
@@ -365,19 +355,6 @@ export function NewApplication({
                     Change
                   </Button>
                 </div>
-                {dupe && (
-                  <div className="nadupe">
-                    <p className="field__msg field__msg--error" id="na-dupe" role="alert">
-                      <span>{dupeMsg?.text}</span>
-                    </p>
-                    {dupeMsg?.link && (
-                      <button type="button" className="btn btn--link" onClick={() => onOpenApp(dupe.id)}>
-                        Open {dupe.id}
-                      </button>
-                    )}
-                  </div>
-                )}
-                </>
               ) : (
                 <>
                   <div className="nafind">
@@ -393,7 +370,7 @@ export function NewApplication({
                           if (uni && UNIVERSITIES.find((u) => u.id === uni)?.country !== e.target.value && e.target.value) setUni('');
                         }}
                       >
-                        {(destinations() as Destination[]).map((d) => (
+                        {DESTINATIONS.map((d) => (
                           <option key={d} value={d}>
                             {FLAG[d]} {d}
                           </option>
@@ -402,7 +379,7 @@ export function NewApplication({
                     </Field>
                     <Field id="na-uni" label="University">
                       <SelectInput id="na-uni" value={uni} placeholder="Any university" allowEmpty onChange={(e) => setUni(e.target.value)}>
-                        {(destinations() as Destination[]).filter((d) => !dest || d === dest).map((d) => (
+                        {DESTINATIONS.filter((d) => !dest || d === dest).map((d) => (
                           <optgroup key={d} label={d}>
                             {UNIVERSITIES.filter((u) => u.country === d)
                               .sort((a, b) => a.name.localeCompare(b.name))
@@ -417,7 +394,7 @@ export function NewApplication({
                     </Field>
                     <Field id="na-level" label="Program Level">
                       <SelectInput id="na-level" value={level} placeholder="Any level" allowEmpty onChange={(e) => setLevel(e.target.value)}>
-                        {liveLevels(getDb()).map((l) => (
+                        {LEVELS.map((l) => (
                           <option key={l} value={l}>
                             {l}
                           </option>
@@ -426,7 +403,7 @@ export function NewApplication({
                     </Field>
                     <Field id="na-area" label="Study Area">
                       <SelectInput id="na-area" value={area} placeholder="Any area" allowEmpty onChange={(e) => setArea(e.target.value)}>
-                        {liveAreas(getDb()).map((x) => (
+                        {AREAS.map((x) => (
                           <option key={x} value={x}>
                             {x}
                           </option>
@@ -512,6 +489,16 @@ export function NewApplication({
                       );
                     })}
                   </div>
+                  {dupe && (
+                    <div className="dupe">
+                      <p className="dupe__t">
+                        {s?.first} already has this application: <strong className="num">{dupe.id}</strong>, {STATUS[dupe.status].text(c.uni.country).toLowerCase()}.
+                      </p>
+                      <Button variant="secondary" size="sm" onClick={() => onOpenApp(dupe.id)}>
+                        Open {dupe.id}
+                      </Button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="nahint">The course’s open intakes show here once it’s picked.</p>
@@ -537,7 +524,6 @@ export function NewApplication({
                     ? `GSP Assist is checking ${s.first}’s profile details against ${c.uni.name}’s requirements for the ${c.name}, to see if ${s.first} is eligible.`
                     : `GSP Assist checked ${s.first}’s profile details against ${c.uni.name}’s requirements for the ${c.name}.`}
                 </p>
-                <p className="nacheck__soft">GSP Assist’s check. It doesn’t stop you applying.</p>
                 {checking ? (
                   <div className="nacheck__run" role="status">
                     <Thinking text={`Checking ${s.first}’s eligibility, one requirement at a time…`} />
@@ -566,7 +552,7 @@ export function NewApplication({
                           r={r}
                           i={i}
                           // details to complete: straight to that part of the profile
-                          onFix={(r.title === 'Academics' || r.title === 'English') && (r.ok === 'add' || r.lines?.some((l) => l.ok === 'add')) ? () => onOpenStudent(s.id, r.title === 'English' ? 'tests' : 'education') : undefined}
+                          onFix={r.ok === 'add' && (r.title === 'Academics' || r.title === 'English') ? () => onOpenStudent(s.id, r.title === 'English' ? 'tests' : 'education') : undefined}
                         />
                       ))}
                     </ul>
@@ -718,11 +704,7 @@ const verdictKey = (v: Verdict) => (v === 'Eligible' ? 'yes' : v === 'Eligible w
 function checkingLine(k: string, s: Student, c: Course, intake: string) {
   const uni = c.uni.name.replace(/^University of (the )?/, '');
   if (k === 'Where they live') return `Does ${uni} take students from ${s.country}?`;
-  if (k === 'Academics') {
-    // the highest qualification against the course's own minimum (S3C-2)
-    const m = minScoreOf(c);
-    return `${s.first}’s ${eduName(highestEdOf(s))} result against ${m ? `the ${scoreText(m.min, m.scale)}` : 'what'} ${uni} asks for`;
-  }
+  if (k === 'Academics') return `${s.first}’s ${LEVEL_NAME[s.highest].toLowerCase()} result against the ${c.academic}% ${uni} asks for`;
   if (k === 'English') return `${s.first}’s English test against IELTS ${c.ielts[0].toFixed(1)} or PTE ${c.pte[0]}`;
   return `Is the ${intake} intake open?`;
 }
@@ -732,11 +714,11 @@ function ReasonRow({ r, i, onFix }: { r: Reason; i: number; onFix?: () => void }
   return (
     <motion.li className={`nareason nareason--${r.ok}`} initial={reduce ? false : { opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25, ease, delay: 0.08 + i * 0.07 }}>
       <span className="nareason__ic" aria-hidden="true">
-        <Icon name={r.ok === 'yes' ? 'check' : r.ok === 'warn' ? 'info' : r.ok === 'no' ? 'close' : r.ok === 'na' ? 'minus' : 'edit'} size={14} strokeWidth={2.4} />
+        <Icon name={r.ok === 'yes' ? 'check' : r.ok === 'warn' ? 'info' : r.ok === 'no' ? 'close' : 'edit'} size={14} strokeWidth={2.4} />
       </span>
       <span className="nareason__k">{r.title}</span>
       <span className="nareason__v">
-        {r.lines ? <span className={`nareason__verdict nareason__verdict--${r.ok}`}>{r.text}</span> : r.text}
+        {r.text}
         {onFix && (
           <>
             {' '}
@@ -746,19 +728,6 @@ function ReasonRow({ r, i, onFix }: { r: Reason; i: number; onFix?: () => void }
           </>
         )}
       </span>
-      {r.lines && (
-        <ul className="nareason__subs">
-          {r.lines.map((l) => (
-            <li key={l.sub + l.text} className={`nasub nasub--${l.ok}`}>
-              <span className="nasub__ic" aria-hidden="true">
-                <Icon name={l.ok === 'yes' ? 'check' : l.ok === 'warn' ? 'info' : l.ok === 'no' ? 'close' : l.ok === 'add' ? 'edit' : 'minus'} size={11} strokeWidth={2.6} />
-              </span>
-              <span className="nasub__k">{l.sub}</span>
-              <span className="nasub__v">{l.text}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </motion.li>
   );
 }
@@ -806,7 +775,7 @@ function Documents({
         <motion.span initial={false} animate={{ width: `${required.length ? (ready / required.length) * 100 : 100}%` }} transition={{ duration: 0.4, ease }} />
       </div>
       <p className="nahint">
-        What {c.uni.name} asks for with this course, for {s.first}’s education. Anything needed later, GSP asks for in the chat. Add each as a {UPLOAD.types}, up to {UPLOAD.maxMB} MB; what’s on {s.first}’s profile is
+        What {c.uni.name} asks for with this course, for {s.first}’s education. Anything needed later, GSP asks for in the chat. Add each as a PDF, JPG or PNG, up to {MAX_MB} MB; what’s on {s.first}’s profile is
         used from there. GSP verifies every one for this application, those from the profile too.
       </p>
       <ol className="mdocs">
@@ -849,7 +818,7 @@ function DocCard({ n, d, s, u, bad, onFile, onRemove }: { n: number; d: AppDoc; 
       id={id}
       className="vh"
       type="file"
-      accept={UPLOAD.accept}
+      accept=".pdf,.jpg,.jpeg,.png"
       aria-label={`Upload the ${named(d.name)}`}
       aria-describedby={bad ? `${id}-err` : undefined}
       onChange={(e) => {
@@ -870,11 +839,6 @@ function DocCard({ n, d, s, u, bad, onFile, onRemove }: { n: number; d: AppDoc; 
             <span className="mdoc__need">{need ? 'Required' : 'Optional'}</span>
           </p>
           <p className="mdoc__what">{d.what}</p>
-          {d.template && (
-            <button type="button" className="btn btn--link mdoc__tpl" onClick={() => downloadDoc({ name: d.template!.name, file: d.template!.file })}>
-              <Icon name="download" size={14} /> Download the template: {d.template.name}
-            </button>
-          )}
         </div>
         <span className={`mdoc__pill mdoc__pill--${pill[1]}`}>{pill[0]}</span>
       </div>
@@ -897,7 +861,7 @@ function DocCard({ n, d, s, u, bad, onFile, onRemove }: { n: number; d: AppDoc; 
             <span className="mdrop__main">
               Drop the file here, or <span className="mdrop__link">browse</span>
             </span>
-            <span className="mdrop__sub">{UPLOAD.short}</span>
+            <span className="mdrop__sub">PDF, JPG or PNG · up to {MAX_MB} MB</span>
           </span>
           {input}
         </label>

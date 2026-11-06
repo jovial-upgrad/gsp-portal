@@ -1,4 +1,3 @@
-import { TEST_COUNTRY } from '../../data/rpteam';
 /** Review states for the Students page and student records, for an agency GSP has verified. */
 import { sampleStudents, type Student } from '../../data/students';
 import { newAdd, type AddState } from './form';
@@ -7,7 +6,7 @@ import type { RecordTab } from './StudentRecord';
 type Make = (me: string) => { students: Student[]; add?: AddState | true; open?: string; tab?: RecordTab };
 
 const filled = (patch: Partial<AddState['f']>, more: Partial<AddState> = {}): AddState => {
-  const a = newAdd(TEST_COUNTRY);
+  const a = newAdd('India');
   return { ...a, ...more, f: { ...a.f, ...patch } };
 };
 
@@ -30,10 +29,9 @@ export const STUDENT_PRESETS: Record<string, { label: string; make: Make }> = {
     label: 'Add: Validations',
     make: (me) => ({ students: sampleStudents(me), add: filled({ first: 'Meera', email: 'meera.iyer@gmail', phone: '98', passport: 'AB12' }, { submitted: true, attempts: 1 }) }),
   },
-  // 1 Nov: the duplicate check is by passport number, within one RP
   'students-duplicate': {
-    label: 'Add: Passport already exists',
-    make: (me) => ({ students: sampleStudents(me), add: filled({ first: 'Priya', last: 'Raman', passport: 'V8810342' }, { touched: { passport: true } }) }),
+    label: 'Add: Email already exists',
+    make: (me) => ({ students: sampleStudents(me), add: filled({ first: 'Priya', last: 'Raman', email: 'priya.raman@gmail.com' }, { touched: { email: true } }) }),
   },
   'students-add-complete': {
     label: 'Add: Completed',
@@ -47,4 +45,6 @@ export const STUDENT_PRESETS: Record<string, { label: string; make: Make }> = {
   'student-complete': { label: 'Record: complete profile', make: (me) => ({ students: sampleStudents(me), open: 'S-24811', tab: 'personal' }) },
   'student-tests': { label: 'Record: tests', make: (me) => ({ students: sampleStudents(me), open: 'S-24807', tab: 'tests' }) },
   'student-documents': { label: 'Record: documents', make: (me) => ({ students: sampleStudents(me), open: 'S-24781', tab: 'documents' }) },
+  // 4 Nov: married, refused a visa once, her husband going with her
+  'student-background': { label: 'Record: background', make: (me) => ({ students: sampleStudents(me), open: 'S-24781', tab: 'background' }) },
 };

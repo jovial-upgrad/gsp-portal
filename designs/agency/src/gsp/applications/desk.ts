@@ -1,9 +1,7 @@
-import type { Member } from '../../data/students';
-import { phoneOf } from '../../data/rpteam';
-import { money, submission, type Destination } from '../../data/courses';
+import { money, type Destination } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { fullName, type Student } from '../../data/students';
-import { ENROL_DOC, ENROL_DOC_LONG, VISA_NAME, intakeCensusOf, courseOf, destOf, gspContact, stageOf, type Application, type StatusKey } from '../../data/applications';
+import { ENROL_DOC, ENROL_DOC_LONG, VISA_NAME, courseOf, destOf, gspContact, stageOf, type Application, type StatusKey } from '../../data/applications';
 
 /**
  * What only GSP's team keeps for an application: the university's mail about it, where and how it's
@@ -29,23 +27,32 @@ export type Mail = {
 
 /** Where the application goes in: by mail to an address, or through StudyLink or the university's own portal. */
 export type Channel = { via: 'mail'; email: string } | { via: 'studylink' | 'portal'; url: string; username: string; password: string };
-export const CHANNEL_NAME: Record<Channel['via'], string> = { mail: 'Through mail', studylink: 'Through StudyLink', portal: 'Through university portal' };
+export const CHANNEL_NAME: Record<Channel['via'], string> = { mail: 'Through mail', studylink: 'Through StudyLink', portal: 'Through the university portal' };
 
 /** `dismissed`: university documents in the mail GSP chose not to add to Documents. */
 export type Desk = { mails: Mail[]; channel: Channel; census: number; fee: number; dismissed?: string[] };
 
 const DAY = 86_400_000;
-/* Course start and census without catalogue dates: one rule, data/applications.ts startOf and censusOf (HC25). */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** The first day of an intake like "Feb 2027". */
+export const intakeStart = (intake: string) => {
+  const [m, y] = intake.split(' ');
+  return new Date(Number(y), Math.max(0, MONTHS.indexOf(m)), 1).getTime();
+};
 /** A date with its year: "31 Mar 2027". */
 export const longDate = (t: number) => `${shortDate(new Date(t))} ${new Date(t).getFullYear()}`;
 
-/** How the university takes applications from GSP: the Institution Team's university record (Jovial, 31 Oct). */
+/** How each university takes applications from GSP: Australia and New Zealand mostly through StudyLink. */
 function channelFor(a: Application): Channel {
   const u = courseOf(a).uni;
-  const sub = submission(u.id, a.region);
-  if (!sub || sub.channel === 'Email') return { via: 'mail', email: sub?.link || `international@${u.website ?? `${u.id}.edu`}` };
-  if (sub.channel === 'StudyLink') return { via: 'studylink', url: `https://www.studylink.com/${u.id}`, username: sub.username ?? '', password: sub.secret ?? '' };
-  return { via: 'portal', url: `https://${sub.link}`, username: sub.username ?? '', password: sub.secret ?? '' };
+  const web = u.website ?? `${u.id}.edu`;
+  const code = u.id.slice(0, 3).toUpperCase();
+  const n = [...u.id].reduce((t, ch) => t + ch.charCodeAt(0), 0);
+  const kind = u.country === 'Australia' || u.country === 'New Zealand' ? (n % 3 ? 'studylink' : 'portal') : n % 2 ? 'portal' : 'mail';
+  if (kind === 'mail') return { via: 'mail', email: `international.admissions@${web}` };
+  return kind === 'studylink'
+    ? { via: 'studylink', url: `https://www.studylink.com/${u.id}`, username: `upgradgsp.${u.id}`, password: `Gsp-${code}-${2026 + (n % 3)}!` }
+    : { via: 'portal', url: `https://agents.${web}`, username: `UPGRAD-GSP-${code}`, password: `Up${code.toLowerCase()}#${4000 + (n % 900)}` };
 }
 
 /** The university's mail so far, from where the application has got to. */
@@ -53,9 +60,8 @@ function mailsFor(a: Application, s: Student): Mail[] {
   const c = courseOf(a);
   const u = c.uni;
   const web = u.website ?? `${u.id}.edu`;
-  // GSP's person on it (HC21) writes from their own address on the staff list (HC28)
-  const g = gspContact(a);
-  const gspMail = g.email || 'admissions@upgrad.com';
+  const g = gspContact(u.country);
+  const gspMail = `${g.name.toLowerCase().replace(' ', '.')}@gsp.upgrad.com`;
   const admissions = { name: `${u.name} Admissions`, email: `admissions@${web}` };
   const name = fullName(s);
   const at = (re: RegExp) => a.history.find((e) => re.test(e.text))?.at;
@@ -68,10 +74,10 @@ function mailsFor(a: Application, s: Student): Mail[] {
       from: admissions,
       to: [gspMail],
       subject: `Application received: ${name}, ${c.name} (${a.uniRef})`,
-      body: `Dear ${g.first},\n\nThank you for submitting ${name}'s application for the ${c.name}, ${a.intake} intake.\n\nYour reference is ${a.uniRef}. Please quote it in all correspondence about this application.\n\nWe will contact you if we need anything further.\n\nKind regards,\nInternational Admissions\n${u.name}`,
+      body: `Dear ${g.first},\n\nThank you for submitting ${name}'s application for the ${c.name}, ${a.intake} intake.\n\nYour reference is ${a.uniRef}. Please quote it in all correspondence about this application.\n\nWe aim to make an assessment within ${c.offerDays} working days. We will contact you if we need anything further.\n\nKind regards,\nInternational Admissions\n${u.name}`,
       box: 'in',
       read: true,
-      summary: [`${u.name} has received ${s.first}'s application for the ${c.name}, ${a.intake}.`, `Their reference is ${a.uniRef}: quote it in every mail.`],
+      summary: [`${u.name} has received ${s.first}'s application for the ${c.name}, ${a.intake}.`, `Their reference is ${a.uniRef}: quote it in every mail.`, `A decision usually takes about ${c.offerDays} working days.`],
     });
   }
   if (a.chased) {
@@ -104,6 +110,19 @@ function mailsFor(a: Application, s: Student): Mail[] {
         ...(o.conditions.length ? [`${o.conditions.length === 1 ? '1 condition' : `${o.conditions.length} conditions`}: ${o.conditions.map((x) => x.doc ?? x.text).join('; ')}.`] : []),
         `Accept and pay the ${money(o.deposit, c.currency)} deposit by ${longDate(o.acceptBy)}.`,
       ],
+    });
+  }
+  if (a.status === 'moreinfo') {
+    out.push({
+      id: `${a.id}-m4`,
+      at: a.since,
+      from: admissions,
+      to: [gspMail],
+      subject: `More information needed: ${name} (${a.uniRef})`,
+      body: `Dear ${g.first},\n\nTo complete our assessment of ${name}'s application, please send a short statement explaining the gap in study since the last qualification.\n\nPlease reply to this email within 7 days.\n\nKind regards,\nInternational Admissions\n${u.name}`,
+      box: 'in',
+      read: false,
+      summary: [`${u.name} needs a gap statement from ${s.first} to finish assessing.`, 'Reply within 7 days.'],
     });
   }
   const doc = statusMail(a, s, a.status, Date.now() - 2 * 3_600_000);
@@ -143,9 +162,8 @@ export function statusMail(a: Application, s: Student, k: StatusKey, at: number)
   const c = courseOf(a);
   const u = c.uni;
   const web = u.website ?? `${u.id}.edu`;
-  // GSP's person on it (HC21) writes from their own address on the staff list (HC28)
-  const g = gspContact(a);
-  const gspMail = g.email || 'admissions@upgrad.com';
+  const g = gspContact(u.country);
+  const gspMail = `${g.name.toLowerCase().replace(' ', '.')}@gsp.upgrad.com`;
   const name = fullName(s);
   const short = u.name.replace(/ University$|^University of (the )?/, '').replace(/\s+/g, '_');
   const ref = a.uniRef ? ` (${a.uniRef})` : '';
@@ -191,10 +209,10 @@ export function statusMail(a: Application, s: Student, k: StatusKey, at: number)
   }
   return undefined;
 }
-/** Census date: the catalogue's, for this intake. Final tuition fee: empty until Admissions adds it from the offer (Jovial, 1 Nov). */
+/** Census date: about four weeks after the course starts. Final tuition fee: the course's yearly tuition. */
 export function deskFor(a: Application, s: Student): Desk {
-  // S3C-13: pre-filled from the intake's census date when it's set, else empty (0) until Admissions fills it
-  return { mails: mailsFor(a, s), channel: channelFor(a), census: intakeCensusOf(a) ?? 0, fee: 0 };
+  const c = courseOf(a);
+  return { mails: mailsFor(a, s), channel: channelFor(a), census: intakeStart(a.intake) + 30 * DAY, fee: c.tuition };
 }
 
 /** GSP Assist's summary of a mail: the written one, or its first few sentences. */
@@ -208,9 +226,46 @@ export function summaryOf(m: Mail): string[] {
   return sentences.slice(0, 3).map((x) => x.trim());
 }
 
-/** The RP's person on an application, as GSP reaches them: the student's counsellor at the agency, from the RP's one team record (data/rpteam.ts, W21). */
-export function rpContact(m: Pick<Member, 'name' | 'role' | 'email' | 'dial' | 'phone'>, agency: string) {
-  const [first] = m.name.split(' ');
-  return { name: m.name, first, role: `${m.role}, ${agency}`, email: m.email ?? '', phone: phoneOf(m) };
+/** The RP's person on an application, as GSP reaches them: the student's counsellor at the agency. */
+export function rpContact(name: string, role: string, agency: string) {
+  const [first, ...rest] = name.split(' ');
+  const domain = `${agency.toLowerCase().replace(/[^a-z]/g, '')}.com`;
+  const n = [...name].reduce((t, ch) => t + ch.charCodeAt(0), 0);
+  return {
+    name,
+    first,
+    role: `${role}, ${agency}`,
+    email: `${[first, ...rest.slice(-1)].join('.').toLowerCase()}@${domain}`,
+    phone: `+91 98${String(450 + (n % 500)).padStart(3, '0')} ${String(10000 + ((n * 37) % 89999)).slice(0, 5)}`,
+  };
 }
 
+/** A university document that came in GSP's mail and isn't in Documents yet: GSP Assist offers to add it for the RP. `org`: who sent it. */
+export type MailDoc = { mail: Mail; file: string; name: string; org: string };
+/** What a university document is, from its file name: offer letters, the acceptance letter (CoE, CAS, I-20, LOA), the visa. */
+function uniDocName(file: string, a: Application) {
+  const d = courseOf(a).uni.country;
+  if (/uncond/i.test(file)) return 'Unconditional offer letter';
+  if (/conditional/i.test(file)) return 'Conditional offer letter';
+  if (/(^|[^a-z])(coe|cas|i-?20|loa)([^a-z]|$)|acceptance|confirmation[-_ ]of[-_ ]enrol|offer[-_ ]of[-_ ]place/i.test(file)) return ENROL_DOC_LONG[d];
+  if (/visa|grant/i.test(file)) return 'Visa grant letter';
+  if (/offer/i.test(file)) return a.offer?.file === file ? (a.offer.kind === 'conditional' ? 'Conditional offer letter' : 'Unconditional offer letter') : 'Offer letter';
+  return undefined;
+}
+/** The document each status waits on from the mail: the offer letters, the acceptance letter, the visa grant. */
+function nudgeFor(a: Application) {
+  const d = courseOf(a).uni.country;
+  return a.status === 'conditions' ? 'Conditional offer letter' : a.status === 'uol' ? 'Unconditional offer letter' : a.status === 'waitad' ? ENROL_DOC_LONG[d] : a.status === 'startdate' ? 'Visa grant letter' : undefined;
+}
+/** The university documents in the mail that aren't in Documents: only the one the status is about (Nesil, 28 Oct). */
+export function mailDocs(desk: Desk, a: Application): MailDoc[] {
+  const want = nudgeFor(a);
+  const out: MailDoc[] = [];
+  if (!want) return out;
+  for (const m of desk.mails.filter((x) => x.box === 'in').sort((x, y) => y.at - x.at))
+    for (const file of m.files ?? []) {
+      const name = uniDocName(file, a);
+      if (name === want && !a.files.some((f) => f.file === file) && !desk.dismissed?.includes(file)) out.push({ mail: m, file, name, org: m.org ?? courseOf(a).uni.name });
+    }
+  return out;
+}

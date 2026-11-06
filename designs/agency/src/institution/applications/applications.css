@@ -1,0 +1,37 @@
+/* ==========================================================================
+   GSP · Institution's application pages (GSP · Admin and RP Ops use them too), 4 Nov (Nesil)
+   ========================================================================== */
+
+/* ---------- Add an application: a closed intake shows with the rest, in grey, and can't be picked ---------- */
+.naintake.is-closed { flex: 0 1 300px; align-items: flex-start; border-style: dashed; border-color: var(--line-strong); background: var(--surface-2); cursor: not-allowed; }
+.naintake.is-closed:hover { border-color: var(--line-strong); }
+.naintake.is-closed input { cursor: not-allowed; }
+.naintake.is-closed .naintake__ic { background: var(--surface); color: var(--text-3); }
+.naintake.is-closed .naintake__m { color: var(--text-2); }
+.naintake.is-closed .naintake__s { color: var(--text-2); }
+
+/* ---------- Change status: the ways to close, in grey with a cross; what a status asks for, under a line ---------- */
+.cbx__mark { flex: none; color: var(--text-3); }
+.cbx__opt--end { color: var(--text-2); }
+.smenu__btn > .cbx__mark { margin-right: calc(var(--sp-8) * -0.5); }
+.gstat__more { display: grid; gap: var(--sp-12); padding-top: var(--sp-16); border-top: 1px solid var(--line); }
+.gstat__more .radios { display: flex; }
+.gstat__file { background: var(--surface-2); }
+
+/* ---------- the chat's Request document: several documents, a numbered row each ---------- */
+.greqs__docs { grid-column: 1 / -1; display: grid; gap: var(--sp-8); }
+.greqs__docs > .btn--ghost { justify-self: start; }
+.greqs__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-8); }
+.greqs__row { display: flex; align-items: center; gap: var(--sp-8); }
+.greqs__row > .gcond__n,
+.greqs__row > .greqs__x { flex: none; }
+.greqs__row > .smenu,
+.greqs__row > .greqs__name { flex: 1 1 0; min-width: 0; }
+.greq.greqs .greqs__what { grid-column: 1; grid-row: auto; }
+.greq.greqs .greqs__due { grid-column: 2; grid-row: auto; align-self: start; }
+@media (max-width: 560px) {
+  .greqs__row { flex-wrap: wrap; }
+  .greqs__row > .greqs__name { order: 3; flex-basis: 100%; margin-left: 30px; }
+  .greq.greqs .greqs__what,
+  .greq.greqs .greqs__due { grid-column: 1; }
+}

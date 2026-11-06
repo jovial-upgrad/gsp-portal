@@ -31,7 +31,7 @@ export function AppShell({
   tabbar?: ReactNode;
   /** While a sheet is open, the page behind can't be reached. */
   inert?: boolean;
-  /** The words beside the logo, on two lines; "Partner Portal" unless set (GSP Team sets its own). */
+  /** The words beside the logo, on two lines; "Partner Portal" unless set (each GSP role sets its own: "GSP Admissions", "GSP RP Ops"…). */
   brand?: [string, string];
   children: ReactNode;
 }) {

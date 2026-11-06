@@ -216,6 +216,8 @@
 .fres { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: var(--sp-24); align-items: start; }
 .ffilters { position: sticky; top: var(--sp-24); padding: var(--sp-20); max-height: calc(100dvh - var(--sp-48) - var(--shell-top, 0px)); overflow-y: auto; overscroll-behavior: contain; }
 .fpanel { display: grid; gap: var(--sp-16); }
+/* a long pick (several campuses) shortens with an ellipsis instead of widening the panel */
+.fpanel > * { min-width: 0; }
 .fpanel__head { display: flex; align-items: center; justify-content: space-between; }
 .fpanel__head.is-sheet { justify-content: flex-end; margin-bottom: calc(var(--sp-8) * -1); }
 .fpanel__title { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); }
@@ -454,6 +456,8 @@
    white card, in rows, so cards side by side start and end together.
    ========================================================================== */
 .cmodal { container: cmodal / inline-size; background: var(--surface); border-color: var(--line-strong); }
+/* its sticky bar stays inside it, under a pop-up opened over it (an attachment, 4 Nov) */
+.sheet.cmodal { isolation: isolate; }
 .cmodal .sheet__scroll {
   background:
     linear-gradient(115deg, color-mix(in srgb, var(--flag-1) 14%, var(--surface)) 0%, color-mix(in srgb, var(--flag-2) 9%, var(--surface)) 34%, var(--surface) 62%) left top / 100% 680px no-repeat local,
@@ -541,6 +545,8 @@
   transition: padding-right var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
 }
 .cm-bar.is-stuck { padding-right: 72px; box-shadow: 0 8px 20px rgba(9, 30, 66, 0.08); }
+/* with Expand beside Close, room for both */
+.cmodal:has(.sheet__size) .cm-bar.is-stuck { padding-right: 112px; }
 :root[data-theme='dark'] .cm-bar.is-stuck { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
 .cs-tabs { min-width: 0; display: flex; gap: var(--sp-8); overflow-x: auto; scrollbar-width: none; }
 .cs-tabs::-webkit-scrollbar { display: none; }
@@ -753,20 +759,17 @@
 .cbar__item dd { margin: 0; text-align: right; white-space: nowrap; }
 .cbar__amt { font-size: var(--t-label); font-weight: var(--fw-medium); color: var(--text); }
 .cbar__pct { font-size: var(--t-caption); color: var(--text-3); }
-.cbar__item dt .cbar__key { margin-top: 0.3em; align-self: flex-start; }
-.cbar__lab { display: grid; gap: 2px; min-width: 0; }
-.cbar__basis { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
-.cbar__item--total { border-top: 1px solid var(--line-strong) !important; }
-.cbar__item--total dt { font-weight: var(--fw-semi); color: var(--text); }
-.cbar__item--total .cbar__amt { font-weight: var(--fw-semi); }
 
-/* the scholarships, across the tab: one tile each, the course's own first */
-.cs-schols { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: var(--sp-12); }
-.cs-schol { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-14, 14px) var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-sm); background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
-.cs-schol__from { font-size: var(--t-micro); line-height: var(--lh-micro); font-weight: var(--fw-semi); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); }
-.cs-schol__name { margin-top: 2px; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
-.cs-schol__amt { margin-top: var(--sp-6); font-size: 1.375rem; line-height: 1.875rem; font-weight: var(--fw-semi); color: var(--text); }
-.cs-schol__who { margin-top: var(--sp-8); font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
+/* the scholarships, across the tab (4 Nov): one card each, as GSP · Institution's card on the university's page */
+.cs-schols { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: var(--sp-12); }
+.cs-schol { display: grid; gap: var(--sp-8); align-content: start; padding: var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-sm); background: linear-gradient(160deg, var(--ok-bg), var(--surface) 60%); }
+.cs-schol__amt { font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--ok); }
+.cs-schol__name { font-size: var(--t-subtitle); line-height: var(--lh-subtitle); font-weight: var(--fw-semi); color: var(--text); }
+.cs-schol__facts { display: grid; gap: var(--sp-6); margin: 0; }
+.cs-schol__facts div { display: grid; grid-template-columns: 110px 1fr; gap: var(--sp-8); font-size: var(--t-caption); line-height: var(--lh-caption); }
+.cs-schol__facts dt { color: var(--text-3); }
+.cs-schol__facts dd { margin: 0; color: var(--text); }
+.cs-schol__desc { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
 
 /* whose entry requirements: one dropdown, All countries then the main countries with their flags */
 .cm-cpick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); }
@@ -791,6 +794,10 @@
 .cs-etable__note { display: block; margin-top: var(--sp-4); font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-2); }
 .cs-etable__foot { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
 .cs-etable__k { font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-semi); color: var(--text-2); }
+.cs-etable__docs { list-style: none; display: grid; gap: var(--sp-8); }
+.cs-etable__docs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-12); align-items: center; }
+.cs-etable__docs .cs-need { grid-column: 2; grid-row: 1 / span 2; }
+.cs-etable__dname { font-weight: var(--fw-medium); color: var(--text); }
 @container cmodal (max-width: 560px) {
   .cs-etable,
   .cs-etable tbody,
@@ -826,7 +833,6 @@
 .cs-life__row::-webkit-scrollbar { display: none; }
 .cs-photo { display: grid; align-content: start; gap: 4px; min-width: 0; scroll-snap-align: start; }
 .cs-photo__img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r-sm); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
-.cs-photo__ph { display: grid; place-content: center; justify-items: center; gap: var(--sp-8); padding: var(--sp-12); color: var(--text-3); font-size: var(--t-caption); line-height: var(--lh-caption); text-align: center; overflow-wrap: anywhere; }
 .cs-photo__credit { margin-top: 2px; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); overflow-wrap: anywhere; }
 .cs-photo__credit a { color: inherit; text-decoration: none; }
 .cs-photo__credit a:hover { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
@@ -1112,99 +1118,101 @@
   .star { transition: none; }
 }
 
-/* the university's announcements on a course's details (Jovial, 31 Oct) */
-.cs-newswrap { display: grid; gap: var(--sp-14, 14px); margin-bottom: var(--sp-20); }
-.cs-ai { padding: var(--sp-14, 14px) var(--sp-16); border: 1.5px solid transparent; border-radius: var(--r-md, 12px); background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--ai-grad) border-box; box-shadow: 0 8px 24px -14px rgba(122, 46, 145, 0.35); }
-.cs-ai__h { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); margin: 0 0 var(--sp-6); font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text); }
-.cs-ai__h b { background: var(--ai-grad-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.cs-ai__h small { margin-left: auto; font-weight: var(--fw-regular, 400); font-size: var(--t-caption); color: var(--text-3); }
-.cs-ai__spark { width: 16px; height: 16px; border-radius: 50%; background: var(--ai-grad); }
-.cs-ai__list { display: grid; gap: var(--sp-4); margin: 0; padding-left: var(--sp-20); font-size: var(--t-label); line-height: var(--lh-label); color: var(--text); list-style: disc; }
-.cs-ai__ref, .cs-news__num { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font-size: 11px; font-weight: var(--fw-semi); vertical-align: 1px; }
-.cs-ai__ref { margin-left: var(--sp-4); background: var(--ai-bg); color: var(--ai); }
-.cs-ai__foot { margin: var(--sp-8) 0 0; font-size: var(--t-caption); color: var(--text-3); }
-.cs-news { border: 1px solid var(--line); border-radius: var(--r-md, 12px); background: var(--surface); overflow: hidden; }
-.cs-news__top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-8); padding: var(--sp-12, 12px) var(--sp-16); border-bottom: 1px solid var(--line); }
-.cs-news__h { margin: 0; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
-.cs-news__n { font-size: var(--t-caption); color: var(--text-3); }
-.cs-news__list { margin: 0; padding: 0; list-style: none; }
-.cs-news__item { display: grid; gap: var(--sp-16); padding: var(--sp-14, 14px) var(--sp-16); border-bottom: 1px solid var(--line); }
-.cs-news__item:last-child { border-bottom: 0; }
-.cs-news__item.has-pic { grid-template-columns: minmax(0, 1fr) 168px; }
-.cs-news__num { margin-right: var(--sp-6); background: var(--neutral-bg); color: var(--text-2); }
-.cs-news__title { margin: 0; font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
-.cs-news__body { margin: 2px 0 0; font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); overflow-wrap: anywhere; }
-.cs-news__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6); margin: var(--sp-6) 0 0; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
-.cs-news__cat { padding: 0 var(--sp-8); border: 1px solid var(--line); border-radius: 999px; color: var(--text-2); }
-.cs-news__file { display: inline-flex; align-items: center; gap: 4px; padding: 1px var(--sp-8); border-radius: 999px; background: var(--neutral-bg); color: var(--text-2); }
-.cs-news__pic { position: relative; width: 168px; height: 95px; padding: 0; border: 0; border-radius: var(--r-sm); background-size: cover; background-position: center; cursor: zoom-in; }
-.cs-news__pic i { position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 11px; font-style: normal; }
-.cs-news__more { display: flex; align-items: center; gap: var(--sp-4); width: 100%; padding: var(--sp-10, 10px) var(--sp-16); border: 0; border-top: 1px solid var(--line); background: none; color: var(--link, var(--brand)); font: inherit; font-size: var(--t-label); font-weight: var(--fw-semi); text-align: left; cursor: pointer; }
-.cs-news__more .is-up { transform: rotate(180deg); }
-.cs-view { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: var(--sp-16); }
-.cs-view__bg { position: absolute; inset: 0; border: 0; background: rgba(10, 16, 34, 0.6); }
-.cs-view__fig { position: relative; margin: 0; max-width: min(880px, 100%); padding: var(--sp-12); border-radius: var(--r-md, 12px); background: var(--surface); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35); }
-.cs-view__fig img { display: block; max-width: 100%; max-height: 70vh; border-radius: var(--r-sm); }
-.cs-view__fig figcaption { margin-top: var(--sp-8); font-size: var(--t-caption); color: var(--text-3); }
-.cs-view__acts { display: flex; justify-content: flex-end; gap: var(--sp-8); margin-top: var(--sp-8); }
-@media (max-width: 600px) { .cs-news__item.has-pic { grid-template-columns: 1fr; } .cs-news__pic { width: 100%; height: 150px; } }
+/* ---------- eligibility and documents: a card a country (Nesil, 3 Nov) ---------- */
+.ecards__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-16); }
+.ecards__n { font-size: var(--t-label); color: var(--text-2); }
+.ecards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-10, 10px); }
+.ecard { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-xs); overflow: hidden; }
+.ecard.is-open { border-color: var(--line-strong); }
+.ecard__h { margin: 0; font: inherit; }
+.ecard__head { width: 100%; display: flex; align-items: center; gap: var(--sp-12); padding: var(--sp-14, 14px) var(--sp-16); border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ecard__head.is-static { cursor: default; border-bottom: 1px solid var(--line); }
+button.ecard__head:hover { background: var(--surface-2); }
+button.ecard__head:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ecard.is-open button.ecard__head { border-bottom: 1px solid var(--line); }
+.ecard__flag { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--surface-2); font-size: 1.35rem; line-height: 1; }
+.ecard__t { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ecard__name { font-size: var(--t-body); font-weight: var(--fw-semi); color: var(--text); }
+.ecard__sum { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); overflow-wrap: anywhere; }
+.ecard__chev { flex: none; color: var(--text-3); transition: transform var(--dur-2) var(--ease-out); }
+.ecard.is-open .ecard__chev { transform: rotate(180deg); }
+.ecard__body { display: grid; gap: var(--sp-12); padding: var(--sp-16); }
+.ecard__k { font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.ecard__kn { text-transform: none; letter-spacing: 0; font-weight: var(--fw-medium); color: var(--text-3); }
+.ecard__reqs { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .ecard__chev { transition: none; } }
 
-/* why Shortlist is off (Jovial, 1 Nov: no students yet) */
-.cm-acts__why { align-self: center; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); white-space: nowrap; }
-.star:disabled { opacity: 0.4; cursor: not-allowed; }
+/* recent announcements on a course's University tab (Nesil, 3 Nov) */
+.cbox__action { margin-left: auto; display: flex; align-items: center; }
+/* 3 Nov (later): three at once, the rest on scroll; the edge fades while there's more below */
+.cs-news__scroll { position: relative; margin-inline: calc(-1 * var(--sp-10)); padding-inline: var(--sp-10); }
+.cs-news__scroll.is-scroll { padding-right: calc(var(--sp-10) + var(--sp-6)); }
+.cs-news__scroll.is-scroll { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; border-radius: var(--r-sm); }
+.cs-news__scroll.is-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.cs-news__scroll.has-more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); }
+.cs-news__sum { margin-bottom: var(--sp-12); }
+.cs-news__none { font-size: var(--t-label); color: var(--text-3); }
+.cs-news__list { list-style: none; margin: 0; padding: 0; display: grid; }
+.cs-news__item { position: relative; overflow: hidden; display: grid; gap: 4px; padding: var(--sp-12) var(--sp-10); margin-inline: calc(-1 * var(--sp-10)); border-radius: var(--r-sm); background: linear-gradient(var(--line), var(--line)) center top / calc(100% - 2 * var(--sp-10)) 1px no-repeat; transition: background-color var(--dur-2) var(--ease-out); }
+/* 3 Nov (later): Summarise reads each announcement in turn: it lights up, a bar runs down its edge and a soft band sweeps across it */
+.cs-news__item.is-reading { background: color-mix(in srgb, var(--ai-bg) 80%, var(--surface)); }
+.cs-news__item.is-reading + .cs-news__item { background-image: none; }
+.cs-news__item.is-reading::before { content: ''; position: absolute; left: 0; top: var(--sp-8); bottom: var(--sp-8); width: 3px; border-radius: 3px; background: var(--ai-grad, var(--ai)); transform-origin: top; animation: cs-read-bar 650ms var(--ease-out) both; }
+.cs-news__item.is-reading::after { content: ''; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ai) 14%, transparent), transparent); transform: translateX(-100%); animation: cs-read-sweep 650ms ease-in-out both; pointer-events: none; }
+@keyframes cs-read-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes cs-read-sweep { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+.cs-news__item:first-child { background-image: none; }
+.cs-news__item.is-ended { opacity: 0.75; }
+.cs-news__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); font-size: var(--t-caption); color: var(--text-3); }
+.cs-news__ended { font-weight: var(--fw-semi); color: var(--text-3); }
+.cs-news__mine { display: inline-flex; align-items: center; height: 24px; padding: 0 var(--sp-10); border-radius: var(--r-pill); background: var(--ok-bg); border: 1px solid var(--ok-line); color: var(--ok); font-weight: var(--fw-semi); white-space: nowrap; }
+.cs-news__title { font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text); }
+.cs-news__text { font-size: var(--t-label); line-height: var(--lh-body); color: var(--text-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cs-news__text.is-open { display: block; }
+.cs-news__more { justify-self: start; padding: 0; height: auto; font-size: var(--t-label); }
+/* an announcement's attachments (4 Nov): images as small thumbnails, documents as chips */
+.cs-att { list-style: none; margin: var(--sp-4) 0 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); }
+.cs-att__img { display: block; width: 72px; height: 48px; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); cursor: zoom-in; transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.cs-att__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cs-att__img:hover { border-color: var(--line-strong); box-shadow: 0 2px 8px rgba(9, 30, 66, 0.12); }
+.cs-att__doc { display: inline-flex; align-items: center; gap: var(--sp-6); max-width: 100%; height: 32px; padding: 0 var(--sp-10); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: var(--t-caption); cursor: pointer; transition: border-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out); }
+.cs-att__doc > svg { flex: none; color: var(--text-3); }
+.cs-att__doc:hover { border-color: var(--line-strong); color: var(--link); }
+.cs-att__name { min-width: 0; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-medium); }
+.cs-att__img:focus-visible, .cs-att__doc:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* an attached image, opened over the course */
+.sheet.sheet--center.cs-lightbox { width: min(880px, 100%); }
+.cs-lightbox__fig { margin: 0; display: grid; place-items: center; padding: var(--sp-8); border-radius: 14px; background: var(--surface-2); }
+.cs-lightbox__fig img { display: block; max-width: 100%; max-height: min(62vh, 620px); border-radius: 8px; object-fit: contain; }
 
-/* University filter (1 Nov): the universities in the results, ten at a time */
-.funi { display: grid; gap: var(--sp-8); min-width: 0; margin: 0; padding: 0; border: 0; }
-.funi__search { width: auto; min-width: 0; }
-.funi__list { display: grid; gap: var(--sp-8); }
-.funi__n { color: var(--text-3); }
-.funi__none { font-size: var(--t-caption); color: var(--text-3); }
-.funi__more { justify-self: start; font-size: var(--t-label); font-weight: var(--fw-medium); }
-
-/* result pages (1 Nov): Previous, 1 2 3 … , Next */
-.fpager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--sp-8); padding-top: var(--sp-8); }
-.fpager__pages { display: flex; align-items: center; gap: var(--sp-4); margin: 0; padding: 0; list-style: none; }
-.fpager__num {
-  min-width: 36px;
-  height: 36px;
-  padding: 0 var(--sp-8);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: none;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--t-label);
-  cursor: pointer;
+/* 3 Nov (later): the summary while GSP Assist works: which one it's reading, what it picked out, the lines as it writes them */
+.cs-sum__label { text-transform: none; letter-spacing: 0; font-weight: var(--fw-semi); color: var(--text); }
+.cs-news__sum.is-working { border-color: color-mix(in srgb, var(--ai) 35%, var(--ai-line)); }
+.cs-sum__read { display: grid; gap: var(--sp-8); }
+.cs-sum__meter { display: flex; gap: 4px; }
+.cs-sum__meter span { flex: 1; height: 4px; border-radius: 4px; background: color-mix(in srgb, var(--ai-line) 60%, var(--line)); overflow: hidden; position: relative; }
+.cs-sum__meter span::after { content: ''; position: absolute; inset: 0; background: var(--ai-grad, var(--ai)); transform: scaleX(0); transform-origin: left; }
+.cs-sum__meter span.is-done::after { transform: scaleX(1); }
+.cs-sum__meter span.is-now::after { animation: cs-meter 650ms linear both; }
+@keyframes cs-meter { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.cs-sum__now { margin: 0; font-size: var(--t-label); line-height: var(--lh-body); color: var(--text-2); font-style: italic; }
+.cs-sum__facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-6); }
+.cs-sum__facts li { display: inline-flex; align-items: center; height: 26px; padding: 0 var(--sp-10); border-radius: var(--r-pill); border: 1px solid var(--ai-line); background: var(--surface); font-size: var(--t-caption); color: var(--text); white-space: nowrap; }
+.cs-sum__facts li.is-mine { border-color: var(--ok-line); background: var(--ok-bg); color: var(--ok); font-weight: var(--fw-semi); }
+.cs-sum__text { display: inline-block; vertical-align: top; }
+.cs-sum__line.is-writing .cs-sum__text { animation: cs-write 340ms var(--ease-out) both; }
+.cs-sum__line.is-writing .cs-sum__text::after { content: ''; display: inline-block; width: 2px; height: 1.05em; margin-left: 3px; vertical-align: -0.15em; background: var(--ai); animation: cs-caret 680ms steps(1) infinite; }
+@keyframes cs-write { from { opacity: 0; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes cs-caret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .cs-news__item.is-reading::before, .cs-news__item.is-reading::after, .cs-sum__meter span.is-now::after, .cs-sum__line.is-writing .cs-sum__text, .cs-sum__line.is-writing .cs-sum__text::after { animation: none; }
 }
-.fpager__num:hover { background: var(--surface-2); }
-.fpager__num:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.fpager__num.is-on { border-color: var(--primary); color: var(--primary); font-weight: var(--fw-medium); cursor: default; }
-.fpager__gap { color: var(--text-3); padding: 0 var(--sp-4); }
-.fpager__note { flex-basis: 100%; text-align: center; font-size: var(--t-caption); color: var(--text-3); }
 
-/* Select student waits for verification (1 Nov) */
-.fsearch__who.is-disabled { opacity: 0.55; }
-.fsearch__who.is-disabled .fsearch__who-select { cursor: not-allowed; }
-.fsearch__why { margin-top: var(--sp-8); font-size: var(--t-caption); color: var(--text-3); }
-
-/* the student and the search's own lists are the portal's SelectMenu (Jovial, 2 Nov: no system UI) */
-.fsearch__who-pick { position: static; flex: 1; min-width: 0; height: 100%; border-radius: inherit; }
-.fsearch__who-pick .smenu__btn--bare { width: 100%; height: 100%; padding: 0 calc(var(--sp-16) + 26px) 0 calc(var(--sp-20) + 20px + var(--sp-10)); border-radius: inherit; color: var(--text); font-size: var(--t-input); }
-.fsearch__who-pick .smenu__btn--bare:focus-visible { outline: none; }
-.fsearch__who.is-empty .fsearch__who-pick .smenu__value { color: var(--placeholder); }
-.fsearch__who-pick .smenu__btn--bare:disabled { cursor: not-allowed; }
-.fseg__pick { position: static; display: flex; width: 100%; }
-.fseg__pick .smenu__btn--bare { width: 100%; height: 24px; color: var(--text); font-size: var(--t-body); font-weight: var(--fw-medium); }
-.fseg__pick .smenu__btn--bare:focus-visible { outline: none; }
-.fseg__pick .smenu__btn--bare::after { content: ''; position: absolute; inset: 0; }
-.fseg__item.is-empty .fseg__pick .smenu__btn--bare { color: var(--placeholder); font-weight: var(--fw-book); }
-.fseg__item.is-error .fseg__pick .smenu__btn--bare { color: var(--bad); }
-.fseg__item.is-disabled .fseg__pick .smenu__btn--bare { cursor: not-allowed; }
-
-/* Costs › Whole course (Jovial, 2 Nov): the full length's parts and total, under the first year at the top */
-.cs-whole { margin: 0; display: grid; }
-.cs-whole__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-16); padding: var(--sp-8) 0; }
-.cs-whole__row + .cs-whole__row { border-top: 1px solid var(--line); }
-.cs-whole__row dt { display: grid; font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
-.cs-whole__row dd { margin: 0; text-align: right; white-space: nowrap; font-size: var(--t-label); font-weight: var(--fw-medium); color: var(--text); }
-.cs-whole__row--total dt, .cs-whole__row--total dd { font-weight: var(--fw-semi); color: var(--text); }
+/* 4 Nov: course search's selects are the product's dropdown (a button and the white list), styled as before */
+.fsearch__who-dd { position: static; flex: 1; min-width: 0; height: 100%; display: flex; }
+.fsearch__who-select { display: flex; align-items: center; text-align: left; }
+.fbar__dd { position: relative; display: inline-flex; }
+.fbar__select { display: inline-flex; align-items: center; text-align: left; }
+.fseg__dd { position: static; display: flex; width: 100%; min-width: 0; }
+.fseg__select { display: flex; align-items: center; text-align: left; overflow: hidden; white-space: nowrap; }
+.fseg__select:disabled { cursor: not-allowed; }

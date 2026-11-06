@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pager } from '../courses/ResultParts';
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -7,7 +6,8 @@ import { SelectInput } from '../../components/forms';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { CounsellorPicker } from '../../components/CounsellorPicker';
 import { MoreMenu } from '../../components/MoreMenu';
-import { fullName, readiness, type Member, type Student } from '../../data/students';
+import { fullName, type Member, type Student } from '../../data/students';
+import { rpReadiness } from './record/checks';
 import { AddStudentSheet } from './AddStudentSheet';
 import { StudentRecord, type RecordTab } from './StudentRecord';
 import { Avatar, CopyButton, Ring } from './parts';
@@ -48,7 +48,6 @@ export function Students({
   onNewApp,
   appList,
   onCreateApp,
-  ownOnly = false,
 }: {
   list: Student[];
   set: (fn: (l: Student[]) => Student[]) => void;
@@ -67,8 +66,6 @@ export function Students({
   /** The agency's applications: starting one from a profile opens Add an application there, on the profile. */
   appList?: Application[];
   onCreateApp?: (a: Application) => void;
-  /** A Counsellor sees only their own students, so there's no counsellor filter (2 Nov). */
-  ownOnly?: boolean;
 }) {
   const reduce = useReducedMotion();
   const [q, setQ] = useState('');
@@ -110,16 +107,13 @@ export function Students({
   const say = (m: string) => setMsg(m);
   const open = list.find((s) => s.id === openId) ?? null;
   const memberName = (id: string) => team.find((m) => m.id === id)?.name ?? '';
-  const ready = useMemo(() => new Map(list.map((s) => [s.id, readiness(s)])), [list]);
+  // 4 Nov: Background's required answers count too, as on the profile
+  const ready = useMemo(() => new Map(list.map((s) => [s.id, rpReadiness(s)])), [list]);
   // how many students each counsellor has, shown when picking a new one
   const load = useMemo(() => list.reduce<Record<string, number>>((m, s) => ({ ...m, [s.counsellor]: (m[s.counsellor] ?? 0) + 1 }), {}), [list]);
   const counts = { '': list.length, inc: list.filter((s) => !ready.get(s.id)!.complete).length, com: list.filter((s) => ready.get(s.id)!.complete).length };
 
   const ql = q.trim().toLowerCase().replace(/\s+/g, '');
-  // 25 a page, numbered (S3C-14, Jovial 2 Nov); a change of tab, search, filter or sort goes back to page 1
-  const PER = 25;
-  const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [q, status, sort, who, apps]);
   const rows = list
     .filter((s) => {
       const r = ready.get(s.id)!;
@@ -228,12 +222,12 @@ export function Students({
             <Icon name="people" size={26} />
           </span>
           <h2 id="sempty-title" className="sempty__title">
-            No students yet. Add your first student to start applying.
+            No students yet
           </h2>
-          <p className="sempty__text">Upload their passport in the form and we fill in the details for you to check.</p>
+          <p className="sempty__text">Add your first student. Upload their passport in the form and we fill in the details for you to check.</p>
           <div className="sempty__acts">
             <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdd({ key: Date.now() })}>
-              Add a student
+              Add student
             </Button>
           </div>
           <ol className="sempty__steps">
@@ -246,7 +240,7 @@ export function Students({
             <li>
               <span className="sempty__n">2</span>
               <span>
-                <strong>Complete the profile.</strong> Academics, English test and documents, or send the student a link to add them.
+                <strong>Complete the profile.</strong> Academics, English test and documents.
               </span>
             </li>
             <li>
@@ -282,7 +276,7 @@ export function Students({
                 <span className="vh">Search students</span>
                 <input id="st-q" type="search" placeholder="Name, email, phone or passport" value={q} onChange={(e) => setQ(e.target.value)} />
               </label>
-              {!ownOnly && <SelectInput id="st-who" aria-label="Counsellor" value={who} placeholder="All counsellors" allowEmpty onChange={(e) => setWho(e.target.value)}>
+              <SelectInput id="st-who" aria-label="Counsellor" value={who} placeholder="All counsellors" allowEmpty onChange={(e) => setWho(e.target.value)}>
                 <option value="me">My students</option>
                 {team
                   .filter((m) => m.id !== 'me')
@@ -291,7 +285,7 @@ export function Students({
                       {m.name}
                     </option>
                   ))}
-              </SelectInput>}
+              </SelectInput>
               <SelectInput id="st-apps" aria-label="Applications" value={apps} placeholder="Any applications" allowEmpty onChange={(e) => setApps(e.target.value as Apps)}>
                 <option value="you">Has a pending application</option>
                 <option value="some">Has applications</option>
@@ -326,7 +320,8 @@ export function Students({
             <div className="snone">
               {filtered ? (
                 <>
-                  <p className="snone__title">No students match. Clear the search or filters.</p>
+                  <p className="snone__title">No students match</p>
+                  <p className="snone__text">Try another name, or clear the filters.</p>
                   <Button variant="secondary" size="sm" onClick={clear}>
                     Clear filters
                   </Button>
@@ -353,7 +348,7 @@ export function Students({
                 </tr>
               </thead>
               <tbody role="rowgroup">
-                {rows.slice((page - 1) * PER, page * PER).map((s, i) => {
+                {rows.map((s, i) => {
                   const r = ready.get(s.id)!;
                   return (
                     <motion.tr
@@ -419,7 +414,6 @@ export function Students({
                 })}
               </tbody>
             </table>
-            <Pager page={page} total={rows.length} onPage={setPage} per={PER} />
             </div>
           )}
         </section>

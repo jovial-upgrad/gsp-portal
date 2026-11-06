@@ -1,78 +1,74 @@
-import { renewalDays } from '../../work/renewal';
 import { useEffect, useState } from 'react';
+import { EditOnly } from '../../proto/viewOnly';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { Field, TextInput } from '../../components/forms';
-import { CountryCombobox } from '../../components/CountryCombobox';
-import { countryByName } from '../../data/partners';
-import { staffIn, label } from '../../data/staff';
-import { PARTNER_TYPES, PICKABLE, TEAM, agreementOf, dateText, endsText, inDays, stagesOf, statusNow, type InstitutionPartner, type PartnerStatus, type PartnerType, type Stage } from '../data/records';
-import { audit, change } from '../data/changelog';
-import { Empty, Gone, NoMatch, PageHead, Pick, Tiles, usePager, useRecord, type Tone } from './parts';
+import { Field, SelectInput, TextInput } from '../../components/forms';
+import { DESTINATIONS, FLAG, type Destination } from '../../data/courses';
+import { PARTNER_STATUSES, PARTNER_TYPES, TEAM, agreementOf, contactName, dateText, endsText, inDays, stagesOf, stampBy, type InstitutionPartner, type PartnerStatus, type PartnerType, type Stage } from '../data/records';
+import { Filter, NoMatch, PageHead, Pager, Tiles, passes, usePaged, useRecord, type Tone } from './parts';
 import { PartnerPill, statusGroup } from './pills';
 import { PartnerPage } from './PartnerPage';
-import { OBJ, canEdit, type PageProps } from '../portal/model';
+import type { PageProps } from '../portal/model';
 
 const TILES: { key: Stage; label: string; sub: string; tone: Tone }[] = [
   { key: 'executed', label: 'Agreement executed', sub: 'Its universities can go live', tone: 'ok' },
-  { key: 'before', label: 'Before agreement', sub: 'Prospect to Agreement received', tone: 'gsp' },
-  { key: 'ending', label: `Ending in ${renewalDays()} days`, sub: 'Renewal reminder sent', tone: 'you' },
-  { key: 'ended', label: 'Agreement ended', sub: 'Set by the daily job', tone: 'bad' },
+  { key: 'before', label: 'Before agreement', sub: 'Prospect to agreement received', tone: 'gsp' },
+  { key: 'ending', label: 'Ending in 60 days', sub: 'Renewal reminder sent', tone: 'you' },
+  { key: 'ended', label: 'Agreement ended', sub: 'End date passed, not renewed', tone: 'bad' },
   { key: 'closed', label: 'Closed', sub: 'Didn’t go ahead, ended or merged', tone: 'grey' },
 ];
 
 /**
- * Institution partners (slice 2 PRD): who GSP has an agreement with, or is working towards one. Tiles filter the list
- * (again clears); search by partner, university or contact name or email; filters Type, Status and Relationship
- * manager; sorted by partner name, 25 a page. Add a partner shows only to Institution and Admin (matrix row
- * Institution partners); everyone else with View reads.
+ * Institution partners (29 Oct; 2nd round from the PM prototype's IP team): who GSP has an agreement with, or is
+ * working towards one. Each is Direct or Third-party (29 Oct, 4th round: no Aggregator), has a relationship manager in
+ * the team, and a status the team sets by hand. Universities join a partner from their own page, any number of them,
+ * and each goes live on its own. 4 Nov: a Country filter, every filter picks several, and 20 a page.
  */
 export function InstitutionPartners(props: PageProps & { appsByUni: Record<string, number> }) {
   const { db, set, focus, navKey, open, say, scrollTop, me } = props;
   const { cur, show, back } = useRecord(focus, navKey, scrollTop, open);
-  const edit = canEdit(props, OBJ.ips);
   const [q, setQ] = useState('');
-  const [type, setType] = useState('');
-  const [status, setStatus] = useState('');
-  const [rm, setRm] = useState('');
+  const [type, setType] = useState<string[]>([]);
+  const [status, setStatus] = useState<string[]>([]);
+  const [rm, setRm] = useState<string[]>([]);
+  const [country, setCountry] = useState<string[]>([]);
   const [stage, setStage] = useState<Stage | ''>('');
   const [adding, setAdding] = useState(false);
 
-  const ips = [...db.ips].sort((a, b) => a.name.localeCompare(b.name));
+  const ips = db.ips;
+  const uniName = (id: string) => db.unis.find((u) => u.id === id)?.name ?? '';
   const unisOf = (p: InstitutionPartner) => db.unis.filter((u) => u.ip === p.id);
+  const countries = [...new Set([...DESTINATIONS, ...ips.map((p) => p.country)])].filter((c) => ips.some((p) => p.country === c));
   const rows = ips.filter((p) => {
     const t = q.trim().toLowerCase();
-    if (t && ![p.name, ...p.contacts.flatMap((c) => [c.name, c.email]), ...unisOf(p).map((u) => u.name)].some((x) => x.toLowerCase().includes(t))) return false;
-    if (type && p.type !== type) return false;
-    if (status && statusNow(p) !== status) return false;
-    if (rm && p.rm !== rm) return false;
+    if (t && ![p.name, ...p.contacts.map(contactName), ...unisOf(p).map((u) => u.name)].some((x) => x.toLowerCase().includes(t))) return false;
+    if (!passes(type, p.type) || !passes(status, p.status) || !passes(rm, p.rm) || !passes(country, p.country)) return false;
     if (stage && !stagesOf(p).includes(stage)) return false;
     return true;
   });
-  const { page, pager } = usePager(rows, [q, type, status, rm, stage]);
+  const pg = usePaged(rows, [q, type, status, rm, country, stage]);
   const clear = () => {
     setQ('');
-    setType('');
-    setStatus('');
-    setRm('');
+    setType([]);
+    setStatus([]);
+    setRm([]);
+    setCountry([]);
     setStage('');
   };
 
-  if (cur) {
-    const shown = db.ips.find((p) => p.id === cur.id);
-    if (!shown) return <Gone back={cur.back?.label ?? 'Institution partners'} onBack={back} />;
+  const shown = cur ? ips.find((p) => p.id === cur.id) : undefined;
+  if (cur && shown)
     return <PartnerPage key={shown.id} p={shown} tab={cur.tab} backLabel={cur.back?.label ?? 'Institution partners'} onBack={back} {...props} />;
-  }
 
   return (
     <div className="ipage">
       <PageHead title="Institution partners" lead="Who GSP has an agreement with, or is working towards one. Each partner has one or more universities.">
-        {edit && (
+        <EditOnly>
           <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setAdding(true)}>
             Add a partner
           </Button>
-        )}
+        </EditOnly>
       </PageHead>
 
       <Tiles label="Where each partner is" value={stage} onPick={setStage} items={TILES.map((t) => ({ ...t, n: ips.filter((p) => stagesOf(p).includes(t.key)).length }))} />
@@ -83,11 +79,12 @@ export function InstitutionPartners(props: PageProps & { appsByUni: Record<strin
             <label className="ssearch">
               <Icon name="search" size={18} />
               <span className="vh">Search institution partners</span>
-              <input id="iip-q" type="search" placeholder="Partner, university, contact or email" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input id="iip-q" type="search" placeholder="Partner, university or contact" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <Pick id="iip-type" label="Type" value={type} all="All types" options={PARTNER_TYPES} onChange={setType} />
-            <Pick id="iip-status" label="Status" value={status} all="All statuses" options={[...PICKABLE, 'Agreement ended'].map((s) => ({ value: s, label: s, group: statusGroup(s as PartnerStatus) }))} onChange={setStatus} />
-            <Pick id="iip-rm" label="Relationship manager" value={rm} all="All managers" options={TEAM.map((k) => ({ value: k, label: k === me ? `${k} (you)` : k }))} onChange={setRm} />
+            <Filter id="iip-type" label="Type" all="All types" value={type} options={PARTNER_TYPES} onChange={setType} />
+            <Filter id="iip-status" label="Status" all="All statuses" value={status} options={PARTNER_STATUSES} onChange={setStatus} />
+            <Filter id="iip-rm" label="Relationship manager" all="All managers" value={rm} options={TEAM} onChange={setRm} labels={(k) => (k === me ? `${k} (you)` : k)} />
+            <Filter id="iip-country" label="Country" all="All countries" value={country} options={countries} onChange={setCountry} />
           </div>
           <p className="stools__count" id="iip-count" role="status">
             <span>
@@ -95,10 +92,8 @@ export function InstitutionPartners(props: PageProps & { appsByUni: Record<strin
             </span>
           </p>
         </div>
-        {ips.length === 0 ? (
-          <Empty text="No institution partners yet." action={edit ? 'Add a partner.' : undefined} onAction={() => setAdding(true)} />
-        ) : rows.length === 0 ? (
-          <NoMatch onClear={clear} />
+        {rows.length === 0 ? (
+          <NoMatch what="partners" onClear={clear} />
         ) : (
           <div className="stab-wrap">
             <table className="itab itab--ip">
@@ -113,7 +108,7 @@ export function InstitutionPartners(props: PageProps & { appsByUni: Record<strin
                 </tr>
               </thead>
               <tbody>
-                {page.map((p) => {
+                {pg.rows.map((p) => {
                   const us = unisOf(p);
                   const a = agreementOf(p);
                   const st = stagesOf(p);
@@ -123,11 +118,17 @@ export function InstitutionPartners(props: PageProps & { appsByUni: Record<strin
                         <button type="button" className="irow__open" onClick={(e) => (e.stopPropagation(), show(p.id))}>
                           {p.name}
                         </button>
-                        <span className="irow__sub">{[p.country, p.city].filter(Boolean).join(' · ')}</span>
+                        <span className="irow__sub">
+                          {FLAG[p.country as Destination] && <span aria-hidden="true">{FLAG[p.country as Destination]} </span>}
+                          {p.country}
+                        </span>
                       </td>
                       <td>{p.type}</td>
-                      <td className="num">{us.length}</td>
-                      <td>{p.rm === me ? `${p.rm} (you)` : p.rm || <span className="muted">Not set</span>}</td>
+                      <td>
+                        <span className="num">{us.length}</span>
+                        {us.length === 1 && p.type !== 'Direct' && <span className="irow__sub">{uniName(us[0].id)}</span>}
+                      </td>
+                      <td>{p.rm === me ? `${p.rm} (you)` : p.rm}</td>
                       <td>
                         {a ? (
                           <>
@@ -148,19 +149,16 @@ export function InstitutionPartners(props: PageProps & { appsByUni: Record<strin
             </table>
           </div>
         )}
-        {pager}
+        <Pager pg={pg} what="partners" />
       </section>
 
-      <PartnerForm
+      <AddPartner
         open={adding}
         me={me}
-        taken={(n) => db.ips.some((p) => p.name.toLowerCase() === n.trim().toLowerCase())}
+        taken={(n) => ips.some((p) => p.name.toLowerCase() === n.trim().toLowerCase())}
         onCancel={() => setAdding(false)}
-        onSave={(f) => {
-          const role = props.role ?? 'Institution';
-          const p: InstitutionPartner = { id: `ip-${Date.now().toString(36)}`, ...f, docs: [], commission: null, contacts: [], added: inDays(0), stamps: {}, log: [change(me, role, 'Partner created', '—', f.name)], created: { by: me, at: Date.now() } };
+        onAdd={(p) => {
           set((d) => ({ ...d, ips: [p, ...d.ips] }));
-          audit('Institution partners', `ip.status_changed: ${p.name} created as ${p.status}`, me, role);
           setAdding(false);
           clear();
           show(p.id);
@@ -171,93 +169,105 @@ export function InstitutionPartners(props: PageProps & { appsByUni: Record<strin
   );
 }
 
-export type PartnerFields = { name: string; type: PartnerType; status: PartnerStatus; rm: string; country: string; state: string; city: string };
-type Draft = { name: string; type: string; status: string; rm: string; country: string; state: string; city: string };
-
-/** Institution people who aren't deactivated: the relationship managers (slice 2 PRD). */
-const MANAGERS = () => staffIn('Institution').map(label);
+type Draft = { name: string; type: PartnerType | ''; status: PartnerStatus | ''; rm: string; country: Destination | ''; website: string };
 
 /**
- * Add a partner and Edit details (slice 2 PRD Fields): partner name (2 to 120, unique ignoring case), type, status
- * (on Add only; any status except Agreement ended), relationship manager (the person adding it when they have the
- * Institution role, else empty), country (every country), state (where the country has states) and city.
+ * Adding a partner (29 Oct, 4th round): one form of who it is and where it stands, with its status picked here.
+ * No agreement upload: its documents are added on its page, and nothing is read from them for you.
  */
-export function PartnerForm({ open, me, taken, onCancel, onSave, p }: { open: boolean; me: string; taken: (n: string) => boolean; onCancel: () => void; onSave: (f: PartnerFields) => void; p?: InstitutionPartner }) {
-  const blank: Draft = { name: '', type: '', status: '', rm: MANAGERS().includes(me) ? me : '', country: '', state: '', city: '' };
-  const first = (): Draft => (p ? { name: p.name, type: p.type, status: p.status, rm: p.rm, country: p.country, state: p.state, city: p.city } : blank);
-  const [v, setV] = useState<Draft>(first);
+function AddPartner({ open, me, taken, onCancel, onAdd }: { open: boolean; me: string; taken: (n: string) => boolean; onCancel: () => void; onAdd: (p: InstitutionPartner) => void }) {
+  const blank: Draft = { name: '', type: '', status: '', rm: me, country: '', website: '' };
+  const [v, setV] = useState<Draft>(blank);
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
-    setV(first());
+    setV({ ...blank, rm: me });
     setTried(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  const set = (x: Partial<Draft>) => setV((y) => ({ ...y, ...x }));
-  const states = countryByName(v.country)?.states ?? [];
-  const n = v.name.trim();
+  const set = (p: Partial<Draft>) => setV((x) => ({ ...x, ...p }));
   const err = {
-    name: !n ? 'Enter the partner name.' : n.length < 2 ? 'Use 2 to 120 characters.' : taken(n) ? 'Another institution partner has this name.' : null,
-    type: !v.type ? 'Pick a type.' : null,
-    status: p ? null : !v.status ? 'Pick a status.' : v.status === 'Agreement ended' ? 'Any status except Agreement ended.' : null,
-    rm: !v.rm ? 'Pick a relationship manager.' : null,
-    country: !countryByName(v.country) ? 'Pick a country.' : null,
-    state: states.length && !v.state ? 'Pick a state.' : null,
-    city: !v.city.trim() ? 'Enter the city.' : null,
+    name: !v.name.trim() ? 'Enter the partner’s name.' : taken(v.name) ? 'That partner is already here.' : null,
+    type: !v.type ? 'Pick the type.' : null,
+    status: !v.status ? 'Pick where it stands.' : null,
+    rm: !v.rm ? 'Pick who looks after it.' : null,
+    country: !v.country ? 'Pick the country.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
-  const changed = JSON.stringify(v) !== JSON.stringify(first());
   const save = () => {
     setTried(true);
-    if (Object.values(err).some(Boolean)) return (document.querySelector('.iform [aria-invalid="true"]') as HTMLElement | null)?.focus();
-    onSave({ name: n, type: v.type as PartnerType, status: (p?.status ?? v.status) as PartnerStatus, rm: v.rm, country: v.country, state: states.length ? v.state : '', city: v.city.trim() });
+    if (Object.values(err).some(Boolean)) return;
+    const name = v.name.trim();
+    onAdd({ id: `ip-${Date.now().toString(36)}`, name, type: v.type as PartnerType, country: v.country, website: v.website.trim().replace(/^https?:\/\//, ''), rm: v.rm, status: v.status as PartnerStatus, docs: [], commission: null, contacts: [], added: inDays(0), created: stampBy(me), stamps: {} });
   };
-  const managers = MANAGERS();
+  const groups = [...new Set(PARTNER_STATUSES.map(statusGroup))];
+
   return (
     <Sheet
       open={open}
       onClose={onCancel}
       center
       className="iform"
-      title={p ? 'Edit details' : 'Add an institution partner'}
-      sub={p ? 'Its agreement dates come from its documents.' : 'Its agreement, documents and contacts are added on its page.'}
+      title="Add an institution partner"
+      sub="Its agreement and contacts are added on its page."
       footer={
         <div className="asf">
           <div className="asf__acts">
             <Button variant="secondary" onClick={onCancel}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={!!p && !changed}>
-              Save
-            </Button>
+            <EditOnly>
+              <Button onClick={save}>Save</Button>
+            </EditOnly>
           </div>
         </div>
       }
     >
       <div className="iform__grid">
         <Field id="ip-name" label="Partner name" required error={show('name')} className="iform__wide">
-          <TextInput id="ip-name" value={v.name} maxLength={120} invalid={!!show('name')} onChange={(e) => set({ name: e.target.value })} placeholder="Like: Southbridge Pathways" />
+          <TextInput id="ip-name" value={v.name} invalid={!!show('name')} onChange={(e) => set({ name: e.target.value })} placeholder="Like: Southbridge Pathways" />
         </Field>
         <Field id="ip-type" label="Type" required error={show('type')}>
-          <Pick id="ip-type" label="Type" value={v.type} placeholder="Pick a type" invalid={!!show('type')} options={PARTNER_TYPES} onChange={(type) => set({ type })} />
+          <SelectInput id="ip-type" value={v.type} placeholder="Pick a type" invalid={!!show('type')} onChange={(e) => set({ type: e.target.value as PartnerType })}>
+            {PARTNER_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
-        {!p && (
-          <Field id="ip-status" label="Status" required error={show('status')} hint="Any status except Agreement ended.">
-            <Pick id="ip-status" label="Status" value={v.status} placeholder="Pick a status" invalid={!!show('status')} options={PICKABLE.map((x) => ({ value: x, label: x, group: statusGroup(x) }))} onChange={(status) => set({ status })} />
-          </Field>
-        )}
-        <Field id="ip-rm" label="Relationship manager" required error={show('rm')} hint="Gets the renewal reminder.">
-          <Pick id="ip-rm" label="Relationship manager" value={v.rm} placeholder="Pick a manager" invalid={!!show('rm')} options={[...new Set([...managers, ...(p?.rm ? [p.rm] : [])])].map((k) => ({ value: k, label: k === me ? `${k} (you)` : k }))} onChange={(rm) => set({ rm })} />
+        <Field id="ip-status" label="Status" required error={show('status')}>
+          <SelectInput id="ip-status" value={v.status} placeholder="Pick a status" invalid={!!show('status')} onChange={(e) => set({ status: e.target.value as PartnerStatus })}>
+            {groups.map((g) => (
+              <optgroup key={g} label={g}>
+                {PARTNER_STATUSES.filter((x) => statusGroup(x) === g).map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="ip-rm" label="Relationship manager" required error={show('rm')}>
+          <SelectInput id="ip-rm" value={v.rm} invalid={!!show('rm')} onChange={(e) => set({ rm: e.target.value })}>
+            {TEAM.map((k) => (
+              <option key={k} value={k}>
+                {k === me ? `${k} (you)` : k}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
         <Field id="ip-country" label="Country" required error={show('country')}>
-          <CountryCombobox id="ip-country" value={v.country} invalid={!!show('country')} onChange={(country) => set({ country, state: country === v.country ? v.state : '' })} />
+          <SelectInput id="ip-country" value={v.country} placeholder="Pick a country" invalid={!!show('country')} onChange={(e) => set({ country: e.target.value as Destination })}>
+            {DESTINATIONS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
-        {states.length > 0 && (
-          <Field id="ip-state" label="State" required error={show('state')}>
-            <Pick id="ip-state" label="State" value={v.state} placeholder="Pick a state" invalid={!!show('state')} options={states} onChange={(state) => set({ state })} />
-          </Field>
-        )}
-        <Field id="ip-city" label="City" required error={show('city')}>
-          <TextInput id="ip-city" value={v.city} maxLength={80} invalid={!!show('city')} onChange={(e) => set({ city: e.target.value })} />
+        <Field id="ip-web" label="Website" optional className="iform__wide">
+          <TextInput id="ip-web" value={v.website} onChange={(e) => set({ website: e.target.value })} placeholder="Like: southbridgepathways.com.au" />
         </Field>
       </div>
     </Sheet>

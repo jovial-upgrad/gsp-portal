@@ -1,9 +1,6 @@
-import { UPLOAD } from '../../data/uploads';
 import { useRef, type DragEvent } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { shortDate } from '../../data/dates';
-import type { Student } from '../../data/students';
 
 /** Once a part of the profile was filled in from its document: the file itself is kept in Documents. */
 export function ReadNote({ text }: { text: string }) {
@@ -14,11 +11,6 @@ export function ReadNote({ text }: { text: string }) {
     </p>
   );
 }
-
-/** When a document filled this part in, if it has: autofill is one-time (1 Nov), so the upload isn't offered again. */
-export const filledAt = (s: Student, docKey: string) => s.filled?.[docKey];
-/** "Filled in from the passport on 1 Nov 2026. Correct any field by hand." */
-export const filledText = (doc: string, at: number) => `Filled in from the ${doc} on ${shortDate(new Date(at), true)}. Correct any field by hand.`;
 
 /** How long reading a document takes in this prototype; quicker with reduced motion. */
 export const readMs = (reduce: boolean | null) => (reduce ? 300 : 1100);
@@ -107,7 +99,7 @@ export function ReadBox({
         ref={ref}
         id={id}
         type="file"
-        accept={UPLOAD.accept}
+        accept="image/*,.pdf"
         className="vh"
         tabIndex={-1}
         onChange={(e) => {

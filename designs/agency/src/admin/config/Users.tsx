@@ -1,371 +1,355 @@
-import { useEffect, useMemo, useState } from 'react';
-import { USER_STATUSES } from '../data/config';
+import { useEffect, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { MoreMenu, type MenuItem } from '../../components/MoreMenu';
+import { MultiPick } from '../../components/MultiPick';
 import { PhoneInput } from '../../components/PhoneInput';
-import { Field, TextInput } from '../../components/forms';
-import { useCheck, isEmail, phoneError } from '../../components/validate';
-import { PageHead, Tiles, downloadCsv } from '../../institution/records/parts';
-import { GSP_ROLES, linkExpired, type GspRole, type User, type UserStatus } from '../data/config';
-import { update as updateWork } from '../../work/store';
-import type { ConfigProps } from './ConfigPage';
-import { History } from './parts';
-import { MultiPick } from '../../institution/records/MultiPick';
-import { Loaded, NoResults, Pager, usePaged, Pick, SaveBanner, ViewOnlyNote, ago, istDate, trySave, type SaveResult } from './states';
+import { Field, SelectInput, TextInput, describedBy } from '../../components/forms';
+import { NoMatch, PageHead, downloadCsv } from '../../institution/records/parts';
+import { GSP_ROLES, type GspRole, type User, type UserStatus } from '../data/config';
+import type { Cfg, ConfigProps } from './ConfigPage';
+import { History, Pager, usePaged } from './parts';
 
-const STATUSES: UserStatus[] = [...USER_STATUSES];
+const STATUSES: UserStatus[] = ['Not sent', 'Link sent', 'Active', 'Deactivated'];
+const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+const ago = (at?: number) => {
+  if (!at) return '';
+  const d = Math.floor((Date.now() - at) / 86_400_000);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
+};
 
-/** What the Login column says under the status (PRD slice 1, Login status). */
-function loginLine(u: User, now = Date.now()) {
-  if (u.status === 'Link sent') return linkExpired(u, now) ? <span className="cfg__sub cfg__expired">Link expired</span> : <span className="cfg__sub">Sent {ago(u.sentAt, now)}</span>;
-  if (u.status === 'Active') return <span className="cfg__sub">{u.lastSignIn ? `Signed in ${ago(u.lastSignIn, now)}` : 'Signed in'}</span>;
-  return <span className="cfg__sub">Deactivated {u.deactivatedAt ? istDate(u.deactivatedAt) : ''}</span>;
-}
+/** What a row's menu asks before it acts (Nesil, 3 Nov: every action is confirmed). */
+type Ask = { kind: 'mail' | 'deactivate' | 'reactivate' | 'delete'; user: User } | { kind: 'edit'; user: User; next: User; changes: string[]; andSend: boolean };
+const FIELD: [keyof User, string][] = [
+  ['name', 'Name'],
+  ['email', 'Email'],
+  ['phone', 'Phone'],
+  ['role', 'Role'],
+  ['title', 'Title'],
+  ['region', 'Sales region'],
+];
 
 /**
- * GSP users (PRD slice 1; screen Admin › User roles › Create roles): a list of GSP people, with Create user and Edit
- * in a dialog. Login status Link sent, Active or Deactivated; Resend login email, Deactivate, Reactivate and Delete
- * user. Sorted A to Z, 20 a page (10, 20, 50 or 100; Jovial, 3 Nov); tiles that filter; search by name, email or phone; filters by role, sales region
- * and login status; Export as CSV of what the filters show (logged as a download). Admin edits; View Only views.
+ * Create Roles (Nesil, 30 Oct): GSP's people and their roles. Create a role with someone's name, email, phone with
+ * the country code, role (6 Nov: every role in the prototype, from RP Admin to GSP · View Only, but RP Admin's backup
+ * copy), title and sales region; Send login link emails them a link to set their password. The list filters by
+ * a search, role, sales region and login, exports as CSV, and each role can be edited or deleted. 3 Nov (Nesil): 20 a
+ * page, and each row's three dots hold Edit, Resend Login Mail, Deactivate User (Reactivate User once deactivated) and
+ * Delete User, each asked first. 6 Nov (Nesil): the sales region filter picks several.
  */
-export function Users({ cfg, change, say, canEdit }: ConfigProps) {
+export function Users({ cfg, change, say }: ConfigProps) {
   const [q, setQ] = useState('');
   const [role, setRole] = useState('');
-  const [region, setRegion] = useState('');
+  const [region, setRegion] = useState<string[]>([]);
   const [status, setStatus] = useState('');
   const [edit, setEdit] = useState<User | 'new' | null>(null);
-  const [removing, setRemoving] = useState<User | null>(null);
-  const [deactivating, setDeactivating] = useState<User | null>(null);
-  const now = Date.now();
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const [draft, setDraft] = useState<User | null>(null);
   const t = q.trim().toLowerCase();
-  const digits = t.replace(/\D/g, '');
-  const sorted = useMemo(() => [...cfg.users].sort((a, b) => a.name.localeCompare(b.name)), [cfg.users]);
-  const rows = sorted.filter(
-    (u) =>
-      (!t || [u.name, u.email].some((x) => x.toLowerCase().includes(t)) || (digits.length >= 3 && `${u.dial}${u.phone}`.replace(/\D/g, '').includes(digits))) &&
-      (!role || u.role === role) &&
-      (!region || (region === 'No sales region' ? !u.regions.length : u.regions.includes(region))) &&
-      (!status || u.status === status),
+  const rows = cfg.users.filter(
+    (u) => (!t || [u.name, u.email, u.title, u.phone].some((x) => x.toLowerCase().includes(t))) && (!role || u.role === role) && (!region.length || region.includes(u.region)) && (!status || u.status === status),
   );
-  const { shown, pager } = usePaged(rows, [q, role, region, status]);
-  const filtered = Boolean(q || role || region || status);
+  const pg = usePaged(rows, [q, role, region, status]);
+  const onlyAdmin = (u: User) => u.role === 'GSP · Admin' && cfg.users.filter((x) => x.role === 'GSP · Admin' && x.status !== 'Deactivated').length === 1;
+  // the row's three dots: Edit, the login mail, deactivate or reactivate, delete (the only Admin can't go)
+  const itemsFor = (u: User): MenuItem[] => {
+    const out: MenuItem[] = [{ id: 'edit', label: 'Edit', icon: 'edit', onPick: () => setEdit(u) }];
+    if (u.status !== 'Deactivated') out.push({ id: 'mail', label: u.status === 'Not sent' ? 'Send Login Mail' : 'Resend Login Mail', icon: 'mail', onPick: () => setAsk({ kind: 'mail', user: u }) });
+    if (u.status === 'Deactivated') out.push({ id: 'on', label: 'Reactivate User', icon: 'refresh', onPick: () => setAsk({ kind: 'reactivate', user: u }) });
+    else if (!onlyAdmin(u)) out.push({ id: 'off', label: 'Deactivate User', icon: 'lock', onPick: () => setAsk({ kind: 'deactivate', user: u }) });
+    if (!onlyAdmin(u)) out.push({ id: 'remove', label: 'Delete User', icon: 'close', danger: true, onPick: () => setAsk({ kind: 'delete', user: u }) });
+    return out;
+  };
   const clear = () => {
     setQ('');
     setRole('');
-    setRegion('');
+    setRegion([]);
     setStatus('');
   };
-  const activeAdmins = cfg.users.filter((x) => x.role === 'Admin' && x.status === 'Active');
-  const lastAdmin = (u: User) => u.role === 'Admin' && u.status === 'Active' && activeAdmins.length <= 1;
   const send = (u: User) => {
-    change('Create roles', `Resent the login email to ${u.name} (${u.email}); the old link stopped working`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, sentAt: Date.now() } : x)) }));
-    say(`Login email sent to ${u.email}.`);
+    change('Create roles', `Sent a login mail to ${u.name} (${u.email})`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: x.status === 'Active' ? 'Active' : 'Link sent', sentAt: Date.now() } : x)) }));
+    say(`Login mail sent to ${u.email}. Its link works for 7 days.`);
   };
-  const reactivate = (u: User) => {
-    change('Create roles', `Reactivated ${u.name}: Deactivated → Link sent; login email sent`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: 'Link sent', sentAt: Date.now(), deactivatedAt: undefined } : x)) }));
-    say('User reactivated. Login email sent.');
-  };
-  const deactivate = (u: User) => {
-    change('Create roles', `Deactivated ${u.name}: ${u.status} → Deactivated; sessions ended and login link revoked`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...x, status: 'Deactivated', deactivatedAt: Date.now(), sentAt: undefined } : x)) }));
-    say('User deactivated.');
-  };
-  const items = (u: User): MenuItem[] => [
-    { id: 'edit', label: 'Edit', icon: 'edit', onPick: () => setEdit(u) },
-    ...(u.status === 'Link sent' ? [{ id: 'resend', label: 'Resend login email', icon: 'mail' as const, onPick: () => send(u) }] : []),
-    ...(u.status === 'Deactivated' ? [{ id: 'reactivate', label: 'Reactivate', icon: 'check' as const, onPick: () => reactivate(u) }] : lastAdmin(u) ? [] : [{ id: 'deactivate', label: 'Deactivate', icon: 'lock' as const, danger: true, onPick: () => setDeactivating(u) }]),
-    ...(lastAdmin(u) ? [] : [{ id: 'remove', label: 'Delete user', icon: 'close' as const, danger: true, onPick: () => setRemoving(u) }]),
-  ];
-  const by = (s: UserStatus) => cfg.users.filter((u) => u.status === s).length;
   return (
     <>
-      <PageHead title="GSP users" lead="GSP’s people, their role and sales regions. A new user gets a login email to set their password; the link works for 7 days.">
+      <PageHead title="Create Roles" lead="GSP’s people and their roles. Create a role, then send a login mail so they can sign in.">
         <Button
           variant="secondary"
           iconLeft={<Icon name="download" size={18} />}
           onClick={() => {
-            // what the filters show; logged as a download (Admin › Logs › Downloads)
-            downloadCsv('gsp-users.csv', [['Name', 'Email', 'Phone', 'Role', 'Title', 'Sales regions', 'Login status', 'Last sign-in'], ...rows.map((u) => [u.name, u.email, u.phone ? `${u.dial} ${u.phone}` : '', u.role, u.title, u.regions.join('; ') || 'No sales region', u.status, u.lastSignIn ? istDate(u.lastSignIn) : ''])]);
+            downloadCsv('gsp-users.csv', [['Name', 'Email', 'Phone', 'Role', 'Title', 'Sales region', 'Login'], ...rows.map((u) => [u.name, u.email, `${u.dial} ${u.phone}`, u.role, u.title, u.region, u.status])]);
+            change('Create roles', `Exported ${rows.length} users as CSV`, (c) => c);
+            say(`${rows.length} users exported as CSV.`);
           }}
         >
           Export as CSV
         </Button>
-        {canEdit && (
-          <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
-            Create user
-          </Button>
-        )}
+        <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => setEdit('new')}>
+          Create Role
+        </Button>
       </PageHead>
-      {!canEdit && <ViewOnlyNote />}
-      <Loaded page="GSP users" cols={6}>
-        <Tiles
-          label="GSP users by login status"
-          value={status as UserStatus | ''}
-          onPick={(k) => setStatus(k)}
-          items={[
-            { key: '' as UserStatus, label: 'GSP users', sub: `${cfg.users.length - by('Active')} not active`, tone: 'gsp' as const, n: cfg.users.length },
-            { key: 'Link sent' as UserStatus, label: 'Link sent', sub: 'Waiting to set a password', tone: 'you' as const, n: by('Link sent') },
-            { key: 'Active' as UserStatus, label: 'Active', sub: 'Have signed in', tone: 'ok' as const, n: by('Active') },
-            { key: 'Deactivated' as UserStatus, label: 'Deactivated', sub: 'Can’t sign in', tone: 'grey' as const, n: by('Deactivated') },
-          ]}
-        />
-        <section className="card stable" aria-labelledby="usf-count">
-          <div className="stools">
-            <div className="stools__row">
-              <label className="ssearch">
-                <Icon name="search" size={18} />
-                <span className="vh">Search users</span>
-                <input id="usf-q" type="search" placeholder="Name, email or phone" value={q} onChange={(e) => setQ(e.target.value)} />
-              </label>
-              <Pick id="usf-role" label="Role" value={role} empty="All roles" options={[...GSP_ROLES]} onChange={setRole} />
-              <Pick id="usf-region" label="Sales region" value={region} empty="All sales regions" options={[...cfg.regions.map((r) => r.name), 'No sales region']} onChange={setRegion} />
-              <Pick id="usf-status" label="Login status" value={status} empty="Any login status" options={STATUSES} onChange={setStatus} />
-            </div>
-            <p className="stools__count" id="usf-count" role="status">
-              <span>
-                <span className="num">{rows.length === cfg.users.length ? cfg.users.length : `${rows.length} of ${cfg.users.length}`}</span> users
-              </span>
-              {filtered && (
-                <button type="button" className="cfg__linkbtn" onClick={clear}>
-                  Clear filters
-                </button>
-              )}
-            </p>
+
+      <section className="card stable" aria-labelledby="usf-count">
+        <div className="stools">
+          <div className="stools__row">
+            <label className="ssearch">
+              <Icon name="search" size={18} />
+              <span className="vh">Search users</span>
+              <input id="usf-q" type="search" placeholder="Name, email, title or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+            </label>
+            <SelectInput id="usf-role" aria-label="Role" value={role} placeholder="All roles" allowEmpty onChange={(e) => setRole(e.target.value)}>
+              {GSP_ROLES.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </SelectInput>
+            <MultiPick id="usf-region" label="Sales region" value={region} options={cfg.regions.map((r) => r.name)} onChange={setRegion} empty="All sales regions" search />
+            <SelectInput id="usf-status" aria-label="Login" value={status} placeholder="Any login" allowEmpty onChange={(e) => setStatus(e.target.value)}>
+              {STATUSES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </SelectInput>
           </div>
-          {rows.length === 0 ? (
-            <NoResults thing="users" onClear={clear} />
-          ) : (
-            <div className="stab-wrap">
-              <table className="itab cfg__tab">
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Phone</th>
-                    <th scope="col">Role</th>
-                    <th scope="col">Sales regions</th>
-                    <th scope="col">Login</th>
-                    {canEdit && (
-                      <th scope="col">
-                        <span className="vh">Actions</span>
-                      </th>
-                    )}
+          <p className="stools__count" id="usf-count" role="status">
+            <span>
+              <span className="num">{rows.length === cfg.users.length ? cfg.users.length : `${rows.length} of ${cfg.users.length}`}</span> users
+            </span>
+            {rows.length !== cfg.users.length && (
+              <button type="button" className="cfg__linkbtn" onClick={clear}>
+                Clear filters
+              </button>
+            )}
+          </p>
+        </div>
+        {rows.length === 0 ? (
+          <NoMatch what="users" onClear={clear} />
+        ) : (
+          <div className="stab-wrap">
+            <table className="itab cfg__tab">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Phone</th>
+                  <th scope="col">Role</th>
+                  <th scope="col">Title</th>
+                  <th scope="col">Sales region</th>
+                  <th scope="col">Login</th>
+                  <th scope="col">
+                    <span className="vh">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pg.rows.map((u) => (
+                  <tr key={u.id} className={u.status === 'Deactivated' ? 'is-off' : ''}>
+                    <td>
+                      <span className="cfg__strong">{u.name}</span>
+                      <span className="cfg__sub">{u.email}</span>
+                    </td>
+                    <td className="cfg__muted num cfg__nowrap">
+                      {u.dial} {u.phone}
+                    </td>
+                    <td>{u.role}</td>
+                    <td className="cfg__muted">{u.title || '–'}</td>
+                    <td className="cfg__muted">{u.region || 'Not set'}</td>
+                    <td>
+                      <span className={`cfg__login cfg__login--${u.status.replace(' ', '-').toLowerCase()}`}>{u.status}</span>
+                      {u.status === 'Link sent' && <span className="cfg__sub">Sent {ago(u.sentAt)}</span>}
+                    </td>
+                    <td className="cfg__acts">
+                      <MoreMenu
+                        id={`us-${u.id}`}
+                        label={`More for ${u.name}`}
+                        items={itemsFor(u)}
+                      />
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {shown.map((u) => {
-                    return (
-                      <tr key={u.id} className={u.status === 'Deactivated' ? 'is-off' : undefined}>
-                        <td>
-                          <span className="cfg__strong">{u.name}</span>
-                          <span className="cfg__sub">{u.email}</span>
-                        </td>
-                        <td className="cfg__muted num cfg__nowrap">{u.phone ? `${u.dial} ${u.phone}` : '–'}</td>
-                        <td>
-                          {u.role}
-                          {u.title && <span className="cfg__sub">{u.title}</span>}
-                        </td>
-                        {/* sales regions only, for every role (S1C-3): where a Recruitment user is the default contact is Admin › Recruitment assignment, not the user */}
-                        <td className="cfg__muted">{u.regions.join(', ') || 'No sales region'}</td>
-                        <td>
-                          <span className={`cfg__login cfg__login--${u.status.replace(' ', '-').toLowerCase()}`}>{u.status}</span>
-                          {loginLine(u, now)}
-                        </td>
-                        {canEdit && (
-                          <td className="cfg__acts">
-                            <MoreMenu id={`us-${u.id}`} label={`More for ${u.name}`} items={items(u)} />
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <Pager {...pager} thing="Users" />
-        </section>
-        <History log={cfg.log} area="Create roles" />
-      </Loaded>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <Pager pg={pg} what="users" />
+      </section>
+      <History log={cfg.log} area="Create roles" />
 
       <UserDialog
         open={!!edit}
         user={edit === 'new' ? null : edit}
+        start={draft}
         users={cfg.users}
         regions={cfg.regions.map((r) => r.name)}
-        onClose={() => setEdit(null)}
-        onSave={(u) => {
+        onClose={() => (setEdit(null), setDraft(null))}
+        onSave={(u, andSend) => {
           const was = cfg.users.find((x) => x.id === u.id);
+          const next: User = andSend ? { ...u, status: 'Link sent', sentAt: Date.now() } : u;
           if (!was) {
-            const next: User = { ...u, status: 'Link sent', sentAt: Date.now(), createdAt: Date.now() };
-            change('Create roles', `Created ${u.name}: ${u.role}, ${u.regions.join(', ')}; login email sent`, (c) => ({ ...c, users: [next, ...c.users] }));
-            say('User created. Login email sent.');
+            change('Create roles', `Created ${u.name}: ${u.role}, ${u.region}${andSend ? ', and sent a login mail' : ''}`, (c) => ({ ...c, users: [next, ...c.users] }));
+            say(andSend ? `${u.name} added. Login mail sent to ${u.email}; its link works for 7 days.` : `${u.name} added.`);
           } else {
-            const emailChanged = was.email !== u.email;
-            const diffs = (
-              [
-                ['name', was.name, u.name],
-                ['email', was.email, u.email],
-                ['phone', `${was.dial} ${was.phone}`.trim(), `${u.dial} ${u.phone}`.trim()],
-                ['role', was.role, u.role],
-                ['title', was.title || '–', u.title || '–'],
-                ['sales regions', was.regions.join(', ') || 'none', u.regions.join(', ') || 'none'],
-              ] as [string, string, string][]
-            )
-              .filter(([, a, b]) => a !== b)
-              .map(([k, a, b]) => `${k} ${a} → ${b}`);
-            change('Create roles', `Edited ${u.name}: ${diffs.join('; ')}${emailChanged ? '; a new login email went out and the old link stopped working' : ''}`, (c) => ({ ...c, users: c.users.map((x) => (x.id === u.id ? { ...u, sentAt: emailChanged ? Date.now() : x.sentAt } : x)) }));
-            say(emailChanged ? 'Saved. Login email sent.' : 'Saved.');
+            // an edit is asked first, with what changes (Nesil, 3 Nov)
+            const changes = FIELD.filter(([k]) => String(was[k]) !== String(u[k]) || (k === 'phone' && was.dial !== u.dial)).map(([k, name]) => `${name}: ${k === 'phone' ? `${was.dial} ${was.phone}` : was[k] || 'none'} → ${k === 'phone' ? `${u.dial} ${u.phone}` : u[k] || 'none'}`);
+            if (!changes.length && !andSend) say('Nothing changed.');
+            else setAsk({ kind: 'edit', user: was, next, changes, andSend });
           }
           setEdit(null);
+          setDraft(null);
         }}
       />
       <ConfirmDialog
-        open={!!removing}
-        title={`Delete ${removing?.name}?`}
-        confirm="Delete user"
-        danger
-        onCancel={() => setRemoving(null)}
-        onConfirm={() => {
-          const u = removing!;
-          change('Create roles', `Deleted ${u.name} (${u.role}); removed from every queue and mailbox`, (c) => ({
-            ...c,
-            users: c.users.filter((x) => x.id !== u.id),
-            queues: c.queues.map((q) => ({ ...q, lead: q.lead === u.id ? '' : q.lead, members: q.members.filter((m) => m !== u.id) })),
-            emails: c.emails.map((g) => ({ ...g, users: g.users.filter((x) => x.id !== u.id) })),
-          }));
-          // off every queue in Admin › Work too (the one queue editor)
-          try {
-            updateWork((d: { queues: { leader: string; members: string[] }[] }) => {
-              d.queues.forEach((q) => {
-                q.members = q.members.filter((m) => m !== u.id);
-                if (q.leader === u.id) q.leader = '';
-              });
-            }, `${u.name} was deleted in Admin › GSP users and taken off every queue`, 'queue.edited');
-          } catch {
-            /* work store not loaded */
+        open={!!ask}
+        title={ask ? ASK_TITLE[ask.kind](ask.user) : ''}
+        confirm={ask ? ASK_CTA[ask.kind] : ''}
+        cancel={ask?.kind === 'edit' ? 'Keep Editing' : 'Cancel'}
+        onCancel={() => {
+          if (ask?.kind === 'edit') {
+            setEdit(ask.user);
+            setDraft(ask.next);
           }
-          say('User deleted.');
-          setRemoving(null);
+          setAsk(null);
         }}
-      >
-        <p>First, everything Deactivate does: they can’t sign in, their sessions end, and their open applications go to their queue’s leader. Then they come off every queue and mailbox. Their past actions keep their name. This can’t be undone.</p>
-      </ConfirmDialog>
-      <ConfirmDialog
-        open={!!deactivating}
-        title={`Deactivate ${deactivating?.name}?`}
-        confirm="Deactivate"
-        danger
-        onCancel={() => setDeactivating(null)}
         onConfirm={() => {
-          deactivate(deactivating!);
-          setDeactivating(null);
+          const x = ask!;
+          const u = x.user;
+          const set = (fn: (y: User) => User) => (c: Cfg) => ({ ...c, users: c.users.map((y) => (y.id === u.id ? fn(y) : y)) });
+          if (x.kind === 'edit') {
+            change('Create roles', `Edited ${x.next.name}: ${x.changes.join('; ') || 'no field changes'}${x.andSend ? ', and sent a login mail' : ''}`, set(() => x.next));
+            say(x.andSend ? `${x.next.name} saved. Login mail sent to ${x.next.email}.` : `${x.next.name} saved.`);
+          } else if (x.kind === 'mail') send(u);
+          else if (x.kind === 'deactivate') {
+            change('Create roles', `Deactivated ${u.name}`, set((y) => ({ ...y, status: 'Deactivated' })));
+            say(`${u.name} deactivated. They can’t sign in until you reactivate them.`);
+          } else if (x.kind === 'reactivate') {
+            change('Create roles', `Reactivated ${u.name}`, set((y) => ({ ...y, status: 'Active' })));
+            say(`${u.name} reactivated. They can sign in again.`);
+          } else {
+            change('Create roles', `Deleted ${u.name} (${u.role})`, (c) => ({
+              ...c,
+              users: c.users.filter((y) => y.id !== u.id),
+              queues: c.queues.map((q) => ({ ...q, lead: q.lead === u.id ? '' : q.lead, members: q.members.filter((m) => m !== u.id) })),
+              emails: c.emails.map((g) => ({ ...g, users: g.users.filter((y) => y.id !== u.id) })),
+            }));
+            say(`${u.name} deleted.`);
+          }
+          setAsk(null);
         }}
       >
-        <p>They can’t sign in, and their sessions end at once. Their open tasks show as their queue leader’s, and each of their open applications goes to its queue’s leader, who gives it a new officer. They stay listed on queues and mailboxes, but get no new work, until deleted.</p>
+        {ask?.kind === 'edit' ? (
+          <>
+            <p>{ask.changes.length ? 'These change:' : 'Nothing else changes.'}</p>
+            {ask.changes.length > 0 && (
+              <ul className="cfg__changes">
+                {ask.changes.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            )}
+            {ask.andSend && <p>A login mail goes to {ask.next.email}.</p>}
+          </>
+        ) : (
+          <p>{ask && ASK_TEXT[ask.kind](ask.user)}</p>
+        )}
       </ConfirmDialog>
     </>
   );
 }
 
-/** Create or edit a user (PRD slice 1, GSP users › Fields). */
-function UserDialog({ open, user, users, regions, onClose, onSave }: { open: boolean; user: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User) => void }) {
-  const blank = (): User => ({ id: `u-${Date.now().toString(36)}`, name: '', email: '', dial: '+91', phone: '', role: '' as GspRole, title: '', region: '', regions: [], status: 'Link sent' });
+const ASK_TITLE: Record<Ask['kind'], (u: User) => string> = {
+  edit: (u) => `Save changes to ${u.name}?`,
+  mail: (u) => `${u.status === 'Not sent' ? 'Send' : 'Resend'} the login mail to ${u.name}?`,
+  deactivate: (u) => `Deactivate ${u.name}?`,
+  reactivate: (u) => `Reactivate ${u.name}?`,
+  delete: (u) => `Delete ${u.name}?`,
+};
+const ASK_CTA: Record<Ask['kind'], string> = { edit: 'Save Changes', mail: 'Send Login Mail', deactivate: 'Deactivate User', reactivate: 'Reactivate User', delete: 'Delete User' };
+const ASK_TEXT: Record<Exclude<Ask['kind'], 'edit'>, (u: User) => string> = {
+  mail: (u) => `It goes to ${u.email}, with a link to ${u.status === 'Active' ? 'reset their password' : 'set their password'}. The link works for 7 days${u.status === 'Link sent' ? '; the one sent before stops working' : ''}.`,
+  deactivate: () => 'They can’t sign in until you reactivate them. Their queues, email groups and what they did stay as they are.',
+  reactivate: () => 'They can sign in again with their password, with the same role, queues and email groups.',
+  delete: () => 'They can no longer sign in, and come off every queue and email group they’re in. What they did stays in the log. This can’t be undone.',
+};
+
+/** Create or edit a role: name, email, phone with the country code, role, title and sales region. */
+function UserDialog({ open, user, start, users, regions, onClose, onSave }: { open: boolean; user: User | null; start?: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User, andSend: boolean) => void }) {
+  const blank = (): User => ({ id: `u${Date.now()}`, name: '', email: '', dial: '+91', phone: '', role: 'GSP · Admissions', title: '', region: '', status: 'Not sent' });
   const [v, setV] = useState<User>(blank);
-  const [start, setStart] = useState<User>(blank);
-  const [result, setResult] = useState<SaveResult | null>(null);
-  const set = (p: Partial<User>) => setV((x) => ({ ...x, ...p }));
-  const email = v.email.trim().toLowerCase();
-  // email: read-only once the user is created (Jovial, 2 Nov)
-  const emailLocked = !!user;
-  const c = useCheck({
-    name: v.name.trim().length < 2 || v.name.trim().length > 100 ? 'Enter their full name.' : null,
-    email: emailLocked
-      ? null
-      : // any valid email, no domain rule (Jovial, S1C-2)
-        !email || email.length > 254 || !isEmail(email)
-        ? 'Enter a valid email, like name@example.com.'
-        : users.some((x) => x.id !== v.id && x.email.toLowerCase() === email)
-          ? 'Someone already has this email.'
-          : null,
-    // required (Jovial, 2 Nov)
-    phone: phoneError(v.dial, v.phone, { required: true }),
-    role: !v.role ? 'Pick their role.' : null,
-    title: v.title.trim().length > 60 ? 'Keep the title under 60 characters.' : null,
-    region: !v.regions.length ? 'Pick their sales region.' : null,
-  });
+  const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
-    const x = user ?? blank();
-    setV(x);
-    setStart(x);
-    setResult(null);
-    c.reset();
+    setV(start ?? user ?? blank());
+    setTried(false);
   }, [open, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const dirty = JSON.stringify(v) !== JSON.stringify(start);
-  const save = () => {
-    if (!c.submit()) return;
-    const r = trySave();
-    if (r !== 'ok') return setResult(r);
-    onSave({ ...v, name: v.name.trim(), email: emailLocked ? v.email : email, title: v.title.trim(), region: v.regions.join(', ') });
+  const set = (p: Partial<User>) => setV((x) => ({ ...x, ...p }));
+  const email = v.email.trim().toLowerCase();
+  const err = {
+    name: v.name.trim().length < 2 ? 'Enter their full name.' : null,
+    email: !isEmail(email) ? 'Enter their email, like name@gsp.upgrad.com.' : users.some((x) => x.id !== v.id && x.email.toLowerCase() === email) ? 'Someone already has this email.' : null,
+    phone: v.phone.replace(/\D/g, '').length < 7 ? 'Enter their phone number.' : null,
+    region: !v.region ? 'Pick their sales region.' : null,
   };
-  // Global can't sit with other regions: picking Global clears the others, and picking a region clears Global
-  const pickRegions = (next: string[]) => {
-    const added = next.filter((r) => !v.regions.includes(r));
-    const rs = added.includes('Global') ? ['Global'] : added.length ? next.filter((r) => r !== 'Global') : next;
-    set({ regions: rs, region: rs.join(', ') });
+  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const save = (andSend: boolean) => {
+    setTried(true);
+    if (Object.values(err).some(Boolean)) return;
+    onSave({ ...v, name: v.name.trim(), email, title: v.title.trim() }, andSend);
   };
+  const sendable = !user || (user.status !== 'Active' && user.status !== 'Deactivated');
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      dirty={dirty}
-      what={user ? `${user.name}’s details` : 'the new user'}
       center
       className="iform cfg__sheet"
-      title={user ? `Edit ${user.name}` : 'Create user'}
-      sub={user ? 'Their email can’t be changed once the user is created.' : 'They get the Set up your account email straight away; the link works for 7 days.'}
+      title={user ? `Edit ${user.name}’s Role` : 'Create Role'}
+      sub={user ? undefined : 'They get a login mail when you send it, to set their password.'}
       footer={
         <div className="asf">
           <div className="asf__acts">
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={!!user && !dirty}>
-              {user ? 'Save' : 'Create user'}
+            {sendable && (
+              <Button variant="secondary" onClick={() => save(false)}>
+                {user ? 'Save Changes' : 'Save without Sending'}
+              </Button>
+            )}
+            <Button onClick={() => save(sendable)} iconLeft={sendable ? <Icon name="mail" size={18} /> : undefined}>
+              {sendable ? 'Save and Send Login Mail' : 'Save Changes'}
             </Button>
           </div>
         </div>
       }
     >
-      <SaveBanner result={result} onReload={onClose} />
-      {user && (
-        <p className="cfg__note">
-          User ID {user.id} (never changes) · Login {user.status} · Created {user.createdAt ? istDate(user.createdAt) : '–'} · Last sign-in {user.lastSignIn ? istDate(user.lastSignIn) : '–'}
-        </p>
-      )}
       <div className="iform__grid">
-        <Field id="us-name" label="Name" required error={c.err('name')}>
-          <TextInput id="us-name" value={v.name} maxLength={100} autoComplete="off" invalid={!!c.err('name')} onBlur={c.blur('name')} onChange={(e) => set({ name: e.target.value })} />
+        <Field id="us-name" label="Name" required error={show('name')}>
+          <TextInput id="us-name" value={v.name} invalid={!!show('name')} aria-describedby={describedBy('us-name', show('name'))} onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field id="us-email" label="Email" required error={c.err('email')}>
-          <TextInput id="us-email" type="email" value={v.email} maxLength={254} placeholder="name@upgrad.com" autoComplete="off" readOnly={emailLocked} invalid={!!c.err('email')} onBlur={c.blur('email')} onChange={(e) => set({ email: e.target.value })} />
+        <Field id="us-email" label="Email" required error={show('email')}>
+          <TextInput id="us-email" type="email" value={v.email} invalid={!!show('email')} aria-describedby={describedBy('us-email', show('email'))} onChange={(e) => set({ email: e.target.value })} />
         </Field>
-        <Field id="us-phone" label="Phone" required error={c.err('phone')}>
-          <PhoneInput id="us-phone" dial={v.dial} number={v.phone} invalid={!!c.err('phone')} describedBy={c.err('phone') ? 'us-phone-error' : undefined} onBlur={c.blur('phone')} onDial={(d) => set({ dial: d })} onNumber={(n) => set({ phone: n.replace(/\D/g, '') })} />
+        <Field id="us-phone" label="Phone number" required error={show('phone')}>
+          <PhoneInput id="us-phone" dial={v.dial} number={v.phone} invalid={!!show('phone')} describedBy={describedBy('us-phone', show('phone'))} onDial={(d) => set({ dial: d })} onNumber={(n) => set({ phone: n })} />
         </Field>
-        <Field id="us-role" label="Role" required error={c.err('role')}>
-          <Pick id="us-role" label="Role" value={v.role} placeholder="Pick their role" options={[...GSP_ROLES]} invalid={!!c.err('role')} describedBy={c.err('role') ? 'us-role-error' : undefined} onChange={(r) => (set({ role: r as GspRole }), c.blur('role')())} />
+        <Field id="us-title" label="Title" optional>
+          <TextInput id="us-title" value={v.title} placeholder="Like: Admissions Officer" onChange={(e) => set({ title: e.target.value })} />
         </Field>
-        {/* optional free text; two people can have the same title (Jovial, 2 Nov) */}
-        <Field id="us-title" label="Title" error={c.err('title')}>
-          <TextInput id="us-title" value={v.title} placeholder="Like: Admissions Officer" invalid={!!c.err('title')} onBlur={c.blur('title')} onChange={(e) => set({ title: e.target.value })} />
+        <Field id="us-role" label="Role" required>
+          <SelectInput id="us-role" value={v.role} onChange={(e) => set({ role: e.target.value as GspRole })}>
+            {GSP_ROLES.map((r) => (
+              <option key={r}>{r}</option>
+            ))}
+          </SelectInput>
         </Field>
-        <Field id="us-region" label="Sales regions" required error={c.err('region')} hint="One or more. Only Admin has Global by default; give it to anyone else here.">
-          <MultiPick id="us-region" label="Sales regions" value={v.regions} options={regions} invalid={!!c.err('region')} onClose={c.blur('region')} onChange={pickRegions} empty="Pick their sales regions" />
+        <Field id="us-region" label="Sales region" required error={show('region')}>
+          <SelectInput id="us-region" value={v.region} placeholder="Choose" invalid={!!show('region')} onChange={(e) => set({ region: e.target.value })}>
+            {regions.map((r) => (
+              <option key={r}>{r}</option>
+            ))}
+          </SelectInput>
         </Field>
       </div>
     </Sheet>
   );
 }
+

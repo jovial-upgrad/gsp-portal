@@ -60,7 +60,10 @@ export function AuthScene({
   heroKey,
   bar,
   children,
+  brand = ['Institution', 'Team'],
 }: {
+  /** The words beside the logo (GSP · View Only, 6 Nov, says "GSP View Only"). */
+  brand?: [string, string];
   sceneKey: string;
   wide?: boolean;
   hero: ReactNode;
@@ -143,7 +146,7 @@ export function AuthScene({
             transition={{ duration: 0.6, ease, delay: 0.35 }}
           >
             <GlassRim />
-            <BrandLockup height={narrow ? 26 : 30} label={['Institution', 'Team']} />
+            <BrandLockup height={narrow ? 26 : 30} label={brand} />
           </motion.a>
           {narrow && <ThemeToggle glass className="auth__toggle-photo" />}
           <div className="auth__hero-body">

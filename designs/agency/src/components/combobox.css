@@ -60,14 +60,16 @@
 .cbx__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cbx__dial { color: var(--text-3); font-size: var(--t-caption); }
 .cbx__tick { color: var(--link); }
+.cbx__plus { flex: none; color: var(--text-3); }
 .cbx__empty { padding: var(--sp-12) var(--sp-10); color: var(--text-3); }
 
 /* SelectMenu: a select that drops down from its field, its list in the overlay layer */
-.smenu__btn { display: flex; align-items: center; gap: var(--sp-8); padding-right: var(--sp-40); font: inherit; font-size: var(--t-input); color: var(--text); text-align: left; cursor: pointer; }
+.smenu__btn,
+.control__input.smenu__btn { display: flex; align-items: center; gap: var(--sp-8); padding-right: var(--sp-40); font: inherit; font-size: var(--t-input); color: var(--text); text-align: left; cursor: pointer; }
 .smenu__value { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .smenu.is-empty .smenu__value { color: var(--placeholder); }
 .smenu__note { flex: none; color: var(--text-3); font-size: var(--t-caption); }
-.control.smenu.is-open { border-color: var(--focus); box-shadow: var(--input-glow); }
+.smenu.is-open { border-color: var(--focus); box-shadow: var(--input-glow); }
 .smenu__chev svg { transition: transform var(--dur-2) var(--ease-out); }
 .smenu.is-open .smenu__chev svg { transform: rotate(180deg); }
 .cbx__list.smenu__list { right: auto; z-index: 5; pointer-events: auto; }
@@ -77,22 +79,8 @@
   to { opacity: 1; transform: none; }
 }
 
-/* the list's frame holds an optional search box over the options (Jovial, 2 Nov: a list of more than ten searches) */
-.cbx__list.smenu__list { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-.smenu__opts { list-style: none; margin: 0; padding: var(--sp-6); overflow-y: auto; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }
-.smenu__search { flex: none; display: flex; align-items: center; gap: var(--sp-8); margin: var(--sp-6) var(--sp-6) 0; padding: 0 var(--sp-10); height: 40px; border: 1px solid var(--line-input); border-radius: 8px; background: var(--surface); color: var(--text-3); }
-.smenu__search:focus-within { border-color: var(--focus); box-shadow: var(--input-glow); }
-.smenu__find { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: none; color: var(--text); font: inherit; font-size: var(--t-label); }
-.smenu__find::placeholder { color: var(--placeholder); }
-.smenu__find::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+/* The native select inside every dropdown: hidden, it keeps the value, the label's id and the change event */
+.dd__native { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important; opacity: 0; pointer-events: none; }
+.dd .smenu__btn:disabled { cursor: not-allowed; color: var(--text-3); }
 .cbx__opt.is-disabled { color: var(--text-3); cursor: default; }
-.cbx__opt.is-disabled.is-active { background: none; }
-.smenu.is-disabled .smenu__btn { color: var(--text-3); cursor: not-allowed; }
-.control.smenu.is-disabled { background: var(--surface-2); border-color: var(--line); }
-/* bare: the trigger keeps the look of what it sits in */
-.smenu--bare { position: relative; display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.smenu__btn--bare { display: inline-flex; align-items: center; gap: var(--sp-6); min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 6px; }
-.smenu__btn--bare:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.smenu--bare .smenu__chev { position: static; transform: none; display: inline-flex; pointer-events: none; color: var(--text-3); }
-.smenu__search .smenu__find:focus,
-.smenu__search .smenu__find:focus-visible { outline: none; box-shadow: none; border: 0; }
+.cbx__opt.is-disabled:hover { background: none; }

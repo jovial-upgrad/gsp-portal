@@ -1,20 +1,10 @@
-import { UPLOAD } from '../../data/uploads';
-import { setLiveFlags } from '../../data/live';
-import { DateInput, TextInput } from '../../components/forms';
-import { SelectMenu } from '../../components/SelectMenu';
-import { OTHER_CATEGORY, requestCategories } from '../../data/chat';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
-import { courseOf, isOpen, named, type Application, type Cond, type Msg, type Need } from '../../data/applications';
-import { autoName } from '../../data/appRules';
-import { isWithdrawal } from '../../data/reasons';
-
-/** Today as an ISO day, for due dates (today or later). */
-const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+import { courseOf, type Application, type Cond, type Msg, type Need } from '../../data/applications';
 import { DocButtons } from '../../components/DocView';
 import { GSP_USER } from '../user';
 import { AssistLabel } from './parts';
@@ -22,7 +12,7 @@ import { CondDialog, condViews } from '../../screens/applications/Conditions';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const time = (t: number) =>
-  new Date(t).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', 
+  new Date(t).toLocaleTimeString('en-GB', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
@@ -52,10 +42,7 @@ export function Chat({
   ask,
   focusKey,
   say,
-  canAct = true,
 }: {
-  /** Admissions on this application: the two templates and withdrawing a request (slice 1 matrix: only Admissions use them). */
-  canAct?: boolean;
   a: Application;
   s: Student;
   agency: string;
@@ -128,21 +115,44 @@ export function Chat({
     onShare(f.name);
     say(`${f.name} shared with the RP.`);
   };
-  // several documents in one go (Jovial, 2 Nov): each its own request, card and item in Documents
-  const request = (r: { titles: string[]; text: string; due?: number }) => {
+  const request = (r: { title: string; text: string; due?: number }) => {
     const now = Date.now();
-    const needs: Need[] = r.titles.map((title, i) => ({ id: `req-${now}-${i}`, title, why: r.text, request: { by: g.name, at: now }, due: r.due }));
+    const need: Need = {
+      id: `req-${now}`,
+      title: r.title,
+      why: r.text,
+      request: { by: g.name, at: now },
+      due: r.due,
+    };
     update((x) => ({
       ...x,
-      unread: (x.unread ?? 0) + needs.length,
-      needs: [...x.needs, ...needs],
-      // each card goes out under the officer's name (S3-13)
-      chat: [...x.chat, ...needs.map((n) => ({ id: `m${now}-${n.id}`, at: now, from: 'gsp' as const, name: autoName(x, g.name), text: '', request: n.id, requestName: n.title }))],
-      history: [...x.history, ...needs.map((n) => ({ at: now, who: 'gsp' as const, text: `Asked the RP for the ${named(n.title)}`, by: g.name }))],
+      unread: (x.unread ?? 0) + 1,
+      needs: [...x.needs, need],
+      chat: [
+        ...x.chat,
+        {
+          id: `m${now}`,
+          at: now,
+          from: 'gsp',
+          name: g.name,
+          text: '',
+          request: need.id,
+          requestName: need.title,
+        },
+      ],
+      history: [
+        ...x.history,
+        {
+          at: now,
+          who: 'gsp',
+          text: `Asked the RP for the ${r.title.toLowerCase()}`,
+          by: g.name,
+        },
+      ],
     }));
     setAsking(false);
     setSeed(undefined);
-    say(needs.length === 1 ? `${needs[0].title} requested from the RP.` : `${needs.length} documents requested from the RP.`);
+    say(`${r.title} requested from the RP.`);
   };
   const requestConds = (r: { title: string; items: Pick<Cond, 'text'>[]; due?: number }) => {
     const now = Date.now();
@@ -156,36 +166,16 @@ export function Chat({
       ...(a.status === 'conditions' ? { step: 'conditions' as const } : {}),
       form: r.items.map((x, i) => ({ id: `c${i + 1}`, kind: 'question' as const, text: x.text, source: `Condition ${i + 1}` })),
     };
-    // asking the RP for the conditions hands the conditional offer to the RP (Who has it, Jovial, 1 Nov)
-    setLiveFlags(a.id, { condsSent: now });
     update((x) => ({
       ...x,
       unread: (x.unread ?? 0) + 1,
       needs: [...x.needs, need],
-      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: autoName(x, g.name), text: '', request: need.id, requestName: need.title }],
+      chat: [...x.chat, { id: `m${now}`, at: now, from: 'gsp', name: g.name, text: '', request: need.id, requestName: need.title }],
       history: [...x.history, { at: now, who: 'gsp', text: `Sent ${r.items.length === 1 ? '1 condition' : `${r.items.length} conditions`} to answer: ${r.title}`, by: g.name }],
     }));
     setConding(false);
     say(`${r.title} sent to the RP.`);
   };
-  /**
-   * Withdraw a request (slice 3 PRD): a document or conditions request GSP sent, no reason needed. The RP's pending
-   * item goes; the card shows "Withdrawn by <name>"; Activity records it; it no longer counts for who has it.
-   */
-  const withdrawRequest = (id: string) => {
-    const now = Date.now();
-    const n = a.needs.find((x) => x.id === id);
-    if (!n) return;
-    update((x) => ({
-      ...x,
-      needs: x.needs.filter((y) => y.id !== id),
-      chat: x.chat.map((m) => (m.request === id ? { ...m, ended: { kind: 'withdrawn' as const, by: g.name, at: now } } : m)),
-      history: [...x.history, { at: now, who: 'gsp', text: `Withdrew the request: ${n.title}`, by: g.name }],
-    }));
-    say(`${n.title}: request withdrawn.`);
-  };
-  const finished = !isOpen(a);
-  const endWord = a.status === 'enrolled' ? 'enrolled' : a.end && isWithdrawal(a.end.kind) ? 'withdrawn' : 'closed';
 
   return (
     <section className="card achat gchat" aria-labelledby="achat-title">
@@ -202,7 +192,7 @@ export function Chat({
       <ol className="achat__list" ref={list} aria-live="polite" aria-relevant="additions">
         {msgs.length === 0 && (
           <li className="achat__empty">
-            <p>No messages yet. Write to the RP about {s.first}’s application.</p>
+            <p>No messages yet. Write to the RP, or request a document.</p>
           </li>
         )}
         <AnimatePresence initial={false}>
@@ -230,8 +220,7 @@ export function Chat({
                     {m.via === 'email' && <span className="msg__role"> · by email</span>}
                     <span className="msg__time"> · {when(m.at)}</span>
                   </p>
-                  {/* a request on its own is the card, without a bubble around it (Jovial, 3 Nov) */}
-                  <div className={`msg__bubble ${m.request && !m.text && !m.files?.length ? 'msg__bubble--card' : ''}`}>
+                  <div className="msg__bubble">
                     {m.text && <p>{m.text}</p>}
                     {m.files?.map((f) => (
                       <span key={f} className="msg__file">
@@ -240,7 +229,7 @@ export function Chat({
                         <DocButtons d={{ name: f, file: f }} s={s} />
                       </span>
                     ))}
-                    {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} ended={m.ended} onView={setViewing} onWithdraw={canAct && !finished ? withdrawRequest : undefined} />}
+                    {m.request && <RequestCard a={a} s={s} id={m.request} name={m.requestName} onView={setViewing} />}
                     {m.cites && m.cites.length > 0 && (
                       <p className="msg__cites">
                         <span className="vh">Sources: </span>
@@ -260,9 +249,6 @@ export function Chat({
         </AnimatePresence>
       </ol>
 
-      {finished ? (
-        <p className="achat__ro">This application is {endWord}. The chat is read-only.</p>
-      ) : (
       <div className="gchat__foot">
         <AnimatePresence initial={false}>
           {conding && <CondRequestForm key="conds" onSend={requestConds} onCancel={() => setConding(false)} />}
@@ -278,7 +264,7 @@ export function Chat({
             />
           )}
         </AnimatePresence>
-        {!asking && !conding && canAct && (
+        {!asking && !conding && (
           <div className="gchat__tools">
             <button
               type="button"
@@ -290,7 +276,7 @@ export function Chat({
               }}
             >
               <Icon name="doc" size={18} />
-              Request a document
+              Request document
             </button>
             <button type="button" className="gchat__tpl" aria-expanded={conding} onClick={() => setConding(true)}>
               <Icon name="edit" size={18} />
@@ -314,7 +300,7 @@ export function Chat({
               id="achat-file"
               className="vh"
               type="file"
-              accept={UPLOAD.accept}
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
               onChange={(e) => {
                 attach(e.target.files?.[0] ?? null);
                 e.target.value = '';
@@ -329,7 +315,6 @@ export function Chat({
               rows={1}
               value={text}
               placeholder={`Message ${agency}`}
-              maxLength={2000}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -344,43 +329,27 @@ export function Chat({
           </form>
         )}
       </div>
-      )}
       <CondDialog v={viewing ? condViews(a).find((v) => v.id === viewing) ?? null : null} s={s} onClose={() => setViewing(null)} />
     </section>
   );
 }
 
-/**
- * The Request document template (Jovial, 2 Nov): one or more documents, each picked from the request categories
- * (GSP · Admin › Document configuration), or **Other** with its name typed; what's needed (optional, for them all) and
- * when by (optional). Each document becomes its own request.
- */
-type Row = { cat: string; other: string };
-function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: { titles: string[]; text: string; due?: number }) => void; onCancel: () => void }) {
+/** The Request document template: what the document is, what's needed, and when by (optional). */
+function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: { title: string; text: string; due?: number }) => void; onCancel: () => void }) {
   const reduce = useReducedMotion();
-  const cats = requestCategories();
-  const seedRow = (t?: string): Row => {
-    if (!t) return { cat: '', other: '' };
-    const hit = cats.find((c) => c.toLowerCase() === t.trim().toLowerCase());
-    return hit ? { cat: hit, other: '' } : { cat: OTHER_CATEGORY, other: t };
-  };
-  const [rows, setRows] = useState<Row[]>([seedRow(init?.title)]);
+  const [title, setTitle] = useState(init?.title ?? '');
   const [text, setText] = useState(init?.text ?? '');
   const [due, setDue] = useState('');
   const [tried, setTried] = useState(false);
-  const opts = [...cats.map((c) => ({ value: c, label: c })), { value: OTHER_CATEGORY, label: `${OTHER_CATEGORY} (type its name)` }];
-  const titleOf = (r: Row) => (r.cat === OTHER_CATEGORY ? r.other.trim() : r.cat);
-  const rowErr = (r: Row) => (!r.cat ? 'Pick a document.' : r.cat === OTHER_CATEGORY && r.other.trim().length < 2 ? 'Type the document’s name.' : null);
-  const titles = rows.map(titleOf);
-  const dupe = titles.find((t, i) => t && titles.findIndex((x) => x.toLowerCase() === t.toLowerCase()) !== i);
-  // today or later (slice 3 PRD); what's needed is optional (Jovial, 1 Nov), up to 500 characters
-  const dueOk = !due || (/^\d{4}-\d{2}-\d{2}$/.test(due) && due >= todayIso());
-  const ok = rows.every((r) => !rowErr(r)) && !dupe && text.length <= 500 && dueOk;
-  const set = (i: number, p: Partial<Row>) => setRows((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    window.setTimeout(() => ref.current?.focus(), 60);
+  }, []);
+  const ok = title.trim().length > 1 && text.trim().length > 4;
   return (
     <motion.form
       className="greq"
-      aria-label="Request documents"
+      aria-label="Request a document"
       initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
@@ -388,60 +357,52 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);
-        if (ok) onSend({ titles, text: text.trim(), due: due ? new Date(`${due}T23:59:00`).getTime() : undefined });
+        if (ok)
+          onSend({
+            title: title.trim(),
+            text: text.trim(),
+            due: due ? new Date(`${due}T23:59:00`).getTime() : undefined,
+          });
       }}
       onKeyDown={(e) => e.key === 'Escape' && onCancel()}
     >
       <div className="greq__head">
         <p className="greq__k">
-          <Icon name="doc" size={16} /> Request documents from the RP
+          <Icon name="doc" size={16} /> Request a document from the RP
         </p>
         <button type="button" className="proto__close" aria-label="Close the request" onClick={onCancel}>
           <Icon name="close" size={16} />
         </button>
       </div>
-      <ol className="gcond__list greq__docs">
-        {rows.map((r, i) => (
-          <li key={i} className="gcond__row greq__doc">
-            <span className="gcond__n num" aria-hidden="true">
-              {i + 1}
-            </span>
-            <span className="greq__pick">
-              <SelectMenu id={`greq-cat-${i}`} label={`Document ${i + 1}`} value={r.cat} options={opts} placeholder="Pick a document" invalid={tried && !r.cat} onChange={(v) => set(i, { cat: v })} />
-              {r.cat === OTHER_CATEGORY && (
-                <TextInput id={`greq-other-${i}`} aria-label={`Document ${i + 1}: its name`} value={r.other} maxLength={100} placeholder="The document’s name" invalid={tried && !!rowErr(r)} onChange={(e) => set(i, { other: e.target.value })} />
-              )}
-            </span>
-            {rows.length > 1 && (
-              <button type="button" className="proto__close" aria-label={`Remove document ${i + 1}`} onClick={() => setRows((l) => l.filter((_, j) => j !== i))}>
-                <Icon name="close" size={16} />
-              </button>
-            )}
-          </li>
-        ))}
-      </ol>
-      <Button type="button" size="sm" variant="ghost" iconLeft={<Icon name="plus" size={16} />} onClick={() => setRows((l) => [...l, { cat: '', other: '' }])}>
-        Add another document
-      </Button>
+      <label className="greq__field" htmlFor="greq-title">
+        <span className="greq__label">Title</span>
+        <span className={`control ${tried && title.trim().length < 2 ? 'is-invalid' : ''}`}>
+          <input ref={ref} id="greq-title" className="control__input" value={title} placeholder="Like: Gap explanation document" onChange={(e) => setTitle(e.target.value)} />
+        </span>
+      </label>
       <label className="greq__field" htmlFor="greq-text">
         <span className="greq__label">What’s needed</span>
-        <span className="control gstat__area">
-          <textarea id="greq-text" className="control__input" rows={3} value={text} maxLength={500} placeholder="What it should show, and why the university needs it" onChange={(e) => setText(e.target.value)} />
+        <span className={`control gstat__area ${tried && text.trim().length < 5 ? 'is-invalid' : ''}`}>
+          <textarea id="greq-text" className="control__input" rows={3} value={text} placeholder="What it should show, and why the university needs it" onChange={(e) => setText(e.target.value)} />
         </span>
       </label>
       <label className="greq__field greq__field--due" htmlFor="greq-due">
-        <span className="greq__label">Due</span>
-        <DateInput id="greq-due" value={due} invalid={(tried || due.length >= 10) && !dueOk} onChange={setDue} />
+        <span className="greq__label">
+          Due <span className="muted">(optional)</span>
+        </span>
+        <span className="control">
+          <input id="greq-due" className="control__input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+        </span>
       </label>
       {tried && !ok && (
         <p className="gmail__err" role="alert">
           <Icon name="alert" size={14} />
-          {rows.map(rowErr).find(Boolean) ?? (dupe ? `${dupe} is in the list twice.` : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.')}
+          {title.trim().length < 2 ? 'Add a title.' : 'Say what’s needed.'}
         </p>
       )}
       <div className="greq__acts">
         <Button type="submit" size="sm" iconRight={<Icon name="arrowRight" size={16} />}>
-          {rows.length > 1 ? `Send ${rows.length} requests` : 'Send request'}
+          Send request
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
@@ -452,9 +413,8 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
 }
 
 /** A document request as GSP sees it: with the RP until they upload it, then in Documents. Conditions come as a form: the card opens it, with the RP's answers once sent. */
-function RequestCard({ a, s, id, name, ended, onView, onWithdraw }: { a: Application; s: Student; id: string; name?: string; ended?: Msg['ended']; onView: (id: string) => void; onWithdraw?: (id: string) => void }) {
+function RequestCard({ a, s, id, name, onView }: { a: Application; s: Student; id: string; name?: string; onView: (id: string) => void }) {
   const n = a.needs.find((x) => x.id === id);
-  const endLine = ended ? (ended.kind === 'withdrawn' ? `Withdrawn by ${ended.by}` : 'Closed with the application') : null;
   const done = !n ? a.files.find((f) => f.req === id) : undefined;
   const answered = !n ? a.conds?.find((x) => x.id === id) : undefined;
   if (n?.form || answered) {
@@ -469,9 +429,8 @@ function RequestCard({ a, s, id, name, ended, onView, onWithdraw }: { a: Applica
           <span className="areq__title">{n?.title ?? answered?.title}</span>
           <span className="areq__why">
             {count === 1 ? '1 condition' : `${count} conditions`}
-            {n ? ` for the RP to answer.${n.due ? ` Due ${shortDate(new Date(n.due))}.` : ''}` : answered ? `, answered by the RP ${shortDate(new Date(answered.sent))}.` : '.'}
+            {n ? ` for the RP to answer.${n.due ? ` Due ${shortDate(new Date(n.due))}.` : ''}` : `, answered by the RP ${shortDate(new Date(answered!.sent))}.`}
           </span>
-          {endLine && <span className="areq__ended">{endLine}</span>}
           <span className="areq__view">
             View {n ? 'the conditions' : 'the answers'}
             <Icon name="arrowRight" size={14} />
@@ -479,20 +438,6 @@ function RequestCard({ a, s, id, name, ended, onView, onWithdraw }: { a: Applica
         </span>
         {n && <span className="who who--you">With RP</span>}
       </button>
-    );
-  }
-  if (ended && !n) {
-    return (
-      <div className="areq is-done">
-        <span className="areq__ic" aria-hidden="true">
-          <Icon name="close" size={16} />
-        </span>
-        <div className="areq__t">
-          <p className="areq__k">Document request</p>
-          <p className="areq__title">{name ?? 'Document'}</p>
-          <p className="areq__ended">{endLine}</p>
-        </div>
-      </div>
     );
   }
   return (
@@ -514,11 +459,6 @@ function RequestCard({ a, s, id, name, ended, onView, onWithdraw }: { a: Applica
         {done && <DocButtons d={{ name: done.name, file: done.file }} s={s} />}
       </div>
       {n && <span className="who who--you">{n.file ? 'Uploaded, to check' : 'With RP'}</span>}
-      {n && onWithdraw && (
-        <Button size="sm" variant="ghost" onClick={() => onWithdraw(id)} aria-label={`Withdraw the request: ${n.title}`}>
-          Withdraw request
-        </Button>
-      )}
     </div>
   );
 }
@@ -537,8 +477,7 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
   useEffect(() => {
     window.setTimeout(() => first.current?.focus(), 60);
   }, []);
-  const dueOk = !due || (/^\d{4}-\d{2}-\d{2}$/.test(due) && due >= todayIso());
-  const ok = title.trim().length > 1 && title.trim().length <= 100 && items.every((x) => x.text.trim().length >= 5 && x.text.length <= 500) && dueOk;
+  const ok = title.trim().length > 1 && items.every((x) => x.text.trim().length >= 5);
   const set = (i: number, patch: Partial<Pick<Cond, 'text'>>) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   return (
     <motion.form
@@ -566,7 +505,7 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
       <label className="greq__field" htmlFor="gcond-title">
         <span className="greq__label">Title</span>
         <span className={`control ${tried && title.trim().length < 2 ? 'is-invalid' : ''}`}>
-          <input id="gcond-title" className="control__input" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
+          <input id="gcond-title" className="control__input" value={title} onChange={(e) => setTitle(e.target.value)} />
         </span>
       </label>
       <ol className="gcond__list">
@@ -582,7 +521,6 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
                 className="control__input"
                 value={x.text}
                 aria-label={`Condition ${i + 1}`}
-                maxLength={500}
                 placeholder={i === 0 ? 'Like: why this course and this university?' : 'A question for the student'}
                 onChange={(e) => set(i, { text: e.target.value })}
               />
@@ -600,14 +538,16 @@ function CondRequestForm({ onSend, onCancel }: { onSend: (r: { title: string; it
       </Button>
       <label className="greq__field greq__field--due" htmlFor="gcond-due">
         <span className="greq__label">
-          Due
+          Due <span className="muted">(optional)</span>
         </span>
-        <DateInput id="gcond-due" value={due} invalid={(tried || due.length >= 10) && !dueOk} onChange={setDue} />
+        <span className="control">
+          <input id="gcond-due" className="control__input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+        </span>
       </label>
       {tried && !ok && (
         <p className="gmail__err" role="alert">
           <Icon name="alert" size={14} />
-          {title.trim().length < 2 ? 'Enter the title.' : !items.every((x) => x.text.trim().length >= 5) ? 'Write each condition in a few words.' : 'Enter the due date as DD/MM/YYYY, like 05/11/2026.'}
+          {title.trim().length < 2 ? 'Add a title.' : 'Write each condition in a few words.'}
         </p>
       )}
       <div className="greq__acts">

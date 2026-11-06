@@ -1,39 +1,37 @@
-import { canEditNow } from '../../admin/data/menus';
-import { routeApplication } from '../../data/regions';
-import { PriorityChip } from '../../components/PriorityChip';
-import { useEffect, useState } from 'react';
-import { SelectMenu } from '../../components/SelectMenu';
-import { Pager } from '../../screens/courses/ResultParts';
-import { appliedAt } from './AppDetail';
-import { motion, useReducedMotion } from 'motion/react';
+import { useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { DateInput, SelectInput } from '../../components/forms';
-import { MultiPick } from '../../institution/records/MultiPick';
-import { LIST_CHIPS, chipCounts, inChip, type ChipKey } from '../../data/listChips';
-
-const isIso = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
-
+import { SelectInput, TextInput } from '../../components/forms';
+import { FLAG } from '../../data/courses';
 import { fullName, type Member, type Student } from '../../data/students';
 import { shortDate } from '../../data/dates';
-import { STAGES, courseOf, destOf, isOpen, ownerOf, stageOf, statusText, type AppOwner, type Application } from '../../data/applications';
+import { STAGES, courseOf, destOf, isOpen, ownerOf, stageOf, statusText, rankOf, type AppOwner, type Application } from '../../data/applications';
+import { RankTag } from '../../components/RankTag';
 import { OWNER_WORD, pendingFromGsp } from './owners';
 import { StageMeter } from './parts';
-import { byRegion, gspIsMine, useScope } from '../../data/scope';
-import { HOME_RP } from '../rps';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
 export type OwnerView = '' | 'you' | 'gsp' | 'uni';
-/** The status chip picked ('' is All): data/listChips.ts (Jovial, 2 Nov). */
-export type Progress = ChipKey | '';
+export type Progress = '' | 'new' | 'applied' | 'offer' | 'deposit' | 'enrolled' | 'closed';
+/** The list's filters. stage, from and to are the advanced ones: a stage, and when the application started (yyyy-mm-dd). */
+export type ListState = { owner: OwnerView; progress: Progress; q: string; dest: string; who: string; intake: string; stage: string; from: string; to: string };
+export const NEW_LIST: ListState = { owner: '', progress: '', q: '', dest: '', who: '', intake: '', stage: '', from: '', to: '' };
+
 /**
- * The list's filters. stage, from and to are the advanced ones (Jovial, 2 Nov): a stage, and the applied date between
- * two days (yyyy-mm-dd). `rps` (several, Jovial 2 Nov) and `region`: GSP's filters by recruitment partner and sales
- * region (W12); `who` is kept for older links.
+ * The primary filters: how far an application has got, read from the status it's at (and so its stage).
+ * Each open application is in exactly one; closed ones are in none.
  */
-export type ListState = { owner: OwnerView; progress: Progress; q: string; dest: string; who: string; rps?: string[]; region?: string; intake: string; stage: string; from: string; to: string };
-export const NEW_LIST: ListState = { owner: '', progress: '', q: '', dest: '', who: '', rps: [], region: '', intake: '', stage: '', from: '', to: '' };
+const PROGRESS: [Progress, string, string, (a: Application) => boolean][] = [
+  ['new', 'New', 'Waiting for documents, or GSP checking them', (a) => isOpen(a) && stageOf(a) <= 1],
+  ['applied', 'Applied', 'Submitted to the university, waiting for a decision', (a) => isOpen(a) && stageOf(a) === 2],
+  ['offer', 'Offer received', 'An offer, and the deposit not paid yet', (a) => isOpen(a) && (stageOf(a) === 3 || stageOf(a) === 4 || a.status === 'deposit')],
+  ['deposit', 'Deposit paid', 'The tuition or deposit paid, through to the visa and enrolment', (a) => isOpen(a) && ((stageOf(a) === 5 && a.status !== 'deposit') || stageOf(a) >= 6)],
+  ['enrolled', 'Enrolled', 'The student is enrolled', (a) => a.status === 'enrolled'],
+  // 3 Nov (Nesil): the ones that ended (withdrawn, rejected, refused, deferred, not eligible…)
+  ['closed', 'Closed', 'Ended before enrolment: withdrawn, rejected, refused, deferred or not eligible', (a) => a.status === 'closed'],
+];
 
 /** A yyyy-mm-dd day from a date input, as the start or the end of that day. */
 const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime();
@@ -44,7 +42,7 @@ const isoDay = (t: number) => {
 };
 
 export function AppList({
-  apps: all,
+  apps,
   students,
   team,
   st,
@@ -65,19 +63,8 @@ export function AppList({
   say: (m: string) => void;
 }) {
   const reduce = useReducedMotion();
-  let apps = all;
   const stu = (a: Application) => students.find((s) => s.id === a.studentId);
   const counsellorOf = (a: Application) => team.find((m) => m.id === stu(a)?.counsellor);
-  // GSP sees every RP's applications (W12): each with its own RP and sales region, cut to the person's regions
-  const rpOf = (a: Application) => a.rp ?? stu(a)?.rp ?? HOME_RP;
-  // never a default region (HC27): one without a region is routed by Admin's rules
-  const regionOf = (a: Application) => {
-    if (a.region) return a.region;
-    const s = stu(a);
-    return routeApplication({ rp: a.rp ?? s?.rp, nationality: s?.nationality ?? '', livesIn: s?.country ?? '', dest: destOf(a) }).region;
-  };
-  useScope(); // re-render when the person switches to every region
-  apps = byRegion(apps, regionOf);
   const owners = { '': apps.length, you: 0, gsp: 0, uni: 0 } as Record<OwnerView, number>;
   for (const a of apps) {
     const o = ownerOf(a);
@@ -87,50 +74,38 @@ export function AppList({
   const rows = apps
     .filter((a) => {
       const s = stu(a);
+      const c = courseOf(a);
       if (st.owner && ownerOf(a) !== st.owner) return false;
-      if (st.progress && !inChip(st.progress, a)) return false;
+      if (st.progress && !PROGRESS.find((m) => m[0] === st.progress)![3](a)) return false;
       if (st.dest && destOf(a) !== st.dest) return false;
       if (st.who && s?.counsellor !== st.who) return false;
-      if (st.rps?.length && !st.rps.includes(rpOf(a))) return false;
-      if (st.region && regionOf(a) !== st.region) return false;
       if (st.intake && a.intake !== st.intake) return false;
       if (st.stage && stageOf(a) !== Number(st.stage)) return false;
-      // a typed date only filters once it's a whole date (DD/MM/YYYY)
-      // the applied date (Jovial, 2 Nov: Applied date between)
-      if (isIso(st.from) && appliedAt(a) < dayStart(st.from)) return false;
-      if (isIso(st.to) && appliedAt(a) > dayEnd(st.to)) return false;
-      // by application number or student name only, the fields the list shows (Jovial, 2 Nov: no passport)
-      if (ql && !`${a.id}|${s ? fullName(s) : ''}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
+      if (st.from && a.created < dayStart(st.from)) return false;
+      if (st.to && a.created > dayEnd(st.to)) return false;
+      if (ql && !`${a.id}${a.uniRef ?? ''}${s ? fullName(s) : ''}${c.name}${c.uni.name}`.toLowerCase().replace(/\s+/g, '').includes(ql)) return false;
       return true;
     })
     // what's pending on GSP first, then the rest by the latest change
     .sort((a, b) => Number(pendingFromGsp(b)) - Number(pendingFromGsp(a)) || Number(isOpen(b)) - Number(isOpen(a)) || b.since - a.since);
   const advanced = (st.stage ? 1 : 0) + (st.from || st.to ? 1 : 0);
-  // 25 a page, numbered (S3C-14); any change of filter goes back to page 1
-  const PER = 25;
-  const [page, setPage] = useState(1);
-  const sig = JSON.stringify(st);
-  useEffect(() => setPage(1), [sig]);
-  const filtered = !!(ql || st.dest || st.who || st.rps?.length || st.region || st.intake || st.progress || advanced);
+  const filtered = !!(ql || st.dest || st.who || st.intake || st.progress || advanced);
   const narrowed = filtered || !!st.owner;
-  // Clear all (Jovial, 2 Nov): every filter, the advanced ones and the status chip included
-  const clear = () => set((p) => ({ ...p, q: '', dest: '', who: '', rps: [], region: '', intake: '', progress: '', stage: '', from: '', to: '' }));
-  const [adv, setAdv] = useState(advanced > 0);
-  // the chips count what the other filters leave (not the chip itself)
-  const chipBase = apps.filter((a) => (!st.owner || ownerOf(a) === st.owner));
-  const chipN = chipCounts(chipBase);
+  const clear = () => set((p) => ({ ...p, q: '', dest: '', who: '', intake: '', progress: '', stage: '', from: '', to: '' }));
   const dests = [...new Set(apps.map(destOf))].sort();
-  const rpNames = [...new Set(apps.map(rpOf))].sort((x, y) => x.localeCompare(y));
-  const regions = [...new Set(apps.map(regionOf))].sort();
+  const intakes = [...new Set(apps.map((a) => a.intake))];
+  // the advanced filters open when one is set, and stay where the agency left them
+  const [advOpen, setAdvOpen] = useState(advanced > 0);
+  const badRange = !!(st.from && st.to && st.from > st.to);
 
   // the table as it stands (its filters and order) as a CSV file, one row per application, the same columns
   const exportCsv = () => {
-    const head = ['Application', 'Applied', 'Student', 'Course', 'University', 'Intake', 'Recruitment partner', 'Counsellor', 'Stage', 'Who has it', 'Status'];
+    const head = ['Application', 'Started', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Who has it', 'Status'];
     const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = rows.map((a) => {
       const c = courseOf(a);
       const s = stu(a);
-      return [a.id, isoDay(appliedAt(a)), s ? fullName(s) : '', c.name, c.uni.name, a.intake, rpOf(a), counsellorOf(a)?.name ?? '', `${STAGES[stageOf(a)]} ${stageOf(a) + 1}/8`, OWNER_WORD[ownerOf(a)], statusText(a)]
+      return [a.id, isoDay(a.created), s ? fullName(s) : '', c.name, c.uni.name, a.intake, destOf(a), counsellorOf(a)?.name ?? '', STAGES[stageOf(a)], OWNER_WORD[ownerOf(a)], statusText(a)]
         .map(cell)
         .join(',');
     });
@@ -161,17 +136,15 @@ export function AppList({
       <header className="stu__head">
         <div className="stu__titles">
           <h1 className="page__title">Applications</h1>
-          <p className="stu__lead">{gspIsMine() ? 'Every RP’s applications: who has each one, and what’s pending on you.' : 'Every RP’s applications, and who has each one.'}</p>
+          <p className="stu__lead">Who has each application, and what’s pending on you.</p>
         </div>
         <div className="apps__acts">
           <Button variant="secondary" iconLeft={<Icon name="download" size={16} />} onClick={exportCsv} disabled={!rows.length}>
             Download
           </Button>
-          {canEditNow('Applications › Record') && (
-            <Button iconLeft={<Icon name="plus" size={18} />} onClick={onAdd}>
-              Add application
-            </Button>
-          )}
+          <Button iconLeft={<Icon name="plus" size={18} />} onClick={onAdd}>
+            Add application
+          </Button>
         </div>
       </header>
 
@@ -180,9 +153,9 @@ export function AppList({
         {(
           [
             ['', 'All applications'],
-            ['gsp', 'On GSP'],
-            ['you', 'On RP'],
-            ['uni', 'On university'],
+            ['gsp', 'Pending on you'],
+            ['you', 'With RP'],
+            ['uni', 'With university'],
           ] as [OwnerView, string][]
         ).map(([k, label]) => (
           <button key={k || 'all'} type="button" className={`atile atile--${k || 'all'}`} aria-pressed={st.owner === k} onClick={() => set((p) => ({ ...p, owner: k }))}>
@@ -194,13 +167,19 @@ export function AppList({
 
       <section className="card stable atable" aria-labelledby="atable-count">
         <div className="stools">
-          {/* slice 3 PRD, Applications list (GSP): search; filters destination, recruitment partner, stage, and sales region
-              for roles that see several. No other filters (the progress chips and date range are gone). */}
+          {/* the primary filters: how far each application has got */}
+          <div className="amiles" role="group" aria-label="How far it has got">
+            {PROGRESS.map(([k, label, hint, test]) => (
+              <button key={k} type="button" className="amile" title={hint} aria-pressed={st.progress === k} onClick={() => set((p) => ({ ...p, progress: p.progress === k ? '' : k }))}>
+                {label} <span className="num">{apps.filter(test).length}</span>
+              </button>
+            ))}
+          </div>
           <div className="stools__row atools__row">
             <label className="ssearch">
               <Icon name="search" size={18} />
               <span className="vh">Search applications</span>
-              <input id="ap-q" type="search" placeholder="Application number or student name" value={st.q} onChange={(e) => set((p) => ({ ...p, q: e.target.value }))} />
+              <input id="ap-q" type="search" placeholder="Student or course" value={st.q} onChange={(e) => set((p) => ({ ...p, q: e.target.value }))} />
             </label>
             <SelectInput id="ap-dest" aria-label="Destination" value={st.dest} placeholder="All destinations" allowEmpty onChange={(e) => set((p) => ({ ...p, dest: e.target.value }))}>
               {dests.map((d) => (
@@ -209,63 +188,84 @@ export function AppList({
                 </option>
               ))}
             </SelectInput>
-            {/* Jovial, 2 Nov: several RPs at once, 20 to a page */}
-            <MultiPick id="ap-rp" label="Recruitment partners" value={st.rps ?? []} options={rpNames} empty="All RPs" all="All RPs" search pageSize={20} onChange={(v) => set((p) => ({ ...p, rps: v }))} />
-            <SelectInput id="ap-region" aria-label="Sales region" value={st.region ?? ''} placeholder="All sales regions" allowEmpty onChange={(e) => set((p) => ({ ...p, region: e.target.value }))}>
-              {regions.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+            <SelectInput id="ap-who" aria-label="Counsellor" value={st.who} placeholder="All counsellors" allowEmpty onChange={(e) => set((p) => ({ ...p, who: e.target.value }))}>
+              {team.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
                 </option>
               ))}
             </SelectInput>
-            <button type="button" className={`aadv__toggle ${advanced ? 'is-set' : ''}`} aria-expanded={adv} aria-controls="ap-adv" onClick={() => setAdv((v) => !v)}>
-              <Icon name="sliders" size={16} />
+            <SelectInput id="ap-intake" aria-label="Intake" value={st.intake} placeholder="All intakes" allowEmpty onChange={(e) => set((p) => ({ ...p, intake: e.target.value }))}>
+              {intakes.map((i) => (
+                <option key={i} value={i}>
+                  {i}
+                </option>
+              ))}
+            </SelectInput>
+            <button type="button" className={`aadv__toggle ${advanced ? 'is-set' : ''}`} aria-expanded={advOpen} aria-controls="ap-adv" onClick={() => setAdvOpen((o) => !o)}>
+              <Icon name="sliders" size={18} />
               Advanced filters
-              {advanced > 0 && <span className="aadv__n">{advanced}</span>}
+              {advanced > 0 && <span className="aadv__n num">{advanced}</span>}
               <Icon name="chevronDown" size={16} className="aadv__chev" />
             </button>
           </div>
-          {adv && (
-            <div className="aadv" id="ap-adv">
-              <div className="aadv__in">
-                <div className="aadv__field">
-                  <span className="aadv__label" id="ap-applied-l">Applied date between</span>
-                  <span className="aadv__range">
-                    <DateInput id="ap-from" aria-labelledby="ap-applied-l" aria-label="Applied from" value={st.from} max={isIso(st.to) ? st.to : undefined} onChange={(v) => set((p) => ({ ...p, from: v }))} />
-                    <span className="aadv__and">and</span>
-                    <DateInput id="ap-to" aria-label="Applied to" value={st.to} min={isIso(st.from) ? st.from : undefined} onChange={(v) => set((p) => ({ ...p, to: v }))} />
-                    {(st.from || st.to) && (
-                      <button type="button" className="btn btn--link aadv__x" onClick={() => set((p) => ({ ...p, from: '', to: '' }))}>
-                        Clear
-                      </button>
-                    )}
-                  </span>
-                  {isIso(st.from) && isIso(st.to) && st.from > st.to && <span className="aadv__err">The second date is before the first.</span>}
-                </div>
-                <div className="aadv__field">
-                  <span className="aadv__label">Stage</span>
-                  <span className="aadv__range">
-                    <span className="astage-pick">
-                      <SelectMenu id="ap-stage" label="Stage" value={st.stage} placeholder="All stages" options={[{ value: '', label: 'All stages' }, ...STAGES.map((x, i) => ({ value: String(i), label: `${i + 1}. ${x}` }))]} onChange={(v) => set((p) => ({ ...p, stage: v }))} />
+          {/* the advanced filters: a stage, and a date range for when the applications started */}
+          <AnimatePresence initial={false}>
+            {advOpen && (
+              <motion.div
+                id="ap-adv"
+                className="aadv"
+                role="group"
+                aria-label="Advanced filters"
+                initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                animate={reduce ? { opacity: 1 } : { opacity: 1, height: 'auto' }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                transition={{ duration: 0.22, ease }}
+              >
+                <div className="aadv__in">
+                  <label className="aadv__field" htmlFor="ap-stage">
+                    <span className="aadv__label">Stage</span>
+                    <SelectInput id="ap-stage" value={st.stage} placeholder="Any stage" allowEmpty onChange={(e) => set((p) => ({ ...p, stage: e.target.value }))}>
+                      {STAGES.map((s, i) => (
+                        <option key={s} value={String(i)}>
+                          {i + 1}. {s}
+                        </option>
+                      ))}
+                    </SelectInput>
+                  </label>
+                  <div className="aadv__field aadv__dates" role="group" aria-labelledby="ap-dates-label" aria-describedby={badRange ? 'ap-dates-err' : undefined}>
+                    <span className="aadv__label" id="ap-dates-label">
+                      Started between
                     </span>
-                    {st.stage && (
-                      <button type="button" className="btn btn--link aadv__x" onClick={() => set((p) => ({ ...p, stage: '' }))}>
-                        Clear
-                      </button>
+                    <div className="aadv__range">
+                      <TextInput id="ap-from" type="date" aria-label="Start date" value={st.from} max={st.to || undefined} invalid={badRange} onChange={(e) => set((p) => ({ ...p, from: e.target.value }))} />
+                      <span className="aadv__and" aria-hidden="true">
+                        and
+                      </span>
+                      <TextInput id="ap-to" type="date" aria-label="End date" value={st.to} min={st.from || undefined} invalid={badRange} onChange={(e) => set((p) => ({ ...p, to: e.target.value }))} />
+                    </div>
+                    {badRange && (
+                      <p className="aadv__err" id="ap-dates-err" role="alert">
+                        The end date is before the start date.
+                      </p>
                     )}
-                  </span>
+                  </div>
+                  {advanced > 0 && (
+                    <button type="button" className="btn btn--link aadv__clear" onClick={() => set((p) => ({ ...p, stage: '', from: '', to: '' }))}>
+                      Clear these
+                    </button>
+                  )}
                 </div>
-              </div>
-            </div>
-          )}
-          <StatusChips counts={chipN} value={st.progress} onPick={(k) => set((p) => ({ ...p, progress: k }))} />
+              </motion.div>
+            )}
+          </AnimatePresence>
           <p className="stools__count" id="atable-count" role="status">
             <span>
               <span className="num">{narrowed ? `${rows.length} of ${apps.length}` : apps.length}</span> {apps.length === 1 ? 'application' : 'applications'}
             </span>
             {filtered && (
               <button type="button" className="btn btn--link stools__clear" onClick={clear}>
-                Clear all
+                Clear filters
               </button>
             )}
           </p>
@@ -275,24 +275,25 @@ export function AppList({
           <div className="snone">
             {filtered ? (
               <>
-                <p className="snone__title">No applications match. Clear the search or filters.</p>
+                <p className="snone__title">No applications match</p>
+                <p className="snone__text">Try another name or ID, or clear the filters.</p>
                 <Button variant="secondary" size="sm" onClick={clear}>
-                  Clear all
+                  Clear filters
                 </Button>
               </>
             ) : (
               <>
-                <p className="snone__title">{st.owner === 'gsp' ? (gspIsMine() ? 'Nothing pending on you' : 'Nothing with GSP right now') : st.owner === 'you' ? 'Nothing with an RP right now' : 'Nothing with a university right now'}</p>
+                <p className="snone__title">{st.owner === 'gsp' ? 'Nothing pending on you' : st.owner === 'you' ? 'Nothing with an RP right now' : 'Nothing with a university right now'}</p>
                 <p className="snone__text">{st.owner === 'gsp' ? 'When something is, it shows here first.' : 'Applications move here as they progress.'}</p>
               </>
             )}
           </div>
         ) : (
           <div className="stab-wrap">
-            <table className="atab atab--gsp" role="table" aria-label="Applications">
+            <table className="atab" role="table" aria-label="Applications">
               <thead role="rowgroup">
                 <tr role="row">
-                  {['Application', 'Student', 'Course', 'Intake', 'Recruitment partner', 'Stage', 'Status'].map((h) => (
+                  {['Application', 'Student', 'Course', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Status'].map((h) => (
                     <th key={h} role="columnheader" scope="col">
                       {h}
                     </th>
@@ -300,7 +301,7 @@ export function AppList({
                 </tr>
               </thead>
               <tbody role="rowgroup">
-                {rows.slice((page - 1) * PER, page * PER).map((a, i) => {
+                {rows.map((a, i) => {
                   const s = stu(a);
                   const c = courseOf(a);
                   const o = ownerOf(a);
@@ -320,12 +321,15 @@ export function AppList({
                           {a.id}
                         </button>
                         <span className="arow__sub">
-                          {a.status === 'docs' ? `Started ${shortDate(new Date(a.created), true)}` : `Applied ${shortDate(new Date(appliedAt(a)), true)}`}
+                          {`Started ${shortDate(new Date(a.created))}`}
                         </span>
                       </td>
                       <td role="cell" className="arow__stu">
                         <span className="arow__name">{s ? fullName(s) : 'Student removed'}</span>
-                        <PriorityChip a={a} s={s} />
+                        {/* 6 Nov (Nesil): the student's primary application, or one of the others */}
+                        <span className="arow__rank">
+                          <RankTag rank={rankOf(apps, a, s?.primaryApp)} />
+                        </span>
                       </td>
                       <td role="cell" className="arow__course">
                         <span className="arow__cname" title={c.name}>
@@ -336,9 +340,14 @@ export function AppList({
                       <td role="cell" className="arow__intake">
                         {a.intake}
                       </td>
+                      <td role="cell" className="arow__dest">
+                        <span className="arow__flag" aria-hidden="true">
+                          {FLAG[c.uni.country]}
+                        </span>
+                        {c.uni.country}
+                      </td>
                       <td role="cell" className="arow__who">
-                        <span>{rpOf(a)}</span>
-                        {who && <span className="arow__sub">{who.name}</span>}
+                        <span>{who ? who.name : '—'}</span>
                       </td>
                       <td role="cell" className="arow__stage">
                         <StageMeter stage={stageOf(a)} owner={o} />
@@ -357,7 +366,6 @@ export function AppList({
                 })}
               </tbody>
             </table>
-            <Pager page={page} total={rows.length} onPage={setPage} per={PER} />
           </div>
         )}
       </section>
@@ -367,22 +375,6 @@ export function AppList({
 
 const ownerWord = (o: AppOwner) => OWNER_WORD[o];
 
-/**
- * The status chips (Jovial, 2 Nov): All, then data/listChips.ts's chips, each with its count; a chip with none is
- * greyed out and can't be picked.
- */
-export function StatusChips({ counts, value, onPick }: { counts: Record<ChipKey | '', number>; value: ChipKey | ''; onPick: (k: ChipKey | '') => void }) {
-  return (
-    <div className="amiles" role="group" aria-label="Status">
-      {[{ key: '' as const, label: 'All' }, ...LIST_CHIPS].map((c) => (
-        <button key={c.key || 'all'} type="button" className="amile" aria-pressed={value === c.key} disabled={c.key !== '' && !counts[c.key] && value !== c.key} onClick={() => onPick(c.key)}>
-          {c.label} <span className="num">{counts[c.key]}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /** No applications yet: the journey an application takes, and how to start one. */
 function Empty({ hasStudents, onAdd, onFindCourses }: { hasStudents: boolean; onAdd: () => void; onFindCourses: () => void }) {
   const reduce = useReducedMotion();
@@ -391,7 +383,7 @@ function Empty({ hasStudents, onAdd, onFindCourses }: { hasStudents: boolean; on
       <header className="stu__head">
         <div className="stu__titles">
           <h1 className="page__title">Applications</h1>
-          <p className="stu__lead">{gspIsMine() ? 'Every RP’s applications: who has each one, and what’s pending on you.' : 'Every RP’s applications, and who has each one.'}</p>
+          <p className="stu__lead">Who has each application, and what’s pending on you.</p>
         </div>
       </header>
       <section className="card aempty" aria-labelledby="aempty-title">
@@ -429,13 +421,13 @@ function Empty({ hasStudents, onAdd, onFindCourses }: { hasStudents: boolean; on
           <li>
             <span className="aempty__ic aempty__ic--you" aria-hidden="true" />
             <span>
-              <strong>Amber is the RP.</strong> Every application says who has it and what happens next.
+              <strong>Amber means it’s pending on you.</strong> Every application says who has it and what happens next.
             </span>
           </li>
           <li>
             <span className="aempty__ic aempty__ic--gsp" aria-hidden="true" />
             <span>
-              <strong>Violet is GSP.</strong> Admissions checks the documents and submits to the university.
+              <strong>Violet is GSP.</strong> GSP checks the documents and submits to the university, usually the same day.
             </span>
           </li>
           <li>

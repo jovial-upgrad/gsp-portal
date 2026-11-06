@@ -1,31 +1,32 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { EditOnly } from '../../proto/viewOnly';
 import { motion, useReducedMotion } from 'motion/react';
-import { Icon } from '../../components/Icon';
+import { Icon, type IconName } from '../../components/Icon';
 import { Toast as SharedToast } from '../../components/Toast';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { MultiPick } from '../../components/MultiPick';
 import type { Focus, Target } from '../portal/model';
-import { dateText, type Stamp } from '../data/records';
-import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
-import { dateTimeText, roleName, type Change, type Created } from '../data/changelog';
+import { dateText, dateTimeText, type LogLine, type Stamp } from '../data/records';
 
-/** A records page's title, what it's for, and its main actions. */
+/** A records page's title, what it's for, and its main actions: on the right at every width (3 Nov), under the title when there's no room beside it. */
 export function PageHead({ title, lead, children }: { title: string; lead: string; children?: ReactNode }) {
   return (
-    <header className="stu__head">
+    <header className="stu__head ihead">
       <div className="stu__titles">
         <h1 className="page__title">{title}</h1>
         <p className="stu__lead">{lead}</p>
       </div>
-      {children && <div className="apps__acts">{children}</div>}
+      {children && <div className="apps__acts ihead__acts">{children}</div>}
     </header>
   );
 }
 
-/** Facts as label and value, two to a row on wide screens. */
-export function Facts({ items }: { items: [string, ReactNode][] }) {
+/** Facts as label and value, several to a row on wide screens; a `wide` one takes the whole row. */
+export function Facts({ items }: { items: ([string, ReactNode] | [string, ReactNode, 'wide'])[] }) {
   return (
     <dl className="ifacts">
-      {items.map(([k, v]) => (
-        <div key={k} className="ifacts__row">
+      {items.map(([k, v, w]) => (
+        <div key={k} className={`ifacts__row ${w ? 'ifacts__row--wide' : ''}`}>
           <dt>{k}</dt>
           <dd>{v === null || v === undefined || v === '' ? <span className="muted">Not added</span> : v}</dd>
         </div>
@@ -47,11 +48,12 @@ export function Block({ title, children, action }: { title: string; children: Re
   );
 }
 
-/** No results (slice 2 PRD): "Nothing matches these filters." with Clear filters. */
-export function NoMatch({ onClear }: { what?: string; onClear: () => void }) {
+/** Nothing matches: what to do about it. */
+export function NoMatch({ what, onClear }: { what: string; onClear: () => void }) {
   return (
     <div className="snone">
-      <p className="snone__title">Nothing matches these filters.</p>
+      <p className="snone__title">No {what} match</p>
+      <p className="snone__text">Try another name, or clear the filters.</p>
       <button type="button" className="btn btn--secondary btn--sm" onClick={onClear}>
         Clear filters
       </button>
@@ -59,129 +61,123 @@ export function NoMatch({ onClear }: { what?: string; onClear: () => void }) {
   );
 }
 
-/** Empty (nothing yet): names what's missing, and offers the create action to those who can use it. */
-export function Empty({ text, action, onAction }: { text: string; action?: string; onAction?: () => void }) {
+/** Lines shown at a time on a long timeline (Logs); Show older adds the next lot. */
+export const PAGE = 40;
+
+/** Rows a page (Nesil, 4 Nov): every table in this role shows 20 rows, then its pages. */
+export const PER_PAGE = 20;
+export type Paged<T> = { rows: T[]; page: number; pages: number; setPage: (n: number) => void; from: number; to: number; total: number };
+/** The rows on the page shown; back to the first page when `reset` changes (a search, a filter, a tile). */
+export function usePaged<T>(all: T[], reset: unknown[] = [], per = PER_PAGE): Paged<T> {
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), reset); // eslint-disable-line react-hooks/exhaustive-deps
+  const pages = Math.max(1, Math.ceil(all.length / per));
+  const p = Math.min(page, pages);
+  return { rows: all.slice((p - 1) * per, p * per), page: p, pages, setPage, from: all.length ? (p - 1) * per + 1 : 0, to: Math.min(p * per, all.length), total: all.length };
+}
+
+/**
+ * Under a table (Nesil, 4 Nov): which rows show ("Showing 1–20 of 29 partners"), and the pages with Previous and
+ * Next, once there's more than one. A new page starts at the table's top.
+ */
+export function Pager<T>({ pg, what }: { pg: Paged<T>; what: string }) {
+  const box = useRef<HTMLElement>(null);
+  if (pg.pages <= 1) return null;
+  // the first, the last, and the one either side of the page shown
+  const nums = Array.from({ length: pg.pages }, (_, i) => i + 1).filter((n) => n === 1 || n === pg.pages || Math.abs(n - pg.page) <= 1);
+  const go = (n: number) => {
+    pg.setPage(n);
+    const top = box.current?.closest('.card, .irsec') as HTMLElement | null;
+    if (top && top.getBoundingClientRect().top < 0) top.scrollIntoView({ block: 'start' });
+  };
   return (
-    <div className="snone">
-      <p className="snone__title">
-        {text}
-        {action && onAction ? ' ' : ''}
-        {action && onAction && (
-          <button type="button" className="btn btn--link" onClick={onAction}>
-            {action}
-          </button>
-        )}
+    <nav ref={box} className="ipager" aria-label={`Pages of ${what}`}>
+      <p className="ipager__n" role="status">
+        Showing <span className="num">{pg.from.toLocaleString('en-GB')}</span>–<span className="num">{pg.to.toLocaleString('en-GB')}</span> of <span className="num">{pg.total.toLocaleString('en-GB')}</span> {what}
       </p>
-    </div>
-  );
-}
-
-/** Not found (deleted or a wrong link), and permission denied, as every record page shows them. */
-export function Gone({ denied = false, onBack, back }: { denied?: boolean; onBack: () => void; back: string }) {
-  return (
-    <div className="ipage">
-      <button type="button" className="rback" onClick={onBack}>
-        <Icon name="arrowLeft" size={18} />
-        {back}
-      </button>
-      <section className="card irsec" role="alert">
-        <p className="snone__title">{denied ? 'You don’t have access to this page.' : 'This record doesn’t exist or was removed.'}</p>
-        {denied && (
-          <button type="button" className="btn btn--link" onClick={onBack}>
-            Go to Home
-          </button>
-        )}
-      </section>
-    </div>
-  );
-}
-
-/** Rows a page (slice 2 PRD: 25 a page). */
-export const PAGE = 25;
-
-/** A list's page of rows, and its Previous / Next. The page goes back to the first when the rows change. */
-export function usePager<T>(rows: T[], deps: unknown[] = []) {
-  const [n, setN] = useState(0);
-  const key = JSON.stringify(deps);
-  useOnChange(key, () => setN(0));
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
-  const at = Math.min(n, pages - 1);
-  const page = rows.slice(at * PAGE, at * PAGE + PAGE);
-  const pager =
-    rows.length > PAGE ? (
-      <nav className="imore" aria-label="Pages">
-        <button type="button" className="btn btn--secondary btn--sm" disabled={at === 0} onClick={() => setN(at - 1)}>
-          Previous
+      <div className="ipager__btns">
+        <button type="button" className="ipg" disabled={pg.page === 1} onClick={() => go(pg.page - 1)} aria-label="Previous page">
+          <Icon name="arrowLeft" size={16} />
         </button>
-        <span className="imore__n">
-          <span className="num">{(at * PAGE + 1).toLocaleString('en-GB')}</span>–<span className="num">{Math.min(rows.length, at * PAGE + PAGE).toLocaleString('en-GB')}</span> of <span className="num">{rows.length.toLocaleString('en-GB')}</span>
+        {nums.map((n, i) => (
+          <span key={n} className="ipg__wrap">
+            {i > 0 && n - nums[i - 1] > 1 && (
+              <span className="ipg__gap" aria-hidden="true">
+                …
+              </span>
+            )}
+            <button type="button" className="ipg num" aria-current={n === pg.page ? 'page' : undefined} aria-label={`Page ${n}`} onClick={() => go(n)}>
+              {n}
+            </button>
+          </span>
+        ))}
+        <button type="button" className="ipg" disabled={pg.page === pg.pages} onClick={() => go(pg.page + 1)} aria-label="Next page">
+          <Icon name="arrowRight" size={16} />
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/**
+ * A filter above a list (Nesil, 4 Nov): every one picks several, starting on "All …". `labels` shows a value
+ * another way in the list ("Raj Shamani (you)").
+ */
+export function Filter({ id, label, all, value, options, onChange, labels, search }: { id: string; label: string; all: string; value: string[]; options: readonly string[]; onChange: (v: string[]) => void; labels?: (v: string) => string; search?: boolean }) {
+  const show = labels ?? ((v: string) => v);
+  const back = new Map(options.map((o) => [show(o), o]));
+  return (
+    <div className="ifilter">
+      <MultiPick id={id} label={label} value={value.map(show)} options={options.map(show)} onChange={(l) => onChange(l.map((x) => back.get(x) ?? x))} empty={all} all={all} search={search ?? options.length > 10} />
+    </div>
+  );
+}
+/** No filter picked means every value passes. */
+export const passes = (picked: string[], v: string) => !picked.length || picked.includes(v);
+
+/**
+ * Asks before a remove or a delete (Nesil, 4 Nov: every one in this role asks first). `ask` opens the question;
+ * `dialog` goes once in the page.
+ */
+export function useAsk() {
+  type Q = { title: string; confirm: string; text: ReactNode; run: () => void };
+  const [q, setQ] = useState<Q | null>(null);
+  const [open, setOpen] = useState(false);
+  return {
+    ask: (title: string, confirm: string, text: ReactNode, run: () => void) => {
+      setQ({ title, confirm, text, run });
+      setOpen(true);
+    },
+    dialog: (
+      <ConfirmDialog
+        open={open}
+        title={q?.title ?? ''}
+        confirm={q?.confirm ?? 'Remove'}
+        onConfirm={() => {
+          setOpen(false);
+          q?.run();
+        }}
+        onCancel={() => setOpen(false)}
+      >
+        {q?.text ?? null}
+      </ConfirmDialog>
+    ),
+  };
+}
+
+/** A section that opens and closes (4 Nov): its title in a bar with an arrow, closed to start. */
+export function Fold({ title, id, children, count }: { title: string; id: string; children: ReactNode; count?: number }) {
+  return (
+    <details className="card ifold" id={id}>
+      <summary className="ifold__head">
+        <span className="ifold__title">
+          {title}
+          {count !== undefined && <span className="ifold__n num">{count}</span>}
         </span>
-        <button type="button" className="btn btn--secondary btn--sm" disabled={at >= pages - 1} onClick={() => setN(at + 1)}>
-          Next
-        </button>
-      </nav>
-    ) : null;
-  return { page, pager };
-}
-
-/** A dropdown in the portal's own design (SelectMenu, never the browser's): `all` adds the empty "All …" choice for filters. */
-export function Pick({ id, label, value, options, onChange, all, placeholder, invalid }: { id: string; label: string; value: string; options: readonly (string | MenuOption)[]; onChange: (v: string) => void; all?: string; placeholder?: string; invalid?: boolean }) {
-  const opts: MenuOption[] = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
-  return <SelectMenu id={id} label={label} value={value} placeholder={placeholder ?? all ?? 'Pick one'} invalid={invalid} options={all ? [{ value: '', label: all }, ...opts] : opts} onChange={onChange} />;
-}
-
-/** The Change log tab (S2-13, S2-14): every change, newest first, written by the system and read-only. */
-export function ChangeLog({ log, id }: { log: Change[]; id: string }) {
-  return (
-    <Section title="Change log" id={id} note="Every change, newest first. The system writes it: nobody adds notes, and no entry can be edited or deleted.">
-      {log.length ? (
-        <div className="stab-wrap">
-          <table className="itab">
-            <thead>
-              <tr>
-                <th scope="col">When</th>
-                <th scope="col">Who</th>
-                <th scope="col">Role</th>
-                <th scope="col">What</th>
-                <th scope="col">Old → new</th>
-              </tr>
-            </thead>
-            <tbody>
-              {log.map((e) => (
-                <tr key={e.id}>
-                  <td className="num">{dateTimeText(e.at)}</td>
-                  <td>{e.who}</td>
-                  <td>{roleName(e.role)}</td>
-                  <td>{e.what}</td>
-                  <td>
-                    {e.from} → {e.to}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="iempty">No changes yet.</p>
-      )}
-    </Section>
-  );
-}
-
-/** System information, at the foot of the Overview: created by and on; last modified by and on (the latest Change log entry). */
-export function SystemInfo({ created, log }: { created: Created; log: Change[] }) {
-  const last = log[0];
-  return (
-    <Section title="System information" id="sysinfo">
-      <Facts
-        items={[
-          ['Created by', created.by],
-          ['Created on', dateTimeText(created.at)],
-          ['Last modified by', last ? last.who : created.by],
-          ['Last modified on', dateTimeText(last ? last.at : created.at)],
-        ]}
-      />
-    </Section>
+        <Icon name="chevronDown" size={18} />
+      </summary>
+      <div className="ifold__body">{children}</div>
+    </details>
   );
 }
 
@@ -319,9 +315,11 @@ export function Section({ title, note, action, children, id, updated }: { title:
 
 /** A small "+ Add …" button for a section's head. */
 export const AddButton = ({ onClick, children }: { onClick: () => void; children: ReactNode }) => (
-  <button type="button" className="btn btn--secondary btn--sm iadd" onClick={onClick}>
-    <Icon name="plus" size={16} /> {children}
-  </button>
+  <EditOnly>
+    <button type="button" className="btn btn--secondary btn--sm iadd" onClick={onClick}>
+      <Icon name="plus" size={16} /> {children}
+    </button>
+  </EditOnly>
 );
 
 /** Downloads the rows as a CSV file, the first row its headings. */
@@ -386,4 +384,81 @@ export function Toast({ msg }: { msg: { text: string; key: number } | null }) {
   const [shown, setShown] = useState(msg);
   useEffect(() => setShown(msg), [msg?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   return <SharedToast t={shown && { key: shown.key, title: shown.text, icon: 'checkCircle', tone: 'ok' }} onClose={() => setShown(null)} />;
+}
+
+/** System information (3 Nov): who added the record and when, and who changed it last and when. */
+export function SystemInfo({ id, created, last }: { id: string; created: Stamp; last: Stamp }) {
+  return (
+    <Section title="System information" id={id}>
+      <Facts
+        items={[
+          ['Created by', created.by],
+          ['Created on', <span key="c" className="num">{dateTimeText(created.at)}</span>],
+          ['Last modified by', last.by],
+          ['Last modified on', <span key="m" className="num">{dateTimeText(last.at)}</span>],
+        ]}
+      />
+    </Section>
+  );
+}
+
+/** The icon for each part of a record, on its line in Logs. */
+const PART_ICON: Record<string, IconName> = { status: 'checkCircle', partner: 'partner', profile: 'building', campuses: 'pin', images: 'image', courses: 'cap', scholarships: 'award', territory: 'globe', forms: 'file', submission: 'send', logins: 'key', contacts: 'people', basics: 'edit', intakes: 'calendar', fees: 'wallet', academic: 'cap', english: 'doc' };
+/** "3 Nov 2026, 11:27 am", as the RP side's timeline writes it. */
+const whenText = (iso: string) => {
+  const d = new Date(iso.length > 10 ? iso : `${iso}T00:00`);
+  return iso.length > 10 ? `${dateText(iso)}, ${d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}` : dateText(iso);
+};
+
+/**
+ * Logs (3 Nov): every change to a record as a timeline, newest first, like the application's activity on the RP
+ * side: what changed, then which part, who and when; it ends with when the record was added. Read-only. `parts`
+ * names each part as its tab or section does.
+ */
+export function Logs({ id, ...t }: { id: string; lines: LogLine[]; created: Stamp; added: string; parts: Record<string, string> }) {
+  return (
+    <Section title="Logs" id={id}>
+      <Timeline {...t} />
+    </Section>
+  );
+}
+
+/** The timeline itself (4 Nov: also folded under an announcement): newest first, 40 at a time, then Show older. */
+export function Timeline({ lines, created, added, parts }: { lines: LogLine[]; created: Stamp; added: string; parts: Record<string, string> }) {
+  const [n, setN] = useState(PAGE);
+  const reduce = useReducedMotion();
+  const all: LogLine[] = [...[...lines].sort((a, b) => b.at.localeCompare(a.at)), { id: 'added', at: created.at, by: created.by, part: '', what: added }];
+  return (
+    <>
+      <ol className="aact ilogs">
+        {all.slice(0, n).map((l, i) => (
+          <motion.li
+            key={l.id}
+            className="aact__item aact__item--gsp"
+            initial={reduce ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, ease: [0.2, 0.8, 0.2, 1], delay: Math.min(i, 8) * 0.03 }}
+          >
+            <span className="aact__icon" aria-hidden="true">
+              <Icon name={l.part ? PART_ICON[l.part] ?? 'edit' : 'plus'} size={16} />
+            </span>
+            <span className="aact__t">
+              <span className="aact__text">{l.what}</span>
+              <span className="aact__meta">
+                {l.part ? `${parts[l.part] ?? l.part} · ` : ''}
+                {l.by} · <span className="num">{whenText(l.at)}</span>
+              </span>
+            </span>
+          </motion.li>
+        ))}
+      </ol>
+      {all.length > n && (
+        <div className="ilogs__more">
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => setN((x) => x + PAGE)}>
+            Show {Math.min(PAGE, all.length - n)} older
+          </button>
+        </div>
+      )}
+    </>
+  );
 }

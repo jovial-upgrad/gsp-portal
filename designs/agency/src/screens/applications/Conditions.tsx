@@ -1,4 +1,3 @@
-import { RP_OWNER_WORD } from '../../data/owners';
 import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -27,7 +26,7 @@ export function condViews(a: Application, side: 'gsp' | 'rp' = 'gsp'): CondView[
       title: n.title,
       items: n.form!,
       state: 'rp',
-      pill: gsp ? 'With RP' : RP_OWNER_WORD.you,
+      pill: gsp ? 'With RP' : 'Pending on you',
       meta: `${nItems(n.form!.length)} ${gsp ? 'for the RP to answer' : `from ${n.request?.by ?? 'GSP'}`}${n.request ? `, sent ${shortDate(new Date(n.request.at))}` : ''}${n.due ? ` · due ${shortDate(new Date(n.due))}` : ''}`,
     }));
   const done: CondView[] = (a.conds ?? []).map((x) => ({

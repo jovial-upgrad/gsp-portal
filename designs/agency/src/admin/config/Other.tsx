@@ -1,200 +1,162 @@
 import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { DateInput } from '../../components/forms';
-import { afterError, dateError } from '../../components/validate';
-import { Panel } from './parts';
-import { CODE_MINUTES, type LogEntry, type Security as SecurityCfg } from '../data/config';
-import { PageHead, downloadCsv } from '../../institution/records/parts';
+import { SelectInput, TextInput } from '../../components/forms';
+import { NoMatch, PageHead, downloadCsv } from '../../institution/records/parts';
+import type { LogEntry } from '../data/config';
+import { GSP_USER } from '../user';
 import type { ConfigProps } from './ConfigPage';
-import { ACCOUNT_EMAILS, SENDER } from '../data/emails';
-import { Empty, Loaded, Pager, usePaged, Pick, ViewOnlyNote, istDate, istDay, istTime } from './states';
+import { Pager, usePaged } from './parts';
+
+const day = (t: number) => new Date(t - new Date(t).getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+const stamp = (t: number) => {
+  const d = new Date(t);
+  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+};
 
 /**
- * Logs (Jovial, S1C-9): the download log only, for now. Every CSV or export downloaded anywhere, with who, their
- * role, the page, the filters applied and the rows. Filters: role, person, from and to dates (IST); search by page
- * or filters. Newest first, 50 a page. Kept forever: nobody can edit or delete an entry. Export log is itself logged.
- * Admin sees it; View Only views it. Settings changes stay on each settings page's own Change history.
+ * Logs (PM: the download log, and each settings tab's change history, together): every change to GSP Admin's
+ * settings and every download or export, by anyone, kept forever. 3 Nov (Nesil): filtered by role, user, sales
+ * region, area and the dates from and to, 20 a page; Export Log is logged too. 4 Nov (Nesil): a table, not a
+ * timeline: **Email, Role, Export date and time, Source, Records downloaded, Sales region**, filtered by **Source,
+ * Role** and **Sales region** (and the dates). A change's source is the settings page, with what changed under it.
  */
-export function Logs({ cfg, canEdit }: ConfigProps) {
+export function Logs({ cfg, change, say, me }: ConfigProps) {
+  const [source, setSource] = useState('');
   const [role, setRole] = useState('');
-  const [who, setWho] = useState('');
+  const [region, setRegion] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [q, setQ] = useState('');
-  const iso = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
-  const t = q.trim().toLowerCase();
-  const downloads = cfg.log.filter((l) => l.kind === 'download');
-  const rows = downloads
-    .filter((l) => (!role || l.role === role) && (!who || l.who === who) && (!iso(from) || istDay(l.at) >= from) && (!iso(to) || istDay(l.at) <= to) && (!t || [l.text, l.area, l.filters ?? ''].some((x) => x.toLowerCase().includes(t))))
-    .sort((a, b) => b.at - a.at);
-  const { shown, pager } = usePaged(rows, [role, who, from, to, q]);
-  const rangeErr = dateError(from, { what: 'From date' }) || dateError(to, { what: 'To date' }) || afterError(from, to, 'To date', 'From date');
-  const filtered = Boolean(role || who || from || to || q);
-  const clear = () => (setRole(''), setWho(''), setFrom(''), setTo(''), setQ(''));
-  const what = (l: LogEntry) => `${l.area === l.text ? l.text : `${l.area} · ${l.text}`}${l.format ? ` (${l.format})` : ''}`;
+  const userOf = (name: string) => cfg.users.find((u) => u.name === name);
+  const emailOf = (l: LogEntry) => l.email ?? userOf(l.who)?.email ?? '';
+  const regionOf = (l: LogEntry) => l.region ?? userOf(l.who)?.region ?? '';
+  const all = [...cfg.log].sort((a, b) => b.at - a.at);
+  const rows = all.filter((l) => (!source || l.area === source) && (!role || l.role === role) && (!region || regionOf(l) === region) && (!from || day(l.at) >= from) && (!to || day(l.at) <= to));
+  const pg = usePaged(rows, [source, role, region, from, to]);
+  const any = !!(source || role || region || from || to);
+  const clear = () => {
+    setSource('');
+    setRole('');
+    setRegion('');
+    setFrom('');
+    setTo('');
+  };
+  const list = (f: (l: LogEntry) => string) => [...new Set(all.map(f).filter(Boolean))].sort();
+  const regions = [...new Set([...cfg.regions.map((r) => r.name), ...all.map(regionOf).filter(Boolean)])];
+  const today = day(Date.now());
+  const dash = <span className="cfg__muted">—</span>;
   return (
     <>
-      <PageHead title="Logs" lead="Every download from the portal, kept forever: who downloaded what, with which filters. Nobody can edit or delete an entry. Times are IST.">
+      <PageHead title="Logs" lead="Every change to these settings and every download or export, by anyone, kept forever.">
         <Button
           variant="secondary"
           iconLeft={<Icon name="download" size={18} />}
           onClick={() => {
-            // the export is itself logged, as a download
-            downloadCsv('gsp-download-log.csv', [['Date', 'Time (IST)', 'Name', 'Role', 'Download', 'Filters applied', 'Rows'], ...rows.map((l) => [istDate(l.at), istTime(l.at), l.who, l.role ?? '', what(l), l.filters ?? '', l.size ?? ''])]);
+            downloadCsv('gsp-log.csv', [
+              ['Email', 'Name', 'Role', 'Export date and time', 'Source', 'What', 'Records downloaded', 'Format', 'Filters', 'Sales region'],
+              ...rows.map((l) => [emailOf(l), l.who, l.role ?? '', new Date(l.at).toISOString(), l.area, l.text, l.records ?? '', l.format ?? '', l.filters ?? '', regionOf(l)]),
+            ]);
+            const filters = [source, role, region, from && `from ${from}`, to && `to ${to}`].filter(Boolean).join(' · ') || 'Everything';
+            const u = userOf(me);
+            // logged as a download only: change() adds no change of its own when the text is empty
+            change('Logs', '', (c) => ({ ...c, log: [{ id: `x${Date.now()}`, at: Date.now(), who: me, email: u?.email ?? GSP_USER.email, role: 'Super Admin', region: u?.region || 'Global', area: 'Logs', text: 'Log', kind: 'download', filters, records: rows.length, format: 'CSV' }, ...c.log] }));
+            say(`${rows.length} log entries exported. The export is logged too.`);
           }}
         >
-          Export log
+          Export Log
         </Button>
       </PageHead>
-      {!canEdit && <ViewOnlyNote />}
-      <Loaded page="logs" cols={6}>
-        <section className="card stable" aria-labelledby="lg-count">
-          <div className="stools">
-            <div className="stools__row">
-              <label className="ssearch">
-                <Icon name="search" size={18} />
-                <span className="vh">Search the download log</span>
-                <input id="lg-q" type="search" placeholder="Search by page or filters" value={q} onChange={(e) => setQ(e.target.value)} />
-              </label>
-              <Pick id="lg-role" label="Role" value={role} empty="All roles" options={[...new Set(downloads.map((l) => l.role ?? ''))].filter(Boolean).sort()} onChange={setRole} />
-              <Pick id="lg-who" label="Person" value={who} empty="Everyone" options={[...new Set(downloads.map((l) => l.who))].sort()} onChange={setWho} />
-              <label className="cfg__date">
-                <span>From</span>
-                <DateInput id="lg-from" value={from} invalid={!!rangeErr && !!from} aria-describedby={rangeErr ? 'lg-range' : undefined} onChange={setFrom} />
-              </label>
-              <label className="cfg__date">
-                <span>To</span>
-                <DateInput id="lg-to" value={to} invalid={!!rangeErr && !!to} aria-describedby={rangeErr ? 'lg-range' : undefined} onChange={setTo} />
-              </label>
-              {filtered && (
-                <Button variant="link" onClick={clear}>
-                  Clear filters
-                </Button>
-              )}
-            </div>
-            {rangeErr && (from.length >= 10 || to.length >= 10) && (
-              <p className="field__msg field__msg--error" id="lg-range" role="alert">
-                {rangeErr}
-              </p>
-            )}
-            <p className="stools__count" id="lg-count" role="status">
-              <span className="num">{rows.length}</span> downloads
-            </p>
-          </div>
-          {!rows.length ? (
-            <Empty>No downloads for these filters.</Empty>
-          ) : (
-            <div className="stab-wrap">
-              <table className="itab cfg__tab">
-                <thead>
-                  <tr>
-                    <th scope="col">Date</th>
-                    <th scope="col">Time</th>
-                    <th scope="col">Name</th>
-                    <th scope="col">Role</th>
-                    <th scope="col">Download</th>
-                    <th scope="col">Filters applied</th>
-                    <th scope="col">Rows</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shown.map((l) => (
-                    <tr key={l.id}>
-                      <td className="num cfg__nowrap">{istDate(l.at)}</td>
-                      <td className="num cfg__nowrap cfg__muted">{istTime(l.at)}</td>
-                      <td className="cfg__strong">{l.who}</td>
-                      <td>{l.role ?? '–'}</td>
-                      <td>{what(l)}</td>
-                      <td className="cfg__muted">{l.filters ?? '–'}</td>
-                      <td className="num cfg__nowrap">{l.size ?? '–'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      <section className="card stable" aria-labelledby="lg-count">
+        <div className="lg__filters">
+          <label className="lg__f">
+            <span className="lg__k">Source</span>
+            <SelectInput id="lg-source" value={source} placeholder="All sources" allowEmpty onChange={(e) => setSource(e.target.value)}>
+              {list((l) => l.area).map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </SelectInput>
+          </label>
+          <label className="lg__f">
+            <span className="lg__k">Role</span>
+            <SelectInput id="lg-role" value={role} placeholder="All roles" allowEmpty onChange={(e) => setRole(e.target.value)}>
+              {list((l) => l.role ?? '').map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </SelectInput>
+          </label>
+          <label className="lg__f">
+            <span className="lg__k">Sales region</span>
+            <SelectInput id="lg-region" value={region} placeholder="All regions" allowEmpty onChange={(e) => setRegion(e.target.value)}>
+              {regions.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </SelectInput>
+          </label>
+          <label className="lg__f">
+            <span className="lg__k">From</span>
+            <TextInput id="lg-from" type="date" value={from} max={to || today} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+          <label className="lg__f">
+            <span className="lg__k">To</span>
+            <TextInput id="lg-to" type="date" value={to} min={from || undefined} max={today} onChange={(e) => setTo(e.target.value)} />
+          </label>
+        </div>
+        <p className="stools__count lg__count" id="lg-count" role="status">
+          <span>
+            <span className="num">{rows.length === all.length ? all.length : `${rows.length} of ${all.length}`}</span> entries
+          </span>
+          {any && (
+            <button type="button" className="cfg__linkbtn" onClick={clear}>
+              Clear filters
+            </button>
           )}
-          <Pager {...pager} thing="Log" />
-        </section>
-      </Loaded>
-    </>
-  );
-}
-
-const SEC: [keyof SecurityCfg, string, string][] = [
-  ['maxAttempts', 'Wrong passwords before sign-in pauses', 'tries'],
-  ['lockMinutes', 'Sign-in pauses for', 'minutes'],
-  ['resendSeconds', 'A code can be sent again after', 'seconds'],
-];
-
-/**
- * Sign-in security (PRD slice 1; Admin › Other configurations › Sign-in security): both portals read these at every
- * sign-in. Pre-decided values, not configurable in Admin (Jovial, S1C-11): shown read only, from SECURITY in
- * admin/data/config.ts. The code lifetime is engineering's. There is no single sign-on (S1-5). The four account
- * emails are shown below.
- */
-export function Security({ cfg }: ConfigProps) {
-  return (
-    <>
-      <PageHead title="Sign-in security" lead="How sign-in protects accounts, in both portals. These are decided values and can’t be changed here. There is no single sign-on: GSP people sign in with their email and password." />
-      <Loaded page="sign-in security" cols={2}>
-        <Panel flush>
+        </p>
+        {rows.length === 0 ? (
+          <NoMatch what="entries" onClear={clear} />
+        ) : (
           <div className="stab-wrap">
-            <table className="itab cfg__tab">
+            <table className="itab cfg__tab lg__tab">
               <thead>
                 <tr>
-                  <th scope="col">Setting</th>
-                  <th scope="col">Value</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Role</th>
+                  <th scope="col">Export date and time</th>
+                  <th scope="col">Source</th>
+                  <th scope="col" className="is-num">
+                    Records downloaded
+                  </th>
+                  <th scope="col">Sales region</th>
                 </tr>
               </thead>
               <tbody>
-                {SEC.map(([k, label, unit]) => (
-                  <tr key={k}>
-                    <td className="cfg__strong">{label}</td>
-                    <td>
-                      <span className="num">
-                        {cfg.security[k]} {unit}
-                      </span>
+                {pg.rows.map((l) => (
+                  <tr key={l.id}>
+                    <td className="lg__email">{emailOf(l) || dash}</td>
+                    <td>{l.role || dash}</td>
+                    <td className="cfg__nowrap num">{stamp(l.at)}</td>
+                    <td className="lg__source">
+                      <span className="cfg__strong">{l.area}</span>
+                      <span className="cfg__sub">{l.kind === 'download' ? [l.text, l.filters].filter(Boolean).join(' · ') : l.text}</span>
                     </td>
+                    <td className="is-num num">
+                      {l.kind === 'download' && l.records !== undefined ? (
+                        <>
+                          {l.records.toLocaleString('en-GB')}
+                          {l.format && <span className="cfg__sub">{l.format}</span>}
+                        </>
+                      ) : (
+                        dash
+                      )}
+                    </td>
+                    <td>{regionOf(l) || dash}</td>
                   </tr>
                 ))}
-                <tr>
-                  <td className="cfg__strong">Code lifetime</td>
-                  <td>
-                    <span className="num">{CODE_MINUTES} minutes</span>
-                    <span className="cfg__sub">A code works once.</span>
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>
-        </Panel>
-        <AccountEmails />
-      </Loaded>
+        )}
+        <Pager pg={pg} what="entries" />
+      </section>
     </>
-  );
-}
-
-/** The four account emails (PRD slice 1, Emails this slice sends): drafts, for Jovial to approve the wording. */
-function AccountEmails() {
-  return (
-    <Panel
-      title="Account emails"
-      note={`The system’s own account emails, in both portals. Sender: ${SENDER}, with no Reply-to. They can’t be turned off, because sign-in doesn’t work without them, and have no Email preferences link. English only; times are IST.`}
-    >
-      <div className="cfg__emailtpl">
-        {ACCOUNT_EMAILS.map((e) => (
-          <article key={e.id}>
-            <h3>{e.name}</h3>
-            <p className="cfg__muted">Sent when: {e.when}</p>
-            <p>
-              <span className="cfg__muted">Subject:</span> {e.subject}
-            </p>
-            <p className="cfg__mailbody">{e.body}</p>
-            <p className="cfg__muted">Please don’t reply to this email.</p>
-          </article>
-        ))}
-      </div>
-    </Panel>
   );
 }

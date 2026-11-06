@@ -2,13 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Field, Form as SubmitForm, TextInput, SelectInput, Checkbox, describedBy } from '../../components/forms';
 import { CountryCombobox } from '../../components/CountryCombobox';
+import { CityCombobox } from '../../components/CityCombobox';
 import { PhoneInput } from '../../components/PhoneInput';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { CITY_EXAMPLE, FOUND_US, countryByName, partnerManagerFor } from '../../data/partners';
-import { DETAILS_ORDER, validateDetails, type SignupForm as Form, type SignupState } from '../signup/model';
-import { DocSlotRow, previews, slug, useDocUploads } from '../signup/Documents';
-import { FILE_RULES, docsFor, missingRequired, slotOf } from '../signup/docs';
+import { CITY_EXAMPLE, FOUND_US, countryByName } from '../../data/partners';
+import { hasCityList } from '../../data/cities';
+import { DETAILS_ORDER, WHATSAPP_MARKETS, validateDetails, type SignupForm as Form, type SignupState } from '../signup/model';
+import { slug, useDocUploads } from '../signup/Documents';
+import { DocList } from './DocList';
+import { docsFor, inSentence, missingRequired, slotOf } from '../signup/docs';
 import { Track, type TrackStep } from './Track';
 
 type SetState = (fn: (s: SignupState) => SignupState) => void;
@@ -35,6 +38,7 @@ export function Setup({ join, set, scrollTop }: { join: SignupState; set: SetSta
     { title: 'Business details', state: done ? 'done' : 'you', onSelect: () => setPicked('details'), selected: view === 'details' },
     { title: 'Documents', state: done ? 'you' : 'wait', ...(done && { onSelect: () => setPicked('docs'), selected: view === 'docs' }) },
     { title: 'Verification', state: 'wait' },
+    { title: 'Agreement', state: 'wait' },
     { title: 'All Access', state: 'end' },
   ];
   const docsHead = useRef<HTMLHeadingElement>(null);
@@ -181,6 +185,7 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
     onSaved();
   };
 
+  const whatsapp = WHATSAPP_MARKETS.includes(f.country);
   const fade = reduce ? {} : { initial: { opacity: 0, y: -6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -6 } };
 
   return (
@@ -239,16 +244,16 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
               onBlur={() => touch('biz')}
             />
           </Field>
-          <Field id="su-country" required label="Country" error={show('country')}>
+          <Field id="su-country" required label="Country" hint="Decides the documents we ask for and who your GSP contact is." error={show('country')}>
             <CountryCombobox
               id="su-country"
               value={f.country}
               invalid={!!show('country')}
-              describedBy={describedBy('su-country', show('country'))}
+              describedBy={describedBy('su-country', show('country'), true)}
               onChange={(name) => {
                 if (name === f.country) return;
                 const c = countryByName(name);
-                up({ country: name, state: '', dial: c?.dial ?? f.dial, ownerDial: c?.dial ?? f.ownerDial });
+                up({ country: name, state: '', city: '', dial: c?.dial ?? f.dial, ownerDial: c?.dial ?? f.ownerDial });
               }}
             />
           </Field>
@@ -261,7 +266,7 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
                   placeholder="Choose"
                   invalid={!!show('state')}
                   aria-describedby={describedBy('su-state', show('state'))}
-                  onChange={(e) => up({ state: e.target.value })}
+                  onChange={(e) => e.target.value !== f.state && up({ state: e.target.value, city: '' })}
                   onBlur={() => touch('state')}
                 >
                   {states.map((st) => (
@@ -273,31 +278,32 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
               </Field>
             ) : null /* territories with no states or provinces: nothing to ask */}
             <Field id="su-city" required label="City" error={show('city')}>
-              <TextInput
-                id="su-city"
-                autoComplete="address-level2"
-                placeholder={`e.g. ${CITY_EXAMPLE[f.country] ?? 'your city'}`}
-                value={f.city}
-                invalid={!!show('city')}
-                aria-describedby={describedBy('su-city', show('city'))}
-                onChange={(e) => up({ city: e.target.value })}
-                onBlur={() => touch('city')}
-              />
+              {/* 4 Nov (Nesil): a list to search and pick from, for the country and state; a city that isn't listed can be typed */}
+              {hasCityList(f.country) ? (
+                <CityCombobox
+                  id="su-city"
+                  country={f.country}
+                  state={f.state}
+                  value={f.city}
+                  invalid={!!show('city')}
+                  describedBy={describedBy('su-city', show('city'))}
+                  onChange={(city, state) => up(state ? { city, state } : { city })}
+                  onBlur={() => touch('city')}
+                />
+              ) : (
+                <TextInput
+                  id="su-city"
+                  autoComplete="address-level2"
+                  placeholder={`e.g. ${CITY_EXAMPLE[f.country] ?? 'your city'}`}
+                  value={f.city}
+                  invalid={!!show('city')}
+                  aria-describedby={describedBy('su-city', show('city'))}
+                  onChange={(e) => up({ city: e.target.value })}
+                  onBlur={() => touch('city')}
+                />
+              )}
             </Field>
           </div>
-          {(() => {
-            // Jovial, 1 Nov: nudge for state and city, which decide the partner manager (Recruitment assignment)
-            const pm = f.city.trim() && (f.state || !states.length) ? partnerManagerFor(f.country, f.city, '', f.state) : null;
-            return pm ? (
-              <p className="su-nudge is-done" role="status">
-                Your GSP Recruitment contact will be <strong>{pm.name}</strong> ({pm.role.replace('Recruitment · ', '')}).
-              </p>
-            ) : (
-              <p className="su-nudge" role="status">
-                Add your {states.length ? 'state and city' : 'city'}: they decide your GSP Recruitment contact, who helps you get started.
-              </p>
-            );
-          })()}
         </fieldset>
       </div>
 
@@ -311,7 +317,7 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
             id="su-phone"
             required
             label="Mobile number"
-            hint="Your GSP contact calls you on this number."
+            hint={whatsapp ? 'We send application updates and your daily task list on WhatsApp to this number.' : 'Your GSP contact calls you on this number.'}
             error={show('phone')}
           >
             <PhoneInput
@@ -401,6 +407,7 @@ function DetailsForm({ s, set, onSaved, again }: { s: SignupState; set: SetState
       <div className="card scard">
         <fieldset className="fs">
           <legend className="fs__legend">One more thing</legend>
+          {/* 4 Nov (Nesil): no referral code; the state and city decide the GSP Recruitment contact */}
           <div className="grid2">
             <Field id="su-src" label="How did you find us?">
               <SelectInput id="su-src" value={f.src} placeholder="Choose one" allowEmpty onChange={(e) => up({ src: e.target.value })}>
@@ -432,7 +439,6 @@ function DocsUpload({ s, set, scrollTop }: { s: SignupState; set: SetState; scro
   const docs = docsFor(s.form.country);
   const sending = s.stage === 'sending';
   const { onFile, clear } = useDocUploads(set);
-  const required = docs.filter((d) => !d.optional);
   const missing = missingRequired(docs, s.docs);
   const uploading = docs.some((d) => slotOf(s.docs, d.name).status === 'uploading');
   const tried = (s.docsTried ?? 0) > 0;
@@ -446,7 +452,7 @@ function DocsUpload({ s, set, scrollTop }: { s: SignupState; set: SetState; scro
       const first = missing[0];
       const el = first ? document.getElementById(`doc-${slug(first.name)}`) : null;
       el?.focus({ preventScroll: true });
-      el?.closest('.dslot')?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      el?.closest('.ldoc')?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
       return;
     }
     set((p) => ({ ...p, stage: 'sending' }));
@@ -463,40 +469,18 @@ function DocsUpload({ s, set, scrollTop }: { s: SignupState; set: SetState; scro
     }, 1000);
   };
 
-  const doneCount = required.length - missing.length;
   const countText = uploading
     ? 'Wait for the uploads to finish.'
     : missing.length === 0
-      ? 'All required documents are in.'
-      : tried
-        ? `Upload ${missing.map((d) => d.name).join(' and ')} to continue.`
-        : `${doneCount} of ${required.length} required documents uploaded.`;
+      ? 'All required documents are in. Send them to GSP.'
+      : `Upload your ${missing.map((d) => inSentence(d.name)).join(' and ')} to send your documents to GSP.`;
 
   return (
     <div className="setup__docs">
-      <p className="docs__rules" id="doc-rules">
-        <Icon name="info" size={16} />
-        <span>
-          <strong>PDF, JPG or PNG, up to {FILE_RULES.maxMB} MB each.</strong> For photos, fit the whole page in the frame and keep the text sharp.
-        </span>
-      </p>
-      <ul className="dslots">
-        {docs.map((d) => (
-          <DocSlotRow
-            key={d.name}
-            doc={d}
-            slot={slotOf(s.docs, d.name)}
-            preview={previews.get(d.name)}
-            missing={tried && missing.includes(d)}
-            locked={sending}
-            onFile={(file) => onFile(d, file)}
-            onClear={() => clear(d)}
-          />
-        ))}
-      </ul>
+      <DocList docs={docs} slots={s.docs} tried={tried} missing={missing} locked={sending} onFile={onFile} onClear={clear} />
       <div className="docs__send">
-        <p className={`docs__count ${tried && (missing.length || uploading) ? 'is-error' : missing.length === 0 && !uploading ? 'is-ok' : ''}`} role="status">
-          {missing.length === 0 && !uploading && <Icon name="checkCircle" size={16} />}
+        {/* 4 Nov (Nesil): no line above the button; the list says what's missing, and screen readers hear this */}
+        <p className="vh" role="status">
           {countText}
         </p>
         <Button block loading={sending} onClick={send} iconRight={<Icon name="arrowRight" size={18} />}>

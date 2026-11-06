@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { PhoneInput } from '../../../components/PhoneInput';
-import { useRevealErrors } from '../../../components/validate';
 import { Field, SelectInput, TextInput, describedBy } from '../../../components/forms';
+import { Icon } from '../../../components/Icon';
 import type { Student } from '../../../data/students';
 
 /** Changes the student; the record saves as you go. */
@@ -29,14 +28,17 @@ export function Txt({
   disabled,
   format,
   after,
+  tried,
 }: {
   id: string;
   label: ReactNode;
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
-  /** Shown after the field is left. */
+  /** Shown after the field is left, or once Save was tried. */
   error?: string | null;
+  /** Save was tried: the error shows even if the field was never left. */
+  tried?: boolean;
   hint?: ReactNode;
   /** Where the value was read from, if it was. */
   read?: string | null;
@@ -50,9 +52,7 @@ export function Txt({
   after?: ReactNode;
 }) {
   const [left, setLeft] = useState(false);
-  // shown once the field's been left, or when Save is pressed (QC, 1 Nov)
-  const reveal = useRevealErrors();
-  const err = (left || reveal > 0) && error ? error : null;
+  const err = (left || tried) && error ? error : null;
   const note = read ? readNote(read) : hint;
   return (
     <Field id={id} label={label} required={required} error={err} hint={after ? undefined : note}>
@@ -86,6 +86,7 @@ export function Sel({
   read,
   placeholder = 'Choose',
   disabled,
+  error,
 }: {
   id: string;
   label: ReactNode;
@@ -97,11 +98,23 @@ export function Sel({
   read?: string | null;
   placeholder?: string;
   disabled?: boolean;
+  /** Shown as given (Background shows it once Save was tried). */
+  error?: string | null;
 }) {
   const note = read ? readNote(read) : hint;
   return (
-    <Field id={id} label={label} required={required} hint={note}>
-      <SelectInput id={id} value={value} placeholder={placeholder} allowEmpty={!required} disabled={disabled} className={read ? 'is-auto' : ''} aria-describedby={note ? `${id}-hint` : undefined} onChange={(e) => onChange(e.target.value)}>
+    <Field id={id} label={label} required={required} hint={note} error={error}>
+      <SelectInput
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        allowEmpty={!required}
+        disabled={disabled}
+        invalid={!!error}
+        className={read ? 'is-auto' : ''}
+        aria-describedby={describedBy(id, error, note)}
+        onChange={(e) => onChange(e.target.value)}
+      >
         {options.map((o) => {
           const [v, l] = typeof o === 'string' ? [o, o] : o;
           return (
@@ -125,6 +138,7 @@ export function Choice<T extends string>({
   required,
   hint,
   read,
+  error,
 }: {
   id: string;
   label: ReactNode;
@@ -134,10 +148,12 @@ export function Choice<T extends string>({
   required?: boolean;
   hint?: ReactNode;
   read?: string | null;
+  /** Shown as given, under the choices. */
+  error?: string | null;
 }) {
   const note = read ? readNote(read) : hint;
   return (
-    <div className="field">
+    <div className={`field ${error ? 'field--error' : ''}`}>
       <p className="field__label" id={`${id}-l`}>
         {label}
         {required && (
@@ -149,7 +165,13 @@ export function Choice<T extends string>({
           </>
         )}
       </p>
-      <div className={`radios ${read ? 'is-auto' : ''}`} role="radiogroup" aria-labelledby={`${id}-l`} aria-describedby={note ? `${id}-hint` : undefined}>
+      <div
+        className={`radios ${read ? 'is-auto' : ''} ${error ? 'is-invalid' : ''}`}
+        role="radiogroup"
+        aria-labelledby={`${id}-l`}
+        aria-describedby={describedBy(id, error, note)}
+        aria-invalid={error ? true : undefined}
+      >
         {options.map(([v, l]) => (
           <label key={v} className="radio">
             <input type="radio" name={id} value={v} checked={value === v} onChange={() => onChange(v)} />
@@ -157,23 +179,19 @@ export function Choice<T extends string>({
           </label>
         ))}
       </div>
-      {note && (
-        <p className={`field__msg ${read ? 'field__msg--auto' : ''}`} id={`${id}-hint`}>
-          {note}
+      {/* as in every field: the error, in place of the hint */}
+      {error ? (
+        <p className="field__msg field__msg--error" id={`${id}-error`} role="alert">
+          <Icon name="alert" size={16} />
+          <span>{error}</span>
         </p>
+      ) : (
+        note && (
+          <p className={`field__msg ${read ? 'field__msg--auto' : ''}`} id={`${id}-hint`}>
+            {note}
+          </p>
+        )
       )}
     </div>
-  );
-}
-
-/** The phone number, with its country code; its error (the length its country needs) shows once it's left or on Save. */
-export function Phone({ id, dial, number, onDial, onNumber, error, required }: { id: string; dial: string; number: string; onDial: (v: string) => void; onNumber: (v: string) => void; error?: string | null; required?: boolean }) {
-  const [left, setLeft] = useState(false);
-  const reveal = useRevealErrors();
-  const err = (left || reveal > 0) && error ? error : null;
-  return (
-    <Field id={id} label="Phone number" required={required} error={err}>
-      <PhoneInput id={id} dial={dial} number={number} invalid={!!err} describedBy={err ? `${id}-error` : undefined} onBlur={() => setLeft(true)} onDial={onDial} onNumber={onNumber} />
-    </Field>
   );
 }

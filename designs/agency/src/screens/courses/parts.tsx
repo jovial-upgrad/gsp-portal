@@ -45,7 +45,7 @@ export function UniLogo({ u }: { u: University }) {
 export const campusLabel = (c: Campus) => (c.name === c.city ? c.city : `${c.name}, ${c.city}`);
 
 /** A part of the course dialog on its own card: an icon chip, a title, and on the right a line on whom it's for. */
-export function Box({ id, icon, title, meta, children }: { id: string; icon: IconName; title: string; meta?: ReactNode; children: ReactNode }) {
+export function Box({ id, icon, title, meta, action, children }: { id: string; icon: IconName; title: string; meta?: ReactNode; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="cbox" aria-labelledby={id}>
       <header className="cbox__head">
@@ -56,6 +56,7 @@ export function Box({ id, icon, title, meta, children }: { id: string; icon: Ico
           {title}
         </h3>
         {meta && <span className="cbox__meta">{meta}</span>}
+        {action && <div className="cbox__action">{action}</div>}
       </header>
       <div className="cbox__body">{children}</div>
     </section>

@@ -1,11 +1,9 @@
 /**
  * The Institution Team's sign-in (29 Oct): GSP people a GSP admin gave access to, by their GSP email. There's no
  * registering. The first time, they set up a password with a code sent to that email; later, they sign in, or reset
- * a forgotten password the same way. Prototype values: the code 000000, Kevin Mcewan's password upGrad1234.
+ * a forgotten password the same way. Prototype values: the code 000000, Raj Shamani's password upGrad1234.
  */
 import { TEST_PASSWORD } from '../../data/testing';
-import { adminCfg, onAdminChange } from '../../admin/data/store';
-import { STAFF, label } from '../../data/staff';
 
 export type PwStep = 'request' | 'code' | 'new' | 'done';
 /** Resetting a forgotten password, or setting one up the first time. */
@@ -43,18 +41,11 @@ export type TeamAuth = {
 /** A GSP person with access to the Institution Team. `set`: they've set up their password. */
 export type Member = { name: string; first: string; email: string; org: string; role: string; set: boolean };
 
-/**
- * The Institution team on GSP's staff list (data/staff.ts): Institution and IP Ops. Kevin Mcewan signs in
- * by default; Ally Kingsmill hasn't set a password yet, for the first-time flow.
- */
-const INVITED = 'ally.kingsmill@upgrad.com';
-const DEFAULT = 'kevin.mcewan@upgrad.com';
-const TEAM_STAFF = STAFF.filter((s) => s.role === 'Institution' || s.role === 'IP Ops');
 const MEMBERS: Member[] = [
-  ...TEAM_STAFF.filter((s) => s.email === DEFAULT),
-  ...TEAM_STAFF.filter((s) => s.email === INVITED),
-  ...TEAM_STAFF.filter((s) => s.email !== DEFAULT && s.email !== INVITED),
-].map((s) => ({ name: label(s), first: s.first, email: s.email.toLowerCase(), org: 'GSP', role: s.role, set: s.email !== INVITED }));
+  { name: 'Raj Shamani', first: 'Raj', email: 'raj.shamani@gsp.upgrad.com', org: 'GSP', role: 'Institution', set: true },
+  // given access by a GSP admin, and yet to set up a password
+  { name: 'Kavya Menon', first: 'Kavya', email: 'kavya.menon@gsp.upgrad.com', org: 'GSP', role: 'Institution', set: false },
+];
 
 /** Who the portal is signed in as. */
 export const TEAM_MEMBER = MEMBERS[0];
@@ -67,7 +58,7 @@ export function memberFor(id: string): Member | null {
   return MEMBERS.find((m) => m.email === v || m.email.split('@')[0] === v) ?? null;
 }
 
-/** Passwords set or changed on this visit; a reload goes back to the test password (and to Ally Kingsmill's not being set). */
+/** Passwords set or changed on this visit; a reload goes back to the test password (and to Kavya's not being set). */
 const passwords = new Map<string, string>();
 export const hasPassword = (m: Member) => m.set || passwords.has(m.email);
 export const setPassword = (m: Member, pw: string) => passwords.set(m.email, pw);
@@ -79,19 +70,8 @@ export function verify(id: string, pw: string): Member | null {
   return pw === (passwords.get(m.email) ?? TEST_PASSWORD) ? m : null;
 }
 
-/**
- * Sign-in rules (Jovial, 1 Nov, HC52): GSP · Admin › Other configurations › Sign-in security. Live: they follow
- * Admin's setting as soon as it's saved.
- */
-export let MAX_ATTEMPTS = adminCfg().security.maxAttempts;
-export let LOCK_MINUTES = adminCfg().security.lockMinutes;
-/** Seconds before a code can be sent again. */
-export let RESEND_SECONDS = adminCfg().security.resendSeconds;
-onAdminChange(() => {
-  ({ maxAttempts: MAX_ATTEMPTS, lockMinutes: LOCK_MINUTES, resendSeconds: RESEND_SECONDS } = adminCfg().security);
-});
-/** When a code just sent can be sent again. */
-export const resendFrom = (now = Date.now()) => now + RESEND_SECONDS * 1000;
+export const MAX_ATTEMPTS = 5;
+export const LOCK_MINUTES = 15;
 
 export function maskEmail(email: string) {
   const [user, domain] = email.split('@');
@@ -121,7 +101,7 @@ const flowAt = (mode: PwMode, step: PwStep = 'request', id = ''): TeamAuth['flow
   busy: false,
   code: '',
   codeError: null,
-  resendAt: step === 'code' ? resendFrom() : 0,
+  resendAt: step === 'code' ? Date.now() + 30_000 : 0,
   pw: '',
   pw2: '',
   others: true,
@@ -155,7 +135,7 @@ export const TEAM_AUTH_PRESETS: Record<string, { label: string; make: () => Team
   signin: { label: 'Sign in', make: () => initialTeamAuth() },
   'signin-error': {
     label: 'Wrong password',
-    make: () => ({ ...initialTeamAuth(RAJ), attempts: 3, submitted: true, error: `That email and password don’t match. ${MAX_ATTEMPTS - 3} tries left before sign-in pauses for ${LOCK_MINUTES} minutes.` }),
+    make: () => ({ ...initialTeamAuth(RAJ), attempts: 3, submitted: true, error: 'That email and password don’t match. 2 tries left before sign-in pauses for 15 minutes.' }),
   },
   'signin-locked': { label: 'Sign-in paused', make: () => ({ ...initialTeamAuth(RAJ), attempts: MAX_ATTEMPTS, lockedUntil: Date.now() + LOCK_MINUTES * 60_000 }) },
   'signin-unset': { label: 'No password yet', make: () => ({ ...initialTeamAuth(KAVYA), submitted: true, unset: true }) },

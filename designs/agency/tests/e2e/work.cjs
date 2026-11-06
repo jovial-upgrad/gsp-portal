@@ -1,0 +1,254 @@
+// GSP · Admin, 5 Nov: Work › Queues, SLA and Escalation (Queues, Kinds of Work, Working Days, Reminders and
+// Escalation) and Task Rules.
+const { chromium } = require('playwright');
+const URL = process.env.GSP_URL || require('url').pathToFileURL(require('path').resolve(__dirname, '../../dist-artifact/index.html')).href;
+let pass = 0, fail = 0;
+const ok = (l, c, x = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 'FAIL'}  ${l}${x ? '  ' + x : ''}`); };
+const wait = (p, ms = 400) => p.waitForTimeout(ms);
+(async () => {
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
+  await ctx.addInitScript(() => { try { if (!sessionStorage.getItem('init')) { localStorage.clear(); localStorage.setItem('gsp-proto-role', 'gsp-admin'); localStorage.setItem('gsp-theme', 'light'); sessionStorage.setItem('init', '1'); } } catch {} });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  await p.goto(URL + '#home'); await wait(p, 1800);
+  const group = async (g) => { await p.locator('.pnav__group', { hasText: g }).click(); await wait(p, 300); return (await p.locator('.pfly__item').allInnerTexts()).map((x) => x.trim()); };
+  const go = async (g, item) => { await group(g); await p.locator('.pfly__item', { hasText: new RegExp('^\\s*' + item + '\\s*$') }).first().click(); await wait(p, 700); };
+  const main = () => p.locator('main').innerText();
+  const sheet = () => p.locator('.sheet').last();
+  const tab = (n) => p.getByRole('tab', { name: new RegExp(n) });
+  const natives = () => p.$$eval('select', (l) => l.filter((s) => !s.classList.contains('dd__native') && !s.closest('.proto, .split') && s.getBoundingClientRect().width > 2).length);
+
+  // the menu
+  const groups = (await p.locator('.pnav__group .pnav__label').allInnerTexts()).map((x) => x.trim());
+  ok('menu: Work after User Roles', groups.indexOf('Work') === groups.indexOf('User Roles') + 1, groups.join('|'));
+  const roles = await group('User Roles'); await p.keyboard.press('Escape'); await wait(p, 200);
+  ok('…User Roles no longer has Queues', !roles.includes('Queues'), roles.join('|'));
+  const work = await group('Work');
+  ok('…Work: Queues, SLA and Escalation; Task Rules', work.join('|') === 'Queues, SLA and Escalation|Task Rules', work.join('|'));
+  await p.locator('.pfly__item', { hasText: /^\s*Queues, SLA and Escalation\s*$/ }).click(); await wait(p, 700);
+
+  // Queues
+  ok('title and a one-line lead', (await p.locator('h1').first().innerText()) === 'Queues, SLA and Escalation' && (await p.locator('.stu__lead').first().boundingBox()).height < 34);
+  const tabs = (await p.getByRole('tab').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim());
+  ok('tabs: Queues 32, Kinds of Work 21, Working Days, Reminders and Escalation', tabs.join('|') === 'Queues 32|Kinds of Work 21|Working Days|Reminders and Escalation', tabs.join('|'));
+  const heads = await p.locator('.cfg__title').allInnerTexts();
+  ok('…three groups: Admissions 13, Recruitment 14, Teams 5', heads.slice(0, 3).join('|') === 'Admissions Queues · 13|Recruitment Queues · 14|Team Queues · 5', heads.join('|'));
+  ok('…columns Queue, Leader, Members, Shared by, Receives', (await p.locator('.wk-queues').first().locator('thead th').allInnerTexts()).slice(0, 5).join('|') === 'Queue|Leader|Members|Shared by|Receives');
+  const india = await p.locator('tr', { hasText: 'India Admissions' }).innerText();
+  ok('India Admissions: Ramish leads, 3 names and +4, Fewest open, receives 7', india.includes('Ramish') && india.includes('+4') && india.includes('Fewest open') && india.includes('Verify application documents') && india.includes('+6 more'), india.replace(/\s+/g, ' '));
+  const admin = await p.locator('tr', { hasText: 'Jovial Lejo' }).innerText();
+  ok('Admin: Jovial Lejo, just the leader, tasks with no queue and level 3', admin.includes('Jovial Lejo') && admin.includes('Just the leader') && admin.includes('level 3 escalations'), admin.replace(/\s+/g, ' '));
+  await p.fill('#wk-q', 'kamrun'); await wait(p, 300);
+  ok('search by person: Kamrun leads Bangladesh and Africa', (await p.locator('.wk-queues tbody tr').count()) === 2);
+  await p.fill('#wk-q', ''); await p.selectOption('#wk-type', 'Team'); await wait(p, 300);
+  ok('type: Teams only', (await p.locator('.wk-queues').count()) === 1 && (await p.locator('.wk-queues tbody tr').count()) === 5);
+  await p.selectOption('#wk-type', ''); await wait(p, 200);
+  // Create Queue
+  await p.getByRole('button', { name: 'Create Queue' }).click(); await wait(p, 600);
+  const st = await sheet().innerText();
+  ok('Create Queue: four fields, short hints, no “What lands here”', ['Queue name', 'Leader', 'Shared by', 'Members', 'Gets escalations and covers leave.', 'The leader is always in it.'].every((x) => st.includes(x)) && !st.includes('What lands here'));
+  await sheet().getByRole('button', { name: 'Create Queue' }).click(); await wait(p, 300);
+  ok('…name and leader are required', (await sheet().locator('.field__msg--error').count()) === 2);
+  await p.fill('#wq-name', 'Compliance'); await p.selectOption('#wq-lead', { label: 'Ishaan Verma' }); await p.selectOption('#wq-share', 'pick'); await wait(p, 200);
+  ok('…the hint follows how work is shared', (await sheet().innerText()).includes('Tasks wait in the queue until a member takes one.'));
+  await p.locator('#wq-members').first().click(); await wait(p, 300);
+  await p.locator('.imp__opt', { hasText: 'Jovial Lejo' }).first().click(); await wait(p, 200);
+  await p.locator('.imp__opt', { hasText: 'Rohan Desai' }).first().click(); await wait(p, 200);
+  await p.locator('.imp__acts .btn--secondary').click(); await wait(p, 300);
+  const picked = await sheet().locator('.wk-picked__list li').allInnerTexts();
+  ok('…the people picked are listed, the leader first', picked.length === 3 && picked[0].includes('Ishaan Verma') && picked[0].includes('Leader') && picked.some((x) => x.includes('Rohan Desai')), picked.join('|').replace(/\s+/g, ' '));
+  await sheet().getByRole('button', { name: 'Take Rohan Desai out' }).click(); await wait(p, 200);
+  ok('…and one taken out', (await sheet().locator('.wk-picked__list li').count()) === 2);
+  await sheet().getByRole('button', { name: 'Create Queue' }).click(); await wait(p, 600);
+  const comp = await p.locator('tr', { hasText: 'Compliance' }).innerText();
+  ok('…created in Team Queues: Members pick, nothing yet', comp.includes('Ishaan Verma') && comp.includes('Members pick') && comp.includes('Nothing yet') && (await p.locator('.cfg__title').nth(2).innerText()) === 'Team Queues · 6');
+  // Edit
+  await p.getByRole('button', { name: /More for India Admissions/ }).click(); await wait(p, 300);
+  await p.getByRole('menuitem', { name: 'Edit Queue' }).click(); await wait(p, 600);
+  ok('Edit: no “What lands here”; leader and 7 members listed', !(await sheet().innerText()).includes('What lands here') && (await sheet().locator('.wk-picked__list li').count()) === 8);
+  await p.selectOption('#wq-share', 'leader'); await sheet().getByRole('button', { name: 'Save Changes' }).click(); await wait(p, 500);
+  ok('…saved: Leader assigns', (await p.locator('tr', { hasText: 'India Admissions' }).innerText()).includes('Leader assigns'));
+  // Delete a team queue
+  await p.getByRole('button', { name: /More for Finance/ }).click(); await wait(p, 300);
+  await p.getByRole('menuitem', { name: 'Delete Queue' }).click(); await wait(p, 400);
+  ok('Delete Finance: its 4 kinds of work go to Admin', (await p.locator('.confirm').innerText()).includes('Its 4 kinds of work go to the Admin queue'));
+  await p.locator('.confirm').getByRole('button', { name: 'Delete Queue' }).click(); await wait(p, 500);
+  ok('…deleted', (await p.locator('.wk-queues td:first-child', { hasText: /^Finance$/ }).count()) === 0 && (await p.locator('tr', { hasText: 'Suman Verma' }).count()) === 0);
+  await p.getByRole('button', { name: /More for Nepal Admissions/ }).click(); await wait(p, 300);
+  await p.getByRole('menuitem', { name: 'Delete Queue' }).click(); await wait(p, 400);
+  const nep = await p.locator('.confirm').innerText();
+  ok('…a regional queue can be deleted too, asked first, saying Nepal loses its admission queue', nep.includes('Admin queue') && nep.includes('Nepal will have no admission queue'), nep.replace(/\s+/g, ' '));
+  await p.locator('.confirm').getByRole('button', { name: 'Delete Queue' }).click(); await wait(p, 500);
+  ok('…Nepal Admissions deleted; Admin has no Delete', (await p.locator('tr', { hasText: 'Nepal Admissions' }).count()) === 0);
+  await p.getByRole('button', { name: /More for Admin$/ }).click(); await wait(p, 300);
+  ok('…', (await p.getByRole('menuitem', { name: 'Delete Queue' }).count()) === 0); await p.keyboard.press('Escape'); await wait(p, 200);
+
+  // Kinds of Work
+  await tab('Kinds of Work').click(); await wait(p, 500);
+  ok('Kinds of Work: grouped by area, 21 rows', (await p.locator('.wk-group').count()) === 5 && (await p.locator('.wk-kinds tbody tr:not(.wk-group)').count()) === 21);
+  ok('…Finance’s kinds now go to Admin', (await p.locator('tr', { hasText: 'Enter commission terms' }).innerText()).includes('Admin'));
+  ok('…no inline editing; each row has its three dots', (await p.locator('.wk-kinds button[role=combobox]').count()) === 0 && (await p.locator('.wk-kinds .cfg__acts').count()) === 21);
+  await p.getByRole('button', { name: 'Add Kind of Work' }).click(); await wait(p, 500);
+  const kf = (await sheet().locator('.field__label, label.field__label, .field > label').allInnerTexts()).map((x) => x.replace(/\*|\(required\)/g, '').trim());
+  ok('Add Kind of Work: Kind of work (not Name), Area, Goes to, Due in', kf[0] === 'Kind of work' && !kf.includes('Name') && ['Area', 'Goes to', 'Due in'].every((x) => kf.includes(x)), kf.join('|'));
+  await sheet().getByRole('button', { name: 'Add Kind of Work' }).click(); await wait(p, 200);
+  ok('…kind of work and Goes to are required', (await sheet().locator('.field__msg--error').count()) === 2);
+  await p.fill('#wkk-name', 'Check visa refusal'); await p.selectOption('#wkk-to', 'region:Admissions'); await p.fill('#wkk-due', '2'); await wait(p, 200);
+  await sheet().getByRole('button', { name: 'Add Kind of Work' }).click(); await wait(p, 500);
+  ok('…added under Applications, 2 working days', (await p.locator('tr', { hasText: 'Check visa refusal' }).innerText()).includes('2 working days') && (await p.getByRole('tab', { name: /Kinds of Work 22/ }).count()) === 1);
+  await p.getByRole('button', { name: /More for Answer a handed-over chat/ }).click(); await wait(p, 300);
+  await p.getByRole('menuitem', { name: 'Edit Kind of Work' }).click(); await wait(p, 500);
+  await p.fill('#wkk-due', '2'); await sheet().getByRole('button', { name: 'Save Changes' }).click(); await wait(p, 400);
+  await p.getByRole('button', { name: /More for Enter commission terms/ }).click(); await wait(p, 300);
+  ok('…a kind a task rule uses has no Delete', (await p.getByRole('menuitem', { name: 'Delete Kind of Work' }).count()) === 0);
+  await p.getByRole('menuitem', { name: 'Edit Kind of Work' }).click(); await wait(p, 500);
+  ok('…and its pop-up says why', (await sheet().innerText()).includes('so it can’t be deleted'));
+  await p.selectOption('#wkk-to', 'q-ip-ops'); await sheet().getByRole('button', { name: 'Save Changes' }).click(); await wait(p, 400);
+  ok('…saved: chats due in 2 working hours; commission terms to IP Ops', (await p.locator('tr', { hasText: 'Answer a handed-over chat' }).innerText()).includes('2 working hours') && (await p.locator('tr', { hasText: 'Enter commission terms' }).innerText()).includes('IP Ops'));
+  await p.getByRole('button', { name: /More for Check visa refusal/ }).click(); await wait(p, 300);
+  await p.getByRole('menuitem', { name: 'Delete Kind of Work' }).click(); await wait(p, 300);
+  await p.locator('.confirm').getByRole('button', { name: 'Delete Kind of Work' }).click(); await wait(p, 400);
+  ok('…deleted, asked first', (await p.locator('tr', { hasText: 'Check visa refusal' }).count()) === 0);
+
+  // Working Days: calendars
+  await tab('Working Days').click(); await wait(p, 400);
+  const cals = await p.locator('.wk-cal__name').allInnerTexts();
+  ok('Working Days: two calendars, Monday to Friday (Default) and Sunday to Thursday', cals.length === 2 && cals[0].includes('Monday to Friday') && cals[0].includes('Default') && cals[1].includes('Sunday to Thursday'), cals.join('|'));
+  ok('…the summary reads Sun–Thu, hours in IST, 9 working hours', (await p.locator('.wk-cal').nth(1).innerText()).includes('Sun–Thu · 9:30 am to 6:30 pm IST · 9 working hours a day'));
+  ok('…Bangladesh is on Sunday to Thursday', (await p.locator('.wk-cal').nth(1).locator('.wk-cal__regs').innerText()).trim() === 'Bangladesh');
+  await p.getByRole('button', { name: 'Add Calendar' }).click(); await wait(p, 500);
+  await sheet().getByRole('button', { name: 'Add Calendar' }).click(); await wait(p, 200);
+  ok('Add Calendar: the name is required', (await sheet().locator('.field__msg--error').count()) === 1);
+  await p.fill('#wc-name', 'Saturday to Wednesday');
+  for (const d of ['Thursday', 'Friday']) await sheet().getByRole('button', { name: d, exact: true }).click();
+  await sheet().getByRole('button', { name: 'Saturday', exact: true }).click(); await sheet().getByRole('button', { name: 'Sunday', exact: true }).click();
+  await p.locator('#wc-regs').first().click(); await wait(p, 300);
+  await p.locator('.imp__opt', { hasText: 'Pakistan' }).first().click(); await wait(p, 200);
+  await p.locator('.imp__acts .btn--secondary').click(); await wait(p, 300);
+  ok('…picking a region on another calendar says it moves', (await sheet().innerText()).includes('Pakistan moves here from its calendar.'));
+  await sheet().getByRole('button', { name: 'Add Calendar' }).click(); await wait(p, 500);
+  ok('…added: Sat–Wed with Pakistan, and Pakistan left Monday to Friday', (await p.locator('.wk-cal').nth(2).innerText()).includes('Sat–Wed') && (await p.locator('.wk-cal').nth(2).innerText()).includes('Pakistan') && !(await p.locator('.wk-cal').nth(0).locator('.wk-cal__regs').innerText()).includes('Pakistan'));
+  await p.getByRole('button', { name: 'Add Holiday to Sunday to Thursday' }).click(); await wait(p, 500);
+  await sheet().getByRole('button', { name: 'Add Holiday' }).click(); await wait(p, 200);
+  ok('Add Holiday: date and name required', (await sheet().locator('.field__msg--error').count()) === 2);
+  await p.fill('#wh-date', '2026-12-01'); await p.fill('#wh-name', 'Test Day'); await sheet().getByRole('button', { name: 'Add Holiday' }).click(); await wait(p, 500);
+  ok('…added to that calendar only, in date order', (await p.locator('.wk-cal').nth(1).locator('.wk-hols li').first().innerText()).includes('Test Day') && !(await p.locator('.wk-cal').nth(0).innerText()).includes('Test Day'));
+  await p.getByRole('button', { name: /Remove Republic Day/ }).click(); await wait(p, 300);
+  await p.locator('.confirm').getByRole('button', { name: 'Remove Holiday' }).click(); await wait(p, 400);
+  ok('…a holiday removed, asked first', !(await p.locator('.wk-cal').nth(0).innerText()).includes('Republic Day'));
+  await p.getByRole('button', { name: /More for Monday to Friday/ }).click(); await wait(p, 300);
+  ok('…the default calendar has no Delete', (await p.getByRole('menuitem', { name: 'Delete Calendar' }).count()) === 0); await p.keyboard.press('Escape'); await wait(p, 200);
+  await p.getByRole('button', { name: /More for Saturday to Wednesday/ }).click(); await wait(p, 300);
+  await p.getByRole('menuitem', { name: 'Delete Calendar' }).click(); await wait(p, 300);
+  ok('…deleting one says its regions move to the default', (await p.locator('.confirm').innerText()).includes('Pakistan moves to Monday to Friday'));
+  await p.locator('.confirm').getByRole('button', { name: 'Delete Calendar' }).click(); await wait(p, 400);
+  ok('…deleted, Pakistan back on Monday to Friday', (await p.locator('.wk-cal').count()) === 2 && (await p.locator('.wk-cal').nth(0).locator('.wk-cal__regs').innerText()).includes('Pakistan'));
+
+  // Reminders and Escalation
+  await tab('Reminders and Escalation').click(); await wait(p, 400);
+  ok('Reminders: five steps, then the morning email at 8:30 am IST', (await p.locator('.wk-step').count()) === 5 && (await main()).includes('8:30 am'));
+  ok('…read only until Edit', (await p.locator('.wk-steps .istepper').count()) === 0);
+  await p.getByRole('button', { name: /^Edit$/ }).click(); await wait(p, 300);
+  ok('…Edit: three steppers and the email time', (await p.locator('.wk-steps .istepper').count()) === 3 && (await p.locator('#wr-mail').count()) === 1);
+  await p.getByRole('button', { name: 'More: Level 2: working days late' }).click(); await p.getByRole('button', { name: 'More: Level 2: working days late' }).click(); await p.getByRole('button', { name: 'More: Level 2: working days late' }).click(); await wait(p, 200);
+  ok('…level 2 not before level 3: Save Changes off, and said', await p.getByRole('button', { name: 'Save Changes' }).isDisabled() && (await main()).includes('Level 3 comes after level 2.'));
+  await p.getByRole('button', { name: 'More: Level 3: working days late' }).click(); await p.getByRole('button', { name: 'More: Level 3: working days late' }).click(); await p.fill('#wr-mail', '09:00'); await wait(p, 200);
+  await p.getByRole('button', { name: 'Save Changes' }).click(); await wait(p, 400);
+  ok('…saved: level 2 at 5, level 3 at 7 working days; email at 9:00 am', (await p.locator('.wk-step').nth(3).innerText()).includes('5 working days') && (await p.locator('.wk-step').nth(4).innerText()).includes('7 working days') && (await main()).includes('9:00 am'));
+  ok('no native dropdowns', (await natives()) === 0);
+
+  // Due in has − and +
+  await tab('Kinds of Work').click(); await wait(p, 300);
+  await p.getByRole('button', { name: 'Add Kind of Work' }).click(); await wait(p, 500);
+  await sheet().getByRole('button', { name: 'More: Due in' }).click(); await sheet().getByRole('button', { name: 'More: Due in' }).click(); await wait(p, 200);
+  ok('Add Kind of Work: Due in steps with − and +', (await p.inputValue('#wkk-due')) === '3');
+  await sheet().getByRole('button', { name: 'Cancel' }).click(); await wait(p, 300);
+
+  // Task Rules: area chips, a table an area, a short pop-up
+  await go('Work', 'Task Rules');
+  ok('Task Rules: title, a one-line lead, 31 rules in seven areas', (await p.locator('h1').first().innerText()) === 'Task Rules' && (await p.locator('.stu__lead').first().boundingBox()).height < 34 && (await p.locator('.wk-trules tbody tr').count()) === 31 && (await p.locator('.wk-trules').count()) === 7);
+  const chips = (await p.locator('.wk-cats .ichip').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim());
+  ok('…chips: All 31, Applications 10, RPs 5, Institution partners 3, Email 3, Commission 5, Admin 4, Escalation 1', chips.join('|') === 'All 31|Applications 10|RPs 5|Institution partners 3|Email 3|Commission 5|Admin 4|Escalation 1', chips.join('|'));
+  await p.locator('.wk-cats .ichip', { hasText: 'Commission' }).click(); await wait(p, 300);
+  ok('…a chip shows its area only', (await p.locator('.wk-trules').count()) === 1 && (await p.locator('.wk-trules tbody tr').count()) === 5);
+  await p.locator('.wk-cats .ichip', { hasText: 'Escalation' }).click(); await wait(p, 300);
+  ok('…the escalation rule has a switch but no Edit', (await p.locator('.wk-trules tbody tr').innerText()).includes('The team’s Ops queue, then Admin') && (await p.locator('.wk-trules .wk-tr-edit').count()) === 0);
+  await p.locator('.wk-cats .ichip', { hasText: 'All' }).click(); await wait(p, 300);
+  const t4 = await p.locator('.wk-trules tbody tr', { has: p.locator('td:first-child', { hasText: /^T4$/ }) }).innerText();
+  ok('T4: starts after 48 wh, SLA 6 wh, RP reminded 24 wh, for the officer', t4.includes('48 wh') && t4.includes('6 wh') && t4.includes('24 wh') && t4.includes('The application’s officer'), t4.replace(/\s+/g, ' '));
+  await p.locator('#wt-on-tr-1').click(); await wait(p, 300);
+  ok('…T1 switched off', (await p.locator('.wk-trules tr').nth(1).getAttribute('class')).includes('is-off'));
+  await p.getByRole('button', { name: 'Edit T4' }).click(); await wait(p, 500);
+  const sh = await sheet().innerText();
+  ok('Edit T4: what’s built in at a glance, four fields, a short hint each', ['When', 'Task', 'Closes when', 'Goes to', 'Task starts after', 'SLA', 'RP reminded after', 'How it’s shared', 'Empty: at once.', 'Empty: no reminder.'].every((x) => sh.includes(x)) && !sh.includes('BUILT IN'));
+  ok('…Save Changes off until something changes', await sheet().getByRole('button', { name: 'Save Changes' }).isDisabled());
+  await p.fill('#wt-after', '3'); await p.selectOption('#wt-after-unit', 'calendar'); await p.fill('#wt-sla', ''); await p.selectOption('#wt-share', 'leader'); await wait(p, 200);
+  const words = await sheet().locator('.wk-words').innerText();
+  ok('…in words follows: after 3 calendar days, for its leader, due in its kind’s 1 working day', words.includes('After 3 calendar days') && words.includes('for its leader') && words.includes('due in 1 working day'), words);
+  await sheet().getByRole('button', { name: 'Save Changes' }).click(); await wait(p, 400);
+  const t4b = await p.locator('.wk-trules tbody tr', { has: p.locator('td:first-child', { hasText: /^T4$/ }) }).innerText();
+  ok('…saved: 3 days, the kind’s SLA (1 wd), To the leader', t4b.includes('3 days') && t4b.includes('1 wd') && t4b.includes('To the leader'), t4b.replace(/\s+/g, ' '));
+  await p.getByRole('button', { name: /Add Type for RP Ops/ }).click(); await wait(p, 400);
+  await p.fill('#wt-type', 'Update branch details'); await sheet().getByRole('button', { name: 'Add Type' }).click(); await wait(p, 400);
+  ok('Requests: a type added for RP Ops', (await p.locator('tr', { hasText: /^\s*RP Ops/ }).innerText()).includes('Update branch details'));
+  await p.getByRole('button', { name: 'Remove Invoice query' }).click(); await wait(p, 300);
+  await p.locator('.confirm').getByRole('button', { name: 'Remove Type' }).click(); await wait(p, 300);
+  ok('…a type removed, asked first', !(await p.locator('.wk-reqs').innerText()).includes('Invoice query'));
+  await p.locator('.cfg__history summary').last().click(); await wait(p, 200);
+  ok('…every change in the history', (await p.locator('.cfg__history').last().innerText()).includes('T1 Documents to verify switched off') && (await p.locator('.cfg__history').last().innerText()).includes('Update branch details'));
+  // My Work
+  await p.locator('.pnav__item', { hasText: 'My Work' }).click(); await wait(p, 700);
+  const navs = (await p.locator('.pnav > li > .pnav__item .pnav__label').allInnerTexts()).map((x) => x.trim());
+  ok('menu: My Work under Inbox', navs.slice(0, 3).join('|') === 'Home|Inbox|My Work', navs.slice(0, 4).join('|'));
+  ok('My Work: title, a one-line lead, no prototype clock', (await p.locator('h1').first().innerText()) === 'My Work' && (await p.locator('.stu__lead').first().boundingBox()).height < 34 && !(await main()).includes('Prototype clock'));
+  const tiles = (await p.locator('.mw-tile').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim());
+  ok('…tiles: 5 assigned to me (2 breached), 3 due soon, 2 breached', tiles[0].startsWith('5 Assigned to me 2 breached') && tiles[1].startsWith('3 Due soon') && tiles[2].startsWith('2 Breached'), tiles.join('|'));
+  ok('…Assigned to me: 5 rows, soonest due first, with Mark as Completed', (await p.locator('.mw-tab tbody tr').count()) === 5 && (await p.locator('.mw-tab tbody tr').first().innerText()).includes('Breached') && (await p.getByRole('button', { name: /^Mark as Completed/ }).count()) === 5);
+  await p.getByRole('button', { name: 'Mark as Completed Enter next week’s exchange rates' }).click(); await wait(p, 300);
+  ok('…Mark as Completed completes it: 4 left', (await p.locator('.mw-tab tbody tr').count()) === 4 && (await p.locator('.mw-tile').first().innerText()).startsWith('4'));
+  const pickIn = async (id, labels) => { await p.locator(`#${id}`).click(); await wait(p, 300); for (const l of labels) await p.locator('.imp__opt', { hasText: l }).first().click(); await p.locator('.imp__acts .btn--secondary').click(); await wait(p, 300); };
+  await pickIn('mw-status', ['Completed']);
+  ok('…SLA status Completed shows it, with no actions', (await p.locator('.mw-tab tbody tr').count()) === 1 && (await p.locator('.mw-tab tbody tr').innerText()).includes('Completed') && (await p.locator('.mw-tab .mw-acts .btn--link').count()) === 0);
+  await p.getByRole('button', { name: 'Clear filters' }).click(); await wait(p, 300);
+  await p.locator('.mw-views .ichip', { hasText: 'All work' }).click(); await wait(p, 300);
+  ok('All work: 20 a page with a pager; three multi-select filters', (await p.locator('.mw-tab tbody tr').count()) === 20 && (await p.locator('.cfg__pager').count()) === 1 && (await p.locator('.mw-filter').count()) === 3);
+  await pickIn('mw-queues', ['RP Ops', 'IP Ops']);
+  const qcol = await p.locator('.mw-tab tbody td:nth-child(4)').allInnerTexts();
+  ok('…Queues: RP Ops and IP Ops only', qcol.length > 0 && qcol.every((x) => ['RP Ops', 'IP Ops'].includes(x.trim())) && qcol.some((x) => x.trim() === 'RP Ops') && qcol.some((x) => x.trim() === 'IP Ops'), qcol.length + '');
+  await pickIn('mw-status', ['Breached']);
+  const scol = await p.locator('.mw-tab tbody td:nth-child(7)').allInnerTexts();
+  ok('…and SLA status Breached', scol.length > 0 && scol.every((x) => x.includes('Breached')));
+  await pickIn('mw-assigned', ['Not assigned']);
+  const wcol = await p.locator('.mw-tab tbody td:nth-child(5)').allInnerTexts();
+  ok('…and Assigned to: Not assigned', wcol.every((x) => x.includes('Not assigned')), wcol.length + '');
+  const un = p.locator('.mw-acts .btn--link', { hasText: /^Assign/ }).first();
+  if (await un.count()) {
+    await un.click(); await wait(p, 500);
+    ok('Assign: People in the queue, Assign off until someone is picked', (await sheet().innerText()).includes('People in') && await sheet().getByRole('button', { name: 'Assign', exact: true }).isDisabled());
+    await p.selectOption('#mw-who', { index: 1 }); await sheet().getByRole('button', { name: 'Assign', exact: true }).click(); await wait(p, 400);
+    ok('…assigned', (await p.locator('.sheet').count()) === 0);
+  }
+  await p.getByRole('button', { name: 'Clear filters' }).click(); await wait(p, 300);
+  // tick and assign together
+  ok('Tick boxes: one a row, and one to tick all', (await p.locator('.mw-tab tbody .mw-tick .check').count()) === 20 && (await p.locator('#mw-tick-all').count()) === 1);
+  for (const i of [0, 1, 2]) await p.locator('.mw-tab tbody .mw-tick input').nth(i).click({ force: true });
+  await wait(p, 200);
+  ok('…three ticked: the bar says so, with Assign 3', (await p.locator('.mw-bulk').innerText()).replace(/\s+/g, ' ').includes('3 ticked') && (await p.getByRole('button', { name: 'Assign 3' }).count()) === 1);
+  await p.getByRole('button', { name: 'Assign 3' }).click(); await wait(p, 500);
+  ok('Assign 3 Tasks: a searchable person, Assign off until picked', (await sheet().innerText()).includes('Assign 3 Tasks') && await sheet().getByRole('button', { name: 'Assign', exact: true }).isDisabled());
+  await p.locator('#mw-bulk-who').click(); await wait(p, 300);
+  const who = (await p.locator('[role=option]').first().innerText()).replace(' (leader)', '').trim();
+  await p.locator('[role=option]').first().click(); await wait(p, 200);
+  await sheet().getByRole('button', { name: 'Assign', exact: true }).click(); await wait(p, 400);
+  const firstThree = await p.locator('.mw-tab tbody td:nth-child(5)').allInnerTexts();
+  ok('…assigned: the ticks clear, and the three are ' + who + '’s', (await p.locator('.mw-bulk').count()) === 0 && (await main()).includes(`3 tasks assigned to ${who}`), firstThree.slice(0, 3).join('|'));
+  await p.locator('.mw-views .ichip', { hasText: 'Assigned to me' }).click(); await wait(p, 300);
+  await p.locator('#mw-tick-all').click({ force: true }); await wait(p, 200);
+  ok('…on Assigned to me too: tick all ticks every open one', (await p.locator('.mw-bulk').innerText()).replace(/\s+/g, ' ').includes(`${await p.locator('.mw-tab tbody .mw-tick .check').count()} ticked`), await p.locator('.mw-bulk').innerText());
+  await p.locator('.mw-bulk .btn--link').click(); await wait(p, 200);
+  await p.locator('.mw-views .ichip', { hasText: 'Waiting' }).click(); await wait(p, 300);
+  ok('Waiting on others: 12 records, breached first, with a timer', (await p.locator('.mw-tab tbody tr').count()) === 12 && (await p.locator('.mw-tab tbody tr').first().innerText()).includes('a chase task is raised') && (await p.locator('#mw-queue').count()) === 0);
+  ok('no page errors', errs.length === 0, errs.slice(0, 2).join(' | '));
+  console.log(`${pass} passed, ${fail} failed`);
+  await b.close();
+})();

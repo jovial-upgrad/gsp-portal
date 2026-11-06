@@ -8,12 +8,12 @@ import { fillFromEducation, fillFromPassport, fillFromResume, fillFromTest, save
  * Education, score reports into Tests, the CV's jobs into Work experience. The CV, SOP, recommendation and work
  * letters, and anything that isn't part of a section, are kept in Additional documents.
  */
-export { OK_TYPES } from '../../../data/uploads';
+export const OK_TYPES = /\.(pdf|jpe?g|png)$/i;
 /** A file that isn't the passport, a marksheet, a transcript or a score report: kept in Documents under its own name. */
 export const isOther = (key: string) => key.startsWith('other-');
 let other = 1;
 export const otherKey = () => `other-${Date.now().toString(36)}${other++}`;
-export { UPLOAD_MAX_BYTES as MAX_SIZE } from '../../../data/uploads';
+export const MAX_SIZE = 20 * 1024 * 1024;
 
 export type Place = 'personal' | 'education' | 'work' | 'tests' | 'documents';
 export type Kind = { t: 'passport' } | { t: 'edu'; l: Level } | { t: 'test'; type: TestType } | { t: 'extra'; key: string } | { t: 'other' };
@@ -22,7 +22,7 @@ const TEST_WORDS: [RegExp, TestType][] = [
   [/\bielts\b/, 'IELTS'],
   [/\btoefl\b/, 'TOEFL'],
   [/\bpte\b/, 'PTE'],
-  [/\b(duolingo|det)\b/, 'Duolingo'],
+  [/\b(duolingo|det)\b/, 'DET'],
   [/\bsat\b/, 'SAT'],
   [/\bact\b/, 'ACT'],
   [/\bgmat\b/, 'GMAT'],
@@ -96,7 +96,9 @@ export function fileInto(s: Student, files: string[], saved?: string): Student {
       const id = p.tests.find((t) => t.type === k.type)?.id ?? `tb${seq++}`;
       const t = p.tests.find((x) => x.id === id) ?? { id, type: k.type, cert: '', date: '', overall: '', parts: {} };
       const tests = p.tests.some((x) => x.id === id) ? p.tests : [...p.tests, t];
-      p = fillFromTest(saveTest({ ...p, tests }, t, file), id);
+      // an English test's score report answers "Has the student taken an English test?" (4 Nov)
+      const english = TESTS[k.type].kind === 'English' ? { englishTest: 'yes' as const, englishTestDate: '' } : {};
+      p = fillFromTest(saveTest({ ...p, ...english, tests }, t, file), id);
     } else if (k.t === 'extra') {
       p = { ...p, docs: { ...p.docs, [k.key]: { name: nameOf(k), file, status: 'uploaded' as const } } };
       if (isCv(k)) p = fillFromResume(p);

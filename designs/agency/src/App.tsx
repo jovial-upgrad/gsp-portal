@@ -1,6 +1,3 @@
-import { ToastHost } from './components/Toast';
-import { TooltipHost } from './components/Tooltip';
-import { UnsavedHost } from './components/unsaved';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { SignupBar, SignupPanel, accountMade } from './screens/signup/SignupFlow';
@@ -11,24 +8,30 @@ import { Portal } from './screens/portal/Portal';
 // GSP Team starts as a copy of the agency portal, so it can change without touching RP Admin
 import { Portal as GspPortal } from './gsp/portal/Portal';
 import { Portal as InstitutionPortal } from './institution/portal/Portal';
+import { Portal as FinancePortal } from './finance/portal/Portal';
+import { Portal as GlobalOpsPortal } from './globalops/portal/Portal';
+import { Portal as RecruitmentPortal } from './recruitment/portal/Portal';
+import { Portal as InstOpsPortal } from './instops/portal/Portal';
+import type { Seat } from './screens/portal/Portal';
+
+/** GSP Branch Manager and GSP Counsellor (6 Nov): RP Admin's portal, for one branch (Mumbai) or one counsellor (Karthik Nair). */
+const BRANCH_SEAT: Seat = { kind: 'branch', title: 'Branch Manager', member: { id: 'meghna', name: 'Meghna Rao', role: 'Branch Admin', email: 'meghna.rao@brightpathoverseas.in', dial: '+91', phone: '98201 55412', branch: 'mumbai' } };
+const COUNSELLOR_SEAT: Seat = { kind: 'counsellor', title: 'Counsellor', member: { id: 'karthik', name: 'Karthik Nair', role: 'Counsellor', email: 'karthik.nair@brightpathoverseas.in', dial: '+91', phone: '98450 22113', branch: 'hq' } };
+const BranchPortal = (p: Parameters<typeof Portal>[0]) => <Portal {...p} seat={BRANCH_SEAT} />;
+const CounsellorPortal = (p: Parameters<typeof Portal>[0]) => <Portal {...p} seat={COUNSELLOR_SEAT} />;
+
+/** GSP · View Only (6 Nov): GSP · Institution's portal, to look at; only Course search can be used. */
+const ViewOnlyPortal = (p: Parameters<typeof InstitutionPortal>[0]) => <InstitutionPortal {...p} viewOnly />;
 // the Institution Team (GSP · Institution) signs in its own way: a GSP email, a password set up the first time, no registering
 import { TeamSignIn } from './institution/signin/TeamSignIn';
 import { TEAM_AUTH_PRESETS } from './institution/signin/model';
 // GSP Admin (GSP · Admin, 30 Oct): builds on the Institution Team, with its own sign-in
 import { Portal as AdminPortal } from './admin/portal/Portal';
-import type { ComponentProps } from 'react';
-
-/** GSP Admin's portal for each role that uses it, with that role's menu (admin/portal/variants.ts). */
-const ADMIN_PORTALS = {
-  'gsp-admin': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="admin" />,
-  'gsp-recruitment': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="recruitment" />,
-  'gsp-bap': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="bap" />,
-  'gsp-finance': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="finance" />,
-  // View Only reuses GSP · Admin's pages, read only (S1-1)
-  'gsp-view-only': (p: ComponentProps<typeof AdminPortal>) => <AdminPortal {...p} variant="viewonly" />,
-};
 import { TeamSignIn as AdminSignIn } from './admin/signin/TeamSignIn';
 import { TEAM_AUTH_PRESETS as ADMIN_AUTH_PRESETS } from './admin/signin/model';
+import { Portal as RpOpsPortal } from './rpops/portal/Portal';
+import { TeamSignIn as RpOpsSignIn } from './rpops/signin/TeamSignIn';
+import { TEAM_AUTH_PRESETS as RPOPS_AUTH_PRESETS } from './rpops/signin/model';
 import { PORTAL_PRESETS, portalAccount } from './screens/portal/model';
 import { COURSE_PRESETS } from './screens/courses/search';
 import { STUDENT_PRESETS } from './screens/students/presets';
@@ -37,11 +40,7 @@ import type { PortalStart } from './screens/portal/Portal';
 import type { Section } from './screens/portal/model';
 import { AuthScene } from './shell/AuthScene';
 import { ProtoPanel, type Device } from './proto/ProtoPanel';
-import { ADMIN_LIKE, ADMISSIONS_LIKE, INSTITUTION_LIKE, RP_ROLE, roleOf, setCurrentRole, type Role } from './proto/roles';
-import { actAsGspRole } from './gsp/user';
-import { actAsInstitutionRole } from './institution/user';
-import { accountByRole } from './screens/signin/model';
-import { ADMIN_STATES, setSim } from './admin/config/states';
+import { roleOf, type Role } from './proto/roles';
 import { setLink, useLink } from './proto/link';
 import { SideBySide } from './proto/SideBySide';
 import { sampleApplications, courseOf } from './data/applications';
@@ -59,13 +58,13 @@ type Route = 'auth' | 'signup' | 'portal' | 'home';
 const routeOf = (token: string | null): Route | null =>
   !token
     ? null
-    : token in AUTH_PRESETS || token in TEAM_AUTH_PRESETS || token in ADMIN_AUTH_PRESETS
+    : token in AUTH_PRESETS || token in TEAM_AUTH_PRESETS
       ? 'auth'
       : token in PRESETS
         ? 'signup'
         : token in PORTAL_PRESETS || token in COURSE_PRESETS || token in STUDENT_PRESETS || token in APP_PRESETS
           ? 'portal'
-          : token === 'home' || token in ADMIN_STATES
+          : token === 'home'
             ? 'home'
             : null;
 /** "Become a GSP partner" always means a new registration: a draft whose account already exists starts again. */
@@ -112,8 +111,6 @@ export default function App() {
             : loadDraft() ?? initialState(),
   );
   const [account, setAccount] = useState<Account>(SAMPLE_ACCOUNT);
-  // a page state's review state opens an Admin page (PRD slice 1)
-  const [adminStart, setAdminStart] = useState<{ key: string; section: Section } | undefined>(() => (first && first in ADMIN_STATES ? (setSim(ADMIN_STATES[first].sim), { key: first, section: ADMIN_STATES[first].section as Section }) : undefined));
   // course search review states open a verified agency, with its students to search for, on Find courses with a search already made
   const courseStart = (k: string, s: SignupState): PortalStart => ({
     key: `${k}-${Date.now()}`,
@@ -166,6 +163,8 @@ export default function App() {
       else window.scrollTo({ top: 0 });
       // wide screens: the portal's page scrolls in its own area, under the strip with the notification buttons
       document.querySelector('.shell__scroll')?.scrollTo({ top: 0 });
+      // 4 Nov: on desktop, sign in and registration scroll inside their panel
+      document.querySelector('.auth__center')?.scrollTo({ top: 0 });
       document.getElementById('main')?.focus({ preventScroll: true });
     });
   }, [device]);
@@ -196,11 +195,6 @@ export default function App() {
         setStart({ key: `${k}-${Date.now()}`, section: 'home' });
       }
       if (r === 'home') setAccount(SAMPLE_ACCOUNT);
-      // the page states' review states (PRD slice 1): an Admin page, loading, failing, view only…
-      if (k in ADMIN_STATES) {
-        setSim(ADMIN_STATES[k].sim);
-        setAdminStart({ key: `${k}-${Date.now()}`, section: ADMIN_STATES[k].section as Section });
-      } else if (r === 'home') setSim(null);
       setRoute(r);
       mark(k);
       scrollTop();
@@ -243,18 +237,11 @@ export default function App() {
   // Sign in and becoming a partner share one scene that stays mounted and looks the same: the photo, its statement
   // and the panel stay in place and only the panel's content changes; only going in or out of the portal fades the whole page.
   const isPublic = route === 'auth' || route === 'signup';
-  // every role in the Role menu has its own signed-in person (Jovial, 2 Nov); the new ones reuse existing views (S1-1)
-  setCurrentRole(role);
-  if (ADMISSIONS_LIKE.includes(role)) actAsGspRole();
-  if (INSTITUTION_LIKE.includes(role)) actAsInstitutionRole();
-  const RolePortal = ADMISSIONS_LIKE.includes(role) ? GspPortal : INSTITUTION_LIKE.includes(role) ? InstitutionPortal : ADMIN_LIKE.includes(role) ? ADMIN_PORTALS[role as keyof typeof ADMIN_PORTALS] : Portal;
-  // the RP's roles: the test agency's RP Admin, Branch Manager or a counsellor
-  const rpAccount = RP_ROLE[role] && RP_ROLE[role] !== 'RP Admin' ? accountByRole(RP_ROLE[role]!) : account;
+  const RolePortal = role === 'gsp-team' ? GspPortal : role === 'institution-partner' ? InstitutionPortal : role === 'gsp-view' ? ViewOnlyPortal : role === 'gsp-finance' ? FinancePortal : role === 'gsp-globalops' ? GlobalOpsPortal : role === 'gsp-recruitment' ? RecruitmentPortal : role === 'gsp-instops' ? InstOpsPortal : role === 'gsp-admin' ? AdminPortal : role === 'rp-ops' ? RpOpsPortal : role === 'rp-branch' ? BranchPortal : role === 'rp-counsellor' ? CounsellorPortal : Portal;
   // the Institution Team and GSP Admin sign in with a GSP email, each in its own scene
-  // every GSP role signs in at the GSP portal (PRD slice 1, Sign-in): a GSP email, a password set up the first time
-  const team = INSTITUTION_LIKE.includes(role) || ADMIN_LIKE.includes(role) || ADMISSIONS_LIKE.includes(role);
-  const TeamGate = team ? AdminSignIn : TeamSignIn;
-  const teamPresets = team ? ADMIN_AUTH_PRESETS : TEAM_AUTH_PRESETS;
+  const team = role === 'institution-partner' || role === 'gsp-admin' || role === 'rp-ops' || role === 'gsp-view' || role === 'gsp-finance' || role === 'gsp-globalops' || role === 'gsp-recruitment' || role === 'gsp-instops';
+  const TeamGate = role === 'gsp-admin' ? AdminSignIn : role === 'rp-ops' ? RpOpsSignIn : TeamSignIn;
+  const teamPresets = role === 'gsp-admin' ? ADMIN_AUTH_PRESETS : role === 'rp-ops' ? RPOPS_AUTH_PRESETS : TEAM_AUTH_PRESETS;
   // switching role shows that role's portal: the same state if one is open, otherwise its Home, signed in
   const switchRole = (r: Role) => {
     setRole(r);
@@ -271,7 +258,7 @@ export default function App() {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
       >
-        {isPublic && team && <TeamGate key={`team-${role}-${token}`} preset={token} notice={auth.notice} onSignedIn={() => go('home', 'home')} />}
+        {isPublic && team && (role === 'gsp-view' || role === 'gsp-finance' || role === 'gsp-globalops' || role === 'gsp-recruitment' || role === 'gsp-instops' ? <TeamSignIn key={`team-${role}-${token}`} preset={token} notice={auth.notice} brand={role === 'gsp-view' ? ['GSP', 'View Only'] : role === 'gsp-finance' ? ['GSP', 'Finance'] : role === 'gsp-recruitment' ? ['GSP', 'Recruitment'] : role === 'gsp-instops' ? ['GSP', 'Institution Ops'] : ['GSP', 'Global Ops']} onSignedIn={() => go('home', 'home')} /> : <TeamGate key={`team-${role}-${token}`} preset={token} notice={auth.notice} onSignedIn={() => go('home', 'home')} />)}
         {isPublic && !team && (
           <AuthScene
             sceneKey={route}
@@ -283,6 +270,8 @@ export default function App() {
               <SignInPanel
                 a={auth}
                 set={setAuthFree}
+                // 4 Nov: every role but RP Admin says "Sign in to upGrad GSP"; GSP Team shares RP Admin's sign-in
+                lead={role === 'gsp-team' ? 'Sign in to upGrad GSP.' : undefined}
                 onJoin={() => {
                   setSignup(toRegister);
                   go('signup', 'signup');
@@ -311,16 +300,15 @@ export default function App() {
         {route === 'portal' && (
           <RolePortal acc={portalAccount(signup)} join={signup} set={setSignupFree} scrollTop={scrollTop} onSignOut={() => signOut(signup.form.email)} start={start} />
         )}
-        {route === 'home' && <RolePortal key={role} acc={rpAccount} join={null} scrollTop={scrollTop} start={ADMIN_LIKE.includes(role) ? adminStart : undefined} onSignOut={() => signOut(readPref('gsp-remember-id', ''))} />}
+        {route === 'home' && <RolePortal acc={account} join={null} scrollTop={scrollTop} onSignOut={() => signOut(readPref('gsp-remember-id', ''))} />}
       </motion.div>
     </AnimatePresence>
   );
 
   const teamGroups = useMemo(
     () => [
-      { title: 'Sign in', items: ['signin', 'signin-error', 'signin-locked', 'signin-unset', 'signin-off', 'forgot', 'forgot-code', 'code-expired', 'code-many', 'forgot-new', 'forgot-done'].filter((k) => k in teamPresets).map((k) => ({ key: k, label: teamPresets[k].label })) },
-      { title: 'Set up a password (first time)', items: ['setup', 'setup-code', 'setup-new', 'setup-done', 'link-new', 'link-expired'].filter((k) => k in teamPresets).map((k) => ({ key: k, label: teamPresets[k].label })) },
-      ...(ADMIN_LIKE.includes(role) ? [{ title: 'Admin page states (slice 1)', items: Object.entries(ADMIN_STATES).map(([key, v]) => ({ key, label: v.label })) }] : []),
+      { title: 'Sign in', items: ['signin', 'signin-error', 'signin-locked', 'signin-unset', 'forgot', 'forgot-code', 'forgot-new', 'forgot-done'].map((k) => ({ key: k, label: teamPresets[k].label })) },
+      { title: 'Set up a password (first time)', items: ['setup', 'setup-code', 'setup-new', 'setup-done'].map((k) => ({ key: k, label: teamPresets[k].label })) },
       { title: 'Portal', items: [{ key: 'home', label: 'Signed in' }] },
       { title: 'Course search', items: Object.entries(COURSE_PRESETS).map(([key, v]) => ({ key, label: v.label })) },
       { title: 'Students', items: Object.entries(STUDENT_PRESETS).map(([key, v]) => ({ key, label: v.label, sub: v.label.startsWith('Add: ') })) },
@@ -332,13 +320,13 @@ export default function App() {
     () => [
       {
         title: 'Sign in',
-        items: ['signin', 'signin-error', 'signin-locked', 'signin-agency-paused', 'forgot', 'forgot-code', 'forgot-new', 'forgot-done'].map((k) => ({ key: k, label: AUTH_PRESETS[k].label })),
+        items: ['signin', 'signin-error', 'signin-locked', 'forgot', 'forgot-code', 'forgot-new', 'forgot-done'].map((k) => ({ key: k, label: AUTH_PRESETS[k].label })),
       },
       { title: 'Become a partner', items: Object.entries(PRESETS).map(([key, v]) => ({ key, label: v.label })) },
       {
         title: 'Portal',
         items: [
-          ...['portal-setup', 'portal-setup-docs', 'portal-verifying', 'portal-sent-back', 'portal-sent-back-2', 'portal-verified'].map((k) => ({ key: k, label: PORTAL_PRESETS[k].label })),
+          ...['portal-setup', 'portal-setup-docs', 'portal-verifying', 'portal-sent-back', 'portal-sent-back-2', 'portal-agreement', 'portal-agreement-sent', 'portal-agreement-back', 'portal-verified'].map((k) => ({ key: k, label: PORTAL_PRESETS[k].label })),
           { key: 'home', label: 'Established partner signed in' },
         ],
       },
@@ -362,26 +350,17 @@ export default function App() {
         <div className="stage">
           <div className="device-wrap">
             <div className="device" ref={frameRef}>
-              <div className="app">
-                {view}
-                <ToastHost />
-                <UnsavedHost />
-              </div>
+              <div className="app">{view}</div>
             </div>
             <div id="layer" className="layer" />
           </div>
         </div>
       ) : (
         <>
-          <div className="app">
-            {view}
-            <ToastHost />
-            <UnsavedHost />
-          </div>
+          <div className="app">{view}</div>
           <div id="layer" className="layer" />
         </>
       )}
-      <TooltipHost />
       <ProtoPanel
         groups={team ? teamGroups : groups}
         current={token}

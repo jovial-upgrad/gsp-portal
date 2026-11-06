@@ -1,18 +1,6 @@
 import { useId } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { STAGES, type AppOwner } from '../../data/applications';
-
-/** What each stage means, from GSP's side (W28, 1 Nov): the RP's own path says "You add the application". */
-export const GSP_STAGE_HINT = [
-  'The RP adds the application and its documents',
-  'GSP Admissions verifies the documents',
-  'GSP Admissions submits to the university, which decides',
-  'The offer, and its conditions',
-  'Finance and background check, assessment, the unconditional offer',
-  'Tuition or deposit, then the acceptance letter',
-  'The visa',
-  'Enrolment',
-];
+import { STAGES, STAGE_HINT, type AppOwner } from '../../data/applications';
 import { OWNER_TAG, OWNER_WORD } from './owners';
 import { shortDate } from '../../data/dates';
 
@@ -115,7 +103,7 @@ export function StageTrack({ stage, owner, dates = [], who = true }: { stage: nu
         {STAGES.map((name, i) => {
           const st = i < stage || owner === 'done' ? 'done' : i === stage ? (ended ? 'ended' : 'now') : 'next';
           return (
-            <li key={name} className={`strack__step is-${st}`} title={GSP_STAGE_HINT[i]} aria-current={st === 'now' ? 'step' : undefined}>
+            <li key={name} className={`strack__step is-${st}`} title={STAGE_HINT[i]} aria-current={st === 'now' ? 'step' : undefined}>
               <motion.span
                 className="strack__dot"
                 initial={reduce ? false : { scale: 0.6, opacity: 0 }}
@@ -137,7 +125,7 @@ export function StageTrack({ stage, owner, dates = [], who = true }: { stage: nu
               <span className="strack__name">{name}</span>
               <span className="strack__when">{st === 'now' ? (who ? OWNER_WORD[owner] : 'Now') : st === 'done' && dates[i] ? shortDate(new Date(dates[i]!)) : st === 'ended' ? 'Closed here' : ''}</span>
               <span className="vh">
-                {st === 'done' ? ', done' : st === 'now' ? ', now' : st === 'ended' ? ', closed here' : ', to come'}. {GSP_STAGE_HINT[i]}.
+                {st === 'done' ? ', done' : st === 'now' ? ', now' : st === 'ended' ? ', closed here' : ', to come'}. {STAGE_HINT[i]}.
               </span>
             </li>
           );

@@ -1,14 +1,10 @@
-import { nextWorkingDay } from '../../data/workdays';
 /** The portal around a partner: which sections they can use, and the verification that opens the rest. */
-import { fmtDate } from '../../data/format';
-import { liveMenu } from '../../admin/data/menus';
-import { PERM_ROLE, currentRole } from '../../proto/roles';
 import type { IconName } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import { SAMPLE, accountCreated, type SignupState } from '../../screens/signup/model';
 import { SAMPLE_FILES, docsFor } from '../../screens/signup/docs';
 
-export type Section = 'home' | 'mywork' | 'mail' | 'applications' | 'students' | 'courses' | 'earnings' | 'profile';
+export type Section = 'home' | 'inbox' | 'work' | 'applications' | 'students' | 'courses' | 'rps' | 'universities' | 'catalogue' | 'earnings' | 'profile';
 
 /**
  * setup: the account exists, but the business details and documents haven't gone to GSP; only Home is open.
@@ -18,21 +14,24 @@ export type Section = 'home' | 'mywork' | 'mail' | 'applications' | 'students' |
 export type Access = 'setup' | 'verifying' | 'all';
 
 /** The menu never changes order with the account's state; locked sections keep their place and say so. */
-const ALL_NAV: { key: Section; label: string; short: string; icon: IconName; locked: boolean }[] = [
+export const NAV: { key: Section; label: string; short: string; icon: IconName; locked: boolean }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home', locked: false },
-  // Jovial, 31 Oct: GSP · Admissions works from My work; Earnings is the RP's, not Admissions'
-  { key: 'mywork', label: 'My work', short: 'My work', icon: 'checkCircle', locked: false },
-  { key: 'mail', label: 'Mail', short: 'Mail', icon: 'mail', locked: false },
+  // GSP's shared inboxes (Nesil, 3 Nov): every GSP role has it, RP Admin doesn't
+  { key: 'inbox', label: 'Inbox', short: 'Inbox', icon: 'inbox', locked: false },
+  // the signed-in officer's tasks (Nesil, 5 Nov), as GSP · Admin's My Work
+  { key: 'work', label: 'My work', short: 'My work', icon: 'check', locked: false },
+  { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search', locked: false },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people', locked: true },
-  { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search', locked: false },
-  { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: false },
+  // 6 Nov (Nesil's access sheet): no Earnings (commission isn't Admissions') and no agency Profile (the initials open the
+  // account); Recruitment partners, Universities and Courses to look at
+  { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner', locked: false },
+  { key: 'universities', label: 'Universities', short: 'Universities', icon: 'building', locked: false },
+  { key: 'catalogue', label: 'Courses', short: 'Courses', icon: 'cap', locked: false },
 ];
-/** GSP · Admissions' menu, cut to what Admission can open in GSP · Admin › Permission roles (HC47). */
-// Global Ops reuses this portal (S1-1): the menu follows whichever role is on show
-// Mail kept simple (Jovial, 5 Nov): an officer reads an application's mail in its Mail tab, so Mail (mail to link) is Global Ops' only
-const MENU = liveMenu(ALL_NAV, () => (currentRole() === 'gsp-global-ops' ? PERM_ROLE['gsp-global-ops'] : PERM_ROLE['gsp-team']));
-export const NAV = new Proxy(MENU, { get: (t, k) => Reflect.get(t.filter((x) => x.key !== 'mail' || currentRole() === 'gsp-global-ops'), k) });
+
+/** The pages GSP · Admissions only looks at (6 Nov access sheet). */
+export const VIEW: Section[] = ['rps', 'universities', 'catalogue'];
 
 /** What each locked section is for, said on its locked page and on Home. */
 export const LOCKED_COPY: Partial<Record<Section, { title: string; text: string }>> = {
@@ -212,8 +211,8 @@ export function sentDocs(s: SignupState) {
 /* ---------- Dates, in the partner's terms ---------- */
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-const time = (d: Date) => d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true });
-const day = (d: Date) => fmtDate(d, { year: false });
+const time = (d: Date) => d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
+const day = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
 /** "today, 10:42 am" or "24 Oct, 10:42 am" */
 export function whenLabel(ts?: number) {
@@ -222,7 +221,10 @@ export function whenLabel(ts?: number) {
   return `${sameDay(d, new Date()) ? 'today' : day(d)}, ${time(d)}`;
 }
 
-/** The date to expect GSP's verification by (HC32): the next working day in GSP's calendar for the agency's country. */
-export function expectedBy(ts?: number, country = '') {
-  return nextWorkingDay(ts ?? Date.now(), country).toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short' });
+/** GSP works Monday to Saturday; "usually within 1 working day" lands on the next one. */
+export function expectedBy(ts?: number) {
+  const d = new Date(ts ?? Date.now());
+  d.setDate(d.getDate() + 1);
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }

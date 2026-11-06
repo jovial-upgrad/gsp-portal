@@ -1,5 +1,3 @@
-import { TEST_COUNTRY } from '../../data/rpteam';
-import { TEST_RP } from '../../data/dataset';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
@@ -10,15 +8,12 @@ import { Icon } from '../../components/Icon';
 import { partnerManagerFor } from '../../data/partners';
 import type { Account } from '../signin/model';
 import type { SignupState } from '../signup/model';
-import { NAV, accessOf, expectedBy, phaseOf, sentDocs, type Section } from './model';
+import { AGREEMENT, NAV, accessOf, agreementOf, earningsLocked, expectedBy, phaseOf, sentDocs, type Section } from './model';
+import { PreviewSheet } from '../../components/DocView';
 import { docsFor, missingRequired } from '../signup/docs';
 import { returnedDocs, stillToReplace } from '../signup/docs';
 import { Home } from './Home';
 import { LaterSection, LockedSection, ProfileSection } from './Sections';
-import { AccountClosed, HeldNote, RpAgreementCard, RpAgreementProfile } from './Agreement';
-import { agreementName, agreementNotes, commissionHeld, openAgreement, rpCardCopy } from '../../institution/data/agreements';
-import { agreementReminders } from '../../work/rpRules';
-import { useStore as useWork } from '../../work/store';
 import { DocumentsSheet } from './DocumentsSheet';
 import { FindCourses } from '../courses/FindCourses';
 import { newSearch, runSearch, type CourseSearch } from '../courses/search';
@@ -26,21 +21,26 @@ import type { NoteTarget } from '../../data/inbox';
 import { sampleAnnouncements } from '../../institution/data/announcements';
 import { useInbox } from './Inbox';
 import { Students } from '../students/Students';
-import { fullName, sampleStudents, type Member, type Student } from '../../data/students';
-import { teamFor } from '../../data/rpteam';
+import { fullName, sampleStudents, teamFor, type Member, type Student } from '../../data/students';
 import { sampleBranches, type Branch } from '../../data/team';
 import type { AddState } from '../students/form';
 import type { RecordTab } from '../students/StudentRecord';
 import { Applications, type AppsStart } from '../applications/Applications';
 import { sampleApplications, studentApps, type Application } from '../../data/applications';
 import { useLinkedData } from '../../proto/link';
+import { AccessProvider, type Feature } from '../../proto/viewOnly';
+import { AccountPage } from '../../institution/records/Account';
+
+/**
+ * A seat in the agency (Nesil, 6 Nov, from the access sheet): GSP Branch Manager (the students and applications of
+ * one branch) or GSP Counsellor (their own). RP Admin's portal without Earnings, the agency's Profile or commission;
+ * Find courses, Students and Applications (Chat and Documents) to use.
+ */
+export type Seat = { kind: 'branch' | 'counsellor'; member: Member; title: string };
+/** What a seat leaves out (src/proto/viewOnly.tsx). */
+const SEAT_HIDE: Feature[] = ['courses.commission', 'app.base-commission'];
 import '../signup/signup.css';
 import './portal.css';
-import { useLiveApps } from '../../data/live';
-import { useSharedDb } from '../../institution/data/store';
-import { bapDecisions, signupId, syncSignup } from '../../institution/data/rpverify';
-import { setSession } from '../../data/downloads';
-import { rpSees, seesCommission, seesEarnings } from '../../data/rproles';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -103,8 +103,11 @@ export function Portal({
   scrollTop,
   onSignOut,
   start,
+  seat,
 }: {
   acc: Account;
+  /** GSP Branch Manager or GSP Counsellor (6 Nov): one branch's, or one counsellor's, students and applications. */
+  seat?: Seat;
   /** The registration this partner came from; none for a partner who signed in to an established account. */
   join: SignupState | null;
   /** Updates the registration: replacing sent-back documents and sending them again. */
@@ -117,47 +120,30 @@ export function Portal({
   const reduce = useReducedMotion();
   const [section, setSection] = useState<Section>(start?.section ?? 'home');
   // the course search lives here, so leaving Find courses and coming back keeps it
-  // the agency's own state, from its profile (W34): the registration's, or the head office's for an established agency
-  const homeState = join ? join.form.state || '' : sampleBranches().find((b) => b.main)?.state ?? '';
-  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || TEST_COUNTRY, homeState));
+  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(join?.form.country || 'India', join?.form.state || ''));
   // students live here too: a new agency starts with none, an established one with its own
-  // an RP sees only its own students and applications: GSP's others (with another RP) aren't theirs
-  // slice 1 Roles (S1-1): a Branch Manager sees their branch's students, a Counsellor only those assigned to them
-  const sees = useMemo(() => rpSees(acc), [acc]);
-  const [students, setStudents] = useState<Student[]>(() => (start?.students ?? (join ? [] : sampleStudents(acc.name))).filter((x) => !x.rp).filter(sees));
+  // a seat sees its branch's students, or its own (by who's their counsellor)
+  const seatTeam = () => [...teamFor(acc.name, acc.email).filter((m) => m.id !== seat?.member.id), ...(seat ? [seat.member] : [])];
+  const inSeat = (st: Student) => !seat || (seat.kind === 'counsellor' ? st.counsellor === seat.member.id : seatTeam().find((m) => m.id === st.counsellor)?.branch === seat.member.branch);
+  const [students, setStudents] = useState<Student[]>(() => start?.students ?? (join ? [] : sampleStudents(acc.name).filter(inSeat)));
   // and applications, for those students; the student list shows each one's applications from here
-  const [apps, setApps] = useState<Application[]>(() => (start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications())).filter((x) => !x.rp).filter((a) => acc.role === 'RP Admin' || !acc.role || students.some((s) => s.id === a.studentId)));
-  // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
-  useLiveApps(setApps);
-  // who's signed in, for the download log (data/downloads.ts)
-  setSession(acc.name, acc.role ?? 'RP Admin');
+  const [apps, setApps] = useState<Application[]>(() => {
+    const all = start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications());
+    if (!seat) return all;
+    const mine = new Set(sampleStudents(acc.name).filter(inSeat).map((x) => x.id));
+    return all.filter((a) => mine.has(a.studentId));
+  });
   // connected to the other role for testing (Role, beside Prototype): see proto/link.ts
   // the bell and the megaphone: this portal's notifications (real ones from the other role while connected), and
   // announcements as the Institution Team's model has them (this role's own copy: nothing that team changes reaches here)
   const [anns] = useState(() => ({ list: sampleAnnouncements(), names: {} }));
-  // the agency's own record (its sign-up, or the prototype's own agency): its agreement reaches the RP Admin's bell
-  const [db] = useSharedDb();
-  const rpRec = join ? db.rps.find((r) => r.id === signupId(join)) : undefined;
-  const myRp = rpRec ?? (!join ? db.rps.find((r) => r.id === 'rp-test') : undefined);
-  const isRpAdmin = !acc.role || acc.role === 'RP Admin';
-  // T69's reminders (L-5): 3 and 7 working days after the agreement was sent, from Admin › Work › Task rules
-  const workRules = useWork((w: { rules: unknown[] }) => w.rules);
-  const agrNotes = useMemo(() => {
-    if (!myRp || !isRpAdmin) return [];
-    const open = openAgreement(myRp);
-    const reminders = agreementReminders(myRp, workRules).map((m: { id: string; at: number }) => ({ id: m.id, title: 'Reminder: sign your agreement', text: `${open ? agreementName(open) : 'Your agreement'} is still waiting for your signed copy. Download it, sign it, and upload it on Home.`, at: m.at }));
-    return [...agreementNotes(myRp), ...reminders].map((n) => ({ ...n, kind: 'system' as const, to: { page: 'home' as const } }));
-  }, [myRp, isRpAdmin, workRules]);
   const inbox = useInbox({
-    extra: agrNotes,
     role: 'rp',
     access: accessOf(join),
     agency: acc.agency,
-    country: join?.form.country || TEST_COUNTRY,
+    country: join?.form.country || 'India',
     apps,
     students,
-    me: acc,
-    join: join ?? undefined,
     anns,
     onOpen: (t) => openNote(t),
     onCourses: (uni) => {
@@ -169,21 +155,24 @@ export function Portal({
   useLinkedData(apps, setApps, students, setStudents, inbox.onIncoming);
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
   // the agency's team and branches: managed on Profile, and the team Students picks counsellors from
-  const [team, setTeam] = useState<Member[]>(() => teamFor(acc));
+  const [team, setTeam] = useState<Member[]>(() => (seat ? seatTeam() : teamFor(acc.name, acc.email)));
   const [branches, setBranches] = useState<Branch[]>(sampleBranches);
   // moving between sections with something open: a student's record, an application, the new application sheet
   const [jump, setJump] = useState<PortalStart | undefined>();
-  const begin = jump ?? start;
+  // the review state's opening (a student, an application) counts once: after the menu is used, sections open on their first page
+  const [moved, setMoved] = useState(false);
+  const begin = jump ?? (moved ? undefined : start);
   // a new review state replaces what's on screen; the first one already set it up above
   const seenStart = useRef(start?.key);
   useEffect(() => {
     if (!start || start.key === seenStart.current) return;
     seenStart.current = start.key;
     setJump(undefined);
+    setMoved(false);
     setSection(start.section);
     if (start.search) setSearch(start.search);
-    if (start.students) setStudents(start.students.filter((x) => !x.rp));
-    if (start.apps || start.students) setApps((start.apps ?? (start.students?.length ? sampleApplications() : [])).filter((x) => !x.rp));
+    if (start.students) setStudents(start.students);
+    if (start.apps || start.students) setApps(start.apps ?? (start.students?.length ? sampleApplications() : []));
   }, [start?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const jumpTo = (p: Omit<PortalStart, 'key'>) => {
     setJump({ ...p, key: `jump-${Date.now()}` });
@@ -191,27 +180,22 @@ export function Portal({
     scrollTop();
   };
   const [docsOpen, setDocsOpen] = useState(false);
-  // a new sign-up is on GSP's Recruitment partners list from the start (W5), and BAP's decisions on its documents
-  // come back here (W4): data/rpverify.ts
-  useEffect(() => {
-    if (join) syncSignup(join);
-  }, [join]);
-  useEffect(() => {
-    if (!join || !rpRec || !set) return;
-    const next = bapDecisions(join, rpRec);
-    if (next) set(() => next);
-  }, [rpRec]); // eslint-disable-line react-hooks/exhaustive-deps
   const access = accessOf(join);
-  // documents verified and the agreement out: the sidebar says where it is, until the signed copy is accepted
-  const agrOpen = myRp && !myRp.approved ? openAgreement(myRp) : null;
   const phase = phaseOf(join);
   const needs = join ? sentDocs(join).map((d) => d.need) : [];
   const back = join ? returnedDocs(needs, join.docs).length : 0;
   const left = join ? stillToReplace(needs, join.docs).length : 0;
   // while registering, only Home is open; while GSP verifies, the sections marked locked wait
-  const isLocked = (k: Section) => (access === 'setup' ? k !== 'home' : access === 'verifying' && !!NAV.find((n) => n.key === k)?.locked);
+  // 4 Nov: once the business is verified, Earnings still waits for GSP to accept the signed agreement
+  const agreement = agreementOf(join);
+  const isLocked = (k: Section) =>
+    access === 'setup' ? k !== 'home' : access === 'verifying' ? !!NAV.find((n) => n.key === k)?.locked : k === 'earnings' && earningsLocked(join);
+  const lockNote = (k: Section) => (access === 'setup' ? ', opens once you’ve finished registering' : access === 'verifying' ? ', opens after verification' : k === 'earnings' ? ', opens once GSP accepts your agreement' : '');
   const toDo = join && access === 'setup' ? (join.detailsDone ? 0 : 1) + missingRequired(docsFor(join.form.country), join.docs).length : 0;
-  const manager = join ? partnerManagerFor(join.form.country, join.form.city, join.form.ref) : partnerManagerFor(TEST_COUNTRY, TEST_RP.city ?? '', '');
+  // 4 Nov: the state and city decide the GSP Recruitment contact (no referral code)
+  const manager = join ? partnerManagerFor(join.form.country, join.form.city, '', join.form.state) : partnerManagerFor('India', 'Bengaluru', '', 'Karnataka');
+  const [profileStart, setProfileStart] = useState<{ tab: 'documents'; key: number } | undefined>();
+  const [agrPreview, setAgrPreview] = useState(false);
 
   // changes GSP makes while the portal is open are said once: verified, or documents sent back
   const [announce, setAnnounce] = useState('');
@@ -219,18 +203,31 @@ export function Portal({
   useEffect(() => {
     if (was.current !== phase) {
       // the details are in now: course search starts from the agency's own country and state
-      if (was.current === 'setup' && join) setSearch(newSearch(join.form.country || TEST_COUNTRY, join.form.state || ''));
+      if (was.current === 'setup' && join) setSearch(newSearch(join.form.country || 'India', join.form.state || ''));
       if (phase === 'setup') setAnnounce('');
-      else if (phase === 'verified') setAnnounce(`GSP verified ${acc.agency}. Students, applications and earnings are open.`);
+      else if (phase === 'verified') setAnnounce(`GSP verified ${acc.agency}. Students and applications are open. Sign your partner agreement to open Earnings.`);
       else if (phase === 'sent-back') setAnnounce(`GSP couldn’t verify ${back === 1 ? '1 document' : `${back} documents`}. Replace ${back === 1 ? 'it' : 'them'} to finish verification.`);
-      else setAnnounce('Sent to GSP. Course search and your profile are open.');
+      else setAnnounce('Sent to GSP. Course search and your profile are open. Verification usually takes 1 working day.');
     }
     was.current = phase;
   }, [phase, acc.agency, back]);
 
+  const wasAgr = useRef(agreement);
+  useEffect(() => {
+    if (wasAgr.current !== agreement) {
+      if (agreement === 'with-gsp') setAnnounce('Signed agreement sent to GSP. GSP usually checks it within 1 working day.');
+      else if (agreement === 'accepted' && wasAgr.current !== 'none') setAnnounce('GSP accepted your partner agreement. Earnings is open.');
+      else if (agreement === 'sent-back') setAnnounce('GSP couldn’t accept your signed agreement. See why on Home.');
+    }
+    wasAgr.current = agreement;
+  }, [agreement]);
+
   // picking a section in the menu always lands on its first page (Students: the list, not a student)
   const [navKey, setNavKey] = useState(0);
   const go = (k: Section) => {
+    // a deep link (an application or student opened from elsewhere, or the review state's) is spent once you move on
+    setJump(undefined);
+    setMoved(true);
     setSection(k);
     setNavKey((n) => n + 1);
     scrollTop();
@@ -239,18 +236,20 @@ export function Portal({
   const openNote = (t: NoteTarget) => {
     if ('app' in t) jumpTo({ section: 'applications', app: { open: t.app } });
     else if ('student' in t) jumpTo({ section: 'students', open: t.student, tab: 'personal' });
-    // RP roles have no My work (slice 4 PRD): a task notification never reaches them
-    else go(t.page === 'mywork' ? 'home' : t.page);
+    else go(t.page);
   };
 
-  const initials = acc.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
+  const who = seat ? seat.member.name : acc.name;
+  const initials = who.split(' ').map((p) => p[0]).slice(0, 2).join('');
+  // a seat's menu: no Earnings (commission) and no agency Profile (the initials open the person's own account)
+  const menu = seat ? NAV.filter((n) => n.key !== 'earnings' && n.key !== 'profile') : NAV;
   let lockIndex = 0; // staggers the locks opening, top to bottom
 
   const sidebar = (
     <>
       <nav aria-label="Main">
         <ul className="pnav">
-          {NAV.filter((n) => n.key !== 'earnings' || seesEarnings(acc)).map((n) => {
+          {menu.map((n) => {
             const active = section === n.key;
             const locked = isLocked(n.key);
             const delay = n.locked ? 0.08 * lockIndex++ : 0;
@@ -261,7 +260,7 @@ export function Portal({
                   <Icon name={n.icon} size={20} />
                   <span className="pnav__label">
                     {n.label}
-                    {locked && <span className="vh">{access === 'setup' ? ', opens once you’ve finished registering' : ', opens after verification'}</span>}
+                    {locked && <span className="vh">{lockNote(n.key)}</span>}
                   </span>
                   <AnimatePresence initial={false}>
                     {locked && (
@@ -277,6 +276,38 @@ export function Portal({
         </ul>
       </nav>
       <AnimatePresence initial={false}>
+        {access === 'all' && join && agreement !== 'accepted' && agreement !== 'none' && (
+          <motion.div
+            key="agr"
+            className={`sstatus ${agreement === 'with-gsp' ? '' : 'is-back'}`}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 6, transition: { duration: 0.24, ease } }}
+          >
+            {agreement === 'with-gsp' ? (
+              <>
+                <span className="who who--gsp">With GSP</span>
+                <p className="sstatus__title">Agreement being checked</p>
+                <p className="sstatus__text">Usually by {expectedBy(join.agreement?.sentAt)}</p>
+              </>
+            ) : agreement === 'sent-back' ? (
+              <>
+                <span className="who who--you">Needs your attention</span>
+                <p className="sstatus__title">Agreement not accepted</p>
+                <p className="sstatus__text is-bad">Sign it again and upload it. See why.</p>
+              </>
+            ) : (
+              <>
+                <span className="who who--you">With you</span>
+                <p className="sstatus__title">Sign your agreement</p>
+                <p className="sstatus__text">It opens Earnings</p>
+              </>
+            )}
+            {section !== 'home' && (
+              <button type="button" className="btn btn--link sstatus__link" onClick={() => go('home')}>
+                {agreement === 'with-gsp' ? 'See it on Home' : 'Go to the agreement'}
+              </button>
+            )}
+          </motion.div>
+        )}
         {access !== 'all' && join && (
           <motion.div
             className={`sstatus ${phase === 'sent-back' || phase === 'setup' ? 'is-back' : ''}`}
@@ -304,22 +335,11 @@ export function Portal({
                   {left === 0 ? 'Send to GSP again' : back === 1 ? 'Replace document' : 'Replace documents'}
                 </button>
               </>
-            ) : agrOpen ? (
-              <>
-                <span className={`who who--${rpCardCopy(myRp!, agrOpen).chipTone}`}>{rpCardCopy(myRp!, agrOpen).chip}</span>
-                <p className="sstatus__title">{rpCardCopy(myRp!, agrOpen).title}</p>
-                <p className="sstatus__text">{rpCardCopy(myRp!, agrOpen).line}</p>
-                {section !== 'home' && (
-                  <button type="button" className="btn btn--link sstatus__link" onClick={() => go('home')}>
-                    Open on Home
-                  </button>
-                )}
-              </>
             ) : (
               <>
                 <span className="who who--gsp">With GSP</span>
                 <p className="sstatus__title">Verification in progress</p>
-                <p className="sstatus__text">Expect it by {expectedBy(join.sentAt, join.form.country)}</p>
+                <p className="sstatus__text">Usually by {expectedBy(join.sentAt)}</p>
                 <button type="button" className="btn btn--link sstatus__link" onClick={openDocs}>
                   View documents
                 </button>
@@ -331,7 +351,7 @@ export function Portal({
     </>
   );
 
-  const tabs = NAV.filter((n) => n.key !== 'profile' && (n.key !== 'earnings' || seesEarnings(acc)));
+  const tabs = menu.filter((n) => n.key !== 'profile');
   const tabbar = (
     <nav className="tabbar glass" aria-label="Main">
       <GlassRim />
@@ -355,7 +375,7 @@ export function Portal({
                 </span>
                 <span className="tab__label">
                   {n.short}
-                  {locked && <span className="vh">{access === 'setup' ? ', opens once you’ve finished registering' : ', opens after verification'}</span>}
+                  {locked && <span className="vh">{lockNote(n.key)}</span>}
                 </span>
               </button>
             </li>
@@ -366,27 +386,38 @@ export function Portal({
   );
 
   const content =
-    myRp && (myRp.status === 'Suspended' || myRp.status === 'Rejected') ? (
-      <AccountClosed r={myRp} />
-    ) : section === 'home' ? (
-      <>
-      <Home pending={myRp && isRpAdmin && openAgreement(myRp) ? <RpAgreementCard r={myRp} by={acc.name} /> : undefined} acc={acc} join={join} access={access} manager={manager} onDocs={openDocs} go={go} set={set} scrollTop={scrollTop} startKey={start?.key} apps={apps} students={students} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
-      </>
+    section === 'home' ? (
+      <Home
+        acc={acc}
+        join={join}
+        access={access}
+        manager={manager}
+        onDocs={openDocs}
+        onProfileDocs={() => (setProfileStart({ tab: 'documents', key: Date.now() }), go('profile'))}
+        onAgreementPreview={() => setAgrPreview(true)}
+        go={go}
+        set={set}
+        scrollTop={scrollTop}
+        startKey={start?.key}
+        apps={apps}
+        students={studentsView}
+        onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })}
+      />
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />
+    ) : section === 'profile' && seat ? (
+      <AccountPage name={seat.member.name} org={`${acc.agency} · ${seat.title}`} email={seat.member.email ?? acc.email} onSignOut={onSignOut} />
+    ) : section === 'earnings' && seat ? (
+      <LaterSection section="home" />
     ) : section === 'profile' ? (
       <ProfileSection
         acc={acc}
         join={join}
         access={access}
         onDocs={openDocs}
+        start={profileStart}
         onSignOut={onSignOut}
-        agreement={myRp && isRpAdmin ? <RpAgreementProfile r={myRp} by={acc.name} /> : undefined}
-        // the business documents on the RP's record, for an RP Admin who isn't registering here (Jovial, 3 Nov)
-        recordDocs={myRp && isRpAdmin ? myRp.docs : undefined}
-        record={myRp}
-        // RP Admin manages the whole team; a Branch Manager their branch's Counsellors (S2C-14); a Counsellor sees none
-        team={acc.role === 'Counsellor' ? undefined : { agency: acc.agency, bdm: manager, team, setTeam, branches, setBranches, students, setStudents, viewer: { role: acc.role, email: acc.email } }}
+        team={{ agency: acc.agency, bdm: manager, team, setTeam, branches, setBranches, students, setStudents }}
       />
     ) : section === 'students' ? (
       <Students
@@ -394,7 +425,7 @@ export function Portal({
         set={setStudents}
         team={team}
         me={acc.name}
-        nationality={join?.form.country || TEST_COUNTRY}
+        nationality={join?.form.country || 'India'}
         start={begin?.section === 'students' ? { key: begin.key, add: begin.add, open: begin.open, tab: begin.tab } : undefined}
         navKey={navKey}
         scrollTop={scrollTop}
@@ -407,7 +438,6 @@ export function Portal({
         onNewApp={(s, courseId) => jumpTo({ section: 'applications', app: { add: { studentId: s.id, courseId } } })}
         appList={apps}
         onCreateApp={(a) => setApps((l) => [a, ...l])}
-        ownOnly={acc.role === 'Counsellor'}
       />
     ) : section === 'applications' ? (
       <Applications
@@ -421,10 +451,8 @@ export function Portal({
         navKey={navKey}
         scrollTop={scrollTop}
         onOpenStudent={(id, tab) => jumpTo({ section: 'students', open: id, tab: tab ?? 'personal' })}
-        nationality={join?.form.country || TEST_COUNTRY}
+        nationality={join?.form.country || 'India'}
         onFindCourses={() => go('courses')}
-        ownOnly={acc.role === 'Counsellor'}
-        commission={seesCommission(acc)}
       />
     ) : section === 'courses' ? (
       <FindCourses
@@ -434,17 +462,11 @@ export function Portal({
         agency={acc.agency}
         onApply={(c) => jumpTo({ section: 'applications', app: { add: { courseId: c.id, studentId: search.studentId } } })}
         students={access === 'all' ? studentsView : []}
-        home={{ country: join?.form.country || TEST_COUNTRY, state: homeState }}
+        home={{ country: join?.form.country || 'India', state: join?.form.state || '' }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
         from={{ org: acc.agency, name: acc.name, email: acc.email }}
-        commission={seesCommission(acc)}
       />
-    ) : section === 'earnings' && myRp && commissionHeld(myRp) ? (
-      <>
-        <HeldNote r={myRp} />
-        <LaterSection section={section} />
-      </>
     ) : (
       <LaterSection section={section} />
     );
@@ -452,9 +474,9 @@ export function Portal({
   return (
     <>
       <AppShell
-        inert={docsOpen}
+        inert={docsOpen || agrPreview}
         sidebar={sidebar}
-        footer={<AccountMenu name={acc.name} org={`${acc.agency} · ${acc.role}`} email={acc.email} onSignOut={onSignOut} />}
+        footer={<AccountMenu name={who} org={`${acc.agency} · ${seat ? seat.title : acc.role}`} email={seat?.member.email ?? acc.email} onSignOut={onSignOut} />}
         tools={<ThemeToggle />}
         corner={inbox.corner}
         topEnd={
@@ -464,7 +486,7 @@ export function Portal({
             <button
               type="button"
               className={`topend__me ${section === 'profile' ? 'is-active' : ''}`}
-              aria-label={`Profile: ${acc.name}, ${acc.agency}`}
+              aria-label={`${seat ? 'Account' : 'Profile'}: ${who}, ${acc.agency}`}
               aria-current={section === 'profile' ? 'page' : undefined}
               onClick={() => go('profile')}
             >
@@ -482,7 +504,7 @@ export function Portal({
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
             transition={{ duration: 0.22, ease }}
           >
-            {content}
+            <AccessProvider hide={seat ? SEAT_HIDE : []}>{content}</AccessProvider>
           </motion.div>
         </AnimatePresence>
         <p className="vh" role="status" id="portal-announce">
@@ -491,6 +513,7 @@ export function Portal({
       </AppShell>
       {inbox.toast}
       {join && <DocumentsSheet open={docsOpen} onClose={() => setDocsOpen(false)} join={join} set={set} manager={manager} />}
+      <PreviewSheet d={{ name: AGREEMENT.title, file: AGREEMENT.file }} open={agrPreview} onClose={() => setAgrPreview(false)} />
     </>
   );
 }

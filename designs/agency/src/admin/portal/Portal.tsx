@@ -1,5 +1,5 @@
-import { allRpMembers } from '../../data/rpteam';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessProvider } from '../../proto/viewOnly';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
 import { ThemeToggle } from '../../components/ThemeToggle';
@@ -8,14 +8,12 @@ import { AccountMenu } from '../../components/AccountMenu';
 import { Icon } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import type { SignupState } from '../../screens/signup/model';
-import { VARIANTS, roleOfVariant, type ConfigSection, type Focus, type NavItem, type PageProps, type Section, type Target, type Variant } from './model';
-import { FinancePage, FIN_SECTIONS, type FinSection } from '../../finance/FinancePage';
-import { WorkPage, WORK_SECTIONS, type WorkSection } from '../../work/WorkPage';
+import { GROUPS, HOME, INBOX, MY_WORK, NAV, TABS, type ConfigSection, type Focus, type NavItem, type PageProps, type Section, type Target } from './model';
 // User modules and Institution: GSP · Institution's own pages, so a change there shows here too
 import { FindCourses } from '../../institution/courses/FindCourses';
 import { newSearch, runSearch, setCatalogue, type CourseSearch } from '../../institution/courses/search';
 import { Students } from '../../institution/students/Students';
-import { fullName, sampleStudents, type Student } from '../../data/students';
+import { fullName, sampleStudents, teamFor, type Student } from '../../data/students';
 import type { AddState } from '../../institution/students/form';
 import type { RecordTab } from '../../institution/students/StudentRecord';
 import { Applications, type AppsStart } from '../../institution/applications/Applications';
@@ -26,31 +24,25 @@ import type { NoteTarget } from '../../data/inbox';
 import type { Desk } from '../../institution/applications/desk';
 import { GSP_USER } from '../user';
 import { GSP_USER as INSTITUTION_USER, signInAs as actAsInInstitution } from '../../institution/user';
-import { useSharedDb } from '../../institution/data/store';
+import { sampleDb } from '../../institution/data/store';
 import { forSearch, searchable } from '../../institution/data/catalogue';
+import { TeamHome } from '../../institution/records/Home';
 import { Universities } from '../../institution/records/Universities';
 import { Catalogue } from '../../institution/records/Catalogue';
 import { InstitutionPartners } from '../../institution/records/InstitutionPartners';
 import { RecruitmentPartners } from '../../institution/records/RecruitmentPartners';
-import { MasterPartners } from '../../institution/records/MasterPartners';
-import { CourseTags } from '../../institution/records/CourseTags';
-import { ProgramLists } from '../../institution/records/ProgramLists';
 import { Announcements } from '../../institution/records/Announcements';
-import { StaffProfile } from '../../gsp/portal/StaffPages';
-import { RoleHome } from './RoleHome';
+import { AccountPage } from '../../institution/records/Account';
+import { Toast } from '../../institution/records/parts';
+import { MailInbox } from '../../mailbox/MailInbox';
+import { sampleMailbox, type Mailbox } from '../../data/mailbox';
 import { ConfigPage, useCfg } from '../config/ConfigPage';
 import { Flyout } from './Flyout';
-import { canEditIn, canOpen, menuObjectOf } from '../data/menus';
-import { PERM_ROLE } from '../../proto/roles';
-import { NoAccessPage, SavedToast, ViewOnlyNote } from '../config/states';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 // GSP · Institution's styles, shared; GSP Admin's own (its menu) are in ../admin.css
 import '../../institution/institution.css';
 import '../admin.css';
-import { useLiveApps } from '../../data/live';
-import { setSession } from '../../data/downloads';
-import { setScope } from '../../data/scope';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -68,10 +60,8 @@ export type PortalStart = {
   apps?: Application[];
   app?: Omit<AppsStart, 'key'>;
 };
-/** GSP · Institution's own signed-in person, before any of these roles stood in for it. */
-let INSTITUTION_OWN: typeof INSTITUTION_USER | null = null;
 const lensSpring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
-const CONFIG: ConfigSection[] = ['users', 'regions', 'permissions', 'emails', 'bdm', 'currency', 'living', 'grades', 'english', 'routing', 'documents', 'logs', 'security', 'education', 'reasons'];
+const CONFIG: ConfigSection[] = ['mywork', 'users', 'regions', 'permissions', 'queues', 'tasks', 'emails', 'bdm', 'currency', 'living', 'tags', 'levels', 'grades', 'english', 'routing', 'documents', 'logs'];
 const sectionOf = (s?: PortalStart['section']): Section => (!s || s === 'earnings' ? 'home' : s);
 
 export type { Focus };
@@ -79,7 +69,7 @@ export type { Focus };
 /**
  * GSP Admin's portal (GSP · Admin, 30 Oct), for GSP's admins: its configuration, and GSP · Institution's own pages
  * (User modules and Institution), in the same design and colours as every role (RP Admin's; Nesil tried teal, then
- * red and blue, and kept these). Signed in as Jovial, GSP · Admin; there's no registering or verification here.
+ * red and blue, and kept these). Signed in as Ishaan Verma, GSP · Admin; there's no registering or verification here.
  */
 export function Portal({
   acc,
@@ -87,10 +77,7 @@ export function Portal({
   scrollTop,
   onSignOut,
   start,
-  variant = 'admin',
 }: {
-  /** Which role's menu (Jovial, 31 Oct): Admin, Recruitment, BAP or Finance. */
-  variant?: Variant;
   acc: Account;
   /** The agency registration a review state carries: only its country is used, for course search. */
   join: SignupState | null;
@@ -100,25 +87,16 @@ export function Portal({
   start?: PortalStart;
 }) {
   const reduce = useReducedMotion();
-  const V = VARIANTS[variant];
-  const { home: HOME, groups: GROUPS, tabs: TABS } = V;
-  const NAV: NavItem[] = [HOME, ...V.flat, ...GROUPS.flatMap((g) => g.items)];
-  // who's signed in: GSP Admin's person for Admin, the role's own for the others
-  const ME = variant === 'admin' ? GSP_USER : { ...GSP_USER, ...V.user, org: 'GSP' };
-  // the role's line in Admin's matrix (PRD slice 1, Permission model): its menu, and View or Edit on each page
-  const PERM = PERM_ROLE[roleOfVariant(variant)] ?? 'Admin';
   // the application pages are GSP · Institution's and act as its signed-in person: while GSP Admin is open, that's
-  // Jovial (set before anything draws), and whoever it was comes back when GSP Admin closes
-  // QC 31 Oct: remember GSP · Institution's own person once, so switching between these roles can't hand one
-  // role's person to the next (Institution showed Saurabh after GSP · Recruitment)
-  useState(() => {
-    if (!INSTITUTION_OWN) INSTITUTION_OWN = { ...INSTITUTION_USER };
-    actAsInInstitution({ ...ME, set: true });
-    return null;
+  // Ishaan (set before anything draws), and whoever it was comes back when GSP Admin closes
+  const [handBack] = useState(() => {
+    const was = { ...INSTITUTION_USER };
+    actAsInInstitution({ ...GSP_USER, set: true });
+    return was;
   });
   useEffect(
     () => () => {
-      if (INSTITUTION_OWN) actAsInInstitution({ ...INSTITUTION_OWN, set: true });
+      actAsInInstitution({ ...handBack, set: true });
     },
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -126,22 +104,17 @@ export function Portal({
   // a group's pages open in a small menu beside the sidebar
   const [fly, setFly] = useState<{ key: string; el: HTMLElement } | null>(null);
   const country = join?.form.country || 'India';
-  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch('', ''));
+  const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(country, join?.form.state || ''));
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? sampleStudents(acc.name));
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));
-  // statuses set elsewhere (a university email confirmed in Mail) reach this copy: data/live.ts
-  useLiveApps(setApps);
-  // who's signed in, for the download log (data/downloads.ts)
-  setSession(ME.name, ME.role);
-  setScope(`gsp-${variant}`, ME.email);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
-  // every RP's team (data/rpteam.ts, W21): a student's counsellor is on their RP's
-  const team = useMemo(allRpMembers, []);
+  // the Inbox: every shared inbox is connected for an admin to start with
+  const [mailbox, setMailbox] = useState<Mailbox>(() => sampleMailbox('admin', apps, students, GSP_USER));
+  const team = teamFor(acc.name);
 
   // the records the team keeps; its changes stay in this portal
-  // the catalogue and records: one copy for every role (institution/data/store.ts)
-  const [db, setDb] = useSharedDb();
+  const [db, setDb] = useState(sampleDb);
   const [focus, setFocus] = useState<Focus | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
   const say = (text: string) => setMsg({ text, key: Date.now() });
@@ -155,8 +128,6 @@ export function Portal({
     role: 'gsp',
     access: 'all',
     agency: acc.agency,
-    // slice 4: the signed-in person's own My work notifications, and only the applications they're the officer on
-    me: ME,
     country,
     apps,
     students,
@@ -177,7 +148,7 @@ export function Portal({
     const courses = db.courses.filter((c) => searchable(c) && unis.has(c.uni.id) && unis.get(c.uni.id)!.campuses.some((x) => x.name === c.campus.name)).map((c) => ({ ...c, uni: unis.get(c.uni.id)! }));
     return { courses, unis: [...unis.values()] };
   }, [db.ips, db.unis, db.courses]);
-  setCatalogue(catalogue.courses, catalogue.unis);
+  setCatalogue(catalogue.courses, catalogue.unis, db.anns);
   const appsByUni = useMemo(() => {
     const m: Record<string, number> = {};
     apps.forEach((a) => {
@@ -226,8 +197,8 @@ export function Portal({
     setFocus({ ...t, key: Date.now() });
     scrollTop();
   };
-  const initials = ME.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
-  const org = `${ME.org} · ${ME.role}`;
+  const initials = GSP_USER.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
+  const org = `${GSP_USER.org} · ${GSP_USER.role}`;
 
   const item = (n: NavItem) => {
     const active = section === n.key;
@@ -247,7 +218,8 @@ export function Portal({
     <nav aria-label="Main">
       <ul className="pnav">
         {item(HOME)}
-        {V.flat.map(item)}
+        {item(INBOX)}
+        {item(MY_WORK)}
         {GROUPS.map((g) => {
           const here = g.items.some((i) => i.key === section);
           const open = fly?.key === g.key;
@@ -308,17 +280,14 @@ export function Portal({
     </nav>
   );
 
-  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: ME.name, canVerify: variant === 'bap' || variant === 'admin', role: PERM };
+  const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name };
   const content =
-    WORK_SECTIONS.includes(section as WorkSection) ? (
-      <WorkPage section={section as WorkSection} role={roleOfVariant(variant)} go={(k) => go(k as Section)} openApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} openRp={(id) => openRecord({ section: 'rps', id })} openUni={(id) => openRecord({ section: 'universities', id })} />
-    ) : variant === 'finance' && (section === 'home' || FIN_SECTIONS.includes(section as FinSection)) ? (
-      <FinancePage section={section as FinSection | 'home'} go={(k) => go(k as Section)} />
-    ) : section === 'home' ? (
-      // each role's own Home (W7): Recruitment its RPs, BAP the RPs to verify, Admin the settings to look at
-      <RoleHome variant={variant === 'finance' ? 'admin' : variant} first={ME.first} me={ME.name} db={db} apps={apps} open={openRecord} go={go} />
+    section === 'home' ? (
+      <TeamHome first={GSP_USER.first} db={db} open={openRecord} me={GSP_USER.name} />
+    ) : section === 'inbox' ? (
+      <MailInbox box={mailbox} setBox={setMailbox} me={GSP_USER} apps={apps} students={students} navKey={navKey} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'profile' ? (
-      <StaffProfile email={ME.email} onSignOut={onSignOut} />
+      <AccountPage name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />
     ) : section === 'students' ? (
       <Students
         list={studentsView}
@@ -364,10 +333,10 @@ export function Portal({
         agency={acc.agency}
         onApply={(c) => jumpTo({ section: 'applications', app: { add: { courseId: c.id, studentId: search.studentId } } })}
         students={studentsView}
-        home={{ country: '', state: '' }}
+        home={{ country, state: join?.form.state || '' }}
         onShortlist={(id, ids) => setStudents((l) => l.map((x) => (x.id === id ? { ...x, shortlist: ids } : x)))}
         onOpenShortlist={(id) => jumpTo({ section: 'students', open: id, tab: 'shortlist' })}
-        from={{ org: 'upGrad GSP', name: ME.name, email: ME.email }}
+        from={{ org: 'upGrad GSP', name: GSP_USER.name, email: GSP_USER.email }}
       />
     ) : section === 'universities' ? (
       <Universities {...page} appsByUni={appsByUni} />
@@ -377,28 +346,17 @@ export function Portal({
       <InstitutionPartners {...page} appsByUni={appsByUni} />
     ) : section === 'announcements' ? (
       <Announcements {...page} />
-    ) : section === 'mps' ? (
-      <MasterPartners {...page} />
-    ) : section === 'tags' ? (
-      <CourseTags db={db} set={setDb} me={ME.name} say={say} role={page.role} />
-    ) : section === 'levels' ? (
-      <ProgramLists db={db} set={setDb} me={ME.name} say={say} role={page.role} />
     ) : CONFIG.includes(section as ConfigSection) ? (
-      <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={ME.name} role={PERM} canEdit={canEditIn(PERM, section)} say={say} go={(k) => go(k as Section)} />
+      <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={GSP_USER.name} say={say} courses={db.courses} />
     ) : (
       <RecruitmentPartners {...page} />
     );
 
-  // No access: a direct link (or review state) to a page this role can't open (PRD slice 1, Page states)
-  const blocked = section !== 'home' && section !== 'profile' && !canOpen(PERM, section);
-  // View only: pages from other slices show the note; slice 1's pages also hide their actions
-  const viewOnly = !blocked && !!menuObjectOf(section) && !canEditIn(PERM, section) && !CONFIG.includes(section as ConfigSection);
-  const shown = blocked ? <NoAccessPage onHome={() => go('home')} /> : viewOnly ? (<>{content}</>) : content;
   return (
     <AppShell
-      brand={['GSP', V.brand]}
+      brand={['GSP', 'Admin']}
       sidebar={sidebar}
-      footer={<AccountMenu name={ME.name} org={org} email={ME.email} onSignOut={onSignOut} />}
+      footer={<AccountMenu name={GSP_USER.name} org={org} email={GSP_USER.email} onSignOut={onSignOut} />}
       tools={<ThemeToggle />}
       corner={inbox.corner}
       topEnd={
@@ -408,7 +366,7 @@ export function Portal({
           <button
             type="button"
             className={`topend__me ${section === 'profile' ? 'is-active' : ''}`}
-            aria-label={`Account: ${ME.name}, ${org}`}
+            aria-label={`Account: ${GSP_USER.name}, ${org}`}
             aria-current={section === 'profile' ? 'page' : undefined}
             onClick={() => go('profile')}
           >
@@ -426,11 +384,11 @@ export function Portal({
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
           transition={{ duration: 0.22, ease }}
         >
-          {viewOnly && <div className="cfg__viewonlybar"><ViewOnlyNote /></div>}
-          {shown}
+          {/* 6 Nov (Nesil): GSP · Admin marks a student's primary application */}
+          <AccessProvider show={['app.primary']}>{content}</AccessProvider>
         </motion.div>
       </AnimatePresence>
-      <SavedToast msg={msg} />
+      <Toast msg={msg} />
       {inbox.toast}
     </AppShell>
   );

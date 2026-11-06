@@ -1,0 +1,56 @@
+/* GSP · RP Ops, My work (5 Nov): this role's own styles, prefixed rw- */
+.rw-head { margin-bottom: var(--sp-20); }
+.rw-title { margin: 0; font-size: var(--t-display); font-weight: var(--fw-semi); letter-spacing: -0.01em; }
+.rw-lead { margin: var(--sp-6) 0 0; font-size: var(--t-body); color: var(--text-2); }
+.rw-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); margin-bottom: var(--sp-16); }
+.rw-tile { display: grid; gap: 2px; padding: var(--sp-20) var(--sp-24, 24px); }
+.rw-tile__n { font-size: var(--t-display); font-weight: var(--fw-semi); line-height: 1.1; color: var(--text); }
+.rw-tile__k { margin-top: var(--sp-6); font-size: var(--t-body); font-weight: var(--fw-semi); color: var(--text); }
+.rw-tile__sub { font-size: var(--t-label); color: var(--text-3); }
+.rw-tile.is-bad .rw-tile__n { color: var(--bad); }
+.rw-list { padding: 0; overflow: hidden; }
+.rw-tools { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-12); padding: var(--sp-16) var(--sp-20); }
+.rw-views { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.rw-views .ichip { height: 40px; }
+.rw-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); }
+.rw-filter { width: 220px; }
+.rw-strong { display: block; font-weight: var(--fw-medium); color: var(--text); }
+.rw-strong.rw-inline { display: inline; font-weight: var(--fw-semi); }
+.rw-sub { display: block; margin-top: 2px; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.rw-muted { color: var(--text-3); }
+.rw-nowrap { white-space: nowrap; }
+.rw-tab { table-layout: fixed; width: 100%; }
+.rw-tab td { vertical-align: top; overflow-wrap: anywhere; }
+.rw-tab td:first-child, .rw-tab th:first-child { min-width: 0; }
+.rw-tab--wait { table-layout: auto; }
+.rw-tab--wait td:first-child { min-width: 240px; }
+.rw-tab .rw-c-tick { width: 52px; }
+.rw-tab .rw-c-rec { width: 150px; }
+.rw-tab .rw-c-q { width: 112px; }
+.rw-tab .rw-c-who { width: 120px; }
+.rw-tab .rw-c-n { width: 72px; }
+.rw-tab .rw-c-sla { width: 176px; }
+.rw-tab .rw-c-act { width: 150px; }
+.rw-tab .rw-tick { padding-right: 0; }
+.rw-tab .rw-tick .check__label { gap: 0; }
+.rw-tab tr.is-ticked td { background: var(--primary-soft); }
+.rw-acts { text-align: right; }
+.rw-acts > .btn--link { display: block; margin-left: auto; text-align: right; }
+.rw-acts > .btn--link + .btn--link { margin-top: var(--sp-8); }
+.rw-acts .rw-complete, .rw-acts .rw-complete:hover { color: var(--ok); }
+.rw-pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 var(--sp-10); border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--fw-semi); white-space: nowrap; }
+.rw-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.rw-pill--track { background: var(--ok-bg); color: var(--ok); }
+.rw-pill--soon { background: var(--neutral-bg); color: var(--text); }
+.rw-pill--soon::before { background: var(--bad-dot); }
+.rw-pill--late { background: var(--bad-bg); color: var(--bad); }
+.rw-pill--paused, .rw-pill--done { background: var(--neutral-bg); color: var(--text-3); }
+.rw-pill + .rw-sub { margin-top: 4px; }
+.rw-bulk { display: flex; align-items: center; gap: var(--sp-16); padding: 0 var(--sp-20) var(--sp-12); font-size: var(--t-label); color: var(--text-2); }
+.rw-empty { margin: 0; padding: var(--sp-24, 24px) var(--sp-20); }
+.rw-sheet .sheet__body { min-height: 340px; }
+@media (max-width: 1100px) { .rw-tab { table-layout: auto; min-width: 1000px; } }
+@media (max-width: 900px) { .rw-tiles { grid-template-columns: minmax(0, 1fr); } }
+.rw-empty-box { padding: var(--sp-40, 40px) var(--sp-20); text-align: center; border-top: 1px solid var(--line); }
+.rw-empty-t { margin: 0 0 var(--sp-6); font-size: var(--t-body); font-weight: var(--fw-semi); color: var(--text); }
+.rw-empty-box .rw-muted { margin: 0; font-size: var(--t-label); }

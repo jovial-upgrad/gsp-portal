@@ -1,4 +1,3 @@
-import { UPLOAD } from '../../data/uploads';
 import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -117,7 +116,7 @@ export function CondForm({ n, s, onClose, onSend }: { n: Need | null; s: Student
                     <span className="mdrop__main">
                       Upload the document, or <span className="mdrop__link">browse</span>
                     </span>
-                    <span className="mdrop__sub">{UPLOAD.short}</span>
+                    <span className="mdrop__sub">PDF, JPG or PNG · up to 10 MB</span>
                   </span>
                 </label>
               )}
@@ -126,7 +125,7 @@ export function CondForm({ n, s, onClose, onSend }: { n: Need | null; s: Student
                   id={id}
                   className="vh"
                   type="file"
-                  accept={UPLOAD.accept}
+                  accept=".pdf,.jpg,.jpeg,.png"
                   aria-label={`Upload for condition ${i + 1}`}
                   onChange={(e) => {
                     const f = e.target.files?.[0];

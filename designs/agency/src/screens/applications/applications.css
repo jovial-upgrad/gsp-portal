@@ -167,11 +167,6 @@
 .amile:hover { border-color: var(--text-3); color: var(--text); }
 .amile[aria-pressed='true'] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .amile[aria-pressed='true'] .num { color: inherit; opacity: 0.75; }
-/* a chip with nothing in it (Jovial, 2 Nov) */
-.amile:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--line); }
-.amile:disabled:hover { color: var(--text-2); border-color: var(--line); }
-.aadv__x { padding: 0; height: auto; font-size: var(--t-label); }
-.stools .amiles { margin-top: var(--sp-10); }
 
 /* the advanced filters: a button at the end of the row, and a panel under it with a stage and a date range */
 .aadv__toggle {
@@ -245,6 +240,8 @@
 .arow__sub { display: flex; align-items: center; gap: var(--sp-6); font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); white-space: nowrap; }
 .arow__tag { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 6px; background: var(--surface-2); color: var(--text-2); font-size: var(--t-micro); font-weight: var(--fw-medium); }
 .arow__name { font-weight: var(--fw-medium); color: var(--text); white-space: nowrap; }
+/* the rank tag under the student's name (6 Nov) */
+.arow__rank { display: block; margin-top: var(--sp-4); }
 .arow__course { max-width: 240px; }
 .arow__cname { color: var(--text); font-weight: var(--fw-medium); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .arow__uni { font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
@@ -465,8 +462,6 @@
 .aperson__name { font-weight: var(--fw-semi); color: var(--text); }
 .aperson__role { font-size: var(--t-caption); color: var(--text-3); }
 .aperson__ways { display: grid; gap: var(--sp-4); margin: 0; }
-.aperson__one { display: grid; gap: var(--sp-10); }
-.aperson__one + .aperson__one { padding-top: var(--sp-10); border-top: 1px solid var(--line); }
 .aperson__line { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; font-size: var(--t-label); color: var(--text); }
 .aperson__line dt { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px; background: var(--surface-2); color: var(--text-2); }
 .aperson__line dd { display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0; }
@@ -728,9 +723,6 @@ button.nachip { cursor: pointer; }
 button.nachip:hover { border-color: var(--line-strong); }
 .nachip > svg { color: var(--text-3); }
 .nacourse { display: flex; align-items: center; gap: var(--sp-12); padding: var(--sp-12) var(--sp-14, 14px); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); }
-/* the same student and course already open: an inline error with a link to it */
-.nadupe { display: grid; gap: var(--sp-4); justify-items: start; margin-top: var(--sp-8); }
-.nadupe .field__msg { margin: 0; }
 .nacourse .umark { width: 44px; height: 44px; background: var(--surface); box-shadow: 0 1px 2px rgba(9, 30, 66, 0.08); }
 .nacourse__t { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .nacourse__name { font-weight: var(--fw-semi); color: var(--text); }
@@ -773,8 +765,6 @@ button.nachip:hover { border-color: var(--line-strong); }
 
 .nacheck { display: grid; gap: var(--sp-14, 14px); padding: var(--sp-16) var(--sp-20) var(--sp-20); }
 .nacheck__what { margin-top: calc(-1 * var(--sp-6)); font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }
-/* the check is a guide only (engineering review, 1 Nov) */
-.nacheck__soft { margin-top: calc(-1 * var(--sp-8)); font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
 .nacheck__run { display: grid; gap: var(--sp-12); }
 /* while it checks: the four parts as rows, as the verdict will show them; each waits, then is checked, then ticks */
 .nacheck__steps { list-style: none; display: grid; padding: var(--sp-4) var(--sp-14, 14px); border: 1px solid var(--ai-glass-line); border-radius: var(--r-sm); background: linear-gradient(170deg, var(--ai-glass-sheen), transparent 46%), var(--ai-glass); }
@@ -1064,38 +1054,3 @@ button.nachip:hover { border-color: var(--line-strong); }
 .sheet.sheet--center.conddlg { width: min(560px, 100%); }
 .conddlg__sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6) var(--sp-10); margin-top: var(--sp-4); }
 .adocs__k { margin: var(--sp-16) 0 var(--sp-4); font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); }
-
-/* a priority source market for the university: GSP's people only (Jovial, 31 Oct) */
-.prio-chip { display: inline-flex; align-items: center; margin-left: var(--sp-8); padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: var(--t-micro); line-height: var(--lh-micro); font-weight: var(--fw-semi); letter-spacing: 0.02em; color: var(--text-2); background: var(--surface-2); white-space: nowrap; vertical-align: middle; }
-.aextra { display:flex; align-items:center; justify-content:space-between; gap: var(--sp-16); flex-wrap: wrap; padding: var(--sp-16) var(--sp-20); margin-top: var(--sp-16); } .aextra__t { font-weight:600; } .aextra__s { color: var(--text-2); font-size: var(--t-label); }
-
-/* Request a document: several at once, each from the request categories or Other (Jovial, 2 Nov) */
-.greq__docs { margin: 0; }
-.greq__pick { display: grid; gap: var(--sp-6); flex: 1; min-width: 0; }
-
-/* Key details in groups (Jovial, 2 Nov): Application details, GSP details, RP details; headed sections, not tabs */
-.kgroup { display: grid; gap: var(--sp-6); }
-.kgroup + .kgroup { margin-top: var(--sp-12); padding-top: var(--sp-12); border-top: 1px solid var(--line); }
-.kgroup__title { margin: 0; font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-semi); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }
-
-/* GSP Assist's check (Jovial, 2 Nov): Academics and English are one row each, its state the worst of its checks,
-   and every check under it with its own result and why */
-.nareason--na .nareason__ic { background: var(--surface-2); color: var(--text-3); }
-.nareason__verdict { font-weight: var(--fw-semi); }
-.nareason__verdict--yes { color: var(--ok); }
-.nareason__verdict--no { color: var(--bad); }
-.nareason__verdict--warn { color: var(--you); }
-.nareason__subs { grid-column: 3; list-style: none; display: grid; gap: var(--sp-6); margin: calc(var(--sp-4) - var(--sp-10)) 0 0; padding: var(--sp-8) 0 0 var(--sp-12); border-left: 2px solid var(--line); }
-.nasub { display: grid; grid-template-columns: 16px 132px minmax(0, 1fr); gap: var(--sp-8); align-items: start; font-size: var(--t-label); line-height: var(--lh-label); }
-.nasub__ic { margin-top: 2px; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--text-3); }
-.nasub--yes .nasub__ic { background: var(--ok-bg); color: var(--ok); }
-.nasub--warn .nasub__ic { background: var(--you-bg); color: var(--you); }
-.nasub--no .nasub__ic { background: var(--bad-bg); color: var(--bad); }
-.nasub--add .nasub__ic { color: var(--text-2); }
-.nasub__k { font-weight: var(--fw-medium); color: var(--text); }
-.nasub__v { color: var(--text-2); }
-@media (max-width: 560px) {
-  .nareason__subs { grid-column: 1 / -1; }
-  .nasub { grid-template-columns: 16px minmax(0, 1fr); }
-  .nasub__v { grid-column: 2; }
-}

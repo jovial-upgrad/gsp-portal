@@ -32,12 +32,6 @@
 .btn--secondary:hover:not(:disabled) { border-color: var(--text-3); background: var(--surface-2); }
 
 .btn--ghost { background: transparent; color: var(--text); }
-/* destructive (QC, 1 Nov): red for the confirm that deletes or discards; quiet red for Delete at the start of a form's foot */
-.btn--danger { background: #B4231B; color: #fff; }
-.btn--danger:hover:not(:disabled) { background: #8F1B15; }
-:root[data-theme='dark'] .btn--danger { background: #C9372C; }
-.btn--danger-quiet { background: var(--surface); color: var(--bad); border-color: var(--bad-line); }
-.btn--danger-quiet:hover:not(:disabled) { background: var(--bad-bg); border-color: var(--bad-dot); }
 .btn--ghost:hover:not(:disabled) { background: var(--surface-2); }
 
 .btn--link {

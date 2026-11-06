@@ -1,13 +1,13 @@
-import { PARTNER_STATUSES, isBefore, isClosed, stagesOf, statusNow, type InstitutionPartner } from '../data/records';
+import { PARTNER_STATUSES, isBefore, isClosed, stagesOf, type InstitutionPartner } from '../data/records';
 import type { CourseStatus, UniStatus } from '../data/catalogue';
 import { Pill, type Tone } from './parts';
 
 /** A partner's status in its colour: being agreed, executed, or closed. An agreement ending or ended shows on its date. */
 export function partnerTone(p: InstitutionPartner): Tone {
   const st = stagesOf(p);
-  return st.includes('closed') ? 'grey' : st.includes('ended') ? 'bad' : st.includes('before') ? 'gsp' : 'ok';
+  return st.includes('closed') ? 'grey' : st.includes('before') ? 'gsp' : 'ok';
 }
-export const PartnerPill = ({ p }: { p: InstitutionPartner }) => <Pill tone={partnerTone(p)}>{statusNow(p)}</Pill>;
+export const PartnerPill = ({ p }: { p: InstitutionPartner }) => <Pill tone={partnerTone(p)}>{p.status}</Pill>;
 /** Where a status sits, for the status menu's groups. */
 export const statusGroup = (s: (typeof PARTNER_STATUSES)[number]) => (isClosed(s) ? 'Closed' : isBefore(s) ? 'Before the agreement' : 'Agreement');
 

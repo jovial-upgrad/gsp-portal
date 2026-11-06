@@ -13,12 +13,17 @@ export function CountryCombobox({
   onChange,
   invalid,
   describedBy,
+  top: first = TOP_MARKETS,
+  topLabel = 'Where most partners are',
 }: {
   id: string;
   value: string;
   onChange: (name: string) => void;
   invalid?: boolean;
   describedBy?: string;
+  /** The countries shown first, and what their group is called: GSP's main markets unless a field asks for others. */
+  top?: string[];
+  topLabel?: string;
 }) {
   const listId = useId();
   const [query, setQuery] = useState(value);
@@ -35,10 +40,10 @@ export function CountryCombobox({
     const hit = (c: Country) =>
       showAll || c.name.toLowerCase().includes(q) || c.dial.replace('+', '').startsWith(q.replace('+', ''));
     const rank = (c: Country) => (showAll ? 0 : c.name.toLowerCase().startsWith(q) ? 0 : 1);
-    const top = TOP_MARKETS.map((n) => COUNTRIES.find((c) => c.name === n)!).filter(hit);
-    const rest = COUNTRIES.filter((c) => !TOP_MARKETS.includes(c.name) && hit(c)).sort((a, b) => rank(a) - rank(b));
+    const top = first.map((n) => COUNTRIES.find((c) => c.name === n)!).filter((c) => !!c && hit(c));
+    const rest = COUNTRIES.filter((c) => !first.includes(c.name) && hit(c)).sort((a, b) => rank(a) - rank(b));
     return { top, rest, flat: [...top, ...rest] };
-  }, [query, open, value]);
+  }, [query, open, value, first]);
 
   useEffect(() => {
     if (!open) return;
@@ -159,7 +164,7 @@ export function CountryCombobox({
           {flat.length === 0 && <li className="cbx__empty">No country matches “{query}”</li>}
           {top.length > 0 && (
             <li role="presentation" className="cbx__group">
-              Where most partners are
+              {topLabel}
             </li>
           )}
           {top.map((c, i) => option(c, i))}

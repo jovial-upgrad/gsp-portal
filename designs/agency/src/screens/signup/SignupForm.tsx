@@ -5,8 +5,7 @@ import { CountryCombobox } from '../../components/CountryCombobox';
 import { PasswordInput } from '../../components/PasswordInput';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { countryByName } from '../../data/partners';
-import { emailInUse } from './model';
+import { countryByName, emailInUse } from '../../data/partners';
 import { checkPassword } from '../signin/model';
 import { PASSWORD_RULE, REGISTER_ORDER, isEmail, validateRegister, type SignupForm as Form, type SignupState } from './model';
 
@@ -116,12 +115,12 @@ export function SignupForm({ s, set, onSubmit, onSignIn }: Props) {
               onBlur={() => touch('biz')}
             />
           </Field>
-          <Field id="su-country" required label="Country" error={show('country')}>
+          <Field id="su-country" required label="Country" hint="Decides the documents we ask for and who your GSP contact is." error={show('country')}>
             <CountryCombobox
               id="su-country"
               value={f.country}
               invalid={!!show('country')}
-              describedBy={describedBy('su-country', show('country'))}
+              describedBy={describedBy('su-country', show('country'), true)}
               onChange={(name) => {
                 if (name === f.country) return;
                 const c = countryByName(name);

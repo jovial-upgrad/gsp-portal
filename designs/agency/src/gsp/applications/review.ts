@@ -15,7 +15,7 @@ export type Review = {
   /** Where the decision is kept: on the student's profile, shared by their applications, or on this application. */
   on: 'profile' | 'application';
   at?: number;
-  via?: 'chat' | 'request' | 'profile' | 'mail';
+  via?: 'chat' | 'request' | 'profile';
   need?: 'required' | 'optional' | 'later';
   /** GSP sent it back, and the RP has yet to send a new one. */
   back?: Need;
@@ -52,4 +52,4 @@ export function reviewsOf(a: Application, s: Student): Review[] {
 export const toReview = (r: Review, a: Application) => !r.back && (r.status === 'checking' || (r.status === 'uploaded' && a.status !== 'docs'));
 
 /** Reasons GSP most often sends a document back, to start the explanation from. */
-export { sendBackReasons } from '../../data/reasons';
+export const REJECT_REASONS = ['Blurred or hard to read', 'Pages are missing', 'It’s the wrong document', 'The name doesn’t match the passport', 'It has expired'];

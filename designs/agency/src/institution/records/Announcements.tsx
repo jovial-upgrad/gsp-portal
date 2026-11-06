@@ -1,66 +1,41 @@
-import { useUnsaved } from '../../components/unsaved';
-import { dateError, focusFirstError } from '../../components/validate';
 import { useState } from 'react';
+import { EditOnly, useViewOnly } from '../../proto/viewOnly';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Checkbox, Field, TextInput, DateInput } from '../../components/forms';
-import { STAFF } from '../../data/staff';
-import { allRpMembers } from '../../data/rpteam';
-import { audit, change, withLog, type LogSpec } from '../data/changelog';
-import { type Area, type Level } from '../../data/courses';
-import { getDb, liveAreas, liveLevels } from '../data/store';
+import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
+import { AREAS, LEVELS, type Area, type Level } from '../../data/courses';
 import { COUNTRIES, TOP_MARKETS } from '../../data/partners';
-import { ANN_CATEGORIES, ANN_STATUSES, GSP_ROLES, PERMISSION_ROLES, RP_ROLES, SALES_REGIONS, SUBCATEGORIES, USER_TYPES, statusOf, type AnnCategory, type AnnStatus, type Announcement } from '../data/announcements';
-import { dateText, inDays, stampBy, todayIso } from '../data/records';
+import { ANN_CATEGORIES, ANN_STATUSES, PERMISSION_ROLES, SALES_REGIONS, SUBCATEGORIES, USER_TYPES, statusOf, type AnnCategory, type AnnStatus, type Announcement } from '../data/announcements';
+import { dateText, dateTimeText, inDays, logLine, stampBy, todayIso } from '../data/records';
 import { patch } from '../data/store';
-import { ChangeLog, Empty, Gone, NoMatch, PageHead, Pick, Tiles, Updated, usePager, useRecord, type Tone } from './parts';
+import { Facts, Filter, Fold, NoMatch, PageHead, Pager, Tiles, Timeline, Updated, passes, useAsk, usePaged, useRecord, type Tone } from './parts';
 import { MultiPick } from './MultiPick';
 import { RichText, cleanHtml, textOf } from './RichText';
-import { OBJ, canEdit, type PageProps } from '../portal/model';
-
-/** "Reaches about N people": GSP users and RP users the recipients pick out (sales region narrows both, RP country narrows RP users). */
-export function reachOf(v: { userTypes: string[]; roles: string[]; countries: string[]; regions: string[] }) {
-  let n = 0;
-  if (v.userTypes.includes('GSP')) {
-    const roles = v.roles.filter((r) => (GSP_ROLES as readonly string[]).includes(r));
-    n += STAFF.filter((x) => (!v.roles.length || roles.includes(x.role)) && (!v.regions.length || x.regions.some((g) => v.regions.includes(g)))).length;
-  }
-  if (v.userTypes.includes('RP')) {
-    const roles = v.roles.filter((r) => (RP_ROLES as readonly string[]).includes(r));
-    const all = allRpMembers();
-    const share = (v.countries.length ? 0.35 : 1) * (v.regions.length ? 0.5 : 1);
-    n += Math.round(all.filter((m) => !v.roles.length || roles.includes(m.role)).length * share * 25);
-  }
-  return n;
-}
+import type { PageProps } from '../portal/model';
 
 const TONE: Record<AnnStatus, Tone> = { Draft: 'gsp', Scheduled: 'uni', Live: 'ok', Expired: 'grey', Withdrawn: 'grey' };
 const PILL: Record<Tone, string> = { ok: 'dpill--verified', gsp: 'dpill--checking', uni: 'dpill--uni', you: 'dpill--missing', bad: 'dpill--bad', grey: 'idpill--grey' };
 const SUB: Record<AnnStatus, string> = { Draft: 'Not published', Scheduled: 'Publishes on its date', Live: 'Partners see it now', Expired: 'Past its end date', Withdrawn: 'Taken down early' };
-/** What an announcement's Change log writes (S2C-15), field by field. */
-const ANN_SPEC: LogSpec<Announcement & { log: NonNullable<Announcement['log']> }> = {
-  record: 'Announcement',
-  fields: { title: 'Title', category: 'Category', subcategory: 'Subcategory', unis: 'Universities', levels: 'Program levels', areas: 'Study areas', publish: 'Publish on', expires: 'Expires', body: 'Description', files: 'Attachments', email: 'Send as email', userTypes: 'Recipients · User types', roles: 'Recipients · Roles', countries: 'Recipients · RP countries', regions: 'Recipients · Sales regions', draft: 'Draft', withdrawn: 'Withdrawn' },
-  fmt: { body: () => 'Edited' },
-};
 const COUNTRY_LIST = [...TOP_MARKETS, ...COUNTRIES.map((c) => c.name).filter((n) => !TOP_MARKETS.includes(n))];
+/** Each part of an announcement as its Logs name it. */
+const PARTS: Record<string, string> = { status: 'Status', details: 'Announcement' };
+const isImage = (name: string) => /\.(png|jpe?g|webp|gif|svg|heic)$/i.test(name);
 
 /**
  * Announcements (29 Oct; 6th round, as in the PM prototype's IP team): news for recruitment partners about the
  * universities, shown in their portal's top bar, on matching course cards and on the university's page from its
- * publish date until it expires, and by email if asked. In this prototype they stay in the Institution Team's
- * portal. 29 Oct (7th round): Publish on is a date, with no time. S2C-15: Scheduled and Live ones can be edited; each
- * edit goes in its Change log; only "N sent" is shown.
+ * publish date until it expires, and by email if asked. The PM's fields only. In this prototype they stay in the
+ * Institution Team's portal. 29 Oct (7th round): Publish on is a date, with no time. 4 Nov: every filter picks
+ * several; 20 a page; "Created by", not "Author".
  */
 export function Announcements(props: PageProps) {
   const { db, set, focus, navKey, open, say, scrollTop, me } = props;
   const { cur, show, back } = useRecord(focus, navKey, scrollTop, open);
-  const edit = canEdit(props, OBJ.anns);
   const [status, setStatus] = useState<AnnStatus | ''>('');
-  const [cat, setCat] = useState('');
-  const [uni, setUni] = useState('');
+  const [cat, setCat] = useState<string[]>([]);
+  const [uni, setUni] = useState<string[]>([]);
   const [q, setQ] = useState('');
   const anns = db.anns;
   const uniName = (id: string) => db.unis.find((u) => u.id === id)?.name ?? id;
@@ -69,39 +44,33 @@ export function Announcements(props: PageProps) {
       const t = q.trim().toLowerCase();
       if (t && !`${a.title} ${a.id} ${a.author}`.toLowerCase().includes(t)) return false;
       if (status && statusOf(a) !== status) return false;
-      if (cat && a.category !== cat) return false;
-      if (uni && !a.unis.includes(uni)) return false;
+      if (!passes(cat, a.category)) return false;
+      if (uni.length && !a.unis.some((x) => uni.includes(x))) return false;
       return true;
     })
     .sort((a, b) => b.publish.localeCompare(a.publish));
+  const pg = usePaged(rows, [q, status, cat, uni]);
   const clear = () => {
     setStatus('');
-    setCat('');
-    setUni('');
+    setCat([]);
+    setUni([]);
     setQ('');
   };
-  const { page, pager } = usePager(rows, [status, cat, uni, q]);
   const nextId = () => `AN-${Math.max(...anns.map((a) => Number(a.id.slice(3))), 100) + 1}`;
 
   if (cur) {
     const a = cur.id === 'new' ? null : anns.find((x) => x.id === cur.id);
-    if (!(cur.id === 'new' && edit) && !a) return <Gone back="Announcements" onBack={back} />;
-    return (
+    if (cur.id === 'new' || a)
+      return (
         <AnnPage
           key={cur.id}
           a={a ?? null}
           id={a?.id ?? nextId()}
           me={me}
-          edit={edit}
           unis={db.unis.filter((u) => u.status !== 'Ended')}
           onBack={back}
-          onSave={(x0, what) => {
-            const role = props.role ?? 'Institution';
-            // every save writes the Change log (S2C-15): "Announcement created" first, then each changed field
-            const x = a ? withLog(ANN_SPEC, { ...a, log: a.log ?? [] }, { ...x0, log: a.log ?? [] }, me, role) : { ...x0, log: [change(me, role, 'Announcement created', '—', x0.draft ? 'Draft' : statusOf(x0))] };
+          onSave={(x, what) => {
             set((d) => ({ ...d, anns: d.anns.some((y) => y.id === x.id) ? patch(d.anns, x.id, () => x) : [x, ...d.anns] }));
-            const st = statusOf(x);
-            if (st === 'Live' && (!a || statusOf(a) !== 'Live')) audit('Announcements', `announcement.published: ${x.id} ${x.title}${x.email ? ' (E14 to the recipients)' : ''}`, me, props.role ?? 'Institution');
             say(what);
             back();
           }}
@@ -112,11 +81,11 @@ export function Announcements(props: PageProps) {
   return (
     <div className="ipage">
       <PageHead title="Announcements" lead="Shown to recruitment partners in their portal’s top bar, on matching course cards and on the university’s page.">
-        {edit && (
+        <EditOnly>
           <Button iconLeft={<Icon name="plus" size={18} />} onClick={() => show('new')}>
             New announcement
           </Button>
-        )}
+        </EditOnly>
       </PageHead>
 
       <Tiles label="Where each announcement is" value={status} onPick={setStatus} items={ANN_STATUSES.map((s) => ({ key: s, label: s, sub: SUB[s], tone: TONE[s], n: anns.filter((a) => statusOf(a) === s).length }))} />
@@ -127,10 +96,10 @@ export function Announcements(props: PageProps) {
             <label className="ssearch">
               <Icon name="search" size={18} />
               <span className="vh">Search announcements</span>
-              <input id="iann-q" type="search" placeholder="Title, number or author" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input id="iann-q" type="search" placeholder="Title, number or creator" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
-            <Pick id="iann-cat" label="Category" value={cat} all="All categories" options={ANN_CATEGORIES} onChange={setCat} />
-            <Pick id="iann-uni" label="University" value={uni} all="All universities" options={[...new Set(anns.flatMap((a) => a.unis))].map((id) => ({ value: id, label: uniName(id) }))} onChange={setUni} />
+            <Filter id="iann-cat" label="Category" all="All categories" value={cat} options={ANN_CATEGORIES} onChange={setCat} />
+            <Filter id="iann-uni" label="University" all="All universities" value={uni} options={[...new Set(anns.flatMap((a) => a.unis))]} onChange={setUni} labels={uniName} search />
           </div>
           <p className="stools__count" id="iann-count" role="status">
             <span>
@@ -138,10 +107,8 @@ export function Announcements(props: PageProps) {
             </span>
           </p>
         </div>
-        {anns.length === 0 ? (
-          <Empty text="No announcements yet." action={edit ? 'New announcement.' : undefined} onAction={() => show('new')} />
-        ) : rows.length === 0 ? (
-          <NoMatch onClear={clear} />
+        {rows.length === 0 ? (
+          <NoMatch what="announcements" onClear={clear} />
         ) : (
           <div className="stab-wrap">
             <table className="itab itab--ann">
@@ -152,12 +119,12 @@ export function Announcements(props: PageProps) {
                   <th scope="col">Universities</th>
                   <th scope="col">Publish on</th>
                   <th scope="col">Expires</th>
-                  <th scope="col">Author</th>
+                  <th scope="col">Created by</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {page.map((a) => {
+                {pg.rows.map((a) => {
                   const s = statusOf(a);
                   return (
                     <tr key={a.id} className="irow" onClick={() => show(a.id)}>
@@ -171,7 +138,7 @@ export function Announcements(props: PageProps) {
                         {a.category}
                         {a.subcategory && <span className="irow__sub">{a.subcategory}</span>}
                       </td>
-                      <td>{a.unis.length ? (a.unis.length === 1 ? uniName(a.unis[0]) : `${a.unis.length} universities`) : '—'}</td>
+                      <td>{a.unis.length ? (a.unis.length === 1 ? uniName(a.unis[0]) : `${a.unis.length} universities`) : <span className="muted">—</span>}</td>
                       <td className="num">{dateText(a.publish)}</td>
                       <td className="num">{dateText(a.expires)}</td>
                       <td>{a.author === me ? `${a.author} (you)` : a.author}</td>
@@ -185,46 +152,59 @@ export function Announcements(props: PageProps) {
             </table>
           </div>
         )}
-        {pager}
+        <Pager pg={pg} what="announcements" />
       </section>
     </div>
   );
 }
 
-type Draft = { title: string; category: AnnCategory | ''; subcategory: string; unis: string[]; levels: Level[]; areas: Area[]; publishDay: string; expires: string; body: string; files: string[]; media: Record<string, string>; email: boolean; userTypes: string[]; roles: string[]; countries: string[]; regions: string[] };
+type Draft = { title: string; category: AnnCategory | ''; subcategory: string; unis: string[]; levels: Level[]; areas: Area[]; publishDay: string; expires: string; body: string; files: string[]; art: Record<string, string>; email: boolean; userTypes: string[]; roles: string[]; countries: string[]; regions: string[] };
 
-/** One announcement: written, previewed, then saved as a draft, scheduled or published; a live one can be withdrawn. */
-function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | null; id: string; me: string; edit: boolean; unis: PageProps['db']['unis']; onBack: () => void; onSave: (a: Announcement, what: string) => void }) {
+/** Reads an image file into a page-ready address, for the preview's creative. */
+const readArt = (f: File) =>
+  new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result));
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(f);
+  });
+
+/**
+ * One announcement: written, previewed, then saved as a draft, scheduled or published; a live one can be withdrawn.
+ * 4 Nov: the form takes the page's width; under it, System information and Logs, each opening and closing. The
+ * preview shows the creative (its image) first, then the text. Removing an attachment asks first.
+ */
+function AnnPage({ a, id, me, unis, onBack, onSave }: { a: Announcement | null; id: string; me: string; unis: PageProps['db']['unis']; onBack: () => void; onSave: (a: Announcement, what: string) => void }) {
   const s = a ? statusOf(a) : 'Draft';
-  // Edit works on Draft, Scheduled and Live; Expired and Withdrawn are read-only (proposal, S2C-15)
-  const locked = s === 'Expired' || s === 'Withdrawn' || !edit;
+  // view only (6 Nov): the form reads as it is, nothing to change
+  const viewOnly = useViewOnly();
+  const locked = s === 'Expired' || s === 'Withdrawn' || viewOnly;
   const [v, setV] = useState<Draft>(() =>
     a
-      ? { title: a.title, category: a.category, subcategory: a.subcategory, unis: a.unis, levels: a.levels, areas: a.areas, publishDay: a.publish.slice(0, 10), expires: a.expires, body: a.body, files: a.files, media: a.media ?? {}, email: a.email, userTypes: a.userTypes, roles: a.roles, countries: a.countries, regions: a.regions }
-      : { title: '', category: '', subcategory: '', unis: [], levels: [], areas: [], publishDay: inDays(0), expires: inDays(30), body: '', files: [], media: {}, email: false, userTypes: ['RP'], roles: [], countries: [], regions: [] },
+      ? { title: a.title, category: a.category, subcategory: a.subcategory, unis: a.unis, levels: a.levels, areas: a.areas, publishDay: a.publish.slice(0, 10), expires: a.expires, body: a.body, files: a.files, art: a.art ?? {}, email: a.email, userTypes: a.userTypes, roles: a.roles, countries: a.countries, regions: a.regions }
+      : { title: '', category: '', subcategory: '', unis: [], levels: [], areas: [], publishDay: inDays(0), expires: inDays(30), body: '', files: [], art: {}, email: false, userTypes: ['RP'], roles: [], countries: [], regions: [] },
   );
   const [tried, setTried] = useState(false);
-  // QC, 1 Nov: leaving with changes nobody saved asks first
-  const [first, setFirst] = useState(v);
-  const dirty = JSON.stringify(v) !== JSON.stringify(first);
-  useUnsaved(dirty, dirty, { onDiscard: () => setV(first), what: a ? `“${a.title}”` : 'the new announcement', esc: false });
   const [preview, setPreview] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const { ask, dialog } = useAsk();
   const set = (f: Partial<Draft>) => setV((x) => ({ ...x, ...f }));
   const subs = v.category ? SUBCATEGORIES[v.category] ?? [] : [];
   const needsUnis = v.category !== 'System Updates';
   const err = {
-    title: !v.title.trim() ? 'Enter the title.' : null,
+    title: !v.title.trim() ? 'Write a title.' : null,
     category: !v.category ? 'Pick a category.' : null,
-    unis: needsUnis && !v.unis.length ? 'Pick at least one university.' : null,
-    publishDay: dateError(v.publishDay, { what: 'publish date', required: true }) || (s !== 'Live' && v.publishDay < todayIso() ? 'Pick today or a later date.' : null),
-    expires: dateError(v.expires, { what: 'expiry date', required: true }) || (v.expires <= v.publishDay ? 'Pick a date after the publish date.' : null),
-    body: !textOf(v.body) ? 'Enter the description.' : null,
-    userTypes: !v.userTypes.length ? 'Pick who it goes to.' : null,
+    unis: needsUnis && !v.unis.length ? 'Pick the universities it’s about.' : null,
+    publishDay: !v.publishDay ? 'Pick when it publishes.' : null,
+    expires: !v.expires ? 'Pick when it expires.' : v.expires < v.publishDay ? 'It has to expire after it publishes.' : null,
+    body: !textOf(v.body) ? 'Write the description.' : null,
+    userTypes: !v.userTypes.length ? 'Pick who gets it.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const uniName = (x: string) => unis.find((u) => u.id === x)?.name ?? x;
-  const build = (draft: boolean): Announcement => ({
+  const created = a?.created ?? (a ? { by: a.author, at: a.publish } : null);
+  /** The announcement as it stands, with a line for its Logs. */
+  const build = (draft: boolean, part: string, what: string): Announcement => ({
     id,
     title: v.title.trim(),
     category: v.category as AnnCategory,
@@ -236,8 +216,7 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
     expires: v.expires,
     body: cleanHtml(v.body),
     files: v.files,
-    // only the images still attached; a new go-live writes the summary again (job J9)
-    media: Object.fromEntries(Object.entries(v.media).filter(([k]) => v.files.includes(k))),
+    art: Object.fromEntries(Object.entries(v.art).filter(([k]) => v.files.includes(k))),
     email: v.email,
     userTypes: v.userTypes,
     roles: v.roles,
@@ -246,21 +225,33 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
     author: a?.author ?? me,
     draft,
     withdrawn: a?.withdrawn ?? false,
+    reached: a?.reached ?? 0,
     sent: a?.sent ?? 0,
-    log: a?.log,
+    opened: a?.opened ?? 0,
     updated: stampBy(me),
-    createdAt: a?.createdAt ?? a?.publish ?? todayIso(),
+    created: created ?? stampBy(me),
+    log: [logLine(me, part, what), ...(a?.log ?? [])],
   });
   const future = v.publishDay > todayIso();
   const go = () => {
     setTried(true);
-    if (Object.values(err).some(Boolean)) return focusFirstError();
-    setFirst(v);
-    onSave(build(false), s === 'Live' ? 'Saved: it shows at once. No new email is sent.' : future ? `Scheduled for ${dateText(v.publishDay)}.` : 'Published: partners see it now.');
+    if (Object.values(err).some(Boolean)) return;
+    if (s === 'Live') onSave(build(false, 'details', 'Saved changes'), 'Saved.');
+    else if (future) onSave(build(false, 'status', `Scheduled for ${dateText(v.publishDay)}`), `Scheduled for ${dateText(v.publishDay)}.`);
+    else onSave(build(false, 'status', 'Published'), 'Published: partners see it now.');
   };
-  const pickById = (label: string, idx: string, value: string[], onChange: (x: string[]) => void, invalid = false) => (
-    <MultiPick id={idx} label={label} invalid={invalid} value={value.map(uniName)} options={unis.map((u) => u.name)} onChange={(names) => onChange(names.map((n) => unis.find((u) => u.name === n)?.id ?? n))} empty="Choose" search />
+  const pickById = (label: string, idx: string, value: string[], onChange: (x: string[]) => void) => (
+    <MultiPick id={idx} label={label} value={value.map(uniName)} options={unis.map((u) => u.name)} onChange={(names) => onChange(names.map((n) => unis.find((u) => u.name === n)?.id ?? n))} empty="Choose" search />
   );
+  /** New attachments: an image's picture is kept for the preview. */
+  const attach = async (files: string[], added: File[]) => {
+    set({ files });
+    const pics = await Promise.allSettled(added.filter((f) => f.type.startsWith('image/')).map(async (f) => [f.name, await readArt(f)] as const));
+    const got = pics.flatMap((p) => (p.status === 'fulfilled' ? [p.value] : []));
+    if (got.length) setV((x) => ({ ...x, art: { ...x.art, ...Object.fromEntries(got) } }));
+  };
+  const arts = v.files.filter((f) => v.art[f]);
+  const others = v.files.filter((f) => !v.art[f]);
 
   return (
     <div className="ipage irecord">
@@ -272,13 +263,13 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
         <div>
           <h1 className="page__title">{a ? a.title : 'New announcement'}</h1>
           <p className="stu__lead">
-            {id} · {s}{locked && edit && ' · read-only'}
+            {id} · {s}
           </p>
           <Updated s={a?.updated} />
         </div>
       </header>
 
-      <div className="ianbody">
+      <div className="ianbody ianbody--one">
         <section className="card irsec" aria-label="The announcement">
           <fieldset className="ianform" disabled={locked}>
             <div className="iform__grid">
@@ -286,31 +277,56 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
                 <TextInput id="ian-title" value={v.title} invalid={!!show('title')} onChange={(e) => set({ title: e.target.value })} />
               </Field>
               <Field id="ian-cat" label="Category" required error={show('category')}>
-                <Pick id="ian-cat" label="Category" value={v.category} placeholder="Pick a category" invalid={!!show('category')} options={ANN_CATEGORIES} onChange={(c) => set({ category: c as AnnCategory, subcategory: '' })} />
+                <SelectInput id="ian-cat" value={v.category} placeholder="Choose" invalid={!!show('category')} onChange={(e) => set({ category: e.target.value as AnnCategory, subcategory: '' })}>
+                  {ANN_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </SelectInput>
               </Field>
               <Field id="ian-sub" label="Subcategory" optional>
-                {subs.length ? <Pick id="ian-sub" label="Subcategory" value={v.subcategory} all="None" options={subs} onChange={(subcategory) => set({ subcategory })} /> : <span className="muted">Only for Admission and System Updates</span>}
+                <SelectInput id="ian-sub" value={v.subcategory} placeholder="Choose" allowEmpty disabled={!subs.length} onChange={(e) => set({ subcategory: e.target.value })}>
+                  {subs.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </SelectInput>
               </Field>
               <Field id="ian-unis" label="Universities" required={needsUnis} optional={!needsUnis} error={show('unis')} className="iform__wide">
-                {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }), !!show('unis'))}
+                {pickById('Universities', 'ian-unis', v.unis, (unis) => set({ unis }))}
               </Field>
               <Field id="ian-levels" label="Program level" optional>
-                <MultiPick id="ian-levels" label="Program level" value={v.levels} options={liveLevels(getDb())} onChange={(x) => set({ levels: x as Level[] })} empty="All levels" all="All levels" />
+                <MultiPick id="ian-levels" label="Program level" value={v.levels} options={[...LEVELS]} onChange={(x) => set({ levels: x as Level[] })} empty="All levels" all="All levels" />
               </Field>
               <Field id="ian-areas" label="Study area" optional>
-                <MultiPick id="ian-areas" label="Study area" value={v.areas} options={liveAreas(getDb())} onChange={(x) => set({ areas: x as Area[] })} empty="All areas" all="All areas" search />
+                <MultiPick id="ian-areas" label="Study area" value={v.areas} options={[...AREAS]} onChange={(x) => set({ areas: x as Area[] })} empty="All areas" all="All areas" search />
               </Field>
-              <Field id="ian-pub" label="Publish on" required error={show('publishDay')} hint="It goes live just after midnight IST on this date.">
-                <DateInput id="ian-pub" value={v.publishDay} onChange={(publishDay) => set({ publishDay })} />
+              <Field id="ian-pub" label="Publish on" required error={show('publishDay')}>
+                <TextInput id="ian-pub" type="date" value={v.publishDay} invalid={!!show('publishDay')} onChange={(e) => set({ publishDay: e.target.value })} />
               </Field>
-              <Field id="ian-exp" label="Expires on" required error={show('expires')} hint="It shows through the end of this date (IST).">
-                <DateInput id="ian-exp" value={v.expires} onChange={(expires) => set({ expires })} />
+              <Field id="ian-exp" label="Expires on" required error={show('expires')}>
+                <TextInput id="ian-exp" type="date" value={v.expires} invalid={!!show('expires')} onChange={(e) => set({ expires: e.target.value })} />
               </Field>
               <Field id="ian-body" label="Description" required error={show('body')} className="iform__wide">
-                <RichText id="ian-body" value={v.body} onChange={(body) => set({ body })} files={v.files} onFiles={(files) => set({ files })} onMedia={(name, src) => setV((x) => ({ ...x, media: { ...x.media, [name]: src } }))} invalid={!!show('body')} disabled={locked} />
+                <RichText
+                  id="ian-body"
+                  value={v.body}
+                  onChange={(body) => set({ body })}
+                  files={v.files}
+                  onFiles={attach}
+                  onRemove={(f) =>
+                    ask(`Remove ${f}?`, 'Remove', <p>{v.art[f] ? 'It’s no longer the creative partners see first.' : 'It’s no longer attached.'} Nothing changes for partners until you save.</p>, () =>
+                      setV((x) => ({ ...x, files: x.files.filter((y) => y !== f), art: Object.fromEntries(Object.entries(x.art).filter(([k]) => k !== f)) })),
+                    )
+                  }
+                  invalid={!!show('body')}
+                  disabled={locked}
+                />
               </Field>
               <div className="iform__wide">
-                <Checkbox id="ian-email" checked={v.email} onChange={(email) => set({ email })} hint="E14 goes to the recipients when it publishes, from no-reply@gsp.upgrad.com. They can turn it off in Email preferences. A Live edit sends no new email.">
+                <Checkbox id="ian-email" checked={v.email} onChange={(email) => set({ email })}>
                   Send as email
                 </Checkbox>
               </div>
@@ -330,9 +346,6 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
                 <MultiPick id="ian-regions" label="Sales region" value={v.regions} options={[...SALES_REGIONS]} onChange={(regions) => set({ regions })} empty="All regions" all="All regions" />
               </Field>
             </div>
-            <p className="irsec__note" role="status">
-              Reaches about <span className="num">{reachOf(v).toLocaleString('en-GB')}</span> people.
-            </p>
           </fieldset>
           {!locked && (
             <div className="ianacts">
@@ -340,57 +353,55 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
                 Preview
               </Button>
               {s !== 'Live' && s !== 'Scheduled' && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    if (!v.title.trim()) {
-                      setTried(true);
-                      return focusFirstError();
-                    }
-                    setFirst(v);
-                    onSave(build(true), 'Draft saved.');
-                  }}
-                >
-                  Save draft
-                </Button>
+                <EditOnly>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      if (!v.title.trim()) return setTried(true);
+                      onSave(build(true, 'details', a ? 'Saved the draft' : 'Saved as a draft'), 'Draft saved.');
+                    }}
+                  >
+                    Save draft
+                  </Button>
+                </EditOnly>
               )}
               {(s === 'Live' || s === 'Scheduled') && (
-                <Button variant="secondary" onClick={() => setWithdrawing(true)}>
-                  Withdraw
-                </Button>
+                <EditOnly>
+                  <Button variant="secondary" onClick={() => setWithdrawing(true)}>
+                    Withdraw
+                  </Button>
+                </EditOnly>
               )}
               <Button onClick={go}>{s === 'Live' ? 'Save' : future ? 'Schedule' : 'Publish'}</Button>
             </div>
           )}
         </section>
 
-        <aside className="ianside" aria-label="System information">
-          <section className="card irsec">
-            <h2 className="irsec__title">System information</h2>
-            <dl className="ifacts ifacts--one">
-              {(
-                [
-                  ['Created by', a?.author ?? me],
-                  ['Created on', a ? dateText(a.createdAt ?? a.publish) : '—'],
-                  ['Last modified by', a?.updated?.by ?? a?.author ?? '—'],
-                  ['Last modified on', a?.updated ? dateText(a.updated.at) : a ? dateText(a.createdAt ?? a.publish) : '—'],
-                  ['Status', s],
-                  ...(a?.email && (s === 'Live' || s === 'Expired' || s === 'Withdrawn') ? ([['Emails', `${a.sent.toLocaleString('en-GB')} sent`]] as const) : []),
-                ] as const
-              ).map(([k, x]) => (
-                <div key={k} className="ifacts__row">
-                  <dt>{k}</dt>
-                  <dd className="num">{x}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        </aside>
+        <Fold title="System information" id="ian-system">
+          <Facts
+            items={[
+              ['Created by', a?.author ?? me],
+              ['Created on', created ? <span key="c" className="num">{dateTimeText(created.at)}</span> : null],
+              ['Status', s],
+              ['Recipients reached', a?.reached ? <span key="r" className="num">{a.reached.toLocaleString('en-GB')}</span> : '—'],
+              ['Emails sent / opened', a?.sent ? <span key="e" className="num">{`${a.sent} / ${a.opened}`}</span> : '—'],
+            ]}
+          />
+        </Fold>
+        <Fold title="Logs" id="ian-logs" count={a && created ? (a.log?.length ?? 0) + 1 : 0}>
+          {a && created ? <Timeline lines={a.log ?? []} created={created} added="Created the announcement" parts={PARTS} /> : <p className="iempty">No logs yet: it hasn’t been saved.</p>}
+        </Fold>
       </div>
-      {a && <ChangeLog log={a.log ?? []} id="ian-log" />}
 
-      <Sheet open={preview} onClose={() => setPreview(false)} center className="iform" title="How partners see it" sub="In the top bar of their portal, on matching course cards and on the university’s page.">
+      <Sheet open={preview} onClose={() => setPreview(false)} center className="iform" title="How partners see it">
         <article className="ianprev">
+          {arts.length > 0 && (
+            <div className="ianprev__art">
+              {arts.map((f) => (
+                <img key={f} src={v.art[f]} alt={`The creative: ${f}`} />
+              ))}
+            </div>
+          )}
           <p className="ianprev__k">
             <Icon name="mail" size={16} /> {v.category || 'Announcement'}
             {v.subcategory ? ` · ${v.subcategory}` : ''}
@@ -398,11 +409,11 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
           </p>
           <h3 className="ianprev__title">{v.title || 'Your title'}</h3>
           {textOf(v.body) ? <div className="ianprev__body" dangerouslySetInnerHTML={{ __html: cleanHtml(v.body) }} /> : <p className="ianprev__body">The description.</p>}
-          {v.files.length > 0 && (
+          {others.length > 0 && (
             <ul className="irt__files">
-              {v.files.map((f) => (
+              {others.map((f) => (
                 <li key={f} className="itag">
-                  <Icon name="file" size={14} /> {f}
+                  <Icon name={isImage(f) ? 'image' : 'file'} size={14} /> {f}
                 </li>
               ))}
             </ul>
@@ -413,16 +424,16 @@ function AnnPage({ a, id, me, edit, unis, onBack, onSave }: { a: Announcement | 
       <ConfirmDialog
         open={withdrawing}
         title="Withdraw this announcement?"
-        confirm="Withdraw announcement"
-        danger
+        confirm="Withdraw"
         onConfirm={() => {
           setWithdrawing(false);
-          if (a) onSave({ ...build(false), withdrawn: true }, 'Withdrawn: partners no longer see it.');
+          if (a) onSave({ ...build(false, 'status', 'Withdrawn'), withdrawn: true }, 'Withdrawn: partners no longer see it.');
         }}
         onCancel={() => setWithdrawing(false)}
       >
-        <p>It comes down at once from the top bar, course cards and {v.unis.length ? v.unis.map(uniName).join(', ') : 'the university'}’s page. Emails already sent can’t be recalled.</p>
+        <p>Partners stop seeing it straight away. Emails already sent can’t be taken back.</p>
       </ConfirmDialog>
+      {dialog}
     </div>
   );
 }

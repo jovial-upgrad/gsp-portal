@@ -1,18 +1,14 @@
-/* The portal's two-handle range (components/RangeSlider.tsx): no browser slider. */
-.rslide { display: grid; gap: var(--sp-6); padding: var(--sp-4) 0; }
-.rslide__vals { display: flex; justify-content: space-between; gap: var(--sp-8); font-size: var(--t-caption); color: var(--text); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
-.rslide__track { position: relative; height: 28px; margin: 0 11px; touch-action: none; cursor: pointer; }
-.rslide__rail, .rslide__fill { position: absolute; top: 12px; height: 4px; border-radius: var(--r-pill); }
-.rslide__rail { left: -11px; right: -11px; background: var(--surface-3); }
-.rslide__fill { background: var(--primary); }
-.rslide__thumb {
-  position: absolute; top: 3px; width: 22px; height: 22px; margin-left: -11px; padding: 0;
-  border-radius: 50%; border: 2px solid var(--primary); background: var(--surface); box-shadow: var(--shadow-xs);
-  cursor: grab; touch-action: none;
-}
-.rslide__thumb:active { cursor: grabbing; transform: scale(1.08); }
-.rslide__thumb:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--ring); }
-.rslide__stops { display: flex; justify-content: space-between; font-size: var(--t-micro); color: var(--text-3); }
-.rslide.is-off { opacity: 0.55; }
-.rslide.is-off .rslide__track { cursor: default; }
-@media (prefers-reduced-motion: reduce) { .rslide__thumb:active { transform: none; } }
+/* two handles on one track: the native inputs sit on top of each other, only their thumbs take the pointer */
+.rslider { display: grid; gap: var(--sp-6); }
+.rslider__v { font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text); }
+.rslider__track { position: relative; height: 28px; }
+.rslider__track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: var(--r-pill); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.rslider__fill { position: absolute; top: 50%; height: 6px; margin-top: -3px; left: var(--lo); right: calc(100% - var(--hi)); border-radius: var(--r-pill); background: var(--primary); }
+.rslider__in { position: absolute; inset: 0; width: 100%; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+.rslider__in::-webkit-slider-runnable-track { height: 28px; background: none; }
+.rslider__in::-moz-range-track { height: 28px; background: none; }
+.rslider__in::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 22px; height: 22px; margin-top: 3px; border: 2px solid var(--primary); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-xs); cursor: grab; }
+.rslider__in::-moz-range-thumb { pointer-events: auto; width: 18px; height: 18px; border: 2px solid var(--primary); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-xs); cursor: grab; }
+.rslider__in:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rslider__in:focus-visible::-moz-range-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rslider__ends { display: flex; justify-content: space-between; font-size: var(--t-caption); color: var(--text-3); }

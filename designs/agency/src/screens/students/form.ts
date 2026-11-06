@@ -1,8 +1,6 @@
 /** The Add a student form: the basics, what's checked, duplicates, and how a new student is made. */
-import { phoneError } from '../../components/validate';
 import { countryByName } from '../../data/partners';
-import { emptyEdu, fullName, type Gender, type Level, type Student } from '../../data/students';
-import type { HighestEducation } from '../../data/education';
+import { OTHER_AGENCY_PASSPORTS, emptyEdu, type Gender, type Level, type Student } from '../../data/students';
 
 export type AddForm = {
   first: string;
@@ -17,8 +15,6 @@ export type AddForm = {
   dial: string;
   phone: string;
   highest: '' | Level;
-  /** Highest education in the one list (S3C-1); `highest` is the record's education level it maps to. */
-  highestEd?: '' | HighestEducation;
   /** Whoever adds the student; an admin can reassign them later. */
   counsellor: string;
 };
@@ -47,7 +43,7 @@ export const newForm = (nationality: string): AddForm => ({
   country: nationality,
   passport: '',
   email: '',
-  dial: countryByName(nationality)?.dial ?? '',
+  dial: countryByName(nationality)?.dial ?? '+91',
   phone: '',
   highest: '',
   counsellor: 'me',
@@ -58,23 +54,19 @@ export const newAdd = (nationality: string): AddState => ({ f: newForm(nationali
 /* ---------- checks ---------- */
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
-/** A passport number as it's compared and kept: no spaces, upper case (1 Nov). */
-export const normPassport = (v: string) => v.replace(/\s+/g, '').toUpperCase();
-const norm = normPassport;
+const norm = (v: string) => v.replace(/\s+/g, '').toUpperCase();
 
-/**
- * Someone this agency already added with the same passport number (1 Nov, with engineering: the duplicate check is
- * by passport only, and only within one RP; the same passport at another RP is allowed).
- */
-export function sameStudent(f: Pick<AddForm, 'passport'>, list: Student[], except?: string) {
+/** Someone this agency already added, with the same email or passport. */
+export function sameStudent(f: Pick<AddForm, 'email' | 'passport'>, list: Student[], except?: string) {
+  const email = f.email.trim().toLowerCase();
   const pp = norm(f.passport);
-  const byPassport = pp ? list.find((s) => s.id !== except && norm(s.passport) === pp) : undefined;
-  return { byPassport };
+  const others = list.filter((s) => s.id !== except);
+  const byEmail = email ? others.find((s) => s.email.toLowerCase() === email) : undefined;
+  const byPassport = pp ? others.find((s) => norm(s.passport) === pp) : undefined;
+  return { byEmail, byPassport };
 }
-/** The passport number is required to add a student (1 Nov): 6 to 9 letters and digits. */
-export const passportOk = (v: string) => /^[A-Z0-9]{6,9}$/i.test(norm(v));
-export const passportError = (v: string, dup?: Student) =>
-  !v.trim() ? 'Enter the passport number.' : !passportOk(v) ? 'A passport number is 6 to 9 letters and digits.' : dup ? `${fullName(dup)} already has this passport number.` : null;
+export const atOtherAgency = (passport: string) => !!passport && OTHER_AGENCY_PASSPORTS.includes(norm(passport));
+export const passportOk = (v: string) => !v.trim() || /^[A-Z0-9]{6,9}$/i.test(norm(v));
 
 export const FIELD_ORDER = ['first', 'last', 'nationality', 'country', 'passport', 'email', 'phone', 'highest'] as const;
 export type FieldKey = (typeof FIELD_ORDER)[number];
@@ -85,12 +77,14 @@ export function validate(f: AddForm, list: Student[]) {
   if (!f.oneName && !f.last.trim()) e.last = 'Enter the last name, or tick “Only one name on the passport”.';
   if (!f.nationality) e.nationality = 'Choose the nationality on the passport.';
   if (!f.country) e.country = 'Choose the country the student lives in now.';
-  const pe = passportError(f.passport, sameStudent(f, list).byPassport);
-  if (pe) e.passport = pe;
+  const { byEmail, byPassport } = sameStudent(f, list);
+  if (!passportOk(f.passport)) e.passport = 'A passport number is 6 to 9 letters and digits.';
+  else if (byPassport) e.passport = 'This passport number is already on one of your students.';
   if (!f.email.trim()) e.email = 'Enter the student’s email.';
   else if (!isEmail(f.email)) e.email = 'Enter a full email address, like name@gmail.com.';
+  else if (byEmail) e.email = 'This email is already on one of your students.';
   if (!f.phone.trim()) e.phone = 'Enter the student’s mobile number.';
-  else if (phoneError(f.dial, f.phone)) e.phone = phoneError(f.dial, f.phone, { what: 'student’s mobile number' })!;
+  else if (f.phone.replace(/\D/g, '').length < 7) e.phone = 'Enter the full mobile number.';
   if (!f.highest) e.highest = 'Choose the highest education the student has finished.';
   return e;
 }
@@ -117,30 +111,28 @@ export function makeStudent(a: AddState, me: string): Student {
     phone: f.phone.trim(),
     passport: norm(f.passport),
     highest: f.highest || 'ug',
-    highestEd: f.highestEd || undefined,
     gender: x?.gender ?? '',
     dob: x?.dob ?? '',
     passportExpiry: x?.passportExpiry ?? '',
     country: f.country,
     state: '',
     city: '',
-    // the present address is the profile's to fill; the permanent one starts as the same (4 Nov)
-    permSame: true,
     eduCountry: f.nationality,
     edu: { [f.highest || 'ug']: emptyEdu(f.nationality) },
     work: [],
     tests: [],
+    englishTest: '',
+    englishTestDate: '',
     visa: '',
     visaNote: '',
     disability: '',
     disabilityNote: '',
     docs: a.file ? { passport: { name: 'Passport', file: a.file.name, status: 'uploaded' } } : {},
-    read: x ? ['gender', 'dob'] : [],
-    // the passport read here is its one autofill (1 Nov): the record doesn't offer it again
-    filled: x ? { passport: Date.now() } : undefined,
+    read: x ? ['gender', 'dob', 'passportExpiry'] : [],
     counsellor: f.counsellor,
     added: Date.now(),
     addedBy: me,
     apps: [],
+    consentCheck: atOtherAgency(f.passport) || undefined,
   };
 }

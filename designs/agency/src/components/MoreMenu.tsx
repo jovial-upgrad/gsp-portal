@@ -5,8 +5,7 @@ import { Icon, type IconName } from './Icon';
 import './menu.css';
 
 /** With `checked`, the menu is a choice of one (like a sort): the picked item shows a tick. */
-/** `disabled` with `reason`: shown greyed out, with the reason in the portal's tooltip (Jovial, 2 Nov: RP Withdraw after submission). */
-export type MenuItem = { id: string; label: string; icon?: IconName; danger?: boolean; checked?: boolean; disabled?: boolean; reason?: string; onPick: () => void };
+export type MenuItem = { id: string; label: string; icon?: IconName; danger?: boolean; checked?: boolean; onPick: () => void };
 
 /**
  * A "more" button (three dots, or another icon) that opens a short menu of actions or a choice of one.
@@ -150,12 +149,9 @@ export function MoreMenu({
                     role={it.checked === undefined ? 'menuitem' : 'menuitemradio'}
                     aria-checked={it.checked}
                     tabIndex={i === active ? 0 : -1}
-                    className={`mmenu__item ${it.danger ? 'is-danger' : ''} ${it.disabled ? 'is-off' : ''}`}
-                    aria-disabled={it.disabled || undefined}
-                    title={it.disabled ? it.reason : undefined}
+                    className={`mmenu__item ${it.danger ? 'is-danger' : ''}`}
                     onPointerEnter={() => setActive(i)}
                     onClick={() => {
-                      if (it.disabled) return;
                       setOpen(false);
                       btn.current?.focus({ preventScroll: true });
                       it.onPick();

@@ -1,0 +1,53 @@
+/* GSP · Admissions, My work (5 Nov): this role's own styles, prefixed gw- */
+.gw-head { margin-bottom: var(--sp-20); }
+.gw-title { margin: 0; font-size: var(--t-display); font-weight: var(--fw-semi); letter-spacing: -0.01em; }
+.gw-lead { margin: var(--sp-6) 0 0; font-size: var(--t-body); color: var(--text-2); }
+.gw-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); margin-bottom: var(--sp-16); }
+.gw-tile { display: grid; gap: 2px; padding: var(--sp-20) var(--sp-24, 24px); }
+.gw-tile__n { font-size: var(--t-display); font-weight: var(--fw-semi); line-height: 1.1; color: var(--text); }
+.gw-tile__k { margin-top: var(--sp-6); font-size: var(--t-body); font-weight: var(--fw-semi); color: var(--text); }
+.gw-tile__sub { font-size: var(--t-label); color: var(--text-3); }
+.gw-tile.is-bad .gw-tile__n { color: var(--bad); }
+.gw-list { padding: 0; overflow: hidden; }
+.gw-tools { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-12); padding: var(--sp-16) var(--sp-20); }
+.gw-views { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.gw-views .ichip { height: 40px; }
+.gw-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); }
+.gw-filter { width: 220px; }
+.gw-strong { display: block; font-weight: var(--fw-medium); color: var(--text); }
+.gw-strong.gw-inline { display: inline; font-weight: var(--fw-semi); }
+.gw-sub { display: block; margin-top: 2px; font-size: var(--t-caption); line-height: var(--lh-caption); color: var(--text-3); }
+.gw-muted { color: var(--text-3); }
+.gw-nowrap { white-space: nowrap; }
+.gw-tab { table-layout: fixed; width: 100%; }
+.gw-tab td { vertical-align: top; overflow-wrap: anywhere; }
+.gw-tab td:first-child, .gw-tab th:first-child { min-width: 0; }
+.gw-tab--wait { table-layout: auto; }
+.gw-tab--wait td:first-child { min-width: 240px; }
+.gw-tab .gw-c-tick { width: 52px; }
+.gw-tab .gw-c-rec { width: 150px; }
+.gw-tab .gw-c-q { width: 112px; }
+.gw-tab .gw-c-who { width: 120px; }
+.gw-tab .gw-c-n { width: 72px; }
+.gw-tab .gw-c-sla { width: 176px; }
+.gw-tab .gw-c-act { width: 150px; }
+.gw-tab .gw-tick { padding-right: 0; }
+.gw-tab .gw-tick .check__label { gap: 0; }
+.gw-tab tr.is-ticked td { background: var(--primary-soft); }
+.gw-acts { text-align: right; }
+.gw-acts > .btn--link { display: block; margin-left: auto; text-align: right; }
+.gw-acts > .btn--link + .btn--link { margin-top: var(--sp-8); }
+.gw-acts .gw-complete, .gw-acts .gw-complete:hover { color: var(--ok); }
+.gw-pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 var(--sp-10); border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--fw-semi); white-space: nowrap; }
+.gw-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.gw-pill--track { background: var(--ok-bg); color: var(--ok); }
+.gw-pill--soon { background: var(--neutral-bg); color: var(--text); }
+.gw-pill--soon::before { background: var(--bad-dot); }
+.gw-pill--late { background: var(--bad-bg); color: var(--bad); }
+.gw-pill--paused, .gw-pill--done { background: var(--neutral-bg); color: var(--text-3); }
+.gw-pill + .gw-sub { margin-top: 4px; }
+.gw-bulk { display: flex; align-items: center; gap: var(--sp-16); padding: 0 var(--sp-20) var(--sp-12); font-size: var(--t-label); color: var(--text-2); }
+.gw-empty { margin: 0; padding: var(--sp-24, 24px) var(--sp-20); }
+.gw-sheet .sheet__body { min-height: 340px; }
+@media (max-width: 1100px) { .gw-tab { table-layout: auto; min-width: 1000px; } }
+@media (max-width: 900px) { .gw-tiles { grid-template-columns: minmax(0, 1fr); } }

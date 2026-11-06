@@ -5,18 +5,11 @@
 import { LEVELS, emptyEdu, eduDocKey, eduDocName, readEducation, readPassport, readResume, readTest, testDocKey, testDocName, type Edu, type Level, type Student, type Test, type TestType, type Work } from '../../../data/students';
 
 const mark = (p: Student, keys: string[]) => [...new Set([...p.read, ...keys])];
-/**
- * Autofill is one-time (1 Nov, with engineering): a document that has filled the profile in once doesn't again,
- * whether it's uploaded in its part, in Documents or replaced. After that, fields are corrected by hand.
- */
-export const wasFilled = (p: Student, docKey: string) => !!p.filled?.[docKey];
-const done = (p: Student, docKey: string) => ({ ...p.filled, [docKey]: Date.now() });
 
 /** Saves the passport in Documents. */
 export const savePassport = (p: Student, file: string): Student => ({ ...p, docs: { ...p.docs, passport: { name: 'Passport', file, status: 'uploaded' } } });
 /** Fills names, passport number, gender, date of birth and expiry from the passport. */
 export function fillFromPassport(p: Student, file: string): Student {
-  if (wasFilled(p, 'passport')) return p;
   const r = readPassport(file);
   const fill: Partial<Student> = {};
   if (!p.first) fill.first = r.first;
@@ -24,23 +17,23 @@ export function fillFromPassport(p: Student, file: string): Student {
   if (!p.passport) fill.passport = r.passport;
   if (!p.gender) fill.gender = r.gender;
   if (!p.dob) fill.dob = r.dob;
-  return { ...p, ...fill, read: mark(p, Object.keys(fill)), filled: done(p, 'passport') };
+  if (!p.passportExpiry) fill.passportExpiry = r.passportExpiry;
+  return { ...p, ...fill, read: mark(p, Object.keys(fill)) };
 }
 
 export const saveEducation = (p: Student, l: Level, file: string): Student => ({ ...p, docs: { ...p.docs, [eduDocKey(l)]: { name: eduDocName(l), file, status: 'uploaded' } } });
 export function fillFromEducation(p: Student, l: Level): Student {
-  if (wasFilled(p, eduDocKey(l))) return p;
   const cur = p.edu[l] ?? emptyEdu(p.eduCountry);
   const r = readEducation(l, cur.country || p.eduCountry, p.state);
   const keys = (Object.keys(r) as (keyof Edu)[]).filter((k) => !cur[k] && r[k]);
   const fill = Object.fromEntries(keys.map((k) => [k, r[k]])) as Partial<Edu>;
-  return { ...p, edu: { ...p.edu, [l]: { ...cur, ...fill } }, read: mark(p, keys.map((k) => `edu.${l}.${k}`)), filled: done(p, eduDocKey(l)) };
+  return { ...p, edu: { ...p.edu, [l]: { ...cur, ...fill } }, read: mark(p, keys.map((k) => `edu.${l}.${k}`)) };
 }
 
 export const saveTest = (p: Student, t: Test, file: string): Student => ({ ...p, docs: { ...p.docs, [testDocKey(t)]: { name: testDocName(t), file, status: 'uploaded' } } });
 export function fillFromTest(p: Student, id: string): Student {
   const t = p.tests.find((x) => x.id === id);
-  if (!t || wasFilled(p, testDocKey(t))) return p;
+  if (!t) return p;
   const r = readTest(t.type);
   const keys: string[] = [];
   const next: Test = { ...t, parts: { ...t.parts } };
@@ -50,7 +43,7 @@ export function fillFromTest(p: Student, id: string): Student {
   Object.entries(r.parts).forEach(([k, v]) => {
     if (!t.parts[k] && v) (next.parts[k] = v, keys.push(k));
   });
-  return { ...p, tests: p.tests.map((x) => (x.id === id ? next : x)), read: mark(p, keys.map((k) => `test.${id}.${k}`)), filled: done(p, testDocKey(t)) };
+  return { ...p, tests: p.tests.map((x) => (x.id === id ? next : x)), read: mark(p, keys.map((k) => `test.${id}.${k}`)) };
 }
 
 /** Saves the resume as the CV, in Additional documents. */
@@ -58,13 +51,12 @@ export const saveResume = (p: Student, file: string): Student => ({ ...p, docs: 
 let seq = 1;
 /** Adds the jobs on the resume that aren't there yet, each field marked to check. */
 export function fillFromResume(p: Student): Student {
-  if (wasFilled(p, 'cv')) return p;
   const have = new Set(p.work.map((j) => j.org.trim().toLowerCase()));
   const jobs: Work[] = readResume()
     .filter((j) => !have.has(j.org.toLowerCase()))
     .map((j) => ({ ...j, id: `wr${seq++}` }));
   const keys = jobs.flatMap((j) => (['org', 'role', 'from', 'to'] as const).filter((k) => j[k]).map((k) => `work.${j.id}.${k}`));
-  return { ...p, work: [...p.work, ...jobs], read: mark(p, keys), filled: done(p, 'cv') };
+  return { ...p, work: [...p.work, ...jobs], read: mark(p, keys) };
 }
 
 /* ---------- adding to a section from the menus at its top ---------- */

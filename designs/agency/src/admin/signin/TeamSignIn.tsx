@@ -8,13 +8,8 @@ import { Icon } from '../../components/Icon';
 import { TEST_CODE } from '../../data/testing';
 import { AuthScene, settle, useScene } from './AuthScene';
 import {
-  CODE_MINUTES,
   LOCK_MINUTES,
   MAX_ATTEMPTS,
-  MAX_WRONG_CODES,
-  RESEND_SECONDS,
-  resendFrom,
-  sendCode,
   PASSWORD_HINT,
   TEAM_AUTH_PRESETS,
   TEAM_MEMBER,
@@ -24,15 +19,11 @@ import {
   initialTeamAuth,
   memberFor,
   setPassword,
-  signedInNow,
-  triesFor,
   verify,
-  wrongPassword,
   type Member,
   type PwMode,
   type PwStep,
   type TeamAuth,
-  audit,
 } from './model';
 import { signInAs } from '../user';
 import '../../screens/signin/signin.css';
@@ -51,15 +42,16 @@ const remembered = () => {
 };
 
 /**
- * The GSP portal's way in (PRD slice 1, Sign-in and passwords): sign in with a GSP email and password, set a
- * password up the first time (Admin creates GSP people; there's no signing up and no single sign-on), or reset a
- * forgotten one. The Set up your account email's link opens the new-password step directly.
+ * The GSP Admin's way in (29 Oct): sign in with a GSP email and password, set a password up the first
+ * time (a GSP admin gives access; there's no registering), or reset a forgotten one. Its own scene, with
+ * "GSP Admin" beside the logo.
  */
 export function TeamSignIn({ preset, notice, onSignedIn }: { preset: string | null; notice: string | null; onSignedIn: (m: Member) => void }) {
-  const [a, setA] = useState<TeamAuth>(() => (preset && preset !== 'signin' && preset in TEAM_AUTH_PRESETS ? TEAM_AUTH_PRESETS[preset].make() : { ...initialTeamAuth(remembered()), notice }));
+  const [a, setA] = useState<TeamAuth>(() =>
+    preset && preset !== 'signin' && preset in TEAM_AUTH_PRESETS ? TEAM_AUTH_PRESETS[preset].make() : { ...initialTeamAuth(remembered()), notice },
+  );
   const set: Set = (fn) => setA(fn);
   const signedIn = (m: Member) => {
-    signedInNow(m);
     signInAs(m);
     try {
       if (a.remember) localStorage.setItem(KEY, m.email);
@@ -75,10 +67,11 @@ export function TeamSignIn({ preset, notice, onSignedIn }: { preset: string | nu
   );
 }
 
-/** What the photo says, rising line by line once the photo is in. */
+/** What the photo says: the team's job, rising line by line once the photo is in. */
 function TeamHero() {
   const { reduce, ready } = useScene();
-  const line = (i: number) => (reduce ? {} : { initial: { y: '108%' }, animate: ready ? { y: '0%' } : undefined, transition: { duration: 0.9, ease: settle, delay: 0.45 + i * 0.1 } });
+  const line = (i: number) =>
+    reduce ? {} : { initial: { y: '108%' }, animate: ready ? { y: '0%' } : undefined, transition: { duration: 0.9, ease: settle, delay: 0.45 + i * 0.1 } };
   return (
     <p className="auth__statement">
       <span className="auth__line">
@@ -98,10 +91,9 @@ function TeamHero() {
 function TeamPanel({ a, set, onSignedIn }: { a: TeamAuth; set: Set; onSignedIn: (m: Member) => void }) {
   const { reduce } = useScene();
   const toFlow = (mode: PwMode, id = a.id) =>
-    set((p) => ({ ...p, view: 'password', error: null, left: null, notice: null, unset: false, off: false, flow: { ...p.flow, mode, step: 'request', dir: 1, id, submitted: false, busy: false, code: '', codeError: null, wrongCodes: 0, viaLink: false } }));
-  // a reset ends at sign-in with the email filled in, a green "Password changed" note and "Sign me out on other devices" (off)
-  const toSignIn = (changed?: boolean) =>
-    set((p) => ({ ...p, view: 'signin', id: p.flow.id || p.id, pw: '', status: 'idle', error: null, left: null, unset: false, off: false, submitted: false, notice: changed ? 'Password changed' : null, others: changed ? false : null, attempts: changed ? 0 : p.attempts, lockedUntil: changed ? 0 : p.lockedUntil }));
+    set((p) => ({ ...p, view: 'password', error: null, notice: null, unset: false, flow: { ...p.flow, mode, step: 'request', dir: 1, id, submitted: false, busy: false, code: '', codeError: null } }));
+  const toSignIn = (notice?: string) =>
+    set((p) => ({ ...p, view: 'signin', id: p.flow.id || p.id, pw: '', status: 'idle', error: null, unset: false, submitted: false, notice: notice ?? null, attempts: notice ? 0 : p.attempts, lockedUntil: notice ? 0 : p.lockedUntil }));
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
@@ -111,7 +103,11 @@ function TeamPanel({ a, set, onSignedIn }: { a: TeamAuth; set: Set; onSignedIn: 
         exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
         transition={{ duration: 0.22, ease }}
       >
-        {a.view === 'signin' ? <SignInForm a={a} set={set} onForgot={() => toFlow('reset')} onSetup={() => toFlow('setup')} onSignedIn={onSignedIn} /> : <PasswordFlow a={a} set={set} onBack={toSignIn} onSignedIn={onSignedIn} />}
+        {a.view === 'signin' ? (
+          <SignInForm a={a} set={set} onForgot={() => toFlow('reset')} onSetup={() => toFlow('setup')} onSignedIn={onSignedIn} />
+        ) : (
+          <PasswordFlow a={a} set={set} onBack={toSignIn} onSignedIn={onSignedIn} />
+        )}
       </motion.div>
     </AnimatePresence>
   );
@@ -138,52 +134,39 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
   const stillLocked = left > 0;
   const timer = useRef<number>();
   useEffect(() => () => window.clearTimeout(timer.current), []);
-  // the pause ends by itself after Sign-in pauses for
   useEffect(() => {
-    if (a.lockedUntil && !stillLocked) set((p) => ({ ...p, lockedUntil: 0, attempts: 0, error: null, left: null }));
+    if (a.lockedUntil && !stillLocked) set((p) => ({ ...p, lockedUntil: 0, attempts: 0, error: null }));
   }, [stillLocked, a.lockedUntil, set]);
 
-  const idErr = a.submitted && !a.id.trim() ? 'Enter your email.' : null;
-  const pwErr = a.submitted && !a.pw && !a.unset && !a.off ? 'Enter your password.' : null;
+  const idErr = a.submitted && !a.id.trim() ? 'Enter your GSP email.' : null;
+  const pwErr = a.submitted && !a.pw && !a.unset ? 'Enter your password.' : null;
 
   const submit = () => {
-    if (a.status !== 'idle') return;
-    // tries are counted per typed email; during the pause even the right password is refused
-    const t = triesFor(a.id);
-    if (t.until > Date.now()) return set((p) => ({ ...p, submitted: true, lockedUntil: t.until, attempts: t.n, error: null, left: null }));
-    if (stillLocked) return;
+    if (stillLocked || a.status !== 'idle') return;
     // someone with access who hasn't set a password: no password to check, so offer to set one up
     const m = memberFor(a.id);
-    if (m && !m.off && !hasPassword(m)) return set((p) => ({ ...p, submitted: true, unset: true, error: null, left: null, notice: null, pw: '' }));
-    if (!a.id.trim() || !a.pw) {
-      // the first field with an error takes focus
-      window.setTimeout(() => (!a.id.trim() ? document.getElementById('si-id') : pwRef.current)?.focus(), 40);
-      return set((p) => ({ ...p, submitted: true, error: null, left: null, notice: null, unset: false, off: false }));
-    }
-    set((p) => ({ ...p, submitted: true, status: 'checking', error: null, left: null, notice: null, unset: false, off: false }));
+    if (m && !hasPassword(m)) return set((p) => ({ ...p, submitted: true, unset: true, error: null, notice: null, pw: '' }));
+    if (!a.id.trim() || !a.pw) return set((p) => ({ ...p, submitted: true, error: null, notice: null, unset: false }));
+    set((p) => ({ ...p, submitted: true, status: 'checking', error: null, notice: null, unset: false }));
     timer.current = window.setTimeout(() => {
       const ok = verify(a.id, a.pw);
-      // a deactivated person with the right password (proposal S1C-4); with a wrong one, the normal message
-      if (ok && ok.off) {
-        audit('auth.sign_in_failed', a.id, `${a.id.trim().toLowerCase()}, access turned off`);
-        return set((p) => ({ ...p, status: 'idle', off: true }));
-      }
       if (!ok) {
-        const w = wrongPassword(a.id);
-        const tries = MAX_ATTEMPTS - w.n;
+        const attempts = a.attempts + 1;
+        const lockedUntil = attempts >= MAX_ATTEMPTS ? Date.now() + LOCK_MINUTES * 60_000 : 0;
+        const tries = MAX_ATTEMPTS - attempts;
         set((p) => ({
           ...p,
           status: 'idle',
-          attempts: w.n,
-          lockedUntil: w.until,
-          // an unknown email gets the same message and countdown, so nobody learns who has an account
-          error: w.until ? null : 'That email and password don’t match. Check both, or reset your password.',
-          left: !w.until && tries <= 2 ? `${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses.` : null,
+          pw: '',
+          attempts,
+          lockedUntil,
+          error: lockedUntil
+            ? null
+            : tries <= 2
+              ? `That email and password don’t match. ${tries} ${tries === 1 ? 'try' : 'tries'} left before sign-in pauses for ${LOCK_MINUTES} minutes.`
+              : 'That email and password don’t match. Check both, or reset your password.',
         }));
-        window.setTimeout(() => {
-          pwRef.current?.focus();
-          pwRef.current?.select();
-        }, 40);
+        window.setTimeout(() => pwRef.current?.focus(), 40);
       } else {
         set((p) => ({ ...p, status: 'success' }));
         timer.current = window.setTimeout(() => onSignedIn(ok), 1500);
@@ -193,7 +176,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
 
   if (a.status === 'success') {
     const m = memberFor(a.id) ?? TEAM_MEMBER;
-    return <Welcome title={`Welcome back, ${m.first}`} text="Opening the GSP portal…" bar />;
+    return <Welcome title={`Welcome back, ${m.first}`} text="Opening GSP Admin portal…" bar />;
   }
 
   const mm = Math.floor(left / 60000);
@@ -201,7 +184,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
   return (
     <div className="auth-form">
       <h1 className="auth-form__title">Welcome back</h1>
-      <p className="auth-form__lead">Sign in to the GSP portal with your GSP email.</p>
+      <p className="auth-form__lead">Sign in to upGrad GSP.</p>
 
       <AnimatePresence initial={false} mode="popLayout">
         {stillLocked ? (
@@ -209,23 +192,13 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             <Icon name="lock" size={18} />
             <div className="banner__body">
               <p className="banner__title">
-                Sign-in is paused for{' '}
-                <span className="num">
-                  {mm}:{String(ss).padStart(2, '0')}
-                </span>
+                Sign-in is paused for <span className="num">{mm}:{String(ss).padStart(2, '0')}</span>
               </p>
-              <p>
-                After {MAX_ATTEMPTS} wrong passwords, sign-in pauses for {LOCK_MINUTES} minutes. Reset your password to get in now.
-              </p>
+              <p>After {MAX_ATTEMPTS} attempts we pause sign-in to keep GSP’s records safe. Reset your password to get in now.</p>
               <Button size="sm" variant="secondary" onClick={onForgot} iconLeft={<Icon name="key" size={16} />}>
                 Reset password
               </Button>
             </div>
-          </motion.div>
-        ) : a.off ? (
-          <motion.div key="off" className="banner banner--bad" role="alert" {...bannerMotion(reduce)}>
-            <Icon name="lock" size={18} />
-            <p className="banner__body">Your GSP access is turned off. Ask a GSP Admin to turn it back on.</p>
           </motion.div>
         ) : a.unset ? (
           <motion.div key="unset" className="banner isign__unset" role="status" {...bannerMotion(reduce, false)}>
@@ -239,12 +212,9 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             </div>
           </motion.div>
         ) : a.error ? (
-          <motion.div key={a.error + (a.left ?? '')} className="banner banner--bad" role="alert" {...bannerMotion(reduce)}>
+          <motion.div key={a.error} className="banner banner--bad" role="alert" {...bannerMotion(reduce)}>
             <Icon name="alert" size={18} />
-            <div className="banner__body">
-              <p>{a.error}</p>
-              {a.left && <p className="banner__title">{a.left}</p>}
-            </div>
+            <p className="banner__body">{a.error}</p>
           </motion.div>
         ) : a.notice ? (
           <motion.div key="notice" className="banner banner--ok" role="status" {...bannerMotion(reduce, false)}>
@@ -263,11 +233,11 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             autoComplete="username"
             autoCapitalize="none"
             spellCheck={false}
-            placeholder="name@upgrad.com"
+            placeholder="name@gsp.upgrad.com"
             value={a.id}
-            invalid={!!idErr}
+            invalid={!!idErr || !!a.error}
             aria-describedby={describedBy('si-id', idErr)}
-            onChange={(e) => set((p) => ({ ...p, id: e.target.value, error: null, left: null, unset: false, off: false }))}
+            onChange={(e) => set((p) => ({ ...p, id: e.target.value, error: null, unset: false }))}
           />
         </Field>
 
@@ -286,10 +256,10 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             name="password"
             autoComplete="current-password"
             value={a.pw}
-            invalid={!!pwErr}
+            invalid={!!pwErr || !!a.error}
             aria-describedby={pwErr ? 'si-pw-error' : caps ? 'si-pw-caps' : undefined}
             onCaps={setCaps}
-            onChange={(e) => set((p) => ({ ...p, pw: e.target.value, error: null, left: null }))}
+            onChange={(e) => set((p) => ({ ...p, pw: e.target.value, error: null }))}
           />
           {pwErr ? (
             <p className="field__msg field__msg--error" id="si-pw-error" role="alert">
@@ -300,7 +270,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
             caps && (
               <p id="si-pw-caps" className="field__msg caps">
                 <Icon name="capslock" size={16} />
-                <span>Caps Lock is on.</span>
+                <span>Caps Lock is on</span>
               </p>
             )
           )}
@@ -309,11 +279,6 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
         <Switch id="si-remember" checked={a.remember} onChange={(v) => set((p) => ({ ...p, remember: v }))}>
           Keep me signed in
         </Switch>
-        {a.others !== null && (
-          <Switch id="si-others" checked={a.others} onChange={(v) => set((p) => ({ ...p, others: v }))}>
-            Sign me out on other devices
-          </Switch>
-        )}
 
         <Button type="submit" block loading={a.status === 'checking'} disabled={stillLocked}>
           {a.status === 'checking' ? 'Signing in…' : 'Sign in'}
@@ -326,7 +291,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
       <Button variant="secondary" block className="join-btn" onClick={onSetup} iconRight={<Icon name="arrowRight" size={18} />}>
         Set up your password
       </Button>
-      <p className="auth-form__help isign__note">A GSP Admin gives you access, by email. There’s no signing up.</p>
+      <p className="auth-form__help isign__note">Your GSP admin gives you access, by email. There’s no signing up.</p>
     </div>
   );
 }
@@ -336,7 +301,7 @@ function SignInForm({ a, set, onForgot, onSetup, onSignedIn }: { a: TeamAuth; se
 type Patch = (x: Partial<TeamAuth['flow']>) => void;
 type Go = (step: PwStep, dir?: 1 | -1, extra?: Partial<TeamAuth['flow']>) => void;
 
-function PasswordFlow({ a, set, onBack, onSignedIn }: { a: TeamAuth; set: Set; onBack: (changed?: boolean) => void; onSignedIn: (m: Member) => void }) {
+function PasswordFlow({ a, set, onBack, onSignedIn }: { a: TeamAuth; set: Set; onBack: (notice?: string) => void; onSignedIn: (m: Member) => void }) {
   const reduce = useReducedMotion();
   const f = a.flow;
   const go: Go = (step, dir = 1, extra = {}) => set((p) => ({ ...p, flow: { ...p.flow, ...extra, step, dir, busy: false, submitted: false } }));
@@ -348,62 +313,87 @@ function PasswordFlow({ a, set, onBack, onSignedIn }: { a: TeamAuth; set: Set; o
   };
   return (
     <div className="auth-form">
-      {f.step !== 'expired' && (
-        <div className="fsteps" aria-hidden="true">
-          {(['request', 'code', 'new'] as PwStep[]).map((s, i) => {
-            const idx = ['request', 'code', 'new', 'done'].indexOf(f.step);
-            return <span key={s} className={`fsteps__bar ${i < idx ? 'is-done' : i === idx ? 'is-now' : ''}`} />;
-          })}
-        </div>
-      )}
+      <div className="fsteps" aria-hidden="true">
+        {(['request', 'code', 'new'] as PwStep[]).map((s, i) => {
+          const idx = ['request', 'code', 'new', 'done'].indexOf(f.step);
+          return <span key={s} className={`fsteps__bar ${i < idx ? 'is-done' : i === idx ? 'is-now' : ''}`} />;
+        })}
+      </div>
       <AnimatePresence mode="wait" custom={f.dir}>
         <motion.div key={f.step} custom={f.dir} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.24, ease }} className="fstep">
-          {f.step !== 'done' && !(f.step === 'new' && f.viaLink) && (
-            <button type="button" className="back-link" onClick={() => (f.step === 'request' || f.step === 'expired' ? onBack() : f.step === 'code' ? go('request', -1, { code: '', codeError: null }) : go('code', -1))}>
+          {f.step !== 'done' && (
+            <button
+              type="button"
+              className="back-link"
+              onClick={() => (f.step === 'request' ? onBack() : f.step === 'code' ? go('request', -1, { code: '', codeError: null }) : go('code', -1))}
+            >
               <Icon name="arrowLeft" size={16} />
-              {f.step === 'request' || f.step === 'expired' ? 'Back to sign in' : f.step === 'code' ? 'Use a different email' : 'Back'}
+              {f.step === 'request' ? 'Back to sign in' : f.step === 'code' ? 'Use a different email' : 'Back'}
             </button>
           )}
           {f.step === 'request' && <RequestStep f={f} patch={patch} go={go} />}
           {f.step === 'code' && <CodeStep f={f} patch={patch} go={go} />}
           {f.step === 'new' && <NewStep f={f} patch={patch} go={go} />}
           {f.step === 'done' && <DoneStep f={f} onBack={onBack} onSignedIn={onSignedIn} />}
-          {f.step === 'expired' && <ExpiredStep onCode={() => go('request', 1, { mode: 'setup', viaLink: false })} />}
         </motion.div>
       </AnimatePresence>
     </div>
   );
 }
 
-/** Step 1: the GSP email. Send code always moves on to step 2, even for an unknown email (no email goes out then). */
 function RequestStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }) {
   const setup = f.mode === 'setup';
-  const err = f.submitted && !f.id.trim() ? 'Enter your email.' : null;
+  const m = memberFor(f.id);
+  // setting up says plainly when an email has no access, or already has a password: these are GSP's own people
+  const err = !f.submitted
+    ? null
+    : !f.id.trim()
+      ? 'Enter your GSP email.'
+      : setup && !m
+        ? 'That email doesn’t have access to GSP Admin yet. Ask your GSP admin to give you access.'
+        : setup && m && hasPassword(m)
+          ? 'That email already has a password. Go back and sign in, or reset it if you’ve forgotten it.'
+          : null;
   const send = () => {
-    if (!f.id.trim()) return patch({ submitted: true });
+    const bad = !f.id.trim() || (setup && (!m || hasPassword(m)));
+    if (bad) return patch({ submitted: true });
     patch({ busy: true });
-    // at most 5 codes an hour per account (proposal); the screen still moves on, so nobody learns who has an account
-    sendCode(f.id);
-    window.setTimeout(() => go('code', 1, { code: '', codeError: null, wrongCodes: 0, sentAt: Date.now(), resendAt: resendFrom() }), 800);
+    window.setTimeout(() => go('code', 1, { code: '', codeError: null, resendAt: Date.now() + 30_000 }), 800);
   };
   return (
     <>
       <h1 className="auth-form__title">{setup ? 'Set up your password' : 'Reset your password'}</h1>
-      <p className="auth-form__lead">Enter your GSP email. We’ll email you a 6-digit code to {setup ? 'set your password' : 'set a new password'}.</p>
+      <p className="auth-form__lead">
+        {setup
+          ? 'Your GSP admin gave you access to GSP Admin. Enter your GSP email and we’ll email you a 6-digit code to set your password.'
+          : 'Enter your GSP email. We’ll email you a 6-digit code to set a new password.'}
+      </p>
       <Form className="auth-form__fields" onSubmit={send}>
         <Field id="fp-id" label="GSP email" error={err}>
-          <TextInput id="fp-id" type="email" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="name@upgrad.com" leading={<Icon name="mail" size={18} />} value={f.id} invalid={!!err} aria-describedby={describedBy('fp-id', err)} onChange={(e) => patch({ id: e.target.value, submitted: false })} autoFocus />
+          <TextInput
+            id="fp-id"
+            type="email"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="name@gsp.upgrad.com"
+            leading={<Icon name="mail" size={18} />}
+            value={f.id}
+            invalid={!!err}
+            aria-describedby={describedBy('fp-id', err)}
+            onChange={(e) => patch({ id: e.target.value, submitted: false })}
+            autoFocus
+          />
         </Field>
         <Button type="submit" block loading={f.busy}>
           {f.busy ? 'Sending code…' : 'Send code'}
         </Button>
       </Form>
-      <p className="auth-form__help">Can’t open that email? Ask a GSP Admin.</p>
+      <p className="auth-form__help">Can’t open that email? Ask your GSP admin.</p>
     </>
   );
 }
 
-/** Step 2: the code, masked email; 10 minutes and once; 5 wrong codes and it stops working; send again after the wait. */
 function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }) {
   const codeRef = useRef<HTMLInputElement>(null);
   const [now, setNow] = useState(Date.now());
@@ -412,17 +402,14 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
     window.setTimeout(() => codeRef.current?.focus(), 260);
     return () => window.clearInterval(t);
   }, []);
-  const wait = Math.min(RESEND_SECONDS, Math.max(0, Math.ceil((f.resendAt - now) / 1000)));
+  const wait = Math.min(30, Math.max(0, Math.ceil((f.resendAt - now) / 1000)));
   const dest = codeDestination(f.id);
-  const dead = f.wrongCodes >= MAX_WRONG_CODES;
   const check = (code: string) => {
     patch({ busy: true, codeError: null });
     window.setTimeout(() => {
-      if (f.sentAt && Date.now() - f.sentAt > CODE_MINUTES * 60_000) return patch({ busy: false, code: '', codeError: 'That code has expired. Send a new one.' });
       // only someone with access gets a code, so for anyone else every code is wrong
       if (code !== TEST_CODE || !memberFor(f.id)) {
-        const wrong = f.wrongCodes + 1;
-        patch({ busy: false, code: '', wrongCodes: wrong, codeError: wrong >= MAX_WRONG_CODES ? 'Too many wrong codes. Send a new one.' : 'That code isn’t right. Check the email, or send a new one.' });
+        patch({ busy: false, code: '', codeError: 'That code doesn’t match. Check the latest email from GSP, or send a new code.' });
         window.setTimeout(() => codeRef.current?.focus(), 40);
       } else go('new', 1, { pw: '', pw2: '', code: '' });
     }, 700);
@@ -438,7 +425,7 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
         ) : (
           'If that email has access, we’ve sent it a 6-digit code.'
         )}{' '}
-        It works for {CODE_MINUTES} minutes, once.
+        It works for 10 minutes.
       </p>
       <div className="auth-form__fields">
         <div className="field">
@@ -446,7 +433,7 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
             Code from the email
           </label>
           <div className="ev__row">
-            <CodeInput ref={codeRef} id="fp-code" value={f.code} invalid={!!f.codeError} disabled={f.busy || dead} describedBy="fp-code-msg" onChange={(code) => patch({ code, codeError: dead ? f.codeError : null })} onComplete={check} />
+            <CodeInput ref={codeRef} id="fp-code" value={f.code} invalid={!!f.codeError} disabled={f.busy} describedBy="fp-code-msg" onChange={(code) => patch({ code, codeError: null })} onComplete={check} />
             {f.busy && (
               <span className="ev__checking" role="status">
                 <span className="btn__spinner" aria-hidden="true" />
@@ -471,15 +458,7 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
               Send a new code in <span className="num">0:{String(wait).padStart(2, '0')}</span>
             </span>
           ) : (
-            <button
-              type="button"
-              className="btn btn--link"
-              onClick={() => {
-                // a new code stops the old one; at most 5 an hour
-                const ok = sendCode(f.id);
-                patch(ok ? { resendAt: resendFrom(), sentAt: Date.now(), code: '', codeError: null, wrongCodes: 0 } : { codeError: 'You’ve asked for 5 codes in the last hour. Try again later.' });
-              }}
-            >
+            <button type="button" className="btn btn--link" onClick={() => patch({ resendAt: Date.now() + 30_000, code: '', codeError: null })}>
               Send a new code
             </button>
           )}
@@ -489,18 +468,15 @@ function CodeStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go 
   );
 }
 
-/** Step 3: the new password, then Type it again. The hint is grey while typing, green once met, red on a failed save. */
 function NewStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }) {
   const setup = f.mode === 'setup';
-  const { ok } = checkPassword(f.pw, f.id);
+  const { meetsHint, usesName, ok } = checkPassword(f.pw, f.id);
   const match = f.pw2.length > 0 && f.pw2 === f.pw;
-  const hintState = ok ? 'ok' : f.submitted ? 'error' : 'idle';
-  const pw2Err = f.submitted && ok && !match ? 'The passwords don’t match.' : null;
+  const hint = meetsHint && usesName ? 'Don’t use your name in your password.' : PASSWORD_HINT;
+  const hintState = ok ? 'ok' : f.submitted || usesName ? 'error' : 'idle';
+  const pw2Err = f.submitted && ok && !match ? 'The two passwords don’t match yet.' : null;
   const save = () => {
-    if (!ok || !match) {
-      window.setTimeout(() => document.getElementById(!ok ? 'fp-pw' : 'fp-pw2')?.focus(), 40);
-      return patch({ submitted: true });
-    }
+    if (!ok || !match) return patch({ submitted: true });
     patch({ busy: true });
     window.setTimeout(() => {
       const m = memberFor(f.id);
@@ -512,25 +488,37 @@ function NewStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }
     <>
       <h1 className="auth-form__title">{setup ? 'Choose your password' : 'Choose a new password'}</h1>
       <p className="auth-form__lead">
-        For <strong>{f.id}</strong>.{f.viaLink ? ' Your login link already proves your email.' : ''}
+        For <strong>{f.id}</strong>.
       </p>
       <Form className="auth-form__fields" onSubmit={save}>
         <input type="text" name="username" autoComplete="username" value={f.id} readOnly hidden />
         <Field id="fp-pw" label={setup ? 'Password' : 'New password'}>
-          <PasswordInput id="fp-pw" autoComplete="new-password" maxLength={64} value={f.pw} invalid={hintState === 'error'} aria-describedby="fp-pw-hint" onChange={(e) => patch({ pw: e.target.value })} />
+          <PasswordInput id="fp-pw" autoComplete="new-password" value={f.pw} invalid={hintState === 'error'} aria-describedby="fp-pw-hint" onChange={(e) => patch({ pw: e.target.value })} />
         </Field>
         <div className="pw-pair">
           <Field id="fp-pw2" label="Type it again" error={pw2Err} success={!pw2Err && match ? 'Passwords match' : undefined}>
-            <PasswordInput id="fp-pw2" autoComplete="new-password" maxLength={64} value={f.pw2} invalid={!!pw2Err} aria-describedby={[describedBy('fp-pw2', pw2Err, match), 'fp-pw-hint'].filter(Boolean).join(' ')} onChange={(e) => patch({ pw2: e.target.value })} />
+            <PasswordInput
+              id="fp-pw2"
+              autoComplete="new-password"
+              value={f.pw2}
+              invalid={!!pw2Err}
+              aria-describedby={[describedBy('fp-pw2', pw2Err, match), 'fp-pw-hint'].filter(Boolean).join(' ')}
+              onChange={(e) => patch({ pw2: e.target.value })}
+            />
           </Field>
           <p id="fp-pw-hint" className={`pw-hint pw-hint--${hintState}`} role={hintState === 'error' ? 'alert' : undefined} aria-live="polite">
             <Icon name={hintState === 'ok' ? 'checkCircle' : hintState === 'error' ? 'alert' : 'info'} size={16} />
             <span>
-              {PASSWORD_HINT}
+              {hint}
               {hintState === 'ok' && <span className="vh"> Your password meets this.</span>}
             </span>
           </p>
         </div>
+        {!setup && (
+          <Switch id="fp-others" checked={f.others} onChange={(v) => patch({ others: v })}>
+            Sign me out on other devices
+          </Switch>
+        )}
         <Button type="submit" block loading={f.busy}>
           {f.busy ? 'Saving…' : setup ? 'Set password' : 'Save new password'}
         </Button>
@@ -539,7 +527,7 @@ function NewStep({ f, patch, go }: { f: TeamAuth['flow']; patch: Patch; go: Go }
   );
 }
 
-function DoneStep({ f, onBack, onSignedIn }: { f: TeamAuth['flow']; onBack: (changed?: boolean) => void; onSignedIn: (m: Member) => void }) {
+function DoneStep({ f, onBack, onSignedIn }: { f: TeamAuth['flow']; onBack: (notice?: string) => void; onSignedIn: (m: Member) => void }) {
   const m = memberFor(f.id);
   if (f.mode === 'setup')
     return (
@@ -549,29 +537,13 @@ function DoneStep({ f, onBack, onSignedIn }: { f: TeamAuth['flow']; onBack: (cha
         </Button>
       </Welcome>
     );
-  // a reset ends at sign-in, with the email filled in
+  const dest = codeDestination(f.id);
   return (
-    <Welcome title="Password changed" text="Sign in with your new password.">
-      <Button block onClick={() => onBack(true)} iconRight={<Icon name="arrowRight" size={18} />}>
+    <Welcome title="Password changed" text={`Sign in with your new password.${dest ? ` We’ve emailed ${dest} to let you know` : ' We’ve emailed you to let you know'}${f.others ? ', and signed you out on your other devices.' : '.'}`}>
+      <Button block onClick={() => onBack('Password changed. Sign in with your new password.')} iconRight={<Icon name="arrowRight" size={18} />}>
         Sign in
       </Button>
     </Welcome>
-  );
-}
-
-/** A Set up your account link that has expired, was replaced by a resend, or was used (proposal S1C-5). */
-function ExpiredStep({ onCode }: { onCode: () => void }) {
-  return (
-    <>
-      <h1 className="auth-form__title">This link has expired</h1>
-      <div className="banner banner--bad" role="alert">
-        <Icon name="alert" size={18} />
-        <p className="banner__body">This link has expired. Ask a GSP Admin to send a new one, or set up your password with a code.</p>
-      </div>
-      <Button block onClick={onCode} iconRight={<Icon name="arrowRight" size={18} />}>
-        Set up with a code
-      </Button>
-    </>
   );
 }
 
@@ -582,7 +554,17 @@ function Welcome({ title, text, bar, children }: { title: string; text: string; 
     <div className={`welcome ${bar ? '' : 'welcome--left'}`} role="status">
       <motion.div className="success-mark" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 380, damping: 22 }} aria-hidden="true">
         <svg viewBox="0 0 48 48" width="48" height="48">
-          <motion.path d="M14 25l7 7 14-15" fill="none" stroke="currentColor" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.42, ease, delay: 0.15 }} />
+          <motion.path
+            d="M14 25l7 7 14-15"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={reduce ? false : { pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.42, ease, delay: 0.15 }}
+          />
         </svg>
       </motion.div>
       <motion.div initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.2, ease }}>

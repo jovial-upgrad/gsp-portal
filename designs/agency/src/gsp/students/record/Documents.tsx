@@ -1,13 +1,15 @@
-import { UPLOAD, uploadError } from '../../../data/uploads';
 import { useRef, useState } from 'react';
 import { Button } from '../../../components/Button';
 import { Icon } from '../../../components/Icon';
 import { DocButtons } from '../../../components/DocView';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import { EXTRA_DOCS, eduDocKey, eduDocName, levelsFor, testDocKey, testDocName, type Doc, type Student } from '../../../data/students';
 import { fillFromEducation, fillFromPassport, fillFromResume, fillFromTest, saveEducation, savePassport, saveResume, saveTest } from './read';
 import { PLACE_NAME, classify, fileInto, isOther, nameOf, placesOf } from './sort';
 import type { Update } from './fields';
 
+const OK_TYPES = /\.(pdf|jpe?g|png)$/i;
+const MAX = 20 * 1024 * 1024;
 const STATUS: Record<Doc['status'], [string, string]> = {
   uploaded: ['Uploaded', 'dstat--up'],
   checking: ['GSP checking', 'dstat--gsp'],
@@ -15,7 +17,7 @@ const STATUS: Record<Doc['status'], [string, string]> = {
 };
 
 
-const check = (f: File) => uploadError(f);
+const check = (f: File) => (!OK_TYPES.test(f.name) ? 'Use a PDF, JPG or PNG.' : f.size > MAX ? 'This file is over 20 MB. Upload a smaller scan.' : '');
 
 /** One document the profile keeps: where it's saved, and, uploaded into an empty part of the profile, what it fills in. */
 type Slot = { key: string; name: string; place: (p: Student, file: string) => Student };
@@ -97,6 +99,8 @@ export function Documents({ s, update }: { s: Student; update: Update }) {
     .filter((g) => g.slots.length || (g.id === 'more' && others.length));
   const input = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  // 4 Nov: a document on the profile is saved, so removing it asks first
+  const { ask, dialog } = useConfirm();
 
   return (
     <div className="rsec">
@@ -104,7 +108,7 @@ export function Documents({ s, update }: { s: Student; update: Update }) {
         <input
           ref={input}
           type="file"
-          accept={UPLOAD.accept}
+          accept=".pdf,.jpg,.jpeg,.png"
           className="vh"
           tabIndex={-1}
           aria-label="Upload a document"
@@ -156,10 +160,17 @@ export function Documents({ s, update }: { s: Student; update: Update }) {
                     size="sm"
                     aria-label={`Remove ${d.file}`}
                     onClick={() =>
-                      update((p) => {
-                        const docs = { ...p.docs };
-                        delete docs[key];
-                        return { ...p, docs };
+                      ask({
+                        title: `Remove ${d.file}?`,
+                        text: `It comes off ${s.first}’s profile. Applications already sent keep their copy.`,
+                        run: () => {
+                          update((p) => {
+                            const docs = { ...p.docs };
+                            delete docs[key];
+                            return { ...p, docs };
+                          });
+                          setNote({ ok: true, text: `${d.file} removed.` });
+                        },
                       })
                     }
                   >
@@ -176,6 +187,7 @@ export function Documents({ s, update }: { s: Student; update: Update }) {
           <p className="rempty__text">Upload them one at a time here, or fill in a part of Personal details from its document: it’s kept here.</p>
         </div>
       )}
+      {dialog}
     </div>
   );
 }
@@ -206,7 +218,7 @@ function DocRow({ id, slot, s, doc, onFile }: { id: string; slot: Slot; s: Stude
         ref={ref}
         id={id}
         type="file"
-        accept={UPLOAD.accept}
+        accept=".pdf,.jpg,.jpeg,.png"
         className="vh"
         tabIndex={-1}
         aria-labelledby={`${id}-name`}

@@ -214,6 +214,30 @@
 .auth__center:focus { outline: none; }
 .auth__view { width: 100%; min-width: 0; }
 .auth__panel .btn--block { height: var(--h-input); }
+/*
+  4 Nov (Nesil): on desktop the panel keeps the window's height and a long form scrolls inside it, between the top
+  bar and the footer, which stay put. The edges fade where there's more to scroll; the content still sits in the middle when it's short.
+*/
+.auth:not(.auth--narrow) .auth__panel {
+  position: sticky;
+  top: var(--edge);
+  align-self: start;
+  height: calc(100dvh - var(--edge) * 2);
+  min-height: 0;
+}
+.auth:not(.auth--narrow) .auth__center {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  margin-inline: calc(var(--pad) * -1);
+  padding-inline: var(--pad);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--sp-24), #000 calc(100% - var(--sp-24)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--sp-24), #000 calc(100% - var(--sp-24)), transparent);
+}
+.auth:not(.auth--narrow) .auth__view { margin-block: auto; }
 
 .auth__foot {
   align-self: end;

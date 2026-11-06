@@ -1,14 +1,7 @@
-import { adminCfg } from '../admin/data/store';
-import { rpDocsOf, rpRuleFor } from '../admin/data/config';
 import geoJson from './geo.json';
 
-/** A country, its states, and (in GSP's main markets) the cities of its states most students and agencies are in. */
-export type Country = { name: string; iso: string; dial: string; currency: string; states: string[]; cities?: Record<string, string[]> };
+export type Country = { name: string; iso: string; dial: string; states: string[] };
 export const COUNTRIES = geoJson as Country[];
-/** A state's cities (HC14: one list, in geo.json); none where the city is typed. */
-export const citiesOf = (country: string, state: string) => countryByName(country)?.cities?.[state] ?? [];
-/** Every state's cities, by state, across the countries that have them (Bdm's place list reads this). */
-export const CITIES: Record<string, string[]> = Object.assign({}, ...[...COUNTRIES].reverse().map((c) => c.cities ?? {}));
 
 /** Markets GSP recruits from most, shown first in the country picker (PM prototype `TOP`). */
 export const TOP_MARKETS = ['India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Philippines', 'Nigeria'];
@@ -38,77 +31,81 @@ export const FOUND_US = [
   'Other',
 ];
 
-/**
- * Business documents asked for after sign-up (Jovial, 31 Oct): GSP · Admin › Document configuration's recruitment
- * partner rules, by the agency's country (India's own list; another for everyone else). A document whose name says
- * "if …" is optional.
- */
+/** Business documents asked for after sign-up (PM prototype `SU_DOCS` / `DOCRULES`). */
 export type DocNeed = { name: string; hint: string; optional?: boolean };
-const HINT: [RegExp, string][] = [
-  [/registration/i, 'Shows your registered business name'],
-  [/PAN/, 'Business PAN, not a personal one'],
-  [/GST/, 'Only if you are GST registered'],
-  [/profile/i, 'A short PDF about your agency'],
-  [/ID/, 'Passport or national ID'],
-  [/reference/i, 'Someone who knows your work: their name, email and phone'],
-];
 export function businessDocsFor(country: string): DocNeed[] {
-  // slice 1 PRD: the first rule that names the country, else the All countries rule; each document Mandatory or Optional
-  const rule = rpRuleFor(adminCfg().rpDocs, country);
-  return (rule ? rpDocsOf(rule) : []).map((d) => ({
-    name: d.name,
-    hint: HINT.find(([re]) => re.test(d.name))?.[1] ?? '',
-    optional: d.setting === 'Optional' || undefined,
-  }));
+  if (country === 'India')
+    return [
+      { name: 'Business registration certificate', hint: 'Shows your registered business name' },
+      { name: 'PAN card', hint: 'Business PAN, not a personal one' },
+      { name: 'GST certificate', hint: 'Only if you are GST registered', optional: true },
+    ];
+  return [
+    { name: 'Business registration certificate', hint: 'Shows your registered business name' },
+    { name: 'Company profile', hint: 'A short PDF about your agency' },
+    { name: 'Owner’s ID', hint: 'Passport or national ID' },
+    { name: 'A business reference', hint: 'A letter from someone who knows your work, with their email and phone' },
+  ];
 }
-
-import { STAFF, fullName, label, type Staff } from './staff';
 
 export type Contact = { name: string; role: string; phone: string; email: string; initials: string };
 
-/**
- * Who looks after a new agency (Jovial, 31 Oct): GSP · Admin › Recruitment assignment, which starts from the staff list's
- * areas. Most specific match first: the agency's city, then its state, then the rest of its country, then all other
- * countries. A referral code (the first three letters of a Recruitment person's first name, like ADI-204) wins.
- * The staff list has no phone numbers.
- */
-const SAME_CITY: Record<string, string> = { calicut: 'kozhikode', trichy: 'tiruchirappalli', vijaywada: 'vijayawada', 'new delhi': 'delhi', 'ho chi minh': 'ho chi minh city', gurugram: 'gurgaon' };
-const norm = (x: string) => { const v = x.trim().toLowerCase(); return SAME_CITY[v] ?? v; };
-const stateOf = (city: string) => Object.keys(CITIES).find((st) => CITIES[st].some((c) => norm(c) === norm(city)));
-const contactOf = (s: Staff, role: string): Contact => ({ name: label(s), initials: initialsOf(fullName(s)), role, phone: s.phone ? `${s.dial} ${s.phone}` : '', email: s.email });
-const byLabel = (n: string) => STAFF.find((x) => label(x) === n);
-/** A GSP person on the staff list, by the name a record keeps (an RP's Recruitment contact), as a contact; null when not on the list. */
-export const staffContact = (name: string | undefined, role: string): Contact | null => {
-  const who = name ? byLabel(name) : undefined;
-  return who ? contactOf(who, role) : null;
+/** Who looks after a new agency, by country and city (PM prototype `BDM_RULE`). Phones are sample data. */
+const BDM_RULE: Record<string, Record<string, string>> = {
+  India: { Bengaluru: 'Aditya Rao', Hyderabad: 'Aditya Rao', Mumbai: 'Sneha Kulkarni', Delhi: 'Rohit Malhotra', Lucknow: 'Rohit Malhotra' },
+  Nepal: { Kathmandu: 'Sujan Shrestha' },
+  Bangladesh: { Dhaka: 'Rafiq Ahmed' },
+  'Sri Lanka': { Colombo: 'Dilini Perera' },
+  Vietnam: { 'Ho Chi Minh City': 'Tran Minh', Hanoi: 'Tina Huynh' },
 };
+const PEOPLE: Record<string, Omit<Contact, 'name' | 'initials' | 'role'>> = {
+  'Aditya Rao': { phone: '+91 98110 40217', email: 'aditya.rao@gsp.upgrad.com' },
+  'Sneha Kulkarni': { phone: '+91 98200 31876', email: 'sneha.kulkarni@gsp.upgrad.com' },
+  'Rohit Malhotra': { phone: '+91 98110 40021', email: 'rohit.malhotra@gsp.upgrad.com' },
+  'Sujan Shrestha': { phone: '+977 980 114 2271', email: 'sujan.shrestha@gsp.upgrad.com' },
+  'Rafiq Ahmed': { phone: '+880 1711 409 552', email: 'rafiq.ahmed@gsp.upgrad.com' },
+  'Dilini Perera': { phone: '+94 77 341 8820', email: 'dilini.perera@gsp.upgrad.com' },
+  'Tran Minh': { phone: '+84 90 812 4471', email: 'tran.minh@gsp.upgrad.com' },
+  'Tina Huynh': { phone: '+84 90 812 4410', email: 'tina.huynh@gsp.upgrad.com' },
+  'Ankita Sen': { phone: '+91 98300 22714', email: 'ankita.sen@gsp.upgrad.com' },
+  'Meera Pillai': { phone: '+91 98450 77310', email: 'meera.pillai@gsp.upgrad.com' },
+};
+/**
+ * 4 Nov: where the city isn't in the rule, the state decides (India by region), then the country (its first
+ * contact), then GSP's team for the rest of the world. Sample data, like the rule.
+ */
+const INDIA_REGION: [RegExp, string][] = [
+  [/karnataka|telangana|andhra|tamil|kerala|puducherry|lakshadweep|andaman/i, 'Aditya Rao'],
+  [/maharashtra|gujarat|goa|madhya|chhattisgarh|dadra|daman/i, 'Sneha Kulkarni'],
+  [/delhi|uttar|punjab|haryana|rajasthan|himachal|jammu|ladakh|chandigarh/i, 'Rohit Malhotra'],
+];
+const REFERRAL_OWNERS: Record<string, string> = { ADI: 'Aditya Rao', SNE: 'Sneha Kulkarni', ROH: 'Rohit Malhotra' };
 
 const initialsOf = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('');
 
-/** The GSP partner manager (BDM) a new sign-up is given. A referral code wins over the assignment table. */
-export function partnerManagerFor(country: string, city: string, referral: string, state = ''): Contact | null {
+/**
+ * The GSP partner manager (BDM) a new sign-up is given. A referral code wins over the city rule. With `state`
+ * (4 Nov: the state and city decide the agency's GSP Recruitment contact), a city outside the rule falls back to the
+ * state, then the country, then GSP's rest-of-world team, so every agency gets someone.
+ */
+export function partnerManagerFor(country: string, city: string, referral: string, state?: string): Contact | null {
   const code = referral.trim().toUpperCase();
-  const pre = code.slice(0, 3);
-  const byRef = pre.length === 3 ? STAFF.filter((s) => s.role === 'Recruitment' && s.first.toUpperCase().startsWith(pre)) : [];
-  if (byRef.length === 1) return contactOf(byRef[0], `Recruitment · from referral code ${code}`);
-  const rows = adminCfg().bdm;
-  const st = state.trim() || (city.trim() ? stateOf(city) : undefined);
-  const areas = (area: string) => area.split(',').map(norm);
-  const mine = rows.filter((r) => r.country === country);
-  const cityRow = city.trim() && mine.find((r) => areas(r.area).includes(norm(city)));
-  const stateRow = st && mine.find((r) => areas(r.area).includes(norm(st)));
-  const restRow = mine.find((r) => r.area.startsWith('Rest of') || r.area === 'All' || r.area === 'All countries');
-  // Jovial, 2 Nov: a specific city wins over All / Rest of the country; with no row for the place, the sales
-  // region's default recruitment contact (Admin › Sales regions); then All other countries
-  const cfg = adminCfg();
-  const regionName = cfg.regions.find((g) => g.countries.includes(country))?.name;
-  const regionDefault = regionName ? cfg.regionBdm[regionName] : undefined;
-  const hit = cityRow || stateRow || restRow;
-  const name = hit?.bdm ?? regionDefault ?? rows.find((r) => r.fallback)?.bdm;
-  const who = name && byLabel(name);
-  if (!who) return null;
-  const where = cityRow ? `${city.trim()}, ${country}` : stateRow ? `${st}, ${country}` : restRow ? country : regionDefault ? `${regionName}, by default` : 'all other countries';
-  return contactOf(who, `Recruitment · ${where}`);
+  const byRef = REFERRAL_OWNERS[code.slice(0, 3)];
+  const cityKey = Object.keys(BDM_RULE[country] || {}).find((c) => c.toLowerCase() === city.trim().toLowerCase());
+  const byState = state === undefined ? undefined : country === 'India' ? INDIA_REGION.find(([re]) => re.test(state))?.[1] ?? (state ? 'Ankita Sen' : undefined) : undefined;
+  const byCountry = state === undefined ? undefined : Object.values(BDM_RULE[country] ?? {})[0] ?? 'Meera Pillai';
+  const name = byRef || (cityKey ? BDM_RULE[country][cityKey] : undefined) || byState || byCountry;
+  if (!name) return null;
+  const where = [city.trim() || undefined, state || undefined, country].filter(Boolean).join(', ');
+  return {
+    name,
+    initials: initialsOf(name),
+    role: byRef ? `Partner manager · from referral code ${code}` : state === undefined ? `Partner manager · ${cityKey}, ${country}` : `GSP Recruitment contact · ${where}`,
+    ...PEOPLE[name],
+  };
 }
 
-/* Emails that already have a GSP account: screens/signup/model.ts emailInUse, from the sign-in accounts and the RP teams (HC35). */
+/** Emails that already have a GSP account (sample data from the PM prototype). */
+export const EXISTING_EMAILS = ['ananya@horizonoverseas.in', 'lan@saigonbridge.vn', 'rahul@horizonoverseas.in'];
+
+export const emailInUse = (email: string) => EXISTING_EMAILS.includes(email.trim().toLowerCase());

@@ -1,4 +1,3 @@
-import { salesRegionNames } from '../../admin/data/config';
 /**
  * The catalogue as the Institution Team keeps it (29 Oct, 2nd round, from the PM prototype's IP team): each
  * university sits under one institution partner and goes live on its own; it has campuses that can be made inactive,
@@ -10,19 +9,10 @@ import { salesRegionNames } from '../../admin/data/config';
  * team fills in the rest on its page; a course is added with its basics and its details are entered on its page. The
  * four-weekly check is gone.
  */
-import { COURSES, SEARCH_PRIORITY, UNIVERSITIES, type Area, type Campus, type Course, type Level, type Picture, type University } from '../../data/courses';
-import sample1 from '../../assets/campus/sample-1.webp';
-import sample2 from '../../assets/campus/sample-2.webp';
-import sample3 from '../../assets/campus/sample-3.webp';
-import sample4 from '../../assets/campus/sample-4.webp';
-import sample5 from '../../assets/campus/sample-5.webp';
+import { COURSES, UNIVERSITIES, type Area, type Campus, type Course, type Level, type University } from '../../data/courses';
 import { COUNTRIES } from '../../data/partners';
-import { inDays, partnerIdOf, type Contact, type InstitutionPartner, type Stamps } from './records';
-import { atIso, change, type Change, type Created } from './changelog';
-import { nameOf } from '../../data/staff';
-/** An Institution person's name from the staff list, by the start of their email. */
-const IN = (local: string) => nameOf(`${local}@upgrad.com`);
-
+import { photosOf } from '../../screens/courses/CampusLife';
+import { TEAM, inDays, lastStamp, logLine, nowIso, partnerIdOf, today, withPhones, type Contact, type InstitutionPartner, type LogLine, type Stamp, type Stamps } from './records';
 
 /* ---------- universities ---------- */
 
@@ -47,7 +37,8 @@ export type Scholarship = {
   from: string[];
   levels: Level[];
   areas: Area[];
-  conditions: string;
+  /** 3 Nov: what was Conditions. */
+  description: string;
 };
 
 /** Who can apply, who comes first, and who never sees it. */
@@ -68,9 +59,15 @@ export const FORM_FOR = ['All courses', 'Undergraduate', 'Postgraduate', 'Resear
 export type FormFor = (typeof FORM_FOR)[number];
 export type SubmissionForm = { id: string; name: string; file: string; for: FormFor };
 
-/** The sales regions a submission contact covers: Admin › Sales regions (Jovial, 1 Nov, HC38). */
-export const REGIONS: string[] = ['All regions', ...salesRegionNames().filter((r) => r !== 'Global')];
+export const REGIONS = ['All regions', 'India', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Vietnam', 'Nigeria', 'Rest of the world'] as const;
 export type Login = { id: string; region: string; username: string; secret: string; added: string; by: string };
+
+/** A picture of the university (3 Nov): uploaded, put in order, replaced or deleted on its Images tab. */
+export type UniImage = { id: string; name: string; src: string };
+/** Up to 10, as the university page partners see shows (Campus life). */
+export const MAX_IMAGES = 10;
+/** 3 Nov: Search priority, a whole number from 1 to 10; Best match in Course search puts the highest first. */
+export const PRIORITY_DEFAULT = 5;
 
 /** A campus as the team keeps it (30 Oct): its country, state and Google Maps link too. */
 export type CampusRec = Campus & { country?: string; state?: string; map?: string };
@@ -84,10 +81,12 @@ export type UniRec = Omit<University, 'campuses'> & {
   studylink: boolean;
   pathway: boolean;
   cricos: string;
-  /** Search priority 1–10, default 5 (Jovial, S2C-1; data/courses.ts SEARCH_PRIORITY): Recommended sorts by it first (renamed from Display priority, S3-19). */
-  searchPriority: number;
-  /** Pictures (Jovial, 1 Nov, HC11): course search's campus photos, in this order; none, and it shows none. */
-  pictures: Picture[];
+  /** The state (or region) it's in, shown after its country (3 Nov). */
+  state: string;
+  /** Search priority, 1 to 10 (3 Nov). */
+  priority: number;
+  /** Its pictures, in the order they show. */
+  images: UniImage[];
   /** Campuses made inactive: their courses leave Course search; applications already made carry on. */
   inactive: string[];
   scholarships: Scholarship[];
@@ -99,11 +98,12 @@ export type UniRec = Omit<University, 'campuses'> & {
   contacts: Contact[];
   logins: Login[];
   added: string;
-  /** Who last changed its status, partner, profile, campuses, scholarships, territory, forms, submission, logins and contacts. */
+  /** Who added it, and when. */
+  created: Stamp;
+  /** Who last changed its status, partner, profile, campuses, images, scholarships, territory, forms, submission, logins and contacts. */
   stamps: Stamps;
-  /** The Change log (S2-13) and System information. */
-  log: Change[];
-  created: Created;
+  /** Every change, newest first (3 Nov: the Logs tab). */
+  log: LogLine[];
 };
 
 let n = 0;
@@ -126,7 +126,7 @@ function scholarshipsOf(u: University): Scholarship[] {
       from: [],
       levels: [...new Set(list.map((c) => c.level))],
       areas: [],
-      conditions: '', // no source for when to apply (Jovial, 1 Nov)
+      description: list[0].scholarshipAuto ? '' : 'Students apply for it once they hold an offer.',
     };
   });
 }
@@ -151,62 +151,64 @@ const SUB: Record<string, [Channel, string]> = {
   USA: ['Own portal', 'apply'],
 };
 
-/** The sample pictures, on the sample records of the Australian and UK universities that have a profile (HC11). */
-const SAMPLE_PICTURES: [string, string][] = [
-  ['campus-lawn.webp', sample1],
-  ['between-classes.webp', sample2],
-  ['on-campus.webp', sample3],
-  ['library.webp', sample4],
-  ['graduation.webp', sample5],
-];
-/** Pathway providers in the sample (HC2: a university-level field, Institution › Profile). */
-const PATHWAY = ['flinders', 'deakin', 'newcastle', 'uow', 'canberra', 'coventry', 'herts', 'northumbria', 'ulster', 'tru', 'pace', 'usf'];
-/** A sample campus's Google Maps link, from its address (HC3: a field on the campus record from now on). */
-const mapOf = (u: University, k: Campus) => (k.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${u.name}, ${k.address}`)}` : undefined);
+/** Where each sample university is, as the country list names its states (sample data). */
+const STATE: Record<string, string> = {
+  flinders: 'South Australia', adelaide: 'South Australia', deakin: 'Victoria', newcastle: 'New South Wales', uow: 'New South Wales', cqu: 'Queensland', vu: 'Victoria', murdoch: 'Western Australia', rmit: 'Victoria', feduni: 'Victoria', canberra: 'Australian Capital Territory', unisc: 'Queensland', utas: 'Tasmania',
+  abertay: 'Scotland', coventry: 'England', herts: 'England', northumbria: 'England', greenwich: 'England', ulster: 'Northern Ireland', leeds: 'England', birmingham: 'England',
+  windsor: 'Ontario', algoma: 'Ontario', fanshawe: 'Ontario', tru: 'British Columbia',
+  massey: 'Manawatu-Wanganui Region', waikato: 'Waikato Region', lincoln: 'Canterbury Region',
+  griffith: 'Dublin', dbs: 'Dublin', ul: 'Limerick',
+  pace: 'New York', usf: 'Florida', wichita: 'Kansas',
+};
+/** The admissions person each sample university's contact is (sample data). */
+const ADMISSIONS = ['Emma Wilson', 'Arjun Kapoor', 'Sophie Taylor', 'Daniel Okoro', 'Hannah Lee', 'Marco Rossi', 'Aisha Rahman', 'Tom Gallagher', 'Mei Chen', 'Lucy Brennan'];
+/** The pictures it starts with: its own photos, or the shared samples, as the page partners see shows them. */
+const imagesOf = (u: University): UniImage[] => photosOf(u).map((x, k) => ({ id: nid('img'), name: `${u.id}-${k + 1}.webp`, src: x.src }));
+/** "Kavya Menon" and "2026-10-05T11:20" for a sample record, from its place in the list. */
+const sampleStamp = (i: number, days: number): Stamp => ({ by: TEAM[i % TEAM.length], at: `${inDays(-days)}T${String(9 + (i % 8)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}` });
 
 function record(u: University, i: number): UniRec {
   const [channel, part] = SUB[u.country];
   const domain = mailOf(u);
   return {
     ...u,
-    campuses: u.campuses.map((k) => ({ ...k, map: k.map ?? mapOf(u, k) })),
+    campuses: [...u.campuses],
     ip: partnerIdOf(u.id),
     status: u.id === 'massey' ? 'Paused' : 'Live',
     utype: u.college ? 'College' : 'University',
     sector: u.kind?.startsWith('Private') ? 'Private' : 'Public',
     studylink: channel === 'StudyLink',
-    pathway: PATHWAY.includes(u.id),
+    pathway: false,
     cricos: u.country === 'Australia' ? `${String(100 + i * 37).padStart(5, '0')}${'ABCDEFGHJK'[i % 10]}` : '',
-    // sample: Flinders first, the universities with priority markets next, the rest at the default
-    searchPriority: u.id === 'flinders' ? SEARCH_PRIORITY.max : u.priorityFor?.length ? 7 : SEARCH_PRIORITY.default,
-    qsYear: u.qs ? 2026 : undefined,
-    pictures: u.about && (u.country === 'Australia' || u.country === 'UK') ? SAMPLE_PICTURES.map(([name, src]) => ({ id: nid('pic'), name, src })) : [],
+    state: STATE[u.id] ?? '',
+    priority: u.priorityFor?.length ? 8 : PRIORITY_DEFAULT,
+    images: imagesOf(u),
     inactive: [],
     scholarships: scholarshipsOf(u),
     territory: territoryOf(u),
     channel,
     link: channel === 'StudyLink' ? 'studylink.com' : channel === 'Email' ? `${part}@${domain}` : `${part}.${domain}`,
     forms: [],
-    contacts: [{ id: nid('ct'), name: 'Admissions Office', first: 'Admissions', last: 'Office', title: 'International admissions', for: 'Admissions', email: `international@${domain}` }],
-    logins: channel === 'Email' ? [] : [{ id: nid('lg'), region: 'All regions', username: `gsp.${u.id}`, secret: 'Kq7#mT2v!pL9', added: '2025-09-01', by: IN('catherine.wilson') }],
+    contacts: withPhones([{ id: nid('ct'), first: ADMISSIONS[i % ADMISSIONS.length].split(' ')[0], last: ADMISSIONS[i % ADMISSIONS.length].split(' ')[1], title: 'International admissions', for: 'Admissions', dial: '', phone: '', email: `international@${domain}` }], u.country),
+    logins: channel === 'Email' ? [] : [{ id: nid('lg'), region: 'All regions', username: `gsp.${u.id}`, secret: 'Kq7#mT2v!pL9', added: '2025-09-01', by: 'Kavya Menon' }],
     added: '2025-01-01',
+    created: { by: TEAM[i % TEAM.length], at: `2025-01-0${1 + (i % 9)}T${String(9 + (i % 8)).padStart(2, '0')}:00` },
     stamps: {},
-    log: [change(IN('catherine.wilson'), 'Institution', 'University created', '—', u.name, atIso('2025-01-01'))],
-    created: { by: IN('catherine.wilson'), at: atIso('2025-01-01') },
+    log: [],
   };
 }
 
 /** Two more, set up but not live: one under a partner still being agreed, one waiting for its courses. */
 const extra = (): UniRec[] => [
   {
-    ...record({ id: 'utas', name: 'University of Tasmania', aka: ['UTAS'], country: 'Australia', campuses: [{ name: 'Sandy Bay', city: 'Hobart', setting: 'Suburban', regional: true }, { name: 'Launceston', city: 'Launceston', setting: 'Regional town', regional: true }], website: 'utas.edu.au', kind: 'Public university', founded: 1890, about: 'Australia’s fourth-oldest university, with campuses across Tasmania.', qs: 293, rate: 15 }, 40),
+    ...record({ id: 'utas', name: 'University of Tasmania', aka: ['UTAS'], country: 'Australia', campuses: [{ name: 'Sandy Bay', city: 'Hobart', setting: 'Suburban', regional: true }, { name: 'Launceston', city: 'Launceston', setting: 'Regional town', regional: true }], website: 'utas.edu.au', kind: 'Public university', founded: 1890, about: 'Australia’s fourth-oldest university, with campuses across Tasmania.', qs: 293, rate: 15, offerDays: 7, checked: today() }, 40),
     ip: 'ip-utas',
     status: 'Setting up',
     added: inDays(-40),
     logins: [],
   },
   {
-    ...record({ id: 'wichita', name: 'Wichita State University', country: 'USA', campuses: [{ name: 'Main campus', city: 'Wichita', setting: 'Suburban' }], website: 'wichita.edu', kind: 'Public university', founded: 1895, about: 'A public research university in Kansas, known for aviation and engineering.', rate: 12 }, 41),
+    ...record({ id: 'wichita', name: 'Wichita State University', country: 'USA', campuses: [{ name: 'Main campus', city: 'Wichita', setting: 'Suburban' }], website: 'wichita.edu', kind: 'Public university', founded: 1895, about: 'A public research university in Kansas, known for aviation and engineering.', rate: 12, offerDays: 9, checked: today() }, 41),
     ip: 'ip-campusconnect',
     status: 'Setting up',
     added: inDays(-6),
@@ -215,53 +217,43 @@ const extra = (): UniRec[] => [
 ];
 
 export function sampleUniRecs(): UniRec[] {
-  // UTAS is in the catalogue now (GSP's applications use it), live: it keeps its partner from here
-  const more = extra();
-  const list = [...UNIVERSITIES.map(record), ...more.filter((x) => !UNIVERSITIES.some((u) => u.id === x.id))];
-  for (const x of more) {
-    const have = list.find((u) => u.id === x.id && u !== x);
-    if (have) have.ip = x.ip;
-  }
+  const list = [...UNIVERSITIES.map(record), ...extra()];
   const get = (id: string) => list.find((u) => u.id === id)!;
   // what the samples show: the Flinders set-up from the PM prototype, and who last changed some of it
   const f = get('flinders');
   f.territory = { mode: 'only', countries: ['India', 'Nepal', 'Sri Lanka', 'Bangladesh', 'Vietnam'], priority: ['India'], blocked: [{ country: 'India', state: 'Punjab' }], hiddenFrom: ['rp-delhi'] };
   f.forms = [{ id: nid('fm'), name: 'Flinders postgraduate international application form', file: 'Flinders_PG_international_application_form.pdf', for: 'Postgraduate' }];
-  f.stamps = { territory: { by: IN('kevin.mcewan'), at: inDays(-5) }, profile: { by: IN('catherine.wilson'), at: inDays(-20) }, forms: { by: IN('catherine.wilson'), at: inDays(-20) } };
-  get('massey').stamps = { status: { by: IN('lalaine.dizon'), at: inDays(-243) } };
-  // priority source markets the Institution Team set (sample), which GSP's application lists flag (Jovial, 31 Oct)
-  const PRIORITY: Record<string, string[]> = { deakin: ['India'], uow: ['India', 'Nepal'], canberra: ['India'], scu: ['India'], wsu: ['Bangladesh'], vuw: ['Bangladesh'], uws: ['India'], ais: ['India'], utas: ['India'], latrobe: ['Bhutan', 'Myanmar'] };
-  for (const [id, markets] of Object.entries(PRIORITY)) {
-    const u = list.find((x) => x.id === id);
-    if (u) u.territory = { ...u.territory, priority: [...new Set([...u.territory.priority, ...markets])] };
-  }
+  f.stamps = { territory: { by: 'Raj Shamani', at: `${inDays(-5)}T15:42` }, profile: { by: 'Kavya Menon', at: `${inDays(-20)}T11:05` }, forms: { by: 'Kavya Menon', at: `${inDays(-20)}T11:12` } };
+  f.log = [
+    logLine('Raj Shamani', 'territory', 'Only India, Nepal, Sri Lanka, Bangladesh and Vietnam can apply; India is a priority country; Punjab, India blocked; hidden from Capital Career Abroad', f.stamps.territory!.at),
+    logLine('Kavya Menon', 'forms', 'Added Flinders postgraduate international application form (Postgraduate)', f.stamps.forms!.at),
+    logLine('Kavya Menon', 'profile', 'Changed Search priority from 5 to 8', f.stamps.profile!.at),
+  ];
+  const m = get('massey');
+  m.stamps = { status: { by: 'Leena Thomas', at: `${inDays(-243)}T09:30` } };
+  m.log = [logLine('Leena Thomas', 'status', 'Paused: its partner’s agreement ended', m.stamps.status!.at)];
   return list;
 }
 
 /** A new university, with its basic details: set up, out of Course search, and the rest entered on its page. */
-export function newUniRec(f: { name: string; utype: UniType; country: University['country']; ip: string; by: string; role: string }): UniRec {
+export function newUniRec(f: { name: string; utype: UniType; country: University['country']; website: string; ip: string; by: string }): UniRec {
   const id = `${f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36).slice(-4)}`;
-  const u = record({ id, name: f.name, country: f.country, campuses: [], rate: 15, college: f.utype === 'College' }, 50);
-  // only the basics: everything else is filled with Edit profile, and shows "Not set" until then (slice 2 PRD)
-  return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, sector: '' as unknown as UniRec['sector'], studylink: false, pathway: false, website: undefined, founded: undefined, about: undefined, qs: undefined, qsYear: undefined, kind: undefined, searchPriority: SEARCH_PRIORITY.default, cricos: '', pictures: [], logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {}, log: [change(f.by, f.role, 'University created', '—', f.name)], created: { by: f.by, at: Date.now() } };
+  const u = record({ id, name: f.name, country: f.country, campuses: [], website: f.website || undefined, rate: 15, offerDays: 7, checked: today(), college: f.utype === 'College' }, 50);
+  return { ...u, ip: f.ip, status: 'Setting up', utype: f.utype, priority: PRIORITY_DEFAULT, created: { by: f.by, at: nowIso() }, log: [], cricos: '', state: '', images: [], logins: [], contacts: [], scholarships: [], territory: { mode: 'all', countries: [], priority: [], blocked: [], hiddenFrom: [] }, channel: '', link: '', added: inDays(0), stamps: {} };
 }
 
-/** A university as Course search reads it: its live campuses and its territory as blocks. */
-export function forSearch(u: UniRec, _p?: InstitutionPartner): University {
+/** A university as Course search reads it: its live campuses, its territory as blocks, and its partner's commission. */
+export function forSearch(u: UniRec, p: InstitutionPartner | undefined): University {
   const t = u.territory;
   const states = new Map<string, string[]>();
-  t.blocked.filter((b) => b.state).forEach((b) => states.set(b.country, [...(states.get(b.country) ?? []), b.state]));
-  // a blocked country with no state blocks the whole country (slice 2 PRD)
-  const whole = t.blocked.filter((b) => !b.state).map((b) => b.country);
-  const out = [...new Set([...(t.mode === 'except' ? t.countries : t.mode === 'only' ? COUNTRIES.map((c) => c.name).filter((c) => !t.countries.includes(c)) : []), ...whole])];
+  t.blocked.forEach((b) => states.set(b.country, [...(states.get(b.country) ?? []), b.state]));
+  const out = t.mode === 'except' ? t.countries : t.mode === 'only' ? COUNTRIES.map((c) => c.name).filter((c) => !t.countries.includes(c)) : [];
   return {
     ...u,
     campuses: u.campuses.filter((c) => !u.inactive.includes(c.name)),
     priorityFor: t.priority,
-    hiddenFrom: t.hiddenFrom,
     blocked: [...out.map((country) => ({ country })), ...[...states].filter(([c]) => !out.includes(c)).map(([country, s]) => ({ country, states: s }))],
-    // GSP's rate comes from Finance's terms (data/courses.ts termsRate), not the partner record (Jovial, 31 Oct)
-    rate: u.rate,
+    rate: p?.commission?.state === 'Active' ? p.commission.rate : u.rate,
   };
 }
 
@@ -272,21 +264,16 @@ export const canApplyFrom = (t: Territory, all: string[]) => (t.mode === 'only' 
 
 /**
  * A course as the PM prototype's course record keeps it (29 Oct, 6th round): Basics (code, name, level, study area,
- * duration, campus, mode, its page on the university's website, tags, the date it was last checked), Intakes (each with its
+ * duration, campus, mode, its page on the university's website, post-study work visa, tags), Intakes (each with its
  * dates), Fees, Academic rules and English rules. No other fields, nothing automated. The shared course fields that
  * Course search reads (months, intakes, academic, IELTS, PTE, TOEFL, backlogs) follow from these when it's saved.
  */
 /** 29 Oct (5th round, Nesil): no Needs a check. */
 export const COURSE_STATUSES = ['Live', 'Draft', 'Hidden'] as const;
 export type CourseStatus = (typeof COURSE_STATUSES)[number];
-export const SOURCES = ['University website', 'StudyLink', 'Email', 'Added by hand'] as const;
+export const SOURCES = ['University website', 'StudyLink', 'Email', 'Added by hand', 'CSV upload'] as const;
 export type Source = (typeof SOURCES)[number];
-/**
- * Course tags (S2-16, S2-27): Admin owns the list (GSP · Admin › Course tags: add, rename, retire), seeded with
- * today's tags. The team picks each course's tags by hand from it. No Regional university tag (S2-27).
- */
-export const SEED_TAGS = ['Scholarship available', 'English test waiver', 'No interview required', 'Russell Group', 'MOI acceptable', 'University has its own English test', 'Post-study work visa', 'Ivy League', 'Group of Eight'] as const;
-/** The PM prototype's older list (kept for readers that still name it). */
+/** Shown to partners on the course in search, and quick filters there. Only a GSP admin adds a new tag to the list. */
 export const TAGS = [
   'Faster offer TAT',
   'Scholarship available',
@@ -316,26 +303,26 @@ export const TAGS = [
 
 export const DURATION_UNITS = ['Months', 'Years', 'Weeks', 'Credits'] as const;
 export type DurationUnit = (typeof DURATION_UNITS)[number];
+export const CURRENCIES = ['AUD', 'GBP', 'NZD', 'CAD', 'EUR', 'USD'] as const;
 export const QUALIFICATIONS = ['Applicable to all', 'Bachelor (3 years)', 'Bachelor (4 years)', 'Bachelor (3 or 4 years)', 'Grade 12', 'Diploma'] as const;
 export type Qualification = (typeof QUALIFICATIONS)[number];
 export const SCALES = ['Percentage', 'GPA 4', 'GPA 10', 'UK class'] as const;
 export type Scale = (typeof SCALES)[number];
-/** The top of each scale (a minimum can't be above it); UK class is 4 First, 3 2:1, 2 2:2, 1 Third. */
-export const SCALE_MAX: Record<Scale, number> = { Percentage: 100, 'GPA 4': 4, 'GPA 10': 10, 'UK class': 4 };
-export const UK_CLASS = ['First', '2:1', '2:2', 'Third'] as const;
-/** A score as the course shows it: "60%", "3 (GPA 4)", "2:1". */
-export const scoreText = (n: number | undefined, scale: string | undefined) =>
-  n === undefined || !scale ? '' : scale === 'UK class' ? UK_CLASS[4 - n] ?? '' : scale === 'Percentage' ? `${n}%` : `${n} (${scale})`;
-/** The English tests a course rule can name: the same names as the student's tests (data/tests.ts, HC15). */
-export const TESTS = ['IELTS Academic', 'TOEFL iBT', 'PTE Academic', 'Duolingo English Test'] as const;
+export const TESTS = ['IELTS Academic', 'TOEFL iBT', 'PTE Academic', 'Duolingo'] as const;
 export type Test = (typeof TESTS)[number];
 /** What the second figure of each test is called. */
-export const TEST_MIN: Record<Test, string> = { 'IELTS Academic': 'No band below', 'TOEFL iBT': 'Minimum in each section', 'PTE Academic': 'No part below', 'Duolingo English Test': 'No subscore below' };
+export const TEST_MIN: Record<Test, string> = { 'IELTS Academic': 'No band below', 'TOEFL iBT': 'Minimum in each section', 'PTE Academic': 'No part below', Duolingo: 'No subscore below' };
 
 /** An intake's other dates, beside its application deadline (the shared intake's `deadline`). */
 export type IntakeDates = { deposit: string; accept: string; start: string; census: string };
 /** One row per country and qualification; no countries is every country. Backlogs: '' for no limit. */
 export type AcademicRule = { id: string; countries: string[]; qual: Qualification; board: string; scale: Scale; min: number; backlogs: string; note: string };
+/** 4 Nov (Nesil's reference): the least a student needs to have finished, for the whole course. */
+export const MIN_EDUCATION = ['Grade 12', 'Diploma', 'Advanced diploma', 'Bachelor (3 years)', 'Bachelor (4 years)', 'Postgraduate diploma', 'Master’s degree'] as const;
+export type MinEducation = (typeof MIN_EDUCATION)[number];
+/** The course's academic entry (4 Nov), above its rules: the education, its grading scale, the minimum in it, and backlogs ('' for no limit). */
+export type AcademicEntry = { edu: MinEducation | ''; scale: Scale | ''; min: number; backlogs: string };
+export const blankEntry: AcademicEntry = { edu: '', scale: '', min: 0, backlogs: '' };
 /** One row per test and student country; no countries is every country, and a country's row overrides it. */
 export type EnglishRule = { id: string; countries: string[]; test: Test; overall: number; min: number; note: string };
 
@@ -351,39 +338,32 @@ export type CourseRec = Course & {
   fullFee: number;
   /** By intake ("Feb 2027"). */
   dates: Record<string, IntakeDates>;
+  /** 4 Nov: the academic entry for the whole course; the rules below it are for particular countries or qualifications. */
+  entry: AcademicEntry;
   academicRules: AcademicRule[];
   englishRules: EnglishRule[];
   source: Source;
   tags: string[];
+  /** Who added it, and when. */
+  created: Stamp;
   /** Who last changed its status and each tab (basics, intakes, fees, academic, english). */
   stamps: Stamps;
-  /** The Change log (S2-13) and System information. */
-  log: Change[];
-  created: Created;
+  /** Every change, newest first (3 Nov: the Logs tab). */
+  log: LogLine[];
 };
+/** Who changed a course last, and when: its latest stamp, or when it was added (3 Nov: the university's Courses tab). */
+export const courseUpdated = (c: CourseRec) => lastStamp(c.stamps, c.created);
 
 const MAJOR = ['Melbourne', 'Sydney', 'Brisbane', 'Perth', 'Adelaide', 'London', 'Birmingham', 'Manchester', 'Toronto', 'Vancouver', 'Dublin', 'Auckland'];
-/** Sample courses for slice 3's English waiver note and slice 2's credit duration (merge, 2 Nov). */
-const firstAt = (uni: string, n = 1) => COURSES.filter((c) => c.uni.id === uni).slice(0, n);
-const WAIVER = new Set([...firstAt('flinders', 2), ...firstAt('leeds')]);
-const MOI = new Set([...firstAt('flinders'), ...firstAt('canberra', 2)]);
-const OWN_TEST = new Set(firstAt('birmingham', 2));
-const NO_INTERVIEW = new Set([...firstAt('abertay', 2), ...firstAt('usf')]);
-/** Credit-based samples: US courses counted in credits ("36 credits"). */
-const mastersAt = (uni: string) => COURSES.filter((c) => c.uni.id === uni && c.level === 'Master’s degree').slice(0, 1);
-const CREDITS = new Map<Course, number>([...mastersAt('pace').map((c) => [c, 36] as const), ...mastersAt('usf').map((c) => [c, 30] as const)]);
 function tagsOf(c: Course): string[] {
-  // sample tags; none from offer time, the English test waiting, placement or post-study work (Jovial, 1 Nov, HC2)
   const t: string[] = [];
-  if (WAIVER.has(c)) t.push('English test waiver');
-  if (MOI.has(c)) t.push('MOI acceptable');
-  if (OWN_TEST.has(c)) t.push('University has its own English test');
-  if (NO_INTERVIEW.has(c)) t.push('No interview required');
+  if (c.offerDays <= 5) t.push('Faster offer TAT');
   if (c.scholarship) t.push('Scholarship available');
-  if (c.uni.group === 'Group of Eight') t.push('Group of Eight');
-  if (c.uni.group === 'Russell Group') t.push('Russell Group');
-  if (c.uni.country === 'UK' || c.uni.country === 'Australia') t.push('Post-study work visa');
-  void MAJOR;
+  if (c.englishFlex) t.push('English test waiver');
+  if (c.placement) t.push('Co-op and built-in internships');
+  if (MAJOR.includes(c.campus.city)) t.push('Major city');
+  if (c.campus.regional) t.push('Regional university (Australia)');
+  if (c.psw) t.push('Post-study work visa');
   return t;
 }
 const plusDays = (iso: string, n: number) => {
@@ -393,34 +373,25 @@ const plusDays = (iso: string, n: number) => {
 };
 let rid = 0;
 const ruleId = () => `r${(++rid).toString(36)}`;
+/** The least education each program level asks for (sample data). */
+const ENTRY_FOR: Partial<Record<Level, MinEducation>> = { Foundation: 'Grade 12', Diploma: 'Grade 12', 'Bachelor’s degree': 'Grade 12', 'Postgraduate diploma': 'Bachelor (3 years)', 'Master’s degree': 'Bachelor (3 years)', 'PhD or research': 'Master’s degree' };
 export const newRuleId = ruleId;
 
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-/** A sample intake's dates: the course starts on a Monday in the intake's month (the same one for every course at the university), census 4 weeks later, deposit 30 days after the deadline. */
-function datesFor(month: string, deadline: string, uniId: string): IntakeDates {
-  const [m, y] = month.split(' ');
-  const d = new Date(Date.UTC(Number(y), MON.indexOf(m), 1));
-  while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
-  d.setUTCDate(d.getUTCDate() + 7 * ([...uniId].reduce((t, ch) => t + ch.charCodeAt(0), 0) % 3));
-  const start = d.toISOString().slice(0, 10);
-  return { deposit: plusDays(deadline, 30), accept: '', start, census: plusDays(start, 28) };
-}
-
-const draft = (i: number) => i % 89 !== 29 && i % 400 === 13;
 export function sampleCourseRecs(): CourseRec[] {
   return COURSES.map((c, i) => ({
     ...c,
-    status: i % 89 === 29 ? 'Hidden' : draft(i) ? 'Draft' : 'Live',
+    status: i % 89 === 29 ? 'Hidden' : i % 400 === 13 ? 'Draft' : 'Live',
     code: c.cricos ?? `${c.uni.id.slice(0, 3).toUpperCase()}-${(4000 + i * 7).toString().slice(-4)}`,
-    durUnit: CREDITS.has(c) ? 'Credits' : 'Months',
-    durValue: CREDITS.get(c) ?? c.months,
+    durUnit: 'Months',
+    durValue: c.months,
     url: `https://${c.uni.website ?? `${c.uni.id}.edu`}/courses/${c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
-    firstYearFee: CREDITS.has(c) ? c.tuition : 0,
+    firstYearFee: 0,
     // 30 Oct: the fee the team enters is the full course fee; tuition a year follows from it
     fullFee: Math.round((c.tuition * c.months) / 12),
-    // each intake's dates (Jovial, 31 Oct): the source for course search and the application; start on a Monday, census four weeks on
-    dates: Object.fromEntries(c.intakes.map((x) => [x.month, datesFor(x.month, x.deadline, c.uni.id)])),
-    academicRules: [{ id: ruleId(), countries: [], qual: 'Applicable to all', board: '', scale: 'Percentage', min: c.academic, backlogs: c.backlogs !== undefined ? String(c.backlogs) : '', note: '' }],
+    dates: Object.fromEntries(c.intakes.map((x) => [x.month, { deposit: plusDays(x.deadline, 30), accept: '', start: '', census: '' }])),
+    // 4 Nov: the course's academic entry holds what its one rule for everyone used to
+    entry: { edu: ENTRY_FOR[c.level] ?? 'Grade 12', scale: 'Percentage', min: c.academic, backlogs: c.backlogs !== undefined ? String(c.backlogs) : '' },
+    academicRules: [],
     englishRules: [
       { id: ruleId(), countries: [], test: 'IELTS Academic', overall: c.ielts[0], min: c.ielts[1], note: '' },
       { id: ruleId(), countries: [], test: 'TOEFL iBT', overall: c.toefl[0], min: c.toefl[1], note: '' },
@@ -428,13 +399,10 @@ export function sampleCourseRecs(): CourseRec[] {
     ],
     source: i % 10 === 3 ? 'Added by hand' : i % 5 === 1 ? 'StudyLink' : 'University website',
     tags: tagsOf(c),
-    totalFee: Math.round((c.tuition * c.months) / 12),
-    // minEducation, minScore, minScoreScale and minBacklogs come with the shared course (every course has them, S2C-3)
-    log: [],
-    // a draft was added recently (Institution Home's "Finish draft courses" counts from it); the rest in June 2025
-    created: { by: IN('catherine.wilson'), at: draft(i) ? atIso(inDays(-(2 + (i % 9)))) : atIso('2025-06-01') },
-    // the fees Catherine Wilson last updated for Flinders
-    stamps: c.uni.id === 'flinders' ? { fees: { by: IN('catherine.wilson'), at: inDays(-8) } } : {},
+    created: sampleStamp(i, 40 + ((i * 37) % 300)),
+    // the 2027 fees Kavya entered for Flinders
+    stamps: c.uni.id === 'flinders' ? { fees: { by: 'Kavya Menon', at: `${inDays(-8)}T14:20` } } : {},
+    log: c.uni.id === 'flinders' ? [logLine('Kavya Menon', 'fees', 'Entered the 2027 fees', `${inDays(-8)}T14:20`)] : [],
   }));
 }
 
@@ -447,23 +415,15 @@ export function withSearchFields(c: CourseRec): CourseRec {
     return r ? [r.overall, r.min] : was[0] && !c.englishRules.length ? was : [0, 0];
   };
   const back = c.academicRules.find((r) => r.backlogs !== '');
+  // 4 Nov: the course's academic entry first, when it's a percentage; then its rules
+  const e = c.entry;
+  const academic = e.scale === 'Percentage' && e.min > 0 ? e.min : pct?.min ?? 0;
+  const backlogs = e.backlogs !== '' ? Number(e.backlogs) : back ? Number(back.backlogs) : undefined;
   // Course search shows tuition a year: the full course fee over the years it takes (one, for a course under a year)
-  // the fee a year: the full course fee over the course's years, or the first-year fee for a Credits course (S3-20)
-  const years = c.durUnit === 'Credits' ? 1 : Math.max(1, months / 12);
-  const tuition = c.durUnit === 'Credits' && c.firstYearFee > 0 ? c.firstYearFee : c.fullFee > 0 ? Math.round(c.fullFee / years) : c.tuition;
-  return { ...c, months, tuition, totalFee: c.fullFee > 0 ? c.fullFee : c.totalFee, academic: pct?.min ?? 0, backlogs: back ? Number(back.backlogs) : undefined, ielts: test('IELTS Academic', c.ielts), toefl: test('TOEFL iBT', c.toefl), pte: test('PTE Academic', c.pte), duolingo: test('Duolingo English Test', c.duolingo ?? [0, 0]) };
+  const tuition = c.fullFee > 0 ? Math.round(c.fullFee / Math.max(1, months / 12)) : c.tuition;
+  return { ...c, months, tuition, academic, backlogs, ielts: test('IELTS Academic', c.ielts), toefl: test('TOEFL iBT', c.toefl), pte: test('PTE Academic', c.pte) };
 }
 
 /** Course search shows live courses at live universities. */
 export const searchable = (c: CourseRec) => c.status === 'Live';
 export const coursesOf = <T extends Course>(courses: T[], uniId: string) => courses.filter((c) => c.uni.id === uniId);
-
-/* ---------- the QS ranking CSV (S2-2, Jovial S2C-17): every university's ranking in one go, from Universities ---------- */
-
-/** The ranking the CSV updates: only rows naming it change a university's QS rank (other rankings are skipped). */
-export const QS_SOURCE = 'QS';
-/** The template's columns, in order. `rank` empty or "—" means unranked (shown as "—", sorted last). */
-export const QS_CSV_COLUMNS = ['university', 'ranking', 'rank', 'year'] as const;
-/** The lowest rank QS publishes, for the CSV's check. */
-export const QS_MAX_RANK = 2000;
-
