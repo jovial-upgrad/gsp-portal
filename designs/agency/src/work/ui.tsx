@@ -21,9 +21,9 @@ export function Pick({ id, label, value, onChange, options, placeholder, hideLab
 
 /** Every half-hour of the day, "00:00" to "23:30". */
 export const HALF_HOURS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
-/** A time of day (IST): the shared TimePicker, typed HH:MM or picked from the half-hours. */
-export function TimePick({ id, label, value, onChange, error, hideLabel }: { id: string; label: string; value: string; onChange: (v: string) => void; error?: string | null; hideLabel?: boolean }) {
-  const t = <TimePicker id={id} value={value} onChange={onChange} step={30} invalid={!!error} ariaLabel={hideLabel ? label : undefined} describedBy={error ? `${id}-error` : undefined} />;
+/** A time of day (IST unless `suffix` names another zone): the shared TimePicker, typed HH:MM or picked from the half-hours. */
+export function TimePick({ id, label, value, onChange, error, hideLabel, suffix }: { id: string; label: string; value: string; onChange: (v: string) => void; error?: string | null; hideLabel?: boolean; suffix?: string }) {
+  const t = <TimePicker id={id} value={value} onChange={onChange} step={30} {...(suffix !== undefined ? { suffix } : {})} invalid={!!error} ariaLabel={hideLabel ? label : undefined} describedBy={error ? `${id}-error` : undefined} />;
   if (hideLabel) return <div className="gspx-select">{t}</div>;
   return <Field id={id} label={label} error={error} className="gspx-select">{t}</Field>;
 }

@@ -244,7 +244,7 @@ function Calendars({ may, by }) {
   const hoursErr = c => ((c.end || DEFAULT_END) === (c.start || DEFAULT_START) ? 'The day can’t start and end at the same time.' : null);
   return (
     <>
-    <Notice>Time zone: one for everything, IST (Asia/Kolkata). There is no time zone per sales region or per calendar: an SLA counts the calendar’s hours in IST, and due times, reminders and daily jobs all count in IST (S4-27). A record with no region uses the calendar that lists Global.</Notice>
+    <Notice>Time zone: each calendar has its own. Its working days, hours and holidays, and so every SLA on it, count in that zone; the morning email goes out in it too. Due times are shown in IST. A record with no region uses the calendar that lists Global.</Notice>
     {may('C') && <div className="gspx-inline"><Button kind="primary" onClick={() => setAdding(true)}>Add a calendar</Button></div>}
     <div className="gspx-grid2">
       {cals.map((c, i) => (
@@ -258,9 +258,9 @@ function Calendars({ may, by }) {
           </div>
           <div className="gspx-inline">
             {may('U') ? <>
-              <Pick id={`ctz-${i}`} label="Time zone" value={c.tz || IST} options={timeZones().map(z => [z, z])} onChange={x => edit(i, cal => { cal.tz = x; }, 'calendar.changed', `${by.name} set ${c.name}’s time zone to ${x}`)} />
-              <TimePick id={`cs-${i}`} label="Day starts" value={c.start || DEFAULT_START} error={hoursErr(c)} onChange={x => edit(i, cal => { cal.start = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to start at ${x}`)} />
-              <TimePick id={`ce-${i}`} label="Day ends" value={c.end || DEFAULT_END} onChange={x => edit(i, cal => { cal.end = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to end at ${x}`)} />
+              <Pick id={`ctz-${i}`} label="Time zone" value={c.tz || IST} options={[...new Set([c.tz || IST, ...timeZones()])].map(z => [z, z])} onChange={x => edit(i, cal => { cal.tz = x; }, 'calendar.changed', `${by.name} set ${c.name}’s time zone to ${x}`)} />
+              <TimePick id={`cs-${i}`} label="Day starts" suffix="" value={c.start || DEFAULT_START} error={hoursErr(c)} onChange={x => edit(i, cal => { cal.start = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to start at ${x}`)} />
+              <TimePick id={`ce-${i}`} label="Day ends" suffix="" value={c.end || DEFAULT_END} onChange={x => edit(i, cal => { cal.end = x; }, 'calendar.changed', `${by.name} set ${c.name}’s day to end at ${x}`)} />
             </> : null}
           </div>
           {may('U') && <p className="muted gspx-small">An end earlier than the start runs past midnight: the day belongs to the day it starts on, so a holiday on that date takes out that night.</p>}
@@ -324,10 +324,10 @@ function NewCalendar({ by, regions, onClose }) {
           </div>
           {c.err('days') && <p className="field__msg field__msg--error" role="alert">{c.err('days')}</p>}
         </div>
-        <Pick id="nc-tz" label="Time zone" value={v.tz} options={timeZones().map(z => [z, z])} onChange={x => set('tz', x)} hint="The working day and holidays are in this zone. Emails go out at 8:30 here." />
+        <Pick id="nc-tz" label="Time zone" value={v.tz} options={[...new Set([IST, ...timeZones()])].map(z => [z, z])} onChange={x => set('tz', x)} hint="The working day and holidays are in this zone. Emails go out at 8:30 here." />
         <div className="gspx-inline">
-          <TimePick id="nc-start" label="Day starts" value={v.start} error={c.err('hours')} onChange={x => set('start', x)} />
-          <TimePick id="nc-end" label="Day ends" value={v.end} onChange={x => set('end', x)} />
+          <TimePick id="nc-start" label="Day starts" suffix="" value={v.start} error={c.err('hours')} onChange={x => set('start', x)} />
+          <TimePick id="nc-end" label="Day ends" suffix="" value={v.end} onChange={x => set('end', x)} />
         </div>
         <p className="muted">{v.end && v.start && v.end !== v.start ? (v.end < v.start ? `Runs past midnight: ${clockText(v.start)} to ${clockText(v.end)} the next day, ${v.tz}, ${dayOf(v).hours} working hours.` : `${dayOf(v).hours} working hours a day, ${v.tz}.`) : 'Times are in the calendar’s time zone. An end earlier than the start runs past midnight.'}</p>
         <div className="field"><span className="field__label">Sales regions on it</span>
@@ -352,7 +352,7 @@ function Escalation({ may, by }) {
         <tr><td className="cfg__strong">Past its due time and not done (level 1)</td><td>The assignee and the queue’s leader</td><td>Bell, morning email, red pill</td><td>“Late: &lt;leader&gt;, the queue leader, has been notified”</td></tr>
         <tr><td className="cfg__strong">Late by {num('adminAfter', 'Level 2 after')} working days (level 2)</td><td>The Admin queue</td><td>Bell; email E21 to every Admin; dashboard alert (slice 6)</td><td>“Escalated to Admin”</td></tr>
       </Table>
-      <p className="gspx-pad muted">Escalation doesn’t make a new task and doesn’t change the assignee: the same task is shown to more people (rule T51). The morning email (E19) goes at {may('U') ? <span className="gspx-inline-pick"><TimePick id="esc-digest" label="Morning email time" hideLabel value={e.digestTime} onChange={x => set('digestTime', x, 'the morning email time')} /></span> : <b>{e.digestTime}</b>} on each person’s own calendar, in its time zone: one email with everything due or breached, not one per task.</p>
+      <p className="gspx-pad muted">Escalation doesn’t make a new task and doesn’t change the assignee: the same task is shown to more people (rule T51). The morning email (E19) goes at {may('U') ? <span className="gspx-inline-pick"><TimePick id="esc-digest" label="Morning email time" hideLabel suffix="" value={e.digestTime} onChange={x => set('digestTime', x, 'the morning email time')} /></span> : <b>{e.digestTime}</b>} on each person’s own calendar, in its time zone: one email with everything due or breached, not one per task.</p>
     </Card>
   );
 }
