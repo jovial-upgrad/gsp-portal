@@ -30,6 +30,14 @@ export function batchesOf(lines, cfg, uniInv = {}) {
   return [...m.values()].map((b) => ({ ...b, total: r2(b.lines.reduce((t, x) => t + (x.l.ent || 0) + (x.l.gst || 0), 0)), entity: entityFor(cfg, { destination: b.u.country }) }));
 }
 
+/** Raise one batch's invoice (to the university, from its entity, numbered in the entity's series). */
+export const raiseBatch = (b, cyc, user) => update((d) => {
+    const n = Object.values(d.comm.uniInv || {}).filter((i) => i.entity === b.entity.id && i.cycle === cyc.key).length + 1;
+    const no = `${b.entity.prefix}-${cyc.key.replace('-', '')}-${String(n).padStart(3, '0')}`;
+    d.comm.uniInv = { ...(d.comm.uniInv || {}), [no]: { no, cycle: cyc.key, entity: b.entity.id, entityName: b.entity.name, uni: b.u.id, uniName: b.u.name, student: b.student, cur: b.u.cur, total: b.total, raised: d.comm.today, dueOn: addDays(d.comm.today, +b.u.payDays || 30), lines: b.lines.map((x) => ({ app: x.app, key: x.l.key, student: x.a.student, label: x.l.label, amt: x.l.ent, gst: x.l.gst || 0 })), status: 'sent', by: user.name } };
+    b.lines.forEach((x) => { const a = d.comm.apps[x.app]; a.inv = { ...(a.inv || {}), [x.l.key]: d.comm.today }; a.invAmt = { ...(a.invAmt || {}), [x.l.key]: x.l.ent }; });
+  }, `${user.name} raised an invoice to ${b.u.name}${b.student ? ` for ${b.student}` : ''}: ${b.lines.length} lines, ${money(b.total, b.u.cur)}`) || toast('Invoice raised', { text: `To ${b.u.name}, from ${b.entity.name}. Due in ${b.u.payDays} days.` });;
+
 export default function UniInvoices({ c, lines, canEdit, user }) {
   const ops = opsOf(c.cfg);
   const [pay, setPay] = useState(null);
@@ -40,12 +48,7 @@ export default function UniInvoices({ c, lines, canEdit, user }) {
   const diffs = (c.diffs || []).filter((d) => d.status === 'open');
   const cyc = cycleOf(c.cfg, c.today);
 
-  const raise = (b) => update((d) => {
-    const n = Object.values(d.comm.uniInv || {}).filter((i) => i.entity === b.entity.id && i.cycle === cyc.key).length + 1;
-    const no = `${b.entity.prefix}-${cyc.key.replace('-', '')}-${String(n).padStart(3, '0')}`;
-    d.comm.uniInv = { ...(d.comm.uniInv || {}), [no]: { no, cycle: cyc.key, entity: b.entity.id, entityName: b.entity.name, uni: b.u.id, uniName: b.u.name, student: b.student, cur: b.u.cur, total: b.total, raised: d.comm.today, dueOn: addDays(d.comm.today, +b.u.payDays || 30), lines: b.lines.map((x) => ({ app: x.app, key: x.l.key, student: x.a.student, label: x.l.label, amt: x.l.ent, gst: x.l.gst || 0 })), status: 'sent', by: user.name } };
-    b.lines.forEach((x) => { const a = d.comm.apps[x.app]; a.inv = { ...(a.inv || {}), [x.l.key]: d.comm.today }; a.invAmt = { ...(a.invAmt || {}), [x.l.key]: x.l.ent }; });
-  }, `${user.name} raised an invoice to ${b.u.name}${b.student ? ` for ${b.student}` : ''}: ${b.lines.length} lines, ${money(b.total, b.u.cur)}`) || toast('Invoice raised', { text: `To ${b.u.name}, from ${b.entity.name}. Due in ${b.u.payDays} days.` });
+  const raise = (b) => raiseBatch(b, cyc, user);
 
   return (
     <>
@@ -96,15 +99,20 @@ export default function UniInvoices({ c, lines, canEdit, user }) {
 }
 
 /** Record what the university paid against an invoice; a difference needs a reason and becomes an exception (Q27). */
-function PaySheet({ inv, c, ops, user, onClose }) {
+export function PaySheet({ inv, c, ops, user, onClose }) {
   const [amt, setAmt] = useState(inv.total);
   const [on, setOn] = useState(c.today);
   const [ref, setRef] = useState('');
   const [reason, setReason] = useState('');
   const diff = r2((+amt || 0) - inv.total);
-  const go = () => {
+  // record payment asks for confirmation first (Jovial, 6 Nov)
+  const [sure, setSure] = useState(false);
+  const next = () => {
     if (!ref.trim()) { toast('Enter the remittance or bank reference.'); return; }
     if (diff && !reason) { toast('Choose why the amount is different.'); return; }
+    setSure(true);
+  };
+  const go = () => {
     update((d) => {
       const i = d.comm.uniInv[inv.no]; i.received = +amt; i.paidOn = on; i.ref = ref.trim(); i.status = diff ? 'difference' : 'paid';
       const f = inv.total ? +amt / inv.total : 1;
@@ -114,17 +122,19 @@ function PaySheet({ inv, c, ops, user, onClose }) {
     toast(diff ? 'Recorded, with a difference' : 'Payment recorded', { text: diff ? 'It’s in Payment differences until it’s resolved or written off.' : 'The RPs’ shares are now ready to invoice.' }); onClose();
   };
   return (
-    <Sheet title={`Payment for ${inv.no}`} sub={`${inv.uniName} · ${money(inv.total, inv.cur)} invoiced`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={go}>Record</Button></>}>
+    <Sheet title={`Payment for ${inv.no}`} sub={`${inv.uniName} · ${money(inv.total, inv.cur)} invoiced`} onClose={onClose} footer={sure ? <><Button onClick={() => setSure(false)}>Back</Button><Button kind="primary" onClick={go}>Confirm payment</Button></> : <><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={next}>Record payment</Button></>}>
+      {sure ? <Notice tone="warn">Record <b>{money(+amt, inv.cur)}</b> from {inv.uniName} against {inv.no}, received {nice(on)}, reference {ref.trim()}? Its {inv.lines.length} line{inv.lines.length === 1 ? '' : 's'} become Paid{diff ? `, with a difference of ${money(diff, inv.cur)} (${reason})` : ''}, and the RPs’ shares become ready to pay. This can’t be undone here.</Notice> : <>
       <Field id="up-a" label={`Amount received (${inv.cur})`} required><NumberInput id="up-a" value={amt} onChange={setAmt} /></Field>
       <Field id="up-on" label="Received on" required><DateField id="up-on" value={on} onChange={setOn} /></Field>
       <Field id="up-r" label="Remittance or bank reference" required><Input id="up-r" value={ref} onChange={setRef} /></Field>
       {diff !== 0 && <Select id="up-why" label={`Why it’s ${diff < 0 ? 'short' : 'more'} by ${money(Math.abs(diff), inv.cur)}`} required value={reason} onChange={setReason} placeholder="Choose a reason" options={ops.diffReasons.map((r) => [r, r])} />}
+      </>}
     </Sheet>
   );
 }
 
 /** Resolve a payment difference: settled (the university paid the rest, or it was explained) or written off. */
-function FixSheet({ d, user, onClose }) {
+export function FixSheet({ d, user, onClose }) {
   const [how, setHow] = useState('');
   const [note, setNote] = useState('');
   const go = () => {

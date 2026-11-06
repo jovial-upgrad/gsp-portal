@@ -41,7 +41,7 @@ const mailRec = (t) => ({ id: t.id, type: 'Email', label: `Email · ${t.subject}
 /** An Admin setting a task points at: the page that fixes it (GSP · Admin). */
 const SETTING_PAGE = { fx: ['Exchange rates (Finance)', 'gspx-fin-fx'], routing: ['Application routing', 'routing'], calendars: ['Working days', 'work-sla'], living: ['Living costs and fees', 'living'], jobs: ['Emails and daily jobs', 'work-mail'], users: ['GSP users', 'users'], queues: ['Queues, SLA and escalation', 'work-sla'], docs: ['Document configuration', 'documents'] };
 const setRec = (k, extra = '') => ({ id: `set-${k}${extra ? `-${extra}` : ''}`, type: 'Setting', label: SETTING_PAGE[k][0], page: SETTING_PAGE[k][1] });
-const commRec = (id, label) => ({ id, type: 'Commission', label, page: 'fin-rp' });
+const commRec = (id, label) => ({ id, type: 'Commission', label, page: 'fin-lines' });
 
 /** The latest moment at or before `now` that is weekday `wd` at `hm` IST, and on or after WORK_START; else null. */
 function lastWeekly(now, wd, hm) {

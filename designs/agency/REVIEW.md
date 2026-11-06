@@ -6,6 +6,18 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 6 Nov, evening: commissions made simple (Jovial, in chat)
+
+### GSP · Finance › Commissions, RP portal › Earnings
+- [x] **One page, Commission lines:** each application that earns commission has a University line and an Agency line, each opening to its transactions (commission, after year 1, additional, bonuses, top-ups, recoveries) with the simple statuses (University: Not yet due, Ready to invoice, Invoiced, Overdue, Paid, Held, Recovering, Not payable; Agency: Waiting for university, Ready to pay, On RP invoice, Paid, Held, Recovering). Filters: universities, RPs, sales regions, status, type (several at once), search by student or application; Export. Exceptions show on their line ("Needs action"), with a Needs action only filter. (6 Nov, commit “Commissions made simple”)
+- [x] **Actions on the page:** Raise invoices (per university batch, or all); Record payment, confirmed first; RP invoices to check and pay sit above the Agency lines (also confirmed first); Answer an RP's query on its transaction. (6 Nov, commit “Commissions made simple”)
+- [x] **Override** on any open transaction, by Finance and Admin, with a reason: the amount, the trigger date (university side) or a hold; shown on the transaction and in How it's worked out; Remove override. (6 Nov, commit “Commissions made simple”)
+- [x] **Removed from the menu:** University invoices (and its To invoice and Invoices raised), RP commission, RP invoices and payout, Exceptions, Reports, Commission scenarios, How Finance works, Finance setup. Setup keeps Commission terms and Exchange rates. (6 Nov, commit “Commissions made simple”)
+- [x] **RP Earnings:** the commission terms card is gone; where GSP pays is a one-line nudge at the top with Change bank account. (6 Nov, commit “Commissions made simple”)
+- [x] RP invoices are priced at this week's rates (they were looking for the pay day's week, so lines showed held). (6 Nov, commit “Commissions made simple”)
+  - Decisions: Agency side is ready to pay only after the university pays GSP; overrides by Finance and Admin; payments by hand until Xero (phase two).
+  - Open: "How it's worked out" wording still comes from code; the proposal is a Calculation wording table in settings.
+
 ## 6 Nov, afternoon: eligibility for every market (Jovial, in chat)
 
 ### Find courses (course Eligibility tab), Add an application (GSP Assist), student Education, GSP · Admin › Grade conversion and English test equivalence

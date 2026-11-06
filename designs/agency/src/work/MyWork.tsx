@@ -96,7 +96,7 @@ export default function MyWork() {
     if (rec && rec.type === 'Application' && !rec.addon) openRecord(id);
     else if (rec && rec.type === 'RP' && openRp && rec.page === 'rps') openRp(id);
     else if (rec && rec.type === 'University' && openUni && rec.page === 'universities') openUni(id);
-    else if (rec && rec.type === 'Commission' && openPage) openPage('gspx-comm');
+    else if (rec && rec.type === 'Commission' && openPage) openPage('gspx-fin-lines');
     else if (rec && rec.type === 'Email' && openPage) openPage('gspx-mail');
     else if (rec && rec.type === 'Setting' && openPage && (String(rec.page).startsWith('gspx-fin') ? hostRole === 'gsp-finance' : hostRole === 'gsp-admin')) openPage(rec.page);
     else toast(`Opens the ${rec?.type === 'RP' ? 'RP' : (rec?.type || 'record').toLowerCase()} page${rec?.type === 'Setting' ? (String(rec.page).startsWith('gspx-fin') ? ' in GSP · Finance' : ' in GSP · Admin') : ''}.`);

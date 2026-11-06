@@ -397,17 +397,22 @@ function compute(cfg, apps, today) {
     const wd = a.withdrawn;
     const fxOf = (l) => { const d = l.date <= today ? l.date : today; l.fxDate = d; l.fx = fxRate(cfg, cur, d); l.fxWeek = fxWeek(cfg, d); l.aud = l.fx == null || l.ent == null ? null : r2(l.ent * l.fx); l.dueAud = l.fx == null || l.due == null ? null : r2(l.due * l.fx); };
     const finish = (l) => {
+      // an override (Jovial, 6 Nov: Finance or Admin, with a reason): the amount, the trigger date, or a hold
+      const ov = a.override && a.override['ip' + l.key];
+      if (ov && ov.date) l.date = ov.date;
       l.cancelled = !!(wd && wd.date <= l.date); l.refunded = !!(wd && wd.date > l.date && wd.refund);
       l.paid = (a.paidIP && a.paidIP[l.key]) || null; l.inv = (a.inv && a.inv[l.key]) || null;
       if (l.ent === undefined) l.ent = l.cancelled || l.refunded || l.amt == null ? 0 : l.amt;
       else if (l.cancelled || l.refunded) l.ent = 0;
-      l.held = held && !l.paid ? held : l.amt == null ? 'Rate missing' : null;
+      if (ov && ov.amt != null && ov.amt !== '' && !l.cancelled && !l.refunded) l.ent = +ov.amt;
+      l.ov = ov || null;
+      l.held = ov && ov.hold && !l.paid ? 'Held: ' + ov.reason : held && !l.paid ? held : l.amt == null ? 'Rate missing' : null;
       const paidAmt = l.paid ? +l.paid.amt : 0; l.due = r2(l.ent - paidAmt);
       if (l.cancelled) l.st = ['Not payable', 'p-mute', 'Student withdrew on ' + nice(wd.date) + ', before this date'];
       else if (l.paid && l.due < 0) l.st = ['University recovers', 'p-bad', (wd && wd.refund ? 'Student withdrew with a refund on ' + nice(wd.date) + '; ' : '') + 'the university takes back ' + money(-l.due, cur)];
       else if (l.ent < 0 && !l.paid) l.st = ['Credit to university', 'p-bad', 'The band went down at the end-of-period rework; GSP owes back ' + money(-l.ent, cur)];
       else if (l.paid) l.st = ['Paid', 'p-good', 'Received ' + nice(l.paid.date)];
-      else if (l.held) l.st = ['Held: ' + l.held.toLowerCase(), 'p-bad', ''];
+      else if (l.held) l.st = [/^Held: /.test(l.held) ? l.held : 'Held: ' + l.held.toLowerCase(), 'p-bad', ''];
       else if (l.inv) { const dueOn = addDays(l.inv, +u.payDays || 30); l.dueOn = dueOn; l.st = dueOn < today ? ['Payment overdue', 'p-bad', 'Invoiced ' + nice(l.inv) + ', due ' + nice(dueOn)] : ['Invoiced', 'p-acc', 'Invoiced ' + nice(l.inv) + ', due ' + nice(dueOn)]; }
       else if (l.date <= today && !l.refunded) l.st = [l.topup ? 'Top-up to invoice' : 'Ready to invoice', 'p-warn', 'Trigger date ' + nice(l.date) + ' has passed'];
       else l.st = ['Not yet due', 'p-mute', 'Trigger date ' + nice(l.date)];
@@ -415,6 +420,7 @@ function compute(cfg, apps, today) {
       fxOf(l);
       if (l.cancelled) l.trace.push({ h: 'Withdrawal', t: 'The student withdrew on ' + nice(wd.date) + ', before this line’s date: nothing is payable.' });
       if (l.refunded) l.trace.push({ h: 'Withdrawal', t: 'The student withdrew with a refund on ' + nice(wd.date) + ': the university keeps nothing' + (l.paid ? ' and takes back the ' + money(+l.paid.amt, cur) + ' it paid' : '') + '.' });
+      if (ov) l.trace.push({ h: 'Override', t: 'Overridden by ' + (ov.byName || 'Finance') + (ov.at ? ' on ' + nice(new Date(ov.at).toISOString().slice(0, 10)) : '') + ': ' + [ov.amt != null && ov.amt !== '' ? 'amount ' + money(+ov.amt, cur) : '', ov.date ? 'trigger date ' + nice(ov.date) : '', ov.hold ? 'held' : ''].filter(Boolean).join(', ') + '. Reason: ' + ov.reason + '.' });
       if (l.held) l.trace.push({ h: 'Held', t: l.held + '.' + (l.held === 'Agreement not yet in force' ? ' The agreement starts ' + nice(u.starts) + '.' : l.held === 'Contract ended' ? ' The contract ended ' + nice(u.ends) + '.' : ''), ref: 'IP17' });
       if (l.gst) l.trace.push({ h: 'GST', t: 'Australian university: the invoice adds ' + (S.auGst || 0) + '% GST, ' + money(l.ent, cur) + ' × ' + (S.auGst || 0) + '% = ' + money(l.gst, cur) + '.' });
       l.trace.push({ h: 'Currency', t: cur === 'AUD' ? 'The university pays in AUD.' : 'The university pays in ' + cur + '. AUD view at the rate for the week of ' + (l.date <= today ? 'the trigger date, ' : 'today (the trigger date is still ahead), ') + nice(l.fxDate) + (l.fx == null ? ': no ' + cur + ' rate for that week, so the AUD view is blank.' : ' (week of ' + nice(l.fxWeek) + '): ' + money(l.ent, cur) + ' × ' + l.fx + ' = ' + money(l.aud, 'AUD') + '.'), ref: 'IP18' });
@@ -565,16 +571,17 @@ function compute(cfg, apps, today) {
       let ent = lp == null || l.amt == null ? null : r2((l.fullEnt * lp) / 100);
       const got = l.received;
       let earned = ent == null ? null : l.fullEnt === 0 ? 0 : got >= l.fullEnt - 0.005 ? ent : r2((got * lp) / 100);
-      if (ov) { ent = +ov.amt; earned = got > 0 || l.fullEnt === 0 ? (l.fullEnt === 0 ? 0 : +ov.amt) : 0; }
+      if (ov && ov.amt != null && ov.amt !== '') { ent = +ov.amt; earned = got > 0 || l.fullEnt === 0 ? (l.fullEnt === 0 ? 0 : +ov.amt) : 0; }
       const paid = (a.paidRP && a.paidRP[key]) || 0; const due = earned == null ? null : r2(earned - paid);
       const label = (l.type === 'additional' ? l.label : l.annuity ? 'Commission after year 1: ' + l.label : 'Commission, ' + l.label.charAt(0).toLowerCase() + l.label.slice(1));
       const line = { key, app: a.id, a, r, ip: l, cur, ent, earned, paid, due, ov, kind: 'pct', label, annuity: !!l.annuity, lp, additional: l.type === 'additional' };
       line.payable = due != null && due !== 0 && (due < 0 || earned > 0);
       const waitTop = ent != null && earned != null && earned < ent - 0.005 && l.fullEnt > 0;
       line.st = due == null ? ['Cannot price', 'p-bad'] : due < 0 ? ['To recover from RP', 'p-bad'] : due === 0 && paid ? (waitTop ? ['Paid; top-up waits for the university', 'p-mute'] : ['Paid', 'p-good']) : due === 0 ? (ent > 0 ? ['Waiting for university payment', 'p-mute'] : ['Nothing due', 'p-mute']) : paid ? ['Top-up ready for payout', 'p-warn'] : ['Ready for payout', 'p-warn'];
+      if (ov && ov.hold && due > 0) { line.st = ['Held: ' + ov.reason, 'p-bad']; line.payable = false; }
       const t = [].concat(l.annuity ? [tr[0], { h: 'After the first year', t: r.annWhy + ' (Commission after year 1 does not count toward the RP’s tier or milestones: each student counts once.)' }] : tr);
       t.push({ h: 'GSP’s line', t: 'GSP’s ' + l.label + ' from ' + r.u.name + ': ' + money(l.fullEnt, cur) + ' (before GST' + (l.topups.length ? ', including top-ups' : '') + '). ' + (l.fullEnt === 0 ? 'Nothing: ' + (l.cancelled ? 'not payable after the withdrawal.' : 'the university took it back.') : 'The RP’s share is ' + (lp == null ? '—' : lp + '%') + ': ' + money(l.fullEnt, cur) + ' × ' + (lp == null ? '—' : lp) + '% = ' + money(ent, cur) + '.'), ref: 'RP1' });
-      if (ov) t.push({ h: 'Override', t: 'Overridden by ' + (ov.by || 'Finance') + (ov.at ? ' on ' + nice(String(ov.at).slice(0, 10)) : '') + ' to ' + money(+ov.amt, cur) + '.' });
+      if (ov) t.push({ h: 'Override', t: 'Overridden by ' + (ov.byName || ov.by || 'Finance') + (ov.at ? ' on ' + nice(new Date(ov.at).toISOString().slice(0, 10)) : '') + ': ' + [ov.amt != null && ov.amt !== '' ? 'amount ' + money(+ov.amt, cur) : '', ov.hold ? 'held' : ''].filter(Boolean).join(', ') + (ov.reason ? '. Reason: ' + ov.reason : '') + '.' });
       t.push({ h: 'Received by GSP', t: 'GSP has received ' + money(got, cur) + ' of ' + money(l.fullEnt, cur) + ' from the university for this period. ' + (l.fullEnt === 0 ? '' : got <= 0 ? 'Nothing is payable to the RP until it does: the RP is paid only after GSP receives the money.' : waitTop ? 'So the RP is due its share of what GSP has received: ' + money(got, cur) + ' × ' + lp + '% = ' + money(earned, cur) + '. The rest (' + money(r2(ent - earned), cur) + ') waits for the university’s top-up: GSP never pays an RP top-up it is not claiming.' : 'Received in full, so the RP’s whole share is earned.'), ref: l.topups.length ? 'IP2' : null });
       t.push({ h: 'Due now', t: 'Earned ' + money(earned, cur) + ' − already paid to the RP ' + money(paid, cur) + ' = ' + money(due, cur) + '.' + (due < 0 ? ' This is netted against the RP’s next payouts; the credit stays on this student’s line.' : '') });
       line.trace = t;
@@ -642,7 +649,8 @@ function buildRun(cfg, res, date) {
   const run = { date: thursdayOf(date, cfg), payees: {}, hold: [], lines: [] };
   res.rp.filter((x) => x.payable).forEach((x) => {
     const payee = x.r.payee || x.r.rp; const fixedAud = x.kind !== 'pct' && x.kind !== 'tuition' && x.cur === 'AUD'; const payCur = fixedAud ? 'AUD' : payee.cur || 'AUD';
-    const f1 = fxRate(cfg, x.cur, run.date), f2 = fxRate(cfg, payCur, run.date);
+    // this week's rates: the RP's invoice is made now (the monthly cycle, 5 Nov), not on a future pay day
+    const f1 = fxRate(cfg, x.cur, date), f2 = fxRate(cfg, payCur, date);
     if (f1 == null) run.hold.push(x.cur); if (f2 == null) run.hold.push(payCur);
     const aud = f1 == null ? null : r2(x.due * f1); const pay = aud == null || f2 == null ? null : r2(aud / f2);
     const L = { app: x.app, key: x.key, label: x.label, student: x.a.student, srcCur: x.cur, src: x.due, f1, aud, f2, payCur, pay, gst: r2(((pay || 0) * x.gstPct) / 100), wht: r2(((pay || 0) * x.whtPct) / 100), payee: payee.id };

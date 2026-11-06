@@ -46,6 +46,8 @@ const OBJECT_OF: Record<string, string> = {
   'fin-scen': 'Applications › Commission',
   'fin-terms': 'Institution Partners › Commission',
   'fin-setup': 'Institution Partners › Commission',
+  'fin-lines': 'Institution Partners › Commission',
+  'fin-fx': 'Institution Partners › Commission',
   'work-sla': 'Work',
   'work-rules': 'Work',
   'work-mail': 'Work',
