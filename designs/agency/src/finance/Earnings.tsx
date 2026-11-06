@@ -13,7 +13,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useCheck } from '../components/validate';
 import { fmtAmount } from '../data/format';
 import { PersonaBar, usePersona } from './persona';
-import { nice, money, bandTxt, winName, windowKey, r2 } from './engine';
+import { nice, money, r2 } from './engine';
 import { useComm, liveRun, convert, sum, payDayName, cycleOf } from './shared';
 import { rpLineStatus, LINE_STATUS, INV_STATUS, newInvoice, invoiceHtml, downloadFile, effectivePct } from './rpInvoice';
 import { FileDrop } from '../components/FileDrop';
@@ -34,6 +34,7 @@ function rateWhy(x) {
  * Earnings (RP Admin only; Jovial, 5 Nov: Commissions flow Q11–Q23). Every commission line with its status, how it's
  * worked out (the fee, the RP's effective % of it, its tier band; never GSP's rate or amount), and the month's invoice:
  * download the system invoice, add your number, sign and upload it; GSP checks it and pays by the cycle's pay-by day.
+ * The RP's commission terms aren't shown (Jovial, 6 Nov); where GSP pays is a one-line nudge at the top, with Change bank account.
  */
 export default function Earnings() {
   const { s, c, cfg, res } = useComm();
@@ -70,17 +71,6 @@ export default function Earnings() {
   const fresh = !open && run.payees[rp.id] ? newInvoice(c, run, rp, user) : null;
   const queries = (c.queries || []).filter(q => q.rp === rp.id && q.status === 'open');
 
-  /* Tier progress for the current counting window: enrolled students GSP will be paid for (Q9) */
-  const sch = rp.flat != null && rp.flat !== '' ? null : cfg.schemes.find(x => x.id === rp.scheme);
-  let tier = null;
-  if (sch && sch.type === 'tier') {
-    const wk = windowKey(sch.window, today);
-    const n = new Set(mine.filter(x => windowKey(sch.window, x.a.intake) === wk && !x.r.boxed && !x.a.gspLead && !(x.a.withdrawn && !x.r.received)).map(x => x.app)).size;
-    const band = sch.bands.findIndex(b => n >= b[0] && (b[1] == null || n <= b[1]));
-    const nextB = sch.bands[Math.max(0, band) + 1];
-    tier = { wk, n, pct: sch.bands[Math.max(0, band)][2], next: nextB, need: nextB ? nextB[0] - n : 0 };
-  }
-
   const download = () => {
     const inv = open || fresh; if (!inv) return;
     if (!open) update(d => { d.comm.rpInv = { ...(d.comm.rpInv || {}), [inv.id]: inv }; }, `${user.name} (${rp.name}) downloaded invoice ${inv.ref} for ${inv.cycleLabel}`);
@@ -101,6 +91,15 @@ export default function Earnings() {
 
   return (
     <Page title="Earnings" top={<PersonaBar />} lead={`Commission for ${rp.name}, in ${cur}. Once the university pays GSP, a line is ready to invoice. Invoice once a month; GSP pays by ${payDay}.`}>
+      {/* where GSP pays, as a nudge (Jovial, 6 Nov): one line, one click to change; the RP's terms aren't shown */}
+      <Notice tone={rp.bankVerified === false ? 'warn' : 'info'}>
+        <span className="gspx-row">
+          <span className="gspx-grow">{rp.bankVerified === false
+            ? <>New bank details are waiting for GSP to verify them. Payouts are held until then.</>
+            : <>We pay to your {rp.bank === 'AU' ? 'Australian' : 'local'} account{rp.bankLast4 ? <> ending <span className="num">••{rp.bankLast4}</span></> : ''}, in {cur}.</>}</span>
+          {canBank && <LinkButton onClick={() => setBank(true)}>Change bank account</LinkButton>}
+        </span>
+      </Notice>
       <Tiles items={tiles} value={f || null} onChange={v => setF(v || '')} />
       {(inv || fresh) && (
         <Card>
@@ -120,24 +119,6 @@ export default function Earnings() {
             </div>)}
           {!canAct && <p className="muted">Only your RP Admin can invoice.</p>}
         </Card>)}
-      <div className="gspx-grid2">
-        <Card>
-          <h2 className="gspx-h3">Your commission terms</h2>
-          {sch ? <>
-            <p>{sch.type === 'flat' ? `${sch.flat}% flat.` : `${bandTxt(sch.bands)}, counted per ${winName[sch.window] || sch.window}, ${sch.retro === 'yes' ? 'and the higher rate applies to every enrolment in the period' : sch.retro === 'top' ? 'and the top rate applies to every enrolment once it’s reached' : 'and the higher rate applies to later enrolments'}.`}</p>
-            {tier && <p className="gspx-sentence">{tier.wk}: <b className="num">{tier.n}</b> enrolled students count{tier.n ? <>, band <b>{tier.pct}%</b></> : ''}. {tier.next ? <>{tier.need} more to reach {tier.next[2]}%.</> : 'You’re in the top band.'}</p>}
-          </> : <p>{rp.flat}% flat.</p>}
-          {rp.from && <p className="muted">These terms are in force for intakes from {nice(rp.from)}.</p>}
-          <p className="muted">Notices and promotions may pay more for some enrolments; those show on each line.</p>
-          <Notices c={c} rp={rp} />
-        </Card>
-        <Card>
-          <h2 className="gspx-h3">Where we pay</h2>
-          <p>{rp.bank === 'AU' ? 'Australian bank account' : 'Local bank account'} in {cur}.{rp.bankLast4 ? <> Account ending <span className="num">••{rp.bankLast4}</span>.</> : ' The account on file with GSP.'}</p>
-          {rp.bankVerified === false ? <Notice tone="warn">New bank details are waiting for GSP to verify them. Payouts are held until then.</Notice> : <p className="muted">Verified by GSP.</p>}
-          {canBank && <div><Button onClick={() => setBank(true)}>Change bank details</Button></div>}
-        </Card>
-      </div>
       <Card flush>
         <div className="stools"><div className="stools__row"><Segmented label="Show" options={SHOW} value={f} onChange={setF} /></div>
           <p className="stools__count"><span><span className="num">{list.length}</span> lines{queries.length ? ` · ${queries.length} queries open` : ''}</span></p></div>
@@ -166,12 +147,6 @@ export default function Earnings() {
   );
 }
 
-/** Notices GSP sent this RP (Q3): one notice, the same terms, sent to many RPs at once. */
-function Notices({ c, rp }) {
-  const mine = (c.cfg.notices || []).filter(n => n.sentAt && ((n.rps || []).includes(rp.id) || (!(n.rps || []).length && (n.regions || [n.region]).includes(rp.region))));
-  if (!mine.length) return null;
-  return <><h3 className="gspx-h4">Notices from GSP</h3><ul className="gspx-list">{mine.map(n => <li key={n.id}><b>{n.name}</b> · enrolments {nice(n.start)}{n.end ? ` to ${nice(n.end)}` : ' on'}</li>)}</ul></>;
-}
 
 /** How a line is worked out, for the RP (Q20): the fee, your effective % of it and your band; never GSP's side. */
 function RpWhy({ x, cur, amt, onClose }) {

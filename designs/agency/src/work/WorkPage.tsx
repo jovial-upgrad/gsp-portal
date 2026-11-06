@@ -11,7 +11,7 @@ import './work.css';
 /** My work, Mail and the work settings (Jovial, 31 Oct), in any portal. */
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-mail';
 export const WORK_SECTIONS: WorkSection[] = ['mywork', 'mail', 'work-sla', 'work-rules', 'work-mail'];
-const PAGE: Record<string, string> = { 'gspx-mywork': 'mywork', 'gspx-mail': 'mail', 'gspx-queues': 'work-sla', 'gspx-rules': 'work-rules', 'gspx-fin-fx': 'fin-fx' };
+const PAGE: Record<string, string> = { 'gspx-mywork': 'mywork', 'gspx-mail': 'mail', 'gspx-queues': 'work-sla', 'gspx-rules': 'work-rules', 'gspx-fin-fx': 'fin-fx', 'gspx-fin-lines': 'fin-lines' };
 
 export function WorkPage({ section, role, go, openApp, openRp, openUni }: { section: WorkSection; role: string; go: (s: string) => void; openApp: (id: string) => void; openRp?: (id: string) => void; openUni?: (id: string) => void }) {
   const ctx = { hostRole: role, openRecord: openApp, openRp, openUni, exit: () => undefined, openPage: (id: string) => go(PAGE[id] ?? id) };

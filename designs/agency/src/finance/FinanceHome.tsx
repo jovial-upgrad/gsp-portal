@@ -59,12 +59,12 @@ export default function FinanceHome() {
     { id: 'exc', n: res.exc.length, label: 'Exceptions', sub: 'Stop a line being priced or paid', tone: 'bad' },
     { id: 'od', n: res.ip.filter(x => x.l.st[0] === 'Payment overdue').length, label: 'University payments overdue', sub: aud(sum(res.ip.filter(x => x.l.st[0] === 'Payment overdue'), x => x.l.dueAud)), tone: 'bad' },
   ];
-  const tilePage = { run: 'gspx-fin-run', exc: 'gspx-fin-exc', od: 'gspx-fin-uni' };
+  const tilePage = { run: 'gspx-fin-lines', exc: 'gspx-fin-lines', od: 'gspx-fin-lines' };
 
   return (
     <Page title={`Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user.name}`} top={<PersonaBar />}
       lead={`Finance · ${DAYS[dow]} ${nice(today)}. Your jobs for today come from the recurring jobs on Finance setup.`}
-      actions={<Button onClick={() => go('gspx-fin-setup')}>Finance setup</Button>}>
+      actions={<Button onClick={() => go('gspx-fin-lines')}>Commission lines</Button>}>
       <Tiles items={tiles} value={null} onChange={v => v && go(tilePage[v], v === 'od' ? 'Payment overdue' : null)} />
       <Card flush>
         <div className="gspx-pad"><h2 className="gspx-h3">Today</h2></div>

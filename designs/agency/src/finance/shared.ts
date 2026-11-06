@@ -130,15 +130,15 @@ export const DEFAULT_OPS = {
   jobs: [
     { id: 'j-fx', name: 'Confirm this week’s FX rates', freq: 'weekly', day: 1, who: '', page: 'gspx-fin-fx', metric: 'fx' },
     // the monthly cycle: check RP invoices as they arrive; pay by the pay-by day
-    { id: 'j-rpinv', name: 'Check the RP invoices uploaded', freq: 'daily', day: 0, who: '', page: 'gspx-fin-run', metric: 'run' },
-    { id: 'j-appr', name: 'Pay the approved RP invoices', freq: 'monthly', day: 10, who: 'u-suman1-verma', page: 'gspx-fin-run', metric: 'run' },
-    { id: 'j-inv', name: 'Raise university invoices', freq: 'daily', day: 0, who: '', page: 'gspx-fin-uni', metric: 'invoices' },
-    { id: 'j-pay', name: 'Record university payments and chase overdue ones', freq: 'daily', day: 0, who: '', page: 'gspx-fin-uni', metric: 'overdue' },
-    { id: 'j-exc', name: 'Work the exceptions', freq: 'daily', day: 0, who: '', page: 'gspx-fin-exc', metric: 'exceptions' },
+    { id: 'j-rpinv', name: 'Check the RP invoices uploaded', freq: 'daily', day: 0, who: '', page: 'gspx-fin-lines', metric: 'run' },
+    { id: 'j-appr', name: 'Pay the approved RP invoices', freq: 'monthly', day: 10, who: 'u-suman1-verma', page: 'gspx-fin-lines', metric: 'run' },
+    { id: 'j-inv', name: 'Raise university invoices', freq: 'daily', day: 0, who: '', page: 'gspx-fin-lines', metric: 'invoices' },
+    { id: 'j-pay', name: 'Record university payments and chase overdue ones', freq: 'daily', day: 0, who: '', page: 'gspx-fin-lines', metric: 'overdue' },
+    { id: 'j-exc', name: 'Work the exceptions', freq: 'daily', day: 0, who: '', page: 'gspx-fin-lines', metric: 'exceptions' },
     { id: 'j-mail', name: 'Clear the Commission mailbox', freq: 'daily', day: 0, who: '', page: 'gspx-mail', metric: 'mail' },
-    { id: 'j-ann', name: 'Confirm continuing students for annuity', freq: 'monthly', day: 5, who: '', page: 'gspx-fin-uni', metric: 'annuity' },
+    { id: 'j-ann', name: 'Confirm continuing students for annuity', freq: 'monthly', day: 5, who: '', page: 'gspx-fin-lines', metric: 'annuity' },
     { id: 'j-end', name: 'Review contracts and notices ending soon', freq: 'monthly', day: 1, who: '', page: 'gspx-fin-terms', metric: 'ending' },
-    { id: 'j-rec', name: 'Month-end reconciliation with Xero', freq: 'monthly', day: 28, who: 'u-suman1-verma', page: 'gspx-fin-reports', metric: '' },
+    { id: 'j-rec', name: 'Month-end reconciliation with Xero', freq: 'monthly', day: 28, who: 'u-suman1-verma', page: 'gspx-fin-lines', metric: '' },
   ],
 };
 export const opsOf = cfg => {

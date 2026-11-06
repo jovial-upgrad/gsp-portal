@@ -15,7 +15,7 @@ import { PERM_ROLE, type Role } from '../../proto/roles';
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
 export type ConfigSection = 'users' | 'regions' | 'permissions' | 'emails' | 'bdm' | 'currency' | 'living' | 'grades' | 'english' | 'routing' | 'documents' | 'logs' | 'security' | 'tags' | 'levels' | 'education' | 'reasons';
-export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-fx' | 'fin-how' | 'fin-scen';
+export type FinSection = 'fin-uni' | 'fin-rp' | 'fin-run' | 'fin-exc' | 'fin-terms' | 'fin-reports' | 'fin-setup' | 'fin-fx' | 'fin-how' | 'fin-scen' | 'fin-lines';
 export type WorkSection = 'mywork' | 'mail' | 'work-sla' | 'work-rules' | 'work-mail';
 export type Section = InstitutionSection | ConfigSection | FinSection | WorkSection;
 
@@ -155,11 +155,11 @@ const SPECS: Record<Variant, VariantSpec> = {
     home: HOME,
     flat: [it('mywork', 'My work', 'My work', 'checkCircle'), it('mail', 'Mail', 'Mail', 'mail'), it('students', 'Students', 'Students', 'people'), it('applications', 'Applications', 'Applications', 'doc'), it('courses', 'Find courses', 'Courses', 'search')],
     groups: [
-      { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-uni', 'University invoices', 'Invoices', 'doc'), it('fin-rp', 'RP commission', 'RPs', 'partner'), it('fin-run', 'RP invoices and payout', 'Payouts', 'wallet'), it('fin-exc', 'Exceptions', 'Exceptions', 'alert'), it('fin-reports', 'Reports', 'Reports', 'download'), it('fin-scen', 'Commission scenarios', 'Scenarios', 'checkCircle')] },
-      { key: 'fin-setup', label: 'Setup', icon: 'sliders', items: [it('fin-terms', 'Commission terms', 'Terms', 'key'), it('fin-setup', 'Finance setup', 'Setup', 'sliders'), it('fin-fx', 'Exchange rates', 'Rates', 'wallet'), it('fin-how', 'How Finance works', 'How', 'info')] },
+      { key: 'fin-money', label: 'Commissions', icon: 'wallet', items: [it('fin-lines', 'Commission lines', 'Lines', 'wallet')] },
+      { key: 'fin-setup', label: 'Setup', icon: 'sliders', items: [it('fin-terms', 'Commission terms', 'Terms', 'key'), it('fin-fx', 'Exchange rates', 'Rates', 'wallet')] },
       { key: 'fin-records', label: 'Records', icon: 'building', items: [it('rps', 'Recruitment partners', 'RPs', 'partner'), it('mps', 'Master Partners', 'MPs', 'people'), it('ips', 'Institution partners', 'IPs', 'building'), it('universities', 'Universities', 'Universities', 'building'), it('catalogue', 'Courses', 'Courses', 'cap')] },
     ],
-    tabs: ['home', 'fin-run', 'fin-uni', 'applications', 'fin-terms'],
+    tabs: ['home', 'fin-lines', 'applications', 'fin-terms'],
     user: me('suman1.verma'),
   },
   // View Only (S1-1): every GSP page, read only, as Anaya Iyer (a pseudonym)

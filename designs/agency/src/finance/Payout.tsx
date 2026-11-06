@@ -103,7 +103,7 @@ export default function Payout({ c, res, run, user, canPrepare, canApprove }) {
 const ORDER = ['review', 'approved', 'sentback', 'draft', 'paid'];
 
 /** Check an uploaded invoice (Q16): the checklist from Finance setup; approve, or send back with a reason. */
-function CheckSheet({ inv, ops, user, onClose }) {
+export function CheckSheet({ inv, ops, user, onClose }) {
   const [ticks, setTicks] = useState({});
   const [back, setBack] = useState(false);
   const [reason, setReason] = useState('');
@@ -137,11 +137,12 @@ function CheckSheet({ inv, ops, user, onClose }) {
 }
 
 /** Mark an approved invoice paid (Q17): the bank reference and date; the RP gets its remittance. */
-function PaySheet({ inv, c, user, onClose }) {
+export function PaySheet({ inv, c, user, onClose }) {
   const [ref, setRef] = useState('');
   const [on, setOn] = useState(c.today);
+  const [sure, setSure] = useState(false);
+  const next = () => { if (!ref.trim()) { toast('Enter the bank reference.'); return; } setSure(true); };
   const go = () => {
-    if (!ref.trim()) { toast('Enter the bank reference.'); return; }
     update((d) => {
       const i = d.comm.rpInv[inv.id]; Object.assign(i, { status: 'paid', paidRef: ref.trim(), paidOn: on, paidAt: Date.now(), paidBy: user.name }); i.history.push({ at: Date.now(), by: user.name, what: `Paid, reference ${ref.trim()}` });
       for (const L of inv.lines) { const a = d.comm.apps[L.app]; if (a) a.paidRP = { ...(a.paidRP || {}), [L.key]: r2(((a.paidRP || {})[L.key] || 0) + L.src) }; }
@@ -149,14 +150,16 @@ function PaySheet({ inv, c, user, onClose }) {
     toast('Marked paid', { text: `${inv.rpName} gets the remittance with reference ${ref.trim()}.` }); onClose();
   };
   return (
-    <Sheet title={`Mark ${inv.rpName} paid`} sub={`${inv.cycleLabel} · ${tot(inv)}`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={go}>Mark paid</Button></>}>
+    <Sheet title={`Mark ${inv.rpName} paid`} sub={`${inv.cycleLabel} · ${tot(inv)}`} onClose={onClose} footer={sure ? <><Button onClick={() => setSure(false)}>Back</Button><Button kind="primary" onClick={go}>Confirm payment</Button></> : <><Button onClick={onClose}>Cancel</Button><Button kind="primary" onClick={next}>Mark paid</Button></>}>
+      {sure ? <Notice tone="warn">Mark {inv.rpName}’s invoice for {inv.cycleLabel} paid: <b>{tot(inv)}</b>, {nice(on)}, bank reference {ref.trim()}? Its {inv.lines.length} lines become Paid and {inv.rpName} gets the remittance.</Notice> : <>
       <Field id="p-ref" label="Bank reference" required><Input id="p-ref" value={ref} onChange={setRef} /></Field>
       <Field id="p-on" label="Paid on" required><DateField id="p-on" value={on} onChange={setOn} /></Field>
+      </>}
     </Sheet>
   );
 }
 
-function AnswerSheet({ q, user, onClose }) {
+export function AnswerSheet({ q, user, onClose }) {
   const [t, setT] = useState('');
   const go = () => {
     if (!t.trim()) { toast('Write the answer.'); return; }

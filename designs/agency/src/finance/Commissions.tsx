@@ -267,7 +267,7 @@ function RpSide({ c, lines, filter, setFilter, canEdit, user }) {
   );
 }
 
-function WhySheet({ x, canEdit, user, onClose }) {
+export function WhySheet({ x, canEdit, user, onClose }) {
   const [ov, setOv] = useState(x.ov ? x.ov.amt : '');
   const why = x.trace ? traceText(x.trace) : x.why || [...(x.r.rpWhy || []), ...(x.annuity ? [x.r.annWhy] : [])];
   const was = x.ov ? x.ov.amt : '';
