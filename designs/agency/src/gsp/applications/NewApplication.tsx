@@ -761,7 +761,7 @@ function ReasonRow({ r, i, onFix }: { r: Reason; i: number; onFix?: () => void }
   return (
     <motion.li className={`nareason nareason--${r.ok}`} initial={reduce ? false : { opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25, ease, delay: 0.08 + i * 0.07 }}>
       <span className="nareason__ic" aria-hidden="true">
-        <Icon name={r.ok === 'yes' ? 'check' : r.ok === 'warn' ? 'info' : r.ok === 'no' ? 'close' : 'edit'} size={14} strokeWidth={2.4} />
+        <Icon name={r.ok === 'yes' ? 'check' : r.ok === 'warn' ? 'info' : r.ok === 'no' ? 'close' : r.ok === 'na' ? 'minus' : 'edit'} size={14} strokeWidth={2.4} />
       </span>
       <span className="nareason__k">{r.title}</span>
       <span className="nareason__v">

@@ -9,13 +9,15 @@ import { RULE_SCALE, UK_CODE, equiv, systemOf, toPct, type EquivRow } from '../a
 export { systemOf, toPct } from '../admin/data/eligibility';
 import { eduName, eduRank, isTopEducation, type HighestEducation } from './education';
 import { tagsOf, type Course } from './courses';
-import { TESTS, type Edu, type Student, type Test, type TestType } from './students';
+import { TESTS, isOtherGrading, type Edu, type Student, type Test, type TestType } from './students';
 import { parseDate } from './dates';
 
 export type Ok = 'yes' | 'warn' | 'no' | 'add' | 'na';
 /** One line of the check: its result, what it's about, and why, in the PRD's words. */
 export type Line = { ok: Ok; label: string; result: string; why: string };
-export type PartVerdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check' | 'Not specified';
+/** 'GSP to confirm' (Jovial, 6 Nov): the university hasn't set it, or the check can't compare it (a grading system,
+ *  level or test it can't convert); GSP checks it by hand. It never counts against the student. */
+export type PartVerdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check' | 'GSP to confirm';
 export type Check = { lines: Line[]; academic: PartVerdict; english: PartVerdict; verdict: PartVerdict; academicLines: Line[]; englishLines: Line[] };
 
 /* ---------- the student's highest education (S3C-1) ---------- */
@@ -83,6 +85,14 @@ export function convertScore(v: number, from: TestType, to: TestType, section = 
   return section && to === 'TOEFL' ? Math.floor(row[b] / 4) : row[b];
 }
 
+/** A test's lowest and highest score in the table, in its own column (for "off the table"). */
+export function tableRange(t: TestType): [number, number] | null {
+  const a = COL[t];
+  if (!a) return null;
+  const v = equiv().map((r) => r[a]);
+  return v.length ? [Math.min(...v), Math.max(...v)] : null;
+}
+
 /** A test taken more than 2 years ago counts as missing (S3-5). */
 export function expired(t: Test, now = Date.now()) {
   const d = parseDate(t.date);
@@ -93,40 +103,64 @@ export function expired(t: Test, now = Date.now()) {
 }
 const fmt = (type: TestType, n: number) => (type === 'IELTS' ? n.toFixed(1) : String(n));
 
+const HAND = 'GSP to confirm';
+/**
+ * English (Jovial, 6 Nov): every valid test is tried, a listed one against its rule, the others through English test
+ * equivalence, and the best result counts: a listed test that meets is Meets; a converted one that meets is Meets
+ * (converted), with conditions; otherwise the closest. A test the table can't convert, or a score or minimum off the
+ * table, can't be compared: GSP confirms by hand. A course with a section minimum needs the section scores.
+ */
 function englishLines(s: Student, c: Course, country: string): Line[] {
   const rules = englishRulesFor(c, country);
   if (!rules.length) return [{ ok: 'na', label: 'English', result: 'Not specified', why: 'The course lists no English test. It doesn’t count against the student.' }];
   const tests = s.tests.filter((t) => TESTS[t.type].kind === 'English' && t.overall.trim() !== '');
   const valid = tests.filter((t) => !expired(t));
   const old = tests.filter((t) => expired(t));
-  const listed = (t: Test) => rules.find((r) => TYPE_OF[r.test] === t.type);
-  const partsOf = (t: Test) => TESTS[t.type].parts.map((p) => Number(t.parts[p.key])).filter((n) => !Number.isNaN(n));
-  // a: a test the course lists, against its rule
-  const direct = valid.filter((t) => listed(t));
-  if (direct.length) {
-    const read = direct.map((t) => {
-      const r = listed(t)!;
-      const low = partsOf(t).length ? Math.min(...partsOf(t)) : Number(t.overall);
-      const meets = Number(t.overall) >= r.overall && (!r.min || low >= r.min);
-      return { meets, why: `${TESTS[t.type].short} ${fmt(t.type, Number(t.overall))} (lowest section ${fmt(t.type, low)}); needs ${fmt(t.type, r.overall)}${r.min ? `, no section below ${fmt(t.type, r.min)}` : ''}` };
-    });
-    const best = read.find((x) => x.meets) ?? read[0];
-    return [{ ok: best.meets ? 'yes' : 'no', label: 'English', result: best.meets ? 'Meets' : 'Below', why: best.why }];
+  const partsOf = (t: Test) => TESTS[t.type].parts.map((p) => String(t.parts[p.key] ?? '').trim()).filter((x) => x !== '' && !Number.isNaN(Number(x))).map(Number);
+  type Try = { ok: Line['ok']; result: string; why: string; rank: number };
+  const tries: Try[] = [];
+  for (const t of valid) {
+    const short = TESTS[t.type].short;
+    const overall = Number(t.overall);
+    for (const r of rules) {
+      const to = TYPE_OF[r.test];
+      const secs = partsOf(t);
+      const needSecs = !!r.min && secs.length < TESTS[t.type].parts.length;
+      if (to === t.type) {
+        // a: a test the course lists, against its rule
+        const low = secs.length ? Math.min(...secs) : overall;
+        const meets = overall >= r.overall && (!r.min || low >= r.min);
+        const need = `needs ${fmt(t.type, r.overall)}${r.min ? `, no section below ${fmt(t.type, r.min)}` : ''}`;
+        if (needSecs && overall >= r.overall) tries.push({ ok: 'add', result: 'Add details to check', why: `${short} ${fmt(t.type, overall)}; add the section scores: the course ${need}`, rank: 3 });
+        else tries.push({ ok: meets ? 'yes' : 'no', result: meets ? 'Meets' : 'Below', why: `${short} ${fmt(t.type, overall)}${secs.length ? ` (lowest section ${fmt(t.type, low)})` : ''}; ${need}`, rank: meets ? 6 : 1 });
+        continue;
+      }
+      // b: another test, through the table
+      const range = tableRange(t.type);
+      const toRange = to ? tableRange(to) : null;
+      if (!to || !range || !toRange) {
+        tries.push({ ok: 'na', result: HAND, why: `${short} can’t be converted to ${r.test} yet; GSP checks it by hand`, rank: 2 });
+        continue;
+      }
+      // off the table: the student's score above its top row with the need above the top too, or below its lowest row with the need at or below the lowest
+      const above = overall > range[1] && r.overall > toRange[1];
+      const below = overall < range[0] && r.overall <= toRange[0];
+      if (above || below) {
+        tries.push({ ok: 'na', result: HAND, why: `${short} ${fmt(t.type, overall)} and ${TESTS[to].short} ${fmt(to, r.overall)} are outside English test equivalence; GSP checks it by hand`, rank: 2 });
+        continue;
+      }
+      const ov = convertScore(overall, t.type, to);
+      const conv = secs.map((p) => convertScore(p, t.type, to, true));
+      const low = conv.length && conv.every((x) => x !== null) ? Math.min(...(conv as number[])) : ov;
+      const meets = ov !== null && ov >= r.overall && (!r.min || (low !== null && low >= r.min));
+      if (needSecs && meets) tries.push({ ok: 'add', result: 'Add details to check', why: `${short} ${fmt(t.type, overall)} is about ${TESTS[to].short} ${fmt(to, ov!)}; add the section scores: the course needs no section below ${fmt(to, r.min)}`, rank: 3 });
+      else tries.push({ ok: meets ? 'warn' : 'no', result: meets ? `Meets (converted from ${short})` : 'Below (converted)', why: `${short} ${fmt(t.type, overall)} is about ${TESTS[to].short} ${ov === null ? 'below the lowest row' : fmt(to, ov)}; needs ${fmt(to, r.overall)}`, rank: meets ? 5 : 0 });
+    }
   }
-  // b: only tests the course doesn't list: converted to each test it lists (met this way: with conditions)
-  if (valid.length) {
-    const tries = valid.flatMap((t) =>
-      rules.map((r) => {
-        const to = TYPE_OF[r.test];
-        const ov = to ? convertScore(Number(t.overall), t.type, to) : null;
-        const secs = partsOf(t).map((p) => (to ? convertScore(p, t.type, to, true) : null));
-        const low = secs.length && secs.every((x) => x !== null) ? Math.min(...(secs as number[])) : ov;
-        const meets = ov !== null && ov >= r.overall && (!r.min || (low !== null && low >= r.min));
-        return { meets, t, why: `${TESTS[t.type].short} ${fmt(t.type, Number(t.overall))} is about ${to ? TESTS[to].short : r.test} ${ov === null ? 'below the lowest row' : fmt(to!, ov)}; needs ${r.overall}` };
-      }),
-    );
-    const best = tries.find((x) => x.meets) ?? tries[0];
-    return [{ ok: best.meets ? 'warn' : 'no', label: 'English', result: best.meets ? `Meets (converted from ${TESTS[best.t.type].short})` : 'Below (converted)', why: best.why }];
+  if (tries.length) {
+    // the best result counts: Meets, then Meets (converted), then add sections, then GSP to confirm, then the closest Below
+    const best = [...tries].sort((x, y) => y.rank - x.rank)[0];
+    return [{ ok: best.ok, label: 'English', result: best.result, why: best.why }];
   }
   // c: no test (or only expired ones): May be waived on courses tagged so, else Add an English test
   const waiver = tagsOf(c).some((t) => t === 'English test waiver' || t === 'MOI acceptable');
@@ -160,25 +194,36 @@ function academicLines(s: Student, c: Course): Line[] {
   const min = c.minEducation;
   const mine = highestEdOf(s);
   // the level check (S3-18): Not specified until the course has its Minimum highest education required
+  // a level that isn't on GSP's education list (a foreign qualification, say) can't be ranked: GSP confirms by hand
+  const unranked = !!min && (eduRank(mine) < 0 || eduRank(min) < 0);
   if (!min) out.push({ ok: 'na', label: 'Highest education', result: 'Not specified', why: 'The course has no minimum highest education yet.' });
+  else if (unranked) out.push({ ok: 'na', label: 'Highest education', result: HAND, why: `${eduName(mine) || 'The student’s qualification'} can’t be compared with ${eduName(min)} automatically; GSP checks it by hand` });
   else if (eduRank(mine) < eduRank(min)) out.push({ ok: 'no', label: 'Highest education', result: 'Not eligible', why: `${eduName(mine)}; needs ${eduName(min)}${isTopEducation(min) ? '' : ' or higher'}` });
   else out.push({ ok: 'yes', label: 'Highest education', result: 'Meets', why: `${eduName(mine)}; needs ${eduName(min)}${isTopEducation(min) ? '' : ' or higher'}` });
   // the score: the student's highest qualification's against the course's minimum score
   const need = minScoreOf(c);
   const e = s.edu[s.highest];
   const what = eduName(mine);
+  // over-qualified (Jovial, 6 Nov): the course sets its minimum on a lower level than the student's highest, so the
+  // student's score can't be read against it; GSP confirms by hand
+  const over = !!min && !unranked && eduRank(mine) > eduRank(min);
   if (!need) out.push({ ok: 'na', label: 'Academics', result: 'Not specified', why: 'The course has no minimum score for its minimum highest education.' });
+  else if (unranked) out.push({ ok: 'na', label: 'Academics', result: HAND, why: `The score can’t be compared until the qualification is; GSP checks it by hand` });
+  else if (over) out.push({ ok: 'na', label: 'Academics', result: HAND, why: `${s.first ?? 'The student'} has a ${what}; the course sets its minimum score on ${eduName(min)}, so GSP checks it by hand` });
   else {
     const needPct = rulePct({ id: 'min', countries: [], qual: '', scale: need.scale, min: need.min, backlogs: need.backlogs });
     const needText = ruleText({ id: 'min', countries: [], qual: '', scale: need.scale, min: need.min, backlogs: need.backlogs });
-    if (!e || e.score.trim() === '' || !e.grading) out.push({ ok: 'add', label: 'Academics', result: 'Add details to check', why: `Add the ${!e ? 'details' : !e.grading ? 'grading system' : 'score'} of the ${what} to check. It needs ${needText}.` });
+    if (e && isOtherGrading(e.grading)) out.push({ ok: 'na', label: 'Academics', result: HAND, why: `${e.gradingNote || 'This grading'}${e.score ? ` (${e.score})` : ''} can’t be converted yet; GSP checks it by hand` });
+    else if (!e || e.score.trim() === '' || !e.grading) out.push({ ok: 'add', label: 'Academics', result: 'Add details to check', why: `Add the ${!e ? 'details' : !e.grading ? 'grading system' : 'score'} of the ${what} to check. It needs ${needText}.` });
     else {
       const got = toPct(systemOf(e.grading), e.score);
       // a score that meets only after grade conversion is plain Meets, with no "converted" label (S3-17)
-      if (got === null || needPct === null) out.push({ ok: 'add', label: 'Academics', result: 'Add details to check', why: `The score of the ${what} can’t be read on its grading system; correct it to check.` });
+      // a grading system the check can't convert ("Other", or a score it can't read): GSP confirms by hand
+      if (got === null || needPct === null) out.push({ ok: 'na', label: 'Academics', result: HAND, why: `${isOtherGrading(e.grading) ? `${e.gradingNote || 'This grading'}` : `${e.score} on ${systemOf(e.grading)?.name ?? e.grading}`} can’t be converted yet; GSP checks it by hand` });
       else out.push({ ok: got >= needPct ? 'yes' : 'no', label: 'Academics', result: got >= needPct ? 'Meets' : 'Below', why: `${what}: ${studentScore(e)}; needs ${needText}` });
     }
     // backlogs only when the course states a limit (S3C-2): more than allowed is its own Not eligible line
+    if (need.backlogs !== '' && e && e.backlogs.trim() === '') out.push({ ok: 'add', label: 'Backlogs', result: 'Add details to check', why: `Add the backlogs of the ${what}: the course allows up to ${need.backlogs}` });
     if (need.backlogs !== '' && e && e.backlogs.trim() !== '') {
       const has = Number(e.backlogs);
       const allowed = Number(need.backlogs);
@@ -191,8 +236,9 @@ function academicLines(s: Student, c: Course): Line[] {
 const partOf = (lines: Line[]): PartVerdict => {
   if (lines.some((l) => l.ok === 'no')) return 'Not eligible';
   if (lines.some((l) => l.ok === 'add')) return 'Add details to check';
-  if (lines.every((l) => l.ok === 'na')) return 'Not specified';
   if (lines.some((l) => l.ok === 'warn')) return 'Eligible with conditions';
+  // anything the university hasn't set or the check can't compare: GSP confirms it (never against the student)
+  if (lines.some((l) => l.ok === 'na')) return 'GSP to confirm';
   return 'Eligible';
 };
 
@@ -220,7 +266,7 @@ export const verdictTone = (v: PartVerdict): Ok => (v === 'Eligible' ? 'yes' : v
 const WORST: Ok[] = ['no', 'add', 'warn', 'na', 'yes'];
 export const worstOf = (oks: Ok[]): Ok => WORST.find((o) => oks.includes(o)) ?? 'na';
 /** A group's state in the PRD's verdict words, so its icon and its words always agree. */
-const VERDICT_OF: Record<Ok, PartVerdict> = { no: 'Not eligible', add: 'Add details to check', warn: 'Eligible with conditions', na: 'Not specified', yes: 'Eligible' };
+const VERDICT_OF: Record<Ok, PartVerdict> = { no: 'Not eligible', add: 'Add details to check', warn: 'Eligible with conditions', na: 'GSP to confirm', yes: 'Eligible' };
 /** One check inside a group: what it's about (named for the group it's in), its result and why. */
 export type SubLine = Line & { sub: string };
 export type LineGroup = { key: 'Academics' | 'English'; ok: Ok; verdict: PartVerdict; lines: SubLine[] };

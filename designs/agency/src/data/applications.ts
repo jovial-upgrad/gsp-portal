@@ -520,7 +520,7 @@ export function docLines(a: Application, s: Student): DocLine[] {
 
 /* ---------- GSP Assist: eligibility ---------- */
 
-export type Verdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check' | 'Not specified';
+export type Verdict = 'Eligible' | 'Eligible with conditions' | 'Not eligible' | 'Add details to check' | 'GSP to confirm';
 /** na: not specified by the university; it doesn't count against the student. */
 export type Reason = { ok: 'yes' | 'warn' | 'no' | 'add' | 'na'; title: string; text: string; /** Academics and English (2 Nov): each check under the group, with its own result and why. */ lines?: { sub: string; ok: Reason['ok']; text: string }[] };
 
@@ -556,7 +556,7 @@ export function checkFit(s: Student, c: Course, intake: string): { verdict: Verd
   }
   // the overall verdict: academics and English as the check has them (neither specified: Not specified), with where they
   // live and the intake kept beside them (slice 3 PRD, Overall verdict)
-  const verdict: Verdict = reasons.some((r) => r.ok === 'no') ? 'Not eligible' : reasons.some((r) => r.ok === 'add') ? 'Add details to check' : k.verdict === 'Not specified' ? 'Not specified' : reasons.some((r) => r.ok === 'warn') ? 'Eligible with conditions' : 'Eligible';
+  const verdict: Verdict = reasons.some((r) => r.ok === 'no') ? 'Not eligible' : reasons.some((r) => r.ok === 'add') ? 'Add details to check' : reasons.some((r) => r.ok === 'warn') ? 'Eligible with conditions' : k.verdict === 'GSP to confirm' ? 'GSP to confirm' : 'Eligible';
   return { verdict, reasons };
 }
 

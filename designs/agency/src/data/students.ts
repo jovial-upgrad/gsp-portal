@@ -8,7 +8,7 @@ import { countryByName } from './partners';
 import { parseDate, parseMonth } from './dates';
 import { datasetStudents, testAgencyStudents } from './dataset';
 import { GRADING_SCALES } from './grading';
-import { grades, systemOf, toPct } from '../admin/data/eligibility';
+import { bandNamed, grades, systemOf, toPct } from '../admin/data/eligibility';
 import { TESTS, type Test, type TestType } from './tests';
 import { CARD_LEVELS, LANGUAGES_OF_INSTRUCTION, MARRIED, OTHER_GRADING, STUDENT_GRADING } from './reference';
 
@@ -95,7 +95,7 @@ export const scoreOk = (e: Pick<Edu, 'grading' | 'score'>) => {
   if (!e.grading || e.score.trim() === '') return false;
   if (isOtherGrading(e.grading)) return true;
   const s = systemOf(e.grading);
-  if (s?.by === 'Bands' && s.bands.some((b) => b.from.trim().toLowerCase() === e.score.trim().toLowerCase())) return true;
+  if (s?.by === 'Bands' && s.bands.some((b) => bandNamed(b, e.score))) return true;
   const v = Number(e.score);
   const max = scaleMax(e.grading);
   return !Number.isNaN(v) && v >= 0 && (max === undefined || v <= max);

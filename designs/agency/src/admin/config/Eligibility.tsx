@@ -121,7 +121,7 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
   const save = () => {
     setTried(true);
     if (!x || nameErr || multErr || bandsErr || bandErrs.some(Boolean) || clash) return;
-    onSave({ ...x, name, usedIn: x.usedIn.trim(), mult: x.by === 'Multiplier' ? mult : undefined, bands: x.by === 'Bands' ? x.bands : [] });
+    onSave({ ...x, name, usedIn: x.usedIn.trim(), mult: x.by === 'Multiplier' ? mult : undefined, bands: x.by === 'Bands' ? x.bands.map((b) => { const aka = (b.aka ?? []).join(',').split(',').map((y) => y.trim()).filter(Boolean); return { from: b.from, to: b.to, pct: b.pct, ...(aka.length ? { aka } : {}) }; }) : [] });
   };
   return (
     <Sheet
@@ -159,13 +159,18 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
           {x.by === 'Bands' && (
             <fieldset className="cfg__bands">
               <legend className="field__label">Bands</legend>
-              <p className="cfg__note">From and To on the system’s own scale (To may be a grade, such as First), and the percentage it converts to.</p>
+              <p className="cfg__note">From and To on the system’s own scale (To may be a grade, such as First), the percentage it converts to on the common standard (First 70, 2:1 60, 2:2 50, Third 40), and other names students write for the grade.</p>
+              <label className="cfg__check">
+                <input type="checkbox" checked={!!x.lower} onChange={(e) => set({ lower: e.target.checked || undefined })} /> Lower is better (like 1.0 best, 5.0 fail)
+              </label>
+              <div className="stab-wrap">
               <table className="itab cfg__tab">
                 <thead>
                   <tr>
                     <th scope="col">From</th>
                     <th scope="col">To</th>
                     <th scope="col">Percentage</th>
+                    <th scope="col">Other names</th>
                     <th scope="col">
                       <span className="vh">Remove</span>
                     </th>
@@ -188,6 +193,9 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
                           <NumberField id={`gs-b${i}-pct`} aria-label={`Band ${i + 1}, percentage`} className="cfg__cellinput cfg__num" value={String(b.pct)} onChange={(_t) => setBand(i, { pct: Number(_t.replace(/[^\d.]/g, '')) })} />
                         </td>
                         <td>
+                          <TextInput id={`gs-b${i}-aka`} aria-label={`Band ${i + 1}, other names`} className="cfg__cellinput" placeholder="Like: 2.1, Upper second" value={(b.aka ?? []).join(', ')} onChange={(e) => setBand(i, { aka: [e.target.value] })} />
+                        </td>
+                        <td>
                           <Button size="sm" variant="ghost" onClick={() => setV((o) => (o ? { ...o, bands: o.bands.filter((_, j) => j !== i) } : o))} aria-label={`Remove band ${i + 1}`}>
                             Remove
                           </Button>
@@ -197,6 +205,7 @@ function GradeForm({ g, list, onCancel, onSave }: { g: GradingSystem | null; lis
                   })}
                 </tbody>
               </table>
+              </div>
               <Button size="sm" variant="secondary" iconLeft={<Icon name="plus" size={16} />} onClick={() => setV((o) => (o ? { ...o, bands: [...o.bands, { from: '', to: '', pct: 0 }] } : o))}>
                 Add a band
               </Button>
