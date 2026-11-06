@@ -37,7 +37,8 @@ const sent = (daysAgo) => ({ id: 'rp-x', name: 'Sample agency', country: 'India'
 ok('T43 removed', rules.some((r) => r.row === 'T43'), false);
 ok('T59 removed', rules.some((r) => r.row === 'T59'), false);
 ok('T69 exists', !!rules.find((r) => r.row === 'T69'), true);
-ok('T70 exists', !!rules.find((r) => r.row === 'T70'), true);
+// T70 removed (Jovial, 6 Nov): reopening a partner makes no task
+ok('T70 removed', !!rules.find((r) => r.row === 'T70'), false);
 ok('T71 exists', !!rules.find((r) => r.row === 'T71'), true);
 ok('T7 and T52 back (L-1)', ['T7', 'T52'].map((x) => rules.some((r) => r.row === x)), [true, true]);
 
@@ -45,7 +46,6 @@ ok('T7 and T52 back (L-1)', ['T7', 'T52'].map((x) => rules.some((r) => r.row ===
 const ids = rules.map((r) => r.row);
 ok('every rule id unique', ids.filter((x, i) => ids.indexOf(x) !== i), []);
 ok('T69 is the RP agreement rule', [rules.find((r) => r.row === 'T69')?.record, rules.find((r) => r.row === 'T69')?.name], ['RP', 'Agreement not signed']);
-ok('T70 is the university to activate', rules.find((r) => r.row === 'T70')?.record, 'University');
 ok('T71 is the application withdrawal task', [rules.find((r) => r.row === 'T71')?.record, rules.find((r) => r.row === 'T71')?.task], ['Application', 'Tell <university> that <student> withdrew']);
 // every application task logic has its rule (no derived task without a rule), and no withdrawal logic left on T69
 ok('every APP_LOGIC entry has a rule', Object.keys(W.APP_LOGIC).filter((k) => !ids.includes(k)), []);
@@ -81,7 +81,7 @@ ok('second reminder cleared in Task rules: one', W.agreementReminders(sent(20), 
 // S2C-19: reopened partner, a task per university not Live
 const ip = { id: 'ip-x', name: 'Partner X', status: 'Agreement executed', reopenedAt: now - DAY };
 const unis = [{ id: 'u1', name: 'Uni One', ip: 'ip-x', status: 'Ended' }, { id: 'u2', name: 'Uni Two', ip: 'ip-x', status: 'Live' }, { id: 'u3', name: 'Uni Three', ip: 'ip-y', status: 'Ended' }];
-ok('reopened: one T70 for the Ended university', W.ipTasks(s, [ip], unis, now).map((t) => [t.record, t.queue]), [['u1', 'q-inst-ops']]);
+ok('reopened: no task (T70 removed)', W.ipTasks(s, [ip], unis, now).length, 0);
 ok('never reopened: none', W.ipTasks(s, [{ ...ip, reopenedAt: undefined }], unis, now).length, 0);
 ok('closed again: none', W.ipTasks(s, [{ ...ip, status: 'Terminated by GSP' }], unis, now).length, 0);
 ok('university Live again: none', W.ipTasks(s, [ip], unis.map((u) => ({ ...u, status: 'Live' })), now).length, 0);

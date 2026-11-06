@@ -76,13 +76,7 @@ export const RECORD_LOGIC = {
     const last = latest(...x.apps.filter((a) => a.rp === r.name).map((a) => a.history?.[0]?.at ?? a.since), r.approved?.at, atDay(r.since));
     return { key: String(last), rec: rpRec(x.s, r), since: last, vars: { RP: r.name } };
   }),
-  W23: (x) => x.rdb.rps.filter((r) => ONBOARDING.includes(r.status) && r.bdm && !r.firstCall).map((r) => ({ key: 'assigned', rec: rpRec(x.s, r), since: atDay(r.since), vars: { RP: r.name } })),
   T36: (x) => x.rdb.rps.filter((r) => r.lifecycleRequest?.state === 'open').map((r) => ({ key: String(r.lifecycleRequest.at), rec: rpRec(x.s, r), since: r.lifecycleRequest.at, vars: { RP: r.name } })),
-  // the RP's bank change waits for RP Ops (Jovial, 5 Nov: Commissions flow Q19); payouts to it are held until then
-  T35: (x) => [
-    ...x.rdb.rps.filter((r) => r.bankChange?.state === 'open').map((r) => ({ key: String(r.bankChange.at), rec: rpRec(x.s, r), since: r.bankChange.at, maker: idOf(x.s, r.bankChange.by), vars: { RP: r.name } })),
-    ...(x.comm?.bankChanges || []).filter((b) => !x.rdb.rps.some((r) => r.name === b.name && r.bankChange?.state === 'open')).map((b) => { const r = x.rdb.rps.find((y) => y.name === b.name); return { key: String(b.at), rec: r ? rpRec(x.s, r) : commRec(`cm-bank-${b.id}`, `Bank details · ${b.name}`), since: b.at, vars: { RP: b.name } }; }),
-  ],
 
   /* ---- institution partners, universities, courses (slice 2) ---- */
   T38: (x, rule) => x.rdb.ips.filter((p) => p.status === EXECUTED || p.status === ENDED).map((p) => {

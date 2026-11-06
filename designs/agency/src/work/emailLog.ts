@@ -10,7 +10,7 @@
 import { recordById, nameOf, slaOf } from './store';
 import { EMAIL_TEMPLATES } from './mail';
 import { now, istYmd, istAt } from './clock';
-import { calendarOf, isWorkingDay } from './calendars';
+import { calendarOf, isWorkingDay, localAt, localYmd } from './calendars';
 import { getDb } from '../institution/data/store';
 import { agreementEmails, fill } from '../institution/data/agreements';
 import { agreementReminders } from './rpRules';
@@ -22,7 +22,7 @@ const sesId = (s) => '0100' + Math.abs([...s].reduce((h, c) => (h * 31 + c.charC
 /**
  * The emails the portal would have sent by now, from the work as it stands (the prototype sends none: this is what
  * the build's email log shows). E15 per open request, E17 at each RP reminder time, E18 each RP's daily update,
- * E19 each GSP person's morning email, E20 per renewal task (T38), E21 per level 3 escalation.
+ * E19 each GSP person's morning email, E20 per renewal task (T38), E21 per level 2 escalation.
  */
 export function emailLog(s, t = now()) {
   const out = [];
@@ -36,7 +36,7 @@ export function emailLog(s, t = now()) {
     const rec = recordById(s, k.record) || {};
     if (k.reminded) out.push({ tpl: 'E17', to: rec.agency || 'The RP', record: rec.id, at: k.reminded, subject: `Reminder: ${k.title.replace(/^Chase the RP: /, '')}` });
     if (k.rule === 'T38') out.push({ tpl: 'E20', to: nameOf(s, rec.owner || k.assignee), toId: rec.owner || k.assignee, record: rec.id, at: k.created, subject: `The agreement with ${String(rec.label).split(' (')[0]} ends soon` });
-    if (k.esc?.level === 3) for (const u of s.users.filter((x) => x.role === 'admin')) out.push({ tpl: 'E21', to: u.name, toId: u.id, record: rec.id, at: slaOf(s, k).due + 5 * DAY, subject: `Late by 5 working days: ${k.title}` });
+    if (k.esc?.level === 2) for (const u of s.users.filter((x) => x.role === 'admin')) out.push({ tpl: 'E21', to: u.name, toId: u.id, record: rec.id, at: slaOf(s, k).due + 5 * DAY, subject: `Late by 5 working days: ${k.title}` });
   }
   // E8, E9, E10: each RP agreement step, from the RPs' agreement versions (data/agreements.ts)
   for (const rp of getDb().rps) for (const m of agreementEmails(rp)) out.push({ tpl: m.tpl, to: `${rp.name} (business email, RP Admins)`, record: rp.id, at: m.at, subject: fill(tpl(m.tpl)?.subject ?? '', m.values) });
@@ -48,24 +48,27 @@ export function emailLog(s, t = now()) {
   const byRp = new Map();
   for (const r of s.records.filter((x) => x.type === 'Application' && x.since > last9 - DAY && x.since <= last9)) byRp.set(r.agency, (byRp.get(r.agency) || 0) + 1);
   for (const [rp, n] of byRp) out.push({ tpl: 'E18', to: rp, record: null, at: last9, subject: `${n} update${n === 1 ? '' : 's'} on your applications` });
-  // E19: 08:30 IST on their working days, to each GSP person with something due today, tomorrow or late
-  const cal = calendarOf('Global');
+  // E19: at the morning email time on each person's own calendar (their first sales region's), in its time zone (Jovial, 6 Nov),
+  // on its working days, to each GSP person with something due today, tomorrow or late
   const digest = s.escalation?.digestTime || '08:30';
-  // each working day's morning email since the jobs started (J6), up to the last 7, from the work open then
-  for (let k = 0; k < 8; k++) {
-    const day = t - k * DAY;
-    const sendAt = istAt(istYmd(day), digest);
-    if (sendAt > t || sendAt < JOBS_FROM || !isWorkingDay(cal, day)) continue;
-    const per = new Map();
-    for (const x of s.tasks.filter((y) => y.status === 'open' && y.created <= sendAt)) {
-      const st = slaOf(s, x);
-      const late = st.due < sendAt, soon = st.due - sendAt < 2 * DAY;
-      if (!late && !soon) continue;
-      const p = per.get(x.assignee) || { due: 0, late: 0 };
-      if (late) p.late += 1; else p.due += 1;
-      per.set(x.assignee, p);
+  const open = s.tasks.filter((y) => y.status === 'open');
+  const people = [...new Set(open.map((x) => x.assignee))];
+  for (const id of people) {
+    const u = s.users.find((x) => x.id === id);
+    const cal = calendarOf((u?.regions || []).find((r) => r !== 'Global') || 'Global');
+    // each working day's morning email since the jobs started (J6), up to the last 7, from the work open then
+    for (let k = 0; k < 8; k++) {
+      const day = t - k * DAY;
+      const sendAt = localAt(cal, localYmd(cal, day), digest);
+      if (sendAt > t || sendAt < JOBS_FROM || !isWorkingDay(cal, sendAt)) continue;
+      const p = { due: 0, late: 0 };
+      for (const x of open.filter((y) => y.assignee === id && y.created <= sendAt)) {
+        const st = slaOf(s, x);
+        const late = st.due < sendAt, soon = st.due - sendAt < 2 * DAY;
+        if (late) p.late += 1; else if (soon) p.due += 1;
+      }
+      if (p.due || p.late) out.push({ tpl: 'E19', to: nameOf(s, id), toId: id, record: null, at: sendAt, subject: `Your work today: ${p.due} due, ${p.late} late` });
     }
-    for (const [id, p] of per) out.push({ tpl: 'E19', to: nameOf(s, id), toId: id, record: null, at: sendAt, subject: `Your work today: ${p.due} due, ${p.late} late` });
   }
   const bounced = (x) => {
     const b = x.toId && (s.bounces || {})[x.toId];

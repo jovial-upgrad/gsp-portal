@@ -9,8 +9,8 @@
  *   from Admin › Work › Task rules (work/seed.ts RULES, edited in the store). Only the trigger (`when`) and the title
  *   are code here, keyed by the rule's number.
  * - Every application task goes to the application's officer (S4-5); the queue is the application's regional
- *   Admissions queue. While the officer is on leave, the queue's leader covers.
- * - Times are working hours on the record's region's calendar, in IST (work/calendars.ts, work/clock.ts).
+ *   Admissions queue. Once the officer is deactivated, the queue's leader covers (leave doesn't move work, 6 Nov).
+ * - Times are working hours on the record's region's calendar, in that calendar's time zone (work/calendars.ts, work/clock.ts).
  * In the real build this is the work service, run on every change to an application and by job J4 every 15 minutes.
  */
 import { sampleApplications, STATUS, toCheck, openRequests, statusText, courseOf, REUPLOAD_AT, PROOF_STATUSES, isOpen } from '../data/applications';
@@ -114,7 +114,7 @@ export function liveApps(live) {
 /**
  * The first officer (slice 4 PRD, The first officer; S4-5): when the RP sends the documents, the application's
  * regional Admissions queue picks the member (leader included) with the fewest open applications in the queue,
- * skipping anyone on leave or deactivated and anyone whose sales regions don't cover the application; a tie goes to
+ * skipping anyone deactivated (not people on leave, 6 Nov) and anyone whose sales regions don't cover the application; a tie goes to
  * the name first in alphabetical order. Everyone skipped: the leader. The store keeps the pick: it doesn't change
  * until someone changes the officer on the application.
  */

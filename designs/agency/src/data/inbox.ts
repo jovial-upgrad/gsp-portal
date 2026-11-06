@@ -94,7 +94,7 @@ export function notesFor(
       if (s.added >= from && s.addedBy && s.addedBy !== o.meName && !s.rp)
         out.push({ id: `stu-${s.id}`, kind: 'system', title: `${s.addedBy} added a student`, text: `${fullName(s)}${s.city ? `, from ${s.city}` : ''}.`, at: s.added, read: true, to: { student: s.id } });
   } else {
-    // "the officer": the application's officer, or the queue's leader while the officer is on leave or deactivated (slice 4 PRD)
+    // "the officer": the application's officer, or the queue's leader once the officer is deactivated (slice 4 PRD)
     const mine = o.me ? o.apps.filter((a) => a.officer === o.me || (o.covering ?? []).includes(a.id)) : o.apps;
     for (const a of mine) out.push(...appNotes(a, ['you'], `${a.rp ?? o.agency} · ${aboutOf(a)}`, (e) => (e.by && e.by !== 'You' ? e.by : a.rp ?? o.agency), lastBy(a, ['gsp', 'uni'])));
     // My work's notifications (slice 4 PRD, Tasks and SLAs), from the work store (work/store.ts workNotes)

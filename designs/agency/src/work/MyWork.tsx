@@ -37,8 +37,7 @@ export function visibleTasks(s, user, role) {
     if (t.assignee === user.id) return true;
     const q = queueById(s, t.queue);
     if (q && q.leader === user.id) return true;
-    const esc = t.esc && t.esc.level >= 2 ? queueById(s, t.esc.to) : null;
-    return !!esc && (esc.leader === user.id || (esc.members || []).includes(user.id));
+    return false;
   });
 }
 
