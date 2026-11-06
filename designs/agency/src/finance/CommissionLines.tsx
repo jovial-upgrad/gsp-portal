@@ -14,45 +14,14 @@ import { can, inScope } from './access';
 import { Page, Card, Segmented, Table, Pill, Button, LinkButton, Sheet, Empty, Notice, Field, Input, NumberInput, DateField, toast } from './kit';
 import { PersonaBar, usePersona } from './persona';
 import { nice, money, r2 } from './engine';
-import { useComm, liveRun, TONE, opsOf, cycleOf, downloadCsv } from './shared';
+import { useComm, liveRun, opsOf, cycleOf, downloadCsv } from './shared';
 import { UniWhy, WhySheet, lineLabel } from './Commissions';
 import { batchesOf, raiseBatch, PaySheet as UniPaySheet, FixSheet } from './UniInvoices';
 import { CheckSheet, PaySheet as RpPaySheet, AnswerSheet } from './Payout';
 import { INV_STATUS, onInvoice } from './rpInvoice';
 import { MultiPick } from '../institution/records/MultiPick';
+import { uniType, rpType, uniStatus, rpStatus, UNI_STATUSES, RP_STATUSES } from './transactions';
 
-/* ---------- each transaction, in one shape for both sides ---------- */
-
-/** A university transaction's type, from its line. */
-const uniType = (l) => (l.bonus ? 'Bonus from the university' : l.topup ? 'Top-up' : l.type === 'additional' ? 'Additional commission' : l.annuity ? 'Commission after year 1' : 'Commission');
-/** An agency transaction's type, from its line. */
-const rpType = (x) => (x.kind === 'pct' ? (x.annuity ? 'Commission after year 1' : x.additional ? 'Additional commission' : 'Commission') : 'Bonus to the RP');
-
-/** The simple status set (6 Nov), from the engine's own status. */
-function uniStatus(l) {
-  const s = l.st[0];
-  if (/^(Ready|Top-up) to invoice/.test(s)) return ['Ready to invoice', 'dpill--checking'];
-  if (s === 'Payment overdue') return ['Overdue', 'dpill--bad'];
-  if (s === 'Invoiced') return ['Invoiced', ''];
-  if (s === 'Paid') return ['Paid', 'dpill--verified'];
-  if (/^Held/.test(s)) return ['Held', 'dpill--bad'];
-  if (/recovers|Credit/.test(s)) return ['Recovering', 'dpill--bad'];
-  if (s === 'Not payable') return ['Not payable', ''];
-  return ['Not yet due', ''];
-}
-function rpStatus(x, inv) {
-  const s = x.st[0];
-  if (/^Held/.test(s)) return ['Held', 'dpill--bad'];
-  if (x.due < 0) return ['Recovering', 'dpill--bad'];
-  if (inv && x.due > 0) return [inv.status === 'approved' ? 'On RP invoice, approved' : inv.status === 'review' ? 'On RP invoice, to check' : 'On RP invoice', 'dpill--checking'];
-  if (x.payable && x.due > 0) return ['Ready to pay', 'dpill--checking'];
-  if (s === 'Paid') return ['Paid', 'dpill--verified'];
-  if (/^Waiting/.test(s)) return ['Waiting for university', ''];
-  if (s === 'Cannot price') return ['Can’t price', 'dpill--bad'];
-  return [s, TONE[x.st[1]] || ''];
-}
-const UNI_STATUSES = ['Not yet due', 'Ready to invoice', 'Invoiced', 'Overdue', 'Paid', 'Held', 'Recovering', 'Not payable'];
-const RP_STATUSES = ['Waiting for university', 'Ready to pay', 'On RP invoice', 'Paid', 'Held', 'Recovering'];
 
 export default function CommissionLines({ start = 'uni' }) {
   const { s, c, cfg, res } = useComm();
@@ -129,7 +98,7 @@ export default function CommissionLines({ start = 'uni' }) {
     shown.map((t) => [t.student, t.app, t.party, ...(side === 'rp' ? [t.region] : []), t.label, t.type, t.date || '', t.amt, t.cur, t.st[0], (excBy.get(t.app) || []).map((e) => e.type).join('; '), t.ov ? `${t.ov.byName || ''}: ${t.ov.reason || ''}` : '']));
 
   const total = (list) => { const by = {}; list.forEach((t) => { by[t.cur] = r2((by[t.cur] || 0) + (t.amt || 0)); }); return Object.entries(by).map(([k, v]) => money(v, k)).join(' + ') || '—'; };
-  const worst = (list) => { const order = side === 'uni' ? ['Overdue', 'Held', 'Recovering', 'Ready to invoice', 'Invoiced', 'Not yet due', 'Paid', 'Not payable'] : ['Held', 'Recovering', 'Can’t price', 'Ready to pay', 'On RP invoice', 'Waiting for university', 'Paid']; return list.map((t) => t.st).sort((a, b) => order.findIndex((o) => a[0].startsWith(o)) - order.findIndex((o) => b[0].startsWith(o)))[0]; };
+  const worst = (list) => { const order = side === 'uni' ? UNI_STATUSES : RP_STATUSES; return list.map((t) => t.st).sort((a, b) => order.findIndex((o) => a[0].startsWith(o)) - order.findIndex((o) => b[0].startsWith(o)))[0]; };
 
   return (
     <Page title="Commission lines" top={<PersonaBar />}
