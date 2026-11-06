@@ -6,6 +6,15 @@ From the GSP OS progress review on **27 Oct 2026**: Deepesh (CPTO), Jovial (PM),
 
 How this list works: before changing a page, check its section here. When an item is done, tick it and add the date and commit, like `- [x] … (28 Oct, abc1234)`. Open questions stay open until someone answers them; write the answer next to the question.
 
+## 6 Nov, afternoon: eligibility for every market (Jovial, in chat)
+
+### Find courses (course Eligibility tab), Add an application (GSP Assist), student Education, GSP · Admin › Grade conversion and English test equivalence
+- [x] **One common standard:** every grading system converts to the UK-style standard (First 70, 2:1 60, 2:2 50, Third 40), by bands; GPA/4, CGPA/10, GPA/5 and Out of 10 are bands now. New systems for other markets: Out of 20, Out of 7 (Chile), German grade and GWA (lower is better), ECTS A to E. Values to confirm with Admissions. (6 Nov, commit “Eligibility for every market”)
+- [x] **Other names for a grade** ("2.1", "Upper second", "1st", "First Division"); named-grade systems are a pick list on the student's education. (6 Nov, commit “Eligibility for every market”)
+- [x] **GSP to confirm** (replaces Not specified): what the university hasn't set, and what the check can't compare: "Other" grading, a score it can't read, Other qualification (new level, not ranked), an over-qualified student, an English test or score outside the table. Never counts against the student. (6 Nov, commit “Eligibility for every market”)
+- [x] **English:** the best result across all tests counts; the table runs IELTS 4.5 to 8.5; a course with a section minimum needs the section scores. Missing backlogs with a limit: Add details. (6 Nov, commit “Eligibility for every market”)
+  - Open: the PRD sections (Course Search, Applications, Admin Config, Students, IP, Uni & Courses) still describe the old check; and whether to remove the course's country rules table from the PRD.
+
 ## 6 Nov, afternoon: exchange rates for every market (Jovial, in chat)
 
 ### Find courses, course costs, GSP · Admin › Currency exchange, Finance › Exchange rates

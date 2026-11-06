@@ -13,7 +13,17 @@
  */
 import type { Level } from './students';
 
-export type EducationLevel = { id: string; name: string; /** The record's education section it fills. */ record: Level; retired?: boolean; /** Earlier names. */ was?: string[] };
+export type EducationLevel = {
+  id: string;
+  name: string;
+  /** The record's education section it fills. */
+  record: Level;
+  retired?: boolean;
+  /** Earlier names. */
+  was?: string[];
+  /** false: a qualification the check can't place on the ladder (Jovial, 6 Nov): GSP confirms eligibility by hand. */
+  compare?: boolean;
+};
 
 /** Where the list starts (S3C-1's seven, in order). */
 export const SEED_EDUCATION: EducationLevel[] = [
@@ -24,6 +34,8 @@ export const SEED_EDUCATION: EducationLevel[] = [
   { id: 'ed-ba4', name: 'Bachelor’s (4 years)', record: 'ug' },
   { id: 'ed-ma', name: 'Master’s', record: 'pg' },
   { id: 'ed-phd', name: 'Doctorate', record: 'pg' },
+  // a qualification from any market that isn't one of the above (an HND, a foundation year, an associate degree…)
+  { id: 'ed-other', name: 'Other qualification', record: 'ug', compare: false },
 ];
 
 let read: () => EducationLevel[] = () => SEED_EDUCATION;
@@ -46,11 +58,12 @@ export const eduName = (v?: string) => eduItem(v)?.name ?? v ?? '';
 /** Where a value sits in the one order (first lowest); -1 for a value not on the list. */
 export const eduRank = (v?: string) => {
   const it = eduItem(v);
-  return it ? educationLevels().indexOf(it) : -1;
+  if (!it || it.compare === false) return -1;
+  return educationLevels().filter((x) => x.compare !== false).indexOf(it);
 };
 /** Whether a value is the last level on the list (so "or higher" says nothing). */
 export const isTopEducation = (v?: string) => {
-  const l = educationLevels();
+  const l = educationLevels().filter((x) => x.compare !== false);
   return eduRank(v) === l.length - 1;
 };
 /** The names offered for a new pick: every level not retired, in order. */
@@ -69,8 +82,17 @@ const liveNames = (): string[] =>
       return Reflect.has(activeEducation(), k);
     },
   });
-/** Highest education's options (students) and Minimum highest education's (courses): one list. */
+/** Highest education's options (students): one list. */
 export const HIGHEST_EDUCATION: readonly string[] = liveNames();
+/** Minimum highest education's options (courses): the same list without the ones the check can't compare. */
+export const COMPARABLE_EDUCATION: readonly string[] = new Proxy([] as string[], {
+  get(_t, k) {
+    return Reflect.get(educationLevels().filter((x) => !x.retired && x.compare !== false).map((x) => x.name), k);
+  },
+  has(_t, k) {
+    return Reflect.has(educationLevels().filter((x) => !x.retired && x.compare !== false).map((x) => x.name), k);
+  },
+});
 export type HighestEducation = string;
 export type MinEducation = string;
 

@@ -319,7 +319,7 @@ export type Course = {
  * The values of Minimum highest education required (slice 2 PRD, S3-18): since the lock answers (S3C-1, 2 Nov) the
  * one ordered Highest education list Admin edits (data/education.ts), the same the students use.
  */
-export { HIGHEST_EDUCATION as MIN_EDUCATION } from './education';
+export { COMPARABLE_EDUCATION as MIN_EDUCATION } from './education';
 
 /* ---------- generated, the same every time ---------- */
 

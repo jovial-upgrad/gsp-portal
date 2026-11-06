@@ -4,7 +4,7 @@ import { Field } from '../../../components/forms';
 import { CountryCombobox } from '../../../components/CountryCombobox';
 import { Icon } from '../../../components/Icon';
 import { countryByName } from '../../../data/partners';
-import { systemOf } from '../../../admin/data/eligibility';
+import { systemOf, bandNamed } from '../../../admin/data/eligibility';
 import { activeEducation, levelOfEd } from '../../../data/education';
 import { highestEdOf } from '../../../data/eligibility';
 import {
@@ -174,7 +174,15 @@ function LevelCard({
         {isOtherGrading(e.grading) && (
           <Txt id={id('gradingNote')} label="How was the student graded?" required={required} value={e.gradingNote ?? ''} onChange={(v) => setLevel(l, { gradingNote: v.slice(0, 120) })} placeholder="Like: Grade points out of 20" error={e.gradingNote?.trim() ? null : 'Describe the grading system.'} />
         )}
-        <Txt
+        {(() => {
+          // a grading system of named grades only (UK class, Division, ECTS…): the score is picked from its grades (Jovial, 6 Nov)
+          const sys = e.grading && !isOtherGrading(e.grading) ? systemOf(e.grading) : undefined;
+          const named = sys?.by === 'Bands' && sys.bands.length > 0 && sys.bands.every((b) => Number.isNaN(Number(b.from)));
+          if (!named) return null;
+          const pick = sys.bands.find((b) => bandNamed(b, e.score));
+          return <Sel id={id('score')} label="Grade" value={pick?.from ?? ''} read={read('score')} options={sys.bands.map((b) => b.from)} onChange={(v) => setLevel(l, { score: v })} hint={pick ? `Counts as ${pick.pct}%` : undefined} />;
+        })()}
+        {!(e.grading && !isOtherGrading(e.grading) && systemOf(e.grading)?.by === 'Bands' && (systemOf(e.grading)?.bands ?? []).length > 0 && (systemOf(e.grading)?.bands ?? []).every((b) => Number.isNaN(Number(b.from)))) && <Txt
           id={id('score')}
           label="Score"
           value={e.score}
@@ -184,7 +192,7 @@ function LevelCard({
           onChange={(v) => setLevel(l, { score: v.slice(0, 12) })}
           hint={!e.grading ? 'Choose the grading system first.' : isOtherGrading(e.grading) ? 'Optional. As on the marksheet or transcript.' : pct !== null && systemOf(e.grading)?.by !== 'As is' ? `About ${pct}%` : scaleMax(e.grading) ? `Out of ${scaleMax(e.grading)}` : `A grade: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}`}
           error={e.score && e.grading && !scoreOk(e) ? (systemOf(e.grading)?.by === 'Bands' && Number.isNaN(Number(e.score)) ? `Enter one of the grades: ${systemOf(e.grading)?.bands.map((b) => b.from).join(', ')}.` : `Enter a score from 0 to ${scaleMax(e.grading)}.`) : null}
-        />
+        />}
         <Sel id={id('language')} label="Primary language of instruction" required={required} value={e.language} read={read('language')} options={LANGUAGES} onChange={(v) => setLevel(l, { language: v })} hint="English can waive the English test for some universities." />
         {!isSchool(l) && (
           <Txt

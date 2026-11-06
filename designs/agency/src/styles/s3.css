@@ -56,3 +56,10 @@ tr.is-muted td { color: var(--text-3); }
 .fpanel__tags > legend { padding: 0; margin-bottom: var(--sp-6); }
 .fpanel__tags .fpanel__note { margin-top: 0; }
 .fpanel__count { color: var(--text-3); font-size: var(--t-caption); margin-left: var(--sp-4); }
+/* the grading form's bands fit the dialog (Jovial, 6 Nov: other names added a column) */
+.cfg__bands { min-width: 0; }
+.cfg__bands .stab-wrap { overflow-x: auto; max-width: 100%; }
+.cfg__bands .itab { table-layout: fixed; width: 100%; }
+.cfg__bands .cfg__cellinput { min-width: 0; width: 100%; }
+.cfg__bands th:last-child, .cfg__bands td:last-child { width: 96px; }
+.cfg__check { display: flex; gap: var(--sp-8); align-items: center; }
