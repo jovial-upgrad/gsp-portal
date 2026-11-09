@@ -1,19 +1,22 @@
 /**
- * My work in GSP · Recruitment (Nesil, 6 Nov): GSP · Institution's My work, this role's own copy, with the Recruitment
- * queue (led by Saurabh, the Recruitment Head): partner check-ins, branches and teams to set up, onboarding to chase.
- * Aditya Rao, signed in, has three; times are working hours (9 a working day).
+ * My work in GSP · Recruitment: this role's own copy of the page (Nesil, 5 and 6 Nov). Since 9 Nov (Jovial) its queue, leader
+ * and people are GSP · Admin's seeded queue, and every task is made by a task rule from the seeded records (see
+ * admin/data/mywork.ts): its title is the rule's task, its ID is shown under it, and a late task is simply Breached.
+ * A queue no rule sends work to has no tasks. Times are working hours (9 a working day).
  */
-export type IwTask = { id: string; title: string; kind: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; escalated?: string; paused?: string; done?: boolean };
+import { queueWork } from '../../admin/data/mywork';
+export type IwTask = { id: string; title: string; rule: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean };
 
-export const QUEUE = 'Recruitment';
-export const LEADER = 'Saurabh';
-export const TEAM = [LEADER, 'Aditya Rao', 'Nadia', 'Harsh'];
+/** The queue as GSP · Admin seeds it (9 Nov), and the tasks its task rules make from the seeded records. */
+const WORK = queueWork('India Recruitment');
+export const QUEUE = WORK.queue;
+export const LEADER = WORK.leader;
+export const TEAM = WORK.team;
 
-export type Standing = 'track' | 'soon' | 'late' | 'paused' | 'done';
-export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', paused: 'Paused', done: 'Completed' };
+export type Standing = 'track' | 'soon' | 'late' | 'done';
+export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', done: 'Completed' };
 export const standingOf = (t: IwTask): Standing => {
   if (t.done) return 'done';
-  if (t.paused) return 'paused';
   const left = t.sla - t.waited;
   return left < 0 ? 'late' : left <= 9 ? 'soon' : 'track';
 };
@@ -35,12 +38,5 @@ export const dueDate = (left: number) => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
-const t = (id: string, title: string, kind: string, rp: string, region: string, assignee: string, waited: number, sla: number, o: Partial<IwTask> = {}): IwTask => ({ id, title, kind, rp, region, queue: QUEUE, assignee, waited, sla, ...o });
-export const sampleIwTasks = (): IwTask[] => [
-  t('r1', 'Check in with BrightPath Overseas after its first month', 'Partner check-in', 'BrightPath Overseas', 'India', 'Aditya Rao', 8, 18),
-  t('r2', 'Add Lotus Study Abroad’s new Pune branch', 'Set up a branch', 'Lotus Study Abroad', 'India', 'Aditya Rao', 20, 27),
-  t('r3', 'Chase Horizon Overseas’ onboarding documents', 'Chase onboarding', 'Horizon Overseas', 'India', 'Aditya Rao', 31, 27),
-  t('r4', 'Add two counsellors to Edulink Dhaka’s team', 'Update a team', 'Edulink Dhaka', 'Bangladesh', 'Nadia', 5, 18),
-  t('r5', 'Plan the Bengaluru agency visits', 'Plan visits', 'Bengaluru agencies', 'India', 'Harsh', 50, 45, { escalated: 'Admin' }),
-  t('r6', 'Follow up a new agency enquiry from Kochi', 'New agency enquiry', 'Kochi Study Hub', 'India', '', 3, 9),
-];
+export const sampleIwTasks = (): IwTask[] => 
+  WORK.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, rp: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete }));

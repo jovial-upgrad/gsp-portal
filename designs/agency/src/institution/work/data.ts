@@ -1,20 +1,22 @@
 /**
- * My work in GSP · Institution (Nesil, 5 Nov; after the reference): this role's own copy of GSP · RP Ops' My work.
- * The Institution queue (led by Lalaine Dizon) works institution partners: agreements, course data and go-lives. As in
- * the reference, nothing is assigned to the signed-in person and nothing waits on others; the team has 4 open tasks,
- * 2 breached. Times are working hours (9 a working day), as at 5 Nov 2026, 2:15 pm IST.
+ * My work in GSP · Institution: this role's own copy of the page (Nesil, 5 and 6 Nov). Since 9 Nov (Jovial) its queue, leader
+ * and people are GSP · Admin's seeded queue, and every task is made by a task rule from the seeded records (see
+ * admin/data/mywork.ts): its title is the rule's task, its ID is shown under it, and a late task is simply Breached.
+ * A queue no rule sends work to has no tasks. Times are working hours (9 a working day).
  */
-export type IwTask = { id: string; title: string; kind: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; escalated?: string; paused?: string; done?: boolean };
+import { queueWork } from '../../admin/data/mywork';
+export type IwTask = { id: string; title: string; rule: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean };
 
-export const QUEUE = 'Institution';
-export const LEADER = 'Lalaine Dizon';
-export const TEAM = [LEADER, 'Namita Nath', 'Raj Shamani', 'Kavya Menon'];
+/** The queue as GSP · Admin seeds it (9 Nov), and the tasks its task rules make from the seeded records. */
+const WORK = queueWork('Institution');
+export const QUEUE = WORK.queue;
+export const LEADER = WORK.leader;
+export const TEAM = WORK.team;
 
-export type Standing = 'track' | 'soon' | 'late' | 'paused' | 'done';
-export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', paused: 'Paused', done: 'Completed' };
+export type Standing = 'track' | 'soon' | 'late' | 'done';
+export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', done: 'Completed' };
 export const standingOf = (t: IwTask): Standing => {
   if (t.done) return 'done';
-  if (t.paused) return 'paused';
   const left = t.sla - t.waited;
   return left < 0 ? 'late' : left <= 9 ? 'soon' : 'track';
 };
@@ -36,10 +38,5 @@ export const dueDate = (left: number) => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
-const t = (id: string, title: string, kind: string, rp: string, region: string, assignee: string, waited: number, sla: number, o: Partial<IwTask> = {}): IwTask => ({ id, title, kind, rp, region, queue: QUEUE, assignee, waited, sla, ...o });
-export const sampleIwTasks = (): IwTask[] => [
-  t('i1', 'Renew the agreement with Massey University', 'Renew an agreement', 'Massey University', 'Global', 'Lalaine Dizon', 405, 270, { escalated: 'Admin' }),
-  t('i2', 'Renew the agreement with Lincoln University', 'Renew an agreement', 'Lincoln University', 'Global', 'Lalaine Dizon', 300, 270),
-  t('i3', 'Update course data for University of Canterbury', 'Course data update', 'University of Canterbury', 'Global', 'Namita Nath', 18, 45),
-  t('i4', 'Get Victoria University live', 'Get a university live', 'Victoria University', 'Global', 'Kavya Menon', 27, 90),
-];
+export const sampleIwTasks = (): IwTask[] => 
+  WORK.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, rp: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete }));

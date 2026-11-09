@@ -1,22 +1,24 @@
 /**
- * My work in GSP · Admissions (Nesil, 5 Nov; after the reference's Admissions work page): this role's own copy, so a
- * change here never reaches GSP · Admin's My Work. Freddy Forrest (signed in) is an Admissions officer in the India
- * Admissions queue, led by Ramish. Sample tasks on applications, timed as at Thursday 5 Nov 2026, 2:15 pm IST, in
- * working hours (9 a working day, Monday to Friday).
+ * My work in GSP · Admissions: this role's own copy of the page (Nesil, 5 and 6 Nov). Since 9 Nov (Jovial) its queue, leader
+ * and people are GSP · Admin's seeded queue, and every task is made by a task rule from the seeded records (see
+ * admin/data/mywork.ts): its title is the rule's task, its ID is shown under it, and a late task is simply Breached.
+ * A queue no rule sends work to has no tasks. Times are working hours (9 a working day).
  */
-export type GwTask = { id: string; title: string; kind: string; ref: string; uni: string; region: string; queue: string; assignee: string; waited: number; sla: number; escalated?: string; paused?: string; done?: boolean };
+import { queueWork } from '../../admin/data/mywork';
+export type GwTask = { id: string; title: string; rule: string; ref: string; uni: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean };
 export type GwWait = { id: string; student: string; ref: string; uni: string; status: string; on: 'RP' | 'University'; what: string; since: number; left: number | null };
 
 export const ME = 'Freddy Forrest';
-export const QUEUE = 'India Admissions';
-export const LEADER = 'Ramish';
-export const TEAM = [LEADER, ME, 'Alfiya Khan', 'Anand Mishra', 'Prachi Pilani', 'Sakshi Shashi', 'Piyush Varshney'];
+/** The queue as GSP · Admin seeds it (9 Nov), and the tasks its task rules make from the seeded records. */
+const WORK = queueWork('India Admissions');
+export const QUEUE = WORK.queue;
+export const LEADER = WORK.leader;
+export const TEAM = WORK.team;
 
-export type Standing = 'track' | 'soon' | 'late' | 'paused' | 'done';
-export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', paused: 'Paused', done: 'Completed' };
+export type Standing = 'track' | 'soon' | 'late' | 'done';
+export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', done: 'Completed' };
 export const standingOf = (t: GwTask): Standing => {
   if (t.done) return 'done';
-  if (t.paused) return 'paused';
   const left = t.sla - t.waited;
   return left < 0 ? 'late' : left <= 9 ? 'soon' : 'track';
 };
@@ -40,33 +42,8 @@ export const dueDate = (left: number) => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
-const t = (id: string, title: string, kind: string, ref: string, uni: string, assignee: string, waited: number, sla: number, o: Partial<GwTask> = {}): GwTask => ({ id, title, kind, ref, uni, region: 'India', queue: QUEUE, assignee, waited, sla, ...o });
-export const sampleGwTasks = (): GwTask[] => [
-  // Freddy's own: 12
-  t('g1', 'Chase University of Wollongong for a decision on Priya Raman', 'Chase the university', 'GSP-24097', 'University of Wollongong', ME, 63, 27, { escalated: 'Admission Ops' }),
-  t('g2', 'Confirm Arjun Sharma’s enrolment with Southern Cross University', 'Confirm enrolment', 'GSP-24202', 'Southern Cross University', ME, 72, 45, { escalated: 'Admission Ops' }),
-  t('g3', 'Check the payment proof for Rohan Patel', 'Check payment proof', 'GSP-24204', 'University of the West of Scotland', ME, 45, 18, { escalated: 'Admission Ops' }),
-  t('g4', 'Submit Kavya Iyer to Coventry University', 'Submit to the university', 'GSP-24211', 'Coventry University', ME, 14, 9),
-  t('g5', 'Record Abertay University’s decision on Aarav Shah', 'Record the university’s decision', 'GSP-24110', 'Abertay University', ME, 21, 18),
-  t('g6', 'Answer the RP on Meera Nair', 'Answer a handed-over chat', 'GSP-24120', 'Abertay University', ME, 3, 4),
-  t('g7', 'Check the offer conditions for Ayesha Khan', 'Check offer conditions', 'GSP-24049', 'University of Newcastle', ME, 10, 18),
-  t('g8', 'Verify the documents for Sneha Patil', 'Verify application documents', 'GSP-24055', 'Flinders University', ME, 2, 9, { paused: 'Gap explanation document' }),
-  t('g9', 'Check the 12th marksheet the RP sent for Rohan Nair', 'Verify application documents', 'GSP-24209', 'University of Wales Trinity Saint David', ME, 9, 9, { paused: '12th marksheet' }),
-  t('g10', 'Chase the RP: offer conditions for Priya Raman', 'File a university email', 'GSP-24102', 'Deakin University', ME, 1, 18),
-  t('g11', 'Confirm the deposit for Tanvir Ahmed', 'Confirm the deposit', 'GSP-24071', 'Coventry University', ME, 2, 9),
-  t('g12', 'Process the refund for Sujan Karki', 'Process a refund', 'GSP-24066', 'University of Wollongong', ME, 4, 27),
-  // the rest of the team: 8, two not assigned
-  t('g13', 'Verify the documents for Ishita Rao', 'Verify application documents', 'GSP-24215', 'Deakin University', 'Alfiya Khan', 12, 9),
-  t('g14', 'Submit Dev Malhotra to Flinders University', 'Submit to the university', 'GSP-24216', 'Flinders University', 'Anand Mishra', 4, 9),
-  t('g15', 'Check the offer conditions for Nisha Verma', 'Check offer conditions', 'GSP-24218', 'University of Newcastle', 'Prachi Pilani', 20, 18),
-  t('g16', 'Confirm the deposit for Kabir Joshi', 'Confirm the deposit', 'GSP-24219', 'Coventry University', 'Sakshi Shashi', 3, 9),
-  t('g17', 'Answer the RP on Ananya Gupta', 'Answer a handed-over chat', 'GSP-24220', 'Abertay University', 'Piyush Varshney', 1, 4),
-  t('g18', 'Record Deakin University’s decision on Vikram Singh', 'Record the university’s decision', 'GSP-24221', 'Deakin University', LEADER, 6, 18),
-  t('g19', 'Verify the documents for Riya Menon', 'Verify application documents', 'GSP-24222', 'University of Wollongong', '', 2, 9),
-  t('g20', 'Submit Aditya Kulkarni to Southern Cross University', 'Submit to the university', 'GSP-24223', 'Southern Cross University', '', 1, 9),
-  // completed earlier today
-  t('g21', 'Verify the documents for Pooja Desai', 'Verify application documents', 'GSP-24190', 'Flinders University', ME, 5, 9, { done: true }),
-];
+export const sampleGwTasks = (): GwTask[] => 
+  WORK.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, ref: t.ref, uni: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete }));
 
 export const sampleGwWaits = (): GwWait[] => [
   { id: 'w1', student: 'Priya Raman', ref: 'GSP-24102', uni: 'Deakin University', status: 'Conditional offer received, conditions pending', on: 'RP', what: 'Offer conditions', since: 9, left: 162 },

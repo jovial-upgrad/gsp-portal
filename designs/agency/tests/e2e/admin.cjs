@@ -137,9 +137,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.getByRole('button', { name: 'Save Changes' }).click(); await wait(300);
   ok((await p.locator('.cfg__perm select').count()) === 0 && (await p.locator('.cfg__perm tbody').first().innerText()).includes('No Access'), 'saved, back to read only');
 
-  // Queues (5 Nov: moved to Work › Queues, SLA and Escalation)
-  await go('Work', 'Queues, SLA and Escalation');
-  ok((await oneLine()) && (await p.locator('.wk-queues').count()) === 3, 'Queues: one-line lead, three groups');
+  // Queues (9 Nov: Work › Queues and Working Days, one table)
+  await go('Work', 'Queues and Working Days');
+  ok((await oneLine()) && (await p.locator('.wk-queues').count()) === 1, 'Queues: one-line lead, one table');
 
   // Emails
   await go('User Roles', 'Emails');

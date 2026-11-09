@@ -1,19 +1,22 @@
 /**
- * My work in GSP · Institution Ops (Nesil, 6 Nov): GSP · Institution's My work, this role's own copy, with the
- * Institution Ops queue (led by Gauri Bhardwaj, IP Ops Lead): course data, go-lives, scholarships and announcements.
- * Riya Sen, signed in, has three; times are working hours (9 a working day).
+ * My work in GSP · Institution Ops: this role's own copy of the page (Nesil, 5 and 6 Nov). Since 9 Nov (Jovial) its queue, leader
+ * and people are GSP · Admin's seeded queue, and every task is made by a task rule from the seeded records (see
+ * admin/data/mywork.ts): its title is the rule's task, its ID is shown under it, and a late task is simply Breached.
+ * A queue no rule sends work to has no tasks. Times are working hours (9 a working day).
  */
-export type IwTask = { id: string; title: string; kind: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; escalated?: string; paused?: string; done?: boolean };
+import { queueWork } from '../../admin/data/mywork';
+export type IwTask = { id: string; title: string; rule: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean };
 
-export const QUEUE = 'Institution Ops';
-export const LEADER = 'Gauri Bhardwaj';
-export const TEAM = [LEADER, 'Riya Sen', 'Vishakha Prabhakar', 'Kabir Sethi'];
+/** The queue as GSP · Admin seeds it (9 Nov), and the tasks its task rules make from the seeded records. */
+const WORK = queueWork('IP Ops');
+export const QUEUE = WORK.queue;
+export const LEADER = WORK.leader;
+export const TEAM = WORK.team;
 
-export type Standing = 'track' | 'soon' | 'late' | 'paused' | 'done';
-export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', paused: 'Paused', done: 'Completed' };
+export type Standing = 'track' | 'soon' | 'late' | 'done';
+export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', done: 'Completed' };
 export const standingOf = (t: IwTask): Standing => {
   if (t.done) return 'done';
-  if (t.paused) return 'paused';
   const left = t.sla - t.waited;
   return left < 0 ? 'late' : left <= 9 ? 'soon' : 'track';
 };
@@ -35,12 +38,5 @@ export const dueDate = (left: number) => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
-const t = (id: string, title: string, kind: string, rp: string, region: string, assignee: string, waited: number, sla: number, o: Partial<IwTask> = {}): IwTask => ({ id, title, kind, rp, region, queue: QUEUE, assignee, waited, sla, ...o });
-export const sampleIwTasks = (): IwTask[] => [
-  t('o1', 'Update the 2027 fees for Deakin University', 'Course data update', 'Deakin University', 'Global', 'Riya Sen', 9, 18),
-  t('o2', 'Add Hertfordshire’s 2027 course list', 'Import courses', 'University of Hertfordshire', 'Global', 'Riya Sen', 21, 27),
-  t('o3', 'Fix the English rules for the Flinders MBA', 'Fix course rules', 'Flinders University', 'Global', 'Riya Sen', 30, 27),
-  t('o4', 'Check the Flinders Nursing scholarship', 'Check a scholarship', 'Flinders University', 'Global', 'Vishakha Prabhakar', 6, 18),
-  t('o5', 'Publish the Coventry fee change for September 2027', 'Publish an announcement', 'Coventry University', 'Global', 'Kabir Sethi', 48, 45, { escalated: 'Admin' }),
-  t('o6', 'Get Victoria University’s campuses ready to go live', 'Get a university live', 'Victoria University', 'Global', '', 3, 18),
-];
+export const sampleIwTasks = (): IwTask[] => 
+  WORK.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, rp: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete }));

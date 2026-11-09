@@ -6,7 +6,7 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  * **Institution** (Recruitment partners, Institution partners, Universities, Courses, Announcements) are the very
  * pages GSP · Institution has, from its folder: a change there shows here too, unless a page gets its own setting
  * here later. The rest are GSP Admin's own configuration: **User roles** (Create roles, Sales regions, Permission
- * roles, Emails), **Work** (5 Nov: Queues, SLA and escalation; Task rules),
+ * roles, Emails), **Work** (9 Nov: Queues and Working Days; Task rules),
  * **Recruitment** (BDM assignment), **Course configuration** (Currency exchange, Living costs), **Application
  * configuration** (Application routing, Document configuration) and **Other configurations** (Filters, Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
@@ -63,7 +63,7 @@ export const GROUPS: NavGroup[] = [
     label: 'Work',
     icon: 'briefcase',
     items: [
-      { key: 'queues', label: 'Queues, SLA and Escalation', short: 'Queues', icon: 'inbox' },
+      { key: 'queues', label: 'Queues and Working Days', short: 'Queues', icon: 'inbox' },
       { key: 'tasks', label: 'Task Rules', short: 'Tasks', icon: 'check' },
     ],
   },

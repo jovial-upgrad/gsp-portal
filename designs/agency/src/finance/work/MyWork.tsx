@@ -19,7 +19,6 @@ const Pill = ({ s }: { s: Standing }) => <span className={`iw-pill iw-pill--${s}
 const slaLine = (t: IwTask) => {
   const left = t.sla - t.waited;
   if (t.done) return left < 0 ? `Done ${whText(left)} late` : 'Done in time';
-  if (t.paused) return `Paused while the RP answers: ${t.paused}`;
   if (left < 0) return `Late by ${whText(left)}`;
   return left < 9 ? `Due in ${whText(left)}` : `Due ${dueDate(left)}`;
 };
@@ -53,8 +52,8 @@ export function MyWork() {
     .filter((t) => (sts.length ? sts.includes(STANDING[standingOf(t)]) : !t.done))
     .filter((t) => !qs.length || qs.includes(t.queue))
     .filter((t) => view !== 'team' || !whos.length || whos.includes(t.assignee || NOONE))
-    // breached first, then soonest due; paused after the running ones; completed last
-    .sort((a, b) => Number(!!a.done) - Number(!!b.done) || Number(!!a.paused) - Number(!!b.paused) || left(a) - left(b));
+    // breached first, then soonest due; completed last
+    .sort((a, b) => Number(!!a.done) - Number(!!b.done) || left(a) - left(b));
   const keys = [view, qs.join(), sts.join(), whos.join()];
   const pg = usePaged(list, keys);
   useEffect(() => setTicked([]), keys); // eslint-disable-line react-hooks/exhaustive-deps
@@ -193,8 +192,7 @@ export function MyWork() {
                       <td>
                         <span className="iw-strong">{t.title}</span>
                         <span className="iw-sub">
-                          {t.kind}
-                          {t.escalated && ` · Escalated to ${t.escalated}`}
+                          {t.rule}
                         </span>
                       </td>
                       <td>
@@ -215,7 +213,7 @@ export function MyWork() {
                               {t.assignee ? 'Reassign' : 'Assign'}
                               <span className="vh"> {t.title}</span>
                             </button>
-                            {t.assignee === ME && (
+                            {t.assignee === ME && t.canComplete && (
                               <button
                                 type="button"
                                 className="btn btn--link iw-complete"
@@ -239,8 +237,8 @@ export function MyWork() {
           </>
         ) : (
           <div className="iw-empty-box">
-            <p className="iw-empty-t">{filtered ? 'No tasks match these filters' : view === 'mine' ? 'Nothing assigned to you' : 'No open tasks'}</p>
-            {!filtered && view === 'mine' && <p className="iw-muted">New tasks appear here when a task rule fires.</p>}
+            <p className="iw-empty-t">{filtered ? 'No tasks match these filters.' : view === 'mine' ? 'Nothing assigned to you' : 'No open tasks'}</p>
+            {!filtered && <p className="iw-muted">New tasks appear here when a task rule fires.</p>}
           </div>
         )}
       </div>

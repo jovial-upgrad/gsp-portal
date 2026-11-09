@@ -42,8 +42,8 @@ import {
 import { Regions, Permissions } from './Roles';
 import { QueuesSla, TaskRules } from './Work';
 import { MyWork } from './MyWork';
-import { sampleTasks, sampleWaits, type Wait, type WorkTask } from '../data/mywork';
-import { sampleCalendars, sampleKinds, sampleLadder, sampleRequests, sampleRules as sampleTaskRules, type Calendar, type Ladder, type RequestList, type TaskRule, type WorkKind } from '../data/work';
+import { runRules, sampleRecords, sampleWaits, type Wait, type WorkTask } from '../data/mywork';
+import { sampleCalendars, sampleRules as sampleTaskRules, type Calendar, type TaskRule } from '../data/work';
 import { sampleNationalities, type NationalityRow } from '../data/nationalities';
 import { Users } from './Users';
 import { Emails } from './Emails';
@@ -67,16 +67,13 @@ export type Cfg = {
   nationalities: NationalityRow[];
   perms: Perms;
   queues: Queue[];
-  /** Work (5 Nov): where each kind of work goes and its SLA, the working week and holidays, reminders and escalation,
-   *  the tasks the system creates and the requests people raise. */
-  kinds: WorkKind[];
+  /** Work (9 Nov): the working calendars every SLA counts on, and the task rules that make every task (each says
+   *  where its task goes and its SLA). */
   calendars: Calendar[];
-  ladder: Ladder;
   taskRules: TaskRule[];
-  /** My Work (5 Nov): the open tasks, and the records waiting on others. */
+  /** My Work: the open tasks the task rules made from the records, and the records waiting on others. */
   tasks: WorkTask[];
   waits: Wait[];
-  requests: RequestList[];
   emails: EmailGroup[];
   bdm: BdmRow[];
   /** Weekly exchange rates, this week first. */
@@ -102,21 +99,18 @@ export const sampleCfg = (): Cfg => {
   const users = sampleUsers();
   const queues = sampleQueues(users);
   const regions = sampleRegions(queues);
-  const kinds = sampleKinds();
   const taskRules = sampleTaskRules();
+  const calendars = sampleCalendars(regions.map((r) => r.name));
   return {
     users,
     regions,
     nationalities: sampleNationalities(regions),
     perms: samplePerms(),
     queues,
-    kinds,
-    calendars: sampleCalendars(regions.map((r) => r.name)),
-    ladder: sampleLadder(),
+    calendars,
     taskRules,
-    tasks: sampleTasks(taskRules, kinds, queues, users, GSP_USER.name),
+    tasks: runRules(taskRules, sampleRecords(GSP_USER), queues, regions, users, calendars),
     waits: sampleWaits(),
-    requests: sampleRequests(),
     emails: sampleEmails(users),
     bdm: sampleBdm(),
     fx: sampleFx(),

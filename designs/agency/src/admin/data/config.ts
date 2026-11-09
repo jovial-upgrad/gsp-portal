@@ -10,7 +10,7 @@ import { SALES_REGIONS } from '../../institution/data/announcements';
 import { AREAS, CURRENCY, LEVELS as PROGRAM_LEVELS, type Destination } from '../../data/courses';
 import { INR_PER } from '../../screens/courses/search';
 import { REGIONS_OF } from '../../institution/records/CountryPicker';
-import type { QueueType, Sharing } from './work';
+import type { Sharing } from './work';
 
 /** `area` is the source: the page a change was made on, or where a download came from. `records`: how many rows a
  *  download had. */
@@ -49,8 +49,8 @@ export const sampleRegions = (queues: Queue[]): Region[] =>
     contact: CONTACT[name] ?? '',
     countries: FIXED_REGIONS.includes(name) ? [] : (COUNTRIES_OF[name] ?? [name]),
     bdm: REGION_BDM[name] ?? '',
-    // a region without its own Admissions queue is worked by Admission Ops
-    queue: FIXED_REGIONS.includes(name) ? '' : ((queues.find((q) => q.name === `${name} Admissions`) ?? queues.find((q) => q.name === 'Admission Ops'))?.id ?? ''),
+    // a region without its own Admissions queue sends its applications to Global Admissions
+    queue: FIXED_REGIONS.includes(name) ? '' : ((queues.find((q) => q.name === `${name} Admissions`) ?? queues.find((q) => q.name === 'Global Admissions'))?.id ?? ''),
   }));
 /** The regions a queue or a routing can point to (not Global, which only GSP people cover). */
 export const workRegions = (rs: Region[]) => rs.filter((r) => r.name !== 'Global' && r.name !== 'Direct');
@@ -97,6 +97,8 @@ export const sampleUsers = (): User[] => [
   u('Thi Tuyet Hoa Nguyen', 'Admission', 'Admissions Officer', 'Vietnam', '+84', '90 812 7710', 'Link sent'),
   u('Jo', 'Admission', 'Admissions Officer', 'Australia', '+61', '412 300 118'),
   u('Meera Pillai', 'Admission Ops', 'Admission Ops Lead', 'Global', '+91', '98450 30021'),
+  u('Freddy Forrest', 'Admission', 'Admissions Officer', 'India', '+91', '98450 11930'),
+  ...team('Admission Ops', 'Global Ops', 'Global', '+91', ['Karan Malhotra', 'Neha Kulkarni', 'Ishita Rao', 'Vikram Shetty']),
   u('Saurabh', 'Recruitment', 'Recruitment Head', 'India', '+91', '98110 77201'),
   u('Nadia', 'Recruitment', 'BDM', 'India', '+91', '98950 22018'),
   u('Harsh', 'Recruitment', 'BDM', 'India', '+91', '98110 41870'),
@@ -191,17 +193,16 @@ export const samplePerms = (): Perms =>
   Object.fromEntries(P.map(([o, ls]) => [o, Object.fromEntries(ls.split(' ').map((l, i) => [ROLES[i], FOLD[l]]))]));
 
 /* ---------- queues (Nesil, 30 Oct: a name, a leader and members, from the PM's queues) ---------- */
-/** A queue (Nesil, 5 Nov: Work › Queues, SLA and escalation): a team's inbox, with one leader, members (the leader
- *  is always in it), how its work is shared, and its type: each sales region has an Admissions and a Recruitment queue,
- *  and the teams have their own. What lands in it comes from Kinds of work. */
-export type Queue = { id: string; name: string; lead: string; members: string[]; type: QueueType; region?: string; sharing: Sharing; note?: string };
+/** A queue (9 Nov: Queues and Working Days): one leader, members (the leader is always in it) and how a new task is
+ *  shared. Queues have no type: anyone can be in any queue. What lands in it comes from the task rules. */
+export type Queue = { id: string; name: string; lead: string; members: string[]; sharing: Sharing };
 const byName = (users: User[], names: string[]) => names.map((n) => users.find((x) => x.name === n)?.id).filter((x): x is string => !!x);
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, '-');
 /** The regions with their own Admissions and Recruitment queues: every sales region but Direct and Global. */
 const QUEUE_REGIONS = SALES_REGIONS.filter((r) => !['Direct', 'Global'].includes(r));
 /** Each region's Admissions queue: its leader and members (Nesil's reference, 5 Nov). */
 const ADMISSIONS: Record<string, [string, string[]]> = {
-  India: ['Ramish', ['Alfiya Khan', 'Anand Mishra', 'Prachi Pilani', 'Sakshi Shashi', 'Prachi Sharma', 'Piyush Varshney', 'Rohit Bansal']],
+  India: ['Ramish', ['Freddy Forrest', 'Alfiya Khan', 'Anand Mishra', 'Prachi Pilani', 'Sakshi Shashi', 'Prachi Sharma', 'Piyush Varshney', 'Rohit Bansal']],
   Bangladesh: ['Kamrun', ['Humyra Rahman', 'Shabnaj Islam', 'Jannati Nusrat', 'Raihana Kabir Nishi', 'Nigara Rahman', 'Mahfuza Akter']],
   Nepal: ['Supriya', ['Swornim Prajapati', 'Alisha Kapali', 'Niruta Dahal', 'Ashmita Shrestha', 'Lalita Baade']],
   'Sri Lanka': ['Subbhodya', ['Dasuni De Silva', 'Shevini Fernando', 'Rashmi Arora']],
@@ -233,15 +234,17 @@ const RECRUITMENT: Record<string, [string, string[]]> = {
   'Rest of world': ['Ali Butt', []],
 };
 export const sampleQueues = (users: User[]): Queue[] => {
-  const q = (id: string, name: string, type: QueueType, lead: string, members: string[], sharing: Sharing, region?: string, note?: string): Queue => ({ id, name, type, region, sharing, note, lead: byName(users, [lead])[0] ?? '', members: byName(users, members) });
+  const q = (id: string, name: string, lead: string, members: string[], sharing: Sharing): Queue => ({ id, name, sharing, lead: byName(users, [lead])[0] ?? '', members: byName(users, members) });
   return [
-    ...QUEUE_REGIONS.filter((r) => ADMISSIONS[r]).map((r) => q(`q-adm-${slug(r)}`, `${r} Admissions`, 'Admissions', ADMISSIONS[r][0], ADMISSIONS[r][1], 'fewest', r)),
-    ...QUEUE_REGIONS.filter((r) => RECRUITMENT[r]).map((r) => q(`q-rec-${slug(r)}`, `${r} Recruitment`, 'Recruitment', RECRUITMENT[r][0], RECRUITMENT[r][1], 'owner', r)),
-    q('q-rp-ops', 'RP Ops', 'Team', 'Leena Thomas', ['Garima Bhardwaj', 'Rohan Desai', 'Nisha Kapoor'], 'fewest'),
-    q('q-ip-ops', 'IP Ops', 'Team', 'Gauri Bhardwaj', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi', 'Riya Sen', 'Arjun Mehta'], 'fewest'),
-    q('q-finance', 'Finance', 'Team', 'Suman Verma', ['Rhythm Jain', 'Joana Cabrera', 'Arcelin Landayan', 'Lav Likhi', 'Pallavi Thakur', 'Nandini Sharma'], 'fewest'),
-    q('q-admission-ops', 'Admission Ops', 'Team', 'Meera Pillai', ['Megha Malhotra'], 'leader', undefined, 'Level 2 escalations on applications'),
-    q('q-admin', 'Admin', 'Team', 'Jovial Lejo', [], 'fewest', undefined, 'Tasks with no queue, and level 3 escalations'),
+    ...QUEUE_REGIONS.filter((r) => ADMISSIONS[r]).map((r) => q(`q-adm-${slug(r)}`, `${r} Admissions`, ADMISSIONS[r][0], ADMISSIONS[r][1], 'fewest')),
+    // the Global Ops team (9 Nov): regions with no Admissions queue, and gsp.admissions@ mail
+    q('q-global-admissions', 'Global Admissions', 'Karan Malhotra', ['Neha Kulkarni', 'Ishita Rao', 'Vikram Shetty'], 'fewest'),
+    ...QUEUE_REGIONS.filter((r) => RECRUITMENT[r]).map((r) => q(`q-rec-${slug(r)}`, `${r} Recruitment`, RECRUITMENT[r][0], RECRUITMENT[r][1], 'owner')),
+    q('q-rp-ops', 'RP Ops', 'Leena Thomas', ['Garima Bhardwaj', 'Rohan Desai', 'Nisha Kapoor'], 'fewest'),
+    q('q-institution', 'Institution', 'Lalaine Dizon', ['Namita Nath', 'Raj Shamani', 'Kavya Menon'], 'owner'),
+    q('q-ip-ops', 'IP Ops', 'Gauri Bhardwaj', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi', 'Riya Sen', 'Arjun Mehta'], 'fewest'),
+    q('q-finance', 'Finance', 'Suman Verma', ['Rhythm Jain', 'Joana Cabrera', 'Arcelin Landayan', 'Lav Likhi', 'Pallavi Thakur', 'Nandini Sharma'], 'fewest'),
+    q('q-admin', 'Admin', 'Jovial Lejo', [], 'fewest'),
   ];
 };
 

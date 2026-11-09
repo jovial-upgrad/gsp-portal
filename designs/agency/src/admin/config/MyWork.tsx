@@ -14,10 +14,10 @@ type View = 'mine' | 'all' | 'waiting';
 const Pill = ({ s }: { s: Standing }) => <span className={`mw-pill mw-pill--${s}`}>{STANDING[s]}</span>;
 
 /**
- * My Work (Nesil, 5 Nov; after the reference's My work, in GSP · Admin's menu under Inbox): the signed-in person's
- * tasks at a glance (assigned, due soon, breached), then the tasks, soonest due first: **Assigned to me**, **All
+ * My Work (Nesil, 5 Nov; Jovial, 9 Nov: every task from a task rule, its rule's ID under its title, no escalation):
+ * the signed-in person's tasks at a glance (assigned, due soon, breached), then the tasks, soonest due first: **Assigned to me**, **All
  * work** (an admin sees every queue) or **Waiting on others** (records waiting on an RP or a university), filtered by
- * queues, SLA status (Completed too) and who it's assigned to, each a multi-select. Assign or Reassign picks someone in the task's queue; Mark as Completed closes one of yours. No prototype clock.
+ * queues, SLA status (Completed too) and who it's assigned to, each a multi-select. Assign or Reassign picks someone in the task's queue; Mark as Completed closes one of yours whose rule closes on Done. No prototype clock.
  */
 export function MyWork({ cfg, change, say, me }: ConfigProps) {
   const [view, setView] = useState<View>('mine');
@@ -28,7 +28,6 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
   const [ticked, setTicked] = useState<string[]>([]);
   const [bulk, setBulk] = useState(false);
   const qName = (id: string) => cfg.queues.find((q) => q.id === id)?.name ?? 'Admin';
-  const kName = (id: string) => cfg.kinds.find((k) => k.id === id)?.name ?? '';
   const left = (t: WorkTask) => t.sla - t.waited;
   const byDue = (a: WorkTask, b: WorkTask) => left(a) - left(b);
   const open = cfg.tasks.filter((t) => !t.done);
@@ -61,7 +60,7 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
   const filtered = qs.length + sts.length + whos.length > 0;
   return (
     <>
-      <PageHead title="My Work" lead="Tasks waiting on you and your queues, soonest due first." />
+      <PageHead title="My Work" lead="Tasks waiting on you and your team, soonest due first." />
       <div className="mw-tiles" role="group" aria-label="Your work">
         {tiles.map(([n, k, sub, cls]) => (
           <div key={k} className={`card mw-tile ${cls}`}>
@@ -214,14 +213,13 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
                         </td>
                         <td>
                           <span className="cfg__strong">{t.title}</span>
-                          <span className="cfg__sub">
-                            {kName(t.kind)}
-                            {t.escalated && ` · Escalated to ${t.escalated}`}
-                          </span>
+                          <span className="cfg__sub num">{t.rule}</span>
                         </td>
                         <td>
-                          {t.record}
-                          <span className="cfg__sub">{t.region}</span>
+                          <span className="num">{t.ref}</span>
+                          <span className="cfg__sub">
+                            {t.about} · {t.region}
+                          </span>
                         </td>
                         <td>{qName(t.queue)}</td>
                         <td>{t.assignee || <span className="cfg__muted">Not assigned</span>}</td>
@@ -237,7 +235,7 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
                             {t.assignee ? 'Reassign' : 'Assign'}
                             <span className="vh"> {t.title}</span>
                           </button>
-                          {t.assignee === me && (
+                          {t.assignee === me && t.canComplete && (
                             <button
                               type="button"
                               className="btn btn--link mw-complete"
@@ -261,7 +259,16 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
             <Pager pg={pg} what="tasks" />
           </>
         ) : (
-          <p className="cfg__muted mw-empty">{filtered ? 'No tasks match these filters.' : view === 'mine' ? 'Nothing assigned to you. Well done.' : 'No open tasks.'}</p>
+          <div className="cfg__muted mw-empty">
+            {filtered ? (
+              <p>No tasks match these filters.</p>
+            ) : (
+              <>
+                <p className="cfg__strong">{view === 'mine' ? 'Nothing assigned to you' : 'No open tasks'}</p>
+                <p>New tasks appear here when a task rule fires.</p>
+              </>
+            )}
+          </div>
         )}
       </div>
       <BulkSheet

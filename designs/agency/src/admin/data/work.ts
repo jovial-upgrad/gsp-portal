@@ -1,76 +1,54 @@
 /**
- * Work (Nesil, 5 Nov; the PM's Queues and Task rules): where each kind of work goes and what it's due in, the working
- * time every SLA counts on, who's told when a task is late, and the tasks the system creates on its own. Sample data.
- *
- * The chain: a **task rule** (or a person's request, or an application reaching a stage) makes a task of one **kind of
- * work**; the kind says which **queue** it lands in and its **SLA**; the queue says **how it's shared** among its
- * members; **reminders and escalation** follow the SLA, counted in **working time** (IST).
+ * Queues and Working Days, and Task Rules (Jovial, PM, 9 Nov: the PRD's "Queues and My work" tab). Every task is made
+ * by a **task rule**: the rule says which **queue** its task lands in (a queue, or each region's Admissions or
+ * Recruitment queue), how it's **shared** there and its **SLA**; the working days of the record's sales region say when
+ * it's due. No kinds of work, no reminders and no escalation: a late task shows as Breached. Sample settings.
  */
 
-/** How a queue shares its work. */
-export type Sharing = 'fewest' | 'owner' | 'pick' | 'leader';
+/** How a queue shares a new task (9 Nov: three ways; no "Members pick" or "Leader assigns"). */
+export type Sharing = 'fewest' | 'owner' | 'leader';
 export const SHARING: Record<Sharing, { label: string; hint: string }> = {
-  fewest: { label: 'Fewest open', hint: 'Each task goes to the member with the fewest open tasks here.' },
-  owner: { label: 'Record owner', hint: 'Each task goes to whoever owns the record, like the RP’s BDM.' },
-  pick: { label: 'Members pick', hint: 'Tasks wait in the queue until a member takes one.' },
-  leader: { label: 'Leader assigns', hint: 'The leader gives each task to someone.' },
+  fewest: {
+    label: 'Fewest open',
+    hint: 'It goes to the member (leader included) with the fewest open tasks in this queue; a tie goes to the name first in alphabetical order. Deactivated users and anyone who can’t see the record are skipped; people on leave are not. If no one is left, the leader gets it.',
+  },
+  owner: {
+    label: 'Record owner',
+    hint: 'It goes to whoever owns the record: the application’s officer, the RP’s Recruitment contact, the partner’s or university’s relationship manager, when that person is an active member of the queue. Otherwise: Fewest open.',
+  },
+  leader: { label: 'To the leader', hint: 'It goes to the queue’s leader, who does it or assigns it to a member.' },
 };
-export type QueueType = 'Admissions' | 'Recruitment' | 'Team';
-export const QUEUE_TYPES: QueueType[] = ['Admissions', 'Recruitment', 'Team'];
+export const SHARINGS = Object.keys(SHARING) as Sharing[];
 
-/** Where a kind of work goes: a queue's id, or each sales region's own Admissions or Recruitment queue. */
+/** Where a rule's task goes: a queue's id, or each sales region's own Admissions or Recruitment queue. */
 export type Destination = string;
 export const REGION_ADMISSIONS = 'region:Admissions';
 export const REGION_RECRUITMENT = 'region:Recruitment';
+/** The two regional destinations: their label, the queue name each region's queue has, and where a region with none goes. */
+export const REGIONAL: Record<string, { label: string; suffix: string; fallback: string }> = {
+  [REGION_ADMISSIONS]: { label: 'Each region’s Admissions queue', suffix: 'Admissions', fallback: 'Global Admissions' },
+  [REGION_RECRUITMENT]: { label: 'Each region’s Recruitment queue', suffix: 'Recruitment', fallback: 'Rest of world Recruitment' },
+};
 
-export const AREAS = ['Applications', 'Recruitment partners', 'Institutions and courses', 'Finance', 'System'] as const;
-export type Area = (typeof AREAS)[number];
-export type DueUnit = 'hours' | 'days';
-/** A kind of work: what it is, the queue it lands in, and its SLA in working time. */
-export type WorkKind = { id: string; name: string; area: Area; to: Destination; due: number; unit: DueUnit };
+/** The time zones a calendar can count in (9 Nov: each calendar has its own). */
+export const TIME_ZONES = ['Asia/Kolkata', 'Asia/Dhaka', 'Asia/Kathmandu', 'Asia/Colombo', 'Asia/Karachi', 'Asia/Ho_Chi_Minh', 'Asia/Jakarta', 'Asia/Manila', 'Asia/Shanghai', 'Australia/Sydney', 'Africa/Lagos', 'Europe/London', 'America/Bogota'];
+export const DEFAULT_TZ = 'Asia/Kolkata';
 
-export const dueText = (n: number, unit: DueUnit) => `${n} working ${unit === 'hours' ? (n === 1 ? 'hour' : 'hours') : n === 1 ? 'day' : 'days'}`;
-
-const k = (id: string, name: string, area: Area, to: Destination, due: number, unit: DueUnit = 'days'): WorkKind => ({ id, name, area, to, due, unit });
-/** The 21 kinds of work (sample), by area. Team queues are named by id: see `sampleQueues` in config.ts. */
-export const sampleKinds = (): WorkKind[] => [
-  k('k-verify', 'Verify application documents', 'Applications', REGION_ADMISSIONS, 1),
-  k('k-submit', 'Submit to the university', 'Applications', REGION_ADMISSIONS, 1),
-  k('k-decision', 'Record the university’s decision', 'Applications', REGION_ADMISSIONS, 2),
-  k('k-conditions', 'Check offer conditions', 'Applications', REGION_ADMISSIONS, 2),
-  k('k-deposit', 'Confirm the deposit', 'Applications', REGION_ADMISSIONS, 1),
-  k('k-refund', 'Process a refund', 'Applications', REGION_ADMISSIONS, 3),
-  k('k-chat', 'Answer a handed-over chat', 'Applications', REGION_ADMISSIONS, 4, 'hours'),
-  k('k-escalated', 'Sort out an escalated application', 'Applications', 'q-admission-ops', 1),
-  k('k-rpdocs', 'Verify an RP’s documents', 'Recruitment partners', 'q-rp-ops', 1),
-  k('k-rpagr', 'Check a signed RP agreement', 'Recruitment partners', 'q-rp-ops', 1),
-  k('k-rpreverify', 'Re-verify agency documents', 'Recruitment partners', 'q-rp-ops', 2),
-  k('k-rpsignup', 'Contact an RP to finish sign-up', 'Recruitment partners', REGION_RECRUITMENT, 2),
-  k('k-rpquiet', 'Follow up a quiet RP', 'Recruitment partners', REGION_RECRUITMENT, 5),
-  k('k-unilive', 'Get a university live', 'Institutions and courses', 'q-ip-ops', 10),
-  k('k-coursedata', 'Course data update', 'Institutions and courses', 'q-ip-ops', 5),
-  k('k-iprenew', 'Renew an IP agreement', 'Institutions and courses', 'q-ip-ops', 30),
-  k('k-commission', 'Enter commission terms', 'Finance', 'q-finance', 2),
-  k('k-change', 'Check a change', 'Finance', 'q-finance', 2),
-  k('k-invoice', 'Answer an invoice query', 'Finance', 'q-finance', 3),
-  k('k-payout', 'Approve a payout', 'Finance', 'q-finance', 2),
-  k('k-system', 'Fix a setting or a failed job', 'System', 'q-admin', 1),
-];
-
-/** The working week (Monday first) and hours every SLA counts on, in IST. */
+/** The working week (Monday first) and hours an SLA counts on, in the calendar's time zone. */
 export type Week = { days: boolean[]; from: string; to: string };
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export type Holiday = { id: string; date: string; name: string };
 /**
- * A working calendar (Nesil, 5 Nov, after the reference screens): its working days and hours (always IST: one time
- * zone for everything), the sales regions on it and its own holidays. A region is on one calendar; a record's SLA
- * counts its region's calendar. The first is the default: a record with no region, or a region on no calendar, uses it.
+ * A working calendar: its time zone (9 Nov: each calendar has its own), working days and hours, the sales regions on
+ * it and its own holidays. A region is on one calendar; a record's SLA counts its region's calendar. The first is the
+ * default: a record with no region, or a region on no calendar, uses it.
  */
-export type Calendar = Week & { id: string; name: string; regions: string[]; holidays: Holiday[] };
+export type Calendar = Week & { id: string; name: string; tz: string; regions: string[]; holidays: Holiday[] };
 export const sampleCalendars = (regions: string[]): Calendar[] => [
   {
     id: 'cal-monfri',
     name: 'Monday to Friday',
+    tz: 'Asia/Kolkata',
     days: [true, true, true, true, true, false, false],
     from: '09:30',
     to: '18:30',
@@ -79,12 +57,12 @@ export const sampleCalendars = (regions: string[]): Calendar[] => [
       { id: 'h1', date: '2026-11-08', name: 'Diwali' },
       { id: 'h2', date: '2026-12-25', name: 'Christmas' },
       { id: 'h3', date: '2027-01-01', name: 'New Year’s Day' },
-      { id: 'h4', date: '2027-01-26', name: 'Republic Day' },
     ],
   },
   {
     id: 'cal-sunthu',
     name: 'Sunday to Thursday',
+    tz: 'Asia/Dhaka',
     days: [true, true, true, true, false, false, true],
     from: '09:30',
     to: '18:30',
@@ -123,84 +101,101 @@ export const weekText = (days: boolean[]) => {
   return !on.length ? 'No working days' : run ? `${on[0]} to ${on[on.length - 1]}` : on.join(', ');
 };
 
-/**
- * Reminders and escalation, the same for every queue (5 Nov, later, after the reference): the reminder's working days
- * before due (only on tasks with an SLA of 2 working days or more), level 1 at the due time, levels 2 and 3 after so
- * many working days late, and the morning email's time (IST).
- */
-export type Ladder = { soon: number; l2: number; l3: number; mail: string };
-export const sampleLadder = (): Ladder => ({ soon: 1, l2: 2, l3: 5, mail: '08:30' });
-
-/** A rule's times: working hours, working days or calendar days (the reference's three units). */
+/** A rule's times: working hours, working days or calendar days. */
 export type SpanUnit = 'hours' | 'days' | 'calendar';
-export const SPAN_UNITS: Record<SpanUnit, string> = { hours: 'working hours', days: 'working days', calendar: 'calendar days' };
+export const SPAN_UNITS: Record<SpanUnit, string> = { hours: 'working hours', days: 'working days', calendar: 'days' };
+/** Which units each of a rule's times takes (Starts after: all three; SLA and the RP reminder: working time). */
+export const AFTER_UNITS: SpanUnit[] = ['hours', 'days', 'calendar'];
+export const SLA_UNITS: SpanUnit[] = ['hours', 'days'];
+/** The SLA's limits: 1 to 60 working days, or 1 to 99 working hours. */
+export const SLA_MAX: Record<SpanUnit, number> = { hours: 99, days: 60, calendar: 60 };
 export type Span = { n: number; unit: SpanUnit } | null;
+/** Working hours in a working day: both starting calendars have 9. */
+export const DAY_HOURS = 9;
+/** A span in working hours (calendar days count as working days, for the sample's clock). */
+export const spanHours = (x: Span) => (!x ? 0 : x.unit === 'hours' ? x.n : x.n * DAY_HOURS);
 /** "4 wh", "2 wd", "30 days": short, for the table. */
 export const spanShort = (x: Span) => (!x ? '—' : x.unit === 'hours' ? `${x.n} wh` : x.unit === 'days' ? `${x.n} wd` : `${x.n} ${x.n === 1 ? 'day' : 'days'}`);
-/** "4 working hours", "30 calendar days". */
-export const spanText = (x: Span) => (!x ? '' : `${x.n} ${x.unit === 'calendar' ? (x.n === 1 ? 'calendar day' : 'calendar days') : `working ${x.unit === 'hours' ? (x.n === 1 ? 'hour' : 'hours') : x.n === 1 ? 'day' : 'days'}`}`);
-/** How a rule's tasks are shared: to the application's officer, the queue's own way, or one of the queue methods. */
+/** "4 working hours", "30 days". */
+export const spanText = (x: Span) => (!x ? '' : `${x.n} ${x.unit === 'calendar' ? (x.n === 1 ? 'day' : 'days') : `working ${x.unit === 'hours' ? (x.n === 1 ? 'hour' : 'hours') : x.n === 1 ? 'day' : 'days'}`}`);
+/** Several reminders, one unit: "3 wd and 7 wd". */
+export const spansShort = (xs: Span[]) => (xs.length ? xs.map(spanShort).join(' and ') : '—');
+export const spansText = (xs: Span[]) => xs.map(spanText).join(' and ');
+
+/** How a rule's task is shared: to the application's officer (application rules only), the queue's own way, or one of the three. */
 export type RuleSharing = 'officer' | 'queue' | Sharing;
-export const RULE_SHARING: Record<RuleSharing, string> = { officer: 'The application’s officer', queue: 'The queue’s own way', fewest: 'Fewest open', owner: 'Record owner', leader: 'To the leader', pick: 'Members pick' };
-export const RULE_CATS = ['Applications', 'RPs', 'Institution partners', 'Email', 'Commission', 'Admin', 'Escalation'] as const;
+export const RULE_SHARING: Record<RuleSharing, string> = { officer: 'The application’s officer', queue: 'The queue’s own way', fewest: 'Fewest open', owner: 'Record owner', leader: 'To the leader' };
+export const RULE_SHARINGS = Object.keys(RULE_SHARING) as RuleSharing[];
+
+/** The rule groups, as Task Rules' tabs. */
+export const RULE_CATS = ['Applications', 'RPs', 'Institution partners, universities, courses', 'Email'] as const;
 export type RuleCat = (typeof RULE_CATS)[number];
+/** The record a rule's task is about. */
+export type RecordType = 'Application' | 'RP' | 'Institution partner' | 'University' | 'Course' | 'Email';
+
 /**
- * A task rule (Nesil, 5 Nov, later; after the reference's Task rules): what it watches (**when**), how long that must
- * hold before its task starts (**after**), the task people see, its kind of work (so its queue), its own **SLA** (empty:
- * its kind of work's), when the RP is reminded, how it's shared (empty: as its queue), and when it closes on its own.
- * When, the task, the kind and when it closes are built in; the rest can change. Sample rules, for Jovial to confirm.
+ * A task rule (9 Nov: the only task rules; commission rules come separately). **When**, the **task** and **closes**
+ * are part of the product (shown, not edited); the Admin changes where it **goes**, when it **starts**, its **SLA**, when
+ * the **RP is reminded** (only where the RP owes something), how it's **shared**, and whether it's **on**. `afterEvent`:
+ * a rule that starts at an event (the course start date) rather than after a time. `param`: a number the rule's When
+ * reads (T38's days before the agreement ends). `done`: it closes on Done, so the assignee can Mark as completed.
  */
-export type TaskRule = { id: string; code: string; cat: RuleCat; name: string; on: boolean; fixed?: boolean; when: string; after: Span; task: string; kind: string; sla: Span; remind: Span; sharing: RuleSharing; closes: string };
+export type TaskRule = {
+  id: string;
+  code: string;
+  cat: RuleCat;
+  record: RecordType;
+  name: string;
+  on: boolean;
+  when: string;
+  param?: { label: string; n: number };
+  after: Span;
+  afterEvent?: string;
+  task: string;
+  to: Destination;
+  sla: Span;
+  /** When the RP is reminded; null where the RP owes nothing (the field isn't shown). */
+  remind: Span[] | null;
+  sharing: RuleSharing;
+  closes: string;
+  done: boolean;
+};
+/** A rule's When, with its number filled in. */
+export const whenText = (r: TaskRule) => (r.param ? r.when.replace('{days}', String(r.param.n)) : r.when);
 const h = (n: number): Span => ({ n, unit: 'hours' });
 const d = (n: number): Span => ({ n, unit: 'days' });
-let seq = 0;
-const r = (cat: RuleCat, name: string, when: string, task: string, kind: string, closes: string, o: Partial<Pick<TaskRule, 'after' | 'sla' | 'remind' | 'sharing' | 'on' | 'fixed'>> = {}): TaskRule => {
-  seq += 1;
-  return { id: `tr-${seq}`, code: `T${seq}`, cat, name, on: o.on ?? true, fixed: o.fixed, when, after: o.after ?? null, task, kind, sla: o.sla ?? null, remind: o.remind ?? null, sharing: o.sharing ?? 'queue', closes };
-};
-export const sampleRules = (): TaskRule[] => {
-  seq = 0;
-  return [
-    r('Applications', 'Documents to verify', 'Status is Pending verification', 'Verify the documents for [student]', 'k-verify', 'The status changes', { sla: h(1), sharing: 'officer' }),
-    r('Applications', 'New documents from the RP', 'The RP sent documents GSP hasn’t checked', 'Check the documents the RP sent for [student]', 'k-verify', 'Every document is verified or sent back', { sla: h(1), sharing: 'officer' }),
-    r('Applications', 'Unread message from the RP', 'The RP sent a message the officer hasn’t seen', 'Reply to the RP on [student]', 'k-chat', 'The officer opens the application', { sla: h(1), sharing: 'officer' }),
-    r('Applications', 'Re-upload is late', 'A sent-back document isn’t re-uploaded', 'Chase the RP: the re-upload for [student] is late', 'k-verify', 'The RP re-uploads, or the status changes', { after: h(48), sla: h(6), remind: h(24), sharing: 'officer' }),
-    r('Applications', 'Ready to submit', 'Status is Ready to submit', 'Submit [student] to [university]', 'k-submit', 'The status moves to Submitted to university', { sla: h(1), sharing: 'officer' }),
-    r('Applications', 'No decision yet', 'Submitted, with no decision from the university', 'Chase [university] for a decision on [student]', 'k-decision', 'The decision is recorded', { after: d(10), sharing: 'officer' }),
-    r('Applications', 'Conditional offer', 'A conditional offer arrives', 'Check the offer conditions for [student]', 'k-conditions', 'Every condition is met or waived', { remind: d(3), sharing: 'officer' }),
-    r('Applications', 'Payment proof', 'The RP uploads a deposit or tuition receipt', 'Confirm the payment for [student]', 'k-deposit', 'The payment is confirmed or sent back', { sharing: 'officer' }),
-    r('Applications', 'Refund asked for', 'The RP asks for a refund', 'Process the refund for [student]', 'k-refund', 'The refund is paid, or refused with a reason', { sharing: 'officer' }),
-    r('Applications', 'Stuck application', 'The status hasn’t changed', 'Move [student]’s application on', 'k-escalated', 'The status changes', { after: d(15) }),
-    r('RPs', 'Sign-up not finished', 'Registered and not activated', 'Contact [RP] to finish sign-up', 'k-rpsignup', 'The RP is activated, or marked Not interested', { after: d(3), remind: d(2) }),
-    r('RPs', 'Documents sent', 'An RP sends its onboarding documents', 'Verify [RP]’s documents', 'k-rpdocs', 'Every document is verified or sent back'),
-    r('RPs', 'Signed agreement', 'An RP uploads its signed agreement', 'Check [RP]’s signed agreement', 'k-rpagr', 'The agreement is accepted or sent back'),
-    r('RPs', 'Document expiring', 'An RP document expires soon', 'Re-verify [RP]’s documents', 'k-rpreverify', 'A new document is verified', { after: { n: 30, unit: 'calendar' }, remind: d(10) }),
-    r('RPs', 'Quiet RP', 'An active RP sends no new application', 'Follow up [RP]', 'k-rpquiet', 'The RP sends an application, or the BDM logs a reason', { after: { n: 30, unit: 'calendar' }, sharing: 'owner' }),
-    r('Institution partners', 'Agreement ends soon', 'An IP agreement ends in 60 days', 'Renew the agreement with [IP]', 'k-iprenew', 'A new agreement is uploaded'),
-    r('Institution partners', 'Course review due', 'A university’s course review is due in 14 days', 'Update course data for [university]', 'k-coursedata', 'The courses are checked'),
-    r('Institution partners', 'New university', 'A new university is signed', 'Get [university] live', 'k-unilive', 'The university is live in course search'),
-    r('Email', 'Unmatched email', 'A university email can’t be placed on an application', 'Place the email from [sender]', 'k-escalated', 'The email is placed or dismissed', { sla: h(9) }),
-    r('Email', 'Email matched', 'An email is matched to an application (90% or more)', 'Act on the email for [student]', 'k-decision', 'The officer files or dismisses the email', { sla: h(1), sharing: 'officer' }),
-    r('Email', 'Interview asked for', 'An email asks for an interview or a GS assessment', 'Book the interview for [student]', 'k-conditions', 'The interview is booked', { sla: h(9), sharing: 'officer' }),
-    r('Commission', 'Remittance received', 'A remittance or statement arrives at the commissions inbox', 'Match the remittance against commissions', 'k-change', 'It’s matched to invoices', { sla: h(24) }),
-    r('Commission', 'Commission terms missing', 'An agreement is uploaded and no terms are entered', 'Enter commission terms for [partner]', 'k-commission', 'The terms are entered and checked', { sla: h(18) }),
-    r('Commission', 'Rule changed', 'A commission rule is drafted or changed', 'Check the change to [rule]', 'k-change', 'A second person approves or rejects it', { sla: h(9) }),
-    r('Commission', 'Invoice query', 'An RP queries a statement', 'Answer [RP]’s query', 'k-invoice', 'The query is answered'),
-    r('Commission', 'Payout ready', 'The weekly payout run is ready', 'Approve this week’s payout', 'k-payout', 'The payout is approved'),
-    r('Admin', 'Failed job', 'A scheduled job fails', 'Fix the failed job: [job]', 'k-system', 'The job runs'),
-    r('Admin', 'Inbox not syncing', 'A shared inbox stops syncing', 'Reconnect [inbox]', 'k-system', 'The inbox syncs again', { sla: h(4) }),
-    r('Admin', 'Exchange rates missing', 'Friday 1 am IST, and next week has no exchange rates', 'Enter next week’s exchange rates', 'k-system', 'The rates are saved', { sla: h(9), sharing: 'leader' }),
-    r('Admin', 'Rate missing for a date', 'A commission line uses a currency with no rate for its date', 'Add a rate for [currency] from [date]', 'k-system', 'The rate is saved', { sla: h(9), sharing: 'leader' }),
-    r('Escalation', 'Late task', 'A task is past its due time (Reminders and Escalation)', 'No new task: the same task is shown to more people', 'k-escalated', 'The task is done', { fixed: true }),
-  ];
-};
-
-/** Requests people can raise from a record, by the queue they go to (each region's Recruitment queue, or a team's). */
-export type RequestList = { to: Destination; types: string[] };
-export const sampleRequests = (): RequestList[] => [
-  { to: 'q-ip-ops', types: ['Update IP contacts', 'Check agreement terms', 'Update courses', 'Add a new course', 'Fix a course error'] },
-  { to: 'q-finance', types: ['Enter commission details', 'Invoice query'] },
-  { to: 'q-rp-ops', types: ['Re-verify agency documents', 'Change agency details'] },
-  { to: REGION_RECRUITMENT, types: ['Contact this RP'] },
-  { to: 'q-admission-ops', types: ['Escalate an application issue'] },
+const r = (code: string, cat: RuleCat, record: RecordType, name: string, when: string, task: string, to: Destination, sla: Span, sharing: RuleSharing, closes: string, o: Partial<Pick<TaskRule, 'after' | 'afterEvent' | 'remind' | 'param'>> = {}): TaskRule => ({
+  id: code,
+  code,
+  cat,
+  record,
+  name,
+  on: true,
+  when,
+  param: o.param,
+  after: o.after ?? null,
+  afterEvent: o.afterEvent,
+  task,
+  to,
+  sla,
+  remind: o.remind ?? null,
+  sharing,
+  closes,
+  done: /^Done\b/.test(closes),
+});
+/** The task rules (Jovial, 9 Nov), with their IDs. Team queues by id: see `sampleQueues` in config.ts. */
+export const sampleRules = (): TaskRule[] => [
+  r('T5', 'Applications', 'Application', 'No decision yet', 'Submitted to university', 'Chase {university} for a decision on {student}', REGION_ADMISSIONS, h(12), 'officer', 'Done, or the status changes', { after: d(2) }),
+  r('T54', 'Applications', 'Application', 'Assessment or interview', 'University assessment or interview', 'Chase {university} about {student}’s assessment or interview', REGION_ADMISSIONS, h(12), 'officer', 'Done, or the status changes', { after: d(5) }),
+  r('T16', 'Applications', 'Application', 'Acceptance letter', 'Awaiting acceptance letter from university', 'Chase {university} for the acceptance letter for {student}', REGION_ADMISSIONS, h(12), 'officer', 'Done, or the status changes', { after: d(3) }),
+  r('T57', 'Applications', 'Application', 'Course started', 'Visa granted', 'Confirm {student} has started', REGION_ADMISSIONS, h(18), 'officer', 'The status changes', { afterEvent: 'the course start date' }),
+  r('T20', 'Applications', 'Application', 'Enrolment confirmation', 'Enrolment confirmation pending', 'Confirm {student}’s enrolment with {university}', REGION_ADMISSIONS, d(3), 'officer', 'The status moves to Student enrolled'),
+  r('T32', 'RPs', 'RP', 'Onboarding documents', 'Every onboarding document uploaded', 'Verify {RP}', 'q-rp-ops', h(12), 'fewest', 'Verified or sent back'),
+  r('T69', 'RPs', 'RP', 'Signed agreement', 'An agreement was sent to the RP and no signed copy is uploaded yet (Sent)', 'Chase {RP} for its signed agreement', 'q-rp-ops', h(18), 'fewest', 'A signed copy is uploaded, or the agreement is withdrawn', { after: d(10), remind: [d(3), d(7)] }),
+  r('T37', 'RPs', 'RP', 'No new application', 'No new application', 'Check in with {RP}', REGION_RECRUITMENT, h(45), 'owner', 'An application is added, or the Recruitment contact notes why', { after: { n: 90, unit: 'calendar' } }),
+  r('T38', 'Institution partners, universities, courses', 'Institution partner', 'Agreement ends', '{days} days before the agreement ends', 'Renew the agreement with {partner}', 'q-institution', d(30), 'owner', 'A new agreement is uploaded', { param: { label: 'Days before the agreement ends', n: 60 } }),
+  r('T40', 'Institution partners, universities, courses', 'University', 'University not live', 'Go-live checks incomplete 14 days after the university was created', 'Get {university} live', 'q-ip-ops', d(14), 'leader', 'The university is Live'),
+  r('T41', 'Institution partners, universities, courses', 'Course', 'Course in draft', 'A course in draft for 7 days', 'Finish and publish {course}', 'q-ip-ops', d(5), 'leader', 'Published'),
+  r('T42', 'Institution partners, universities, courses', 'Course', 'No next intake', 'The last intake’s deadline passed and there’s no next intake', 'Add the next intake for {course}', 'q-ip-ops', d(5), 'queue', 'An intake is added'),
+  r('T27', 'Email', 'Email', 'Mail not linked', 'A mail to gsp.admissions@ can’t be linked to an application and isn’t forwarded (a student with no application yet, say)', 'Link this mail to an application', 'q-global-admissions', h(1), 'fewest', 'Linked, forwarded or marked Not needed'),
 ];
