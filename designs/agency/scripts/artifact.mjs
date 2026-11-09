@@ -13,11 +13,17 @@ const src = 'dist-artifact/index.html';
 const out = 'dist-artifact/gsp-partner-portal.html';
 const html = fs.readFileSync(src, 'utf8');
 
+// The code itself may hold HTML text (a printable invoice has its own <head> and <style>), so find the module
+// script by position first, and read the real head and style only around it.
 const title = html.match(/<title>[\s\S]*?<\/title>/)[0];
-const head = html.match(/<head>([\s\S]*?)<\/head>/)[1];
-const body = html.match(/<body>([\s\S]*?)<\/body>/)[1];
-const script = head.match(/<script type="module"[^>]*>([\s\S]*?)<\/script>/);
-const style = head.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+const sOpen = html.indexOf('<script type="module"');
+const sBody = html.indexOf('>', sOpen) + 1;
+const sClose = html.indexOf('</script>', sBody);
+const script = sOpen < 0 ? null : [html.slice(sOpen, sClose + 9), html.slice(sBody, sClose)];
+const headEnd = html.indexOf('</head>', sClose);
+const head = html.slice(html.indexOf('<head>') + 6, headEnd);
+const style = html.slice(sClose + 9, headEnd).match(/<style[^>]*>([\s\S]*?)<\/style>/) ?? head.slice(0, sOpen - html.indexOf('<head>') - 6).match(/<style[^>]*>([\s\S]*?)<\/style>/);
+const body = html.slice(html.indexOf('<body>', headEnd) + 6, html.lastIndexOf('</body>'));
 if (!script || !style) throw new Error('Expected one inline module script and one inline style in the single-file build.');
 
 const pack = (text) => zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 }).toString('base64');
