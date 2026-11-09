@@ -143,6 +143,8 @@ function readOptions(children: ReactNode, group?: string): MenuOption[] {
       out.push({ value: String(el.props.value ?? label), label, disabled: !!el.props.disabled, group });
     } else if (el.type === 'optgroup') out.push(...readOptions(el.props.children, el.props.label));
     else if (el.type === Fragment) out.push(...readOptions(el.props.children, group));
+    // a component here renders options the list can't read (9 Nov): map `<option>`s straight into the select instead
+    else if (import.meta.env.DEV) console.warn('SelectInput: only <option>, <optgroup> and fragments are read as choices; this child is skipped.', el.type);
   });
   return out;
 }

@@ -63,15 +63,14 @@ function FormSheet({ open, title, sub, onClose, onSave, children, saveLabel = 'S
 }
 const pctBad = (n: number | null, required: boolean) => (n === null ? required : !(n > 0 && n <= 100));
 const wholeIn = (n: number | null, lo: number, hi: number) => n !== null && Number.isInteger(n) && n >= lo && n <= hi;
-const Options = ({ list }: { list: readonly string[] }) => (
-  <>
-    {list.map((x) => (
-      <option key={x} value={x}>
-        {x}
-      </option>
-    ))}
-  </>
-);
+/** A select's choices from a settings list. A plain function, not a component: SelectInput reads the option elements among its
+ *  children to build its list, and can't see inside a component (9 Nov: `<Options>` left every such list empty). */
+const options = (list: readonly string[]) =>
+  list.map((x) => (
+    <option key={x} value={x}>
+      {x}
+    </option>
+  ));
 function Area({ id, value, onChange, placeholder }: { id: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div className="control iform__area">
@@ -124,7 +123,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
       </Field>
       <Field id="cag-type" label="Share type" required>
         <SelectInput id="cag-type" value={v.shareType} onChange={(e) => set({ shareType: e.target.value as AgDraft['shareType'] })}>
-          <Options list={SHARE_TYPES} />
+          {options(SHARE_TYPES)}
         </SelectInput>
       </Field>
       {flat ? (
@@ -134,7 +133,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
       ) : (
         <Field id="cag-counted" label="Counted per" required hint={v.countedPer === 'Financial year' ? `GSP’s financial year: 1 ${MONTH_NAMES[s.settings.fyStart - 1]} to the end of ${MONTH_NAMES[(s.settings.fyStart + 10) % 12]}.` : undefined}>
           <SelectInput id="cag-counted" value={v.countedPer} onChange={(e) => set({ countedPer: e.target.value as AgDraft['countedPer'] })}>
-            <Options list={COUNTED_PER} />
+            {options(COUNTED_PER)}
           </SelectInput>
         </Field>
       )}
@@ -145,7 +144,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
       )}
       <Field id="cag-retro" label="Retrospective" optional hint="Yes: reaching a higher band raises the share of every earlier enrolment in the same period.">
         <SelectInput id="cag-retro" value={v.retro ? 'Yes' : 'No'} onChange={(e) => set({ retro: e.target.value === 'Yes' })}>
-          <Options list={YES_NO} />
+          {options(YES_NO)}
         </SelectInput>
       </Field>
       <Field id="cag-pay" label="Pay within (days)" required error={show('payDays')} hint="Days after GSP receives the RP’s accepted invoice.">
@@ -262,7 +261,7 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
         </Field>
         <Field id="crec-tax" label="Registered for tax (GST, VAT)" optional hint="Yes adds the tax line to GSP’s filled-in invoice.">
           <SelectInput id="crec-tax" value={tax ? 'Yes' : 'No'} onChange={(e) => setTax(e.target.value === 'Yes')}>
-            <Options list={YES_NO} />
+            {options(YES_NO)}
           </SelectInput>
         </Field>
         {info && (
@@ -378,7 +377,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
       </Field>
       <Field id="cnt-benefit" label="Benefit" required error={show('benefit')}>
         <SelectInput id="cnt-benefit" value={v.benefit} placeholder="Choose the benefit" invalid={!!show('benefit')} onChange={(e) => set({ benefit: e.target.value as Benefit })}>
-          <Options list={BENEFITS} />
+          {options(BENEFITS)}
         </SelectInput>
       </Field>
       {v.benefit === 'Bonus per enrolment' && (
@@ -388,7 +387,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
           </Field>
           <Field id="cnt-cur" label="Currency" required>
             <SelectInput id="cnt-cur" value={v.currency} onChange={(e) => set({ currency: e.target.value })}>
-              <Options list={CURRENCIES} />
+              {options(CURRENCIES)}
             </SelectInput>
           </Field>
         </>
@@ -406,7 +405,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
       {v.benefit && v.benefit !== 'Bonus per enrolment' && (
         <Field id="cnt-retro" label="Retrospective" optional>
           <SelectInput id="cnt-retro" value={v.retro ? 'Yes' : 'No'} onChange={(e) => set({ retro: e.target.value === 'Yes' })}>
-            <Options list={YES_NO} />
+            {options(YES_NO)}
           </SelectInput>
         </Field>
       )}
@@ -497,12 +496,12 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
       </div>
       <Field id="cut-basis" label="Fee basis" required>
         <SelectInput id="cut-basis" value={v.feeBasis} onChange={(e) => set({ feeBasis: e.target.value as TermsDraft['feeBasis'] })}>
-          <Options list={FEE_BASES} />
+          {options(FEE_BASES)}
         </SelectInput>
       </Field>
       <Field id="cut-trigger" label="Trigger" required error={show('trigger')} hint="When a study period’s commission is earned.">
         <SelectInput id="cut-trigger" value={v.trigger} placeholder="Choose the trigger" invalid={!!show('trigger')} onChange={(e) => set({ trigger: e.target.value as Trigger })}>
-          <Options list={TRIGGER_LABELS} />
+          {options(TRIGGER_LABELS)}
         </SelectInput>
       </Field>
       <Field id="cut-inst" label="Instalments" required error={show('inst')} hint="Study periods the university pays commission on (like 2 for the first year of semesters).">
@@ -535,11 +534,11 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
           <div key={a.id} className="cform__row">
             <TextInput id={`cut-ad-d-${i}`} aria-label={`Additional commission ${i + 1}: description`} placeholder="Like: Service fee" value={a.desc} onChange={(e) => upAddl(i, { desc: e.target.value })} />
             <SelectInput id={`cut-ad-k-${i}`} aria-label={`Additional commission ${i + 1}: amount or %`} value={a.kind} onChange={(e) => upAddl(i, { kind: e.target.value as Addl['kind'] })}>
-              <Options list={ADDL_KINDS} />
+              {options(ADDL_KINDS)}
             </SelectInput>
             <TextInput id={`cut-ad-v-${i}`} aria-label={`Additional commission ${i + 1}: ${a.kind === '%' ? 'percent' : `amount in ${cur}`}`} inputMode="decimal" value={numText(a.value)} onChange={(e) => upAddl(i, { value: numOf(e.target.value) ?? NaN })} />
             <SelectInput id={`cut-ad-w-${i}`} aria-label={`Additional commission ${i + 1}: when`} value={a.when} onChange={(e) => upAddl(i, { when: e.target.value as Addl['when'] })}>
-              <Options list={ADDL_WHEN} />
+              {options(ADDL_WHEN)}
             </SelectInput>
             <button type="button" className="icon-btn" aria-label={`Remove additional commission ${i + 1}`} onClick={() => set({ addl: v.addl.filter((_, j) => j !== i) })}>
               <Icon name="close" size={16} />
