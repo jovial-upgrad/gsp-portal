@@ -134,10 +134,10 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
             <h2 className="irsec__title" id="cearn-lines">
               Commission lines
             </h2>
-            <p className="irsec__note">Your share of what each university pays GSP, line by line, in the university’s currency.</p>
+            <p className="irsec__note">What GSP pays you, line by line, in the university’s currency.</p>
           </div>
         </div>
-        {mine.length ? <TxTable txs={mine} rp app caption="Your commission lines" amountNote={`To question an amount, email ${s.settings.disputeEmail} with the transaction ID.`} /> : <p className="iempty">Lines show once one of your students enrols.</p>}
+        {mine.length ? <TxTable txs={mine} rp rpView app caption="Your commission lines" amountNote={`To question an amount, email ${s.settings.disputeEmail} with the transaction ID.`} /> : <p className="iempty">Lines show once one of your students enrols.</p>}
       </section>
 
       <BankSheet open={editBank} rp={rp} bank={bank} onClose={() => setEditBank(false)} onSave={(b) => (saveBank(b, me), setEditBank(false), say(bank ? 'Bank account changed.' : 'Bank account added.'))} />

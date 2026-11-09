@@ -5,7 +5,7 @@ import { ENROL_DOC, ENROL_DOC_LONG, VISA_NAME, courseOf, destOf, gspContact, sta
 
 /**
  * What only GSP's team keeps for an application: the university's mail about it, where and how it's
- * submitted, and the census date and final tuition fee. Kept apart from the application itself, so the
+ * submitted. Kept apart from the application itself, so the
  * agency portal never sees it.
  */
 export type Mail = {
@@ -30,7 +30,7 @@ export type Channel = { via: 'mail'; email: string } | { via: 'studylink' | 'por
 export const CHANNEL_NAME: Record<Channel['via'], string> = { mail: 'Through mail', studylink: 'Through StudyLink', portal: 'Through the university portal' };
 
 /** `dismissed`: university documents in the mail GSP chose not to add to Documents. */
-export type Desk = { mails: Mail[]; channel: Channel; census: number; fee: number; dismissed?: string[] };
+export type Desk = { mails: Mail[]; channel: Channel; dismissed?: string[] };
 
 const DAY = 86_400_000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -209,10 +209,9 @@ export function statusMail(a: Application, s: Student, k: StatusKey, at: number)
   }
   return undefined;
 }
-/** Census date: about four weeks after the course starts. Final tuition fee: the course's yearly tuition. */
+/** The application's mail and channel. (The census date and tuition fee are the application's own, filled in by Admissions: 9 Nov.) */
 export function deskFor(a: Application, s: Student): Desk {
-  const c = courseOf(a);
-  return { mails: mailsFor(a, s), channel: channelFor(a), census: intakeStart(a.intake) + 30 * DAY, fee: c.tuition };
+  return { mails: mailsFor(a, s), channel: channelFor(a) };
 }
 
 /** GSP Assist's summary of a mail: the written one, or its first few sentences. */

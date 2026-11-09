@@ -4,7 +4,7 @@ import { CURRENCY } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
 import { DocLine, SetupButton, StatusPill, TxTable } from './parts';
-import { compute, noticeStatus, totalsText, type Item } from './engine';
+import { compute, settleAll, noticeStatus, totalsText, type Item } from './engine';
 import { ctxOf, ctxUnis, enrolmentsOf, useComm } from './store';
 import { LEVELS, addlText, bandsText, benefitText, bonusCondition, dayText, money, pct, type CommState, type Notice } from './model';
 import { todayIso } from '../../institution/data/records';
@@ -50,7 +50,7 @@ export function RpCommissionTab({ rp }: { rp: { id: string; name: string } }) {
                 ] as [string, string][])),
             ['Retrospective', ag.retro ? 'Yes' : 'No'],
             ['Additional commission passed on', ag.addl === null ? 'The same as the share' : pct(ag.addl)],
-            ['Bonus passed on', ag.bonus === null ? 'None' : pct(ag.bonus)],
+            ['Bonus', ag.bonuses.length ? ag.bonuses.map((b) => `${b.desc}: ${money(b.amount, b.currency)} ${b.when === 'Every enrolment' ? 'on every enrolment' : `on enrolment ${b.nth}, counted per ${ag.countedPer.toLowerCase()}`}`).join('; ') : 'None', 'wide'],
             ['Pay within', `${ag.payDays} days of GSP receiving the accepted invoice`],
             ['Agreement details', ag.details, 'wide'],
             ['Agreement document', <DocLine key="d" file={ag.doc} label={ag.name} />, 'wide'],
@@ -109,7 +109,7 @@ export function termsFacts(t: CommState['terms'][number], cur: string): ([string
     ['Cap per student', t.cap === null ? 'None' : money(t.cap, cur)],
     ['Tier bands', t.bands.length ? bandsText(t.bands) : 'None'],
     ['Additional commission', t.addl.length ? t.addl.map((a) => addlText(a, cur)).join('; ') : 'None', 'wide'],
-    ['Bonus', t.bonus.length ? t.bonus.map((b) => `${b.desc}: ${money(b.amount, cur)} ${bonusCondition(b)}`).join('; ') : 'None', 'wide'],
+    ['Bonus', t.bonus.length ? `${t.bonus.map((b) => `${b.desc}: ${money(b.amount, cur)} ${bonusCondition(b)}`).join('; ')}. GSP’s alone: no RP gets a share.` : 'None', 'wide'],
     ['Notes', t.notes, 'wide'],
   ];
 }
@@ -136,10 +136,12 @@ export function UniCommissionTab({ uni }: { uni: { id: string; name: string; cou
 }
 
 /** One commission item: its totals, then its transactions. */
-function ItemCard({ item, rp }: { item: Item; rp?: boolean }) {
+function ItemCard({ item, rp, rpView }: { item: Item; rp?: boolean; rpView?: boolean }) {
   const s = useComm();
+  // the RP never sees GSP's rate, GSP's amount or its share of GSP's commission (9 Nov)
+  const note = item.side === 'uni' ? 'What the university pays GSP.' : rpView ? 'What GSP pays you for this application, line by line.' : 'What GSP pays the RP: its share of each of the university’s lines, and its own bonuses.';
   return (
-    <Section title={item.label} id={`citem-${item.side}`} note={item.side === 'uni' ? 'What the university pays GSP.' : 'What GSP pays the RP: its share of each of the university’s lines, and any notice bonus.'}>
+    <Section title={item.label} id={`citem-${item.side}`} note={note}>
       {item.note ? (
         <p className="iempty">{item.note}</p>
       ) : (
@@ -154,7 +156,7 @@ function ItemCard({ item, rp }: { item: Item; rp?: boolean }) {
               <dd className="num">{totalsText(item.settled)}</dd>
             </div>
           </dl>
-          <TxTable txs={item.txs} rp={rp} caption={item.label} amountNote={rp ? `To question an amount, email ${s.settings.disputeEmail} with the transaction ID.` : undefined} />
+          <TxTable txs={item.txs} rp={rp} rpView={rpView} caption={item.label} amountNote={rp ? `To question an amount, email ${s.settings.disputeEmail} with the transaction ID.` : undefined} />
         </>
       )}
     </Section>
@@ -167,7 +169,11 @@ function ItemCard({ item, rp }: { item: Item; rp?: boolean }) {
  */
 export function AppCommissionTab({ a, s, rpOnly }: { a: Application; s: Student; rpOnly?: boolean }) {
   const st = useComm();
-  const res = useMemo(() => compute(st, ctxOf(), enrolmentsOf([a], [s])), [st, a, s]);
+  // with each line's ID and, once acted on, as it was kept (the portal keeps them in the store)
+  const res = useMemo(() => {
+    const extra = enrolmentsOf([a], [s]);
+    return compute(settleAll(st, ctxOf(), extra), ctxOf(), extra);
+  }, [st, a, s]);
   const lines = res.byApp.get(a.id);
   if (!lines)
     return (
@@ -178,7 +184,7 @@ export function AppCommissionTab({ a, s, rpOnly }: { a: Application; s: Student;
   return (
     <>
       {!rpOnly && <ItemCard item={lines.uniItem} />}
-      <ItemCard item={lines.rpItem} rp />
+      <ItemCard item={lines.rpItem} rp rpView={rpOnly} />
     </>
   );
 }

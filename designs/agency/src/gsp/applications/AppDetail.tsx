@@ -1,3 +1,4 @@
+import { FeeRows } from '../../finance/commission/AppFees';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useHides } from '../../proto/viewOnly';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -37,7 +38,7 @@ import { SubmissionTab, isSubmitted } from './Submission';
 import { StatusDialog, type StatusPick } from './StatusDialog';
 import { ReviewDialog, whereFrom } from './ReviewDialog';
 import { isSentBack, onProfile, reviewsOf, toReview, type Review } from './review';
-import { longDate, mailDocs, rpContact, statusMail, type Desk, type MailDoc } from './desk';
+import { mailDocs, rpContact, statusMail, type Desk, type MailDoc } from './desk';
 import { DocButtons, downloadDoc } from '../../components/DocView';
 import { Celebrate } from '../../components/Celebrate';
 import { CondCard, CondDialog, condViews } from '../../screens/applications/Conditions';
@@ -210,16 +211,6 @@ export function AppDetail({
     update((x) => ({ ...x, uniRef: ref, history: [...x.history, { at: now, who: 'gsp', text: was ? `Changed the university reference from ${was} to ${ref}` : `Added the university reference ${ref}`, by: gsp.name }] }));
   };
 
-  const setCensus = (t: number) => {
-    setDesk((x) => ({ ...x, census: t }));
-    log(`Set the census date to ${longDate(t)}`);
-    say(`Census date set to ${longDate(t)}.`);
-  };
-  const setFee = (n: number) => {
-    setDesk((x) => ({ ...x, fee: n }));
-    log(`Set the final tuition fee to ${money(n, c.currency)}`);
-    say(`Final tuition fee set to ${money(n, c.currency)}.`);
-  };
 
   // a document GSP adds: from the chat, or uploaded in Documents, with the name GSP gave it
   const addFile = (file: string, via?: 'chat', name = nameFromFile(file)) => {
@@ -610,24 +601,11 @@ export function AppDetail({
               <Row k="Application" v={<span className="num">{a.id}</span>} />
               {a.uniRef && <Row k="University reference" v={<span className="num">{a.uniRef}</span>} />}
               <Row k="Intake" v={a.intake} />
-              <EditRow id="census" k="Census date" kind="date" value={desk.census} shown={longDate(desk.census)} onSave={setCensus} />
-              <EditRow
-                id="fee"
-                k="Final tuition fee"
-                kind="money"
-                currency={c.currency}
-                value={desk.fee}
-                shown={
-                  <span>
-                    <span className="num">{money(desk.fee, c.currency)}</span>
-                    {desk.fee !== c.tuition && <span className="cdl__soft num"> · listed {money(c.tuition, c.currency)}</span>}
-                  </span>
-                }
-                onSave={setFee}
-              />
+              {/* the fee and dates commission is worked out from, filled in by Admissions (9 Nov) */}
+              <FeeRows a={a} currency={c.currency} update={update} log={log} say={say} />
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Length" v={duration(c.months)} />
-              {c.scholarship > 0 && <Row k="Scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}
+              {c.scholarship > 0 && <Row k="Course scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}
               {offer && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
@@ -693,98 +671,6 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   );
 }
 
-const isoDate = (t: number) => {
-  const x = new Date(t);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-};
-
-/** A Key details line GSP can correct: the value with a pencil, then a field with Save and Cancel. */
-function EditRow({ id, k, kind, value, shown, currency, onSave }: { id: string; k: string; kind: 'date' | 'money'; value: number; shown: React.ReactNode; currency?: string; onSave: (v: number) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [v, setV] = useState('');
-  const [bad, setBad] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
-  const pencil = useRef<HTMLButtonElement>(null);
-  const begin = () => {
-    setV(kind === 'date' ? isoDate(value) : String(value));
-    setBad(false);
-    setEditing(true);
-    window.setTimeout(() => ref.current?.focus(), 30);
-  };
-  const end = () => {
-    setEditing(false);
-    window.setTimeout(() => pencil.current?.focus(), 30);
-  };
-  const save = () => {
-    const n = kind === 'date' ? new Date(`${v}T00:00:00`).getTime() : Number(v.replace(/[^\d.]/g, ''));
-    if (!v.trim() || !Number.isFinite(n) || n <= 0 || (kind === 'money' && n > 10_000_000)) return setBad(true);
-    if (n !== value) onSave(n);
-    end();
-  };
-  return (
-    <div className={`cdl__row gedit ${editing ? 'is-editing' : ''}`}>
-      <dt>{editing ? <label htmlFor={`gedit-${id}`}>{k}</label> : k}</dt>
-      <dd>
-        {editing ? (
-          <form
-            className="gedit__form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              save();
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== 'Escape') return;
-              e.stopPropagation();
-              end();
-            }}
-          >
-            <span className={`control gedit__control ${bad ? 'is-invalid' : ''}`}>
-              {kind === 'money' && (
-                <span className="gedit__cur" aria-hidden="true">
-                  {currency}
-                </span>
-              )}
-              <input
-                ref={ref}
-                id={`gedit-${id}`}
-                className="control__input num"
-                type={kind === 'date' ? 'date' : 'text'}
-                inputMode={kind === 'money' ? 'numeric' : undefined}
-                value={v}
-                aria-invalid={bad || undefined}
-                aria-describedby={bad ? `gedit-${id}-err` : undefined}
-                onChange={(e) => {
-                  setV(e.target.value);
-                  setBad(false);
-                }}
-              />
-            </span>
-            {bad && (
-              <span id={`gedit-${id}-err`} className="gedit__err" role="alert">
-                {kind === 'date' ? 'Pick a date.' : 'Enter the fee as a number.'}
-              </span>
-            )}
-            <span className="gedit__acts">
-              <Button type="submit" size="sm">
-                Save
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={end}>
-                Cancel
-              </Button>
-            </span>
-          </form>
-        ) : (
-          <span className="gedit__val">
-            {shown}
-            <button ref={pencil} type="button" className="scopy gedit__pen" aria-label={`Edit the ${k.toLowerCase()}`} title={`Edit the ${k.toLowerCase()}`} onClick={begin}>
-              <Icon name="edit" size={14} />
-            </button>
-          </span>
-        )}
-      </dd>
-    </div>
-  );
-}
 
 /* ---------- what's with the RP ---------- */
 

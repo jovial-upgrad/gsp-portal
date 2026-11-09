@@ -19,8 +19,9 @@ try {
   const appsMod = await vite.ssrLoadModule('/src/data/applications.ts');
   const studentsMod = await vite.ssrLoadModule('/src/data/students.ts');
   const TODAY = '2026-11-09';
-  const state = seed.sampleComm();
   const extra = store.enrolmentsOf(appsMod.sampleApplications(), studentsMod.sampleStudents(''));
+  // as the portal keeps it: every line given its ID, and lines acted on kept as they were
+  const state = engine.settleAll(seed.sampleComm(), store.ctxOf(TODAY), extra);
   const res = engine.compute(state, store.ctxOf(TODAY), extra);
   const uni = res.txs.filter((t) => t.side === 'uni');
   const rp = res.txs.filter((t) => t.side === 'rp');
@@ -29,8 +30,8 @@ try {
   ok('the prototype’s own enrolled applications are read', extra.length === 3 && extra.every((e) => res.byApp.has(e.app)), extra.map((e) => e.app).join());
 
   // every RP line has a matching university line, or comes from a notice
-  const orphan = rp.filter((t) => (t.matches ? !res.byId.has(t.matches) : !t.notice));
-  ok('every RP line has a matching university line or a notice', orphan.length === 0, orphan.map((t) => t.id).join());
+  const orphan = rp.filter((t) => (t.matches ? !res.byId.has(t.matches) : !t.notice && !t.key.includes('|rp|ab:')));
+  ok('every RP line has a matching university line, or is a notice’s or its agreement’s bonus', orphan.length === 0, orphan.map((t) => t.id).join());
   const wrongApp = rp.filter((t) => t.matches && res.byId.get(t.matches).app !== t.app);
   ok('a matching university line is on the same application', wrongApp.length === 0, wrongApp.map((t) => t.id).join());
 
@@ -63,8 +64,8 @@ try {
   const missing = res.apps.filter((a) => state.notices.some((n) => n.benefit === 'Bonus per enrolment' && !n.rps.includes(a.rp)) && a.rpItem.txs.some((t) => t.notice && !state.notices.find((n) => n.id === t.notice).rps.includes(a.rp)));
   ok('no RP outside a notice gets its bonus', missing.length === 0);
 
-  // amounts stay in the university's currency (notice bonuses in the notice's)
-  const cur = res.txs.filter((t) => !t.notice && t.currency !== store.uniCurrency(t.uni));
+  // amounts stay in the university's currency (an RP's own bonuses, from a notice or its agreement, in theirs)
+  const cur = res.txs.filter((t) => !(t.side === 'rp' && t.type === 'Bonus') && t.currency !== store.uniCurrency(t.uni));
   ok('every line is in its university’s currency', cur.length === 0, cur.map((t) => t.id).join());
 
   // a withdrawn student's later study periods are Not payable on both sides

@@ -12,6 +12,7 @@ import { todayIso } from '../../institution/data/records';
 import { BandsEditor, FilePick, bandsError, numOf, numText } from './parts';
 import { acceptedOn, acceptedRps, ctxRps, ctxUnis, levelsOf, newAgreementId, newNoticeId, saveAgreement, saveNotice, saveRecord, saveTerms, uniName, useComm } from './store';
 import {
+  AB_WHEN,
   ADDL_KINDS,
   ADDL_WHEN,
   BENEFITS,
@@ -25,6 +26,7 @@ import {
   dayText,
   type Addl,
   type Agreement,
+  type AgreementBonus,
   type AgreementTerms,
   type Band,
   type Benefit,
@@ -83,7 +85,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 /* ---------- Agreement ---------- */
 
 type AgDraft = AgreementTerms & { id: string; name: string };
-const blankAg = (): AgDraft => ({ id: '', name: '', shareType: 'Flat', share: null, bands: [], countedPer: 'Financial year', retro: false, addl: null, bonus: null, payDays: 30, details: '', doc: null });
+const blankAg = (): AgDraft => ({ id: '', name: '', shareType: 'Flat', share: null, bands: [], countedPer: 'Financial year', retro: false, addl: null, bonuses: [], payDays: 30, details: '', doc: null });
 
 /** Add and Edit Agreement (the PRD's form): name, share or bands, how they're counted, what's passed on, pay within, details and document. */
 export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: boolean; edit: Agreement | null; me: string; onClose: () => void; onSaved: (name: string) => void }) {
@@ -104,11 +106,12 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
     share: flat && pctBad(v.share, true) ? 'A number from 0 to 100.' : null,
     bands: !flat ? bandsError(v.bands) : null,
     addl: pctBad(v.addl, false) ? 'A number from 0 to 100.' : null,
-    bonus: pctBad(v.bonus, false) ? 'A number from 0 to 100.' : null,
+    bonuses: v.bonuses.some((b) => !b.desc.trim() || !(b.amount > 0) || (b.when !== AB_WHEN[0] && !wholeIn(b.nth, 1, 999))) ? 'Give each bonus a description, an amount and, for an enrolment number, the number.' : null,
     payDays: !wholeIn(v.payDays, 1, 90) ? 'A whole number from 1 to 90.' : null,
     doc: big ? `The file is over ${s.settings.maxFileMb} MB.` : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const upBonus = (i: number, p: Partial<AgreementBonus>) => set({ bonuses: v.bonuses.map((b, j) => (j === i ? { ...b, ...p } : b)) });
   const save = () => {
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
@@ -153,9 +156,34 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
       <Field id="cag-addl" label="Additional commission passed on (%)" optional error={show('addl')} hint="Share of any additional commission the university pays. Empty: the same as the share above.">
         <TextInput id="cag-addl" inputMode="decimal" value={numText(v.addl)} invalid={!!show('addl')} onChange={(e) => set({ addl: numOf(e.target.value) })} />
       </Field>
-      <Field id="cag-bonus" label="Bonus passed on (%)" optional error={show('bonus')} hint="Share of any bonus the university pays. Empty: none.">
-        <TextInput id="cag-bonus" inputMode="decimal" value={numText(v.bonus)} invalid={!!show('bonus')} onChange={(e) => set({ bonus: numOf(e.target.value) })} />
-      </Field>
+      <p className="cform__sec">Bonus</p>
+      <p className="cform__hint">The RP’s own bonus, paid whether or not GSP meets a university’s bonus tier. No RP gets a share of a bonus a university pays GSP.</p>
+      <div className="cform__list">
+        {v.bonuses.map((b, i) => (
+          <div key={b.id} className="cform__row cform__row--agbonus">
+            <TextInput id={`cag-bn-d-${i}`} aria-label={`Bonus ${i + 1}: description`} placeholder="Like: Milestone bonus" value={b.desc} onChange={(e) => upBonus(i, { desc: e.target.value })} />
+            <TextInput id={`cag-bn-a-${i}`} aria-label={`Bonus ${i + 1}: amount`} placeholder="Amount" inputMode="decimal" value={numText(b.amount)} onChange={(e) => upBonus(i, { amount: numOf(e.target.value) ?? NaN })} />
+            <SelectInput id={`cag-bn-c-${i}`} aria-label={`Bonus ${i + 1}: currency`} value={b.currency} onChange={(e) => upBonus(i, { currency: e.target.value })}>
+              {options(CURRENCIES)}
+            </SelectInput>
+            <SelectInput id={`cag-bn-w-${i}`} aria-label={`Bonus ${i + 1}: when`} value={b.when} onChange={(e) => upBonus(i, { when: e.target.value as AgreementBonus['when'], nth: e.target.value === AB_WHEN[0] ? null : b.nth })}>
+              {options(AB_WHEN)}
+            </SelectInput>
+            {b.when === AB_WHEN[0] ? (
+              <span aria-hidden="true" />
+            ) : (
+              <TextInput id={`cag-bn-n-${i}`} aria-label={`Bonus ${i + 1}: the enrolment number, counted per ${v.countedPer.toLowerCase()}`} placeholder="Enrolment no." inputMode="numeric" value={numText(b.nth)} onChange={(e) => upBonus(i, { nth: numOf(e.target.value) })} />
+            )}
+            <button type="button" className="icon-btn" aria-label={`Remove bonus ${i + 1}`} onClick={() => set({ bonuses: v.bonuses.filter((_, j) => j !== i) })}>
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        ))}
+        {show('bonuses') && <ErrorText id="cag-bn-err">{show('bonuses')}</ErrorText>}
+        <button type="button" className="btn btn--secondary btn--sm iadd" style={{ justifySelf: 'start' }} onClick={() => set({ bonuses: [...v.bonuses, { id: `ab-${Date.now().toString(36)}-${++rid}`, desc: '', amount: NaN, currency: CURRENCIES[0], when: AB_WHEN[0], nth: null }] })}>
+          <Icon name="plus" size={16} /> Add bonus
+        </button>
+      </div>
       <Field id="cag-details" label="Agreement details" optional className="iform__wide" hint="Shown on every RP’s Commission tab.">
         <Area id="cag-details" value={v.details} placeholder="Anything else the agreement says" onChange={(details) => set({ details })} />
       </Field>
@@ -545,7 +573,7 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
             </button>
           </div>
         ))}
-        <button type="button" className="btn btn--secondary btn--sm iadd" style={{ justifySelf: 'start' }} onClick={() => set({ addl: [...v.addl, { id: `ad-n${++rid}`, desc: '', kind: ADDL_KINDS[0], value: NaN, when: ADDL_WHEN[0] }] })}>
+        <button type="button" className="btn btn--secondary btn--sm iadd" style={{ justifySelf: 'start' }} onClick={() => set({ addl: [...v.addl, { id: `ad-${Date.now().toString(36)}-${++rid}`, desc: '', kind: ADDL_KINDS[0], value: NaN, when: ADDL_WHEN[0] }] })}>
           <Icon name="plus" size={16} /> Add additional commission
         </button>
       </div>
@@ -562,7 +590,7 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
             </button>
           </div>
         ))}
-        <button type="button" className="btn btn--secondary btn--sm iadd" style={{ justifySelf: 'start' }} onClick={() => set({ bonus: [...v.bonus, { id: `bn-n${++rid}`, desc: '', amount: NaN, min: NaN, year: Number(todayIso().slice(0, 4)) }] })}>
+        <button type="button" className="btn btn--secondary btn--sm iadd" style={{ justifySelf: 'start' }} onClick={() => set({ bonus: [...v.bonus, { id: `bn-${Date.now().toString(36)}-${++rid}`, desc: '', amount: NaN, min: NaN, year: Number(todayIso().slice(0, 4)) }] })}>
           <Icon name="plus" size={16} /> Add bonus
         </button>
       </div>

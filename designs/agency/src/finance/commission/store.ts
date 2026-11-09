@@ -4,7 +4,7 @@
  * university's and application's Commission tabs in every role, the go-live checklist, My work and the RP's Earnings.
  * Each change goes through one of the actions below, which also writes its Logs line.
  */
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { COURSES, LEVELS } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
@@ -14,7 +14,7 @@ import { HOME_RP } from '../../gsp/rps';
 import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/records/data';
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
-import { compute, nextInvoiceNumber, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
+import { compute, nextInvoiceNumber, periodsFor, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
 import { benefitText, money, ratesText, shareText, type Agreement, type Bank, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 
@@ -28,7 +28,9 @@ const subscribe = (f: () => void) => {
 };
 export const commState = () => state;
 export function setComm(fn: (s: CommState) => CommState) {
-  state = fn(state);
+  const next = fn(state);
+  if (next === state) return;
+  state = next;
   subs.forEach((f) => f());
 }
 /** Back to the seeded records (the Prototype panel's reset, and tests). */
@@ -54,12 +56,19 @@ export const acceptedOn = (rp: string) => {
 };
 const course = (id: string): CtxCourse | undefined => {
   const c = courses.get(id);
-  return c && { id: c.id, name: c.name, level: c.level, tuition: c.tuition, scholarship: c.scholarship, months: c.months, currency: c.currency, uni: c.uni.id };
+  // no fee: commission is worked out from the student's own fee on the application (9 Nov)
+  return c && { id: c.id, name: c.name, level: c.level, months: c.months, currency: c.currency, uni: c.uni.id };
 };
 export const ctxOf = (today = todayIso()): Ctx => ({ unis: ctxUnis(), rps: ctxRps(), course, today });
 export const uniCurrency = (uni: string) => {
   const u = ctxUnis().find((x) => x.id === uni);
   return u ? CURRENCY[u.country] : '';
+};
+/** The university's commission terms for a course's university, and the study periods it pays on (Admissions fills a date for each). */
+export const termsForCourse = (courseId: string) => {
+  const c = courses.get(courseId);
+  const t = c && state.terms.find((x) => x.uni === c.uni.id);
+  return { terms: t, periods: c && t ? periodsFor(t.inst, c.months, state.settings.periodMonths) : 1 };
 };
 /** The program levels a university offers, in the levels' order: University terms asks a rate for each. */
 export const levelsOf = (uni: string) => LEVELS.filter((l) => COURSES.some((c) => c.uni.id === uni && c.level === l));
@@ -76,7 +85,7 @@ export function enrolmentsOf(apps: Application[], students: Pick<Student, 'id' |
     .map((a) => {
       const s = students.find((x) => x.id === a.studentId);
       const rp = ctxRps().find((r) => r.name === (a.rp ?? HOME_RP));
-      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10) };
+      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10), fees: a.fees };
     });
 }
 
@@ -84,7 +93,11 @@ export function enrolmentsOf(apps: Application[], students: Pick<Student, 'id' |
 export function useLines(apps: Application[] = [], students: Pick<Student, 'id' | 'first' | 'last' | 'oneName'>[] = []): Result {
   const s = useComm();
   const extra = useMemo(() => enrolmentsOf(apps, students), [apps, students]);
-  return useMemo(() => compute(s, ctxOf(), extra), [s, extra]);
+  // new lines get their IDs, and lines acted on are kept as they were (engine.ts, settle): worked out here so the page
+  // shows them at once, and kept in the store just after
+  const res = useMemo(() => compute(settleAll(s, ctxOf(), extra), ctxOf(), extra), [s, extra]);
+  useEffect(() => setComm((cur) => settleAll(cur, ctxOf(), extra)), [s, extra]);
+  return res;
 }
 
 /** Who's exporting, for Admin › Logs: their role and sales region as GSP · Admin keeps them (Create Roles). */
@@ -106,7 +119,7 @@ export function saveAgreement(a: Omit<Agreement, 'created' | 'updated' | 'earlie
     const was = s.agreements.find((x) => x.id === a.id);
     const today = todayIso();
     const next: Agreement = was
-      ? { ...was, ...a, updated: stamp(by), earlier: [...was.earlier, { shareType: was.shareType, share: was.share, bands: was.bands, countedPer: was.countedPer, retro: was.retro, addl: was.addl, bonus: was.bonus, payDays: was.payDays, details: was.details, doc: was.doc, until: today }] }
+      ? { ...was, ...a, updated: stamp(by), earlier: [...was.earlier, { shareType: was.shareType, share: was.share, bands: was.bands, countedPer: was.countedPer, retro: was.retro, addl: was.addl, bonuses: was.bonuses, payDays: was.payDays, details: was.details, doc: was.doc, until: today }] }
       : { ...a, created: stamp(by), updated: stamp(by), earlier: [] };
     return withLog({ ...s, agreements: was ? s.agreements.map((x) => (x.id === a.id ? next : x)) : [...s.agreements, next] }, log('agreements', by, `${by} saved agreement ${a.name}: ${shareText(a)}`));
   });

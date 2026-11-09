@@ -8,6 +8,7 @@
  * This module holds the shapes and every option list and status the pages show: no page has a list of its own.
  */
 import { DESTINATIONS, LEVELS, type Destination, type Level } from '../../data/courses';
+import type { AppFees } from '../../data/applications';
 
 export { DESTINATIONS, LEVELS };
 export type { Destination, Level };
@@ -64,12 +65,20 @@ export type AgreementTerms = {
   retro: boolean;
   /** Share of any additional commission passed on (%); null: the same as the share. */
   addl: number | null;
-  /** Share of any bonus passed on (%); null: none. */
-  bonus: number | null;
+  /**
+   * The agreement's own bonuses (Jovial, 9 Nov): paid to the RP whether or not GSP meets a university's bonus tier. No
+   * RP gets a share of a bonus a university pays GSP.
+   */
+  bonuses: AgreementBonus[];
   payDays: number;
   details: string;
   doc: FileRef | null;
 };
+/** When an agreement's bonus is paid: on every enrolment, or on the enrolment that reaches a number in the agreement's counting window. */
+export const AB_WHEN = ['Every enrolment', 'At an enrolment number'] as const;
+export type AbWhen = (typeof AB_WHEN)[number];
+/** An agreement's bonus: its description, amount and currency, and when (`nth`: the enrolment number, for At an enrolment number). */
+export type AgreementBonus = { id: string; desc: string; amount: number; currency: string; when: AbWhen; nth: number | null };
 /** An agreement variant. `earlier`: its terms before each edit, with the day they stopped (items made before keep them). */
 export type Agreement = AgreementTerms & { id: string; name: string; status: AgreementStatus; created: Stamp; updated: Stamp; earlier: (AgreementTerms & { until: string })[] };
 
@@ -119,12 +128,15 @@ export type Notice = {
 
 export const FEE_BASES = ['Tuition before scholarship', 'Tuition after scholarship'] as const;
 export type FeeBasis = (typeof FEE_BASES)[number];
-/** When a study period's commission is earned, and that day counted from the study period's start. */
+/**
+ * When a study period's commission is earned, and which of the application's dates (filled in by Admissions) says
+ * when that is, per study period. Enrolment confirmed's study period 1 is the day the application became Student enrolled.
+ */
 export const TRIGGERS = [
-  { label: 'Census date', days: 28 },
-  { label: 'Enrolment confirmed', days: 0 },
-  { label: 'Tuition paid', days: -14 },
-] as const;
+  { label: 'Census date', field: 'census', date: 'Census date' },
+  { label: 'Enrolment confirmed', field: 'confirmed', date: 'Enrolment confirmed on' },
+  { label: 'Tuition paid', field: 'paid', date: 'Tuition paid on' },
+] as const satisfies readonly { label: string; field: keyof Pick<AppFees, 'census' | 'confirmed' | 'paid'>; date: string }[];
 export type Trigger = (typeof TRIGGERS)[number]['label'];
 export const TRIGGER_LABELS = TRIGGERS.map((t) => t.label) as Trigger[];
 export const ADDL_KINDS = ['Amount', '%'] as const;
@@ -157,14 +169,15 @@ export type UniTerms = TermsBody & { uni: string; created: Stamp; updated: Stamp
  * An enrolled application, as the engine reads it: from the portal's applications (status Student enrolled) or the
  * seeded records of other RPs' enrolments. `withdrawn`: the day the student withdrew, if they did.
  */
-export type Enrolment = { app: string; student: string; rp: string; course: string; intake: string; enrolled: string; withdrawn?: string };
+export type Enrolment = { app: string; student: string; rp: string; course: string; intake: string; enrolled: string; withdrawn?: string; fees?: AppFees };
 
 /* ---------- transactions ---------- */
 
 export type Side = 'uni' | 'rp';
 export const SIDES: Record<Side, string> = { uni: 'University → GSP', rp: 'GSP → RP' };
 export const SIDE_KEYS = Object.keys(SIDES) as Side[];
-export const TX_TYPES = ['Course commission', 'Additional commission', 'Bonus'] as const;
+/** Adjustment: the difference when a line's worked-out amount changes after it was invoiced, requested or paid (Jovial, 9 Nov). */
+export const TX_TYPES = ['Course commission', 'Additional commission', 'Bonus', 'Adjustment'] as const;
 export type TxType = (typeof TX_TYPES)[number];
 
 export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Held', 'Paid', 'Not payable'] as const;
@@ -235,6 +248,14 @@ export type Log = { id: string; at: number; by: string; area: LogArea; text: str
 /** A download, for Admin › Logs. */
 export type Download = { id: string; at: number; who: string; email: string; role: string; region: string; area: string; text: string; filters: string; records: number; format: string };
 
+/**
+ * A line as it stood when it was invoiced (University → GSP) or its invoice requested (GSP → RP) (Jovial, 9 Nov):
+ * from then on its amount and what it's for never change. `base`: the amount worked out then (before any override),
+ * which later work-outs are compared with: any difference becomes an Adjustment line. `final`: it's Paid, and its
+ * amount and due date are as paid, overrides and all.
+ */
+export type Frozen = { key: string; app: string; side: Side; type: TxType; what: string; rpWhat: string; base: number; amount: number; currency: string; due: string; trigger: string; period?: number; matches?: string; notice?: string; adjusts?: string; final?: boolean; at: number };
+
 /** Everything the module keeps. */
 export type CommState = {
   settings: Settings;
@@ -250,6 +271,11 @@ export type CommState = {
   rpInvoices: RpInvoice[];
   rpPayments: RpPayment[];
   overrides: Override[];
+  /** Each line's transaction ID, given once (Jovial, 9 Nov), by what the line is for (its key); `idSeq`: the last one given. */
+  ids: Record<string, string>;
+  idSeq: number;
+  /** Lines invoiced, requested or paid, by transaction ID: what they were then. */
+  frozen: Record<string, Frozen>;
   logs: Log[];
   downloads: Download[];
 };

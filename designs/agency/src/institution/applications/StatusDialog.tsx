@@ -1,3 +1,4 @@
+import { enrolBlock } from '../../finance/commission/AppFees';
 import { useEffect, useState, type DragEvent } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -79,12 +80,14 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
   const picked = k && !k.startsWith('end:') && k in STATUS ? (k as StatusKey) : undefined;
   const letter = picked ? letterFor(picked, a) : undefined;
   const okStatus = !!k && k !== a.status;
+  // Student enrolled needs the fee and dates commission is worked out from (9 Nov)
+  const enrolErr = picked === 'enrolled' && okStatus ? enrolBlock(a) : '';
   const clean = ref.trim().toUpperCase();
   const refErr = picked === 'lodged' && !noRef ? (!clean ? 'Add the university reference ID, or tick No reference ID.' : !REF.test(clean) ? 'Use 3 to 30 letters, numbers or dashes, as the university wrote it.' : '') : '';
   const fileErr = letter && !file ? bad || `Upload the ${letter.label.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase())}.` : bad;
   const go = () => {
     setTried(true);
-    if (!okStatus) return;
+    if (!okStatus || enrolErr) return;
     const [, at, kind] = k.split(':');
     if (k.startsWith('end:')) return setClosing({ end: kind as EndKind, stage: Number(at) });
     if (refErr || (letter && fileErr)) return;
@@ -140,15 +143,15 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
               }}
             />
           </Field>
-          <Field id="gstat-status" label="Status" error={tried && !okStatus ? (k === a.status ? 'That’s the status it’s at now. Pick another.' : 'Pick a status.') : null}>
+          <Field id="gstat-status" label="Status" error={enrolErr || (tried && !okStatus ? (k === a.status ? 'That’s the status it’s at now. Pick another.' : 'Pick a status.') : null)}>
             <SelectMenu
               id="gstat-status"
               label={`Statuses at ${STAGES[stage]}`}
               value={k}
               options={statuses}
               placeholder="Pick a status"
-              invalid={tried && !okStatus}
-              describedBy={tried && !okStatus ? 'gstat-status-error' : undefined}
+              invalid={!!enrolErr || (tried && !okStatus)}
+              describedBy={enrolErr || (tried && !okStatus) ? 'gstat-status-error' : undefined}
               onChange={(v) => {
                 setK(v);
                 setTried(false);

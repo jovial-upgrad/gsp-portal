@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { enrolBlock } from '../../finance/commission/AppFees';
 import { Field } from '../../components/forms';
 import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
 import { CLOSE_AT, STAGES, STATUS, STATUS_ORDER, destOf, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
@@ -35,9 +36,11 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
     ...CLOSE_AT[stage].map((kind) => ({ value: `end:${stage}:${kind}`, label: `Closed: ${kind}`, group: 'Close the application' })),
   ];
   const okStatus = !!k && k !== a.status;
+  // Student enrolled needs the fee and dates commission is worked out from (9 Nov)
+  const enrolErr = k === 'enrolled' && okStatus ? enrolBlock(a) : '';
   const go = () => {
     setTried(true);
-    if (!okStatus) return;
+    if (!okStatus || enrolErr) return;
     const [, at, kind] = k.split(':');
     if (k.startsWith('end:')) setClosing({ end: kind as EndKind, stage: Number(at) });
     else onConfirm({ k: k as StatusKey });
@@ -79,15 +82,15 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
               }}
             />
           </Field>
-          <Field id="gstat-status" label="Status" error={tried && !okStatus ? (k === a.status ? 'That’s the status it’s at now. Pick another.' : 'Pick a status.') : null}>
+          <Field id="gstat-status" label="Status" error={enrolErr || (tried && !okStatus ? (k === a.status ? 'That’s the status it’s at now. Pick another.' : 'Pick a status.') : null)}>
             <SelectMenu
               id="gstat-status"
               label={`Statuses at ${STAGES[stage]}`}
               value={k}
               options={statuses}
               placeholder="Pick a status"
-              invalid={tried && !okStatus}
-              describedBy={tried && !okStatus ? 'gstat-status-error' : undefined}
+              invalid={!!enrolErr || (tried && !okStatus)}
+              describedBy={enrolErr || (tried && !okStatus) ? 'gstat-status-error' : undefined}
               onChange={(v) => {
                 setK(v);
                 setTried(false);

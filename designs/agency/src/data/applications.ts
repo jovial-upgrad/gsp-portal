@@ -243,6 +243,16 @@ export type AppCommission = { status: CommissionStatus; amount: number; invoice?
 export const COMMISSION_STATUSES = ['Not due', 'Due', 'Claimed', 'Invoiced', 'Paid', 'On hold', 'Not payable'] as const;
 export type CommissionStatus = (typeof COMMISSION_STATUSES)[number];
 
+/**
+ * What the application's Admissions officer fills in (Jovial, 9 Nov): the student's own tuition fee and scholarship a
+ * year (from the offer letter), the day the course starts, and, per study period the university pays commission on,
+ * the date its trigger happens (census date, enrolment confirmed or tuition paid, as the university's terms say).
+ * Commission is worked out from these and nothing else; they're needed before the application can be Student enrolled.
+ * Index 0 is study period 1. Enrolment confirmed for study period 1 is the day the application became Student enrolled.
+ */
+export type AppFees = { tuition: number | null; scholarship: number | null; start: string; census: string[]; confirmed: string[]; paid: string[] };
+export const blankFees = (): AppFees => ({ tuition: null, scholarship: null, start: '', census: [], confirmed: [], paid: [] });
+
 export type Application = {
   id: string;
   /** The recruitment partner it's for, when GSP adds it (30 Oct); an agency's own have none. */
@@ -253,6 +263,8 @@ export type Application = {
   status: StatusKey;
   /** GSP · Finance's commission record (6 Nov); until it's saved, it's worked out from the course and the status. */
   commission?: AppCommission;
+  /** The fee and dates commission is worked out from, filled in by Admissions (9 Nov). */
+  fees?: AppFees;
   created: number;
   /** When the current status started. */
   since: number;
@@ -975,11 +987,12 @@ export function sampleApplications(): Application[] {
     // 9 Nov (Jovial, Commissions): three students already studying; their commission is worked out from these
     ...(
       [
-        ['GSP-23305', 'S-24702', 'Ananya Iyer', 'coventry-1', 'Sep 2025', '2025-04-02', '2025-09-29', 'COV-25118204'],
-        ['GSP-23318', 'S-24715', 'Rahul Menon', 'deakin-4', 'Feb 2026', '2025-10-06', '2026-03-02', 'DKN-2533017'],
-        ['GSP-23402', 'S-24733', 'Kavya Reddy', 'flinders-1', 'Jul 2026', '2026-02-03', '2026-07-27', 'FLN-2647711'],
+        // the fee, scholarship, start and census dates as Admissions entered them from each offer letter and the university's calendar
+        ['GSP-23305', 'S-24702', 'Ananya Iyer', 'coventry-1', 'Sep 2025', '2025-04-02', '2025-09-29', 'COV-25118204', { tuition: 19500, scholarship: 2000, start: '2025-09-22', census: ['2025-10-17', '2026-03-27', '2026-10-16', '2027-03-26'], confirmed: [], paid: [] }],
+        ['GSP-23318', 'S-24715', 'Rahul Menon', 'deakin-4', 'Feb 2026', '2025-10-06', '2026-03-02', 'DKN-2533017', { tuition: 33250, scholarship: 0, start: '2026-02-23', census: ['2026-03-20', '2026-08-07'], confirmed: [], paid: [] }],
+        ['GSP-23402', 'S-24733', 'Kavya Reddy', 'flinders-1', 'Jul 2026', '2026-02-03', '2026-07-27', 'FLN-2647711', { tuition: 33750, scholarship: 6750, start: '2026-07-27', census: ['2026-08-21', '2027-03-12'], confirmed: [], paid: [] }],
       ] as const
-    ).map(([id, studentId, name, courseId, intake, made, enrolled, uniRef]): Application => {
+    ).map(([id, studentId, name, courseId, intake, made, enrolled, uniRef, fees]): Application => {
       const t = (iso: string) => new Date(`${iso}T11:00`).getTime();
       const uni = courseOf({ courseId }).uni.name;
       return {
@@ -991,6 +1004,7 @@ export function sampleApplications(): Application[] {
         created: t(made),
         since: t(enrolled),
         uniRef,
+        fees: { ...fees, census: [...fees.census], confirmed: [...fees.confirmed], paid: [...fees.paid] },
         needs: [],
         files: [f('Proof of enrolment', `${name.split(' ')[0].toLowerCase()}_enrolment_${uniRef}.pdf`, 'gsp', t(enrolled), 'verified')],
         history: [

@@ -34,6 +34,9 @@
 .cform__list { grid-column: 1 / -1; display: grid; gap: var(--sp-8); }
 .cform__row { display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr 40px; gap: var(--sp-8); align-items: end; }
 .cform__row--bonus { grid-template-columns: 2fr 1fr 1fr 1fr 40px; }
+.cform__row--agbonus { grid-template-columns: 2fr 1fr 1fr; }
+.cform__row--agbonus > .icon-btn { justify-self: start; }
+.cform__hint { grid-column: 1 / -1; margin: calc(-1 * var(--sp-4, 4px)) 0 0; color: var(--text-2); font-size: var(--t-label); }
 .cform__levels { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: var(--sp-8) var(--sp-12); }
 .cform__ro { grid-column: 1 / -1; padding: var(--sp-12); border-radius: var(--r-sm); background: var(--surface-2); }
 .cform__ro .ifacts { grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
@@ -75,7 +78,7 @@
 .cearn__ticks { display: grid; gap: var(--sp-8); }
 
 @media (max-width: 700px) {
-  .cform__row, .cform__row--bonus { grid-template-columns: 1fr 1fr; }
+  .cform__row, .cform__row--bonus, .cform__row--agbonus { grid-template-columns: 1fr 1fr; }
   .cbands__head, .cbands__row { grid-template-columns: 1fr 1fr 1fr 40px; }
 }
 .cinvoice.sheet--center { width: min(92vw, 920px); }

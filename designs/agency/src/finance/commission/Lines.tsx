@@ -285,7 +285,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                           id={`clines-m-${t.id}`}
                           label={`More for ${t.id}`}
                           items={[
-                            { id: 'override', label: 'Override', icon: 'edit', onPick: () => setOver(t) },
+                            // a Paid line never changes (9 Nov): no override
+                            ...(groupOf(t.side, t.status) === 'paid' ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
                           ]}

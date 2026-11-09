@@ -153,7 +153,7 @@ export function LogsFold({ id, logs }: { id: string; logs: Log[] }) {
  * A commission item's transactions (an application's Commission tab, and the RP's Earnings): Transaction ID, Type,
  * What it's for, Due, Amount, Status, and on GSP → RP the invoice it's on. `amountNote`: the info icon on Amount.
  */
-export function TxTable({ txs, rp, amountNote, caption, app }: { txs: Tx[]; rp?: boolean; amountNote?: string; caption: string; app?: boolean }) {
+export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx[]; rp?: boolean; rpView?: boolean; amountNote?: string; caption: string; app?: boolean }) {
   return (
     <div className="stab-wrap">
       <table className="itab ctab">
@@ -194,10 +194,11 @@ export function TxTable({ txs, rp, amountNote, caption, app }: { txs: Tx[]; rp?:
               )}
               <td>{t.type}</td>
               <td>
-                {t.what}
-                {t.override && <span className="iw-sub">Overridden by {t.override.by}: {t.override.reason}</span>}
+                {/* the RP's own view: what it's for in plain words, never GSP's rate or amount (9 Nov) */}
+                {rpView ? t.rpWhat : t.what}
+                {t.override && !rpView && <span className="iw-sub">Overridden by {t.override.by}: {t.override.reason}</span>}
               </td>
-              <td className="num iw-nowrap">{dayText(t.due)}</td>
+              <td className="num iw-nowrap">{t.due ? dayText(t.due) : <span className="muted">Waiting for the date</span>}</td>
               <td className="num ctab__num">{money(t.amount, t.currency)}</td>
               <td>
                 <StatusPill s={t.status} />
