@@ -128,7 +128,7 @@ export const RULE_SHARING: Record<RuleSharing, string> = { officer: 'The applica
 export const RULE_SHARINGS = Object.keys(RULE_SHARING) as RuleSharing[];
 
 /** The rule groups, as Task Rules' tabs. */
-export const RULE_CATS = ['Applications', 'RPs', 'Institution partners, universities, courses', 'Email'] as const;
+export const RULE_CATS = ['Applications', 'RPs', 'Institution partners, universities, courses', 'Email', 'Commission'] as const;
 export type RuleCat = (typeof RULE_CATS)[number];
 /** The record a rule's task is about. */
 export type RecordType = 'Application' | 'RP' | 'Institution partner' | 'University' | 'Course' | 'Email';
@@ -198,4 +198,7 @@ export const sampleRules = (): TaskRule[] => [
   r('T41', 'Institution partners, universities, courses', 'Course', 'Course in draft', 'A course in draft for 7 days', 'Finish and publish {course}', 'q-ip-ops', d(5), 'leader', 'Published'),
   r('T42', 'Institution partners, universities, courses', 'Course', 'No next intake', 'The last intake’s deadline passed and there’s no next intake', 'Add the next intake for {course}', 'q-ip-ops', d(5), 'queue', 'An intake is added'),
   r('T27', 'Email', 'Email', 'Mail not linked', 'A mail to gsp.admissions@ can’t be linked to an application and isn’t forwarded (a student with no application yet, say)', 'Link this mail to an application', 'q-global-admissions', h(1), 'fewest', 'Linked, forwarded or marked Not needed'),
+  // 9 Nov (Jovial, the PRD's Commissions tab): Commissions enters an RP's commission record and a university's terms
+  r('T80', 'Commission', 'RP', 'Commission record', 'RP Ops accepts an RP’s first signed agreement', 'Enter commission details for {RP}', 'q-finance', d(2), 'fewest', 'The RP’s commission record is saved'),
+  r('T81', 'Commission', 'University', 'Commission terms', 'A university is added', 'Enter commission terms for {university}', 'q-finance', d(5), 'fewest', 'The university’s terms are saved'),
 ];

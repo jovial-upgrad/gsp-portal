@@ -28,6 +28,8 @@ export function Documents({ cfg, change, say }: ConfigProps) {
   const saved: Draft = { docRules: cfg.docRules, rpDocs: cfg.rpDocs, reasons: cfg.reasons, categories: cfg.categories };
   const d: Draft = draft ?? saved;
   const dirty = !!draft && JSON.stringify(draft) !== JSON.stringify(saved);
+  const levels = cfg.levels.filter((l) => l.on).map((l) => l.name);
+  const areas = cfg.areas.filter((a) => a.on).map((a) => a.name);
   const set = (r: DocRule, patch: Partial<DocRule>) => setDraft((x) => ({ ...x!, docRules: x!.docRules.map((y) => (y.id === r.id ? { ...y, ...patch } : y)) }));
   const save = () => {
     const x = draft!;
@@ -36,7 +38,7 @@ export function Documents({ cfg, change, say }: ConfigProps) {
       const was = cfg.docRules.find((y) => y.id === r.id);
       if (!was) what.push(`added ${r.doc} (${r.stage}, ${whenText(r)}, ${r.setting.toLowerCase()}, uploaded by ${r.by})`);
       else {
-        const ch = [was.stage !== r.stage && `stage → ${r.stage}`, was.setting !== r.setting && r.setting.toLowerCase(), was.by !== r.by && `uploaded by ${r.by}`, was.on !== r.on && (r.on ? 'switched on' : 'switched off')].filter(Boolean);
+        const ch = [was.stage !== r.stage && `stage → ${r.stage}`, whenText(was) !== whenText(r) && `applies when ${whenText(r)}`, was.setting !== r.setting && r.setting.toLowerCase(), was.by !== r.by && `uploaded by ${r.by}`, was.on !== r.on && (r.on ? 'switched on' : 'switched off')].filter(Boolean);
         if (ch.length) what.push(`${r.doc}: ${ch.join(', ')}`);
       }
     });
@@ -101,7 +103,10 @@ export function Documents({ cfg, change, say }: ConfigProps) {
                       r.stage
                     )}
                   </td>
-                  <td className="cfg__muted">{whenText(r)}</td>
+                  <td className={draft ? 'cfg__when' : 'cfg__muted'}>
+                    {/* 9 Nov (Jovial): in edit mode, Applies when changes with the same pickers as Add Document Rule */}
+                    {draft ? <WhenPicks id={`dr-wh-${r.id}`} doc={r.doc} v={r} levels={levels} areas={areas} onChange={(p) => set(r, p)} /> : whenText(r)}
+                  </td>
                   <td>
                     {draft ? (
                       <SelectInput id={`dr-se-${r.id}`} aria-label={`${r.doc}: setting`} value={r.setting} onChange={(e) => set(r, { setting: e.target.value as DocRule['setting'] })}>
@@ -189,8 +194,8 @@ export function Documents({ cfg, change, say }: ConfigProps) {
       {asking}
       <AddRule
         open={adding}
-        levels={cfg.levels.filter((l) => l.on).map((l) => l.name)}
-        areas={cfg.areas.filter((a) => a.on).map((a) => a.name)}
+        levels={levels}
+        areas={areas}
         onClose={() => setAdding(false)}
         onSave={(r) => {
           setDraft((x) => ({ ...x!, docRules: [...x!.docRules, r] }));
@@ -435,18 +440,7 @@ function AddRule({ open, levels, areas, onClose, onSave }: { open: boolean; leve
             ))}
           </SelectInput>
         </Field>
-        <Field id="ar-level" label="Program level">
-          <MultiPick id="ar-level" label="Program level" value={v.levels} options={levels} onChange={(x) => setV((y) => ({ ...y, levels: x }))} empty="Any program level" />
-        </Field>
-        <Field id="ar-area" label="Study area">
-          <MultiPick id="ar-area" label="Study area" value={v.areas} options={areas} onChange={(x) => setV((y) => ({ ...y, areas: x }))} empty="Any study area" />
-        </Field>
-        <Field id="ar-uni" label="University country">
-          <MultiPick id="ar-uni" label="University country" value={v.uni} options={DOC_UNI_COUNTRIES} onChange={(x) => setV((y) => ({ ...y, uni: x }))} empty="Any country" />
-        </Field>
-        <Field id="ar-now" label="Student’s current country">
-          <MultiPick id="ar-now" label="Student’s current country" value={v.now} options={COUNTRIES.map((c) => c.name)} onChange={(x) => setV((y) => ({ ...y, now: x }))} empty="Any country" search />
-        </Field>
+        <WhenPicks id="ar" v={v} levels={levels} areas={areas} onChange={(p) => setV((y) => ({ ...y, ...p }))} fields />
         <Field id="ar-set" label="Setting">
           <SelectInput id="ar-set" value={v.setting} onChange={(e) => setV((x) => ({ ...x, setting: e.target.value as DocRule['setting'] }))}>
             <option>Mandatory</option>
@@ -462,5 +456,38 @@ function AddRule({ open, levels, areas, onClose, onSave }: { open: boolean; leve
         <p className="cfg__note iform__wide">Applies when: {whenText(rule)}.</p>
       </div>
     </Sheet>
+  );
+}
+
+type When = Pick<DocRule, 'levels' | 'areas' | 'uni' | 'now'>;
+/**
+ * When a rule applies (4 Nov): program levels, study areas, university countries and the student's current countries,
+ * several of each (none picked: any). The same pickers in Add Document Rule (`fields`, each with its label) and, since
+ * 9 Nov (Jovial), in the table's Applies when cell while editing (stacked, each named for screen readers).
+ */
+function WhenPicks({ id, doc, v, levels, areas, onChange, fields }: { id: string; doc?: string; v: When; levels: string[]; areas: string[]; onChange: (p: Partial<When>) => void; fields?: boolean }) {
+  const picks: [keyof When, string, string[], string, boolean?][] = [
+    ['levels', 'Program level', levels, 'Any program level'],
+    ['areas', 'Study area', areas, 'Any study area'],
+    ['uni', 'University country', [...DOC_UNI_COUNTRIES], 'Any country'],
+    ['now', 'Student’s current country', COUNTRIES.map((c) => c.name), 'Any country', true],
+  ];
+  const short: Record<keyof When, string> = { levels: 'level', areas: 'area', uni: 'uni', now: 'now' };
+  return (
+    <>
+      {picks.map(([k, label, options, empty, search]) => {
+        const pid = `${id}-${short[k]}`;
+        const pick = <MultiPick id={pid} label={doc ? `${doc}: ${label}` : label} value={v[k]} options={options} onChange={(x) => onChange({ [k]: x } as Partial<When>)} empty={empty} search={search} />;
+        return fields ? (
+          <Field key={k} id={pid} label={label}>
+            {pick}
+          </Field>
+        ) : (
+          <div key={k} className="cfg__whenpick">
+            {pick}
+          </div>
+        );
+      })}
+    </>
   );
 }

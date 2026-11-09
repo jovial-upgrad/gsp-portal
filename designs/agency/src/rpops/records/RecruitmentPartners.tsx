@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { EditOnly, ViewOnlyProvider, useHides, useShows, useViewOnly } from '../../proto/viewOnly';
-import { RpCommissionTab } from './Commission';
+import { RpCommissionTab } from '../../finance/commission/tabs';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -531,8 +531,9 @@ function RpPage({
         )}
 
         {tab === 'commission' && showCommission && (
+          // 9 Nov (Jovial): the RP's commission record, read only; Commissions changes it in Setup
           <ViewOnlyProvider on={commissionView}>
-            <RpCommissionTab r={r} update={update} say={say} me={me} />
+            <RpCommissionTab rp={r} />
           </ViewOnlyProvider>
         )}
         {tab === 'logs' && (

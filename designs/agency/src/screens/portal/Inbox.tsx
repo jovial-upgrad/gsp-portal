@@ -49,6 +49,8 @@ export function useInbox(o: {
   anns: { list: Announcement[]; names: Record<string, string> };
   onOpen: (t: NoteTarget) => void;
   onCourses: (university: string) => void;
+  /** Notifications a module's records make (9 Nov: commission's N16, N17, N18). */
+  extra?: Note[];
 }) {
   const [readIds, setReadIds] = useState<string[]>([]);
   const [live, setLive] = useState<Note[]>([]);
@@ -57,7 +59,7 @@ export function useInbox(o: {
     () => notesFor(o.role, { access: o.access, agency: o.agency, apps: o.apps.map((a) => a.id), students: o.students.map((s) => s.id) }),
     [o.access, o.agency, o.apps.length, o.students.length], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const notes = useMemo(() => [...live, ...sample], [live, sample]);
+  const notes = useMemo(() => [...live, ...(o.extra ?? []), ...sample], [live, sample, o.extra]);
   const notices = useMemo(() => noticesFor(o.role, o.anns.list, o.anns.names, o.country), [o.anns, o.role, o.country]);
 
   const open = (n: Note) => {

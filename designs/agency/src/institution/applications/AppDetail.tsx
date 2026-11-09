@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { EditOnly, ViewOnlyProvider, useHides, useShows, useViewOnly } from '../../proto/viewOnly';
-import { CommissionTab } from './Commission';
+import { AppCommissionTab } from '../../finance/commission/tabs';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
@@ -577,7 +577,8 @@ export function AppDetail({
           >
             {shown === 'commission' && (
               <ViewOnlyProvider on={commissionView}>
-                <CommissionTab a={a} update={update} say={say} />
+                {/* 9 Nov (Jovial): two commission items, University → GSP and GSP → RP, worked out from the records */}
+                <AppCommissionTab a={a} s={s} />
               </ViewOnlyProvider>
             )}
             {shown === 'chat' && <ViewOnlyProvider on={viewOnly && !chatEdit}><Chat a={a} s={s} agency={agency} update={update} onShare={(f) => addFile(f, 'chat')} ask={ask} say={say} /></ViewOnlyProvider>}

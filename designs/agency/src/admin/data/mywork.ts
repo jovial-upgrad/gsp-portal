@@ -15,6 +15,10 @@ import { sampleDb } from '../../institution/data/store';
 import { agreementOf, checkedAt, isClosed, type InstitutionPartner, type RecruitmentPartner } from '../../institution/data/records';
 import type { CourseRec, UniRec } from '../../institution/data/catalogue';
 import { HOME_RP } from '../../gsp/rps';
+import { agreementsOf, sampleOps, type OpsRp } from '../../rpops/records/data';
+import { sampleComm } from '../../finance/commission/seed';
+import { rpsWithoutRecord, unisWithoutTerms } from '../../finance/commission/engine';
+import type { CommState } from '../../finance/commission/model';
 
 export type { RecordType };
 /** A task: its rule's task text filled in, the rule that made it, its record, queue and assignee, and its clock. */
@@ -86,13 +90,13 @@ export function workingHours(from: number, to: number, cal: Calendar): number {
 /* ---------- the records the rules read ---------- */
 
 /** The seeded records the task rules read: applications and their students, RPs, institution partners, universities, courses and gsp.admissions@ mail. */
-export type WorkRecords = { apps: Application[]; students: Student[]; rps: RecruitmentPartner[]; ips: InstitutionPartner[]; unis: UniRec[]; courses: CourseRec[]; mails: BoxMail[] };
+export type WorkRecords = { apps: Application[]; students: Student[]; rps: RecruitmentPartner[]; ips: InstitutionPartner[]; unis: UniRec[]; courses: CourseRec[]; mails: BoxMail[]; ops: OpsRp[]; comm: CommState };
 export function sampleRecords(me: { name: string; email: string } = { name: '', email: '' }): WorkRecords {
   const apps = sampleApplications();
   const students = sampleStudents(me.name);
   const db = sampleDb();
   const now = Date.now();
-  return { apps, students, rps: db.rps, ips: db.ips, unis: db.unis, courses: db.courses, mails: mailsFor('admission', now - 30 * 24 * HOUR, { apps, students, me, now }) };
+  return { apps, students, rps: db.rps, ips: db.ips, unis: db.unis, courses: db.courses, mails: mailsFor('admission', now - 30 * 24 * HOUR, { apps, students, me, now }), ops: sampleOps(), comm: sampleComm() };
 }
 
 /** A record a rule's condition holds for: when it started holding, its region, and the words its task fills in. */
@@ -162,6 +166,17 @@ function hitsFor(rule: TaskRule, rec: WorkRecords, regionOf: (country: string) =
       return rec.courses
         .filter((c) => c.status === 'Live' && c.intakes.length && c.intakes.every((i) => intakeState(i) === 'closed'))
         .map((c) => ({ key: c.id, since: Math.max(...c.intakes.map((i) => at(i.deadline))), region: 'Global', ref: c.code || c.name, about: c.uni.name, vars: { course: c.name, university: c.uni.name } }));
+    case 'T80': {
+      // an RP whose signed agreement RP Ops accepted, with no commission record yet: from the day it was accepted
+      const accepted = rec.ops.filter((r) => agreementsOf(r).active || agreementsOf(r).next);
+      return rpsWithoutRecord(rec.comm, accepted).map((r) => {
+        const a = r.agreements.filter((x) => x.status === 'accepted').sort((x, y) => (x.decision?.at ?? 0) - (y.decision?.at ?? 0))[0];
+        return { key: r.id, since: a?.decision?.at ?? at(r.since), region: regionOf(r.country), ref: r.code, about: r.name, vars: { RP: r.name } };
+      });
+    }
+    case 'T81':
+      // a university with no commission terms: from the day it was added
+      return unisWithoutTerms(rec.comm, rec.unis).map((u) => ({ key: u.id, since: at(u.added), region: 'Global', ref: u.name, about: u.name, vars: { university: u.name } }));
     case 'T27':
       return rec.mails.filter((m) => m.folder === 'inbox' && categoryOf(m) === 'unlinked').map((m) => ({ key: m.id, since: m.at, region: 'Global', ref: m.subject, about: m.from.name, vars: {} }));
     default:

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { AppCommissionTab } from '../../finance/commission/tabs';
 import { useHides } from '../../proto/viewOnly';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppRank } from '../../components/RankTag';
@@ -47,6 +48,8 @@ import { AssistMark, StageTrack, Thinking } from './parts';
 import { Assist } from './Assist';
 
 export type AppTab = 'chat' | 'documents' | 'activity';
+/** The tabs shown: the RP's Commission tab (9 Nov) is kept here, as other roles' review states share AppTab. */
+type Shown = AppTab | 'commission';
 const TABS: [AppTab, string, IconName][] = [
   ['chat', 'Chat', 'chat'],
   ['documents', 'Documents', 'folder'],
@@ -135,12 +138,21 @@ export function AppDetail({
     window.setTimeout(() => needsRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }), 60);
   };
 
+  // 9 Nov (Jovial): the RP's commission on the application, GSP → RP only; seats see no commission
+  const tabs: [Shown, string, IconName][] = noBaseCommission ? TABS : [TABS[0], TABS[1], ['commission', 'Commission', 'wallet'], TABS[2]];
+  const [onComm, setOnComm] = useState(false);
+  const shownTab: Shown = onComm && !noBaseCommission ? 'commission' : tab;
+  const pickTab = (k: Shown) => {
+    setOnComm(k === 'commission');
+    if (k !== 'commission') setTab(k);
+  };
   const onTabKey = (e: KeyboardEvent) => {
-    const i = TABS.findIndex(([k]) => k === tab);
+    const TABS = tabs;
+    const i = TABS.findIndex(([k]) => k === shownTab);
     const n = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
     if (n < 0) return;
     e.preventDefault();
-    setTab(TABS[n][0]);
+    pickTab(TABS[n][0]);
     document.getElementById(`atab-${TABS[n][0]}`)?.focus();
   };
 
@@ -412,19 +424,19 @@ export function AppDetail({
       </AnimatePresence>
 
       <div className="atabs" role="tablist" aria-label="Application" onKeyDown={onTabKey}>
-        {TABS.map(([k, label, icon]) => (
+        {tabs.map(([k, label, icon]) => (
           <button
             key={k}
             type="button"
             role="tab"
             id={`atab-${k}`}
-            aria-selected={tab === k}
+            aria-selected={shownTab === k}
             aria-controls="apanel"
-            tabIndex={tab === k ? 0 : -1}
+            tabIndex={shownTab === k ? 0 : -1}
             className="atabs__tab"
-            onClick={() => setTab(k)}
+            onClick={() => pickTab(k)}
           >
-            {tab === k && <motion.span layoutId="atabs-lens" className="atabs__lens" transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />}
+            {shownTab === k && <motion.span layoutId="atabs-lens" className="atabs__lens" transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />}
             <span className="atabs__in">
               <Icon name={icon} size={18} />
               {label}
@@ -442,20 +454,21 @@ export function AppDetail({
       <div className="abody">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={tab}
+            key={shownTab}
             id="apanel"
             role="tabpanel"
-            aria-labelledby={`atab-${tab}`}
-            className={`apanel apanel--${tab}`}
+            aria-labelledby={`atab-${shownTab}`}
+            className={`apanel apanel--${shownTab}`}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease }}
           >
-            {tab === 'chat' && (
+            {shownTab === 'commission' && <AppCommissionTab a={a} s={s} rpOnly />}
+            {shownTab === 'chat' && (
               <Assist a={a} s={s} me={me} update={update} onNeedFile={(n, file) => takeFile(n, file)} onForm={setAnswering} say={say} />
             )}
-            {tab === 'documents' && (
+            {shownTab === 'documents' && (
               <DocsTab
                 a={a}
                 s={s}
@@ -491,7 +504,7 @@ export function AppDetail({
                 }
               />
             )}
-            {tab === 'activity' && <Activity a={a} />}
+            {shownTab === 'activity' && <Activity a={a} />}
           </motion.div>
         </AnimatePresence>
 

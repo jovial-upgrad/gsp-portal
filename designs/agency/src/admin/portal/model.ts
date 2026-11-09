@@ -12,7 +12,8 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
 export type ConfigSection = 'mywork' | 'users' | 'regions' | 'permissions' | 'queues' | 'tasks' | 'emails' | 'bdm' | 'currency' | 'living' | 'tags' | 'levels' | 'grades' | 'english' | 'routing' | 'documents' | 'logs';
-export type Section = InstitutionSection | ConfigSection;
+/** 9 Nov (Jovial): Commission lines, where Admin can override a line and export (the PRD's Commissions tab). */
+export type Section = InstitutionSection | ConfigSection | 'commlines';
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
 export type NavGroup = { key: string; label: string; icon: IconName; items: NavItem[] };
@@ -45,6 +46,12 @@ export const GROUPS: NavGroup[] = [
       { key: 'catalogue', label: 'Courses', short: 'Courses', icon: 'cap' },
       { key: 'announcements', label: 'Announcements', short: 'News', icon: 'megaphone' },
     ],
+  },
+  {
+    key: 'commissions',
+    label: 'Commissions',
+    icon: 'wallet',
+    items: [{ key: 'commlines', label: 'Commission Lines', short: 'Lines', icon: 'wallet' }],
   },
   {
     key: 'roles',

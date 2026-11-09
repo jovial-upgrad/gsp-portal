@@ -706,7 +706,7 @@ export function newApplication(p: {
 const m = (id: string, at: number, from: Msg['from'], name: string, text: string, more: Partial<Msg> = {}): Msg => ({ id, at, from, name, text, ...more });
 const f = (name: string, file: string, from: AppFile['from'], at: number, status: AppFile['status'] = 'verified', via?: AppFile['via']): AppFile => ({ name, file, from, at, status, via });
 
-/** The sample agency's applications, for its sample students: five need the agency, one is with GSP, three with universities, one closed. */
+/** The sample agency's applications, for its sample students: five need the agency, one is with GSP, three with universities, one closed, three enrolled (9 Nov). */
 export function sampleApplications(): Application[] {
   const now = Date.now();
   const ago = (d: number, h = 0) => now - d * DAY - h * HOUR;
@@ -972,6 +972,35 @@ export function sampleApplications(): Application[] {
       ],
       chat: [],
     },
+    // 9 Nov (Jovial, Commissions): three students already studying; their commission is worked out from these
+    ...(
+      [
+        ['GSP-23305', 'S-24702', 'Ananya Iyer', 'coventry-1', 'Sep 2025', '2025-04-02', '2025-09-29', 'COV-25118204'],
+        ['GSP-23318', 'S-24715', 'Rahul Menon', 'deakin-4', 'Feb 2026', '2025-10-06', '2026-03-02', 'DKN-2533017'],
+        ['GSP-23402', 'S-24733', 'Kavya Reddy', 'flinders-1', 'Jul 2026', '2026-02-03', '2026-07-27', 'FLN-2647711'],
+      ] as const
+    ).map(([id, studentId, name, courseId, intake, made, enrolled, uniRef]): Application => {
+      const t = (iso: string) => new Date(`${iso}T11:00`).getTime();
+      const uni = courseOf({ courseId }).uni.name;
+      return {
+        id,
+        studentId,
+        courseId,
+        intake,
+        status: 'enrolled',
+        created: t(made),
+        since: t(enrolled),
+        uniRef,
+        needs: [],
+        files: [f('Proof of enrolment', `${name.split(' ')[0].toLowerCase()}_enrolment_${uniRef}.pdf`, 'gsp', t(enrolled), 'verified')],
+        history: [
+          { at: t(made), who: 'you', text: `Application started for ${name}`, by: 'Karthik Nair' },
+          { at: t(made) + 2 * DAY, who: 'gsp', text: `Submitted to ${uni}. Reference ${uniRef}`, by: 'Meera Pillai' },
+          { at: t(enrolled), who: 'gsp', text: 'Student enrolled', by: 'Meera Pillai' },
+        ],
+        chat: [],
+      };
+    }),
   ];
 }
 

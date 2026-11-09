@@ -1,0 +1,82 @@
+/* Commissions (Jovial, 9 Nov): Setup, Commission lines, the Commission tabs and the RP's Earnings, in Nesil's records style */
+
+.cdoc { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-10); min-width: 0; }
+.cdoc > svg { flex: none; color: var(--text-3); }
+.cdoc__t { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.cdoc__sub { font-size: var(--t-caption); color: var(--text-3); }
+
+.ctab td { vertical-align: top; }
+.ctab__num { text-align: right; white-space: nowrap; }
+.ctab .dpill { white-space: nowrap; }
+
+.cinfo { display: inline-flex; align-items: center; gap: var(--sp-4); position: relative; }
+.cinfo__i { display: inline-grid; place-items: center; color: var(--text-3); cursor: help; border-radius: var(--r-pill); }
+.cinfo__i:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cinfo__tip { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: 260px; padding: var(--sp-8) var(--sp-10); border-radius: var(--r-sm); background: var(--text); color: var(--surface); font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: var(--fw-regular); text-align: left; white-space: normal; opacity: 0; pointer-events: none; transition: opacity var(--dur-2) var(--ease-out); }
+.cinfo__i:hover .cinfo__tip, .cinfo__i:focus-visible .cinfo__tip { opacity: 1; }
+
+.cbands { display: grid; gap: var(--sp-8); }
+.cbands__head, .cbands__row { display: grid; grid-template-columns: 1fr 1fr 1fr 40px; gap: var(--sp-8); align-items: center; }
+.cbands__head { font-size: var(--t-caption); color: var(--text-3); }
+.cbands > .iadd { justify-self: start; }
+
+.clogs { list-style: none; margin: 0; padding: 0; display: grid; }
+.clogs li { display: flex; justify-content: space-between; gap: var(--sp-12); padding: var(--sp-10) 0; border-top: 1px solid var(--line); font-size: var(--t-label); color: var(--text); }
+.clogs li:first-child { border-top: 0; }
+.clogs__at { flex: none; font-size: var(--t-caption); color: var(--text-3); }
+
+.csetup .ifold { margin-top: var(--sp-16); }
+.cline { margin: 0 0 var(--sp-12); color: var(--text-2); font-size: var(--t-label); }
+.cmuted { color: var(--text-3); }
+.camber { color: var(--warn-text, #8a5a00); }
+
+.cform__sec { grid-column: 1 / -1; margin: var(--sp-8) 0 0; padding-top: var(--sp-12); border-top: 1px solid var(--line); font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text); }
+.cform__list { grid-column: 1 / -1; display: grid; gap: var(--sp-8); }
+.cform__row { display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr 40px; gap: var(--sp-8); align-items: end; }
+.cform__row--bonus { grid-template-columns: 2fr 1fr 1fr 1fr 40px; }
+.cform__levels { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: var(--sp-8) var(--sp-12); }
+.cform__ro { grid-column: 1 / -1; padding: var(--sp-12); border-radius: var(--r-sm); background: var(--surface-2); }
+.cform__ro .ifacts { grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
+
+.cnotes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-12); }
+.cnotes > li { padding: var(--sp-14, 14px) var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-sm); display: grid; gap: var(--sp-10); }
+.cnotes__top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-12); flex-wrap: wrap; }
+.cnotes__name { font-weight: var(--fw-semi); color: var(--text); }
+
+.citem__sum { display: flex; flex-wrap: wrap; gap: var(--sp-8) var(--sp-24); margin: 0 0 var(--sp-12); }
+.citem__sum div { display: grid; }
+.citem__sum dt { font-size: var(--t-caption); color: var(--text-3); }
+.citem__sum dd { margin: 0; font-weight: var(--fw-semi); color: var(--text); }
+
+/* Commission lines */
+.clines__switch { display: inline-flex; gap: var(--sp-6); }
+.clines__check { margin-bottom: var(--sp-16); }
+.clines__inv { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-10); }
+.clines__inv > li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-10) var(--sp-16); padding: var(--sp-12) var(--sp-16); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.clines__inv .cinv__t { flex: 1 1 260px; min-width: 0; }
+.clines__inv .cinv__acts { display: flex; gap: var(--sp-8); flex-wrap: wrap; }
+.clines__dates { display: flex; gap: var(--sp-8); align-items: center; }
+.clines__dates input { height: 44px; }
+.clines__acts { display: flex; flex-wrap: wrap; gap: var(--sp-8); align-items: center; }
+.clines tbody tr.is-ticked { background: var(--surface-2); }
+.clines td { vertical-align: top; }
+
+/* RP Earnings */
+.cearn__nudge { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); flex-wrap: wrap; padding: var(--sp-12) var(--sp-16); margin-bottom: var(--sp-16); }
+.cearn__nudge p { margin: 0; display: inline-flex; align-items: center; gap: var(--sp-8); color: var(--text); }
+.cearn__tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--sp-12); margin-bottom: var(--sp-16); }
+.cearn__tile { padding: var(--sp-16); display: grid; gap: var(--sp-4); }
+.cearn__tile .n { font-size: var(--t-title, 22px); font-weight: var(--fw-semi); color: var(--text); }
+.cearn__tile .k { font-size: var(--t-caption); color: var(--text-3); }
+.cearn__send { list-style: none; margin: 0 0 var(--sp-12); padding: 0; display: grid; }
+.cearn__send > li { display: flex; flex-wrap: wrap; gap: var(--sp-8) var(--sp-16); justify-content: space-between; padding: var(--sp-10) 0; border-top: 1px solid var(--line); }
+.cearn__send > li:first-child { border-top: 0; }
+.cearn__acts { display: flex; gap: var(--sp-8); flex-wrap: wrap; }
+.cearn__ticks { display: grid; gap: var(--sp-8); }
+
+@media (max-width: 700px) {
+  .cform__row, .cform__row--bonus { grid-template-columns: 1fr 1fr; }
+  .cbands__head, .cbands__row { grid-template-columns: 1fr 1fr 1fr 40px; }
+}
+.cinvoice.sheet--center { width: min(92vw, 920px); }
+.cinvoice__frame { width: 100%; height: min(70vh, 760px); border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; }

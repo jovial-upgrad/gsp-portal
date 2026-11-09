@@ -515,3 +515,6 @@
 .mw-tab .mw-c-act { width: 156px; }
 .mw-tab td { overflow-wrap: anywhere; }
 .mw-empty p { margin: 0; }
+/* 9 Nov (Jovial): Applies when, editable in the table: the four pickers stacked */
+.cfg__when { min-width: 220px; }
+.cfg__whenpick + .cfg__whenpick { margin-top: 6px; }

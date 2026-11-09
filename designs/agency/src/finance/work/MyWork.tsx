@@ -29,13 +29,15 @@ const slaLine = (t: IwTask) => {
  * others**, with a Queues filter. A task's record is the university or partner and its region. Tick tasks to assign
  * them together; Mark as completed on your own.
  */
-export function MyWork() {
+export function MyWork({ stillOpen = () => true }: { stillOpen?: (t: IwTask) => boolean } = {}) {
   // view only (6 Nov): the tasks to look at; no ticking, assigning or completing
   const viewOnly = useViewOnly();
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const say = (title: string) => setToast({ key: Date.now(), title, icon: 'check', tone: 'ok' });
   const ME = GSP_USER.name;
-  const [tasks, setTasks] = useState(sampleIwTasks);
+  // 9 Nov (Commissions): a T80 or T81 task leaves once its rule's record is saved
+  const [all, setTasks] = useState(sampleIwTasks);
+  const tasks = all.filter(stillOpen);
   const waits: { id: string }[] = [];
   const [qs, setQs] = useState<string[]>([]);
   const [view, setView] = useState<View>('mine');

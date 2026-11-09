@@ -44,6 +44,13 @@ import { AccountPage } from '../../institution/records/Account';
 import { Toast } from '../../institution/records/parts';
 import { MailInbox } from '../../mailbox/MailInbox';
 import { sampleMailbox, type Mailbox } from '../../data/mailbox';
+// 9 Nov (Jovial): Commissions' own pages, and the commission store every role reads
+import { Setup, type SetupStart } from '../commission/Setup';
+import { Lines } from '../commission/Lines';
+import { CommNavProvider, type CommNav } from '../commission/parts';
+import { commNotes } from '../commission/engine';
+import { rpName as commRpName, useComm, useLines, whoIs } from '../commission/store';
+import type { Note } from '../../data/inbox';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 import '../../institution/institution.css';
@@ -122,6 +129,12 @@ export function Portal({
   const [focus, setFocus] = useState<OpsFocus | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
   const say = (text: string) => setMsg({ text, key: Date.now() });
+  // Setup, opened on a tab (and a record's form) from a Commission tab's Edit in Setup
+  const [setupStart, setSetupStart] = useState<SetupStart | undefined>();
+  const comm = useComm();
+  const lines = useLines(apps, students);
+  // N17: an RP sent an invoice, to the Finance queue's members (bell)
+  const commExtra = useMemo<Note[]>(() => commNotes(comm, lines, commRpName).filter((n) => n.to === 'finance').map((n) => ({ id: n.id, kind: 'system', title: n.title, text: n.text, at: n.at, read: n.at < Date.now() - 2 * 86_400_000 })), [comm, lines]);
 
   // the bell and the megaphone, as in every role
   const ownAnns = useMemo(() => ({ list: db.anns, names: Object.fromEntries(db.unis.map((u) => [u.id, u.name])) }), [db.anns, db.unis]);
@@ -133,6 +146,7 @@ export function Portal({
     apps,
     students,
     anns: ownAnns,
+    extra: commExtra,
     onOpen: (t) => openNote(t),
     onCourses: (uni) => {
       setSearch((p) => runSearch({ ...newSearch(p.need.country, p.need.state), text: uni }));
@@ -175,6 +189,7 @@ export function Portal({
   const [navKey, setNavKey] = useState(0);
   const go = (k: Section) => {
     setJump(undefined);
+    setSetupStart(undefined);
     setMoved(true);
     setSection(k);
     setFocus(null);
@@ -226,6 +241,18 @@ export function Portal({
           : m,
       ),
     );
+  };
+  /** Commissions' way from a Commission tab to Setup, and from Setup to an RP's Commission tab. */
+  const commNav: CommNav = {
+    setup: (tab, open) => {
+      setSetupStart({ tab, open, key: Date.now() });
+      setJump(undefined);
+      setMoved(true);
+      setSection('setup');
+      setNavKey((n) => n + 1);
+      scrollTop();
+    },
+    rp: (id) => openRecord({ section: 'rps', id, tab: 'commission' }),
   };
   const initials = GSP_USER.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
   const org = `${GSP_USER.org} · ${GSP_USER.role}`;
@@ -283,7 +310,12 @@ export function Portal({
     section === 'home' ? (
       <TeamHome first={GSP_USER.first} db={db} open={openInst} me={GSP_USER.name} />
     ) : section === 'work' ? (
-      <MyWork />
+      // a T80 or T81 task closes once its record is saved in Setup
+      <MyWork stillOpen={(t) => (t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : true)} />
+    ) : section === 'lines' ? (
+      <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
+    ) : section === 'setup' ? (
+      <Setup me={GSP_USER.name} say={say} start={setupStart} openRp={(id) => openRecord({ section: 'rps', id, tab: 'commission' })} />
     ) : section === 'inbox' ? (
       <MailInbox box={mailbox} setBox={setMailbox} me={GSP_USER} apps={apps} students={students} navKey={navKey} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'profile' ? (
@@ -383,12 +415,14 @@ export function Portal({
           transition={{ duration: 0.22, ease }}
         >
           <AccessProvider hide={HIDE} show={SHOW}>
+            <CommNavProvider nav={commNav}>
             <ViewOnlyProvider on={!EDIT.includes(section)}>
               {!EDIT.includes(section) && (
-                <ViewOnlyNote page>View only, except commission: Inbox, My work, Students and Course search are yours to use.</ViewOnlyNote>
+                <ViewOnlyNote page>View only: Inbox, My work, Students, Course search, Commission lines and Setup are yours to use.</ViewOnlyNote>
               )}
               {content}
             </ViewOnlyProvider>
+            </CommNavProvider>
           </AccessProvider>
         </motion.div>
       </AnimatePresence>

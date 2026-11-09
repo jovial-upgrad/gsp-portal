@@ -457,7 +457,7 @@ const blank = (me: string) => ({
 });
 const doc = (name: string, file: string, status: DocStatus = 'verified'): Doc => ({ name, file, status });
 
-/** A Bengaluru agency's students: one just added (profile incomplete, no applications yet), and four with complete profiles and applications. */
+/** A Bengaluru agency's students: one just added (profile incomplete, no applications yet), four with complete profiles and applications, and three enrolled (9 Nov). */
 export function sampleStudents(me: string): Student[] {
   const now = Date.now();
   return [
@@ -604,5 +604,26 @@ export function sampleStudents(me: string): Student[] {
       counsellor: 'divya',
       added: now - 58 * DAY,
     },
+    // 9 Nov (Jovial, Commissions): three students already studying, each with an application at Student enrolled
+    ...(
+      [
+        ['S-24702', 'Ananya', 'Iyer', 'ananya.iyer01@gmail.com', '98450 31207', 'T4417820', 'karthik', '2025-03-10'],
+        ['S-24715', 'Rahul', 'Menon', 'rahul.menon.k@gmail.com', '99860 22418', 'U2290457', 'divya', '2025-09-02'],
+        ['S-24733', 'Kavya', 'Reddy', 'kavya.reddy23@gmail.com', '90084 66315', 'V1068832', 'karthik', '2026-01-19'],
+      ] as const
+    ).map(([id, first, last, email, phone, passport, counsellor, added]) => ({
+      ...blank(me),
+      id,
+      first,
+      last,
+      nationality: 'India',
+      email,
+      phone,
+      passport,
+      highest: 'ug' as const,
+      counsellor,
+      added: new Date(`${added}T11:00`).getTime(),
+      docs: { passport: doc('Passport', `${first.toLowerCase()}_passport.pdf`) },
+    })),
   ];
 }

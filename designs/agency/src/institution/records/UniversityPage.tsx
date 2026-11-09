@@ -12,6 +12,8 @@ import { PRIORITY_DEFAULT, UNI_TYPES, courseUpdated, coursesOf, searchable, type
 import { agreementOf, canGoLive, dateText, isClosed, logLine, stampBy } from '../data/records';
 import { patch } from '../data/store';
 import { AddButton, ErrorText, Facts, Logs, Pager, RecordHead, RecordTabs, Section, TabPanel, useAsk, usePaged } from './parts';
+import { UniCommissionTab } from '../../finance/commission/tabs';
+import { useComm } from '../../finance/commission/store';
 import { SearchPick } from './SearchPick';
 import { CourseColumns, CourseForm, blankCourse, courseTemplate, newCourse, readCourses, type CourseDraft } from './CourseForm';
 import { CsvImport } from './CsvImport';
@@ -22,8 +24,8 @@ import { Scholarships } from './uni/Scholarships';
 import { IMAGE_TYPES, Images, MAX_MB, readImage } from './uni/Images';
 import type { PageProps } from '../portal/model';
 
-type Tab = 'overview' | 'campuses' | 'images' | 'courses' | 'scholarships' | 'territory' | 'submission' | 'logs';
-const TABS: Tab[] = ['overview', 'campuses', 'images', 'courses', 'scholarships', 'territory', 'submission', 'logs'];
+type Tab = 'overview' | 'campuses' | 'images' | 'courses' | 'scholarships' | 'territory' | 'submission' | 'commission' | 'logs';
+const TABS: Tab[] = ['overview', 'campuses', 'images', 'courses', 'scholarships', 'territory', 'submission', 'commission', 'logs'];
 /** Changes one part of the university; `what` is its line in the Logs tab. */
 export type UniUpd = (fn: (u: UniRec) => UniRec, what?: string) => void;
 const SENT = { 'Own portal': 'applications on its own portal', StudyLink: 'applications through StudyLink', Email: 'applications by email' } as const;
@@ -57,6 +59,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
   useEffect(() => {
     if (start && TABS.includes(start as Tab)) setTab(start as Tab);
   }, [start]);
+  const comm = useComm();
   const [pausing, setPausing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState<CourseDraft | null>(null);
@@ -82,6 +85,8 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
     ['At least one live course', live.length > 0],
     // 4 Nov: Own portal and StudyLink need at least one portal login
     onPortal(u.channel) && !u.logins.length ? [`A portal login for ${u.channel}`, false] : ['How applications are sent', !!u.channel],
+    // 9 Nov (Jovial, the PRD's Commissions tab): Commissions enters the university's terms before it goes live
+    ['Commission terms entered', comm.terms.some((t) => t.uni === u.id)],
   ];
   const ready = needs.every(([, ok]) => ok);
   const setStatus = (status: UniRec['status'], what: string) => {
@@ -163,6 +168,8 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
           ...(noScholarships ? [] : [{ key: 'scholarships' as Tab, label: 'Scholarships', n: u.scholarships.length }]),
           ...(noTerritory ? [] : [{ key: 'territory' as Tab, label: 'Territory' }]),
           ...(noSubmission ? [] : [{ key: 'submission' as Tab, label: 'Submission and contacts' }]),
+          // 9 Nov (Jovial): the university's commission terms, for every team that can see the university
+          { key: 'commission', label: 'Commission' },
           { key: 'logs', label: 'Logs', n: u.log.length + 1 },
         ]}
       />
@@ -309,6 +316,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
           </ViewOnlyProvider>
         )}
         {tab === 'submission' && !noSubmission && <Submission u={u} p={p} part={part} say={say} me={me} />}
+        {tab === 'commission' && <UniCommissionTab uni={u} />}
         {tab === 'logs' && <Logs id="iu-logs" lines={u.log} created={u.created} added="Added the university" parts={PARTS} />}
       </TabPanel>
 

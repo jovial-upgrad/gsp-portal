@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Lines } from '../../finance/commission/Lines';
+import { whoIs } from '../../finance/commission/store';
 import { AccessProvider } from '../../proto/viewOnly';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppShell } from '../../shell/AppShell';
@@ -346,6 +348,8 @@ export function Portal({
       <InstitutionPartners {...page} appsByUni={appsByUni} />
     ) : section === 'announcements' ? (
       <Announcements {...page} />
+    ) : section === 'commlines' ? (
+      <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : CONFIG.includes(section as ConfigSection) ? (
       <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={GSP_USER.name} say={say} courses={db.courses} />
     ) : (
@@ -385,7 +389,7 @@ export function Portal({
           transition={{ duration: 0.22, ease }}
         >
           {/* 6 Nov (Nesil): GSP · Admin marks a student's primary application */}
-          <AccessProvider show={['app.primary']}>{content}</AccessProvider>
+          <AccessProvider show={['app.primary', 'app.commission']}>{content}</AccessProvider>
         </motion.div>
       </AnimatePresence>
       <Toast msg={msg} />

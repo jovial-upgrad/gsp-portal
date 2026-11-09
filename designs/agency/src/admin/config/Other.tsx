@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useComm } from '../../finance/commission/store';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { SelectInput, TextInput } from '../../components/forms';
@@ -30,7 +31,9 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
   const userOf = (name: string) => cfg.users.find((u) => u.name === name);
   const emailOf = (l: LogEntry) => l.email ?? userOf(l.who)?.email ?? '';
   const regionOf = (l: LogEntry) => l.region ?? userOf(l.who)?.region ?? '';
-  const all = [...cfg.log].sort((a, b) => b.at - a.at);
+  // 9 Nov (Jovial): Commission lines' CSV exports are logged here too (from the commission store)
+  const comm = useComm();
+  const all = [...cfg.log, ...comm.downloads.map((d): LogEntry => ({ ...d, kind: 'download' }))].sort((a, b) => b.at - a.at);
   const rows = all.filter((l) => (!source || l.area === source) && (!role || l.role === role) && (!region || regionOf(l) === region) && (!from || day(l.at) >= from) && (!to || day(l.at) <= to));
   const pg = usePaged(rows, [source, role, region, from, to]);
   const any = !!(source || role || region || from || to);

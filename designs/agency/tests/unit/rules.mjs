@@ -12,7 +12,7 @@ const ok = (name, cond, more = '') => { cond ? pass++ : fail++; console.log(`${c
 try {
   const { sampleCfg } = await vite.ssrLoadModule('/src/admin/config/ConfigPage.tsx');
   const mw = await vite.ssrLoadModule('/src/admin/data/mywork.ts');
-  const KEPT = ['T5', 'T54', 'T16', 'T57', 'T20', 'T32', 'T69', 'T37', 'T38', 'T40', 'T41', 'T42', 'T27'];
+  const KEPT = ['T5', 'T54', 'T16', 'T57', 'T20', 'T32', 'T69', 'T37', 'T38', 'T40', 'T41', 'T42', 'T27', 'T80', 'T81'];
   const cfg = sampleCfg();
   ok('the task rules are exactly the kept ones', cfg.taskRules.map((r) => r.code).join() === KEPT.join(), cfg.taskRules.map((r) => r.code).join());
   ok('no kinds of work, reminders or requests in the settings', !('kinds' in cfg) && !('ladder' in cfg) && !('requests' in cfg));
@@ -42,7 +42,9 @@ try {
     ok(`${role}: ${ts.length} tasks, each from a kept rule`, bad.length === 0, bad.map((t) => t.title).join('; '));
   }
   const fin = await vite.ssrLoadModule('/src/finance/work/data.ts');
-  ok('Finance gets no tasks (no rule sends work to it)', fin.sampleIwTasks().length === 0);
+  // 9 Nov (Commissions): T80 and T81 send Finance a task for each accepted RP with no commission record, and each university with no terms
+  const fts = fin.sampleIwTasks();
+  ok('Finance gets only T80 and T81 tasks', fts.length > 0 && fts.every((t) => t.rule === 'T80' || t.rule === 'T81'), fts.map((t) => t.title).join('; '));
 } finally {
   await vite.close();
 }
