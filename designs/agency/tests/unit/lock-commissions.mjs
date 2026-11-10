@@ -63,21 +63,21 @@ try {
   const s3 = { ...s1, requests: [...s1.requests, rq] };
   const r3 = run(s3);
   const notes3 = engine.commNotes(s3, r3, (x) => x, TODAY);
-  const n19 = notes3.filter((n) => n.id.startsWith('n19-rq-t'));
+  const n19 = notes3.filter((n) => n.id.startsWith('n21-rq-t'));
   ok('Q47 the RP is reminded 3 and 7 days after the request (14 not yet)', n19.length === 2, `${n19.length}`);
-  ok('Q47 Finance is reminded of university lines past due', notes3.some((n) => n.code === 'N20'));
+  ok('Q47 Finance is reminded of university lines past due', notes3.some((n) => n.code === 'N22'));
   ok('Q47 the reminder days are a setting', s0.settings.reminders.rpInvoice.join() === '3,7,14' && s0.settings.reminders.uniPayment.join() === '0,7,14');
   const s4 = { ...s3, rpInvoices: [...s3.rpInvoices, { id: 'ri-t', rp: rp1.rp, file: { name: 'inv.pdf', size: 1 }, txs: [rp1.id], by: 'RP', at: 5, state: 'Sent back', reason: 'The amount doesn’t match.', decided: { by: 'Fin', at: 6 } }] };
   const r4 = run(s4);
   ok('Q50 a sent-back line is Sent back', r4.byId.get(rp1.id).status === 'Sent back');
-  ok('Q54 the RP is told it was sent back, with the reason', engine.commNotes(s4, r4, (x) => x, TODAY).some((n) => n.code === 'N21' && n.to === 'rp' && n.text.includes('doesn’t match')));
+  ok('Q54 the RP is told it was sent back, with the reason', engine.commNotes(s4, r4, (x) => x, TODAY).some((n) => n.code === 'N19' && n.to === 'rp' && n.text.includes('doesn’t match')));
   const s5 = { ...s4, rpInvoices: [...s4.rpInvoices, { id: 'ri-t2', rp: rp1.rp, file: { name: 'inv2.pdf', size: 1 }, txs: [rp1.id], by: 'RP', at: 7, state: 'To check' }] };
   ok('Q50 a new invoice puts it In review', run(s5).byId.get(rp1.id).status === 'Invoice in review');
   const s6 = { ...s5, rpInvoices: s5.rpInvoices.map((i) => (i.id === 'ri-t2' ? { ...i, state: 'Accepted', decided: { by: 'Fin', at: 8 } } : i)) };
   const r6 = run(s6);
   ok('Q50 an accepted invoice makes it Approved', r6.byId.get(rp1.id).status === 'Approved');
-  ok('Q54 the RP is told it was approved', engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.code === 'N22' && n.to === 'rp'));
-  ok('Q47 no reminder once the line is on an invoice', !engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.id.startsWith('n19-rq-t')));
+  ok('Q54 the RP is told it was approved', engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.code === 'N20' && n.to === 'rp'));
+  ok('Q47 no reminder once the line is on an invoice', !engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.id.startsWith('n21-rq-t')));
 
   // Q41: an edit's Effective from: intakes that start before it keep the terms before
   const plain = r0.txs.find((t) => {

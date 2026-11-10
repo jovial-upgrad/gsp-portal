@@ -565,7 +565,7 @@ function OverrideSheet({ t, onClose, onSave }: { t: Tx | null; onClose: () => vo
   );
 }
 
-/** Send back an RP's invoice, with why (free text, required): its lines show Sent back and the RP is told (N21). */
+/** Send back an RP's invoice, with why (free text, required): its lines show Sent back and the RP is told (N19). */
 function SendBack({ open, file, onClose, onSend }: { open: boolean; file: string; onClose: () => void; onSend: (reason: string) => void }) {
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);

@@ -158,7 +158,7 @@ export function Portal({
     apps,
     students,
     anns,
-    // 9 and 10 Nov (Jovial): N16, N18, N19 (reminder), N21 (sent back) and N22 (approved), to the RP Admin; seats see no commission
+    // 9 and 10 Nov (Jovial): N16, N18, N21 (reminder), N19 (sent back) and N20 (approved), to the RP Admin; seats see no commission
     extra: seat ? [] : commExtra,
     onOpen: (t) => openNote(t),
     onCourses: (uni) => {

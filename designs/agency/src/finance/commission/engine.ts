@@ -583,13 +583,13 @@ export const rpsWithoutRecord = <R extends { id: string }>(state: CommState, acc
 /** Universities without terms: each makes a T81 task, and the "without terms" tile counts them. */
 export const unisWithoutTerms = <U extends { id: string }>(state: CommState, unis: U[]) => unis.filter((u) => !state.terms.some((t) => t.uni === u.id));
 
-export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22'; title: string; text: string; at: number };
+export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N21' | 'N22' | 'N19' | 'N20'; title: string; text: string; at: number };
 const at9 = (d: string) => Date.parse(`${d}T09:00:00`);
 /**
  * The notifications the records make (bell and email): N16 to the RP when its invoice is asked for, N17 to Finance
- * when an RP sends one, N18 when GSP pays; and (Jovial, 10 Nov) N21 when an RP's invoice is sent back, with the reason,
- * N22 when it's approved (Q54); reminders (Q47, days from Settings, no escalation): N19 to the RP while lines it was
- * asked to invoice still aren't on an invoice, N20 to Finance while a University → GSP line is past due and not paid.
+ * when an RP sends one, N18 when GSP pays; and (Jovial, 10 Nov) N19 when an RP's invoice is sent back, with the reason,
+ * N20 when it's approved (Q54); reminders (Q47, days from Settings, no escalation): N21 to the RP while lines it was
+ * asked to invoice still aren't on an invoice, N22 to Finance while a University → GSP line is past due and not paid.
  */
 export function commNotes(state: CommState, res: Result, rpName: (id: string) => string, today = new Date().toISOString().slice(0, 10)): CommNote[] {
   const total = (ids: string[]) => totalsText(sumBy(ids.map((i) => res.byId.get(i)).filter((x): x is Tx => !!x)));
@@ -600,7 +600,7 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
     return R.rpInvoice
       .map((d) => addDays(r.date, d))
       .filter((d) => d <= today)
-      .map((d, i): CommNote => ({ id: `n19-${r.id}-${i}`, to: 'rp', rp: r.rp, code: 'N19', title: 'Reminder: send your invoice to GSP', text: `${open.length} ${open.length === 1 ? 'line' : 'lines'}, ${total(open)}, asked for on ${dayText(r.date)}. Upload it on Earnings.`, at: at9(d) }));
+      .map((d, i): CommNote => ({ id: `n21-${r.id}-${i}`, to: 'rp', rp: r.rp, code: 'N21', title: 'Reminder: send your invoice to GSP', text: `${open.length} ${open.length === 1 ? 'line' : 'lines'}, ${total(open)}, asked for on ${dayText(r.date)}. Upload it on Earnings.`, at: at9(d) }));
   });
   const uniReminders = res.txs
     .filter((t) => t.side === 'uni' && t.due && ['Invoiced', 'Overdue', 'Part paid'].includes(t.status))
@@ -608,17 +608,17 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
       R.uniPayment
         .map((d) => addDays(t.due, d))
         .filter((d) => d <= today)
-        .map((d, i): CommNote => ({ id: `n20-${t.id}-${i}`, to: 'finance', rp: t.rp, code: 'N20', title: `${t.uniName} hasn’t paid ${t.id}`, text: `${money(roundMoneyOf(t), t.currency)} ${t.invoice ? `on invoice ${t.invoice}` : ''}, due ${dayText(t.due)}. Chase it with the university.`.replace('  ', ' '), at: at9(d) })),
+        .map((d, i): CommNote => ({ id: `n22-${t.id}-${i}`, to: 'finance', rp: t.rp, code: 'N22', title: `${t.uniName} hasn’t paid ${t.id}`, text: `${money(roundMoneyOf(t), t.currency)} ${t.invoice ? `on invoice ${t.invoice}` : ''}, due ${dayText(t.due)}. Chase it with the university.`.replace('  ', ' '), at: at9(d) })),
     );
   return [
     ...state.requests.map((r): CommNote => ({ id: `n16-${r.id}`, to: 'rp', rp: r.rp, code: 'N16', title: 'GSP is ready to pay you: send your invoice', text: `${r.txs.length} ${r.txs.length === 1 ? 'line' : 'lines'}, ${total(r.txs)}. Download GSP’s invoice on Earnings, or upload your own.`, at: r.at })),
     ...state.rpInvoices.map((i): CommNote => ({ id: `n17-${i.id}`, to: 'finance', rp: i.rp, code: 'N17', title: `${rpName(i.rp)} sent an invoice for ${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}`, text: `${i.file.name}: ${total(i.txs)}. Check it on Commission lines.`, at: i.at })),
     ...state.rpInvoices
       .filter((i) => i.state === 'Sent back' && i.decided)
-      .map((i): CommNote => ({ id: `n21-${i.id}`, to: 'rp', rp: i.rp, code: 'N21', title: `GSP sent back your invoice ${i.file.name}`, text: `${i.reason ?? ''} Upload a new invoice on Earnings for ${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}, ${total(i.txs)}.`.trim(), at: i.decided!.at })),
+      .map((i): CommNote => ({ id: `n19-${i.id}`, to: 'rp', rp: i.rp, code: 'N19', title: `GSP sent back your invoice ${i.file.name}`, text: `${i.reason ?? ''} Upload a new invoice on Earnings for ${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}, ${total(i.txs)}.`.trim(), at: i.decided!.at })),
     ...state.rpInvoices
       .filter((i) => i.state === 'Accepted' && i.decided)
-      .map((i): CommNote => ({ id: `n22-${i.id}`, to: 'rp', rp: i.rp, code: 'N22', title: `GSP approved your invoice ${i.file.name}`, text: `${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}, ${total(i.txs)}. GSP pays it next.`, at: i.decided!.at })),
+      .map((i): CommNote => ({ id: `n20-${i.id}`, to: 'rp', rp: i.rp, code: 'N20', title: `GSP approved your invoice ${i.file.name}`, text: `${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}, ${total(i.txs)}. GSP pays it next.`, at: i.decided!.at })),
     ...state.rpPayments.map((p): CommNote => ({ id: `n18-${p.id}`, to: 'rp', rp: p.rp, code: 'N18', title: `GSP paid you ${total(p.txs)}`, text: `${p.txs.length} ${p.txs.length === 1 ? 'line' : 'lines'}, paid on ${dayText(p.date)}.`, at: p.at })),
     ...rpReminders,
     ...uniReminders,
