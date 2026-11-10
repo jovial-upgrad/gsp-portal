@@ -252,6 +252,8 @@ function compute(cfg, apps, today) {
     /* rate per period */
     r.periods.forEach((q) => { q.rate = pickRate(u, a, q.k, S); if (q.rate.tie) exc(a, 'Rate rows overlap', u.name + ': two rate rows match ' + a.student + ' equally (' + rowLabel(q.rate.ok[0], u.cur) + ' and ' + rowLabel(q.rate.ok[1], u.cur) + '). The first listed is used; make one more specific.', 'warn'); });
     r.rateMissing = !r.periods.length ? !rateRows(u).length : r.periods.every((q) => !q.rate.best);
+    // a row saved with a colon or a second key inside a value never matches anyone (Jovial, 10 Nov: "course=Nursing : region=Bangladesh : 5000")
+    rateRows(u).filter((x) => x.src === 'row' && rowKeys(x).some((k) => /[:=]/.test(String(x[k])))).forEach((x) => { if (a.enrolled) exc(a, 'Rate row unreadable', u.name + ': ' + rowLabel(x, u.cur) + ' has a value with “:” or “=” in it, so it matches no student. Write it as course=Nursing; region=Bangladesh : 5000 (a ; between conditions, one : before the amount).', 'warn'); });
     /* university-side promotions (IP9–11): matched on the intake start */
     r.promos = (u.promos || []).map((p) => ({ p, w: promoTest(p, a, S) }));
     if (!a.enrolled) return;
