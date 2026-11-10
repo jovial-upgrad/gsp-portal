@@ -547,6 +547,8 @@ GSP's shared inboxes, as a page of its own in every GSP role. RP Admin doesn't h
 
 - [x] Nesil, 5 Nov (2nd round), Inbox: in the nudge, **both buttons and both dropdowns the same size**, and a clear **“or”** between linking and forwarding, so it doesn't read as two fields to fill; the **counts in the Email group and Category dropdowns no longer sit under the arrow** (every dropdown with a count is fixed). (5 Nov, commit “Inbox nudge: one size, a clear or; dropdown counts clear of the arrow; toasts centred”)
 
+- [x] Jovial, 10 Nov (his answers in the Pending Questions sheet, All pending questions Q29–Q31): **mail started from an application goes out only from GSP Admission**, as that inbox, and its **subject starts with the application's GSP ID** (and the university's reference when there is one); **the compliance inbox is compliance.gsp@upgrad.com**; a Not linked mail can be marked **Not needed** (spam or junk): it goes to Others with who marked it and when, and its T27 task closes. (10 Nov, commit “Email: application mail from GSP Admission with its GSP ID, the compliance address, Not needed”)
+
 ## New pages
 
 - [ ] **End-to-end admissions flow**, including the university states, in the **counsellor** and **GSP admissions** views. Nesil and Jovial, by **Wed 28 Oct**.

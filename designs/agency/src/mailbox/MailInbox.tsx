@@ -186,6 +186,13 @@ export function MailInbox({
     say(`Forwarded to ${g?.name}`, box.connected.some((c) => c.group === to) ? 'It’s in that inbox now, as well as here under Forwarded.' : 'Its team has it now. It stays here under Forwarded.', 'forward');
   };
 
+  // 10 Nov (Q31): spam or junk is marked Not needed, logged on the mail, and goes to Others
+  const notNeeded = (m: BoxMail) => {
+    const now = Date.now();
+    setBox((b) => ({ ...b, mails: b.mails.map((x) => (x.id === m.id ? { ...x, notNeeded: { by: me.name, at: now } } : x)) }));
+    say('Marked Not needed', 'It’s in Others now, with who marked it and when.', 'check');
+  };
+
   // what the composer starts with: blank, a reply quoting the mail, a forward carrying its files, or a saved draft
   const start = (c: Compose): Draft => {
     const home = (group || connected[0]?.key) ?? '';
@@ -508,6 +515,7 @@ export function MailInbox({
                     apps={apps}
                     onLink={(id) => link(open, id)}
                     onForward={(to) => forward(open, to)}
+                    onNotNeeded={() => notNeeded(open)}
                     say={say}
                   />
                 ) : (
@@ -568,6 +576,7 @@ function Reader({
   apps,
   onLink,
   onForward,
+  onNotNeeded,
   say,
 }: {
   m: BoxMail;
@@ -582,6 +591,7 @@ function Reader({
   apps: Application[];
   onLink: (appId: string) => void;
   onForward: (group: string) => void;
+  onNotNeeded: () => void;
   say: (title: string, text?: string, icon?: IconName) => void;
 }) {
   const reduce = useReducedMotion();
@@ -775,7 +785,15 @@ function Reader({
           </span>
         </p>
       )}
-      {categoryOf(m) === 'unlinked' && (m.folder === 'inbox' || m.folder === 'archive') && !viewOnly && <Unlinked key={m.id} m={m} apps={apps} students={students} onLink={onLink} onForward={onForward} />}
+      {m.notNeeded && (
+        <p className="mbx__note">
+          <Icon name="check" size={16} />
+          <span>
+            Marked <strong>Not needed</strong> by {m.notNeeded.by === me.name ? 'you' : m.notNeeded.by}, {when(m.notNeeded.at)}
+          </span>
+        </p>
+      )}
+      {categoryOf(m) === 'unlinked' && (m.folder === 'inbox' || m.folder === 'archive') && !viewOnly && <Unlinked key={m.id} m={m} apps={apps} students={students} onLink={onLink} onForward={onForward} onNotNeeded={onNotNeeded} />}
       {isThread ? (
         <section className="mbx__thread" aria-label={`${msgs.length} messages, oldest first`}>
           <div className="mbx__thread-head">
@@ -845,7 +863,7 @@ function Reader({
  * The nudge on a mail GSP couldn't place (Nesil, 5 Nov), above its text: link it to an application, or forward it to
  * the inbox it belongs in. Applications whose student the mail names come first. Nothing picked shows an error.
  */
-function Unlinked({ m, apps, students, onLink, onForward }: { m: BoxMail; apps: Application[]; students: Student[]; onLink: (id: string) => void; onForward: (group: string) => void }) {
+function Unlinked({ m, apps, students, onLink, onForward, onNotNeeded }: { m: BoxMail; apps: Application[]; students: Student[]; onLink: (id: string) => void; onForward: (group: string) => void; onNotNeeded: () => void }) {
   const [app, setApp] = useState('');
   const [to, setTo] = useState('');
   const [tried, setTried] = useState<'' | 'link' | 'forward'>('');
@@ -871,7 +889,7 @@ function Unlinked({ m, apps, students, onLink, onForward }: { m: BoxMail; apps: 
           <h3 id={`${id}-t`} className="mbx__nudge-t">
             Not linked to an application
           </h3>
-          <p className="mbx__nudge-text">GSP couldn’t match this mail to an application. Do one of these: link it to an application, or forward it to the inbox it belongs in.</p>
+          <p className="mbx__nudge-text">GSP couldn’t match this mail to an application. Do one of these: link it to an application, forward it to the inbox it belongs in, or mark it Not needed if it’s spam or junk.</p>
         </div>
       </div>
       <div className="mbx__nudge-grid">
@@ -912,6 +930,12 @@ function Unlinked({ m, apps, students, onLink, onForward }: { m: BoxMail; apps: 
             </p>
           )}
         </div>
+      </div>
+      <div className="mbx__nudge-foot">
+        <Button variant="ghost" iconLeft={<Icon name="close" size={16} />} onClick={onNotNeeded}>
+          Not needed
+        </Button>
+        <span className="mbx__nudge-text">Spam or junk: it goes to Others, with who marked it and when.</span>
       </div>
     </section>
   );

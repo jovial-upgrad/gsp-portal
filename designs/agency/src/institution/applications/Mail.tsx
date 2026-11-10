@@ -7,7 +7,7 @@ import { DocButtons } from '../../components/DocView';
 import type { University } from '../../data/courses';
 import { shortDate } from '../../data/dates';
 import { courseOf, type Application } from '../../data/applications';
-import { GSP_USER } from '../user';
+import { APPLICATION_MAILBOX, appSubjectTag, groupOf, withAppTag } from '../../data/mailbox';
 import { UniMark } from '../courses/parts';
 import { AssistMark, Thinking } from './parts';
 import { longDate, summaryOf, type Desk, type Mail } from './desk';
@@ -51,9 +51,10 @@ export function MailTab({
   say: (m: string) => void;
 }) {
   const c = courseOf(a);
-  // GSP's mail goes out from the signed-in person's address
-  const g = GSP_USER;
-  const me = GSP_USER.email;
+  // mail from an application record goes out only from the GSP Admission inbox, as that inbox (Jovial, 10 Nov, Q29)
+  const box = groupOf(APPLICATION_MAILBOX)!;
+  const g = { name: box.name, email: box.email };
+  const me = box.email;
   const [view, setView] = useState<View>({ mode: 'list' });
   const mails = [...desk.mails].sort((x, y) => y.at - x.at);
   const open = view.mode === 'read' ? mails.find((m) => m.id === view.id) : undefined;
@@ -96,7 +97,7 @@ export function MailTab({
         body: `\n\n---------- Forwarded message ----------\nFrom: ${m.from.name} <${m.from.email}>\nDate: ${longDate(m.at)}\nSubject: ${m.subject}\n\n${m.body}`,
         files: m.files ?? [],
       };
-    return { to: '', subject: '', body: '', files: [] };
+    return { to: '', subject: `${appSubjectTag(a)} · `, body: '', files: [] };
   };
 
   const save = (v: Extract<View, { mode: 'compose' }>, d: Draft, box: 'sent' | 'draft') => {
@@ -106,7 +107,7 @@ export function MailTab({
       at: now,
       from: { name: g.name, email: me },
       to: d.to.split(/[,;\s]+/).filter(Boolean),
-      subject: d.subject.trim() || '(No subject)',
+      subject: withAppTag(a, d.subject),
       body: d.body,
       files: d.files,
       box,

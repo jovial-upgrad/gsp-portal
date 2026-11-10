@@ -20,12 +20,21 @@ export const MAIL_GROUPS: MailGroup[] = [
   { key: 'services', name: 'GSP Student Services', email: 'studentservices@gsp.upgrad.com' },
   { key: 'admission-temp', name: 'Admission Temp', email: 'admission.temp@gsp.upgrad.com' },
   { key: 'commissions-temp', name: 'Commissions Temp', email: 'commissions.temp@gsp.upgrad.com' },
-  { key: 'compliance', name: 'GSP Compliance', email: 'compliance@gsp.upgrad.com' },
+  // Jovial, 10 Nov (Q30): the compliance inbox's address; university marketing mail is forwarded here
+  { key: 'compliance', name: 'GSP Compliance', email: 'compliance.gsp@upgrad.com' },
   { key: 'data', name: 'Data-Team', email: 'data.team@gsp.upgrad.com' },
   { key: 'vn', name: 'VN Admission', email: 'admission.vn@gsp.upgrad.com' },
   { key: 'ph', name: 'PH Admissions', email: 'admissions.ph@gsp.upgrad.com' },
 ];
 export const groupOf = (key: string) => MAIL_GROUPS.find((g) => g.key === key);
+/** Mail started from an application record goes out only from GSP Admission (Jovial, 10 Nov, Q29). */
+export const APPLICATION_MAILBOX = 'admission';
+/** Its subject starts with the application's GSP ID, then the university's reference when there is one. */
+export const appSubjectTag = (a: { id: string; uniRef?: string }) => [a.id, a.uniRef].filter(Boolean).join(' · ');
+export const withAppTag = (a: { id: string; uniRef?: string }, subject: string) => {
+  const s = subject.trim();
+  return s.includes(a.id) ? s : `${appSubjectTag(a)} · ${s || '(No subject)'}`;
+};
 
 /** Which inboxes each role starts with; the rest can be connected from the page. */
 export type MailRole = 'gsp-team' | 'institution' | 'admin' | 'rp-ops' | 'finance' | 'globalops';
@@ -74,6 +83,8 @@ export type BoxMail = {
   forwarded?: { to: string; by: string; at: number };
   /** A copy forwarded here from another inbox: where from, who forwarded it and when. */
   via?: { from: string; by: string; at: number };
+  /** Marked Not needed (spam or junk) instead of linking or forwarding it (Jovial, 10 Nov, Q31): who and when, kept on the mail. */
+  notNeeded?: { by: string; at: number };
 };
 
 /**
@@ -88,7 +99,7 @@ export const CATEGORIES: { key: MailCategory; label: string }[] = [
   { key: 'forwarded', label: 'Forwarded' },
   { key: 'other', label: 'Others' },
 ];
-export const categoryOf = (m: BoxMail): MailCategory => (m.app ? 'linked' : m.forwarded ? 'forwarded' : m.other ? 'other' : 'unlinked');
+export const categoryOf = (m: BoxMail): MailCategory => (m.app ? 'linked' : m.forwarded ? 'forwarded' : m.other || m.notNeeded ? 'other' : 'unlinked');
 /** Every message in a mail's thread, oldest first, the mail itself last. */
 export const messagesOf = (m: BoxMail): ThreadMsg[] => [...(m.thread ?? []), { id: m.id, from: m.from, to: m.to, cc: m.cc, body: m.body, at: m.at, files: m.files }];
 /** Who wrote in a thread, in the order they first wrote; GSP's own people as "me" when it's the signed-in person. */
@@ -486,7 +497,7 @@ const SEEDS: Record<string, Seed[]> = {
     },
     {
       ago: 4 * DAY,
-      from: { name: 'GSP Compliance', email: 'compliance@gsp.upgrad.com' },
+      from: { name: 'GSP Compliance', email: 'compliance.gsp@upgrad.com' },
       subject: 'Quarterly agent audit: checklist',
       other: true,
       body: 'Hi all,\n\nThe quarterly agent audit starts on 15 November. The checklist is attached.\n\nGSP Compliance',

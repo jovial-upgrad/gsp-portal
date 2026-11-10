@@ -214,3 +214,4 @@
   .mbx__nudge-row > :first-child { flex: none; width: auto; }
   .mbx__nudge-row > .btn { width: 100%; }
 }
+.mbx__nudge-foot{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
