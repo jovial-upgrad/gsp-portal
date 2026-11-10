@@ -5,7 +5,7 @@
  * A queue no rule sends work to has no tasks. Times are working hours (9 a working day).
  */
 import { queueWork } from '../../admin/data/mywork';
-export type IwTask = { id: string; title: string; rule: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean };
+export type IwTask = { id: string; title: string; rule: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean; note?: string };
 
 /** The queue as GSP · Admin seeds it (9 Nov), and the tasks its task rules make from the seeded records. */
 const WORK = queueWork('IP Ops');

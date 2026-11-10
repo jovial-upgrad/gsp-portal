@@ -687,6 +687,7 @@ const regionalFor = (r: TaskRule) => (r.record === 'Application' ? REGION_ADMISS
  * Edit opens a short pop-up. A rule that is off is greyed.
  */
 export function TaskRules({ cfg, change, say }: ConfigProps) {
+  const openOf = (code: string) => cfg.tasks.filter((t) => t.rule === code && !t.done).length;
   const [cat, setCat] = useState<string>('all');
   const [editing, setEditing] = useState<TaskRule | null>(null);
   const keyOf = (c: RuleCat) => `c${RULE_CATS.indexOf(c)}`;
@@ -754,7 +755,8 @@ export function TaskRules({ cfg, change, say }: ConfigProps) {
                             checked={r.on}
                             onChange={(on) => {
                               change('Task rules', `${r.code} ${r.name} switched ${on ? 'on' : 'off'}`, (x) => ({ ...x, taskRules: x.taskRules.map((y) => (y.id === r.id ? { ...y, on } : y)) }));
-                              say(`${r.code} ${r.name}: ${on ? 'on' : 'off'}.`);
+                              // Q37 (Jovial, 10 Nov): off makes no new tasks; the open ones stay until they close
+                              say(on ? `${r.code} ${r.name}: on.` : `${r.code} ${r.name}: off. No new tasks; its ${openOf(r.code)} open ${openOf(r.code) === 1 ? 'task stays' : 'tasks stay'} until ${openOf(r.code) === 1 ? 'it closes' : 'they close'}.`);
                             }}
                           >
                             <span className="vh">

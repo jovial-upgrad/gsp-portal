@@ -6,8 +6,8 @@
  * calendar. Times are working hours.
  */
 import { sampleQueues, sampleRegions, sampleUsers, type Queue, type Region, type User } from './config';
-import { DAY_HOURS, REGIONAL, sampleCalendars, sampleRules, spanHours, type Calendar, type RecordType, type TaskRule } from './work';
-import { courseOf, intakeStart, sampleApplications, type Application } from '../../data/applications';
+import { DAY_HOURS, REGIONAL, REGION_ADMISSIONS, sampleCalendars, sampleRules, spanHours, type Calendar, type RecordType, type TaskRule } from './work';
+import { STATUS, courseOf, intakeStart, sampleApplications, statusText, type Application } from '../../data/applications';
 import { fullName, sampleStudents, type Student } from '../../data/students';
 import { intakeState } from '../../data/courses';
 import { mailsFor, categoryOf, type BoxMail } from '../../data/mailbox';
@@ -40,6 +40,8 @@ export type WorkTask = {
   /** Its rule closes on Done, so its assignee can mark it completed. */
   canComplete: boolean;
   done?: boolean;
+  /** Why it was completed before its condition cleared (Q36). */
+  note?: string;
 };
 export type Wait = { id: string; student: string; ref: string; uni: string; status: string; on: 'RP' | 'University'; what: string; since: number; left: number | null };
 
@@ -201,7 +203,12 @@ export function queueFor(to: string, region: string, queues: Queue[], regions: R
  * tasks; a tie goes to the name first in alphabetical order; deactivated people are skipped); timed on the record's
  * region's calendar.
  */
-export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], regions: Region[], users: User[], cals: Calendar[], now = Date.now()): WorkTask[] {
+/**
+ * `closed`: the task IDs completed early (Q36, Jovial 10 Nov). Such a task doesn't come back for that record while its
+ * condition still holds. A rule switched off makes no new tasks; its open ones stay where they are (Q37), so the page
+ * keeps the tasks it has and only adds what a run makes that it doesn't have.
+ */
+export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], regions: Region[], users: User[], cals: Calendar[], now = Date.now(), closed: Set<string> = new Set()): WorkTask[] {
   const regionOf = (country: string) => regions.find((r) => r.countries.includes(country))?.name ?? (country ? 'Rest of world' : 'Global');
   const calOf = (region: string) => cals.find((c) => c.regions.includes(region)) ?? cals[0];
   const userOf = (id: string) => users.find((u) => u.id === id);
@@ -216,6 +223,7 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
   };
   for (const rule of rules.filter((r) => r.on)) {
     for (const hit of hitsFor(rule, rec, regionOf, now)) {
+      if (closed.has(`${rule.code}-${hit.key}`)) continue;
       const cal = calOf(hit.region);
       const after = rule.after;
       const start = after?.unit === 'calendar' ? hit.since + after.n * 24 * HOUR : hit.since;
@@ -269,17 +277,44 @@ export function queueWork(name: string) {
   return { queue: name, leader: q ? nameOf(q.lead) : '', team: q ? [q.lead, ...q.members].map(nameOf).filter(Boolean) : [], tasks };
 }
 
-export const sampleWaits = (): Wait[] => [
-  { id: 'w1', student: 'Priya Raman', ref: 'GSP-24102', uni: 'Deakin University', status: 'Conditional offer, conditions pending', on: 'RP', what: 'Offer conditions', since: 9, left: 162 },
-  { id: 'w2', student: 'Priya Raman', ref: 'GSP-24097', uni: 'University of Wollongong', status: 'Submitted to university', on: 'University', what: 'A decision', since: 81, left: -63 },
-  { id: 'w3', student: 'Sneha Patil', ref: 'GSP-24055', uni: 'Flinders University', status: 'Pending verification', on: 'RP', what: 'Gap explanation document', since: 2, left: 27 },
-  { id: 'w4', student: 'Sneha Patil', ref: 'GSP-24061', uni: 'University of Newcastle', status: 'Document re-upload pending', on: 'RP', what: 'Undergraduate transcript and degree certificate', since: 9, left: null },
-  { id: 'w5', student: 'Sneha Patil', ref: 'GSP-24063', uni: 'Coventry University', status: 'Awaiting acceptance letter', on: 'University', what: 'Acceptance letter', since: 27, left: 4 },
-  { id: 'w6', student: 'Rohan Gupta', ref: 'GSP-23941', uni: 'Abertay University', status: 'Submitted to university', on: 'University', what: 'A decision', since: 120, left: -30 },
-  { id: 'w7', student: 'Aarav Shah', ref: 'GSP-24110', uni: 'Deakin University', status: 'Deposit pending', on: 'RP', what: 'Deposit receipt', since: 18, left: 45 },
-  { id: 'w8', student: 'Nguyen Thi Lan', ref: 'GSP-24088', uni: 'Flinders University', status: 'Interview requested', on: 'University', what: 'Interview date', since: 14, left: 13 },
-  { id: 'w9', student: 'Tanvir Ahmed', ref: 'GSP-24071', uni: 'Coventry University', status: 'Document re-upload pending', on: 'RP', what: 'Passport, clearer scan', since: 30, left: 6 },
-  { id: 'w10', student: 'Sujan Karki', ref: 'GSP-24066', uni: 'University of Wollongong', status: 'Conditional offer, conditions pending', on: 'RP', what: 'IELTS result', since: 54, left: 99 },
-  { id: 'w11', student: 'Ayesha Khan', ref: 'GSP-24049', uni: 'University of Newcastle', status: 'Awaiting CoE', on: 'University', what: 'Confirmation of enrolment', since: 40, left: 23 },
-  { id: 'w12', student: 'Meera Nair', ref: 'GSP-24120', uni: 'Abertay University', status: 'Pending verification', on: 'RP', what: 'Statement of purpose', since: 5, left: null },
-];
+/**
+ * Waiting on others (Jovial, 10 Nov, Q38): the applications whose status is with the RP or the university, so the
+ * GSP clock is paused and the officer can chase. Worked out from the records like the tasks: what is awaited is the
+ * RP's open requests (else the status), how long it has waited is working hours since the status started, on the
+ * region's calendar. `queue` limits it to the applications whose region's Admissions queue that is.
+ */
+export function waitsFor(queue?: string, rec: WorkRecords = sampleRecords(), now = Date.now()): Wait[] {
+  const users = sampleUsers();
+  const queues = sampleQueues(users);
+  const regions = sampleRegions(queues);
+  const cals = sampleCalendars(regions.map((r) => r.name));
+  const regionOf = (country: string) => regions.find((r) => r.countries.includes(country))?.name ?? (country ? 'Rest of world' : 'Global');
+  const q = queue ? queues.find((x) => x.name === queue) : undefined;
+  return rec.apps
+    .map((a) => ({ a, owner: STATUS[a.status].owner }))
+    .filter(({ owner }) => owner === 'you' || owner === 'uni')
+    .map(({ a, owner }) => {
+      const rp = rec.rps.find((r) => r.name === (a.rp ?? HOME_RP));
+      const region = regionOf(rp?.country ?? '');
+      return { a, owner, region, home: queueFor(REGION_ADMISSIONS, region, queues, regions) };
+    })
+    .filter((x) => !queue || x.home?.id === q?.id)
+    .map(({ a, owner, region }) => {
+      const s = rec.students.find((x) => x.id === a.studentId);
+      const open = a.needs.filter((n) => !n.file && !n.action);
+      const cal = cals.find((c) => c.regions.includes(region)) ?? cals[0];
+      return {
+        id: `w-${a.id}`,
+        student: s ? fullName(s) : a.studentId,
+        ref: a.id,
+        uni: courseOf(a).uni.name,
+        status: statusText(a),
+        on: owner === 'you' ? 'RP' : 'University',
+        what: owner === 'you' && open.length ? open.map((n) => n.title).join(', ') : statusText(a),
+        since: workingHours(a.since, now, cal),
+        // the GSP clock is paused while it waits, so there is no time left to show
+        left: null,
+      } as Wait;
+    })
+    .sort((x, y) => y.since - x.since);
+}

@@ -42,7 +42,7 @@ import {
 import { Regions, Permissions } from './Roles';
 import { QueuesSla, TaskRules } from './Work';
 import { MyWork } from './MyWork';
-import { runRules, sampleRecords, sampleWaits, type Wait, type WorkTask } from '../data/mywork';
+import { runRules, sampleRecords, waitsFor, type Wait, type WorkTask } from '../data/mywork';
 import { sampleCalendars, sampleRules as sampleTaskRules, type Calendar, type TaskRule } from '../data/work';
 import { sampleNationalities, type NationalityRow } from '../data/nationalities';
 import { Users } from './Users';
@@ -110,7 +110,7 @@ export const sampleCfg = (): Cfg => {
     calendars,
     taskRules,
     tasks: runRules(taskRules, sampleRecords(GSP_USER), queues, regions, users, calendars),
-    waits: sampleWaits(),
+    waits: waitsFor(),
     emails: sampleEmails(users),
     bdm: sampleBdm(),
     fx: sampleFx(),

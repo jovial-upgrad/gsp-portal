@@ -3,6 +3,7 @@ import { useViewOnly } from '../../proto/viewOnly';
 import { Button } from '../../components/Button';
 import { Toast, type ToastMsg } from '../../components/Toast';
 import { Sheet } from '../../components/Sheet';
+import { useCompleteTask } from '../../components/CompleteTask';
 import { Checkbox, Field } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { SearchPick } from '../../institution/records/SearchPick';
@@ -35,6 +36,12 @@ export function MyWork() {
   const say = (title: string) => setToast({ key: Date.now(), title, icon: 'check', tone: 'ok' });
   const ME = GSP_USER.name;
   const [tasks, setTasks] = useState(sampleIwTasks);
+  // Q36 (Jovial, 10 Nov): a Done rule's task completes with a click; any other completes early with a note
+  const completer = useCompleteTask((id, note) => {
+    const t = tasks.find((x) => x.id === id);
+    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, done: true, note } : x)));
+    if (t) say(`Completed: ${t.title}.`);
+  });
   const waits: { id: string }[] = [];
   const [qs, setQs] = useState<string[]>([]);
   const [view, setView] = useState<View>('mine');
@@ -212,14 +219,11 @@ export function MyWork() {
                               {t.assignee ? 'Reassign' : 'Assign'}
                               <span className="vh"> {t.title}</span>
                             </button>
-                            {t.assignee === ME && t.canComplete && (
+                            {t.assignee === ME && (
                               <button
                                 type="button"
                                 className="btn btn--link iw-complete"
-                                onClick={() => {
-                                  setTasks((ts) => ts.map((x) => (x.id === t.id ? { ...x, done: true } : x)));
-                                  say(`Completed: ${t.title}.`);
-                                }}
+                                onClick={() => completer.start(t)}
                               >
                                 Mark as completed<span className="vh"> {t.title}</span>
                               </button>
@@ -242,6 +246,7 @@ export function MyWork() {
         )}
       </div>
       <AssignSheet tasks={assigning} onClose={() => setAssigning(null)} onSave={assign} />
+      {completer.dialog}
       <Toast t={toast} onClose={() => setToast(null)} />
     </div>
   );

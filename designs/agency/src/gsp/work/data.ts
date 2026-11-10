@@ -4,8 +4,8 @@
  * admin/data/mywork.ts): its title is the rule's task, its ID is shown under it, and a late task is simply Breached.
  * A queue no rule sends work to has no tasks. Times are working hours (9 a working day).
  */
-import { queueWork } from '../../admin/data/mywork';
-export type GwTask = { id: string; title: string; rule: string; ref: string; uni: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean };
+import { queueWork, waitsFor } from '../../admin/data/mywork';
+export type GwTask = { id: string; title: string; rule: string; ref: string; uni: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean; note?: string };
 export type GwWait = { id: string; student: string; ref: string; uni: string; status: string; on: 'RP' | 'University'; what: string; since: number; left: number | null };
 
 export const ME = 'Freddy Forrest';
@@ -45,15 +45,5 @@ export const dueDate = (left: number) => {
 export const sampleGwTasks = (): GwTask[] => 
   WORK.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, ref: t.ref, uni: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete }));
 
-export const sampleGwWaits = (): GwWait[] => [
-  { id: 'w1', student: 'Priya Raman', ref: 'GSP-24102', uni: 'Deakin University', status: 'Conditional offer received, conditions pending', on: 'RP', what: 'Offer conditions', since: 9, left: 162 },
-  { id: 'w2', student: 'Priya Raman', ref: 'GSP-24097', uni: 'University of Wollongong', status: 'Submitted to university', on: 'University', what: 'A decision', since: 81, left: -63 },
-  { id: 'w3', student: 'Sneha Patil', ref: 'GSP-24055', uni: 'Flinders University', status: 'Pending verification', on: 'RP', what: 'Gap explanation document', since: 2, left: 27 },
-  { id: 'w4', student: 'Sneha Patil', ref: 'GSP-24061', uni: 'University of Newcastle', status: 'Document re-upload pending', on: 'RP', what: 'Undergraduate transcript and degree certificate', since: 9, left: null },
-  { id: 'w5', student: 'Sneha Patil', ref: 'GSP-24063', uni: 'Coventry University', status: 'Awaiting acceptance letter', on: 'University', what: 'Acceptance letter', since: 27, left: 4 },
-  { id: 'w6', student: 'Rohan Nair', ref: 'GSP-24209', uni: 'University of Wales Trinity Saint David', status: 'Pending verification', on: 'RP', what: '12th marksheet', since: 9, left: 18 },
-  { id: 'w7', student: 'Aarav Shah', ref: 'GSP-24110', uni: 'Abertay University', status: 'Submitted to university', on: 'University', what: 'A decision', since: 21, left: 24 },
-  { id: 'w8', student: 'Tanvir Ahmed', ref: 'GSP-24071', uni: 'Coventry University', status: 'Deposit pending', on: 'RP', what: 'Deposit receipt', since: 30, left: 6 },
-  { id: 'w9', student: 'Ayesha Khan', ref: 'GSP-24049', uni: 'University of Newcastle', status: 'Awaiting CoE', on: 'University', what: 'Confirmation of enrolment', since: 40, left: 23 },
-  { id: 'w10', student: 'Meera Nair', ref: 'GSP-24120', uni: 'Abertay University', status: 'Pending verification', on: 'RP', what: 'Statement of purpose', since: 5, left: null },
-];
+/** Waiting on others (Jovial, 10 Nov, Q38): this queue's applications with the RP or the university, worked out from the records. */
+export const sampleGwWaits = (): GwWait[] => waitsFor(QUEUE);

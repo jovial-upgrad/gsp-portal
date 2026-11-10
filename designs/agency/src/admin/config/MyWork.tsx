@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
+import { useCompleteTask } from '../../components/CompleteTask';
 import { Checkbox, Field, SelectInput } from '../../components/forms';
 import { PageHead } from '../../institution/records/parts';
 import { SearchPick } from '../../institution/records/SearchPick';
@@ -25,6 +26,12 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
   const [sts, setSts] = useState<string[]>([]);
   const [whos, setWhos] = useState<string[]>([]);
   const [assigning, setAssigning] = useState<WorkTask | null>(null);
+  // Q36 (Jovial, 10 Nov): a Done rule's task completes with a click; any other completes early with a note, logged
+  const completer = useCompleteTask((id, note) => {
+    const t = cfg.tasks.find((x) => x.id === id);
+    change('My work', note && t ? `Completed early: ${t.title} (${note})` : '', (c) => ({ ...c, tasks: c.tasks.map((x) => (x.id === id ? { ...x, done: true, note } : x)) }));
+    if (t) say(`Completed: ${t.title}.`);
+  });
   const [ticked, setTicked] = useState<string[]>([]);
   const [bulk, setBulk] = useState(false);
   const qName = (id: string) => cfg.queues.find((q) => q.id === id)?.name ?? 'Admin';
@@ -235,15 +242,8 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
                             {t.assignee ? 'Reassign' : 'Assign'}
                             <span className="vh"> {t.title}</span>
                           </button>
-                          {t.assignee === me && t.canComplete && (
-                            <button
-                              type="button"
-                              className="btn btn--link mw-complete"
-                              onClick={() => {
-                                change('My work', '', (c) => ({ ...c, tasks: c.tasks.map((x) => (x.id === t.id ? { ...x, done: true } : x)) }));
-                                say(`Completed: ${t.title}.`);
-                              }}
-                            >
+                          {t.assignee === me && (
+                            <button type="button" className="btn btn--link mw-complete" onClick={() => completer.start(t)}>
                               Mark as Completed<span className="vh"> {t.title}</span>
                             </button>
                           )}
@@ -284,6 +284,7 @@ export function MyWork({ cfg, change, say, me }: ConfigProps) {
           setBulk(false);
         }}
       />
+      {completer.dialog}
       <AssignSheet
         task={assigning}
         cfg={cfg}
@@ -307,7 +308,7 @@ function AssignSheet({ task, cfg, onClose, onSave }: { task: WorkTask | null; cf
   const name = (id: string) => cfg.users.find((u) => u.id === id)?.name ?? '';
   const lead = q ? name(q.lead) : '';
   const people = q ? [lead, ...q.members.map(name)].filter(Boolean) : [];
-  if (task?.assignee && !people.includes(task.assignee)) people.push(task.assignee);
+  // Q35 (Jovial, 10 Nov): a task's assignee is someone in its queue, so only members are offered
   return (
     <Sheet
       open={!!task}
