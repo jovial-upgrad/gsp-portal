@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Earnings } from '../../finance/commission/Earnings';
 import { commNotes } from '../../finance/commission/engine';
-import { ctxRps, rpName as commRpName, useComm, useLines } from '../../finance/commission/store';
+import { ctxRps, ctxUnis, rpName as commRpName, useComm, useLines } from '../../finance/commission/store';
 import { HOME_RP } from '../../gsp/rps';
 import type { Note } from '../../data/inbox';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -146,7 +146,7 @@ export function Portal({
   const commLines = useLines(apps, students);
   const commExtra = useMemo<Note[]>(() => {
     const me = ctxRps().find((r) => r.name === acc.agency) ?? ctxRps().find((r) => r.name === HOME_RP);
-    return commNotes(comm, commLines, commRpName)
+    return commNotes(comm, commLines, commRpName, undefined, ctxUnis())
       .filter((n) => n.to === 'rp' && n.rp === me?.id)
       .map((n) => ({ id: n.id, kind: 'system', title: n.title, text: n.text, at: n.at, read: n.at < Date.now() - 2 * 86_400_000, to: { page: 'earnings' } }));
   }, [comm, commLines, acc.agency]);

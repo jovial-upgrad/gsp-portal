@@ -201,4 +201,8 @@ export const sampleRules = (): TaskRule[] => [
   // 9 Nov (Jovial, the PRD's Commissions tab): Commissions enters an RP's commission record and a university's terms
   r('T80', 'Commission', 'RP', 'Commission record', 'RP Ops accepts an RP’s first signed agreement', 'Enter commission details for {RP}', 'q-finance', d(2), 'fewest', 'The RP’s commission record is saved'),
   r('T81', 'Commission', 'University', 'Commission terms', 'A university is added', 'Enter commission terms for {university}', 'q-finance', d(5), 'fewest', 'The university’s terms are saved'),
+  // 10 Nov (Jovial, the sandbox's Commissions calendar): Finance works exceptions, closes tier periods and confirms continuing students
+  r('T82', 'Commission', 'Application', 'Commission exception', 'A commission line can’t be priced safely (an exception: rate missing, contract ended, no RP terms…)', 'Work the {exception} exception on {app}', 'q-finance', d(2), 'fewest', 'The exception is cleared'),
+  r('T83', 'Commission', 'University', 'Tier period ended', 'A university’s or group’s tier counting period has ended', 'Close the {tier} tier period {window}', 'q-finance', d(5), 'fewest', 'Finance closes the period'),
+  r('T84', 'Commission', 'Application', 'Continuing student', 'A later study period’s date has come and the student isn’t confirmed as continuing', 'Confirm {student} continues into study period {period}', 'q-finance', d(3), 'fewest', 'Finance confirms the student continues'),
 ];

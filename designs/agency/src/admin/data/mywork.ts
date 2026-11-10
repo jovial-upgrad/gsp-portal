@@ -18,6 +18,7 @@ import { HOME_RP } from '../../gsp/rps';
 import { agreementsOf, sampleOps, type OpsRp } from '../../rpops/records/data';
 import { sampleComm } from '../../finance/commission/seed';
 import { rpsWithoutRecord, unisWithoutTerms } from '../../finance/commission/engine';
+import { commWork } from '../../finance/commission/store';
 import type { CommState } from '../../finance/commission/model';
 
 export type { RecordType };
@@ -179,6 +180,15 @@ function hitsFor(rule: TaskRule, rec: WorkRecords, regionOf: (country: string) =
     case 'T81':
       // a university with no commission terms: from the day it was added
       return unisWithoutTerms(rec.comm, rec.unis).map((u) => ({ key: u.id, since: at(u.added), region: 'Global', ref: u.name, about: u.name, vars: { university: u.name } }));
+    case 'T82':
+      // one task per exception the engine raises (D10, D11), from the student's enrolment
+      return commWork(rec.comm).exceptions.map((x) => ({ key: `${x.app}-${x.type.replace(/\W+/g, '-').toLowerCase()}`, since: at(x.since), region: 'Global', ref: x.app, about: x.uni, vars: { exception: x.type, app: x.app } }));
+    case 'T83':
+      // a tier period that has ended and isn't closed (Q68): from its last day
+      return commWork(rec.comm).periods.map((p) => ({ key: `${p.scope}-${p.window}`.replace(/\W+/g, '-').toLowerCase(), since: at(p.ends), region: 'Global', ref: p.window, about: p.scope, vars: { tier: p.scope, window: p.window } }));
+    case 'T84':
+      // a later study period waiting for Finance to confirm the student continues (D19): from its date
+      return commWork(rec.comm).confirm.map((c) => ({ key: `${c.app}-${c.period}`, since: at(c.since), region: 'Global', ref: c.app, about: c.uni, vars: { student: c.student, period: String(c.period) } }));
     case 'T27':
       return rec.mails.filter((m) => m.folder === 'inbox' && categoryOf(m) === 'unlinked').map((m) => ({ key: m.id, since: m.at, region: 'Global', ref: m.subject, about: m.from.name, vars: {} }));
     default:

@@ -49,7 +49,7 @@ import { Setup, type SetupStart } from '../commission/Setup';
 import { Lines } from '../commission/Lines';
 import { CommNavProvider, type CommNav } from '../commission/parts';
 import { commNotes } from '../commission/engine';
-import { rpName as commRpName, useComm, useLines, whoIs } from '../commission/store';
+import { commWork, ctxUnis, rpName as commRpName, useComm, useLines, whoIs } from '../commission/store';
 import type { Note } from '../../data/inbox';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
@@ -134,7 +134,9 @@ export function Portal({
   const comm = useComm();
   const lines = useLines(apps, students);
   // N17: an RP sent an invoice, to the Finance queue's members (bell)
-  const commExtra = useMemo<Note[]>(() => commNotes(comm, lines, commRpName).filter((n) => n.to === 'finance').map((n) => ({ id: n.id, kind: 'system', title: n.title, text: n.text, at: n.at, read: n.at < Date.now() - 2 * 86_400_000 })), [comm, lines]);
+  // T82 tasks stay open while their exception still holds
+  const openExc = useMemo(() => commWork(comm).exceptions, [comm]);
+  const commExtra = useMemo<Note[]>(() => commNotes(comm, lines, commRpName, undefined, ctxUnis()).filter((n) => n.to === 'finance').map((n) => ({ id: n.id, kind: 'system', title: n.title, text: n.text, at: n.at, read: n.at < Date.now() - 2 * 86_400_000 })), [comm, lines]);
 
   // the bell and the megaphone, as in every role
   const ownAnns = useMemo(() => ({ list: db.anns, names: Object.fromEntries(db.unis.map((u) => [u.id, u.name])) }), [db.anns, db.unis]);
@@ -311,7 +313,7 @@ export function Portal({
       <TeamHome first={GSP_USER.first} db={db} open={openInst} me={GSP_USER.name} />
     ) : section === 'work' ? (
       // a T80 or T81 task closes once its record is saved in Setup
-      <MyWork stillOpen={(t) => (t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : true)} />
+      <MyWork stillOpen={(t) => (t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : t.rule === 'T84' ? !comm.confirms.some((c) => t.id === `T84-${c.app}-${c.period}`) : t.rule === 'T83' ? !(comm.closes ?? []).some((c) => t.id === `T83-${`${c.scope}-${c.window}`.replace(/\W+/g, '-').toLowerCase()}`) : t.rule === 'T82' ? openExc.some((x) => t.id === `T82-${x.app}-${x.type.replace(/\W+/g, '-').toLowerCase()}`) : true)} />
     ) : section === 'lines' ? (
       <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : section === 'setup' ? (

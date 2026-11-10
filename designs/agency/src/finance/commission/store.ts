@@ -8,14 +8,14 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { COURSES, LEVELS } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
-import { sampleUniRecs } from '../../institution/data/catalogue';
+import { sampleCourseRecs, sampleUniRecs } from '../../institution/data/catalogue';
 import { samplePartners, todayIso } from '../../institution/data/records';
 import { HOME_RP } from '../../gsp/rps';
 import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/records/data';
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
-import { compute, nextInvoiceNumber, periodsFor, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
-import { benefitText, money, ratesText, shareText, type Agreement, type Bank, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type UniTerms } from './model';
+import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
+import { benefitText, money, ratesText, shareText, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 
 /* ---------- the store ---------- */
@@ -43,7 +43,17 @@ let unis: CtxUni[] | null = null;
 let rps: (OpsRp & { region: string })[] | null = null;
 const courses = new Map(COURSES.map((c) => [c.id, c]));
 /** The universities, as the Institution Team keeps them (seeded). */
-export const ctxUnis = () => (unis ??= sampleUniRecs().map((u) => ({ id: u.id, name: u.name, country: u.country, ip: u.ip, status: u.status, added: u.added }) as CtxUni & { status: string; added: string }));
+export const ctxUnis = () => (unis ??= sampleUniRecs().map((u) => ({ id: u.id, name: u.name, country: u.country, ip: u.ip, status: u.status, added: u.added, agreement: agreementDates(u.ip) }) as CtxUni & { status: string; added: string }));
+/**
+ * A university's agreement dates, from its institution partner's documents (the IP tab's rule): from the earliest start
+ * to the latest end of its New agreement and Renewal documents. Enrolments outside them are held (D11).
+ */
+function agreementDates(ip?: string) {
+  const p = ip ? samplePartners().find((x) => x.id === ip) : undefined;
+  const docs = (p?.docs ?? []).filter((d) => d.start && d.end && /agreement|renewal/i.test(d.type));
+  if (!docs.length) return null;
+  return { start: docs.map((d) => d.start).sort()[0], end: docs.map((d) => d.end).sort().slice(-1)[0] };
+}
 /** The recruitment partners, as RP Ops keeps them (seeded), with their sales region. */
 export const ctxRps = () => (rps ??= sampleOps().map((r) => ({ ...r, region: regionOf(r.country) })));
 /** RPs whose partner agreement GSP has accepted: the ones that can have a commission record. */
@@ -68,7 +78,13 @@ export const uniCurrency = (uni: string) => {
 export const termsForCourse = (courseId: string) => {
   const c = courses.get(courseId);
   const t = c && state.terms.find((x) => x.uni === c.uni.id);
-  return { terms: t, periods: c && t ? periodsFor(t.inst, c.months, state.settings.periodMonths) : 1 };
+  return { terms: t, periods: c && t ? periodCount(t, c.months) : 1 };
+};
+let courseRecs: ReturnType<typeof sampleCourseRecs> | null = null;
+/** The census date the Institution team keeps on a course's intake (D6: Key details starts from it; empty when none). */
+export const intakeCensus = (courseId: string, intake: string) => {
+  const c = (courseRecs ??= sampleCourseRecs()).find((x) => x.id === courseId);
+  return c?.dates?.[intake.split(' ')[0]]?.census || c?.dates?.[intake]?.census || '';
 };
 /** The program levels a university offers, in the levels' order: University terms asks a rate for each. */
 export const levelsOf = (uni: string) => LEVELS.filter((l) => COURSES.some((c) => c.uni.id === uni && c.level === l));
@@ -85,7 +101,7 @@ export function enrolmentsOf(apps: Application[], students: Pick<Student, 'id' |
     .map((a) => {
       const s = students.find((x) => x.id === a.studentId);
       const rp = ctxRps().find((r) => r.name === (a.rp ?? HOME_RP));
-      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10), fees: a.fees };
+      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, nationality: (s as Student | undefined)?.nationality, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10), fees: a.fees };
     });
 }
 
@@ -133,7 +149,7 @@ export function retireAgreement(agId: string, by: string) {
   });
 }
 
-export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'tax'>, by: string) {
+export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'ownFlat' | 'annuityPct'>, by: string) {
   setComm((s) => {
     const was = s.records.find((x) => x.rp === r.rp);
     const ag = s.agreements.find((a) => a.id === r.agreement)!;
@@ -141,7 +157,9 @@ export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'tax'
     const next: RpRecord = was
       ? { ...was, ...r, moves: moved ? [...was.moves, { agreement: was.agreement, from: was.from }] : was.moves, updated: stamp(by) }
       : { ...r, moves: [], created: stamp(by), updated: stamp(by) };
-    const text = !was || moved ? `${by} set ${rpName(r.rp)} on ${ag.name} from ${r.from}` : `${by} changed ${rpName(r.rp)}’s record: registered for tax ${r.tax ? 'Yes' : 'No'}`;
+    const own = r.ownFlat != null ? `, own flat share ${r.ownFlat}%` : '';
+    const ann = r.annuityPct != null ? `, ${r.annuityPct}% after year 1` : '';
+    const text = !was || moved ? `${by} set ${rpName(r.rp)} on ${ag.name} from ${r.from}${own}${ann}` : `${by} changed ${rpName(r.rp)}’s record${own || ', no own flat share'}${ann}`;
     return withLog({ ...s, records: was ? s.records.map((x) => (x.rp === r.rp ? next : x)) : [...s.records, next] }, log('rps', by, text, { rp: r.rp }));
   });
 }
@@ -182,23 +200,110 @@ export function endNotice(ntId: string, by: string) {
 }
 
 /** `from`: the edit's Effective from date (Q41). */
+function withTerms(s: CommState, t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, by: string, from: string): CommState {
+  const was = s.terms.find((x) => x.uni === t.uni);
+  const { created: _c, updated: _u, earlier: _e, uni: _x, ...body } = was ?? ({} as UniTerms);
+  const next: UniTerms = was ? { ...was, ...t, updated: stamp(by), earlier: [...was.earlier, { ...body, until: from }] } : { ...t, created: stamp(by), updated: stamp(by), earlier: [] };
+  return { ...s, terms: was ? s.terms.map((x) => (x.uni === t.uni ? next : x)) : [...s.terms, next] };
+}
+/** `from`: the edit's Effective from date (Q41). The log says how many lines it moved (D15). */
 export function saveTerms(t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, by: string, from = todayIso()) {
+  const fx = termsEffect(t, from, by);
   setComm((s) => {
-    const was = s.terms.find((x) => x.uni === t.uni);
-    const { created: _c, updated: _u, earlier: _e, uni: _x, ...body } = was ?? ({} as UniTerms);
-    const next: UniTerms = was ? { ...was, ...t, updated: stamp(by), earlier: [...was.earlier, { ...body, until: from }] } : { ...t, created: stamp(by), updated: stamp(by), earlier: [] };
-    return withLog({ ...s, terms: was ? s.terms.map((x) => (x.uni === t.uni ? next : x)) : [...s.terms, next] }, log('terms', by, `${by} saved terms for ${uniName(t.uni)}: ${ratesText(t, uniCurrency(t.uni))}${was ? `, effective from ${from}` : ''}`, { uni: t.uni }));
+    const was = s.terms.some((x) => x.uni === t.uni);
+    const moved = fx.repriced + fx.adjusted ? `; ${fx.repriced} line${fx.repriced === 1 ? '' : 's'} re-priced, ${fx.adjusted} adjustment line${fx.adjusted === 1 ? '' : 's'}` : '';
+    return withLog(withTerms(s, t, by, from), log('terms', by, `${by} saved terms for ${uniName(t.uni)}: ${ratesText(t, uniCurrency(t.uni))}${was ? `, effective from ${from}` : ''}${moved}`, { uni: t.uni }));
   });
 }
+/**
+ * See the effect (D15): what saving these terms would do to the university's lines, worked out by the same engine on
+ * the seeded enrolments: lines not yet invoiced are re-priced, kept lines get an Adjustment line, new lines appear.
+ */
+export function termsEffect(t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, from: string, by: string) {
+  const ctx = ctxOf();
+  const now = compute(settleAll(state, ctx), ctx);
+  const then = compute(settleAll(withTerms(state, t, by, from), ctx), ctx);
+  const mine = (r: Result) => new Map(r.txs.filter((x) => x.uni === t.uni && x.side === 'uni').map((x) => [x.key, x]));
+  const a = mine(now);
+  const b = mine(then);
+  let repriced = 0;
+  let adjusted = 0;
+  let added = 0;
+  let change = 0;
+  for (const [k, x] of b) {
+    const y = a.get(k);
+    if (!y) {
+      if (x.type === 'Adjustment') adjusted++;
+      else added++;
+      change += x.amount;
+    } else if (Math.abs(y.amount - x.amount) > 0.004) {
+      repriced++;
+      change += x.amount - y.amount;
+    }
+  }
+  for (const [k, y] of a) if (!b.has(k)) change -= y.amount;
+  return { repriced, adjusted, added, change, currency: t.currency || uniCurrency(t.uni) };
+}
 
-/** The RP's bank account, from Earnings: it shows at once on its Commission tab and in Setup, and is logged on the RP. */
-export function saveBank(b: Omit<Bank, 'updated'>, by: string) {
+/** A university group (Q56): its members, tier and group bonuses. A university is in at most one group. */
+export const newGroupId = () => id('grp');
+export function saveGroup(g: Omit<UniGroup, 'created' | 'updated'>, by: string) {
   setComm((s) => {
-    const was = s.banks.find((x) => x.rp === b.rp);
-    const next: Bank = { ...b, updated: stamp(by) };
-    const last4 = b.number.replace(/\s+/g, '').slice(-4);
-    return withLog({ ...s, banks: was ? s.banks.map((x) => (x.rp === b.rp ? next : x)) : [...s.banks, next] }, log('bank', by, `${by} ${was ? 'changed' : 'added'} the bank account: ${b.bank} ····${last4}, ${b.currency}`, { rp: b.rp }));
+    const was = (s.groups ?? []).find((x) => x.id === g.id);
+    const next: UniGroup = was ? { ...was, ...g, updated: stamp(by) } : { ...g, created: stamp(by), updated: stamp(by) };
+    const groups = was ? s.groups.map((x) => (x.id === g.id ? next : x)) : [...(s.groups ?? []), next];
+    return withLog({ ...s, groups }, log('groups', by, `${by} saved group ${g.name}: ${g.members.map(uniName).join(', ')}`));
   });
+}
+export function deleteGroup(gid: string, by: string) {
+  setComm((s) => {
+    const g = s.groups.find((x) => x.id === gid)!;
+    return withLog({ ...s, groups: s.groups.filter((x) => x.id !== gid) }, log('groups', by, `${by} deleted group ${g.name}`));
+  });
+}
+/** Commission settings (Finance › Setup › Settings). */
+export function saveSettings(next: Settings, by: string, what: string) {
+  setComm((s) => withLog({ ...s, settings: next }, log('settings', by, `${by} changed ${what}`)));
+}
+/** A lump sum a university paid that isn't one student's line (a volume bonus, a tier true-up), on the university. */
+export function recordLump(uni: string, amount: number, currency: string, reason: string, date: string, by: string) {
+  setComm((s) => withLog({ ...s, lumps: [...(s.lumps ?? []), { id: id('lp'), uni, amount, currency, reason, date, by, at: Date.now() }] }, lineLog(by, `${by} recorded a lump sum of ${money(amount, currency)} from ${uniName(uni)} on ${date}: ${reason}`, [], { uni })));
+}
+/** Finance closed a tier period (T83, Q68): the count is final; credits and top-ups for it fall due at its end. */
+export function closePeriod(scope: string, window: string, by: string) {
+  setComm((s) => withLog({ ...s, closes: [...(s.closes ?? []), { scope, window, by, at: Date.now() }] }, lineLog(by, `${by} closed the ${scope} tier period ${window}`, [])));
+}
+/**
+ * Finance's commission work, as the task rules read it (Jovial, 10 Nov): T82 one task per exception; T83 one per tier
+ * period that has ended and isn't closed; T84 one per later study period whose date has come and that waits for
+ * Finance to confirm the student continues (D19). All worked out by the engine from the records, on the seeded enrolments.
+ */
+export function commWork(s: CommState = state, today = todayIso()) {
+  const ctx = ctxOf(today);
+  const res = compute(settleAll(s, ctx), ctx);
+  const enrolledOn = new Map(res.apps.map((a) => [a.app, a.enrolled]));
+  const exceptions = res.exceptions.map((x) => ({ ...x, since: enrolledOn.get(x.app) ?? today, uni: res.byApp.get(x.app)?.uniName ?? '' }));
+  const periods = new Map<string, { scope: string; window: string; ends: string; count: number }>();
+  for (const a of res.apps)
+    for (const t of a.tiers) {
+      if (!t.ends || t.ends >= today || (s.closes ?? []).some((c) => c.scope === t.name && c.window === t.window)) continue;
+      const k = `${t.name}|${t.window}`;
+      periods.set(k, { scope: t.name, window: t.window, ends: t.ends, count: Math.max(periods.get(k)?.count ?? 0, t.total) });
+    }
+  const confirm: { app: string; period: number; student: string; uni: string; since: string; tx: string }[] = [];
+  for (const t of res.txs)
+    if (t.side === 'uni' && t.toConfirm && t.period && t.trigger && t.trigger <= today && t.status !== 'Not payable' && !confirm.some((c) => c.app === t.app && c.period === t.period))
+      confirm.push({ app: t.app, period: t.period, student: t.student, uni: t.uniName, since: t.trigger, tx: t.id });
+  return { exceptions, periods: [...periods.values()], confirm };
+}
+/** Finance confirmed students continue, so their later study periods can be invoiced (D19). */
+export function confirmContinuing(items: { app: string; period: number }[], by: string) {
+  setComm((s) =>
+    withLog(
+      { ...s, confirms: [...(s.confirms ?? []), ...items.filter((x) => !(s.confirms ?? []).some((c) => c.app === x.app && c.period === x.period)).map((x) => ({ ...x, by, at: Date.now() }))] },
+      lineLog(by, `${by} confirmed ${items.length === 1 ? `${items[0].app} continues into study period ${items[0].period}` : `${items.length} students continue into their next study period`}`, []),
+    ),
+  );
 }
 
 /* the lines */
@@ -209,6 +314,22 @@ export function raiseInvoice(uni: string, txs: string[], by: string) {
   const number = nextInvoiceNumber(state, uni, day);
   setComm((s) => withLog({ ...s, invoices: [...s.invoices, { number, uni, date: day, txs, by, at: Date.now() }] }, lineLog(by, `${by} raised invoice ${number}`, txs, { uni })));
   return number;
+}
+/** The university's finance contact, from its institution partner's contacts (Finance and invoices). */
+export const uniFinanceContact = (uni: string) => {
+  const u = ctxUnis().find((x) => x.id === uni);
+  const p = u?.ip ? samplePartners().find((x) => x.id === u.ip) : undefined;
+  return p?.contacts.find((c) => c.for === 'Finance and invoices') ?? null;
+};
+/** D17: GSP's invoice goes to the university's finance contact from Settings' mailbox, logged on its lines. */
+export function sendUniInvoice(number: string, by: string) {
+  setComm((s) => {
+    const inv = s.invoices.find((i) => i.number === number);
+    const to = inv && uniFinanceContact(inv.uni)?.email;
+    if (!inv || !to) return s;
+    const sent = { from: s.settings.invoiceFrom, to, by, at: Date.now() };
+    return withLog({ ...s, invoices: s.invoices.map((i) => (i.number === number ? { ...i, sent } : i)) }, lineLog(by, `${by} sent invoice ${number} from ${sent.from} to ${to}`, inv.txs, { uni: inv.uni }));
+  });
 }
 /**
  * A payment from a university, line by line (Q44): what came in for each line, and why where it's less than the line.

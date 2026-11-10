@@ -9,7 +9,7 @@
     "build:artifact": "vite build --mode artifact && node scripts/artifact.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test:commissions": "node tests/unit/commissions.mjs && node tests/unit/paid-lines.mjs && node tests/unit/lock-commissions.mjs",
+    "test:commissions": "node tests/unit/commissions.mjs && node tests/unit/paid-lines.mjs && node tests/unit/lock-commissions.mjs && node tests/unit/scenarios.mjs",
     "test:unit": "node tests/unit/rules.mjs && node tests/unit/email.mjs && npm run -s test:commissions",
     "build:design-pdf": "mkdir -p dist-artifact docs && python3 scripts/design-pdf/mkpdf.py DESIGN-SYSTEM.md dist-artifact/design-system.html && node scripts/design-pdf/print.cjs dist-artifact/design-system.html docs/GSP-Design-System.pdf"
   },

@@ -56,13 +56,19 @@ try {
   // notice RPs only get notice bonuses
   const noticed = rp.filter((t) => t.notice);
   ok('the seed has notice bonuses', noticed.length > 0);
+  // who a notice is for (10 Nov): its listed RPs, or (none listed) every RP in its sales regions; and only benefits that pay their own line
+  const pricing = await vite.ssrLoadModule('/src/finance/commission/pricing.ts');
+  const regionOf = new Map(store.ctxRps().map((r) => [r.id, r.region]));
+  const forRp = (n, rpId) => (n.rps.length ? n.rps.includes(rpId) || (n.removed ?? []).some((x) => x.rp === rpId) : (n.regions ?? []).some((g) => g === regionOf.get(rpId) || pricing.regionCovers(state.settings, g, regionOf.get(rpId))));
+  const OWN_LINE = ['Bonus per enrolment', 'Share plus amount per enrolment', 'Milestone', '% of tuition'];
   const strays = noticed.filter((t) => {
     const n = state.notices.find((x) => x.id === t.notice);
-    return !n || !n.rps.includes(t.rp) || n.benefit !== 'Bonus per enrolment';
+    return !n || !forRp(n, t.rp) || !OWN_LINE.includes(n.benefit);
   });
   ok('only a notice’s RPs get its bonus', strays.length === 0, strays.map((t) => `${t.id} ${t.rpName}`).join());
-  const missing = res.apps.filter((a) => state.notices.some((n) => n.benefit === 'Bonus per enrolment' && !n.rps.includes(a.rp)) && a.rpItem.txs.some((t) => t.notice && !state.notices.find((n) => n.id === t.notice).rps.includes(a.rp)));
+  const missing = rp.filter((t) => t.notice && !forRp(state.notices.find((n) => n.id === t.notice), t.rp));
   ok('no RP outside a notice gets its bonus', missing.length === 0);
+  ok('a region-wide notice reaches an RP in its region', noticed.some((t) => !state.notices.find((n) => n.id === t.notice).rps.length));
 
   // amounts stay in the university's currency (an RP's own bonuses, from a notice or its agreement, in theirs)
   const cur = res.txs.filter((t) => !(t.side === 'rp' && t.type === 'Bonus') && t.currency !== store.uniCurrency(t.uni));

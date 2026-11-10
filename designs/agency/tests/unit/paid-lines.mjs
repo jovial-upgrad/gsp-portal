@@ -54,19 +54,25 @@ try {
     const r1 = run(s1);
     const u = unchanged(r0, r1);
     ok('1. back-dated enrolments moving a university band: paid lines unchanged', u.ok, u.bad);
-    const adj = adjOf(r1, p1.id);
-    ok('1. … and the difference is an Adjustment line on the paid line', p1.status === 'Paid' && adj.length === 1 && adj[0].type === 'Adjustment' && adj[0].amount > 0, JSON.stringify(adj.map((a) => a.amount)));
+    // 10 Nov (the sandbox's rule): a band above the student's rate is its own Tier bonus line, so the paid line stays and the uplift is new
+    const tb = byKey(r1, k('GSP-23305', 'uni', 'tb:p1'));
+    ok('1. … and the uplift is its own Tier bonus line beside the paid line', p1.status === 'Paid' && !!tb && tb.type === 'Tier bonus' && tb.amount > 0, tb ? `${tb.type} ${tb.amount}` : 'none');
   }
 
   // 2. a retrospective band is reached, its top-up paid, then the count drops: the paid top-up stays, a credit line takes it back
   {
     // eleven of Horizon's enrolments this financial year (after the Australia PG notice ends): the 80% band from the 11th
     const more = Array.from({ length: 11 }, (_, i) => ({ app: `GSP-2${String(i).padStart(4, '0')}`, student: `Student ${i}`, rp: 'rp-horizon', course: 'flinders-1', intake: 'Jul 2026', enrolled: `2026-09-${String(i + 1).padStart(2, '0')}`, fees: fee(33750, 0, '2026-07-27', ['2026-10-01']) }));
+    // 10 Nov (the sandbox's rule): an RP line not yet kept is simply raised; once kept (paid), the rise is a Tier top-up line
     let s = start();
-    s = engine.settleAll({ ...s, enrolments: [...s.enrolments, ...more] }, ctx, baseExtra);
+    s = engine.settleAll({ ...s, enrolments: [...s.enrolments, more[0]] }, ctx, baseExtra);
     let r = run(s);
     s = engine.settleAll(pay(s, byKey(r, k('GSP-20000', 'uni', 'p1'))), ctx, baseExtra);
     r = run(s);
+    s = engine.settleAll(pay(s, byKey(r, k('GSP-20000', 'rp', 'm:p1'))), ctx, baseExtra);
+    s = engine.settleAll({ ...s, enrolments: [...s.enrolments, ...more.slice(1)] }, ctx, baseExtra);
+    r = run(s);
+    ok('2. an RP line not yet kept is raised to the band itself', byKey(r, k('GSP-20005', 'rp', 'm:p1'))?.what.includes('80%'), byKey(r, k('GSP-20005', 'rp', 'm:p1'))?.what);
     const top = byKey(r, k('GSP-20000', 'rp', 'rt:p1'));
     ok('2. reaching the 80% band makes a top-up line on the first enrolment', !!top && top.amount > 0 && top.status === 'Ready to invoice', top ? `${top.status} ${top.amount}` : 'none');
     s = engine.settleAll(pay(s, top), ctx, baseExtra);
@@ -174,8 +180,8 @@ try {
     const a = baseExtra.find((e) => e.app === 'GSP-23305');
     ok('G6: a census-date line’s trigger is the census date on the application', byKey(r, k('GSP-23305', 'uni', 'p1')).trigger === a.fees.census[0] && byKey(r, k('GSP-23305', 'uni', 'p2')).trigger === a.fees.census[1]);
     ok('G6: Enrolment confirmed’s study period 1 is the day it was enrolled', byKey(r, k('GSP-22950', 'uni', 'p1')).trigger === '2025-09-30');
-    const w = byKey(r, k('GSP-23533', 'uni', 'p2'));
-    ok('G6: a Tuition paid line with no date yet waits, Expected, with no due date', !!w && w.status === 'Expected' && w.due === '' && w.trigger === '');
+    const w = byKey(r, k('GSP-23560', 'uni', 'p2'));
+    ok('G6: a Fees paid line with no date yet waits, Expected, with no due date', !!w && w.status === 'Expected' && w.due === '' && w.trigger === '');
     const noFee = { app: 'GSP-88001', student: 'No fee', rp: 'rp-delhi', course: 'coventry-1', intake: 'Sep 2026', enrolled: '2026-09-30' };
     const r2 = run(engine.settleAll({ ...s, enrolments: [...s.enrolments, noFee] }, ctx, baseExtra));
     const al = r2.byApp.get('GSP-88001');

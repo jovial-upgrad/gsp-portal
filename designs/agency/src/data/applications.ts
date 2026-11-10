@@ -250,7 +250,29 @@ export type CommissionStatus = (typeof COMMISSION_STATUSES)[number];
  * Commission is worked out from these and nothing else; they're needed before the application can be Student enrolled.
  * Index 0 is study period 1. Enrolment confirmed for study period 1 is the day the application became Student enrolled.
  */
-export type AppFees = { tuition: number | null; scholarship: number | null; start: string; census: string[]; confirmed: string[]; paid: string[] };
+/**
+ * What commission is worked out from, filled in by the application's Admissions officer (Jovial, 9–10 Nov), GSP's side
+ * only: the RP never sees these. The fee and scholarship a year (`yearFees`: later years' fees when known), the course
+ * start, a date per study period for the university's trigger, and what some universities pay on: the campus, units of
+ * study, fee payments, credit points a year, the student type (Australia) and a leave of absence. `feeBy`: who entered
+ * the fee, and when (D7: the CoE may not hold it, so the system just records who did).
+ */
+export type AppFees = {
+  tuition: number | null;
+  scholarship: number | null;
+  start: string;
+  census: string[];
+  confirmed: string[];
+  paid: string[];
+  yearFees?: (number | null)[];
+  campus?: string;
+  units?: { name: string; fee: number; census: string }[];
+  feePayments?: { date: string; amount: number }[];
+  points?: number | null;
+  studentType?: string;
+  leave?: { from: string; to: string } | null;
+  feeBy?: { by: string; at: number };
+};
 export const blankFees = (): AppFees => ({ tuition: null, scholarship: null, start: '', census: [], confirmed: [], paid: [] });
 
 export type Application = {
@@ -1004,7 +1026,8 @@ export function sampleApplications(): Application[] {
         created: t(made),
         since: t(enrolled),
         uniRef,
-        fees: { ...fees, census: [...fees.census], confirmed: [...fees.confirmed], paid: [...fees.paid] },
+        // D7: who entered the fee, and when: the Admissions officer who moved it to Student enrolled
+        fees: { ...fees, census: [...fees.census], confirmed: [...fees.confirmed], paid: [...fees.paid], feeBy: { by: 'Meera Pillai', at: t(enrolled) } },
         needs: [],
         files: [f('Proof of enrolment', `${name.split(' ')[0].toLowerCase()}_enrolment_${uniRef}.pdf`, 'gsp', t(enrolled), 'verified')],
         history: [

@@ -35,7 +35,7 @@ try {
   // Q50: only the agreed RP statuses
   const rpStatuses = new Set(r0.txs.filter((t) => t.side === 'rp').map((t) => t.status));
   ok('Q50 RP lines use only the agreed statuses', [...rpStatuses].every((x) => model.RP_STATUSES.includes(x)), [...rpStatuses].join());
-  ok('Q50 the agreed list', model.RP_STATUSES.join() === 'Expected,Waiting for university,Ready to invoice,Invoice in review,Approved,On hold,Sent back,Paid,Not payable');
+  ok('Q50 the agreed list (with D24’s Overdue to pay)', model.RP_STATUSES.join() === 'Expected,Waiting for university,Ready to invoice,Invoice in review,Approved,Overdue to pay,On hold,Sent back,Paid,Not payable');
   const waitingOk = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Waiting for university').every((t) => {
     const u = r0.byId.get(t.matches) ?? r0.byApp.get(t.app).uniItem.txs[0];
     return u && !['Expected', 'Paid', 'Part paid'].includes(u.status);
@@ -73,9 +73,14 @@ try {
   ok('Q54 the RP is told it was sent back, with the reason', engine.commNotes(s4, r4, (x) => x, TODAY).some((n) => n.code === 'N19' && n.to === 'rp' && n.text.includes('doesn’t match')));
   const s5 = { ...s4, rpInvoices: [...s4.rpInvoices, { id: 'ri-t2', rp: rp1.rp, file: { name: 'inv2.pdf', size: 1 }, txs: [rp1.id], by: 'RP', at: 7, state: 'To check' }] };
   ok('Q50 a new invoice puts it In review', run(s5).byId.get(rp1.id).status === 'Invoice in review');
-  const s6 = { ...s5, rpInvoices: s5.rpInvoices.map((i) => (i.id === 'ri-t2' ? { ...i, state: 'Accepted', decided: { by: 'Fin', at: 8 } } : i)) };
+  const s6 = { ...s5, rpInvoices: s5.rpInvoices.map((i) => (i.id === 'ri-t2' ? { ...i, state: 'Accepted', decided: { by: 'Fin', at: Date.parse(`${TODAY}T09:00:00Z`) } } : i)) };
   const r6 = run(s6);
   ok('Q50 an accepted invoice makes it Approved', r6.byId.get(rp1.id).status === 'Approved');
+  // D24: GSP's own promise: an approved line past Pay within is Overdue to pay, and Finance is reminded (N23)
+  const s6b = { ...s6, rpInvoices: s6.rpInvoices.map((i) => (i.id === 'ri-t2' ? { ...i, decided: { by: 'Fin', at: Date.parse('2026-09-01T09:00:00Z') } } : i)) };
+  const r6b = run(s6b);
+  ok('D24 an approved line past Pay within is Overdue to pay', r6b.byId.get(rp1.id).status === 'Overdue to pay', r6b.byId.get(rp1.id).status);
+  ok('D24 Finance is reminded to pay it (N23)', engine.commNotes(s6b, r6b, (x) => x, TODAY).some((n) => n.code === 'N23' && n.to === 'finance'));
   ok('Q54 the RP is told it was approved', engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.code === 'N20' && n.to === 'rp'));
   ok('Q47 no reminder once the line is on an invoice', !engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.id.startsWith('n21-rq-t')));
 
@@ -103,7 +108,8 @@ try {
   ok('Q43 a withdrawn student doesn’t count', st1.count === st0.count + 2, `${st0.count} → ${st1.count}`);
 
   // Q64, Q65, Q67
-  ok('Q64 no tax ID on bank details', seed.sampleBanks().every((b) => !('taxId' in b)));
+  ok('Q45 the portal keeps no payment details', !('banks' in s0) && typeof seed.sampleBanks === 'undefined');
+  ok('D8 no RP tax line', s0.records.every((r) => !('tax' in r)) && !('tax' in s0.settings));
   const nt = s0.notices.find((n) => n.benefit === 'Bonus per enrolment' && n.rps.length);
   const withNt = r0.txs.filter((t) => t.notice === nt.id);
   ok('Q67 a notice bonus is in its university’s currency', withNt.length > 0 && withNt.every((t) => t.currency === r0.byApp.get(t.app).uniItem.txs[0]?.currency), withNt.map((t) => t.currency).join());
