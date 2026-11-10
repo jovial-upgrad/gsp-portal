@@ -7,17 +7,20 @@ import { CURRENCY } from '../../data/courses';
 import { NoMatch, PageHead, Pill, RecordTabs, TabPanel, Tiles, useAsk } from '../../institution/records/parts';
 import { todayIso } from '../../institution/data/records';
 import { DocLine, LogsFold, type SetupTab } from './parts';
-import { AgreementForm, NoticeForm, RecordForm, RpPicker, TermsForm } from './forms';
+import { AgreementForm, GroupForm, NoticeForm, RecordForm, RpPicker, SettingsForm, TermsForm } from './forms';
 import { appliesText } from './tabs';
 import { noticeStatus, rpsWithoutRecord, unisWithoutTerms } from './engine';
-import { acceptedRps, addNoticeRps, ctxRps, ctxUnis, endNotice, ipName, removeNoticeRp, retireAgreement, rpName, uniName, useComm } from './store';
-import { benefitText, dayText, ratesText, shareText, type Notice } from './model';
+import { acceptedRps, addNoticeRps, ctxRps, ctxUnis, deleteGroup, endNotice, ipName, removeNoticeRp, retireAgreement, rpName, uniName, useComm } from './store';
+import { benefitText, bonusText, dayText, pct, ratesText, shareText, bandsText, type Notice } from './model';
+import { Facts } from '../../institution/records/parts';
 
 const TABS: { key: SetupTab; label: string }[] = [
   { key: 'rps', label: 'RP records' },
   { key: 'agreements', label: 'Agreements' },
   { key: 'notices', label: 'Notices' },
   { key: 'terms', label: 'University terms' },
+  { key: 'groups', label: 'Groups' },
+  { key: 'settings', label: 'Settings' },
 ];
 export type SetupStart = { tab: SetupTab; open?: string; key: number };
 
@@ -62,6 +65,8 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
   const [ntForm, setNtForm] = useState<{ id: string | null } | null>(null);
   const [ntRps, setNtRps] = useState<string | null>(null);
   const [tmForm, setTmForm] = useState<{ uni: string | null; preset?: string } | null>(null);
+  const [grForm, setGrForm] = useState<{ id: string | null } | null>(null);
+  const [stForm, setStForm] = useState(false);
   const { ask, dialog } = useAsk();
   const seen = useRef<number | undefined>(undefined);
   useEffect(() => {
@@ -84,12 +89,12 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
   };
   const today = todayIso();
   const logs = (area: string) => s.logs.filter((l) => l.area === area);
-  const counts: Record<SetupTab, number> = { rps: s.records.length, agreements: s.agreements.length, notices: s.notices.length, terms: s.terms.length };
+  const counts: Record<SetupTab, number | undefined> = { rps: s.records.length, agreements: s.agreements.length, notices: s.notices.length, terms: s.terms.length, groups: s.groups.length, settings: undefined };
 
   /* RP records */
   const rpRows = useMemo(() => {
     const rps = ctxRps();
-    return s.records.map((r) => ({ r, rp: rps.find((x) => x.id === r.rp)!, ag: s.agreements.find((a) => a.id === r.agreement), bank: s.banks.find((b) => b.rp === r.rp), notices: s.notices.filter((n) => n.rps.includes(r.rp)).length })).filter((x) => x.rp);
+    return s.records.map((r) => ({ r, rp: rps.find((x) => x.id === r.rp)!, ag: s.agreements.find((a) => a.id === r.agreement), notices: s.notices.filter((n) => n.rps.includes(r.rp)).length })).filter((x) => x.rp);
   }, [s]);
   const withoutRecord = rpsWithoutRecord(s, acceptedRps());
 
@@ -152,7 +157,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                   <th scope="col">Sales region</th>
                   <th scope="col">Agreement</th>
                   <th scope="col">Notices</th>
-                  <th scope="col">Bank currency</th>
+                  <th scope="col">Own terms</th>
                   <th scope="col">From</th>
                   <th scope="col">
                     <span className="vh">Actions</span>
@@ -162,7 +167,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
               <tbody>
                 {rpRows
                   .filter((x) => has(q, x.rp.name, x.rp.code))
-                  .map(({ r, rp, ag, bank, notices }) => (
+                  .map(({ r, rp, ag, notices }) => (
                     <tr key={r.rp}>
                       <td>
                         <span className="iw-strong">{rp.name}</span>
@@ -174,7 +179,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                         {ag?.status === 'Retired' && <span className="iw-sub">Retired</span>}
                       </td>
                       <td className="num">{notices}</td>
-                      <td>{bank?.currency ?? <span className="cmuted">Not added yet</span>}</td>
+                      <td>{[r.ownFlat != null ? `Own flat ${pct(r.ownFlat)}` : '', r.annuityPct != null ? `${pct(r.annuityPct)} after year 1` : ''].filter(Boolean).join(', ') || <span className="cmuted">—</span>}</td>
                       <td className="num iw-nowrap">{dayText(r.from)}</td>
                       <td className="iw-acts">
                         <MoreMenu
@@ -229,7 +234,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                     </td>
                     <td>{shareText(a)}</td>
                     <td>{a.shareType === 'Flat' ? <span className="cmuted">—</span> : a.countedPer}</td>
-                    <td>{a.retro ? 'Yes' : 'No'}</td>
+                    <td>{a.retro ? (a.retroTop ? 'Yes, at the top band' : 'Yes') : 'No'}</td>
                     <td className="num">{s.records.filter((r) => r.agreement === a.id).length}</td>
                     <td>
                       <Pill tone={a.status === 'Active' ? 'ok' : 'grey'}>{a.status}</Pill>
@@ -306,7 +311,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                       </td>
                       <td>{appliesText(n)}</td>
                       <td>{benefitText(n)}</td>
-                      <td className="num">{n.rps.length}</td>
+                      <td className="num">{n.rps.length || (n.regions ?? []).join(', ')}</td>
                       <td>
                         <Pill tone={st === 'Active' ? 'ok' : st === 'Upcoming' ? 'uni' : 'grey'}>{st}</Pill>
                       </td>
@@ -364,7 +369,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                   <th scope="col">Currency</th>
                   <th scope="col">Rates</th>
                   <th scope="col">Trigger</th>
-                  <th scope="col">Instalments</th>
+                  <th scope="col">Paid</th>
                   <th scope="col">Pay within</th>
                   <th scope="col">Status</th>
                   <th scope="col">
@@ -375,7 +380,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
               <tbody>
                 {tmRows.map((u) => {
                   const t = s.terms.find((x) => x.uni === u.id);
-                  const cur = CURRENCY[u.country];
+                  const cur = t?.currency || CURRENCY[u.country];
                   return (
                     <tr key={u.id}>
                       <td>
@@ -385,7 +390,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                       <td>{cur}</td>
                       <td>{t ? ratesText(t, cur) : <span className="cmuted">—</span>}</td>
                       <td>{t?.trigger ?? <span className="cmuted">—</span>}</td>
-                      <td className="num">{t?.inst ?? '—'}</td>
+                      <td>{t ? `${t.payUnit}, ${t.charge.unit === 'Whole course' ? 'whole course' : `${t.charge.n} ${t.charge.unit.toLowerCase()}`}` : '—'}</td>
                       <td className="num iw-nowrap">{t ? `${t.payDays} days` : '—'}</td>
                       <td>{t ? <Pill tone="ok">Entered</Pill> : <Pill tone="you">Missing</Pill>}</td>
                       <td className="iw-acts">
@@ -409,23 +414,124 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
     </>
   );
 
-  const add: Record<SetupTab, [string, () => void]> = {
-    rps: ['Add RP record', () => setRecForm({ rp: null })],
-    agreements: ['Add Agreement', () => setAgForm({ id: null })],
-    notices: ['Add Notice', () => setNtForm({ id: null })],
-    terms: ['Add University terms', () => setTmForm({ uni: null })],
+  const grRows = s.groups.filter((g) => has(q, g.name, ...g.members.map(uniName)));
+  const grTab = (
+    <>
+      <p className="cline">Universities counted together for a tier and GSP’s group bonuses. A university is in at most one group; when its own tier and the group’s both apply, the higher wins.</p>
+      <Card count={`${grRows.length} groups`} tools={<Search id="cset-gr-q" value={q} onChange={setQ} placeholder="Group or university" />}>
+        {grRows.length ? (
+          <div className="stab-wrap">
+            <table className="itab">
+              <thead>
+                <tr>
+                  <th scope="col">Group</th>
+                  <th scope="col">Universities</th>
+                  <th scope="col">Tier</th>
+                  <th scope="col">Counted per</th>
+                  <th scope="col">Bonus schemes</th>
+                  <th scope="col">
+                    <span className="vh">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {grRows.map((g) => {
+                  const home = ctxUnis().find((u) => u.id === g.members[0])?.country;
+                  const cur = home ? CURRENCY[home] : '';
+                  return (
+                    <tr key={g.id}>
+                      <td>
+                        <span className="iw-strong">{g.name}</span>
+                      </td>
+                      <td>{g.members.map(uniName).join(', ')}</td>
+                      <td>{g.bands.length ? bandsText(g.bands) : <span className="cmuted">—</span>}</td>
+                      <td>
+                        {g.countedPer}
+                        {g.tierPerCountry && <span className="iw-sub">Per source country</span>}
+                      </td>
+                      <td>{g.bonus.length ? g.bonus.map((b) => `${b.name}: ${bonusText(b, cur)}`).join('; ') : <span className="cmuted">—</span>}</td>
+                      <td className="iw-acts">
+                        <MoreMenu
+                          id={`cset-gr-${g.id}`}
+                          label={`More for ${g.name}`}
+                          items={[
+                            { id: 'edit', label: 'Edit', icon: 'edit', onPick: () => setGrForm({ id: g.id }) },
+                            {
+                              id: 'delete',
+                              label: 'Delete',
+                              icon: 'trash',
+                              danger: true,
+                              onPick: () =>
+                                ask(`Delete ${g.name}?`, 'Delete', <p>Its universities are counted on their own from now. Lines already invoiced don’t change.</p>, () => {
+                                  deleteGroup(g.id, me);
+                                  say(`${g.name} deleted.`);
+                                }),
+                            },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <NoMatch what="groups" onClear={() => setQ('')} />
+        )}
+      </Card>
+      <LogsFold id="cset-gr-logs" logs={logs('groups')} />
+    </>
+  );
+
+  const S = s.settings;
+  const days = (d: number[]) => (d.length ? `${d.join(', ')} days` : 'None');
+  const stTab = (
+    <>
+      <p className="cline">The rules every commission line uses.</p>
+      <section className="card">
+        <Facts
+          items={[
+            ['Financial year starts', new Date(Date.UTC(2000, S.fyStart - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' })],
+            ['Census fallback', `${S.fallbackWeeks} weeks after the study period starts (an estimated date)`],
+            ['RP share after year 1', S.annuity.rule === 'Flat %' && S.annuity.pct != null ? `Flat ${pct(S.annuity.pct)}` : S.annuity.rule],
+            ['GST on invoices to universities', Object.entries(S.gst).map(([k, n]) => `${k} ${pct(n ?? 0)}`).join(', ') || 'None'],
+            ['Region groups', Object.entries(S.regionGroups).map(([k, c]) => `${k} (${c.join(', ')})`).join('; ') || 'None'],
+            ['Notice document types', S.docTypes.join(', ')],
+            ['Student types (Australia)', S.studentTypes.join(', ') || 'None'],
+            ['Part payment reasons', S.partReasons.join(', ')],
+            ['Remind the RP to invoice', days(S.reminders.rpInvoice)],
+            ['Remind Finance of a university payment', days(S.reminders.uniPayment)],
+            ['Remind Finance to pay an RP', days(S.reminders.rpPayment)],
+            ['GSP’s invoice number', S.invoiceFormat],
+            ['Invoices to universities go from', S.invoiceFrom],
+            ['Largest file', `${S.maxFileMb} MB`],
+          ]}
+        />
+      </section>
+      <LogsFold id="cset-st-logs" logs={logs('settings')} />
+    </>
+  );
+
+  const add: Record<SetupTab, [string, () => void, 'plus' | 'edit']> = {
+    rps: ['Add RP record', () => setRecForm({ rp: null }), 'plus'],
+    agreements: ['Add Agreement', () => setAgForm({ id: null }), 'plus'],
+    notices: ['Add Notice', () => setNtForm({ id: null }), 'plus'],
+    terms: ['Add University terms', () => setTmForm({ uni: null }), 'plus'],
+    groups: ['Add Group', () => setGrForm({ id: null }), 'plus'],
+    settings: ['Edit settings', () => setStForm(true), 'edit'],
   };
   const notice = ntRps ? s.notices.find((n) => n.id === ntRps) ?? null : null;
   return (
     <div className="ipage csetup">
-      <PageHead title="Setup" lead="Every RP’s and every university’s commission terms, the agreements GSP issues and its notices.">
-        <Button iconLeft={<Icon name="plus" size={18} />} onClick={add[tab][1]}>
+      <PageHead title="Setup" lead="Every RP’s and every university’s commission terms, the agreements GSP issues, its notices, university groups and the settings.">
+        <Button iconLeft={<Icon name={add[tab][2]} size={18} />} onClick={add[tab][1]}>
           {add[tab][0]}
         </Button>
       </PageHead>
       <RecordTabs id="csetup" label="Setup" tab={tab} setTab={pick} tabs={TABS.map((t) => ({ ...t, n: counts[t.key] }))} />
       <TabPanel id="csetup" tab={tab}>
-        {tab === 'rps' ? rpsTab : tab === 'agreements' ? agTab : tab === 'notices' ? ntTab : tmTab}
+        {{ rps: rpsTab, agreements: agTab, notices: ntTab, terms: tmTab, groups: grTab, settings: stTab }[tab]}
       </TabPanel>
 
       <RecordForm
@@ -474,6 +580,25 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
           setTmForm(null);
           setTile('');
           say(`${uniName(uni)}: terms saved.`);
+        }}
+      />
+      <GroupForm
+        open={!!grForm}
+        edit={grForm?.id ? s.groups.find((g) => g.id === grForm.id) ?? null : null}
+        me={me}
+        onClose={() => setGrForm(null)}
+        onSaved={(name) => {
+          setGrForm(null);
+          say(`${name} saved.`);
+        }}
+      />
+      <SettingsForm
+        open={stForm}
+        me={me}
+        onClose={() => setStForm(false)}
+        onSaved={() => {
+          setStForm(false);
+          say('Commission settings saved.');
         }}
       />
       <NoticeRps notice={notice} me={me} onClose={() => setNtRps(null)} say={say} ask={ask} />

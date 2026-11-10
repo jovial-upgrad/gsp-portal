@@ -2,33 +2,32 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
-import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
+import { Checkbox, Field } from '../../components/forms';
 import { Toast } from '../../institution/records/parts';
 import { todayIso } from '../../institution/data/records';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { HOME_RP } from '../../gsp/rps';
-import { FilePick, InvoiceSheet, TxTable } from './parts';
+import { ESTIMATE, FilePick, InvoiceSheet, TxTable } from './parts';
 import { bandStanding, sumBy, totalsText, type Tx } from './engine';
 import { rpInvoice, type InvoiceDoc } from './invoice';
-import { ctxOf, ctxRps, enrolmentsOf, saveBank, uploadRpInvoice, useComm, useLines } from './store';
-import { BANK_FIELDS, HELD, IN_REVIEW, TO_INVOICE, WAITING_UNI, dayText, groupOf, money, pct, type Bank, type FileRef } from './model';
+import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useLines } from './store';
+import { HELD, IN_REVIEW, TO_INVOICE, WAITING_UNI, dayText, groupOf, money, pct, type FileRef } from './model';
 import '../../institution/work/work.css';
 
 /**
  * Earnings, RP side (Jovial, 9 Nov: the PRD's Commissions tab), RP Admin only: what the RP sees of its commission.
- * A one-line nudge about its bank account; tiles for Expected, Ready to invoice and Paid this year (in each currency), and the RP's band (Q43);
+ * Tiles for Expected, Ready to invoice and Paid this year (in each currency), and the RP's band (Q43);
  * **Invoices to send**, the lines GSP asked it to invoice, with GSP's filled-in invoice to download and Upload
  * invoice (one file can cover several lines); and its GSP → RP lines, with how to question an amount (by email:
- * there's no dispute form). Amounts are in each university's currency; the bank currency is for paying only.
+ * there's no dispute form). Amounts are in each university's currency. No payment details: GSP and the RP exchange
+ * them by email, off the portal (Q45). Amounts that can still change are labelled as estimates, with their history (D21).
  */
 export function Earnings({ agency, me, apps, students }: { agency: string; me: string; apps: Application[]; students: Student[] }) {
   const s = useComm();
   const res = useLines(apps, students);
   const rp = ctxRps().find((r) => r.name === agency) ?? ctxRps().find((r) => r.name === HOME_RP)!;
-  const bank = s.banks.find((b) => b.rp === rp.id);
   const mine = useMemo(() => res.txs.filter((t) => t.side === 'rp' && t.rp === rp.id).sort((a, b) => b.due.localeCompare(a.due)), [res, rp.id]);
-  const [editBank, setEditBank] = useState(false);
   const [upload, setUpload] = useState(false);
   const [doc, setDoc] = useState<InvoiceDoc | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
@@ -40,12 +39,11 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const toSend = mine.filter((t) => (TO_INVOICE as readonly string[]).includes(t.status) && !!t.requested);
   const waiting = (t: Tx) => groupOf('rp', t.status) === 'estimate' || t.status === WAITING_UNI;
   const tiles: [string, Record<string, number>, string][] = [
-    ['Expected', sumBy(mine.filter(waiting)), 'Waiting for the universities to pay GSP'],
+    ['Expected', sumBy(mine.filter(waiting)), `Waiting for the universities to pay GSP. ${ESTIMATE}.`],
     ['Ready to invoice', sumBy(mine.filter((t) => groupOf('rp', t.status) === 'progress' && !waiting(t) && !(HELD as readonly string[]).includes(t.status))), 'The universities have paid GSP'],
-    [`Paid in ${year}`, sumBy(mine.filter((t) => groupOf('rp', t.status) === 'paid' && (paidOn.get(t.id) ?? '').startsWith(year))), 'Paid to your bank account'],
+    [`Paid in ${year}`, sumBy(mine.filter((t) => groupOf('rp', t.status) === 'paid' && (paidOn.get(t.id) ?? '').startsWith(year))), 'Paid to you'],
   ];
   const sentBack = s.rpInvoices.filter((i) => i.rp === rp.id && i.state === 'Sent back' && i.txs.some((t) => toSend.some((x) => x.id === t)));
-  const last4 = bank?.number.replace(/\s+/g, '').slice(-4);
   // Q43: where the RP stands in its agreement's bands (a flat share has none)
   const stand = useMemo(() => bandStanding(s, ctxOf(), rp.id, enrolmentsOf(apps, students)), [s, rp.id, apps, students]);
   return (
@@ -56,21 +54,6 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
           <p className="stu__lead">The commission {rp.name} earns on each enrolled student, and when GSP pays it.</p>
         </div>
       </header>
-
-      <section className="card cearn__nudge" aria-label="Bank account">
-        {bank ? (
-          <p>
-            <Icon name="wallet" size={18} /> Paid to {bank.bank} <span className="num">····{last4}</span>, {bank.currency}
-          </p>
-        ) : (
-          <p>
-            <Icon name="alert" size={18} /> Add your bank account so GSP can pay you.
-          </p>
-        )}
-        <Button size="sm" variant={bank ? 'secondary' : 'primary'} onClick={() => setEditBank(true)}>
-          {bank ? 'Change bank account' : 'Add bank account'}
-        </Button>
-      </section>
 
       <div className="cearn__tiles" role="group" aria-label="Your commission">
         {tiles.map(([k, m, sub]) => (
@@ -153,7 +136,6 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         {mine.length ? <TxTable txs={mine} rp rpView app caption="Your commission lines" amountNote={`To question an amount, email ${s.settings.disputeEmail} with the transaction ID.`} /> : <p className="iempty">Lines show once one of your students enrols.</p>}
       </section>
 
-      <BankSheet open={editBank} rp={rp} bank={bank} onClose={() => setEditBank(false)} onSave={(b) => (saveBank(b, me), setEditBank(false), say(bank ? 'Bank account changed.' : 'Bank account added.'))} />
       <UploadSheet
         open={upload}
         lines={toSend}
@@ -168,65 +150,6 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
       <InvoiceSheet doc={doc} onClose={() => setDoc(null)} />
       <Toast msg={msg} />
     </div>
-  );
-}
-
-/** The bank account: every field required, and the currency (the RP's country's to start with). */
-function BankSheet({ open, rp, bank, onClose, onSave }: { open: boolean; rp: { id: string; country: string }; bank?: Bank; onClose: () => void; onSave: (b: Omit<Bank, 'updated'>) => void }) {
-  const s = useComm();
-  const blank = (): Omit<Bank, 'updated'> => ({ rp: rp.id, bank: '', account: '', number: '', swift: '', address: '', currency: s.settings.countryCurrency[rp.country] ?? '' });
-  const [v, setV] = useState(blank);
-  const [tried, setTried] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    setV(bank ? { ...bank } : blank());
-    setTried(false);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  const err = Object.fromEntries([...BANK_FIELDS.map((f) => [f.key, !v[f.key].trim() ? `Enter the ${f.field}.` : null]), ['currency', !v.currency ? 'Choose the currency.' : null]]) as Record<string, string | null>;
-  return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      center
-      className="iform"
-      title={bank ? 'Change bank account' : 'Add bank account'}
-      sub="GSP pays your commission here. A change shows to GSP at once."
-      footer={
-        <div className="asf">
-          <div className="asf__acts">
-            <Button variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setTried(true);
-                if (Object.values(err).some(Boolean)) return;
-                onSave(v);
-              }}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="iform__grid">
-        {BANK_FIELDS.map((f) => (
-          <Field key={f.key} id={`cbank-${f.key}`} label={f.label} required error={tried ? err[f.key] : null} className={f.key === 'address' ? 'iform__wide' : ''}>
-            <TextInput id={`cbank-${f.key}`} value={v[f.key]} invalid={tried && !!err[f.key]} inputMode={f.key === 'number' ? 'numeric' : undefined} onChange={(e) => setV((x) => ({ ...x, [f.key]: e.target.value }))} />
-          </Field>
-        ))}
-        <Field id="cbank-cur" label="Bank currency" required error={tried ? err.currency : null}>
-          <SelectInput id="cbank-cur" value={v.currency} placeholder="Choose the currency" invalid={tried && !!err.currency} onChange={(e) => setV((x) => ({ ...x, currency: e.target.value }))}>
-            {s.settings.bankCurrencies.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-      </div>
-    </Sheet>
   );
 }
 

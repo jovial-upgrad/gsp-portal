@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { enrolBlock } from '../../finance/commission/AppFees';
+import { enrolBlock, leaveBlock } from '../../finance/commission/AppFees';
 import { Field } from '../../components/forms';
 import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
 import { CLOSE_AT, STAGES, STATUS, STATUS_ORDER, destOf, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
@@ -37,7 +37,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
   ];
   const okStatus = !!k && k !== a.status;
   // Student enrolled needs the fee and dates commission is worked out from (9 Nov)
-  const enrolErr = k === 'enrolled' && okStatus ? enrolBlock(a) : '';
+  const enrolErr = k === 'enrolled' && okStatus ? enrolBlock(a) : okStatus ? leaveBlock(a, k) : '';
   const go = () => {
     setTried(true);
     if (!okStatus || enrolErr) return;

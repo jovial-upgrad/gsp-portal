@@ -5,16 +5,16 @@ import { MoreMenu } from '../../components/MoreMenu';
 import { Sheet } from '../../components/Sheet';
 import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
 import { PreviewSheet } from '../../components/DocView';
-import { Filter, PageHead, Pager, RecordTabs, downloadCsv, useAsk, usePaged } from '../../institution/records/parts';
+import { Filter, PageHead, Pager, RecordTabs, Tiles, downloadCsv, useAsk, usePaged } from '../../institution/records/parts';
 import { todayIso } from '../../institution/data/records';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
-import { InvoiceSheet, StatusPill, numOf, numText } from './parts';
+import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } from './parts';
 import { sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { uniInvoice, type InvoiceDoc } from './invoice';
-import { acceptRpInvoice, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, requestInvoice, rpName, sendBackRpInvoice, uniName, useComm, useLines, writeOff } from './store';
-import { ACTION_FROM, LINE_TABS, PART_PAID, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side } from './model';
+import { acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, requestInvoice, rpName, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus } from './model';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -26,6 +26,11 @@ type Who = { name: string; email: string; role: string; region: string };
  * the lines shown. Ticked lines: Raise invoice and Record payment (Universities), Request invoice and Mark paid (RPs).
  * RPs only: **Invoices to check**, each uploaded RP invoice to Accept or Send back. Each line's three dots: Override
  * (Commissions and Admin), History, and the application.
+ *
+ * Finance's to-do (Jovial, 10 Nov, D1): worklist tiles (Ready to invoice, Overdue, Part paid, Invoices to check, Approved
+ * to pay, To confirm) that filter the lines; **Exceptions** (lines that can't be priced safely, held, each a T82 task);
+ * **Tier periods to close** (T83) and **Students to confirm** (T84, D19); **Record lump sum** against a university;
+ * and GSP's invoice sent to the university's finance contact through Mail (D17).
  */
 export function Lines({ apps, students, who, say, onOpenApp }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void }) {
   const s = useComm();
@@ -40,6 +45,10 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [history, setHistory] = useState<Tx | null>(null);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
+  const [lump, setLump] = useState(false);
+  const [tile, setTile] = useState<TileKey | ''>('');
+  const nav = useCommNav();
+  const work = useMemo(() => commWork(s), [s]);
   const { ask, dialog } = useAsk();
   const set = (p: Partial<LineView>) => setV((x) => ({ ...x, ...p }));
   const side = v.side;
@@ -71,12 +80,50 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const doRaise = () => {
     const uni = sel[0].uni;
     const ids = sel.map((t) => t.id);
-    const number = raiseInvoice(uni, ids, who.name);
-    const u = ctxUnis().find((x) => x.id === uni)!;
-    setInv(uniInvoice({ ...s, invoices: [...s.invoices] }, { number, date: todayIso(), uni }, sel, { name: u.name, country: u.country }));
-    setTicked([]);
-    say(`Invoice ${number} raised for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}.`);
+    const lines = [...sel];
+    const contact = uniFinanceContact(uni);
+    // D7: who entered each fee, and when, as the line's working says it
+    const fees = lines.map((t) => [t.id, t.trace?.find((x) => x.h === 'Fee basis')?.t ?? ''] as const).filter(([, f]) => f);
+    ask(
+      `Raise an invoice to ${uniName(uni)} for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}?`,
+      contact ? 'Raise and send' : 'Raise',
+      <>
+        <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}. {contact ? `It goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}, Finance and invoices), through Mail.` : 'The university has no Finance and invoices contact: download the invoice and send it yourself.'}</p>
+        {fees.length > 0 && (
+          <ul className="cline">
+            {fees.map(([id, f]) => (
+              <li key={id}>
+                <span className="num">{id}</span>: {f}
+              </li>
+            ))}
+          </ul>
+        )}
+      </>,
+      () => {
+        const number = raiseInvoice(uni, ids, who.name);
+        if (contact) sendUniInvoice(number, who.name);
+        const u = ctxUnis().find((x) => x.id === uni)!;
+        setInv(uniInvoice({ ...s, invoices: [...s.invoices] }, { number, date: todayIso(), uni }, lines, { name: u.name, country: u.country }));
+        setTicked([]);
+        say(`Invoice ${number} raised for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}${contact ? ` and sent to ${contact.email}` : ''}.`);
+      },
+    );
   };
+  // the worklist tiles (D1): each picks the side and the statuses it counts
+  const TILE: Record<TileKey, { side: Side; statuses: TxStatus[]; label: string; n: number; tone: 'you' | 'bad' | 'uni' | 'gsp' }> = {
+    ready: { side: 'uni', statuses: [READY_UNI], label: READY_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === READY_UNI).length, tone: 'you' },
+    overdue: { side: 'uni', statuses: [OVERDUE_UNI], label: OVERDUE_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === OVERDUE_UNI).length, tone: 'bad' },
+    part: { side: 'uni', statuses: [PART_PAID], label: PART_PAID, n: res.txs.filter((t) => t.side === 'uni' && t.status === PART_PAID).length, tone: 'uni' },
+    check: { side: 'rp', statuses: [IN_REVIEW], label: 'Invoices to check', n: toCheck.length, tone: 'you' },
+    approved: { side: 'rp', statuses: [...TO_PAY], label: 'Approved to pay', n: res.txs.filter((t) => t.side === 'rp' && (TO_PAY as readonly string[]).includes(t.status)).length, tone: 'gsp' },
+    confirm: { side: 'uni', statuses: [], label: 'To confirm', n: work.confirm.length, tone: 'you' },
+  };
+  const pickTile = (k: TileKey | '') => {
+    setTile(k);
+    if (!k) return setV((x) => blankView(x.side));
+    setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses });
+  };
+  const fixIn = (type: string): SetupTab | null => (EXCEPTIONS.find((x) => x.type === type)?.fix as SetupTab | undefined) ?? null;
   const doRequest = () => {
     const rp = sel[0].rp;
     requestInvoice(rp, sel.map((t) => t.id), who.name);
@@ -86,15 +133,169 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
 
   return (
     <div className="ipage clines">
-      <PageHead title="Commission lines" lead="Every transaction GSP gets from universities and pays to RPs.">
+      <PageHead title="Commission lines" lead="Every transaction GSP gets from universities and pays to RPs: Finance’s to-do.">
+        <Button variant="secondary" iconLeft={<Icon name="plus" size={18} />} onClick={() => setLump(true)}>
+          Record lump sum
+        </Button>
         <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={exportCsv}>
           Export CSV
         </Button>
       </PageHead>
 
+      <Tiles label="To do" value={tile} onPick={pickTile} items={(Object.keys(TILE) as TileKey[]).map((k) => ({ key: k, n: TILE[k].n, label: TILE[k].label, tone: TILE[k].n ? TILE[k].tone : 'grey' }))} />
+
+      {tile === 'confirm' && (
+        <section className="card irsec" aria-labelledby="clines-confirm">
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id="clines-confirm">
+                Students to confirm <span className="num cmuted">({work.confirm.length})</span>
+              </h2>
+              <p className="irsec__note">A study period after the first is invoiced only once Finance confirms the student continues (D19).</p>
+            </div>
+            {work.confirm.length > 1 && (
+              <Button size="sm" onClick={() => ask(`Confirm ${work.confirm.length} students continue?`, 'Confirm', <p>Their study periods become ready to invoice.</p>, () => (confirmContinuing(work.confirm, who.name), say(`${work.confirm.length} students confirmed.`)))}>
+                Confirm all
+              </Button>
+            )}
+          </div>
+          {work.confirm.length ? (
+            <ul className="clines__inv">
+              {work.confirm.map((c) => (
+                <li key={`${c.app}-${c.period}`}>
+                  <Icon name="user" size={18} />
+                  <span className="cinv__t">
+                    <span className="iw-strong">
+                      {c.student} · study period {c.period}
+                    </span>
+                    <span className="iw-sub">
+                      <span className="num">{c.app}</span> · {c.uni} · from {dayText(c.since)} · <span className="num">{c.tx}</span>
+                    </span>
+                  </span>
+                  <span className="cinv__acts">
+                    <Button size="sm" onClick={() => (confirmContinuing([c], who.name), say(`${c.student} confirmed for study period ${c.period}.`))}>
+                      Confirm continuing<span className="vh"> {c.student}</span>
+                    </Button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="iempty">No students to confirm.</p>
+          )}
+        </section>
+      )}
+
+      {res.exceptions.length > 0 && (
+        <section className="card irsec" aria-labelledby="clines-exc">
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id="clines-exc">
+                Exceptions <span className="num cmuted">({res.exceptions.length})</span>
+              </h2>
+              <p className="irsec__note">Lines that can’t be priced safely. Held ones wait until it’s fixed; each is a task in My work, to work within 2 working days.</p>
+            </div>
+          </div>
+          <ul className="clines__inv">
+            {res.exceptions.map((x) => {
+              const tab = fixIn(x.type);
+              const l = res.byApp.get(x.app);
+              return (
+                <li key={`${x.app}-${x.type}`}>
+                  <Icon name="alert" size={18} />
+                  <span className="cinv__t">
+                    <span className="iw-strong">
+                      {x.type}
+                      {x.hold ? ' · held' : ''}
+                    </span>
+                    <span className="iw-sub">
+                      <span className="num">{x.app}</span>
+                      {l ? ` · ${l.student} · ${l.uniName}` : ''}: {x.text}
+                    </span>
+                  </span>
+                  <span className="cinv__acts">
+                    {tab && nav && (
+                      <Button variant="secondary" size="sm" onClick={() => nav.setup(tab, tab === 'terms' && l ? l.uni : undefined)}>
+                        Fix in Setup
+                      </Button>
+                    )}
+                    {onOpenApp && apps.some((a) => a.id === x.app) && (
+                      <Button variant="secondary" size="sm" onClick={() => onOpenApp(x.app)}>
+                        Open application
+                      </Button>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {work.periods.length > 0 && (
+        <section className="card irsec" aria-labelledby="clines-close">
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id="clines-close">
+                Tier periods to close <span className="num cmuted">({work.periods.length})</span>
+              </h2>
+              <p className="irsec__note">The count is final once closed: credits and top-ups for the period fall due at its end (Q68).</p>
+            </div>
+          </div>
+          <ul className="clines__inv">
+            {work.periods.map((p) => (
+              <li key={`${p.scope}-${p.window}`}>
+                <Icon name="clock" size={18} />
+                <span className="cinv__t">
+                  <span className="iw-strong">
+                    {p.scope} · {p.window}
+                  </span>
+                  <span className="iw-sub">
+                    Ended {dayText(p.ends)} · {p.count} {p.count === 1 ? 'student' : 'students'} counted
+                  </span>
+                </span>
+                <span className="cinv__acts">
+                  <Button size="sm" onClick={() => ask(`Close ${p.scope}’s ${p.window} tier period?`, 'Close period', <p>{p.count} {p.count === 1 ? 'student' : 'students'} counted. Lines already invoiced keep their amounts; differences become Adjustment lines.</p>, () => (closePeriod(p.scope, p.window, who.name), say(`${p.scope} ${p.window} closed.`)))}>
+                    Close period<span className="vh"> {p.scope} {p.window}</span>
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(s.lumps ?? []).length > 0 && (
+        <section className="card irsec" aria-labelledby="clines-lumps">
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id="clines-lumps">
+                Lump sums <span className="num cmuted">({s.lumps.length})</span>
+              </h2>
+              <p className="irsec__note">Money a university paid that isn’t one student’s line: a volume bonus, a tier true-up.</p>
+            </div>
+          </div>
+          <ul className="clines__inv">
+            {s.lumps.map((l) => (
+              <li key={l.id}>
+                <Icon name="wallet" size={18} />
+                <span className="cinv__t">
+                  <span className="iw-strong">
+                    {uniName(l.uni)} · {money(l.amount, l.currency)}
+                  </span>
+                  <span className="iw-sub">
+                    {l.reason} · {dayText(l.date)} · {l.by}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="clines__switch" role="group" aria-label="Lines">
         {(['uni', 'rp'] as Side[]).map((k) => (
-          <button key={k} type="button" className="ichip" aria-pressed={side === k} onClick={() => setV(blankView(k))}>
+          <button key={k} type="button" className="ichip" aria-pressed={side === k} onClick={() => (setTile(''), setV(blankView(k)))}>
             {k === 'uni' ? 'Universities' : 'RPs'} <span className="num">{res.txs.filter((t) => t.side === k).length}</span>
           </button>
         ))}
@@ -269,12 +470,17 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                       </td>
                       <td>
                         {side === 'uni' ? t.uniName : t.rpName}
-                        <span className="iw-sub">{side === 'uni' ? t.invoice ?? '' : t.region}</span>
+                        <span className="iw-sub">
+                          {side === 'uni' ? t.invoice ?? '' : t.region}
+                          {side === 'uni' && t.invoice && s.invoices.find((i) => i.number === t.invoice)?.sent ? ` · sent to ${s.invoices.find((i) => i.number === t.invoice)!.sent!.to}` : ''}
+                        </span>
                       </td>
                       <td className="num iw-nowrap">{dayText(t.due)}</td>
                       <td className="num ctab__num">{money(t.amount, t.currency)}</td>
                       <td>
                         <StatusPill s={t.status} />
+                        {t.heldWhy && <span className="iw-sub">{t.heldWhy}</span>}
+                        {t.toConfirm && <span className="iw-sub">Waiting for Finance to confirm the student continues</span>}
                         {t.override && (
                           <span className="iw-sub">
                             Overridden by {t.override.by}, {dayText(new Date(t.override.at).toISOString())}: {t.override.reason}
@@ -373,13 +579,69 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         }}
       />
       <HistorySheet t={history} onClose={() => setHistory(null)} />
+      <LumpSheet
+        open={lump}
+        onClose={() => setLump(false)}
+        onSave={(uni, amount, reason, date) => {
+          const cur = uniCurrency(uni);
+          recordLump(uni, amount, cur, reason, date, who.name);
+          say(`${money(amount, cur)} from ${uniName(uni)} recorded.`);
+          setLump(false);
+        }}
+      />
       {preview && <PreviewSheet d={preview} open onClose={() => setPreview(null)} />}
       {dialog}
     </div>
   );
 }
 
+type TileKey = 'ready' | 'overdue' | 'part' | 'check' | 'approved' | 'confirm';
 type AskFn = ReturnType<typeof useAsk>['ask'];
+
+/** Record lump sum: a university, the amount (in its currency), why, and the day it came in. */
+function LumpSheet({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (uni: string, amount: number, reason: string, date: string) => void }) {
+  const s = useComm();
+  const [uni, setUni] = useState('');
+  const [amount, setAmount] = useState<number | null>(null);
+  const [reason, setReason] = useState('');
+  const [date, setDate] = useState(todayIso());
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setUni('');
+    setAmount(null);
+    setReason('');
+    setDate(todayIso());
+    setTried(false);
+  }, [open]);
+  const unis = ctxUnis().filter((u) => s.terms.some((t) => t.uni === u.id));
+  const err = { uni: !uni ? 'Choose the university.' : null, amount: !(amount !== null && amount > 0) ? 'Enter the amount.' : null, reason: !reason.trim() ? 'Say what it’s for.' : null, date: !date || date > todayIso() ? 'A day up to today.' : null };
+  const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  return (
+    <Sheet open={open} onClose={onClose} center className="iform" title="Record lump sum" sub="A payment that isn’t one student’s line. It’s logged against the university." footer={<Foot onClose={onClose} label="Record" onGo={() => (setTried(true), !Object.values(err).some(Boolean) && onSave(uni, amount!, reason.trim(), date))} />}>
+      <div className="iform__grid">
+        <Field id="clump-uni" label="University" required error={show('uni')}>
+          <SelectInput id="clump-uni" value={uni} placeholder="Choose the university" invalid={!!show('uni')} onChange={(e) => setUni(e.target.value)}>
+            {unis.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="clump-amt" label={`Amount${uni ? ` (${uniCurrency(uni)})` : ''}`} required error={show('amount')}>
+          <TextInput id="clump-amt" inputMode="decimal" value={numText(amount)} invalid={!!show('amount')} onChange={(e) => setAmount(numOf(e.target.value))} />
+        </Field>
+        <Field id="clump-why" label="What it’s for" required error={show('reason')} className="iform__wide">
+          <TextInput id="clump-why" value={reason} invalid={!!show('reason')} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+        <Field id="clump-date" label="Received on" required error={show('date')}>
+          <TextInput id="clump-date" type="date" value={date} invalid={!!show('date')} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+      </div>
+    </Sheet>
+  );
+}
 function Foot({ onClose, label, onGo }: { onClose: () => void; label: string; onGo: () => void }) {
   return (
     <div className="asf">

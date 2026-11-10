@@ -7,7 +7,8 @@ import { downloadInvoice, invoiceHtml, type InvoiceDoc } from './invoice';
 import { TextInput } from '../../components/forms';
 import { Fold, Pill } from '../../institution/records/parts';
 import type { Tx } from './engine';
-import { STATUS_TONE, dayText, money, sizeText, type Band, type FileRef, type Log, type TxStatus } from './model';
+import { RP_ESTIMATE, STATUS_TONE, dayText, money, sizeText, type Band, type FileRef, type Log, type Step, type TxStatus } from './model';
+import { useComm } from './store';
 import './commission.css';
 
 /**
@@ -15,7 +16,7 @@ import './commission.css';
  * Finance) sees "Edit in Setup" and "Add RP record"; every other role reads the tabs without them.
  */
 export type CommNav = { setup: (tab: SetupTab, open?: string) => void; rp?: (id: string) => void; app?: (id: string) => void };
-export type SetupTab = 'rps' | 'agreements' | 'notices' | 'terms';
+export type SetupTab = 'rps' | 'agreements' | 'notices' | 'terms' | 'groups' | 'settings';
 const NavCtx = createContext<CommNav | null>(null);
 export const CommNavProvider = ({ nav, children }: { nav: CommNav; children: ReactNode }) => <NavCtx.Provider value={nav}>{children}</NavCtx.Provider>;
 export const useCommNav = () => useContext(NavCtx);
@@ -153,7 +154,29 @@ export function LogsFold({ id, logs }: { id: string; logs: Log[] }) {
  * A commission item's transactions (an application's Commission tab, and the RP's Earnings): Transaction ID, Type,
  * What it's for, Due, Amount, Status, and on GSP → RP the invoice it's on. `amountNote`: the info icon on Amount.
  */
+/** "How it's worked out" (GSP's views only): the line's steps, as the engine traced them (frozen with the line). */
+export function HowWorked({ steps, id }: { steps?: Step[]; id: string }) {
+  if (!steps?.length) return null;
+  return (
+    <details className="chow" id={id}>
+      <summary>How it’s worked out</summary>
+      <ol>
+        {steps.map((x, i) => (
+          <li key={i}>
+            <strong>{x.h}</strong> {x.t}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+/** A line the RP sees can still change until GSP is paid for it (D21). */
+export const isEstimate = (t: Tx) => t.side === 'rp' && (RP_ESTIMATE as readonly string[]).includes(t.status);
+export const ESTIMATE = 'Estimate, can change until GSP is paid';
+
 export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx[]; rp?: boolean; rpView?: boolean; amountNote?: string; caption: string; app?: boolean }) {
+  const { history } = useComm();
+  const changes = (id: string) => (history ?? []).filter((h) => h.tx === id);
   return (
     <div className="stab-wrap">
       <table className="itab ctab">
@@ -197,9 +220,24 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
                 {/* the RP's own view: what it's for in plain words, never GSP's rate or amount (9 Nov) */}
                 {rpView ? t.rpWhat : t.what}
                 {t.override && !rpView && <span className="iw-sub">Overridden by {t.override.by}: {t.override.reason}</span>}
+                {t.heldWhy && !rpView && <span className="iw-sub">Held: {t.heldWhy}</span>}
+                {t.toConfirm && <span className="iw-sub">{rpView ? 'Waiting for the student to continue' : 'Waiting for Finance to confirm the student continues'}</span>}
+                {!rpView && <HowWorked steps={t.trace} id={`chow-${t.id}`} />}
               </td>
-              <td className="num iw-nowrap">{t.due ? dayText(t.due) : <span className="muted">Waiting for the date</span>}</td>
-              <td className="num ctab__num">{money(t.amount, t.currency)}</td>
+              <td className="num iw-nowrap">
+                {t.due ? dayText(t.due) : <span className="muted">Waiting for the date</span>}
+                {t.due && t.estimated && <span className="iw-sub">Estimated date</span>}
+              </td>
+              <td className="num ctab__num">
+                {money(t.amount, t.currency)}
+                {!rpView && !!t.gst && <span className="iw-sub">+ GST {money(t.gst, t.currency)}</span>}
+                {isEstimate(t) && <span className="iw-sub">{ESTIMATE}</span>}
+                {changes(t.id).map((h) => (
+                  <span key={h.at} className="iw-sub">
+                    Was {money(h.from, t.currency)} until {dayText(new Date(h.at).toISOString())}
+                  </span>
+                ))}
+              </td>
               <td>
                 <StatusPill s={t.status} />
               </td>

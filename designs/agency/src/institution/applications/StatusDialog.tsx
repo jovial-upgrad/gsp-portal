@@ -1,4 +1,4 @@
-import { enrolBlock } from '../../finance/commission/AppFees';
+import { enrolBlock, leaveBlock } from '../../finance/commission/AppFees';
 import { useEffect, useState, type DragEvent } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -81,7 +81,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
   const letter = picked ? letterFor(picked, a) : undefined;
   const okStatus = !!k && k !== a.status;
   // Student enrolled needs the fee and dates commission is worked out from (9 Nov)
-  const enrolErr = picked === 'enrolled' && okStatus ? enrolBlock(a) : '';
+  const enrolErr = picked === 'enrolled' && okStatus ? enrolBlock(a) : okStatus ? leaveBlock(a, k) : '';
   const clean = ref.trim().toUpperCase();
   const refErr = picked === 'lodged' && !noRef ? (!clean ? 'Add the university reference ID, or tick No reference ID.' : !REF.test(clean) ? 'Use 3 to 30 letters, numbers or dashes, as the university wrote it.' : '') : '';
   const fileErr = letter && !file ? bad || `Upload the ${letter.label.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase())}.` : bad;

@@ -602,7 +602,7 @@ export function AppDetail({
               {a.uniRef && <Row k="University reference" v={<span className="num">{a.uniRef}</span>} />}
               <Row k="Intake" v={a.intake} />
               {/* the fee and dates commission is worked out from, filled in by Admissions (9 Nov) */}
-              <FeeRows a={a} currency={c.currency} update={update} log={log} say={say} />
+              <FeeRows a={a} me={gsp.name} currency={c.currency} update={update} log={log} say={say} />
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Length" v={duration(c.months)} />
               {c.scholarship > 0 && <Row k="Course scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}

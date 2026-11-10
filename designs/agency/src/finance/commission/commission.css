@@ -83,3 +83,16 @@
 }
 .cinvoice.sheet--center { width: min(92vw, 920px); }
 .cinvoice__frame { width: 100%; height: min(70vh, 760px); border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; }
+
+/* How it's worked out (GSP's views): a line's traced steps */
+.chow { margin-top: 4px; font-size: 13px; }
+.chow > summary { cursor: pointer; color: var(--link, var(--primary)); width: max-content; }
+.chow ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--text-2, inherit); }
+.chow strong { font-weight: 600; }
+/* the application's tier meter and bonus progress */
+.cmeter { display: grid; gap: 10px; }
+.cmeter__row { display: grid; gap: 4px; }
+.cmeter__bar { height: 8px; border-radius: 4px; background: var(--line, #e6e6ea); overflow: hidden; }
+.cmeter__bar > span { display: block; height: 100%; background: var(--primary, #e51e3f); }
+.cmeter__t { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.cpre { white-space: pre-line; }
