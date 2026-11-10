@@ -293,8 +293,9 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         sum += fa.base;
         n++;
       }
-      const target = d ? d.amount : 0;
-      const diff = round2(target - sum);
+      // compare like with like: the line as it would be rounded now against what was kept (no 0.01 ghosts)
+      const target = d ? round2(d.amount, d.currency ?? cur) : 0;
+      const diff = round2(target - sum, d?.currency ?? fr.currency);
       if (Math.abs(diff) >= 0.01) {
         const k = `${key}~${n}`;
         const m = d ?? { type: fr.type, what: fr.what, rpWhat: fr.rpWhat, trigger: fr.trigger, period: fr.period, matches: fr.matches, notice: fr.notice, currency: fr.currency };

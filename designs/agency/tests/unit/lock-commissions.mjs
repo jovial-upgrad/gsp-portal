@@ -30,6 +30,7 @@ try {
   ok('Q62 a credit rounds like the amount it takes back', model.roundMoney(-1.005, 'AUD') === -1.01);
   ok('Q62 a currency with no minor unit rounds to whole', model.roundMoney(2.5, 'JPY') === 3);
   ok('Q62 every line is rounded to its currency', r0.txs.every((t) => t.amount === model.roundMoney(t.amount, t.currency)));
+  ok('Q62 rounding makes no 0.01 Adjustment lines', !r0.txs.some((t) => t.type === 'Adjustment' && Math.abs(t.amount) < 0.02), r0.txs.filter((t) => t.type === 'Adjustment').map((t) => `${t.id} ${t.amount}`).join());
 
   // Q50: only the agreed RP statuses
   const rpStatuses = new Set(r0.txs.filter((t) => t.side === 'rp').map((t) => t.status));
