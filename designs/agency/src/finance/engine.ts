@@ -329,10 +329,14 @@ function compute(cfg, apps, today) {
       tr.push({ h: 'Rate', t: (row ? 'Uses ' + rowLabel(row, cur) + (row.src === 'row' ? ' (the most specific row that matches)' : '') + '. ' : 'No row matches. ') + 'Rows considered for ' + (LEVELS[a.level] || a.level) + (a.course ? ', ' + a.course : '') + (a.campus ? ', ' + a.campus + ' campus' : '') + (a.nationality ? ', from ' + a.nationality : '') + ', period ' + q.k + ': ' + (considered.join(' | ') || 'none') + '.', ref: row && row.src === 'row' ? rowKeys(row).filter((k) => k !== 'level').map((k) => ({ course: 'IP6', campus: 'IP16', region: 'IP7', period: 'IP5' }[k])).join('/') || 'IP6' : 'IP1/IP6' });
       if (row && row.amt != null && row.period == null && q.k > 1) { return; } // a fixed amount without a period is paid once
       let pct = row ? row.pct : null, fixed = row && row.amt != null ? row.amt : null;
+      let tierUp = 0, tierTp = null;
       if (fixed == null && r.tier) {
         const tp = r.tier.b.pct;
-        if (!row || row.src === 'level') { tiersTxt.forEach((x) => tr.push(x)); tr.push({ h: 'Rate after tier', t: 'The tier band replaces the level rate' + (row ? ' (' + pctTxt(row.pct) + ')' : '') + ': ' + tp + '%.', ref: 'IP2–4' }); pct = tp; }
-        else { tiersTxt.forEach((x) => tr.push(x)); const hi = Math.max(row.pct, tp); tr.push({ h: 'Rate after tier', t: 'A specific rate row (' + pctTxt(row.pct) + ') and the tier band (' + tp + '%): the higher wins (proposal), ' + hi + '%.', ref: 'IP2–4' }); pct = hi; }
+        // the tier band above the base rate is its own Tier bonus line (Jovial, 10 Nov: "15.5% and then a bonus of 2.5%");
+        // the standard line stays at the base rate. A band at or below a level rate still replaces it, as before.
+        if (row && tp > row.pct) { tiersTxt.forEach((x) => tr.push(x)); tierTp = tp; tr.push({ h: 'Rate after tier', t: 'Band ' + (r.tier.b.i + 1) + ' (' + tp + '%) is above the ' + (row.src === 'level' ? 'level rate' : 'rate row') + ' (' + pctTxt(row.pct) + '). This line stays at ' + pctTxt(row.pct) + '; the difference, ' + r2(tp - row.pct) + '%, is a separate Tier bonus line.', ref: 'IP2–4' }); }
+        else if (!row || row.src === 'level') { tiersTxt.forEach((x) => tr.push(x)); tr.push({ h: 'Rate after tier', t: 'The tier band replaces the level rate' + (row ? ' (' + pctTxt(row.pct) + ')' : '') + ': ' + tp + '%.', ref: 'IP2–4' }); pct = tp; }
+        else { tiersTxt.forEach((x) => tr.push(x)); tr.push({ h: 'Rate after tier', t: 'A specific rate row (' + pctTxt(row.pct) + ') and the tier band (' + tp + '%): the row is the higher, so ' + pctTxt(row.pct) + ' stays.', ref: 'IP2–4' }); }
       }
       const add = [];
       if (fixed == null && pct != null) {
@@ -344,6 +348,8 @@ function compute(cfg, apps, today) {
         hi.forEach((x) => { if (+x.p.pct > pct) { tr.push({ h: 'Rate after promotion', t: (x.p.name || x.p.id) + ': ' + +x.p.pct + '% is higher than ' + pct + '%, so ' + +x.p.pct + '% applies (highest wins).', ref: 'IP9–11' }); pct = +x.p.pct; } else tr.push({ h: 'Rate after promotion', t: (x.p.name || x.p.id) + ': ' + +x.p.pct + '% is not higher than ' + pct + '%, so ' + pct + '% stays (highest wins).', ref: 'IP9–11' }); });
         ap.filter((x) => x.p.combine === 'additional').forEach((x) => add.push(x.p));
       } else if (promoTxt && fixed != null) tr.push({ h: 'University promotions', t: 'A fixed amount is not changed by promotions or tiers.', ref: 'IP9–11' });
+      // a promotion that replaces the rate replaces the tier too; one that is higher than the base narrows the tier bonus
+      if (tierTp != null && pct != null) tierUp = r.promos.some((x) => !x.w.length && x.p.combine === 'replace' && x.p.pct != null && x.p.pct !== '') ? 0 : r2(Math.max(0, tierTp - pct));
       const baseFee = r2((q.fee + q.add) * q.frac);
       if (isYr1) firstYearBase = r2(firstYearBase + baseFee);
       let amt;
@@ -351,6 +357,12 @@ function compute(cfg, apps, today) {
       else if (pct == null) { amt = null; tr.push({ h: 'Amount', t: 'No rate for ' + (LEVELS[a.level] || a.level) + ': this line cannot be priced until the rate is added.' }); }
       else { amt = r2((baseFee * pct) / 100); tr.push({ h: 'Amount', t: 'Base: ' + q.feeWhy + (q.add ? ' + scholarship share ' + money(q.add, cur) + ' (gross)' : '') + (q.frac < 1 ? ' × ' + Math.round(q.frac * 1000) / 10 + '% chargeable' : '') + ' = ' + money(baseFee, cur) + '. ' + money(baseFee, cur) + ' × ' + pct + '% = ' + money(amt, cur) + ' (rounded half up to the cent).', ref: 'IP1' }); }
       lines.push({ key, k: kk, n: PAY[r.pay] ? q.per : r.periods.length, y: q.y, p: q.p, date: q.date, fixed, pct, amt, base: baseFee, annuity: !isYr1, type: 'standard', label: q.label, trace: tr, period: q });
+      if (tierUp > 0 && amt != null) {
+        const T = r.tier; const v = r2((baseFee * tierUp) / 100);
+        // retrospective: earned when the band was reached, not before
+        const date = T.t.retro && T.setDate && T.setDate > q.date ? T.setDate : q.date;
+        lines.push({ key: 'tb-' + key, k: kk + '-T', n: 1, y: q.y, p: q.p, date, fixed: null, pct: tierUp, amt: v, base: baseFee, annuity: !isYr1, type: 'tier', tier: true, label: 'Tier bonus: ' + q.label, trace: tr.filter((x) => x.h !== 'Amount').concat([{ h: 'Tier bonus', t: T.name + ' band ' + (T.b.i + 1) + ' is ' + T.b.pct + '%; the standard line is at ' + pct + '%, so this line is the difference: ' + money(baseFee, cur) + ' × ' + tierUp + '% = ' + money(v, cur) + (date !== q.date ? '. Dated ' + nice(date) + ', when band ' + (T.b.i + 1) + ' was reached' : '') + '.', ref: 'IP2–4' }, { h: 'RP share', t: 'The RP gets its share of this line, as it did when the band was part of the standard line (open question for Jovial).', ref: 'RP1' }]) });
+      }
       add.forEach((p) => {
         const isAmt = p.amt != null && p.amt !== '';
         if (isAmt && q.k > 1) return;
@@ -359,7 +371,7 @@ function compute(cfg, apps, today) {
       });
     });
     /* cap per student on the first year's standard lines */
-    const fy = lines.filter((l) => l.type === 'standard' && !l.annuity && l.amt != null); const tot = r2(fy.reduce((s, l) => s + l.amt, 0));
+    const fy = lines.filter((l) => (l.type === 'standard' || l.type === 'tier') && !l.annuity && l.amt != null); const tot = r2(fy.reduce((s, l) => s + l.amt, 0));
     if (u.cap && tot > u.cap && tot > 0) { const f = u.cap / tot; fy.forEach((l) => { const was = l.amt; l.amt = r2(l.amt * f); l.trace.push({ h: 'Cap', t: 'The first year’s commission (' + money(tot, cur) + ') is over the cap of ' + money(u.cap, cur) + ' per student, so each line is scaled by ' + Math.round(f * 10000) / 100 + '%: ' + money(was, cur) + ' → ' + money(l.amt, cur) + '.' }); }); r.capped = true; }
     /* bonuses: per tier band, per student, or once a threshold is reached (IP19). GSP's own: never shared with RPs */
     const first = lines.find((l) => l.type === 'standard') || null;
