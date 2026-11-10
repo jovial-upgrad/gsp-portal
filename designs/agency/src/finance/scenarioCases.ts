@@ -374,6 +374,23 @@ const add = (c) => C.push(c);
       { what: 'RP gets no bonus lines', calc: 'standard only = 1 line', exp: 1, got: G.rpCount('ip19b-01') },
     ] });
 }
+{
+  const L = [1, 2, 3].map((i) => app('ip19c-0' + i, { uni: 'SC-IP19C', rp: 'SC-R80', intake: '2027-01-11', census: '2027-02-12' }))
+    .concat([app('ip19c-04', { uni: 'SC-IP19C', rp: 'SC-R80', nationality: 'Nepal', level: 'PG', intake: '2027-07-12', census: '2027-08-13' }), app('ip19c-05', { uni: 'SC-IP19C', rp: 'SC-R80', intake: '2028-01-10', census: '2028-02-11' })]);
+  add({ id: 'IP19C', tab: 'IP', sheetNo: 'Scenario 19c', title: 'Bonus for one intake only, and by region and level', sheet: 'A tiered bonus offered for a single intake that does not repeat, and a bonus only for students from one region at one level (Jovial, 10 Nov).',
+    terms: ['University (UG and PG 15%) with two bonus schemes, GSP’s own:', 'Jan 27 intake bonus: per student, AUD 800 for 1–2 students and AUD 1,200 from the 3rd, counted in the January 2027 intake only (retrospective). It does not come back in January 2028.', 'India UG bonus: AUD 500 per Undergraduate student from India.', 'Three Indian UG students in January 2027, one Nepali PG student in July 2027, one Indian UG student in January 2028.'],
+    today: '2028-03-01', focus: 'ip19c-01',
+    cfg: world({ unis: [uni('SC-IP19C', { name: 'Intake Bonus University (sample)', levels: { UG: 15, PG: 15 }, bonuses: [{ id: 'B1', name: 'Jan 27 intake bonus', kind: 'fixed', v: 0, per: 'band', window: 'intake', intakes: ['2027-01'], bands: [[1, 2, 800, 'fixed'], [3, null, 1200, 'fixed']] }, { id: 'B2', name: 'India UG bonus', kind: 'fixed', v: 500, per: 'student', regions: ['India'], levels: ['UG'] }] })], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    apps: byId(L),
+    checks: [
+      { what: 'January 2027 student gets the intake bonus at band 2', calc: '3 students in Jan 2027 (retrospective) → AUD 1,200', exp: 1200, got: G.ip('ip19c-01', 'bo-B1') },
+      { what: 'Indian UG student gets the India UG bonus', calc: 'AUD 500', exp: 500, got: G.ip('ip19c-01', 'bo-B2') },
+      { what: 'Nepali PG student in July 2027 gets neither', calc: 'not the January 2027 intake; not India, not UG', exp: 0, got: G.ipCount('ip19c-04', 'bonus') },
+      { what: 'January 2028 student: the intake bonus does not repeat', calc: 'intakes 2027-01 only', exp: 'no line bo-B1', got: G.ip('ip19c-05', 'bo-B1') },
+      { what: 'January 2028 student still gets the India UG bonus', calc: 'AUD 500', exp: 500, got: G.ip('ip19c-05', 'bo-B2') },
+      { what: 'The RP gets no share of a bonus', calc: 'RP lines only for the standard line', exp: 1, got: G.rpCount('ip19c-01') },
+    ] });
+}
 
 /* ---------------- RP: what GSP pays the RP ---------------- */
 const U15 = uni('SC-RPU', { name: 'Partner University (sample)' });

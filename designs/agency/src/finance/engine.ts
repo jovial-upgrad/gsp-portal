@@ -382,9 +382,14 @@ function compute(cfg, apps, today) {
       (u.bonuses || []).forEach((B) => {
         const skip = (why) => { r.bonusSkip = (r.bonusSkip || []).concat([{ name: B.name || B.id, why }]); };
         if ((B.levels || []).length && !B.levels.includes(a.level)) { skip(`this is a ${a.level} student, and the bonus is for ${B.levels.join(', ')} only`); return; }
+        // limited to some students or a period (Jovial, 10 Nov): regions, courses, intakes and an intake date range,
+        // tested like a promotion; a counted bonus counts only the students that meet them
+        const cond = { regions: B.regions, courses: B.courses, intakes: B.intakes, from: B.from, to: B.to };
+        const why = promoTest(cond, a, S); if (why.length) { skip(why.join('; ')); return; }
+        const meets = (x) => !promoTest(cond, x, S).length;
         if (B.per === 'band') {
           const win = B.window || 'CY'; const k0 = windowKey(win, a.intake, B);
-          const pool = A.filter((x) => x.enrolled && x.uni === a.uni && (!(B.levels || []).length || B.levels.includes(x.level)) && windowKey(win, x.intake, B) === k0 && !(x.withdrawn && x.withdrawn.date <= base[x.id].trigBase)).sort((x, y) => (x.intake + x.id < y.intake + y.id ? -1 : 1));
+          const pool = A.filter((x) => x.enrolled && x.uni === a.uni && (!(B.levels || []).length || B.levels.includes(x.level)) && meets(x) && windowKey(win, x.intake, B) === k0 && !(x.withdrawn && x.withdrawn.date <= base[x.id].trigBase)).sort((x, y) => (x.intake + x.id < y.intake + y.id ? -1 : 1));
           const rank = pool.findIndex((x) => x.id === a.id) + 1; if (!rank) return;
           const n = B.retro === false ? rank : pool.length;
           const bi = (B.bands || []).findIndex((b) => n >= b[0] && (b[1] == null || n <= b[1]));
@@ -396,7 +401,7 @@ function compute(cfg, apps, today) {
         } else if ((B.per || 'student') === 'student') bonusLine('bo-' + B.id, B.name || B.id, B.kind, +B.v, [{ h: 'Bonus scheme', t: (B.name || B.id) + ': ' + (B.kind === 'pct' ? B.v + '% of the first-year fee' : money(+B.v, cur)) + ' per student' + ((B.levels || []).length ? ' at ' + B.levels.join(', ') : '') + '.', ref: 'IP19' }]);
         else {
           const win = B.window || 'CY'; const k0 = windowKey(win, a.intake, B);
-          const pool = A.filter((x) => x.enrolled && x.uni === a.uni && (!(B.levels || []).length || B.levels.includes(x.level)) && windowKey(win, x.intake, B) === k0 && !(x.withdrawn && x.withdrawn.date <= base[x.id].trigBase)).sort((x, y) => (x.intake + x.id < y.intake + y.id ? -1 : 1));
+          const pool = A.filter((x) => x.enrolled && x.uni === a.uni && (!(B.levels || []).length || B.levels.includes(x.level)) && meets(x) && windowKey(win, x.intake, B) === k0 && !(x.withdrawn && x.withdrawn.date <= base[x.id].trigBase)).sort((x, y) => (x.intake + x.id < y.intake + y.id ? -1 : 1));
           const rank = pool.findIndex((x) => x.id === a.id) + 1;
           r.bonusProgress = (r.bonusProgress || []).concat([{ B, have: pool.length, th: +B.threshold }]);
           if (rank === +B.threshold) bonusLine('bo-' + B.id, B.name || B.id, B.kind, +B.v, [{ h: 'Bonus scheme', t: (B.name || B.id) + ': ' + (B.kind === 'pct' ? B.v + '% of the fee' : money(+B.v, cur)) + ' once ' + B.threshold + ' students enrol in the ' + winLabel(win, B) + ' (' + k0 + '). This student is number ' + rank + ' of ' + pool.length + ' (' + pool.map((x) => x.student).join(', ') + '), so the lump sum sits on this line.', ref: 'IP19' }]);
