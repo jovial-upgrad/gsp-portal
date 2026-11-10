@@ -248,6 +248,24 @@ const add = (c) => C.push(c);
     ] });
 }
 {
+  const at = (u, ids, nat) => ids.map((id) => app(id, { uni: u, rp: 'SC-R80', nationality: nat }));
+  const L = [...at('SC-12X', ['ip12b-x1', 'ip12b-x2', 'ip12b-x3'], 'Bangladesh'), ...at('SC-12Y', ['ip12b-y1', 'ip12b-y2'], 'Bangladesh'), ...at('SC-12Y', ['ip12b-y3', 'ip12b-y4'], 'India')];
+  add({ id: 'IP12B', tab: 'IP', sheetNo: 'Scenario 12b', title: 'Group tier and group bonus per source country', sheet: 'An institution partner (group) whose tier and volume bonus count across its colleges, separately for each source country (Jovial, 10 Nov).',
+    terms: ['Group “Partner group (sample)” with colleges X and Y, both UG 15%, no tier of their own.', 'Group tier per source country: 1–2 students 15%, 3+ 18%, retrospective, calendar year.', 'Group bonus scheme, GSP’s own: per student AUD 500 for 3–4 students and AUD 1,000 from 5, counted per source country across the group.', 'Five Bangladeshi students (three at X, two at Y) and two Indian students at Y, Feb 2026.'],
+    today: '2026-05-01', focus: 'ip12b-y1',
+    cfg: world({ unis: [uni('SC-12X', { name: 'Partner College X (sample)' }), uni('SC-12Y', { name: 'Partner College Y (sample)' })], groups: [{ id: 'SC-GPB', name: 'Partner group (sample)', members: ['SC-12X', 'SC-12Y'], tier: { retro: true, window: 'CY', scope: 'country', levels: [], bands: [[1, 2, 15], [3, null, 18]] }, bonuses: [{ id: 'GB1', name: 'Group volume bonus', kind: 'fixed', v: 0, per: 'band', window: 'CY', perCountry: true, bands: [[3, 4, 500, 'fixed'], [5, null, 1000, 'fixed']] }] }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    apps: byId(L),
+    checks: [
+      { what: 'Bangladeshi students count together across the group', calc: '3 at X + 2 at Y = 5', exp: 5, got: G.app('ip12b-y1', (r) => r.uniTier.total) },
+      { what: 'Indian students count on their own', calc: '2 at Y', exp: 2, got: G.app('ip12b-y3', (r) => r.uniTier.total) },
+      { what: 'Bangladeshi student: standard line at the base rate', calc: '30,000 × 15% = 4,500', exp: 4500, got: G.ip('ip12b-y1', 'ip1') },
+      { what: 'Bangladeshi student: group Tier bonus line', calc: '5 → 18%; 30,000 × 3% = 900', exp: 900, got: G.ip('ip12b-y1', 'tb-ip1') },
+      { what: 'Indian student: no Tier bonus (band 1 is the base rate)', calc: '2 → 15%', exp: 'no line tb-ip1', got: G.ip('ip12b-y3', 'tb-ip1') },
+      { what: 'Bangladeshi student: group volume bonus at 5+', calc: '5 Bangladeshi students in the group → AUD 1,000', exp: 1000, got: G.ip('ip12b-x1', 'gbo-GB1') },
+      { what: 'Indian student: no group volume bonus', calc: '2 Indian students; bonus starts at 3', exp: 0, got: G.ipCount('ip12b-y3', 'bonus') },
+    ] });
+}
+{
   const L = [app('ip13-g', { uni: 'SC-13G', rp: 'SC-R80', tuition: 25000, scholarship: 5000 }), app('ip13-n', { uni: 'SC-13N', rp: 'SC-R80', tuition: 25000, scholarship: 5000 })];
   add({ id: 'IP13', tab: 'IP', sheetNo: 'Scenario 13', title: 'Gross/Net', sheet: 'Defines whether commission is calculated on Gross Tuition Fees or Net Tuition Fees.',
     terms: ['Gross university: “Commission on gross fee”, UG 15%.', 'Net university: UG 15% on the final tuition fee.', 'Both students: final tuition fee 25,000 (after a 5,000 scholarship, as on the CoE); scholarship 5,000 on the application.'],
