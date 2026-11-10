@@ -114,14 +114,15 @@ const log = (area: LogArea, by: string, text: string, more: Partial<Log> = {}): 
 const stamp = (by: string) => ({ by, at: Date.now() });
 const withLog = (s: CommState, ...l: Log[]): CommState => ({ ...s, logs: [...l, ...s.logs] });
 
-export function saveAgreement(a: Omit<Agreement, 'created' | 'updated' | 'earlier'>, by: string) {
+/** `from`: the edit's Effective from date (Q41): enrolments whose intake starts before it keep the terms before. */
+export function saveAgreement(a: Omit<Agreement, 'created' | 'updated' | 'earlier'>, by: string, from = todayIso()) {
   setComm((s) => {
     const was = s.agreements.find((x) => x.id === a.id);
-    const today = todayIso();
+    const today = from;
     const next: Agreement = was
       ? { ...was, ...a, updated: stamp(by), earlier: [...was.earlier, { shareType: was.shareType, share: was.share, bands: was.bands, countedPer: was.countedPer, retro: was.retro, addl: was.addl, bonuses: was.bonuses, payDays: was.payDays, details: was.details, doc: was.doc, until: today }] }
       : { ...a, created: stamp(by), updated: stamp(by), earlier: [] };
-    return withLog({ ...s, agreements: was ? s.agreements.map((x) => (x.id === a.id ? next : x)) : [...s.agreements, next] }, log('agreements', by, `${by} saved agreement ${a.name}: ${shareText(a)}`));
+    return withLog({ ...s, agreements: was ? s.agreements.map((x) => (x.id === a.id ? next : x)) : [...s.agreements, next] }, log('agreements', by, `${by} saved agreement ${a.name}: ${shareText(a)}${was ? `, effective from ${from}` : ''}`));
   });
 }
 export const newAgreementId = () => id('ag');
@@ -149,7 +150,11 @@ export const newNoticeId = () => id('nt');
 export function saveNotice(nt: Omit<Notice, 'created' | 'updated'>, by: string) {
   setComm((s) => {
     const was = s.notices.find((x) => x.id === nt.id);
-    const next: Notice = was ? { ...was, ...nt, updated: stamp(by) } : { ...nt, created: stamp(by), updated: stamp(by) };
+    // RPs taken off in the form keep it for their enrolments before today (Q65); one put back loses that line
+    const on = todayIso();
+    const off = was ? was.rps.filter((r) => !nt.rps.includes(r)) : [];
+    const removed = [...(was?.removed ?? nt.removed ?? []).filter((r) => !nt.rps.includes(r.rp) && !off.includes(r.rp)), ...off.map((rp) => ({ rp, on }))];
+    const next: Notice = was ? { ...was, ...nt, removed, updated: stamp(by) } : { ...nt, removed: [], created: stamp(by), updated: stamp(by) };
     return withLog({ ...s, notices: was ? s.notices.map((x) => (x.id === nt.id ? next : x)) : [...s.notices, next] }, log('notices', by, `${by} saved notice ${nt.name}: ${benefitText(nt)}, ${nt.rps.length} ${nt.rps.length === 1 ? 'RP' : 'RPs'}`));
   });
 }
@@ -164,7 +169,9 @@ export function addNoticeRps(ntId: string, add: string[], by: string) {
 export function removeNoticeRp(ntId: string, rp: string, by: string) {
   setComm((s) => {
     const nt = s.notices.find((x) => x.id === ntId)!;
-    return withLog({ ...s, notices: s.notices.map((x) => (x.id === ntId ? { ...x, rps: x.rps.filter((r) => r !== rp), updated: stamp(by) } : x)) }, log('notices', by, `${by} removed ${rpName(rp)} from ${nt.name}`));
+    // its enrolments before today keep the notice (Q65)
+    const on = todayIso();
+    return withLog({ ...s, notices: s.notices.map((x) => (x.id === ntId ? { ...x, rps: x.rps.filter((r) => r !== rp), removed: [...(x.removed ?? []).filter((r) => r.rp !== rp), { rp, on }], updated: stamp(by) } : x)) }, log('notices', by, `${by} removed ${rpName(rp)} from ${nt.name}; enrolments before ${on} keep it`));
   });
 }
 export function endNotice(ntId: string, by: string) {
@@ -174,12 +181,13 @@ export function endNotice(ntId: string, by: string) {
   });
 }
 
-export function saveTerms(t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, by: string) {
+/** `from`: the edit's Effective from date (Q41). */
+export function saveTerms(t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, by: string, from = todayIso()) {
   setComm((s) => {
     const was = s.terms.find((x) => x.uni === t.uni);
     const { created: _c, updated: _u, earlier: _e, uni: _x, ...body } = was ?? ({} as UniTerms);
-    const next: UniTerms = was ? { ...was, ...t, updated: stamp(by), earlier: [...was.earlier, { ...body, until: todayIso() }] } : { ...t, created: stamp(by), updated: stamp(by), earlier: [] };
-    return withLog({ ...s, terms: was ? s.terms.map((x) => (x.uni === t.uni ? next : x)) : [...s.terms, next] }, log('terms', by, `${by} saved terms for ${uniName(t.uni)}: ${ratesText(t, uniCurrency(t.uni))}`, { uni: t.uni }));
+    const next: UniTerms = was ? { ...was, ...t, updated: stamp(by), earlier: [...was.earlier, { ...body, until: from }] } : { ...t, created: stamp(by), updated: stamp(by), earlier: [] };
+    return withLog({ ...s, terms: was ? s.terms.map((x) => (x.uni === t.uni ? next : x)) : [...s.terms, next] }, log('terms', by, `${by} saved terms for ${uniName(t.uni)}: ${ratesText(t, uniCurrency(t.uni))}${was ? `, effective from ${from}` : ''}`, { uni: t.uni }));
   });
 }
 
@@ -202,8 +210,17 @@ export function raiseInvoice(uni: string, txs: string[], by: string) {
   setComm((s) => withLog({ ...s, invoices: [...s.invoices, { number, uni, date: day, txs, by, at: Date.now() }] }, lineLog(by, `${by} raised invoice ${number}`, txs, { uni })));
   return number;
 }
-export function recordPayment(uni: string, txs: string[], amount: number, cur: string, date: string, by: string) {
-  setComm((s) => withLog({ ...s, receipts: [...s.receipts, { id: id('rc'), uni, txs, amount, date, by, at: Date.now() }] }, lineLog(by, `${by} recorded ${money(amount, cur)} received from ${uniName(uni)} on ${date}`, txs, { uni })));
+/**
+ * A payment from a university, line by line (Q44): what came in for each line, and why where it's less than the line.
+ * `amount` is the total, for the log.
+ */
+export function recordPayment(uni: string, txs: string[], amount: number, cur: string, date: string, by: string, paid: Record<string, number> = {}, short: Record<string, string> = {}) {
+  const shortTxt = Object.keys(short).length ? `; paid short: ${Object.entries(short).map(([t, why]) => `${t} (${why})`).join(', ')}` : '';
+  setComm((s) => withLog({ ...s, receipts: [...s.receipts, { id: id('rc'), uni, txs, amount, paid, short, date, by, at: Date.now() }] }, lineLog(by, `${by} recorded ${money(amount, cur)} received from ${uniName(uni)} on ${date}${shortTxt}`, txs, { uni })));
+}
+/** Writes off the rest of a line paid short (Q44): the same Finance person may do it; the line counts as Paid. */
+export function writeOff(tx: string, amount: number, cur: string, reason: string, by: string) {
+  setComm((s) => withLog({ ...s, writeOffs: [...(s.writeOffs ?? []), { id: id('wo'), tx, amount, reason, by, at: Date.now() }] }, lineLog(by, `${by} wrote off ${money(amount, cur)} on ${tx}: ${reason}`, [tx])));
 }
 export function requestInvoice(rp: string, txs: string[], by: string) {
   setComm((s) => withLog({ ...s, requests: [...s.requests, { id: id('rq'), rp, txs, date: todayIso(), by, at: Date.now() }] }, lineLog(by, `${by} requested ${rpName(rp)}’s invoice`, txs, { rp })));

@@ -25,12 +25,16 @@ export const sampleSettings = (): Settings => ({
   countryCurrency: { India: 'INR', Nepal: 'NPR', Vietnam: 'VND', Philippines: 'PHP', 'Sri Lanka': 'LKR', Bangladesh: 'BDT', Nigeria: 'NGN', Pakistan: 'PKR' },
   bankCurrencies: ['INR', 'NPR', 'VND', 'PHP', 'LKR', 'BDT', 'NGN', 'PKR', 'AUD', 'GBP', 'USD', 'CAD', 'NZD', 'EUR'],
   tax: { India: { name: 'GST', pct: 18 }, Nepal: { name: 'VAT', pct: 13 }, Vietnam: { name: 'VAT', pct: 10 }, Philippines: { name: 'VAT', pct: 12 }, 'Sri Lanka': { name: 'VAT', pct: 18 }, Bangladesh: { name: 'VAT', pct: 15 } },
+  // Jovial, 10 Nov (Q44): why a university paid less than a line
+  partReasons: ['Part payment', 'Rate dispute', 'Student not recognised', 'Bank charges', 'Exchange difference'],
+  // Jovial, 10 Nov (Q47): days after an invoice request (RP) and after a line's due date (university); no escalation
+  reminders: { rpInvoice: [3, 7, 14], uniPayment: [0, 7, 14] },
 });
 
 /* ---------- agreements ---------- */
 
 const terms = (t: Partial<AgreementTerms>): AgreementTerms => ({ shareType: 'Flat', share: null, bands: [], countedPer: 'Financial year', retro: false, addl: null, bonuses: [], payDays: 30, details: '', doc: null, ...t });
-const agBonus = (id: string, desc: string, amount: number, currency: string, nth: number | null): AgreementBonus => ({ id, desc, amount, currency, when: nth === null ? 'Every enrolment' : 'At an enrolment number', nth });
+const agBonus = (id: string, desc: string, amount: number, nth: number | null): AgreementBonus => ({ id, desc, amount, when: nth === null ? 'Every enrolment' : 'At an enrolment number', nth });
 const band = (from: number, to: number | null, pct: number): Band => ({ from, to, pct });
 export const sampleAgreements = (): Agreement[] => [
   {
@@ -46,17 +50,17 @@ export const sampleAgreements = (): Agreement[] => [
     id: 'ag-std-2026',
     name: 'Standard agreement 2026',
     status: 'Active',
-    ...terms({ shareType: 'Tiered by enrolments', bands: [band(1, 10, 75), band(11, 25, 80), band(26, null, 85)], retro: true, bonuses: [agBonus('ab-std26-10', 'Milestone bonus', 1000, 'AUD', 10)], details: 'Bands count the RP’s enrolments in GSP’s financial year. Reaching a higher band raises every earlier enrolment that year. A milestone bonus on the 10th enrolment of the year.', doc: file('GSP-Partner-Agreement-v3-Nov-2026.pdf', 1025) }),
+    ...terms({ shareType: 'Tiered by enrolments', bands: [band(1, 10, 75), band(11, 25, 80), band(26, null, 85)], retro: true, bonuses: [agBonus('ab-std26-10', 'Milestone bonus', 1000, 10)], details: 'Bands count the RP’s enrolments in GSP’s financial year. Reaching a higher band raises every earlier enrolment that year. A milestone bonus on the 10th enrolment of the year.', doc: file('GSP-Partner-Agreement-v3-Nov-2026.pdf', 1025) }),
     created: by(LAV, '2026-06-02'),
     updated: by(RHYTHM, '2026-06-20'),
     // edited on 20 Jun: the top band was 82% before
-    earlier: [{ ...terms({ shareType: 'Tiered by enrolments', bands: [band(1, 10, 75), band(11, 25, 80), band(26, null, 82)], retro: true, bonuses: [agBonus('ab-std26-10', 'Milestone bonus', 1000, 'AUD', 10)], details: 'Bands count the RP’s enrolments in GSP’s financial year.', doc: file('GSP-Partner-Agreement-v3-draft.pdf', 1002) }), until: '2026-06-20' }],
+    earlier: [{ ...terms({ shareType: 'Tiered by enrolments', bands: [band(1, 10, 75), band(11, 25, 80), band(26, null, 82)], retro: true, bonuses: [agBonus('ab-std26-10', 'Milestone bonus', 1000, 10)], details: 'Bands count the RP’s enrolments in GSP’s financial year.', doc: file('GSP-Partner-Agreement-v3-draft.pdf', 1002) }), until: '2026-06-20' }],
   },
   {
     id: 'ag-vietnam',
     name: 'Vietnam partner agreement',
     status: 'Active',
-    ...terms({ share: 75, addl: 75, payDays: 21, bonuses: [agBonus('ab-vn-each', 'Enrolment bonus', 100, 'AUD', null)], details: 'An enrolment bonus on every enrolment.', doc: file('GSP-Vietnam-Partner-Agreement-2025.pdf', 870) }),
+    ...terms({ share: 75, addl: 75, payDays: 21, bonuses: [agBonus('ab-vn-each', 'Enrolment bonus', 100, null)], details: 'An enrolment bonus on every enrolment.', doc: file('GSP-Vietnam-Partner-Agreement-2025.pdf', 870) }),
     created: by(LAV, '2024-12-10'),
     updated: by(LAV, '2024-12-10'),
     earlier: [],
@@ -82,8 +86,8 @@ export const sampleRecords = (): RpRecord[] => [
 ];
 
 export const sampleBanks = (): Bank[] => [
-  { rp: 'rp-horizon', bank: 'HDFC Bank', account: 'Horizon Overseas Pvt Ltd', number: '50200061234871', swift: 'HDFCINBBXXX', address: 'Fort, Mumbai 400001, India', currency: 'INR', taxId: '27AAFCH4412K1Z3', updated: by('Ananya Rao', '2024-08-20') },
-  { rp: 'rp-delhi', bank: 'ICICI Bank', account: 'Capital Career Abroad LLP', number: '001105023318', swift: 'ICICINBBCTS', address: 'Connaught Place, New Delhi 110001, India', currency: 'INR', taxId: '07AALFC9021M1Z8', updated: by('Manish Gupta', '2024-12-02') },
+  { rp: 'rp-horizon', bank: 'HDFC Bank', account: 'Horizon Overseas Pvt Ltd', number: '50200061234871', swift: 'HDFCINBBXXX', address: 'Fort, Mumbai 400001, India', currency: 'INR', updated: by('Ananya Rao', '2024-08-20') },
+  { rp: 'rp-delhi', bank: 'ICICI Bank', account: 'Capital Career Abroad LLP', number: '001105023318', swift: 'ICICINBBCTS', address: 'Connaught Place, New Delhi 110001, India', currency: 'INR', updated: by('Manish Gupta', '2024-12-02') },
   { rp: 'rp-saigon', bank: 'Vietcombank', account: 'Saigon Bridge Education Co., Ltd', number: '0071000824519', swift: 'BFTVVNVX', address: '5 Me Linh Square, District 1, Ho Chi Minh City, Vietnam', currency: 'USD', updated: by('Lan Tran', '2025-02-10') },
 ];
 
@@ -101,11 +105,11 @@ export const sampleNotices = (): Notice[] => [
     levels: [],
     benefit: 'Bonus per enrolment',
     amount: 300,
-    currency: 'GBP',
     share: null,
     bands: [],
     retro: false,
     rps: ['rp-horizon', 'rp-delhi'],
+    removed: [],
     created: by(LAV, '2025-12-12'),
     updated: by(RHYTHM, '2026-02-03'),
   },
@@ -120,11 +124,11 @@ export const sampleNotices = (): Notice[] => [
     levels: ['Master’s degree', 'Postgraduate diploma'],
     benefit: 'Share instead of the agreement’s',
     amount: null,
-    currency: 'AUD',
     share: 85,
     bands: [],
     retro: false,
     rps: ['rp-horizon'],
+    removed: [],
     created: by(LAV, '2026-01-20'),
     updated: by(LAV, '2026-01-20'),
   },
@@ -139,11 +143,11 @@ export const sampleNotices = (): Notice[] => [
     levels: [],
     benefit: 'Bonus per enrolment',
     amount: 200,
-    currency: 'AUD',
     share: null,
     bands: [],
     retro: false,
     rps: ['rp-saigon'],
+    removed: [],
     created: by(JOANA, '2026-10-28'),
     updated: by(JOANA, '2026-10-28'),
   },
@@ -167,6 +171,8 @@ const uniTerms = (uni: string, r: (number | null)[], trigger: Trigger, inst: num
   payDays,
   cap: null,
   bands: [],
+  countedPer: 'Calendar year',
+  yearStart: 1,
   addl: [],
   bonus: [],
   contract: file(`${uni.replace(/(^|-)(\w)/g, (_, d: string, c: string) => `${d ? '-' : ''}${c.toUpperCase()}`)}-GSP-Agency-Agreement.pdf`, 1200 + uni.length * 37),
@@ -255,7 +261,7 @@ export const sampleInvoices = (): UniInvoice[] => [
 ];
 
 /** A payment received; its amount null: the lines' total, as the remittance said. */
-const rec = (id: string, uni: string, txs: string[], date: string, who = LAV): Receipt => ({ id, uni, txs, amount: null, date, by: who, at: at(date, '15:10') });
+const rec = (id: string, uni: string, txs: string[], date: string, who = LAV): Receipt => ({ id, uni, txs, amount: null, paid: {}, short: {}, date, by: who, at: at(date, '15:10') });
 export const sampleReceipts = (): Receipt[] => [
   rec('rc-1', 'coventry', [u('GSP-23305', 'p1'), u('GSP-23305', 'ad:ad-coventry-fee')], '2025-11-19'),
   rec('rc-2', 'herts', [u('GSP-22950', 'p1')], '2025-11-03'),
@@ -313,6 +319,7 @@ export const sampleComm = (): CommState => {
   requests,
   rpInvoices,
   rpPayments,
+  writeOffs: [],
   overrides,
   ids: Object.fromEntries(NAMED.map((k, i) => [k, idText(ID_START + i + 1)])),
   idSeq: ID_START + NAMED.length,

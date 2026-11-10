@@ -6,7 +6,6 @@ import { Field, SelectInput, TextInput } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { SearchPick } from '../../institution/records/SearchPick';
 import { ErrorText, Facts, useAsk } from '../../institution/records/parts';
-import { CURRENCIES } from '../../institution/data/catalogue';
 import { CURRENCY } from '../../data/courses';
 import { todayIso } from '../../institution/data/records';
 import { BandsEditor, FilePick, bandsError, numOf, numText } from './parts';
@@ -22,6 +21,7 @@ import {
   LEVELS,
   SHARE_TYPES,
   TRIGGER_LABELS,
+  UNI_COUNTED_PER,
   YES_NO,
   dayText,
   type Addl,
@@ -36,6 +36,8 @@ import {
   type Notice,
   type TermsBody,
   type Trigger,
+  type UniCountedPer,
+  type UniTerms,
 } from './model';
 
 /** A Setup form: a centred sheet with Cancel and Save on the right. */
@@ -80,7 +82,6 @@ function Area({ id, value, onChange, placeholder }: { id: string; value: string;
     </div>
   );
 }
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /* ---------- Agreement ---------- */
 
@@ -93,14 +94,18 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
   const [v, setV] = useState<AgDraft>(blankAg);
   const [tried, setTried] = useState(false);
   const [big, setBig] = useState(false);
+  // Q41 (Jovial, 10 Nov): an edit has an Effective from date; enrolments whose intake starts before it keep the terms before
+  const [from, setFrom] = useState(todayIso());
   useEffect(() => {
     if (!open) return;
     setV(edit ? { ...edit } : blankAg());
     setTried(false);
     setBig(false);
+    setFrom(todayIso());
   }, [open, edit]);
   const set = (p: Partial<AgDraft>) => setV((x) => ({ ...x, ...p }));
   const flat = v.shareType === 'Flat';
+  const lastFrom = edit ? [...edit.earlier].map((x) => x.until).sort().pop() ?? '' : '';
   const err = {
     name: !v.name.trim() ? 'Name the agreement.' : s.agreements.some((a) => a.id !== v.id && a.name.trim().toLowerCase() === v.name.trim().toLowerCase()) ? 'There’s already an agreement with this name.' : null,
     share: flat && pctBad(v.share, true) ? 'A number from 0 to 100.' : null,
@@ -109,6 +114,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
     bonuses: v.bonuses.some((b) => !b.desc.trim() || !(b.amount > 0) || (b.when !== AB_WHEN[0] && !wholeIn(b.nth, 1, 999))) ? 'Give each bonus a description, an amount and, for an enrolment number, the number.' : null,
     payDays: !wholeIn(v.payDays, 1, 90) ? 'A whole number from 1 to 90.' : null,
     doc: big ? `The file is over ${s.settings.maxFileMb} MB.` : null,
+    from: edit && (!/^\d{4}-\d{2}-\d{2}$/.test(from) || from <= lastFrom) ? (lastFrom ? `A date after ${lastFrom}, the last edit’s.` : 'Pick the date the new terms start.') : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const upBonus = (i: number, p: Partial<AgreementBonus>) => set({ bonuses: v.bonuses.map((b, j) => (j === i ? { ...b, ...p } : b)) });
@@ -116,14 +122,19 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
     const name = v.name.trim();
-    saveAgreement({ ...v, name, id: v.id || newAgreementId(), share: flat ? v.share : null, bands: flat ? [] : v.bands, status: edit?.status ?? 'Active' }, me);
+    saveAgreement({ ...v, name, id: v.id || newAgreementId(), share: flat ? v.share : null, bands: flat ? [] : v.bands, status: edit?.status ?? 'Active' }, me, from);
     onSaved(name);
   };
   return (
-    <FormSheet open={open} title={edit ? `Edit ${edit.name}` : 'Add Agreement'} sub={edit ? 'Applies to commission items made after you save. Items already made keep their share.' : undefined} onClose={onClose} onSave={save}>
+    <FormSheet open={open} title={edit ? `Edit ${edit.name}` : 'Add Agreement'} sub={edit ? 'Applies to enrolments whose intake starts on or after Effective from. Earlier ones keep the terms before; lines already invoiced never change.' : undefined} onClose={onClose} onSave={save}>
       <Field id="cag-name" label="Name" required error={show('name')} className="iform__wide">
         <TextInput id="cag-name" maxLength={80} value={v.name} invalid={!!show('name')} placeholder="Like: Standard agreement 2026" onChange={(e) => set({ name: e.target.value })} />
       </Field>
+      {edit && (
+        <Field id="cag-from" label="Effective from" required error={show('from')} hint="The intake start date the changed terms apply from.">
+          <TextInput id="cag-from" type="date" value={from} invalid={!!show('from')} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+      )}
       <Field id="cag-type" label="Share type" required>
         <SelectInput id="cag-type" value={v.shareType} onChange={(e) => set({ shareType: e.target.value as AgDraft['shareType'] })}>
           {options(SHARE_TYPES)}
@@ -157,15 +168,12 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
         <TextInput id="cag-addl" inputMode="decimal" value={numText(v.addl)} invalid={!!show('addl')} onChange={(e) => set({ addl: numOf(e.target.value) })} />
       </Field>
       <p className="cform__sec">Bonus</p>
-      <p className="cform__hint">The RP’s own bonus, paid whether or not GSP meets a university’s bonus tier. No RP gets a share of a bonus a university pays GSP.</p>
+      <p className="cform__hint">The RP’s own bonus, paid whether or not GSP meets a university’s bonus tier. No RP gets a share of a bonus a university pays GSP. The amount is in each enrolment’s university currency.</p>
       <div className="cform__list">
         {v.bonuses.map((b, i) => (
           <div key={b.id} className="cform__row cform__row--agbonus">
             <TextInput id={`cag-bn-d-${i}`} aria-label={`Bonus ${i + 1}: description`} placeholder="Like: Milestone bonus" value={b.desc} onChange={(e) => upBonus(i, { desc: e.target.value })} />
-            <TextInput id={`cag-bn-a-${i}`} aria-label={`Bonus ${i + 1}: amount`} placeholder="Amount" inputMode="decimal" value={numText(b.amount)} onChange={(e) => upBonus(i, { amount: numOf(e.target.value) ?? NaN })} />
-            <SelectInput id={`cag-bn-c-${i}`} aria-label={`Bonus ${i + 1}: currency`} value={b.currency} onChange={(e) => upBonus(i, { currency: e.target.value })}>
-              {options(CURRENCIES)}
-            </SelectInput>
+            <TextInput id={`cag-bn-a-${i}`} aria-label={`Bonus ${i + 1}: amount, in the university’s currency`} placeholder="Amount" inputMode="decimal" value={numText(b.amount)} onChange={(e) => upBonus(i, { amount: numOf(e.target.value) ?? NaN })} />
             <SelectInput id={`cag-bn-w-${i}`} aria-label={`Bonus ${i + 1}: when`} value={b.when} onChange={(e) => upBonus(i, { when: e.target.value as AgreementBonus['when'], nth: e.target.value === AB_WHEN[0] ? null : b.nth })}>
               {options(AB_WHEN)}
             </SelectInput>
@@ -180,7 +188,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
           </div>
         ))}
         {show('bonuses') && <ErrorText id="cag-bn-err">{show('bonuses')}</ErrorText>}
-        <button type="button" className="btn btn--secondary btn--sm iadd" style={{ justifySelf: 'start' }} onClick={() => set({ bonuses: [...v.bonuses, { id: `ab-${Date.now().toString(36)}-${++rid}`, desc: '', amount: NaN, currency: CURRENCIES[0], when: AB_WHEN[0], nth: null }] })}>
+        <button type="button" className="btn btn--secondary btn--sm iadd" style={{ justifySelf: 'start' }} onClick={() => set({ bonuses: [...v.bonuses, { id: `ab-${Date.now().toString(36)}-${++rid}`, desc: '', amount: NaN, when: AB_WHEN[0], nth: null }] })}>
           <Icon name="plus" size={16} /> Add bonus
         </button>
       </div>
@@ -345,7 +353,7 @@ export function RpPicker({ id, value, onChange }: { id: string; value: string[];
 /* ---------- Notice ---------- */
 
 type NtDraft = Omit<Notice, 'created' | 'updated' | 'doc' | 'benefit'> & { doc: FileRef | null; benefit: Benefit | '' };
-const blankNt = (): NtDraft => ({ id: '', name: '', doc: null, starts: '', ends: '', dests: [], unis: [], levels: [], benefit: '', amount: null, currency: CURRENCIES[0], share: null, bands: [], retro: false, rps: [] });
+const blankNt = (): NtDraft => ({ id: '', name: '', doc: null, starts: '', ends: '', dests: [], unis: [], levels: [], benefit: '', amount: null, share: null, bands: [], retro: false, rps: [], removed: [] });
 
 /** Add and Edit Notice: name, document, dates, what it applies to, its benefit and the RPs that may use it. */
 export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean; edit: Notice | null; me: string; onClose: () => void; onSaved: (name: string) => void }) {
@@ -388,7 +396,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
       <Field id="cnt-doc" label="Notice document" required error={show('doc')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Shown to preview on each listed RP’s Commission tab.`} className="iform__wide">
         <FilePick id="cnt-doc" value={v.doc} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('doc')} onTooBig={setBig} onChange={(doc) => set({ doc })} />
       </Field>
-      <Field id="cnt-starts" label="Starts" required error={show('dates')} hint="Enrolments with a census or enrolment date in the period count.">
+      <Field id="cnt-starts" label="Starts" required error={show('dates')} hint="Enrolments with an enrolment date in the period count. Bonuses from two notices add up; for a share, the highest wins.">
         <TextInput id="cnt-starts" type="date" value={v.starts} invalid={!!show('dates')} onChange={(e) => set({ starts: e.target.value })} />
       </Field>
       <Field id="cnt-ends" label="Ends" required>
@@ -409,16 +417,9 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         </SelectInput>
       </Field>
       {v.benefit === 'Bonus per enrolment' && (
-        <>
-          <Field id="cnt-amount" label="Bonus amount" required error={show('amount')}>
-            <TextInput id="cnt-amount" inputMode="decimal" value={numText(v.amount)} invalid={!!show('amount')} onChange={(e) => set({ amount: numOf(e.target.value) })} />
-          </Field>
-          <Field id="cnt-cur" label="Currency" required>
-            <SelectInput id="cnt-cur" value={v.currency} onChange={(e) => set({ currency: e.target.value })}>
-              {options(CURRENCIES)}
-            </SelectInput>
-          </Field>
-        </>
+        <Field id="cnt-amount" label="Bonus amount" required error={show('amount')} hint="In each enrolment’s university currency.">
+          <TextInput id="cnt-amount" inputMode="decimal" value={numText(v.amount)} invalid={!!show('amount')} onChange={(e) => set({ amount: numOf(e.target.value) })} />
+        </Field>
       )}
       {v.benefit === 'Share instead of the agreement’s' && (
         <Field id="cnt-share" label="Share (%)" required error={show('share')} hint="The higher of the notice’s and the agreement’s share is used.">
@@ -431,13 +432,13 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         </Field>
       )}
       {v.benefit && v.benefit !== 'Bonus per enrolment' && (
-        <Field id="cnt-retro" label="Retrospective" optional>
+        <Field id="cnt-retro" label="Retrospective" optional hint="Yes: reaching a higher band raises the earlier enrolments it covers, as on agreements.">
           <SelectInput id="cnt-retro" value={v.retro ? 'Yes' : 'No'} onChange={(e) => set({ retro: e.target.value === 'Yes' })}>
             {options(YES_NO)}
           </SelectInput>
         </Field>
       )}
-      <Field id="cnt-rps" label="RPs" optional className="iform__wide" hint="RPs with a commission record. IDs that don’t match one show here.">
+      <Field id="cnt-rps" label="RPs" optional className="iform__wide" hint="RPs with a commission record. An RP taken off keeps the notice for its enrolments before today.">
         <RpPicker id="cnt-rps" value={v.rps} onChange={(rps) => set({ rps })} />
       </Field>
     </FormSheet>
@@ -447,8 +448,10 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
 /* ---------- University terms ---------- */
 
 type TermsDraft = Omit<TermsBody, 'contract' | 'trigger' | 'inst' | 'payDays'> & { uni: string; contract: FileRef | null; trigger: Trigger | ''; inst: number | null; payDays: number | null };
-const blankTerms = (uni = ''): TermsDraft => ({ uni, rates: {}, feeBasis: 'Tuition after scholarship', fixed: {}, trigger: '', inst: null, payDays: 30, cap: null, bands: [], addl: [], bonus: [], contract: null, notes: '' });
+const blankTerms = (uni = ''): TermsDraft => ({ uni, rates: {}, feeBasis: 'Tuition after scholarship', fixed: {}, trigger: '', inst: null, payDays: 30, cap: null, bands: [], countedPer: 'Calendar year', yearStart: 1, addl: [], bonus: [], contract: null, notes: '' });
 let rid = 0;
+/** January to December, as the locale names them (for an academic year's start). */
+const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(2000, i, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' }));
 
 /**
  * Add and Edit University terms: the rates by program level (or a fixed amount), the fee they're on, the trigger,
@@ -460,12 +463,16 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
   const [v, setV] = useState<TermsDraft>(blankTerms);
   const [tried, setTried] = useState(false);
   const [big, setBig] = useState(false);
+  // Q41 (Jovial, 10 Nov): an edit has an Effective from date (intake start); earlier intakes keep the terms before
+  const [from, setFrom] = useState(todayIso());
   useEffect(() => {
     if (!open) return;
-    setV(was ? { ...was } : blankTerms(preset ?? ''));
+    setV(was ? { ...blankTerms(), ...was } : blankTerms(preset ?? ''));
     setTried(false);
     setBig(false);
+    setFrom(todayIso());
   }, [open, editUni, preset]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lastFrom = was ? [...(was as UniTerms).earlier].map((x) => x.until).sort().pop() ?? '' : '';
   const set = (p: Partial<TermsDraft>) => setV((x) => ({ ...x, ...p }));
   const all = ctxUnis();
   const pool = all.filter((u) => !s.terms.some((t) => t.uni === u.id));
@@ -481,6 +488,7 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
     payDays: !wholeIn(v.payDays, 1, 180) ? 'A whole number from 1 to 180.' : null,
     bands: v.bands.length ? bandsError(v.bands) : null,
     contract: big ? `The file is over ${s.settings.maxFileMb} MB.` : !v.contract ? 'Upload the contract.' : null,
+    from: was && (!/^\d{4}-\d{2}-\d{2}$/.test(from) || from <= lastFrom) ? (lastFrom ? `A date after ${lastFrom}, the last edit’s.` : 'Pick the date the new terms start.') : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const setLevel = (k: 'rates' | 'fixed', l: Level, n: number | null) => {
@@ -492,13 +500,13 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
   const save = () => {
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
-    saveTerms({ ...v, trigger: v.trigger as Trigger, inst: v.inst!, payDays: v.payDays!, contract: v.contract!, addl: v.addl.filter((a) => a.desc.trim() && a.value > 0), bonus: v.bonus.filter((b) => b.desc.trim() && b.amount > 0) }, me);
+    saveTerms({ ...v, trigger: v.trigger as Trigger, inst: v.inst!, payDays: v.payDays!, contract: v.contract!, addl: v.addl.filter((a) => a.desc.trim() && a.value > 0), bonus: v.bonus.filter((b) => b.desc.trim() && b.amount > 0) }, me, from);
     onSaved(v.uni);
   };
   const upAddl = (i: number, p: Partial<Addl>) => set({ addl: v.addl.map((a, j) => (j === i ? { ...a, ...p } : a)) });
   const upBonus = (i: number, p: Partial<Bonus>) => set({ bonus: v.bonus.map((b, j) => (j === i ? { ...b, ...p } : b)) });
   return (
-    <FormSheet open={open} title={was ? `Edit ${uniName(v.uni)}’s terms` : 'Add University terms'} sub={was ? 'Applies to transactions made after you save; earlier ones keep their amounts unless overridden.' : undefined} onClose={onClose} onSave={save}>
+    <FormSheet open={open} title={was ? `Edit ${uniName(v.uni)}’s terms` : 'Add University terms'} sub={was ? 'Applies to enrolments whose intake starts on or after Effective from. Earlier ones keep the terms before; lines already invoiced never change.' : undefined} onClose={onClose} onSave={save}>
       <Field id="cut-uni" label="University" required error={show('uni')}>
         {was ? (
           <p className="cline">{uniName(v.uni)}</p>
@@ -506,6 +514,11 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
           <SearchPick id="cut-uni" label="Universities with no terms yet" placeholder="Search universities" value={v.uni} invalid={!!show('uni')} options={pool.map((x) => ({ value: x.id, label: x.name, note: x.country }))} onChange={(id) => set({ uni: id, rates: {}, fixed: {} })} />
         )}
       </Field>
+      {was && (
+        <Field id="cut-from" label="Effective from" required error={show('from')} hint="The intake start date the changed terms apply from.">
+          <TextInput id="cut-from" type="date" value={from} invalid={!!show('from')} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+      )}
       <Field id="cut-cur" label="Currency">
         <p className="cline">{cur || <span className="cmuted">The university’s country’s currency</span>}</p>
       </Field>
@@ -556,6 +569,22 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
       <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide" hint="Enrolments with this university, counted per its year; the band’s rate replaces the level’s.">
         <BandsEditor id="cut-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
       </Field>
+      <Field id="cut-per" label="Tier counted per" required hint="The university’s year, as its contract has it. Only students GSP will be paid for count.">
+        <SelectInput id="cut-per" value={v.countedPer} onChange={(e) => set({ countedPer: e.target.value as UniCountedPer })}>
+          {options(UNI_COUNTED_PER)}
+        </SelectInput>
+      </Field>
+      {v.countedPer === 'Academic year' && (
+        <Field id="cut-ystart" label="Academic year starts in" required>
+          <SelectInput id="cut-ystart" value={String(v.yearStart)} onChange={(e) => set({ yearStart: Number(e.target.value) })}>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={String(i + 1)}>
+                {m}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+      )}
       <p className="cform__sec">Additional commission</p>
       <div className="cform__list">
         {v.addl.map((a, i) => (

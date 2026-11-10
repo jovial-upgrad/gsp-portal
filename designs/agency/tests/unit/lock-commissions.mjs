@@ -1,0 +1,124 @@
+// Jovial's 10 Nov answers (All pending questions), Commissions: effective-from terms by intake start (Q41), RP counts
+// of payable students and the band tile (Q43), payment line by line with Part paid and write-off (Q44), reminders
+// (Q47), the RP statuses (Q50), sent back and approved notifications (Q54), rounding (Q62), no tax ID (Q64), an RP
+// taken off a notice keeps it for earlier enrolments (Q65), bonuses in the university's currency (Q67).
+//   cd designs/agency && node tests/unit/lock-commissions.mjs
+import { createServer } from 'vite';
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('../..', import.meta.url));
+const vite = await createServer({ root, server: { middlewareMode: true }, appType: 'custom', logLevel: 'error', optimizeDeps: { noDiscovery: true, include: [] } });
+let pass = 0, fail = 0;
+const ok = (name, cond, more = '') => { cond ? pass++ : fail++; console.log(`${cond ? 'PASS' : 'FAIL'} ${name}${cond || !more ? '' : `: ${more}`}`); };
+try {
+  const engine = await vite.ssrLoadModule('/src/finance/commission/engine.ts');
+  const model = await vite.ssrLoadModule('/src/finance/commission/model.ts');
+  const seed = await vite.ssrLoadModule('/src/finance/commission/seed.ts');
+  const store = await vite.ssrLoadModule('/src/finance/commission/store.ts');
+  const appsMod = await vite.ssrLoadModule('/src/data/applications.ts');
+  const studentsMod = await vite.ssrLoadModule('/src/data/students.ts');
+  const TODAY = '2026-11-09';
+  const ctx = store.ctxOf(TODAY);
+  const extra = store.enrolmentsOf(appsMod.sampleApplications(), studentsMod.sampleStudents(''));
+  const start = () => engine.settleAll(seed.sampleComm(), ctx, extra);
+  const run = (s) => engine.compute(engine.settleAll(s, ctx, extra), ctx, extra);
+  const s0 = start();
+  const r0 = run(s0);
+
+  // Q62: half up to the currency's smallest unit
+  ok('Q62 rounds half up to cents', model.roundMoney(1.005, 'AUD') === 1.01 && model.roundMoney(2.345, 'GBP') === 2.35);
+  ok('Q62 a credit rounds like the amount it takes back', model.roundMoney(-1.005, 'AUD') === -1.01);
+  ok('Q62 a currency with no minor unit rounds to whole', model.roundMoney(2.5, 'JPY') === 3);
+  ok('Q62 every line is rounded to its currency', r0.txs.every((t) => t.amount === model.roundMoney(t.amount, t.currency)));
+
+  // Q50: only the agreed RP statuses
+  const rpStatuses = new Set(r0.txs.filter((t) => t.side === 'rp').map((t) => t.status));
+  ok('Q50 RP lines use only the agreed statuses', [...rpStatuses].every((x) => model.RP_STATUSES.includes(x)), [...rpStatuses].join());
+  ok('Q50 the agreed list', model.RP_STATUSES.join() === 'Expected,Waiting for university,Ready to invoice,Invoice in review,Approved,On hold,Sent back,Paid,Not payable');
+  const waitingOk = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Waiting for university').every((t) => {
+    const u = r0.byId.get(t.matches) ?? r0.byApp.get(t.app).uniItem.txs[0];
+    return u && !['Expected', 'Paid', 'Part paid'].includes(u.status);
+  });
+  ok('Q50 Waiting for university: GSP’s line is due, not paid', waitingOk);
+
+  // Q44: a line paid short is Part paid, the RP line is its share of what came in, and a write-off makes it Paid
+  const u = r0.txs.find((t) => t.side === 'uni' && t.status === 'Ready to invoice' && t.type === 'Course commission' && r0.txs.some((x) => x.matches === t.id));
+  const rpLine0 = r0.txs.find((x) => x.matches === u.id && x.key.endsWith(`m:${u.key.split('|')[2]}`));
+  const half = model.roundMoney(u.amount / 2, u.currency);
+  let s1 = { ...s0, invoices: [...s0.invoices, { number: 'T-1', uni: u.uni, date: '2026-11-01', txs: [u.id], by: 'Test', at: 1 }], receipts: [...s0.receipts, { id: 'rc-t', uni: u.uni, txs: [u.id], amount: half, paid: { [u.id]: half }, short: { [u.id]: 'Bank charges' }, date: '2026-11-05', by: 'Test', at: 2 }] };
+  let r1 = run(s1);
+  const u1 = r1.byId.get(u.id);
+  ok('Q44 a line paid short is Part paid, with what came in and why', u1.status === 'Part paid' && u1.received === half && u1.short === 'Bank charges', `${u1.status} ${u1.received} ${u1.short}`);
+  const rp1 = r1.byId.get(rpLine0.id);
+  ok('Q44 its RP line is ready for its share of what came in', rp1.status === 'Ready to invoice' && Math.abs(rp1.amount - model.roundMoney((rpLine0.amount * half) / u.amount, u.currency)) <= 0.01, `${rp1.status} ${rp1.amount} of ${rpLine0.amount}`);
+  const s2 = { ...s1, writeOffs: [{ id: 'wo', tx: u.id, amount: u.amount - half, reason: 'Bank charges', by: 'Test', at: 3 }] };
+  const r2 = run(s2);
+  ok('Q44 writing off the rest makes it Paid', r2.byId.get(u.id).status === 'Paid');
+  ok('Q44 the RP stays at its share of what came in', Math.abs(r2.byId.get(rpLine0.id).amount - rp1.amount) <= 0.01);
+  ok('Q44 the reasons are a seeded setting', s0.settings.partReasons.length >= 5 && s0.settings.partReasons.includes('Part payment'));
+
+  // Q47 and Q54: reminders, sent back and approved
+  const rq = { id: 'rq-t', rp: rp1.rp, txs: [rp1.id], date: '2026-11-01', by: 'Test', at: 4 };
+  const s3 = { ...s1, requests: [...s1.requests, rq] };
+  const r3 = run(s3);
+  const notes3 = engine.commNotes(s3, r3, (x) => x, TODAY);
+  const n19 = notes3.filter((n) => n.id.startsWith('n19-rq-t'));
+  ok('Q47 the RP is reminded 3 and 7 days after the request (14 not yet)', n19.length === 2, `${n19.length}`);
+  ok('Q47 Finance is reminded of university lines past due', notes3.some((n) => n.code === 'N20'));
+  ok('Q47 the reminder days are a setting', s0.settings.reminders.rpInvoice.join() === '3,7,14' && s0.settings.reminders.uniPayment.join() === '0,7,14');
+  const s4 = { ...s3, rpInvoices: [...s3.rpInvoices, { id: 'ri-t', rp: rp1.rp, file: { name: 'inv.pdf', size: 1 }, txs: [rp1.id], by: 'RP', at: 5, state: 'Sent back', reason: 'The amount doesn’t match.', decided: { by: 'Fin', at: 6 } }] };
+  const r4 = run(s4);
+  ok('Q50 a sent-back line is Sent back', r4.byId.get(rp1.id).status === 'Sent back');
+  ok('Q54 the RP is told it was sent back, with the reason', engine.commNotes(s4, r4, (x) => x, TODAY).some((n) => n.code === 'N21' && n.to === 'rp' && n.text.includes('doesn’t match')));
+  const s5 = { ...s4, rpInvoices: [...s4.rpInvoices, { id: 'ri-t2', rp: rp1.rp, file: { name: 'inv2.pdf', size: 1 }, txs: [rp1.id], by: 'RP', at: 7, state: 'To check' }] };
+  ok('Q50 a new invoice puts it In review', run(s5).byId.get(rp1.id).status === 'Invoice in review');
+  const s6 = { ...s5, rpInvoices: s5.rpInvoices.map((i) => (i.id === 'ri-t2' ? { ...i, state: 'Accepted', decided: { by: 'Fin', at: 8 } } : i)) };
+  const r6 = run(s6);
+  ok('Q50 an accepted invoice makes it Approved', r6.byId.get(rp1.id).status === 'Approved');
+  ok('Q54 the RP is told it was approved', engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.code === 'N22' && n.to === 'rp'));
+  ok('Q47 no reminder once the line is on an invoice', !engine.commNotes(s6, r6, (x) => x, TODAY).some((n) => n.id.startsWith('n19-rq-t')));
+
+  // Q41: an edit's Effective from: intakes that start before it keep the terms before
+  const plain = r0.txs.find((t) => {
+    if (t.side !== 'uni' || t.type !== 'Course commission' || t.frozen) return false;
+    const tr = s0.terms.find((x) => x.uni === t.uni);
+    return tr && !tr.bands.length && !Object.keys(tr.fixed).length && tr.cap === null;
+  });
+  const tr = s0.terms.find((x) => x.uni === plain.uni);
+  const { created, updated, earlier, uni, ...body } = tr;
+  const changed = { ...tr, rates: Object.fromEntries(Object.keys(tr.rates).map((l) => [l, 1])), earlier: [{ ...body, until: '2099-01-01' }] };
+  const r7 = run({ ...s0, terms: s0.terms.map((x) => (x.uni === plain.uni ? changed : x)) });
+  ok('Q41 an intake before Effective from keeps the old rate', r7.byId.get(plain.id).amount === plain.amount, `${plain.amount} → ${r7.byId.get(plain.id).amount}`);
+  const changed2 = { ...changed, earlier: [{ ...body, until: '2000-01-01' }] };
+  const r8 = run({ ...s0, terms: s0.terms.map((x) => (x.uni === plain.uni ? changed2 : x)) });
+  ok('Q41 an intake on or after it takes the new rate', r8.byId.get(plain.id).what.includes('1%'), r8.byId.get(plain.id).what);
+  ok('Q41 the intake start is the course start Admissions filled in', engine.startOf({ fees: { start: '2026-07-13' }, intake: 'Jul 2026', enrolled: '2026-08-01' }) === '2026-07-13' && engine.startOf({ intake: 'Sep 2025', enrolled: '2025-10-01' }) === '2025-09-01');
+
+  // Q43: the RP's count leaves out students GSP won't be paid for, and Earnings shows the band
+  const st0 = engine.bandStanding(s0, ctx, 'rp-horizon', extra);
+  const mk = (i, withdrawn) => ({ app: `GSP-9${String(i).padStart(4, '0')}`, student: `S${i}`, rp: 'rp-horizon', course: extra[0]?.course ?? s0.enrolments[0].course, intake: 'Oct 2026', enrolled: '2026-10-20', ...(withdrawn ? { withdrawn: '2026-10-25' } : {}), fees: { tuition: 20000, scholarship: 0, start: '2026-10-19', census: ['2026-11-30'], confirmed: [], paid: [] } });
+  const st1 = engine.bandStanding({ ...s0, enrolments: [...s0.enrolments, mk(1), mk(2), mk(3, true)] }, ctx, 'rp-horizon', extra);
+  ok('Q43 Horizon has a band tile (tiered agreement)', !!st0 && st0.share > 0, JSON.stringify(st0));
+  ok('Q43 a withdrawn student doesn’t count', st1.count === st0.count + 2, `${st0.count} → ${st1.count}`);
+
+  // Q64, Q65, Q67
+  ok('Q64 no tax ID on bank details', seed.sampleBanks().every((b) => !('taxId' in b)));
+  const nt = s0.notices.find((n) => n.benefit === 'Bonus per enrolment' && n.rps.length);
+  const withNt = r0.txs.filter((t) => t.notice === nt.id);
+  ok('Q67 a notice bonus is in its university’s currency', withNt.length > 0 && withNt.every((t) => t.currency === r0.byApp.get(t.app).uniItem.txs[0]?.currency), withNt.map((t) => t.currency).join());
+  const rpOff = withNt[0].rp;
+  const keep = run({ ...s0, notices: s0.notices.map((n) => (n.id === nt.id ? { ...n, rps: n.rps.filter((r) => r !== rpOff), removed: [{ rp: rpOff, on: '2099-01-01' }] } : n)) });
+  ok('Q65 an RP taken off a notice keeps it for enrolments before that day', keep.txs.filter((t) => t.notice === nt.id && t.rp === rpOff && t.type !== 'Adjustment').length === withNt.filter((t) => t.rp === rpOff).length);
+  const lose = run({ ...s0, notices: s0.notices.map((n) => (n.id === nt.id ? { ...n, rps: n.rps.filter((r) => r !== rpOff), removed: [{ rp: rpOff, on: '2000-01-01' }] } : n)) });
+  const unpaid = withNt.filter((t) => t.rp === rpOff && !t.frozen);
+  ok('Q65 … and enrolments after it don’t get it', unpaid.every((t) => !lose.txs.some((x) => x.key === t.key && x.type !== 'Adjustment' && !x.frozen)));
+  ok('Q67 agreement bonuses have no currency of their own', s0.agreements.every((a) => a.bonuses.every((b) => !('currency' in b))));
+
+  // Q55: a university's tier counts per the year in its contract
+  ok('Q55 the counting years', model.UNI_COUNTED_PER.join() === 'Calendar year,Academic year,Financial year,Intake');
+  ok('Q55 every university’s terms say how they count', s0.terms.every((t) => model.UNI_COUNTED_PER.includes(t.countedPer)));
+} finally {
+  await vite.close();
+}
+console.log(`${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

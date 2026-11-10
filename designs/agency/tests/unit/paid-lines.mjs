@@ -68,7 +68,7 @@ try {
     s = engine.settleAll(pay(s, byKey(r, k('GSP-20000', 'uni', 'p1'))), ctx, baseExtra);
     r = run(s);
     const top = byKey(r, k('GSP-20000', 'rp', 'rt:p1'));
-    ok('2. reaching the 80% band makes a top-up line on the first enrolment', !!top && top.amount > 0 && top.status === 'Ready to pay', top ? `${top.status} ${top.amount}` : 'none');
+    ok('2. reaching the 80% band makes a top-up line on the first enrolment', !!top && top.amount > 0 && top.status === 'Ready to invoice', top ? `${top.status} ${top.amount}` : 'none');
     s = engine.settleAll(pay(s, top), ctx, baseExtra);
     const rPaid = run(s);
     ok('2. … paid', rPaid.byId.get(top.id).status === 'Paid');

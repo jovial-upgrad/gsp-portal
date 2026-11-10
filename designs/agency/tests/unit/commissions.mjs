@@ -35,11 +35,11 @@ try {
   const wrongApp = rp.filter((t) => t.matches && res.byId.get(t.matches).app !== t.app);
   ok('a matching university line is on the same application', wrongApp.length === 0, wrongApp.map((t) => t.id).join());
 
-  // an RP line isn't Ready to pay (or later) before its university line is Paid
-  const LATER = ['Ready to pay', 'Invoice requested', 'Invoice received', 'Paid'];
+  // an RP line isn't Ready to invoice (or later) before GSP has its university line's money (Paid, or Part paid: Q44)
+  const LATER = ['Ready to invoice', 'Invoice in review', 'Approved', 'Sent back', 'Paid'];
   const firstUni = (t) => res.byApp.get(t.app).uniItem.txs.find((x) => x.type === 'Course commission') ?? res.byApp.get(t.app).uniItem.txs[0];
-  const early = rp.filter((t) => LATER.includes(t.status) && (t.matches ? res.byId.get(t.matches).status : firstUni(t)?.status) !== 'Paid');
-  ok('no RP line is Ready to pay before its university line is Paid', early.length === 0, early.map((t) => `${t.id} ${t.status}`).join());
+  const early = rp.filter((t) => LATER.includes(t.status) && !['Paid', 'Part paid'].includes(t.matches ? res.byId.get(t.matches).status : firstUni(t)?.status));
+  ok('no RP line is Ready to invoice before its university line is paid', early.length === 0, early.map((t) => `${t.id} ${t.status}`).join());
   // and once the university line is paid, the RP line moves on (unless held or paid)
   const stuck = rp.filter((t) => t.matches && res.byId.get(t.matches).status === 'Paid' && t.status === 'Expected');
   ok('an RP line whose university line is Paid is no longer Expected', stuck.length === 0, stuck.map((t) => t.id).join());

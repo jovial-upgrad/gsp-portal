@@ -13,8 +13,8 @@ import { InvoiceSheet, StatusPill, numOf, numText } from './parts';
 import { sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { uniInvoice, type InvoiceDoc } from './invoice';
-import { acceptRpInvoice, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, requestInvoice, rpName, sendBackRpInvoice, uniName, useComm, useLines } from './store';
-import { ACTION_FROM, LINE_TABS, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, type Side } from './model';
+import { acceptRpInvoice, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, requestInvoice, rpName, sendBackRpInvoice, uniName, useComm, useLines, writeOff } from './store';
+import { ACTION_FROM, LINE_TABS, PART_PAID, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side } from './model';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -36,6 +36,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [paying, setPaying] = useState<Tx[] | null>(null);
   const [paidOut, setPaidOut] = useState<Tx[] | null>(null);
   const [over, setOver] = useState<Tx | null>(null);
+  const [writing, setWriting] = useState<Tx | null>(null);
   const [history, setHistory] = useState<Tx | null>(null);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
@@ -133,7 +134,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                         size="sm"
                         onClick={() => {
                           acceptRpInvoice(i.id, who.name);
-                          say(`${i.file.name} accepted: ${txs.length} ${txs.length === 1 ? 'line' : 'lines'} Invoice received.`);
+                          say(`${i.file.name} accepted: ${txs.length} ${txs.length === 1 ? 'line' : 'lines'} Approved.`);
                         }}
                       >
                         Accept
@@ -287,6 +288,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                           items={[
                             // a Paid line never changes (9 Nov): no override
                             ...(groupOf(t.side, t.status) === 'paid' ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
+                            ...(t.status === PART_PAID ? [{ id: 'writeoff', label: 'Write off the rest', icon: 'minus' as const, onPick: () => setWriting(t) }] : []),
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
                           ]}
@@ -317,12 +319,26 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         txs={paying}
         onClose={() => setPaying(null)}
         ask={ask}
-        onDone={(amount, date) => {
+        reasons={s.settings.partReasons}
+        onDone={(paid, short, date) => {
           const t = paying![0];
-          recordPayment(t.uni, paying!.map((x) => x.id), amount, t.currency, date, who.name);
-          say(`${money(amount, t.currency)} from ${t.uniName} recorded: ${paying!.length} ${paying!.length === 1 ? 'line' : 'lines'} Paid.`);
+          const amount = roundMoney(Object.values(paid).reduce((n, x) => n + x, 0), t.currency);
+          recordPayment(t.uni, paying!.map((x) => x.id), amount, t.currency, date, who.name, paid, short);
+          const nShort = Object.keys(short).length;
+          say(`${money(amount, t.currency)} from ${t.uniName} recorded: ${paying!.length - nShort} Paid${nShort ? `, ${nShort} Part paid` : ''}.`);
           setPaying(null);
           setTicked([]);
+        }}
+      />
+      <WriteOffSheet
+        t={writing}
+        reasons={s.settings.partReasons}
+        ask={ask}
+        onClose={() => setWriting(null)}
+        onDone={(amount, reason) => {
+          writeOff(writing!.id, amount, writing!.currency, reason, who.name);
+          say(`${money(amount, writing!.currency)} written off on ${writing!.id}.`);
+          setWriting(null);
         }}
       />
       <PaidSheet
@@ -377,32 +393,98 @@ function Foot({ onClose, label, onGo }: { onClose: () => void; label: string; on
   );
 }
 
-/** Record payment: the amount and the day it came in, then asked. */
-function PaymentSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose: () => void; onDone: (amount: number, date: string) => void; ask: AskFn }) {
-  const [amount, setAmount] = useState<number | null>(null);
+/**
+ * Record payment (Jovial, 10 Nov, Q44): what came in for each line (its outstanding amount to start with) and the day,
+ * then asked. A line paid less needs a reason from Settings' list; it becomes Part paid, and its RP line is ready for
+ * its share of what came in.
+ */
+function PaymentSheet({ txs, reasons, onClose, onDone, ask }: { txs: Tx[] | null; reasons: string[]; onClose: () => void; onDone: (paid: Record<string, number>, short: Record<string, string>, date: string) => void; ask: AskFn }) {
+  const [paid, setPaid] = useState<Record<string, number | null>>({});
+  const [short, setShort] = useState<Record<string, string>>({});
   const [date, setDate] = useState('');
   const [tried, setTried] = useState(false);
-  const total = txs ? txs.reduce((n, t) => n + t.amount, 0) : 0;
+  const owed = (t: Tx) => roundMoney(t.amount - (t.received ?? 0), t.currency);
   useEffect(() => {
-    setAmount(txs ? Math.round(total * 100) / 100 : null);
+    setPaid(Object.fromEntries((txs ?? []).map((t) => [t.id, owed(t)])));
+    setShort({});
     setDate(todayIso());
     setTried(false);
   }, [txs]); // eslint-disable-line react-hooks/exhaustive-deps
   const cur = txs?.[0]?.currency ?? '';
-  const err = { amount: !(amount !== null && amount > 0) ? 'Enter the amount received.' : null, date: !date ? 'Choose the date.' : date > todayIso() ? 'It can’t be in the future.' : null };
+  const total = roundMoney((txs ?? []).reduce((n, t) => n + (paid[t.id] ?? 0), 0), cur);
+  const isShort = (t: Tx) => (paid[t.id] ?? 0) < owed(t) - 0.005;
+  const lineErr = (t: Tx) => {
+    const v = paid[t.id];
+    if (v === null || v === undefined || Number.isNaN(v) || v < 0) return 'Enter what came in (0 or more).';
+    if (v > owed(t) + 0.005) return `More than the ${money(owed(t), t.currency)} still owed.`;
+    if (isShort(t) && !short[t.id]) return 'Choose why it’s less.';
+    return null;
+  };
+  const err = { lines: (txs ?? []).some(lineErr) ? 'Check each line.' : total <= 0 ? 'Enter what came in.' : null, date: !date ? 'Choose the date.' : date > todayIso() ? 'It can’t be in the future.' : null };
   const go = () => {
     setTried(true);
-    if (err.amount || err.date || !txs) return;
-    ask(`Record ${money(amount!, cur)} received from ${txs[0].uniName} on ${dayText(date)}?`, 'Record payment', <p>{txs.length} {txs.length === 1 ? 'line becomes' : 'lines become'} Paid, and the matching RP lines Ready to pay.</p>, () => onDone(amount!, date));
+    if (err.lines || err.date || !txs) return;
+    const nShort = txs.filter(isShort).length;
+    const body = <p>{txs.length - nShort} {txs.length - nShort === 1 ? 'line becomes' : 'lines become'} Paid{nShort ? `, ${nShort} Part paid` : ''}, and the matching RP lines Ready to invoice for their share of what came in.</p>;
+    ask(`Record ${money(total, cur)} received from ${txs[0].uniName} on ${dayText(date)}?`, 'Record payment', body, () =>
+      onDone(Object.fromEntries(txs.filter((t) => (paid[t.id] ?? 0) > 0).map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), Object.fromEntries(txs.filter(isShort).map((t) => [t.id, short[t.id]])), date),
+    );
   };
   return (
-    <Sheet open={!!txs} onClose={onClose} center className="iform" title="Record payment" sub={txs ? `${txs.length} ${txs.length === 1 ? 'line' : 'lines'} from ${txs[0].uniName}: ${money(Math.round(total * 100) / 100, cur)}` : undefined} footer={<Foot onClose={onClose} label="Record payment" onGo={go} />}>
+    <Sheet open={!!txs} onClose={onClose} center expandable className="iform" title="Record payment" sub={txs ? `${txs.length} ${txs.length === 1 ? 'line' : 'lines'} from ${txs[0].uniName}: ${money(total, cur)} received` : undefined} footer={<Foot onClose={onClose} label="Record payment" onGo={go} />}>
       <div className="iform__grid">
-        <Field id="cpay-amount" label={`Amount received (${cur})`} required error={tried ? err.amount : null}>
-          <TextInput id="cpay-amount" inputMode="decimal" value={numText(amount)} invalid={tried && !!err.amount} onChange={(e) => setAmount(numOf(e.target.value))} />
-        </Field>
+        {(txs ?? []).map((t) => (
+          <div key={t.id} className="iform__wide cpay__line">
+            <Field id={`cpay-${t.id}`} label={`${t.id} · ${t.student}: received (${t.currency})`} required error={tried ? lineErr(t) : null} hint={`Still owed: ${money(owed(t), t.currency)}`}>
+              <TextInput id={`cpay-${t.id}`} inputMode="decimal" value={numText(paid[t.id] ?? null)} invalid={tried && !!lineErr(t)} onChange={(e) => setPaid((x) => ({ ...x, [t.id]: numOf(e.target.value) }))} />
+            </Field>
+            {isShort(t) && (
+              <Field id={`cpay-why-${t.id}`} label="Why it’s less" required>
+                <SelectInput id={`cpay-why-${t.id}`} value={short[t.id] ?? ''} placeholder="Choose the reason" invalid={tried && !short[t.id]} onChange={(e) => setShort((x) => ({ ...x, [t.id]: e.target.value }))}>
+                  {reasons.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+            )}
+          </div>
+        ))}
         <Field id="cpay-date" label="Date received" required error={tried ? err.date : null}>
           <TextInput id="cpay-date" type="date" value={date} invalid={tried && !!err.date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Write off the rest of a line paid short (Q44): the reason from Settings' list; the line counts as Paid. */
+function WriteOffSheet({ t, reasons, onClose, onDone, ask }: { t: Tx | null; reasons: string[]; onClose: () => void; onDone: (amount: number, reason: string) => void; ask: AskFn }) {
+  const [reason, setReason] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    setReason(t?.short ?? '');
+    setTried(false);
+  }, [t]);
+  if (!t) return null;
+  const rest = roundMoney(t.amount - (t.received ?? 0), t.currency);
+  const go = () => {
+    setTried(true);
+    if (!reason) return;
+    ask(`Write off ${money(rest, t.currency)} on ${t.id}?`, 'Write off', <p>The line counts as Paid at {money(t.received ?? 0, t.currency)}. Its RP line stays at its share of what came in.</p>, () => onDone(rest, reason));
+  };
+  return (
+    <Sheet open onClose={onClose} center className="iform" title={`Write off the rest of ${t.id}`} sub={`${t.uniName} paid ${money(t.received ?? 0, t.currency)} of ${money(t.amount, t.currency)}`} footer={<Foot onClose={onClose} label="Write off" onGo={go} />}>
+      <div className="iform__grid">
+        <Field id="cwo-why" label="Why" required error={tried && !reason ? 'Choose the reason.' : null}>
+          <SelectInput id="cwo-why" value={reason} placeholder="Choose the reason" invalid={tried && !reason} onChange={(e) => setReason(e.target.value)}>
+            {reasons.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
       </div>
     </Sheet>
@@ -483,7 +565,7 @@ function OverrideSheet({ t, onClose, onSave }: { t: Tx | null; onClose: () => vo
   );
 }
 
-/** Send back an RP's invoice, with why (required): its lines go back to Invoice requested and the RP is told. */
+/** Send back an RP's invoice, with why (free text, required): its lines show Sent back and the RP is told (N21). */
 function SendBack({ open, file, onClose, onSend }: { open: boolean; file: string; onClose: () => void; onSend: (reason: string) => void }) {
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
@@ -498,7 +580,7 @@ function SendBack({ open, file, onClose, onSend }: { open: boolean; file: string
       center
       className="iform"
       title={`Send back ${file}?`}
-      sub="Its lines go back to Invoice requested, and the RP is told why."
+      sub="Its lines show Sent back, and the RP is told why."
       footer={
         <Foot
           onClose={onClose}

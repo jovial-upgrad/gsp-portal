@@ -14,7 +14,7 @@
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
 import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Frozen, Level, Notice, Override, RpInvoice, RpStatus, Side, TermsBody, TxStatus, TxType, UniStatus, UniTerms } from './model';
-import { SIDES, TRIGGERS, dayText, money, pct } from './model';
+import { SIDES, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 
 /* ---------- context: what the engine reads from other modules ---------- */
 
@@ -32,7 +32,19 @@ export const addDays = (d: string, n: number) => (d ? iso(ms(d) + n * 86_400_000
 const yearOf = (d: string) => Number(d.slice(0, 4));
 /** The financial year a day falls in, named by the year it starts. */
 const fyOf = (d: string, start: number) => (Number(d.slice(5, 7)) >= start ? yearOf(d) : yearOf(d) - 1);
-const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Rounds half up to the currency's smallest unit (Q62); without a currency, to cents. */
+const round2 = (n: number, cur?: string) => roundMoney(n, cur);
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/**
+ * An enrolment's intake start (Jovial, 10 Nov, Q41): the course start date Admissions filled in, else the 1st of the
+ * intake's month. Terms in force on this day apply; tiers order enrolments by it, then by enrolment date.
+ */
+export const startOf = (e: Pick<Enrolment, 'fees' | 'intake' | 'enrolled'>) => {
+  if (e.fees?.start) return e.fees.start;
+  const m = /^(\w{3})\w* (\d{4})$/.exec(e.intake ?? '');
+  const k = m ? MONTHS.indexOf(m[1]) : -1;
+  return k >= 0 ? `${m![2]}-${String(k + 1).padStart(2, '0')}-01` : e.enrolled;
+};
 
 /* ---------- keys and transaction IDs ---------- */
 
@@ -94,6 +106,12 @@ export type Tx = {
   invoice?: string;
   rpInvoice?: string;
   override?: Override;
+  /** University → GSP: what came in for it so far, what was written off, and why it was paid short (Q44). */
+  received?: number;
+  writtenOff?: number;
+  short?: string;
+  /** GSP → RP: the day GSP asked the RP for its invoice. */
+  requested?: string;
 };
 export type Item = { app: string; side: Side; label: string; totals: Record<string, number>; settled: Record<string, number>; txs: Tx[]; note?: string };
 export type AppLines = { app: string; student: string; rp: string; uni: string; uniName: string; course: string; intake: string; enrolled: string; withdrawn?: string; uniItem: Item; rpItem: Item };
@@ -126,7 +144,8 @@ export const bandFor = (bands: Band[], n: number) => bands.find((b) => n >= b.fr
 export const noticeStatus = (n: Pick<Notice, 'starts' | 'ends'>, today: string) => (today < n.starts ? 'Upcoming' : today > n.ends ? 'Ended' : 'Active');
 /** A notice covers an enrolment: one of its RPs, enrolled in its period, and a course it applies to (empty: every course). */
 export const noticeCovers = (n: Notice, e: Enrolment, uni: CtxUni, level: Level) =>
-  n.rps.includes(e.rp) && e.enrolled >= n.starts && e.enrolled <= n.ends && (!n.dests.length || n.dests.includes(uni.country)) && (!n.unis.length || n.unis.includes(uni.id)) && (!n.levels.length || n.levels.includes(level));
+  // an RP taken off a notice keeps it for enrolments before that day (Q65)
+  (n.rps.includes(e.rp) || (n.removed ?? []).some((r) => r.rp === e.rp && e.enrolled < r.on)) && e.enrolled >= n.starts && e.enrolled <= n.ends && (!n.dests.length || n.dests.includes(uni.country)) && (!n.unis.length || n.unis.includes(uni.id)) && (!n.levels.length || n.levels.includes(level));
 /** What the application still needs from Admissions before commission can be worked out (empty: nothing). */
 export function feesMissing(e: Pick<Enrolment, 'fees'>, terms?: Pick<TermsBody, 'trigger'>): string[] {
   const f = e.fees;
@@ -157,11 +176,33 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   const rpOf = new Map(ctx.rps.map((r) => [r.id, r]));
   const invoiceOf = new Map<string, { number: string; date: string }>();
   state.invoices.forEach((i) => i.txs.forEach((t) => invoiceOf.set(t, i)));
-  const paidUni = new Set(state.receipts.flatMap((r) => r.txs));
+  // what came in for each line over all receipts (an older receipt with no per-line amounts paid its lines in full), and write-offs (Q44)
+  const received = new Map<string, number>();
+  const shortWhy = new Map<string, string>();
+  const fullyPaid = new Set<string>();
+  [...state.receipts].sort((a, b) => a.at - b.at).forEach((r) =>
+    r.txs.forEach((t) => {
+      if (!r.paid || r.paid[t] == null) return void fullyPaid.add(t);
+      received.set(t, (received.get(t) ?? 0) + r.paid[t]);
+      if (r.short?.[t]) shortWhy.set(t, r.short[t]);
+    }),
+  );
+  const writtenOff = new Map((state.writeOffs ?? []).map((w) => [w.tx, w]));
   const paidRp = new Set(state.rpPayments.flatMap((r) => r.txs));
-  const requested = new Set(state.requests.flatMap((r) => r.txs));
   const rpInv = new Map<string, RpInvoice>();
-  [...state.rpInvoices].sort((a, b) => a.at - b.at).forEach((i) => i.state !== 'Sent back' && i.txs.forEach((t) => rpInv.set(t, i)));
+  const sentBack = new Map<string, RpInvoice>();
+  [...state.rpInvoices]
+    .sort((a, b) => a.at - b.at)
+    .forEach((i) =>
+      i.txs.forEach((t) => {
+        // the latest invoice for a line decides: sent back, until the RP sends another
+        if (i.state === 'Sent back') return void (rpInv.delete(t), sentBack.set(t, i));
+        rpInv.set(t, i);
+        sentBack.delete(t);
+      }),
+    );
+  const requestedOn = new Map<string, string>();
+  state.requests.forEach((r) => r.txs.forEach((t) => requestedOn.set(t, r.date)));
   const over = new Map<string, Override>();
   [...state.overrides].sort((a, b) => a.at - b.at).forEach((o) => over.set(o.tx, o));
   const frozenByApp = new Map<string, Frozen[]>();
@@ -169,8 +210,31 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   const needIds: string[] = [];
   const idOf = (key: string) => state.ids[key] ?? (needIds.push(key), `${NEW}${key}`);
   const courseOf = (e: Enrolment) => ctx.course(e.course);
-  // an enrolment's place among others counted together (1 = the first)
-  const ordinal = (e: Enrolment, same: (x: Enrolment) => boolean) => all.filter((x) => same(x) && (x.enrolled < e.enrolled || (x.enrolled === e.enrolled && x.app <= e.app))).length;
+  const termsOfUni = (uni: string, day: string) => {
+    const tr = state.terms.find((t) => t.uni === uni);
+    return tr ? termsAt<TermsBody>(tr as UniTerms, day) : undefined;
+  };
+  /** Study period 1's trigger date as the application holds it (empty: not filled in yet). */
+  const firstTrigger = (x: Enrolment) => {
+    const cx = courseOf(x);
+    const Tx = cx ? termsOfUni(cx.uni, startOf(x)) : undefined;
+    const trig = TRIGGERS.find((t) => t.label === Tx?.trigger) ?? TRIGGERS[0];
+    return trig.field === 'confirmed' ? x.enrolled : x.fees?.[trig.field]?.[0] ?? '';
+  };
+  /** A student GSP will be paid for (Q43, Q55): not withdrawn before study period 1's trigger date. */
+  const payable = (x: Enrolment) => !x.withdrawn || (!!firstTrigger(x) && x.withdrawn >= firstTrigger(x));
+  /** Counting order (Q43): by intake start, then enrolment date. */
+  const before = (x: Enrolment, e: Enrolment) => {
+    const a = startOf(x), b = startOf(e);
+    return a < b || (a === b && (x.enrolled < e.enrolled || (x.enrolled === e.enrolled && x.app <= e.app)));
+  };
+  // an enrolment's place among the payable ones counted together (1 = the first)
+  const ordinal = (e: Enrolment, same: (x: Enrolment) => boolean) => all.filter((x) => same(x) && payable(x) && before(x, e)).length;
+  /** The window a day falls in for a count: the year as the terms or agreement count it, or the intake. */
+  const windowOf = (x: Enrolment, per: string, yearStart: number) => {
+    const d = startOf(x);
+    return per === 'Intake' ? `i:${x.intake}` : per === 'Financial year' ? `f:${fyOf(d, S.fyStart)}` : per === 'Academic year' ? `a:${fyOf(d, yearStart || 1)}` : `c:${yearOf(d)}`;
+  };
 
   const out: Tx[] = [];
   const apps: AppLines[] = [];
@@ -200,17 +264,17 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         type: x.type,
         what: x.what,
         rpWhat: x.rpWhat,
-        amount: round2(x.amount),
+        amount: round2(x.amount, x.currency ?? cur),
         due: x.due ?? '',
         status: 'Expected',
-        base: { amount: round2(f ? f.base : x.amount), due: x.due ?? '' },
+        base: { amount: round2(f ? f.base : x.amount, x.currency ?? cur), due: x.due ?? '' },
         trigger: x.trigger,
         period: x.period,
         matches: x.matches,
         notice: x.notice,
         currency: x.currency ?? cur,
         frozen: !!f,
-        _base: f ? f.base : round2(x.amount),
+        _base: f ? f.base : round2(x.amount, x.currency ?? cur),
       });
       if (!fr) return d ? [mk(key, id, d)] : [];
       const fromFrozen = (f: Frozen, k: string, tid: string) => {
@@ -253,7 +317,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     let uniNote: string | undefined;
     let rpNote: string | undefined;
     const uniDone = new Set<string>();
-    const T: TermsBody | undefined = tr ? termsAt<TermsBody>(tr as UniTerms, e.enrolled) : undefined;
+    const T: TermsBody | undefined = tr ? termsAt<TermsBody>(tr as UniTerms, startOf(e)) : undefined;
     const missing = feesMissing(e, T);
     if (!T) uniNote = `No commission terms for ${u.name} yet.`;
     else if (missing.length) uniNote = `Waiting for Admissions to add the ${missing.join(', ')} on the application.`;
@@ -266,7 +330,9 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // the trigger date the application holds for a study period (Enrolment confirmed's first: the day it was enrolled)
       const triggerOf = (k: number) => (trig.field === 'confirmed' && k === 0 ? e.enrolled : f[trig.field][k] ?? '');
       const fixed = T.fixed[c.level];
-      const rate = T.bands.length ? bandFor(T.bands, ordinal(e, (x) => courseOf(x)?.uni === u.id && yearOf(x.enrolled) === yearOf(e.enrolled))).pct : T.rates[c.level];
+      // a university's bands count its payable students in the year its contract says (Q55)
+      const uniWindow = (x: Enrolment) => windowOf(x, T.countedPer ?? 'Calendar year', T.yearStart ?? 1);
+      const rate = T.bands.length ? bandFor(T.bands, ordinal(e, (x) => courseOf(x)?.uni === u.id && uniWindow(x) === uniWindow(e))).pct : T.rates[c.level];
       const drafts: Draft[] = [];
       if (fixed !== undefined || rate !== undefined) {
         let sofar = 0;
@@ -280,8 +346,8 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       }
       T.addl.forEach((a) => drafts.push({ slot: `ad:${a.id}`, type: 'Additional commission', what: a.kind === '%' ? `${a.desc}: ${pct(a.value)} of ${money(feeYear, cur)}` : a.desc, rpWhat: a.desc, amount: a.kind === '%' ? (feeYear * a.value) / 100 : a.value, trigger: a.when === 'On enrolment' ? e.enrolled : triggerOf(0) }));
       T.bonus.forEach((b) => {
-        const n = ordinal(e, (x) => courseOf(x)?.uni === u.id && yearOf(x.enrolled) === b.year);
-        if (yearOf(e.enrolled) === b.year && n === b.min) drafts.push({ slot: `bn:${b.id}`, type: 'Bonus', what: `${b.desc}: enrolment ${b.min} of ${b.year}`, rpWhat: b.desc, amount: b.amount, trigger: e.enrolled });
+        const n = ordinal(e, (x) => courseOf(x)?.uni === u.id && yearOf(startOf(x)) === b.year);
+        if (yearOf(startOf(e)) === b.year && payable(e) && n === b.min) drafts.push({ slot: `bn:${b.id}`, type: 'Bonus', what: `${b.desc}: enrolment ${b.min} of ${b.year}`, rpWhat: b.desc, amount: b.amount, trigger: e.enrolled });
       });
       drafts.forEach((d) => {
         uniDone.add(lineKey(e.app, 'uni', d.slot));
@@ -299,27 +365,39 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       t.invoice = inv?.number;
       const o = over.get(t.id);
       if (o && !fr?.final) Object.assign(t, { override: o, amount: o.amount ?? t.amount, due: o.due ?? t.due });
-      t.status = uniStatus(t, { withdrawn: e.withdrawn, paid: paidUni.has(t.id), invoiced: !!t.invoice, hold: !!o?.hold, today });
+      const got = fullyPaid.has(t.id) ? t.amount : received.get(t.id) ?? 0;
+      const off = writtenOff.get(t.id);
+      t.received = round2(got, t.currency);
+      if (off) t.writtenOff = off.amount;
+      if (shortWhy.has(t.id)) t.short = shortWhy.get(t.id);
+      t.status = uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold, today });
     });
 
     // GSP → RP
-    const ag = agreementOn(state, e.rp, e.enrolled);
+    const ag = agreementOn(state, e.rp, startOf(e));
     const rpDone = new Set<string>();
     if (!ag) rpNote = `No commission record for ${rp?.name ?? e.rp} yet.`;
     else {
-      const A: AgreementTerms = termsAt<AgreementTerms>(ag, e.enrolled);
-      const periodSame = (x: Enrolment) =>
-        x.rp === e.rp && (A.countedPer === 'Calendar year' ? yearOf(x.enrolled) === yearOf(e.enrolled) : A.countedPer === 'Intake' ? x.intake === e.intake : fyOf(x.enrolled, S.fyStart) === fyOf(e.enrolled, S.fyStart));
+      const A: AgreementTerms = termsAt<AgreementTerms>(ag, startOf(e));
+      // the RP's count (Q43): its payable students in the agreement's window (an RP's branches enrol under the RP, so they count with it)
+      const periodSame = (x: Enrolment) => x.rp === e.rp && windowOf(x, A.countedPer, 1) === windowOf(e, A.countedPer, 1);
       const n = ordinal(e, periodSame);
       let share = A.shareType === 'Flat' ? A.share ?? 0 : bandFor(A.bands, n)?.pct ?? 0;
       // retrospective: the band the RP's count has reached by today raises every earlier enrolment in the period
-      const reached = A.shareType !== 'Flat' && A.retro ? bandFor(A.bands, all.filter((x) => periodSame(x) && x.enrolled <= today).length)?.pct ?? share : share;
+      const reached = A.shareType !== 'Flat' && A.retro ? bandFor(A.bands, all.filter((x) => periodSame(x) && payable(x) && x.enrolled <= today).length)?.pct ?? share : share;
       const covering = state.notices.filter((nt) => noticeCovers(nt, e, u, c.level));
       let from = '';
       covering
         .filter((nt) => nt.benefit !== 'Bonus per enrolment')
         .forEach((nt) => {
-          const s = nt.benefit === 'Tiered share' ? bandFor(nt.bands, ordinal(e, (x) => { const cx = courseOf(x); const ux = cx && uniOf.get(cx.uni); return !!ux && noticeCovers(nt, x, ux, cx.level); }))?.pct ?? 0 : nt.share ?? 0;
+          const covered = (x: Enrolment) => {
+            const cx = courseOf(x);
+            const ux = cx && uniOf.get(cx.uni);
+            return !!ux && noticeCovers(nt, x, ux, cx.level);
+          };
+          // a tiered notice counts like an agreement: by enrolment date, and retrospective when it says so (Q57)
+          const count = nt.retro ? all.filter((x) => covered(x) && payable(x) && x.enrolled <= today).length : ordinal(e, covered);
+          const s = nt.benefit === 'Tiered share' ? bandFor(nt.bands, count)?.pct ?? 0 : nt.share ?? 0;
           if (s > share) {
             share = s;
             from = nt.name;
@@ -328,7 +406,9 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const addlShare = A.addl ?? share;
       const agName = from ? `notice: ${from}` : ag.name;
       const drafts: Draft[] = [];
-      uniTxs.forEach((t) => {
+      uniTxs.forEach((t0) => {
+        // a university line paid short (Q44): the RP's line is its share of what came in, until the rest comes or is written off
+        const t = (t0.status === 'Part paid' || t0.writtenOff) && t0.amount > 0 ? { ...t0, amount: t0.received ?? 0 } : t0;
         const slot = t.key.slice(`${e.app}|uni|`.length);
         // what the university line is at heart: an Adjustment counts as what it adjusts
         const kind = t.type === 'Adjustment' ? uniTxs.find((x) => x.id === t.adjusts)?.type ?? t.type : t.type;
@@ -342,9 +422,9 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // the RP's own bonuses: its agreement's and its notices', whether or not GSP meets a university's tier
       covering
         .filter((nt) => nt.benefit === 'Bonus per enrolment')
-        .forEach((nt) => drafts.push({ slot: `nt:${nt.id}`, type: 'Bonus', what: `Notice: ${nt.name}`, rpWhat: `Notice: ${nt.name}`, amount: nt.amount ?? 0, trigger: first()?.trigger ?? e.enrolled, notice: nt.id, currency: nt.currency }));
+        .forEach((nt) => drafts.push({ slot: `nt:${nt.id}`, type: 'Bonus', what: `Notice: ${nt.name}`, rpWhat: `Notice: ${nt.name}`, amount: nt.amount ?? 0, trigger: first()?.trigger ?? e.enrolled, notice: nt.id }));
       (A.bonuses ?? []).forEach((b) => {
-        if (b.when === 'Every enrolment' || n === b.nth) drafts.push({ slot: `ab:${b.id}`, type: 'Bonus', what: `${b.desc} (${ag.name})${b.when === 'Every enrolment' ? '' : `: enrolment ${b.nth}`}`, rpWhat: `Bonus: ${b.desc}`, amount: b.amount, trigger: first()?.trigger ?? e.enrolled, currency: b.currency });
+        if (b.when === 'Every enrolment' || n === b.nth) drafts.push({ slot: `ab:${b.id}`, type: 'Bonus', what: `${b.desc} (${ag.name})${b.when === 'Every enrolment' ? '' : `: enrolment ${b.nth}`}`, rpWhat: `Bonus: ${b.desc}`, amount: b.amount, trigger: first()?.trigger ?? e.enrolled });
       });
       drafts.forEach((d) => {
         rpDone.add(lineKey(e.app, 'rp', d.slot));
@@ -352,7 +432,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       });
     }
     rpTxs.push(...leftovers('rp', rpDone));
-    rpTxs.forEach((t) => statusRp(t, ag ? termsAt<AgreementTerms>(ag, e.enrolled).payDays : 0));
+    rpTxs.forEach((t) => statusRp(t, ag ? termsAt<AgreementTerms>(ag, startOf(e)).payDays : 0));
     function statusRp(t: Tx, payDaysRp: number) {
       const fr = state.frozen[t.id];
       const inv = rpInv.get(t.id);
@@ -361,10 +441,11 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       t.base.due = t.due;
       if (!fr) t.trigger = anchor?.trigger ?? t.trigger;
       t.invoice = inv?.file.name;
-      t.rpInvoice = inv?.id;
+      t.rpInvoice = inv?.id ?? sentBack.get(t.id)?.id;
+      t.requested = requestedOn.get(t.id);
       const o = over.get(t.id);
       if (o && !fr?.final) Object.assign(t, { override: o, amount: o.amount ?? t.amount, due: o.due ?? t.due });
-      t.status = rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold, received: inv?.state === 'Accepted', requested: requested.has(t.id) });
+      t.status = rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold, invoice: inv?.state, sentBack: sentBack.has(t.id) });
     }
     function first() {
       return uniTxs.find((t) => t.type === 'Course commission' && !t.adjusts) ?? uniTxs.find((t) => !t.adjusts);
@@ -381,14 +462,39 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const settled: Record<string, number> = {};
       txs.forEach((t) => {
         if (t.status === 'Not payable') return;
-        totals[t.currency] = round2((totals[t.currency] ?? 0) + t.amount);
-        if (t.status === 'Paid') settled[t.currency] = round2((settled[t.currency] ?? 0) + t.amount);
+        totals[t.currency] = round2((totals[t.currency] ?? 0) + t.amount, t.currency);
+        if (t.status === 'Paid') settled[t.currency] = round2((settled[t.currency] ?? 0) + t.amount, t.currency);
       });
       return { app: e.app, side, label: SIDES[side], totals, settled, txs, note };
     };
     apps.push({ app: e.app, student: e.student, rp: e.rp, uni: u.id, uniName: u.name, course: c.name, intake: e.intake, enrolled: e.enrolled, withdrawn: e.withdrawn, uniItem: item('uni', U, uniNote), rpItem: item('rp', R, rpNote) });
   }
   return { txs: out, apps, byId: new Map(out.map((t) => [t.id, t])), byApp: new Map(apps.map((a) => [a.app, a])), needIds: [...new Set(needIds)].sort() };
+}
+
+/**
+ * Where an RP stands in its agreement's bands today (Jovial, 10 Nov, Q43), for Earnings' band tile: its payable
+ * students in the agreement's current window (by intake start), the band's share, and how many more reach the next.
+ * Null: a flat share, or no commission record.
+ */
+export function bandStanding(state: CommState, ctx: Ctx, rp: string, extra: Enrolment[] = []): { count: number; share: number; window: string; next?: { more: number; share: number } } | null {
+  const today = ctx.today;
+  const ag = agreementOn(state, rp, today);
+  if (!ag) return null;
+  const A = termsAt<AgreementTerms>(ag, today);
+  if (A.shareType === 'Flat' || !A.bands.length) return null;
+  const seen = new Set<string>();
+  const all = [...extra, ...state.enrolments].filter((e) => (seen.has(e.app) ? false : (seen.add(e.app), true)));
+  const S = state.settings;
+  const key = (d: string, intake?: string) => (A.countedPer === 'Intake' ? `i:${intake}` : A.countedPer === 'Financial year' ? `f:${fyOf(d, S.fyStart)}` : `c:${yearOf(d)}`);
+  const mine = all.filter((x) => x.rp === rp && !x.withdrawn);
+  const latest = [...mine].sort((a, b) => startOf(b).localeCompare(startOf(a)))[0];
+  const now = A.countedPer === 'Intake' ? key('', latest?.intake) : key(today);
+  const count = mine.filter((x) => key(startOf(x), x.intake) === now).length;
+  const band = bandFor(A.bands, Math.max(1, count));
+  const nextBand = A.bands.find((b) => b.from > count && b.pct > band.pct);
+  const window = A.countedPer === 'Intake' ? `the ${latest?.intake ?? 'current'} intake` : A.countedPer === 'Financial year' ? `GSP’s financial year ${fyOf(today, S.fyStart)}–${String((fyOf(today, S.fyStart) + 1) % 100).padStart(2, '0')}` : yearOf(today).toString();
+  return { count, share: band.pct, window, next: nextBand ? { more: nextBand.from - count, share: nextBand.pct } : undefined };
 }
 
 /** Acted on: invoiced (University → GSP), its invoice requested (GSP → RP), or paid. From then on it's kept as it was. */
@@ -433,27 +539,33 @@ export function settleAll(state: CommState, ctx: Ctx, extra: Enrolment[] = []): 
 }
 
 /** A University → GSP line's status, from what's happened to it and today. A line with no trigger date yet is Expected. */
-export function uniStatus(t: Pick<Tx, 'trigger' | 'due'>, o: { withdrawn?: string; paid: boolean; invoiced: boolean; hold: boolean; today: string }): UniStatus {
+export function uniStatus(t: Pick<Tx, 'trigger' | 'due'>, o: { withdrawn?: string; paid: boolean; part?: boolean; invoiced: boolean; hold: boolean; today: string }): UniStatus {
   if (o.paid) return 'Paid';
   if (o.withdrawn && (!t.trigger || o.withdrawn < t.trigger)) return 'Not payable';
   if (o.hold) return 'Held';
+  if (o.part) return 'Part paid';
   if (o.invoiced) return t.due && o.today > t.due ? 'Overdue' : 'Invoiced';
   return t.trigger && t.trigger <= o.today ? 'Ready to invoice' : 'Expected';
 }
-/** A GSP → RP line's status: it can't be Ready to pay until its University → GSP line is Paid. */
-export function rpStatus(o: { uni?: TxStatus; paid: boolean; hold: boolean; received: boolean; requested: boolean }): RpStatus {
+/**
+ * A GSP → RP line's status (Q50): it can't be Ready to invoice until GSP has its money for the matching University →
+ * GSP line (all of it, or part of it: then the line is the RP's share of what came in).
+ */
+export function rpStatus(o: { uni?: TxStatus; paid: boolean; hold: boolean; invoice?: RpInvoice['state']; sentBack?: boolean }): RpStatus {
   if (o.paid) return 'Paid';
   if (o.uni === 'Not payable' || !o.uni) return 'Not payable';
-  if (o.hold) return 'Held';
-  if (o.uni !== 'Paid') return 'Expected';
-  if (o.received) return 'Invoice received';
-  if (o.requested) return 'Invoice requested';
-  return 'Ready to pay';
+  if (o.hold) return 'On hold';
+  if (o.uni === 'Expected') return 'Expected';
+  if (o.uni !== 'Paid' && o.uni !== 'Part paid') return 'Waiting for university';
+  if (o.invoice === 'Accepted') return 'Approved';
+  if (o.invoice === 'To check') return 'Invoice in review';
+  if (o.sentBack) return 'Sent back';
+  return 'Ready to invoice';
 }
 
 /** Adds money by currency: "AUD 2,000 + GBP 300". */
 export const totalsText = (m: Record<string, number>) => (Object.keys(m).length ? Object.entries(m).map(([c, n]) => money(n, c)).join(' + ') : '—');
-export const sumBy = (txs: Pick<Tx, 'amount' | 'currency'>[]) => txs.reduce<Record<string, number>>((m, t) => ((m[t.currency] = round2((m[t.currency] ?? 0) + t.amount)), m), {});
+export const sumBy = (txs: Pick<Tx, 'amount' | 'currency'>[]) => txs.reduce<Record<string, number>>((m, t) => ((m[t.currency] = round2((m[t.currency] ?? 0) + t.amount, t.currency)), m), {});
 
 /** GSP's next invoice number to a university: GSP-{code}-{year}-{seq}, the sequence counting that university's invoices that year. */
 export function nextInvoiceNumber(state: CommState, uni: string, day: string) {
@@ -470,13 +582,45 @@ export const rpsWithoutRecord = <R extends { id: string }>(state: CommState, acc
 /** Universities without terms: each makes a T81 task, and the "without terms" tile counts them. */
 export const unisWithoutTerms = <U extends { id: string }>(state: CommState, unis: U[]) => unis.filter((u) => !state.terms.some((t) => t.uni === u.id));
 
-export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18'; title: string; text: string; at: number };
-/** The notifications the actions made: N16 to the RP when its invoice is asked for, N17 to Finance when an RP sends one, N18 when GSP pays. */
-export function commNotes(state: CommState, res: Result, rpName: (id: string) => string): CommNote[] {
+export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22'; title: string; text: string; at: number };
+const at9 = (d: string) => Date.parse(`${d}T09:00:00`);
+/**
+ * The notifications the records make (bell and email): N16 to the RP when its invoice is asked for, N17 to Finance
+ * when an RP sends one, N18 when GSP pays; and (Jovial, 10 Nov) N21 when an RP's invoice is sent back, with the reason,
+ * N22 when it's approved (Q54); reminders (Q47, days from Settings, no escalation): N19 to the RP while lines it was
+ * asked to invoice still aren't on an invoice, N20 to Finance while a University → GSP line is past due and not paid.
+ */
+export function commNotes(state: CommState, res: Result, rpName: (id: string) => string, today = new Date().toISOString().slice(0, 10)): CommNote[] {
   const total = (ids: string[]) => totalsText(sumBy(ids.map((i) => res.byId.get(i)).filter((x): x is Tx => !!x)));
+  const R = state.settings.reminders ?? { rpInvoice: [], uniPayment: [] };
+  const rpReminders = state.requests.flatMap((r) => {
+    const open = r.txs.filter((t) => ['Ready to invoice', 'Sent back'].includes(res.byId.get(t)?.status ?? ''));
+    if (!open.length) return [];
+    return R.rpInvoice
+      .map((d) => addDays(r.date, d))
+      .filter((d) => d <= today)
+      .map((d, i): CommNote => ({ id: `n19-${r.id}-${i}`, to: 'rp', rp: r.rp, code: 'N19', title: 'Reminder: send your invoice to GSP', text: `${open.length} ${open.length === 1 ? 'line' : 'lines'}, ${total(open)}, asked for on ${dayText(r.date)}. Upload it on Earnings.`, at: at9(d) }));
+  });
+  const uniReminders = res.txs
+    .filter((t) => t.side === 'uni' && t.due && ['Invoiced', 'Overdue', 'Part paid'].includes(t.status))
+    .flatMap((t) =>
+      R.uniPayment
+        .map((d) => addDays(t.due, d))
+        .filter((d) => d <= today)
+        .map((d, i): CommNote => ({ id: `n20-${t.id}-${i}`, to: 'finance', rp: t.rp, code: 'N20', title: `${t.uniName} hasn’t paid ${t.id}`, text: `${money(roundMoneyOf(t), t.currency)} ${t.invoice ? `on invoice ${t.invoice}` : ''}, due ${dayText(t.due)}. Chase it with the university.`.replace('  ', ' '), at: at9(d) })),
+    );
   return [
     ...state.requests.map((r): CommNote => ({ id: `n16-${r.id}`, to: 'rp', rp: r.rp, code: 'N16', title: 'GSP is ready to pay you: send your invoice', text: `${r.txs.length} ${r.txs.length === 1 ? 'line' : 'lines'}, ${total(r.txs)}. Download GSP’s invoice on Earnings, or upload your own.`, at: r.at })),
     ...state.rpInvoices.map((i): CommNote => ({ id: `n17-${i.id}`, to: 'finance', rp: i.rp, code: 'N17', title: `${rpName(i.rp)} sent an invoice for ${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}`, text: `${i.file.name}: ${total(i.txs)}. Check it on Commission lines.`, at: i.at })),
+    ...state.rpInvoices
+      .filter((i) => i.state === 'Sent back' && i.decided)
+      .map((i): CommNote => ({ id: `n21-${i.id}`, to: 'rp', rp: i.rp, code: 'N21', title: `GSP sent back your invoice ${i.file.name}`, text: `${i.reason ?? ''} Upload a new invoice on Earnings for ${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}, ${total(i.txs)}.`.trim(), at: i.decided!.at })),
+    ...state.rpInvoices
+      .filter((i) => i.state === 'Accepted' && i.decided)
+      .map((i): CommNote => ({ id: `n22-${i.id}`, to: 'rp', rp: i.rp, code: 'N22', title: `GSP approved your invoice ${i.file.name}`, text: `${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}, ${total(i.txs)}. GSP pays it next.`, at: i.decided!.at })),
     ...state.rpPayments.map((p): CommNote => ({ id: `n18-${p.id}`, to: 'rp', rp: p.rp, code: 'N18', title: `GSP paid you ${total(p.txs)}`, text: `${p.txs.length} ${p.txs.length === 1 ? 'line' : 'lines'}, paid on ${dayText(p.date)}.`, at: p.at })),
+    ...rpReminders,
+    ...uniReminders,
   ].sort((a, b) => b.at - a.at);
 }
+const roundMoneyOf = (t: Pick<Tx, 'amount' | 'received' | 'currency'>) => round2(t.amount - (t.received ?? 0), t.currency);

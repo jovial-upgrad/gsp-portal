@@ -9,15 +9,15 @@ import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { HOME_RP } from '../../gsp/rps';
 import { FilePick, InvoiceSheet, TxTable } from './parts';
-import { sumBy, totalsText, type Tx } from './engine';
+import { bandStanding, sumBy, totalsText, type Tx } from './engine';
 import { rpInvoice, type InvoiceDoc } from './invoice';
-import { ctxRps, saveBank, uploadRpInvoice, useComm, useLines } from './store';
-import { BANK_FIELDS, HELD, REQUESTED, dayText, groupOf, money, type Bank, type FileRef } from './model';
+import { ctxOf, ctxRps, enrolmentsOf, saveBank, uploadRpInvoice, useComm, useLines } from './store';
+import { BANK_FIELDS, HELD, IN_REVIEW, TO_INVOICE, WAITING_UNI, dayText, groupOf, money, pct, type Bank, type FileRef } from './model';
 import '../../institution/work/work.css';
 
 /**
  * Earnings, RP side (Jovial, 9 Nov: the PRD's Commissions tab), RP Admin only: what the RP sees of its commission.
- * A one-line nudge about its bank account; tiles for Expected, Ready to pay and Paid this year (in each currency);
+ * A one-line nudge about its bank account; tiles for Expected, Ready to invoice and Paid this year (in each currency), and the RP's band (Q43);
  * **Invoices to send**, the lines GSP asked it to invoice, with GSP's filled-in invoice to download and Upload
  * invoice (one file can cover several lines); and its GSP → RP lines, with how to question an amount (by email:
  * there's no dispute form). Amounts are in each university's currency; the bank currency is for paying only.
@@ -35,16 +35,19 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const say = (text: string) => setMsg({ text, key: Date.now() });
   const year = todayIso().slice(0, 4);
   const paidOn = new Map(s.rpPayments.flatMap((p) => p.txs.map((t) => [t, p.date] as const)));
-  const pending = new Set(s.rpInvoices.filter((i) => i.rp === rp.id && i.state === 'To check').flatMap((i) => i.txs));
-  const requested = mine.filter((t) => t.status === REQUESTED);
-  const toSend = requested.filter((t) => !pending.has(t.id));
+  // the lines GSP asked it to invoice, or sent back to invoice again (Q50)
+  const inReview = mine.filter((t) => t.status === IN_REVIEW).length;
+  const toSend = mine.filter((t) => (TO_INVOICE as readonly string[]).includes(t.status) && !!t.requested);
+  const waiting = (t: Tx) => groupOf('rp', t.status) === 'estimate' || t.status === WAITING_UNI;
   const tiles: [string, Record<string, number>, string][] = [
-    ['Expected', sumBy(mine.filter((t) => groupOf('rp', t.status) === 'estimate')), 'Waiting for the universities to pay GSP'],
-    ['Ready to pay', sumBy(mine.filter((t) => groupOf('rp', t.status) === 'progress' && t.status !== HELD)), 'The universities have paid GSP'],
+    ['Expected', sumBy(mine.filter(waiting)), 'Waiting for the universities to pay GSP'],
+    ['Ready to invoice', sumBy(mine.filter((t) => groupOf('rp', t.status) === 'progress' && !waiting(t) && !(HELD as readonly string[]).includes(t.status))), 'The universities have paid GSP'],
     [`Paid in ${year}`, sumBy(mine.filter((t) => groupOf('rp', t.status) === 'paid' && (paidOn.get(t.id) ?? '').startsWith(year))), 'Paid to your bank account'],
   ];
   const sentBack = s.rpInvoices.filter((i) => i.rp === rp.id && i.state === 'Sent back' && i.txs.some((t) => toSend.some((x) => x.id === t)));
   const last4 = bank?.number.replace(/\s+/g, '').slice(-4);
+  // Q43: where the RP stands in its agreement's bands (a flat share has none)
+  const stand = useMemo(() => bandStanding(s, ctxOf(), rp.id, enrolmentsOf(apps, students)), [s, rp.id, apps, students]);
   return (
     <div className="ipage cearn">
       <header className="stu__head ihead">
@@ -77,6 +80,16 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
             <span className="k">{sub}</span>
           </div>
         ))}
+        {stand && (
+          <div className="card cearn__tile">
+            <span className="k">Your band</span>
+            <span className="n num">{pct(stand.share)}</span>
+            <span className="k">
+              {stand.count} {stand.count === 1 ? 'enrolment' : 'enrolments'} in {stand.window}
+              {stand.next ? `. ${stand.next.more} more for ${pct(stand.next.share)}` : ', the top band'}
+            </span>
+          </div>
+        )}
       </div>
 
       <section className="card irsec" aria-labelledby="cearn-send">
@@ -125,7 +138,7 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         ) : (
           <p className="iempty">Nothing to invoice now. GSP asks once a university has paid.</p>
         )}
-        {pending.size > 0 && <p className="cline">{pending.size === 1 ? 'One line is' : `${pending.size} lines are`} on an invoice you sent: GSP is checking it.</p>}
+        {inReview > 0 && <p className="cline">{inReview === 1 ? 'One line is' : `${inReview} lines are`} on an invoice you sent: GSP is checking it.</p>}
       </section>
 
       <section className="card irsec" aria-labelledby="cearn-lines">
@@ -161,7 +174,7 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
 /** The bank account: every field required, and the currency (the RP's country's to start with). */
 function BankSheet({ open, rp, bank, onClose, onSave }: { open: boolean; rp: { id: string; country: string }; bank?: Bank; onClose: () => void; onSave: (b: Omit<Bank, 'updated'>) => void }) {
   const s = useComm();
-  const blank = (): Omit<Bank, 'updated'> => ({ rp: rp.id, bank: '', account: '', number: '', swift: '', address: '', currency: s.settings.countryCurrency[rp.country] ?? '', taxId: '' });
+  const blank = (): Omit<Bank, 'updated'> => ({ rp: rp.id, bank: '', account: '', number: '', swift: '', address: '', currency: s.settings.countryCurrency[rp.country] ?? '' });
   const [v, setV] = useState(blank);
   const [tried, setTried] = useState(false);
   useEffect(() => {
@@ -188,7 +201,7 @@ function BankSheet({ open, rp, bank, onClose, onSave }: { open: boolean; rp: { i
               onClick={() => {
                 setTried(true);
                 if (Object.values(err).some(Boolean)) return;
-                onSave({ ...v, taxId: v.taxId?.trim() || undefined });
+                onSave(v);
               }}
             >
               Save
@@ -211,9 +224,6 @@ function BankSheet({ open, rp, bank, onClose, onSave }: { open: boolean; rp: { i
               </option>
             ))}
           </SelectInput>
-        </Field>
-        <Field id="cbank-tax" label="Tax ID (GST, VAT)" optional hint="Shown on GSP’s filled-in invoice.">
-          <TextInput id="cbank-tax" value={v.taxId ?? ''} onChange={(e) => setV((x) => ({ ...x, taxId: e.target.value }))} />
         </Field>
       </div>
     </Sheet>

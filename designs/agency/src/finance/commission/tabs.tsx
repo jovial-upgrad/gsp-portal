@@ -50,7 +50,7 @@ export function RpCommissionTab({ rp }: { rp: { id: string; name: string } }) {
                 ] as [string, string][])),
             ['Retrospective', ag.retro ? 'Yes' : 'No'],
             ['Additional commission passed on', ag.addl === null ? 'The same as the share' : pct(ag.addl)],
-            ['Bonus', ag.bonuses.length ? ag.bonuses.map((b) => `${b.desc}: ${money(b.amount, b.currency)} ${b.when === 'Every enrolment' ? 'on every enrolment' : `on enrolment ${b.nth}, counted per ${ag.countedPer.toLowerCase()}`}`).join('; ') : 'None', 'wide'],
+            ['Bonus', ag.bonuses.length ? ag.bonuses.map((b) => `${b.desc}: ${b.amount.toLocaleString('en-GB')} in the university’s currency, ${b.when === 'Every enrolment' ? 'on every enrolment' : `on enrolment ${b.nth}, counted per ${ag.countedPer.toLowerCase()}`}`).join('; ') : 'None', 'wide'],
             ['Pay within', `${ag.payDays} days of GSP receiving the accepted invoice`],
             ['Agreement details', ag.details, 'wide'],
             ['Agreement document', <DocLine key="d" file={ag.doc} label={ag.name} />, 'wide'],

@@ -66,7 +66,7 @@ export function rpInvoice(state: CommState, rp: { id: string; code: string; name
     title: tax ? 'Tax invoice' : 'Invoice',
     number: `${rp.code}-${date.replace(/-/g, '')}`,
     date,
-    from: { name: rp.name, lines: [[rp.city, rp.state].filter(Boolean).join(', '), rp.country, ...(bank?.taxId ? [`${tax?.name ?? 'Tax'} ID: ${bank.taxId}`] : [])] },
+    from: { name: rp.name, lines: [[rp.city, rp.state].filter(Boolean).join(', '), rp.country] },
     to: state.settings.gsp,
     columns: ['Transaction ID', 'GSP ID', 'Student', 'University', 'Course', 'Intake', 'Study period', 'Amount'],
     rows: txs.map((t) => [t.id, t.app, t.student, t.uniName, t.course, t.intake, studyPeriod(t), money(t.amount, t.currency)]),

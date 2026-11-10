@@ -41,6 +41,13 @@ export type Settings = {
   bankCurrencies: string[];
   /** Tax added to GSP's filled-in invoice for an RP registered for tax: its name and rate by the RP's country. */
   tax: Record<string, { name: string; pct: number }>;
+  /** Why a university paid less than a line's amount (Jovial, 10 Nov, Q44): the reasons Record payment offers. */
+  partReasons: string[];
+  /**
+   * Reminders, email and bell (Jovial, 10 Nov, Q47), in days: to the RP after its invoice is asked for and not sent;
+   * to Finance (and the university's contact) from a University → GSP line's due date while it isn't paid. No escalation.
+   */
+  reminders: { rpInvoice: number[]; uniPayment: number[] };
 };
 
 /* ---------- agreements ---------- */
@@ -77,19 +84,24 @@ export type AgreementTerms = {
 /** When an agreement's bonus is paid: on every enrolment, or on the enrolment that reaches a number in the agreement's counting window. */
 export const AB_WHEN = ['Every enrolment', 'At an enrolment number'] as const;
 export type AbWhen = (typeof AB_WHEN)[number];
-/** An agreement's bonus: its description, amount and currency, and when (`nth`: the enrolment number, for At an enrolment number). */
-export type AgreementBonus = { id: string; desc: string; amount: number; currency: string; when: AbWhen; nth: number | null };
-/** An agreement variant. `earlier`: its terms before each edit, with the day they stopped (items made before keep them). */
+/**
+ * An agreement's bonus: its description and amount, and when (`nth`: the enrolment number, for At an enrolment number).
+ * The amount is in the university's currency, like every line (Jovial, 10 Nov, Q67).
+ */
+export type AgreementBonus = { id: string; desc: string; amount: number; when: AbWhen; nth: number | null };
+/**
+ * An agreement variant. `earlier`: its terms before each edit, with the day they stopped: an edit has an Effective
+ * from date (Jovial, 10 Nov, Q41), and an enrolment takes the terms in force on its intake start date.
+ */
 export type Agreement = AgreementTerms & { id: string; name: string; status: AgreementStatus; created: Stamp; updated: Stamp; earlier: (AgreementTerms & { until: string })[] };
 
 /* ---------- RP records and bank details ---------- */
 
 /** One commission record per RP: its agreement from a date (`moves`: the agreements it was on before). */
 export type RpRecord = { rp: string; agreement: string; from: string; tax: boolean; moves: { agreement: string; from: string }[]; created: Stamp; updated: Stamp };
-/** The RP's bank account, as its RP Admin sets it on Earnings. */
-/** `taxId`: the RP's GST or VAT number, for GSP's filled-in invoice (optional). */
-export type Bank = { rp: string; bank: string; account: string; number: string; swift: string; address: string; currency: string; taxId?: string; updated: Stamp };
-export const BANK_FIELDS: { key: keyof Omit<Bank, 'rp' | 'currency' | 'updated' | 'taxId'>; label: string; field: string }[] = [
+/** The RP's bank account, as its RP Admin sets it on Earnings (no tax ID: Jovial, 10 Nov, Q64). */
+export type Bank = { rp: string; bank: string; account: string; number: string; swift: string; address: string; currency: string; updated: Stamp };
+export const BANK_FIELDS: { key: keyof Omit<Bank, 'rp' | 'currency' | 'updated'>; label: string; field: string }[] = [
   { key: 'bank', label: 'Bank name', field: 'bank name' },
   { key: 'account', label: 'Account name', field: 'account name' },
   { key: 'number', label: 'Account number', field: 'account number' },
@@ -113,13 +125,16 @@ export type Notice = {
   unis: string[];
   levels: Level[];
   benefit: Benefit;
+  /** A bonus's amount, in the university's currency of each enrolment it covers (Jovial, 10 Nov, Q67). */
   amount: number | null;
-  currency: string;
   share: number | null;
   bands: Band[];
+  /** A tiered share counted retrospectively: the band reached raises the earlier enrolments it covers (Q57). */
   retro: boolean;
   /** The RPs (by id) that may use it. */
   rps: string[];
+  /** RPs taken off it, and the day (Jovial, 10 Nov, Q65): their enrolments before that day keep it. */
+  removed: { rp: string; on: string }[];
   created: Stamp;
   updated: Stamp;
 };
@@ -147,6 +162,9 @@ export type AddlWhen = (typeof ADDL_WHEN)[number];
 export type Addl = { id: string; desc: string; kind: AddlKind; value: number; when: AddlWhen };
 /** A bonus the university pays once `min` students enrol with it in `year`: on the application that reaches it. */
 export type Bonus = { id: string; desc: string; amount: number; min: number; year: number };
+/** How a university's tier bands and bonuses count students (Jovial, 10 Nov, Q55): the year in the contract. */
+export const UNI_COUNTED_PER = ['Calendar year', 'Academic year', 'Financial year', 'Intake'] as const;
+export type UniCountedPer = (typeof UNI_COUNTED_PER)[number];
 export type TermsBody = {
   rates: Partial<Record<Level, number>>;
   feeBasis: FeeBasis;
@@ -156,6 +174,9 @@ export type TermsBody = {
   payDays: number;
   cap: number | null;
   bands: Band[];
+  /** What the bands count over, and the month an academic year starts (1–12) when that's the year. */
+  countedPer: UniCountedPer;
+  yearStart: number;
   addl: Addl[];
   bonus: Bonus[];
   contract: FileRef;
@@ -180,8 +201,14 @@ export const SIDE_KEYS = Object.keys(SIDES) as Side[];
 export const TX_TYPES = ['Course commission', 'Additional commission', 'Bonus', 'Adjustment'] as const;
 export type TxType = (typeof TX_TYPES)[number];
 
-export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Held', 'Paid', 'Not payable'] as const;
-export const RP_STATUSES = ['Expected', 'Ready to pay', 'Invoice requested', 'Invoice received', 'Held', 'Paid', 'Not payable'] as const;
+/** Part paid (Jovial, 10 Nov, Q44): the university paid less than the line, with a reason, until the rest comes or is written off. */
+export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held', 'Paid', 'Not payable'] as const;
+/**
+ * The RP's statuses (Jovial, 10 Nov, Q50, the Commissions flow's #21): Expected, Waiting for university (GSP's line is
+ * due but not paid yet), Ready to invoice, Invoice in review (the RP's invoice is with Finance), Approved, Paid; and
+ * On hold, Sent back, Not payable. (Recovered comes with clawbacks, phase 2.)
+ */
+export const RP_STATUSES = ['Expected', 'Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'On hold', 'Sent back', 'Paid', 'Not payable'] as const;
 export type UniStatus = (typeof UNI_STATUSES)[number];
 export type RpStatus = (typeof RP_STATUSES)[number];
 export type TxStatus = UniStatus | RpStatus;
@@ -190,7 +217,7 @@ export const STATUSES_OF: Record<Side, readonly TxStatus[]> = { uni: UNI_STATUSE
 /** The status groups (the Commission lines page's tabs, but Not counted, which shows under All). */
 export const GROUPS = [
   { key: 'estimate', label: 'Estimate', uni: ['Expected'], rp: ['Expected'], tab: true },
-  { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Held'], rp: ['Ready to pay', 'Invoice requested', 'Invoice received', 'Held'], tab: true },
+  { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held'], rp: ['Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'On hold', 'Sent back'], tab: true },
   { key: 'paid', label: 'Paid', uni: ['Paid'], rp: ['Paid'], tab: true },
   { key: 'none', label: 'Not counted', uni: ['Not payable'], rp: ['Not payable'], tab: false },
 ] as const satisfies readonly { key: string; label: string; uni: readonly UniStatus[]; rp: readonly RpStatus[]; tab: boolean }[];
@@ -202,34 +229,49 @@ export const LINE_TABS: { key: GroupKey | 'all'; label: string }[] = [{ key: 'al
 /** Which lines each Commission lines action takes (the PRD's Actions table). */
 export const ACTION_FROM = {
   raise: ['Ready to invoice'],
-  record: ['Invoiced', 'Overdue'],
-  request: ['Ready to pay'],
-  pay: ['Invoice received'],
+  record: ['Invoiced', 'Overdue', 'Part paid'],
+  request: ['Ready to invoice', 'Sent back'],
+  pay: ['Approved'],
 } as const satisfies Record<string, readonly TxStatus[]>;
-/** The RP's lines GSP asked it to invoice (Earnings' Invoices to send). */
-export const REQUESTED: RpStatus = 'Invoice requested';
-/** Held lines: In progress, but not ready (Earnings leaves them out of Ready to pay). */
-export const HELD: TxStatus = 'Held';
+/** The RP's lines it can invoice (Earnings' Invoices to send: those GSP has asked for). */
+export const TO_INVOICE: readonly RpStatus[] = ['Ready to invoice', 'Sent back'];
+/** GSP's line is due but the university hasn't paid it: the RP waits (Q50). */
+export const WAITING_UNI: RpStatus = 'Waiting for university';
+/** The RP's invoice is with Finance. */
+export const IN_REVIEW: RpStatus = 'Invoice in review';
+/** A university line paid short (Q44): Write off the rest acts on it. */
+export const PART_PAID: UniStatus = 'Part paid';
+/** Held lines: In progress, but not ready (Earnings leaves them out of Ready to invoice). */
+export const HELD: readonly TxStatus[] = ['Held', 'On hold'];
 /** Each status's colour (as Pill tones). */
 export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' | 'grey'> = {
   Expected: 'grey',
   'Ready to invoice': 'you',
   Invoiced: 'gsp',
   Overdue: 'bad',
+  'Part paid': 'bad',
   Held: 'bad',
+  'On hold': 'bad',
+  'Sent back': 'bad',
   Paid: 'ok',
   'Not payable': 'grey',
-  'Ready to pay': 'you',
-  'Invoice requested': 'uni',
-  'Invoice received': 'gsp',
+  'Waiting for university': 'uni',
+  'Invoice in review': 'gsp',
+  Approved: 'gsp',
 };
 
 /* ---------- what people do (records the statuses are worked out from) ---------- */
 
 /** GSP's invoice to a university, raised on Commission lines. */
 export type UniInvoice = { number: string; uni: string; date: string; txs: string[]; by: string; at: number };
-/** A payment received from a university. */
-export type Receipt = { id: string; uni: string; txs: string[]; amount: number | null; date: string; by: string; at: number };
+/**
+ * A payment received from a university (Jovial, 10 Nov, Q44): what came in for each line it covers (`paid`), and for a
+ * line paid short, why (`short`, one of Settings' part-payment reasons). A line is Paid once what came in for it,
+ * over all receipts, reaches its amount, or the rest is written off.
+ */
+export type Receipt = { id: string; uni: string; txs: string[]; amount: number | null; paid: Record<string, number>; short: Record<string, string>; date: string; by: string; at: number };
+/** The rest of a line paid short, written off by Finance (the same person may do it): the line counts as Paid. */
+export type WriteOff = { id: string; tx: string; amount: number; reason: string; by: string; at: number };
 /** Commissions asked an RP for its invoice. */
 export type InvoiceRequest = { id: string; rp: string; txs: string[]; date: string; by: string; at: number };
 export const RP_INVOICE_STATES = ['To check', 'Accepted', 'Sent back'] as const;
@@ -270,6 +312,7 @@ export type CommState = {
   requests: InvoiceRequest[];
   rpInvoices: RpInvoice[];
   rpPayments: RpPayment[];
+  writeOffs: WriteOff[];
   overrides: Override[];
   /** Each line's transaction ID, given once (Jovial, 9 Nov), by what the line is for (its key); `idSeq`: the last one given. */
   ids: Record<string, string>;
@@ -282,14 +325,31 @@ export type CommState = {
 
 /* ---------- words ---------- */
 
+/** A currency's smallest unit, as decimal places (2 for AUD, 0 for JPY), from the currency's own definition. */
+export const minorUnits = (cur: string) => {
+  try {
+    return new Intl.NumberFormat('en', { style: 'currency', currency: cur }).resolvedOptions().maximumFractionDigits ?? 2;
+  } catch {
+    return 2;
+  }
+};
+/**
+ * Rounding (Jovial, 10 Nov, Q62): each line rounds half up to its currency's smallest unit; totals add the rounded lines;
+ * no minimum payout. Half up away from zero, so a credit rounds like the amount it takes back.
+ */
+export const roundMoney = (n: number, cur = 'AUD') => {
+  const d = minorUnits(cur);
+  const f = 10 ** d;
+  return (Math.sign(n) * Math.round(Math.abs(n) * f + 1e-9)) / f;
+};
 export const money = (n: number, cur: string) => `${cur} ${n.toLocaleString('en-GB', { maximumFractionDigits: 2, minimumFractionDigits: Number.isInteger(n) ? 0 : 2 })}`;
 export const pct = (n: number) => `${n.toLocaleString('en-GB', { maximumFractionDigits: 2 })}%`;
 /** "75% to 80%, by enrolments", "75% flat". */
 export const bandsText = (b: Band[], unit = '%') => b.map((x) => `${x.from}${x.to === null ? '+' : `–${x.to}`}: ${x.pct}${unit}`).join(', ');
 export const shareText = (t: Pick<AgreementTerms, 'shareType' | 'share' | 'bands'>) =>
   t.shareType === 'Flat' ? `${pct(t.share ?? 0)} flat` : t.bands.length ? `${pct(Math.min(...t.bands.map((b) => b.pct)))} to ${pct(Math.max(...t.bands.map((b) => b.pct)))}, by enrolments` : 'No bands yet';
-export const benefitText = (n: Pick<Notice, 'benefit' | 'amount' | 'currency' | 'share' | 'bands'>) =>
-  n.benefit === 'Bonus per enrolment' ? `${money(n.amount ?? 0, n.currency)} bonus per enrolment` : n.benefit === 'Tiered share' ? `Share ${bandsText(n.bands)}` : `Share ${pct(n.share ?? 0)}`;
+export const benefitText = (n: Pick<Notice, 'benefit' | 'amount' | 'share' | 'bands'>) =>
+  n.benefit === 'Bonus per enrolment' ? `${(n.amount ?? 0).toLocaleString('en-GB')} bonus per enrolment, in each university’s currency` : n.benefit === 'Tiered share' ? `Share ${bandsText(n.bands)}` : `Share ${pct(n.share ?? 0)}`;
 /** "3 Nov 2026". */
 export const dayText = (iso: string) => {
   const d = new Date(`${iso.slice(0, 10)}T00:00`);
