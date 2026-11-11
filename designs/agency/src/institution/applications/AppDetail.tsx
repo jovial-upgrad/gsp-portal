@@ -117,6 +117,9 @@ export function AppDetail({
   const viewOnly = useViewOnly();
   // GSP · Global Ops (6 Nov): no commission on the application
   const noBaseCommission = useHides('app.base-commission');
+  // GSP · Finance (Deepesh, 10 Nov): the status shows once, and Key details keeps what commission needs
+  const noAdmFacts = useHides('app.admissions-facts');
+  const noCelebrate = useHides('app.celebrate');
   // GSP · Recruitment (6 Nov): commission to look at; the chat can be used inside a view-only application
   const commissionView = useHides('app.commission.view');
   const chatEdit = useShows('app.chat.edit');
@@ -444,7 +447,7 @@ export function AppDetail({
             </EditOnly>
           </motion.section>
         )}
-        {a.status === 'enrolled' && <Celebrate key="enrolled" title={`${s.first} is enrolled`} text={`${fullName(s)} is enrolled at ${c.uni.name} for the ${c.name}, ${a.intake} intake.`} />}
+        {a.status === 'enrolled' && !noCelebrate && <Celebrate key="enrolled" title={`${s.first} is enrolled`} text={`${fullName(s)} is enrolled at ${c.uni.name} for the ${c.name}, ${a.intake} intake.`} />}
         {pending.length > 0 && isOpen(a) && !hidden.documents && (
           <motion.section
             key="review"
@@ -644,7 +647,7 @@ export function AppDetail({
               <Row k="Campus" v={campusLabel(c.campus)} />
               <Row k="Length" v={duration(c.months)} />
               {c.scholarship > 0 && <Row k="Course scholarship" v={<span className="num">Up to {money(c.scholarship, c.currency)}</span>} />}
-              {offer && (
+              {offer && !noAdmFacts && (
                 <>
                   <Row k="Offer" v={`${offer.kind === 'conditional' ? 'Conditional' : 'Unconditional'}, ${shortDate(new Date(offer.at))}`} />
                   <Row
@@ -658,7 +661,7 @@ export function AppDetail({
                   <Row k="Deposit" v={<span className="num">{money(offer.deposit, c.currency)}</span>} />
                 </>
               )}
-              <Row k="Counsellor" v={counsellor?.name} />
+              {!noAdmFacts && <Row k="Counsellor" v={counsellor?.name} />}
               {!noBaseCommission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
               <Row k="Started" v={shortDate(new Date(a.created))} />
             </dl>
