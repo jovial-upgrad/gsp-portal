@@ -587,7 +587,8 @@ function compute(cfg, apps, today) {
     r.annPct = apct; r.annWhy = tp.annuityPct != null && tp.annuityPct !== '' ? 'This RP has its own annuity rate: ' + apct + '% of GSP’s commission after the first year.' : am === 'flat' ? 'After the first year, RPs get a flat ' + apct + '% of GSP’s commission (Settings).' : am === 'none' ? 'Commission after the first year is not shared with RPs (Settings).' : 'After the first year the RP’s share is the same as the first year: ' + (pct == null ? '—' : pct + '%') + ' (Settings).';
     const cur = r.u.cur;
     r.lines.forEach((l) => {
-      if (l.bonus || l.topup) return;
+      // GSP's Tier bonus is GSP's alone: the RP is paid its own share of the base line only (Jovial, 11 Nov; reverses Q70)
+      if (l.bonus || l.topup || l.tier) return;
       const key = 'rp' + l.k; const ov = a.override && a.override[key]; const lp = l.annuity ? apct : pct;
       let ent = lp == null || l.amt == null ? null : r2((l.fullEnt * lp) / 100);
       const got = l.received;
