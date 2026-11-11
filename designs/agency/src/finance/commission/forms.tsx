@@ -9,8 +9,9 @@ import { ErrorText, Facts, useAsk } from '../../institution/records/parts';
 import { CURRENCY } from '../../data/courses';
 import { todayIso } from '../../institution/data/records';
 import { BandsEditor, FilePick, bandsError, numOf, numText } from './parts';
+import { COUNTRIES } from '../../data/partners';
+import { AddlEditor, RuleCard, RuleList, BandBonusEditor, COMM_LEVELS, FormSec, IntakePick, MilestonesEditor, PromosEditor, RateRowsEditor, SchemesEditor, addlBad, bandBonusBad, cleanCond, condOpts, milestoneBad, promoBad, rateRowBad, schemeBad } from './editors';
 import { acceptedOn, acceptedRps, saveRpView, ctxRps, ctxUnis, levelsOf, newAgreementId, newGroupId, newNoticeId, saveAgreement, saveGroup, saveNotice, saveRecord, saveSettings, saveTerms, termsEffect, uniName, useComm } from './store';
-import { BAND_BONUS_HINT, PROMO_HINT, RATE_ROW_HINT, SCHEME_HINT, bandBonusesText, condLine, parseBandBonuses, parseCond, parsePromos, parseRateRows, parseSchemes, promosText, rateRowsText, schemesText } from './rules';
 import {
   AB_WHEN,
   ANNUITY_RULES,
@@ -19,11 +20,9 @@ import {
   type RpView,
   type RpViewKind,
   type RpViewPeriods,
-  ADDL_KINDS,
   CHARGE_UNITS,
   COMBINES,
   PAY_UNITS,
-  ADDL_WHEN,
   BENEFITS,
   COUNTED_PER,
   DESTINATIONS,
@@ -35,7 +34,6 @@ import {
   YES_NO,
   dayText,
   money,
-  type Addl,
   type Agreement,
   type AgreementBonus,
   type AgreementTerms,
@@ -44,7 +42,6 @@ import {
   type Charge,
   type ChargeUnit,
   type Combine,
-  type Milestone,
   type PayUnit,
   type Settings,
   type UniGroup,
@@ -100,18 +97,6 @@ function Area({ id, value, onChange, placeholder }: { id: string; value: string;
   );
 }
 
-/** Rule rows typed as text, one a line (rules.ts); the text is kept as typed and parsed on save. */
-function RuleRows({ id, label, hint, value, onChange, error }: { id: string; label: string; hint: string; value: string; onChange: (v: string) => void; error: string | null }) {
-  return (
-    <Field id={id} label={label} optional error={error} className="iform__wide" hint={hint}>
-      <div className="control iform__area">
-        <textarea id={id} className="control__input num" rows={Math.max(2, value.split('\n').length + 1)} value={value} spellCheck={false} onChange={(e) => onChange(e.target.value)} />
-      </div>
-    </Field>
-  );
-}
-const firstBad = (p: { bad: string[] }) => p.bad[0] ?? null;
-
 /* ---------- Agreement ---------- */
 
 type AgDraft = AgreementTerms & { id: string; name: string };
@@ -156,6 +141,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
   };
   return (
     <FormSheet open={open} title={edit ? `Edit ${edit.name}` : 'Add Agreement'} sub={edit ? 'Applies to enrolments whose intake starts on or after Effective from. Earlier ones keep the terms before; lines already invoiced never change.' : undefined} onClose={onClose} onSave={save}>
+      <FormSec title="The agreement" />
       <Field id="cag-name" label="Name" required error={show('name')} className="iform__wide">
         <TextInput id="cag-name" maxLength={80} value={v.name} invalid={!!show('name')} placeholder="Like: Standard agreement 2026" onChange={(e) => set({ name: e.target.value })} />
       </Field>
@@ -164,6 +150,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
           <TextInput id="cag-from" type="date" value={from} invalid={!!show('from')} onChange={(e) => setFrom(e.target.value)} />
         </Field>
       )}
+      <FormSec title="The RP’s share" note="A share of GSP’s base commission on each student: flat, or by how many students the RP enrols." />
       <Field id="cag-type" label="Share type" required>
         <SelectInput id="cag-type" value={v.shareType} onChange={(e) => set({ shareType: e.target.value as AgDraft['shareType'] })}>
           {options(SHARE_TYPES)}
@@ -209,14 +196,14 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
           </SelectInput>
         </Field>
       )}
+      <FormSec title="Payment" />
       <Field id="cag-pay" label="Pay within (days)" required error={show('payDays')} hint="Days after GSP receives the RP’s accepted invoice.">
         <TextInput id="cag-pay" inputMode="numeric" value={numText(v.payDays)} invalid={!!show('payDays')} onChange={(e) => set({ payDays: numOf(e.target.value) ?? NaN })} />
       </Field>
       <Field id="cag-addl" label="Additional commission passed on (%)" optional error={show('addl')} hint="Share of any additional commission the university pays. Empty: the same as the share above.">
         <TextInput id="cag-addl" inputMode="decimal" value={numText(v.addl)} invalid={!!show('addl')} onChange={(e) => set({ addl: numOf(e.target.value) })} />
       </Field>
-      <p className="cform__sec">Bonus</p>
-      <p className="cform__hint">The RP’s own bonus, paid whether or not GSP meets a university’s bonus tier. No RP gets a share of a bonus a university pays GSP. The amount is in each enrolment’s university currency.</p>
+      <FormSec title="Bonus" note="The RP’s own bonus, paid whether or not GSP meets a university’s bonus tier. No RP gets a share of a bonus a university pays GSP. The amount is in each enrolment’s university currency." />
       <div className="cform__list">
         {v.bonuses.map((b, i) => (
           <div key={b.id} className="cform__row cform__row--agbonus">
@@ -240,6 +227,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
           <Icon name="plus" size={16} /> Add bonus
         </button>
       </div>
+      <FormSec title="Details and document" />
       <Field id="cag-details" label="Agreement details" optional className="iform__wide" hint="Shown on every RP’s Commission tab.">
         <Area id="cag-details" value={v.details} placeholder="Anything else the agreement says" onChange={(details) => set({ details })} />
       </Field>
@@ -300,6 +288,7 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
   return (
     <>
       <FormSheet open={open} title={was ? `Edit ${name}’s record` : 'Add RP record'} onClose={onClose} onSave={save}>
+        <FormSec title="The RP and its agreement" />
         <Field id="crec-rp" label="RP" required error={show('rp')} className="iform__wide">
           {was ? (
             <p className="cline">
@@ -345,12 +334,14 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
         <Field id="crec-from" label="From" required error={show('from')} hint="The RP’s accepted agreement’s effective date, to start with.">
           <TextInput id="crec-from" type="date" value={from} invalid={!!show('from')} onChange={(e) => setFrom(e.target.value)} />
         </Field>
+        <FormSec title="This RP’s own terms" note="Only when this RP’s terms differ from its agreement’s. Empty: the agreement’s." />
         <Field id="crec-own" label="Own flat share (%)" optional error={show('own')} hint="Instead of the agreement’s share, for this RP only. Empty: the agreement’s.">
           <TextInput id="crec-own" inputMode="decimal" value={numText(own)} invalid={!!show('own')} onChange={(e) => setOwn(numOf(e.target.value))} />
         </Field>
         <Field id="crec-ann" label="Share after year 1 (%)" optional error={show('ann')} hint={`For later years of a course. Empty: Settings’ rule (${s.settings.annuity.rule}${s.settings.annuity.rule === 'Flat %' && s.settings.annuity.pct != null ? ` ${s.settings.annuity.pct}%` : ''}).`}>
           <TextInput id="crec-ann" inputMode="decimal" value={numText(ann)} invalid={!!show('ann')} onChange={(e) => setAnn(numOf(e.target.value))} />
         </Field>
+        <FormSec title="What the RP sees" />
         <RpViewFields idp="crec" v={view} set={setView} hint="Starts as Settings’ default. GSP sees every line." />
         {info && (
           <div className="cform__ro">
@@ -458,19 +449,6 @@ const USES: Record<Benefit, { amount?: boolean; share?: boolean; bands?: boolean
   Milestone: { milestones: true },
   '% of tuition': { tuition: true, combine: true },
 };
-const milestonesText = (m: Milestone[] = []) => m.map((x) => `${x.count}: ${x.amount}`).join('\n');
-const parseMilestones = (t: string) => {
-  const ok: Milestone[] = [];
-  let bad: string | null = null;
-  t.split('\n').forEach((raw, i) => {
-    const l = raw.trim();
-    if (!l) return;
-    const m = /^(\d+)\s*:\s*(\d+(?:\.\d+)?)$/.exec(l.replace(/,/g, ''));
-    if (m && Number(m[1]) > 0 && Number(m[2]) > 0) ok.push({ count: Number(m[1]), amount: Number(m[2]) });
-    else bad ??= `Line ${i + 1}: write it like 3: 1500 (enrolments: amount).`;
-  });
-  return { ok: ok.sort((a, b) => a.count - b.count), bad };
-};
 
 /** Add and Edit Notice: name, document and its type, dates and intakes, what it applies to, its benefit and how it combines, and who may use it. */
 export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean; edit: Notice | null; me: string; onClose: () => void; onSaved: (name: string) => void }) {
@@ -478,34 +456,27 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
   const [v, setV] = useState<NtDraft>(blankNt);
   const [tried, setTried] = useState(false);
   const [big, setBig] = useState(false);
-  const [ms, setMs] = useState('');
-  const [intakes, setIntakes] = useState('');
   useEffect(() => {
     if (!open) return;
     const d = edit ? { ...blankNt(), ...edit } : blankNt();
     setV(d);
-    setMs(milestonesText(d.milestones));
-    setIntakes((d.intakes ?? []).join(', '));
     setTried(false);
     setBig(false);
   }, [open, edit]);
   const set = (p: Partial<NtDraft>) => setV((x) => ({ ...x, ...p }));
   const unis = ctxUnis();
   const use = v.benefit ? USES[v.benefit] : {};
-  const msP = parseMilestones(ms);
-  const intakeList = intakes.split(/[\s,]+/).filter(Boolean);
   const salesRegions = [...new Set([...ctxRps().map((r) => r.region), ...Object.keys(s.settings.regionGroups)])].filter(Boolean).sort();
   const err = {
     name: !v.name.trim() ? 'Name the notice.' : s.notices.some((n) => n.id !== v.id && n.name.trim().toLowerCase() === v.name.trim().toLowerCase()) ? 'There’s already a notice with this name.' : null,
     doc: big ? `The file is over ${s.settings.maxFileMb} MB.` : !v.doc ? 'Upload the notice.' : null,
     docType: !v.docType ? 'Choose what the document is.' : null,
     dates: !v.starts || !v.ends ? 'Choose the dates.' : v.ends <= v.starts ? 'It has to end after it starts.' : null,
-    intakes: intakeList.some((x) => !/^\d{4}-\d{2}$/.test(x)) ? 'Months like 2027-01, separated by commas.' : null,
     benefit: !v.benefit ? 'Choose the benefit.' : null,
     amount: use.amount && !(v.amount !== null && v.amount > 0) ? 'Enter the amount.' : null,
     share: use.share && pctBad(v.share, true) ? 'A number from 0 to 100.' : null,
     bands: use.bands ? bandsError(v.bands) : null,
-    milestones: use.milestones ? msP.bad ?? (!msP.ok.length ? 'Add at least one milestone.' : null) : null,
+    milestones: use.milestones ? (!(v.milestones ?? []).length ? 'Add at least one milestone.' : (v.milestones ?? []).map(milestoneBad).find(Boolean) ?? null) : null,
     tuition: use.tuition && pctBad(v.tuitionPct ?? null, true) ? 'A number from 0 to 100.' : null,
     who: !v.rps.length && !(v.regions ?? []).length ? 'List the RPs, or choose the sales regions it’s for.' : null,
   };
@@ -523,11 +494,11 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         id: v.id || newNoticeId(),
         doc: v.doc!,
         benefit: b,
-        intakes: intakeList,
+        intakes: v.intakes ?? [],
         amount: u.amount ? v.amount : null,
         share: u.share ? v.share : null,
         bands: u.bands ? v.bands : [],
-        milestones: u.milestones ? msP.ok : [],
+        milestones: u.milestones ? [...(v.milestones ?? [])].sort((a, b) => a.count - b.count) : [],
         tuitionPct: u.tuition ? v.tuitionPct : null,
         combine: u.combine ? v.combine : undefined,
         retro: u.bands ? v.retro : false,
@@ -538,7 +509,8 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
   };
   const uniLabel = (id: string) => unis.find((u) => u.id === id)?.name ?? id;
   return (
-    <FormSheet open={open} title={edit ? `Edit ${edit.name}` : 'Add Notice'} onClose={onClose} onSave={save}>
+    <FormSheet open={open} title={edit ? `Edit ${edit.name}` : 'Add Notice'} sub="An offer to RPs for a time, on top of or instead of their agreement." onClose={onClose} onSave={save}>
+      <FormSec title="The notice" />
       <Field id="cnt-name" label="Name" required error={show('name')} className="iform__wide">
         <TextInput id="cnt-name" maxLength={80} value={v.name} invalid={!!show('name')} placeholder="Like: UK Promotion 2026" onChange={(e) => set({ name: e.target.value })} />
       </Field>
@@ -547,7 +519,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
           {options(s.settings.docTypes)}
         </SelectInput>
       </Field>
-      <Field id="cnt-doc" label="Notice document" required error={show('doc')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Shown to preview on each listed RP’s Commission tab.`} className="iform__wide">
+      <Field id="cnt-doc" label="Notice document" required error={show('doc')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Shown to each listed RP.`}>
         <FilePick id="cnt-doc" value={v.doc} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('doc')} onTooBig={setBig} onChange={(doc) => set({ doc })} />
       </Field>
       <Field id="cnt-starts" label="Starts" required error={show('dates')} hint="Enrolments with an enrolment date in the period count.">
@@ -556,29 +528,45 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
       <Field id="cnt-ends" label="Ends" required>
         <TextInput id="cnt-ends" type="date" value={v.ends} invalid={!!show('dates')} onChange={(e) => set({ ends: e.target.value })} />
       </Field>
-      <Field id="cnt-intakes" label="Intake months" optional error={show('intakes')} hint="Only these intakes, like 2027-01, 2027-02. Empty: every intake.">
-        <TextInput id="cnt-intakes" value={intakes} invalid={!!show('intakes')} onChange={(e) => setIntakes(e.target.value)} />
+
+      <FormSec title="Who it’s for" note="List the RPs, or leave the list empty and choose sales regions: every RP in them gets it." />
+      <Field id="cnt-rps" label="RPs" optional error={show('who')} className="iform__wide" hint="RPs with a commission record. An RP taken off keeps the notice for its enrolments before today.">
+        <RpPicker id="cnt-rps" value={v.rps} onChange={(rps) => set({ rps })} />
       </Field>
+      {!v.rps.length && (
+        <Field id="cnt-regions" label="Sales regions" required error={show('who')} className="iform__wide">
+          <MultiPick id="cnt-regions" label="Sales regions" value={v.regions ?? []} options={salesRegions} onChange={(regions) => set({ regions })} empty="Choose the regions" />
+        </Field>
+      )}
+
+      <FormSec title="Which enrolments" note="Leave a field empty for every one." />
       <Field id="cnt-dests" label="Destinations" optional>
         <MultiPick id="cnt-dests" label="Destinations" value={v.dests} options={[...DESTINATIONS]} onChange={(x) => set({ dests: x as NtDraft['dests'] })} empty="Every destination" />
       </Field>
       <Field id="cnt-unis" label="Universities" optional>
         <MultiPick id="cnt-unis" label="Universities" value={v.unis.map(uniLabel)} options={unis.map((u) => u.name)} onChange={(x) => set({ unis: x.map((n) => unis.find((u) => u.name === n)?.id ?? n) })} empty="Every university" search />
       </Field>
-      <Field id="cnt-levels" label="Program levels" optional hint="Empty: every course.">
+      <Field id="cnt-levels" label="Program levels" optional>
         <MultiPick id="cnt-levels" label="Program levels" value={v.levels} options={[...LEVELS]} onChange={(x) => set({ levels: x as Level[] })} empty="Every program level" />
       </Field>
+      <Field id="cnt-intakes" label="Intake months" optional>
+        <IntakePick id="cnt-intakes" label="Intake months" value={v.intakes ?? []} onChange={(intakes) => set({ intakes })} today={todayIso()} />
+      </Field>
+
+      <FormSec title="What the RP gets" />
       <Field id="cnt-benefit" label="Benefit" required error={show('benefit')}>
         <SelectInput id="cnt-benefit" value={v.benefit} placeholder="Choose the benefit" invalid={!!show('benefit')} onChange={(e) => set({ benefit: e.target.value as Benefit })}>
           {options(BENEFITS)}
         </SelectInput>
       </Field>
-      {use.combine && (
-        <Field id="cnt-combine" label="How it combines" required hint="Separate box: its own line, not counted in the RP’s band. Highest wins: the higher of it and the RP’s share. Adds on top: added to the RP’s share.">
+      {use.combine ? (
+        <Field id="cnt-combine" label="With the RP’s own share" required hint="Separate box: its own line, not counted in the RP’s band. Highest wins: the higher of the two. Adds on top: added to the RP’s share.">
           <SelectInput id="cnt-combine" value={v.combine ?? COMBINES[0]} onChange={(e) => set({ combine: e.target.value as Combine })}>
             {options(COMBINES)}
           </SelectInput>
         </Field>
+      ) : (
+        <span aria-hidden="true" />
       )}
       {use.amount && (
         <Field id="cnt-amount" label="Amount per enrolment" required error={show('amount')} hint="In each enrolment’s university currency. Bonuses from two notices add up.">
@@ -586,12 +574,12 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         </Field>
       )}
       {use.share && (
-        <Field id="cnt-share" label="Share (%)" required error={show('share')}>
+        <Field id="cnt-share" label="Share of GSP’s commission (%)" required error={show('share')}>
           <TextInput id="cnt-share" inputMode="decimal" value={numText(v.share)} invalid={!!show('share')} onChange={(e) => set({ share: numOf(e.target.value) })} />
         </Field>
       )}
       {use.tuition && (
-        <Field id="cnt-tuition" label="% of tuition" required error={show('tuition')} hint="Of the student’s first-year tuition fee.">
+        <Field id="cnt-tuition" label="% of the tuition fee" required error={show('tuition')} hint="Of the student’s first-year tuition fee.">
           <TextInput id="cnt-tuition" inputMode="decimal" value={numText(v.tuitionPct ?? null)} invalid={!!show('tuition')} onChange={(e) => set({ tuitionPct: numOf(e.target.value) })} />
         </Field>
       )}
@@ -608,19 +596,11 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         </Field>
       )}
       {use.milestones && (
-        <Field id="cnt-ms" label="Milestones" required error={show('milestones')} className="iform__wide" hint="One a line, enrolments: amount (like 3: 1500). Due once GSP is paid for that many enrolments under the notice, even after it ends.">
-          <div className="control iform__area">
-            <textarea id="cnt-ms" className="control__input num" rows={3} value={ms} onChange={(e) => setMs(e.target.value)} />
-          </div>
-        </Field>
-      )}
-      <Field id="cnt-rps" label="RPs" optional error={show('who')} className="iform__wide" hint="RPs with a commission record. An RP taken off keeps the notice for its enrolments before today. None listed: every RP in the sales regions below.">
-        <RpPicker id="cnt-rps" value={v.rps} onChange={(rps) => set({ rps })} />
-      </Field>
-      {!v.rps.length && (
-        <Field id="cnt-regions" label="Sales regions" required error={show('who')} className="iform__wide">
-          <MultiPick id="cnt-regions" label="Sales regions" value={v.regions ?? []} options={salesRegions} onChange={(regions) => set({ regions })} empty="Choose the regions" />
-        </Field>
+        <div className="cform__wide">
+          <p className="cform__label">Milestones</p>
+          <p className="cform__hint">A lump sum once GSP is paid for that many enrolments under the notice, even after it ends.</p>
+          <MilestonesEditor id="cnt-ms" items={v.milestones ?? []} onChange={(milestones) => set({ milestones })} tried={tried} />
+        </div>
       )}
     </FormSheet>
   );
@@ -659,8 +639,6 @@ let rid = 0;
 /** January to December, as the locale names them (for an academic year's start). */
 const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(2000, i, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' }));
 const chargeNeedsN = (u: ChargeUnit) => u !== CHARGE_UNITS[0].label;
-/** The rule rows a terms or group form types as text (rules.ts). */
-type RuleTexts = { rows: string; promos: string; schemes: string; bandBonuses: string };
 
 /** A tier's options, shared by University terms and Groups: counted per, academic year start, retrospective, per country, levels. */
 function TierOptions({ idp, v, set }: { idp: string; v: Pick<TermsBody, 'countedPer' | 'yearStart' | 'tierRetro' | 'tierPerCountry' | 'tierLevels'>; set: (p: Partial<TermsBody>) => void }) {
@@ -709,8 +687,6 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
   const s = useComm();
   const was = editUni ? s.terms.find((t) => t.uni === editUni) : undefined;
   const [v, setV] = useState<TermsDraft>(blankTerms);
-  const [txt, setTxt] = useState<RuleTexts>({ rows: '', promos: '', schemes: '', bandBonuses: '' });
-  const [conds, setConds] = useState<string[]>([]);
   const [tried, setTried] = useState(false);
   const [big, setBig] = useState(false);
   const { ask, dialog } = useAsk();
@@ -720,8 +696,6 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
     if (!open) return;
     const d = was ? { ...blankTerms(), ...was } : blankTerms(preset ?? '');
     setV(d);
-    setTxt({ rows: rateRowsText(d.rateRows), promos: promosText(d.promos), schemes: schemesText(d.bonus), bandBonuses: bandBonusesText(d.bandBonuses) });
-    setConds(d.addl.map((a) => condLine(a.cond)));
     setTried(false);
     setBig(false);
     setFrom(todayIso());
@@ -735,26 +709,22 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
   const cur = v.currency || home;
   const levels = v.uni ? levelsOf(v.uni) : [];
   const rateVals = levels.map((l) => v.rates[l]).filter((x) => x !== undefined) as number[];
-  const rows = parseRateRows(txt.rows);
-  const promos = parsePromos(txt.promos, v.promos.map((p) => p.id));
-  const schemes = parseSchemes(txt.schemes, v.bonus.map((b) => b.id));
-  const bandBon = parseBandBonuses(txt.bandBonuses);
-  const condP = conds.map((c) => parseCond(c));
+  const o = condOpts(v.uni ? [v.uni] : null, levels.length ? levels : COMM_LEVELS, s.settings.regionGroups, todayIso());
   const needWeeks = v.trigger === 'Withdrawal deadline';
   const err = {
     uni: !v.uni ? 'Choose the university.' : null,
     currency: v.currency && !/^[A-Z]{3}$/.test(v.currency) ? 'A three-letter currency code, like AUD.' : null,
-    rates: !rateVals.length && !levels.some((l) => v.fixed[l] !== undefined) && !rows.ok.length ? 'Enter a rate for at least one level, or a rate row.' : rateVals.some((r) => !(r > 0 && r <= 100)) ? 'Rates are numbers from 0 to 100.' : null,
-    rows: firstBad(rows),
+    rates: !rateVals.length && !levels.some((l) => v.fixed[l] !== undefined) && !v.rateRows.length ? 'Enter a rate for at least one level, or add a rate row.' : rateVals.some((r) => !(r > 0 && r <= 100)) ? 'Rates are numbers from 0 to 100.' : null,
+    rows: v.rateRows.map(rateRowBad).find(Boolean) ?? null,
     trigger: !v.trigger ? 'Choose the trigger.' : null,
     weeks: needWeeks && v.triggerWeeks !== null && !wholeIn(v.triggerWeeks, 0, 52) ? 'A whole number of weeks, 0 to 52.' : null,
     charge: chargeNeedsN(v.charge.unit) && !(v.charge.n !== null && v.charge.n > 0) ? 'How many (or how much).' : null,
     payDays: !wholeIn(v.payDays, 1, 180) ? 'A whole number from 1 to 180.' : null,
     bands: v.bands.length ? bandsError(v.bands) : null,
-    bandBonuses: firstBad(bandBon),
-    promos: firstBad(promos),
-    addl: condP.find((c) => c.bad)?.bad ?? null,
-    schemes: firstBad(schemes),
+    bandBonuses: v.bandBonuses.map((b) => bandBonusBad(b, v.bands.length)).find(Boolean) ?? null,
+    promos: v.promos.map(promoBad).find(Boolean) ?? null,
+    addl: v.addl.map(addlBad).find(Boolean) ?? null,
+    schemes: v.bonus.map(schemeBad).find(Boolean) ?? null,
     contract: big ? `The file is over ${s.settings.maxFileMb} MB.` : !v.contract ? 'Upload the contract.' : null,
     from: was && (!/^\d{4}-\d{2}-\d{2}$/.test(from) || from <= lastFrom) ? (lastFrom ? `A date after ${lastFrom}, the last edit’s.` : 'Pick the date the new terms start.') : null,
   };
@@ -773,11 +743,9 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
     charge: chargeNeedsN(v.charge.unit) ? v.charge : { unit: v.charge.unit, n: null },
     payDays: v.payDays!,
     contract: v.contract!,
-    rateRows: rows.ok,
-    promos: promos.ok,
-    bonus: schemes.ok,
-    bandBonuses: bandBon.ok,
-    addl: v.addl.map((a, i) => ({ ...a, cond: condP[i]?.cond })).filter((a) => a.desc.trim() && a.value > 0),
+    promos: v.promos.map((p) => ({ ...p, name: p.name.trim(), cond: cleanCond(p.cond) })),
+    bonus: v.bonus.map((b) => ({ ...b, name: b.name.trim(), cond: cleanCond(b.cond) })),
+    addl: v.addl.map((a) => ({ ...a, desc: a.desc.trim(), cond: cleanCond(a.cond) })),
   });
   const save = () => {
     setTried(true);
@@ -804,63 +772,80 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
       commit,
     );
   };
-  const upAddl = (i: number, p: Partial<Addl>) => set({ addl: v.addl.map((a, j) => (j === i ? { ...a, ...p } : a)) });
-  const upText = (k: keyof RuleTexts) => (x: string) => setTxt((t) => ({ ...t, [k]: x }));
   const tier = (p: Partial<TermsBody>) => set(p as Partial<TermsDraft>);
   return (
     <>
-      <FormSheet open={open} title={was ? `Edit ${uniName(v.uni)}’s terms` : 'Add University terms'} sub={was ? 'Applies to enrolments whose intake starts on or after Effective from. Earlier ones keep the terms before; lines already invoiced never change: the difference is an Adjustment line.' : undefined} onClose={onClose} onSave={save}>
+      <FormSheet open={open} title={was ? `Edit ${uniName(v.uni)}’s terms` : 'Add University terms'} sub={was ? 'Applies to enrolments whose intake starts on or after Effective from. Earlier ones keep the terms before; lines already invoiced never change: the difference is an Adjustment line.' : 'What the university pays GSP, as its contract says. Every rule below is optional except the rates and how it pays.'} onClose={onClose} onSave={save}>
+        <FormSec title="The university and its contract" />
         <Field id="cut-uni" label="University" required error={show('uni')}>
           {was ? (
             <p className="cline">{uniName(v.uni)}</p>
           ) : (
-            <SearchPick id="cut-uni" label="Universities with no terms yet" placeholder="Search universities" value={v.uni} invalid={!!show('uni')} options={pool.map((x) => ({ value: x.id, label: x.name, note: x.country }))} onChange={(id) => set({ uni: id, rates: {}, fixed: {} })} />
+            <SearchPick id="cut-uni" label="Universities with no terms yet" placeholder="Search universities" value={v.uni} invalid={!!show('uni')} options={pool.map((x) => ({ value: x.id, label: x.name, note: x.country }))} onChange={(id) => set({ uni: id, rates: {}, fixed: {}, rateRows: [] })} />
           )}
         </Field>
-        {was && (
+        {was ? (
           <Field id="cut-from" label="Effective from" required error={show('from')} hint="The intake start date the changed terms apply from. It can be in the past.">
             <TextInput id="cut-from" type="date" value={from} invalid={!!show('from')} onChange={(e) => setFrom(e.target.value)} />
           </Field>
+        ) : (
+          <span aria-hidden="true" />
         )}
         <Field id="cut-cur" label="Currency" optional error={show('currency')} hint={home ? `Empty: ${home}, the university’s country’s. Change it when the contract pays in another.` : 'The university’s country’s, unless the contract says otherwise.'}>
           <TextInput id="cut-cur" maxLength={3} value={v.currency ?? ''} placeholder={home} invalid={!!show('currency')} onChange={(e) => set({ currency: e.target.value.toUpperCase() })} />
         </Field>
-        <p className="cform__sec">Rates by program level (%)</p>
+        <Field id="cut-contract" label="Contract" required error={show('contract')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Its dates come from the institution partner’s agreement.`} className="iform__wide">
+          <FilePick id="cut-contract" value={v.contract} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('contract')} onTooBig={setBig} onChange={(contract) => set({ contract })} />
+        </Field>
+
+        <FormSec title="What GSP earns" note={`A rate (%) for each program level, or a fixed amount${cur ? ` in ${cur}` : ''} instead. A level with neither is held as Rate missing.`} />
         {show('rates') && <ErrorText id="cut-rates-error">{show('rates')}</ErrorText>}
-        <div className="cform__levels">
-          {levels.length ? (
-            levels.map((l) => (
-              <Field key={l} id={`cut-rate-${LEVELS.indexOf(l)}`} label={l} optional>
-                <TextInput id={`cut-rate-${LEVELS.indexOf(l)}`} inputMode="decimal" value={numText(v.rates[l])} invalid={!!show('rates')} onChange={(e) => setLevel('rates', l, numOf(e.target.value))} />
-              </Field>
-            ))
-          ) : (
-            <p className="cmuted">Choose the university to see the levels it offers. A level with no rate is a Rate missing exception.</p>
-          )}
-        </div>
-        {levels.length > 0 && (
-          <>
-            <p className="cform__sec">Fixed amount instead{cur ? ` (${cur})` : ''}, per level: when set, replaces the rate</p>
-            <div className="cform__levels">
-              {levels.map((l) => (
-                <Field key={l} id={`cut-fixed-${LEVELS.indexOf(l)}`} label={l} optional>
-                  <TextInput id={`cut-fixed-${LEVELS.indexOf(l)}`} inputMode="decimal" value={numText(v.fixed[l])} onChange={(e) => setLevel('fixed', l, numOf(e.target.value))} />
-                </Field>
-              ))}
+        {levels.length ? (
+          <div className="clevels" role="group" aria-label="Rates by program level">
+            <div className="clevels__head" aria-hidden="true">
+              <span>Program level</span>
+              <span>Rate (%)</span>
+              <span>Or a fixed amount{cur ? ` (${cur})` : ''}</span>
             </div>
-          </>
+            {levels.map((l) => (
+              <div key={l} className="clevels__row">
+                <span className="clevels__name">{l}</span>
+                <TextInput id={`cut-rate-${LEVELS.indexOf(l)}`} aria-label={`${l}: rate (%)`} inputMode="decimal" value={numText(v.rates[l])} invalid={!!show('rates')} onChange={(e) => setLevel('rates', l, numOf(e.target.value))} />
+                <TextInput id={`cut-fixed-${LEVELS.indexOf(l)}`} aria-label={`${l}: fixed amount`} inputMode="decimal" value={numText(v.fixed[l])} onChange={(e) => setLevel('fixed', l, numOf(e.target.value))} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="cmuted cform__wide">Choose the university to see the program levels it offers.</p>
         )}
-        <RuleRows id="cut-rows" label="Rate rows" hint={RATE_ROW_HINT} value={txt.rows} onChange={upText('rows')} error={show('rows')} />
-        <Field id="cut-basis" label="Fee basis" required>
+        <Field id="cut-basis" label="Rates are on" required>
           <SelectInput id="cut-basis" value={v.feeBasis} onChange={(e) => set({ feeBasis: e.target.value as TermsDraft['feeBasis'] })}>
             {options(FEE_BASES)}
           </SelectInput>
         </Field>
+        <span aria-hidden="true" />
+        <div className="cform__wide">
+          <p className="cform__label">Rate rows</p>
+          <p className="cform__hint">A different rate for some students: a course, a campus, where they’re from or a study period. The most specific row that matches wins.</p>
+          <RateRowsEditor id="cut-rows" rows={v.rateRows} onChange={(rateRows) => set({ rateRows })} o={o} cur={cur} tried={tried} />
+        </div>
+
+        <FormSec title="How and when it pays" />
         <Field id="cut-unit" label="Commission is paid" required hint="Per year, semester, trimester or term; per unit of study (Admissions enters the units); or on each fee payment.">
           <SelectInput id="cut-unit" value={v.payUnit} onChange={(e) => set({ payUnit: e.target.value as PayUnit })}>
             {options(PAY_UNITS.map((x) => x.label))}
           </SelectInput>
         </Field>
+        <Field id="cut-trigger" label="Earned on" required error={show('trigger')} hint="When a study period’s commission is earned.">
+          <SelectInput id="cut-trigger" value={v.trigger} placeholder="Choose the trigger" invalid={!!show('trigger')} onChange={(e) => set({ trigger: e.target.value as Trigger })}>
+            {options(TRIGGER_LABELS)}
+          </SelectInput>
+        </Field>
+        {needWeeks && (
+          <Field id="cut-weeks" label="Weeks after the study period starts" optional error={show('weeks')} hint={`Empty: Settings’ ${s.settings.fallbackWeeks} weeks.`}>
+            <TextInput id="cut-weeks" inputMode="numeric" value={numText(v.triggerWeeks)} invalid={!!show('weeks')} onChange={(e) => set({ triggerWeeks: numOf(e.target.value) })} />
+          </Field>
+        )}
         <Field id="cut-charge" label="Chargeable for" required>
           <SelectInput id="cut-charge" value={v.charge.unit} onChange={(e) => set({ charge: { unit: e.target.value as ChargeUnit, n: v.charge.n } as Charge })}>
             {options(CHARGE_UNITS.map((x) => x.label))}
@@ -871,74 +856,42 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
             <TextInput id="cut-charge-n" inputMode="decimal" value={numText(v.charge.n)} invalid={!!show('charge')} onChange={(e) => set({ charge: { ...v.charge, n: numOf(e.target.value) } })} />
           </Field>
         )}
-        <Field id="cut-trigger" label="Trigger" required error={show('trigger')} hint="When a study period’s commission is earned.">
-          <SelectInput id="cut-trigger" value={v.trigger} placeholder="Choose the trigger" invalid={!!show('trigger')} onChange={(e) => set({ trigger: e.target.value as Trigger })}>
-            {options(TRIGGER_LABELS)}
-          </SelectInput>
-        </Field>
-        {needWeeks && (
-          <Field id="cut-weeks" label="Weeks after the study period starts" optional error={show('weeks')} hint={`Empty: Settings’ ${s.settings.fallbackWeeks} weeks.`}>
-            <TextInput id="cut-weeks" inputMode="numeric" value={numText(v.triggerWeeks)} invalid={!!show('weeks')} onChange={(e) => set({ triggerWeeks: numOf(e.target.value) })} />
-          </Field>
-        )}
         <Field id="cut-pay" label="Pay within (days)" required error={show('payDays')} hint="Days after GSP’s invoice.">
           <TextInput id="cut-pay" inputMode="numeric" value={numText(v.payDays)} invalid={!!show('payDays')} onChange={(e) => set({ payDays: numOf(e.target.value) })} />
         </Field>
         <Field id="cut-cap" label={`First-year cap per student${cur ? ` (${cur})` : ''}`} optional hint="The most course commission and Tier bonus per student in the first year. Additional commission isn’t capped.">
           <TextInput id="cut-cap" inputMode="decimal" value={numText(v.cap)} onChange={(e) => set({ cap: numOf(e.target.value) })} />
         </Field>
-        <p className="cform__sec">Tier</p>
-        <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide" hint="Enrolments with this university, counted per its year. A band above the student’s rate adds a Tier bonus line, which is GSP’s alone: RPs are paid on the base rate. A group’s tier, when the university is in one, wins when higher.">
+
+        <FormSec title="Tier" note="A higher rate once GSP enrols more students with this university. The part above the student’s rate is its own Tier bonus line, GSP’s alone: RPs are paid on the base rate. A group’s tier, when the university is in one, wins when higher." />
+        <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide">
           <BandsEditor id="cut-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
         </Field>
-        <TierOptions idp="cut" v={v} set={tier} />
-        <RuleRows id="cut-bb" label="Band bonuses" hint={BAND_BONUS_HINT} value={txt.bandBonuses} onChange={upText('bandBonuses')} error={show('bandBonuses')} />
-        <RuleRows id="cut-promos" label="Promotions" hint={PROMO_HINT} value={txt.promos} onChange={upText('promos')} error={show('promos')} />
-        <p className="cform__sec">Additional commission</p>
-        <div className="cform__list">
-          {v.addl.map((a, i) => (
-            <div key={a.id} className="cform__list">
-              <div className="cform__row">
-                <TextInput id={`cut-ad-d-${i}`} aria-label={`Additional commission ${i + 1}: description`} placeholder="Like: Service fee" value={a.desc} onChange={(e) => upAddl(i, { desc: e.target.value })} />
-                <SelectInput id={`cut-ad-k-${i}`} aria-label={`Additional commission ${i + 1}: amount or %`} value={a.kind} onChange={(e) => upAddl(i, { kind: e.target.value as Addl['kind'] })}>
-                  {options(ADDL_KINDS)}
-                </SelectInput>
-                <TextInput id={`cut-ad-v-${i}`} aria-label={`Additional commission ${i + 1}: ${a.kind === '%' ? 'percent' : `amount in ${cur}`}`} inputMode="decimal" value={numText(a.value)} onChange={(e) => upAddl(i, { value: numOf(e.target.value) ?? NaN })} />
-                <SelectInput id={`cut-ad-w-${i}`} aria-label={`Additional commission ${i + 1}: when`} value={a.when} onChange={(e) => upAddl(i, { when: e.target.value as Addl['when'] })}>
-                  {options(ADDL_WHEN)}
-                </SelectInput>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label={`Remove additional commission ${i + 1}`}
-                  onClick={() => {
-                    set({ addl: v.addl.filter((_, j) => j !== i) });
-                    setConds((c) => c.filter((_, j) => j !== i));
-                  }}
-                >
-                  <Icon name="close" size={16} />
-                </button>
-              </div>
-              <TextInput id={`cut-ad-c-${i}`} aria-label={`Additional commission ${i + 1}: conditions`} placeholder="Conditions, if any: region=India; level=Master’s; from=2026-01-01" value={conds[i] ?? ''} onChange={(e) => setConds((c) => Object.assign([...c], { [i]: e.target.value }))} />
-            </div>
-          ))}
-          {show('addl') && <ErrorText id="cut-ad-err">{show('addl')}</ErrorText>}
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm iadd"
-            style={{ justifySelf: 'start' }}
-            onClick={() => {
-              set({ addl: [...v.addl, { id: `ad-${Date.now().toString(36)}-${++rid}`, desc: '', kind: ADDL_KINDS[0], value: NaN, when: ADDL_WHEN[0] }] });
-              setConds((c) => [...c, '']);
-            }}
-          >
-            <Icon name="plus" size={16} /> Add additional commission
-          </button>
+        {v.bands.length > 0 && <TierOptions idp="cut" v={v} set={tier} />}
+        {v.bands.length > 0 && (
+          <div className="cform__wide">
+            <p className="cform__label">Band bonuses</p>
+            <p className="cform__hint">A bonus per student once a band is reached.</p>
+            <BandBonusEditor id="cut-bb" items={v.bandBonuses} bands={v.bands.length} onChange={(bandBonuses) => set({ bandBonuses })} cur={cur} tried={tried} />
+          </div>
+        )}
+
+        <FormSec title="Promotions and additional commission" note="Promotions change or add to the rate for some students. Additional commission is paid on top, and RPs get their share of it." />
+        <div className="cform__wide">
+          <p className="cform__label">Promotions</p>
+          <PromosEditor id="cut-promos" items={v.promos} onChange={(promos) => set({ promos })} o={o} cur={cur} tried={tried} />
         </div>
-        <RuleRows id="cut-schemes" label="Bonus schemes (GSP’s own, never shared with RPs)" hint={SCHEME_HINT} value={txt.schemes} onChange={upText('schemes')} error={show('schemes')} />
-        <Field id="cut-contract" label="Contract" required error={show('contract')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Shown to preview on the university’s Commission tab. Its dates come from the institution partner’s agreement.`} className="iform__wide">
-          <FilePick id="cut-contract" value={v.contract} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('contract')} onTooBig={setBig} onChange={(contract) => set({ contract })} />
-        </Field>
+        <div className="cform__wide">
+          <p className="cform__label">Additional commission</p>
+          <AddlEditor id="cut-addl" items={v.addl} onChange={(addl) => set({ addl })} o={o} cur={cur} tried={tried} />
+        </div>
+
+        <FormSec title="GSP’s own bonus schemes" note="Bonuses the university pays GSP for volume. Never shared with RPs." />
+        <div className="cform__wide">
+          <SchemesEditor id="cut-schemes" items={v.bonus} onChange={(bonus) => set({ bonus })} o={o} cur={cur} tried={tried} countedLabel={v.countedPer} />
+        </div>
+
+        <FormSec title="Notes" />
         <Field id="cut-notes" label="Notes" optional className="iform__wide" hint="Shown on the university’s Commission tab.">
           <Area id="cut-notes" value={v.notes} onChange={(notes) => set({ notes })} />
         </Field>
@@ -957,51 +910,63 @@ const blankGroup = (): GroupDraft => ({ id: '', name: '', members: [], bands: []
 export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean; edit: UniGroup | null; me: string; onClose: () => void; onSaved: (name: string) => void }) {
   const s = useComm();
   const [v, setV] = useState<GroupDraft>(blankGroup);
-  const [txt, setTxt] = useState({ schemes: '', bandBonuses: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
     const d = edit ? { ...blankGroup(), ...edit } : blankGroup();
     setV(d);
-    setTxt({ schemes: schemesText(d.bonus), bandBonuses: bandBonusesText(d.bandBonuses) });
     setTried(false);
   }, [open, edit]);
   const set = (p: Partial<GroupDraft>) => setV((x) => ({ ...x, ...p }));
   const unis = ctxUnis();
   const taken = new Set(s.groups.filter((g) => g.id !== v.id).flatMap((g) => g.members));
   const free = unis.filter((u) => !taken.has(u.id));
-  const schemes = parseSchemes(txt.schemes, v.bonus.map((b) => b.id));
-  const bandBon = parseBandBonuses(txt.bandBonuses);
+  const o = condOpts(v.members.length ? v.members : null, COMM_LEVELS, s.settings.regionGroups, todayIso());
+  const cur = (() => {
+    const cs = [...new Set(v.members.map((m) => s.terms.find((t) => t.uni === m)?.currency || CURRENCY[unis.find((u) => u.id === m)?.country as keyof typeof CURRENCY]).filter(Boolean))];
+    return cs.length === 1 ? cs[0]! : '';
+  })();
   const err = {
     name: !v.name.trim() ? 'Name the group.' : s.groups.some((g) => g.id !== v.id && g.name.trim().toLowerCase() === v.name.trim().toLowerCase()) ? 'There’s already a group with this name.' : null,
     members: v.members.length < 2 ? 'Choose at least two universities.' : null,
-    bands: v.bands.length ? bandsError(v.bands) : !schemes.ok.length ? 'Add tier bands or a bonus scheme.' : null,
-    bandBonuses: firstBad(bandBon),
-    schemes: firstBad(schemes),
+    bands: v.bands.length ? bandsError(v.bands) : !v.bonus.length ? 'Add tier bands or a bonus scheme.' : null,
+    bandBonuses: v.bandBonuses.map((b) => bandBonusBad(b, v.bands.length)).find(Boolean) ?? null,
+    schemes: v.bonus.map(schemeBad).find(Boolean) ?? null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const save = () => {
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
     const name = v.name.trim();
-    saveGroup({ ...v, name, id: v.id || newGroupId(), bonus: schemes.ok, bandBonuses: bandBon.ok }, me);
+    saveGroup({ ...v, name, id: v.id || newGroupId(), bonus: v.bonus.map((b) => ({ ...b, name: b.name.trim(), cond: cleanCond(b.cond) })) }, me);
     onSaved(name);
   };
   const label = (id: string) => unis.find((u) => u.id === id)?.name ?? id;
   return (
-    <FormSheet open={open} title={edit ? `Edit ${edit.name}` : 'Add Group'} onClose={onClose} onSave={save}>
+    <FormSheet open={open} title={edit ? `Edit ${edit.name}` : 'Add Group'} sub="Universities whose students count together for a tier or a bonus. Each member keeps its own terms." onClose={onClose} onSave={save}>
+      <FormSec title="The group" />
       <Field id="cgr-name" label="Name" required error={show('name')} className="iform__wide">
         <TextInput id="cgr-name" maxLength={80} value={v.name} invalid={!!show('name')} placeholder="Like: UK partner group" onChange={(e) => set({ name: e.target.value })} />
       </Field>
       <Field id="cgr-members" label="Universities" required error={show('members')} className="iform__wide" hint="Universities not in another group. Their own tier still applies; the group’s wins when higher.">
         <MultiPick id="cgr-members" label="Universities" value={v.members.map(label)} options={free.map((u) => u.name)} onChange={(x) => set({ members: x.map((n) => unis.find((u) => u.name === n)?.id ?? n) })} empty="Choose the universities" search />
       </Field>
-      <Field id="cgr-bands" label="Group tier bands" optional error={show('bands')} className="iform__wide" hint="Enrolments across the group, counted per its year.">
+      <FormSec title="Group tier" note="Enrolments across every member, counted per the group’s year. Wins over a member’s own tier when higher. A group needs a tier or a bonus scheme." />
+      <Field id="cgr-bands" label="Group tier bands" optional error={show('bands')} className="iform__wide">
         <BandsEditor id="cgr-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
       </Field>
-      <TierOptions idp="cgr" v={v} set={(p) => set(p as Partial<GroupDraft>)} />
-      <RuleRows id="cgr-bb" label="Band bonuses" hint={BAND_BONUS_HINT} value={txt.bandBonuses} onChange={(x) => setTxt((t) => ({ ...t, bandBonuses: x }))} error={show('bandBonuses')} />
-      <RuleRows id="cgr-schemes" label="Group bonus schemes (GSP’s own)" hint={SCHEME_HINT} value={txt.schemes} onChange={(x) => setTxt((t) => ({ ...t, schemes: x }))} error={show('schemes')} />
+      {v.bands.length > 0 && <TierOptions idp="cgr" v={v} set={(p) => set(p as Partial<GroupDraft>)} />}
+      {v.bands.length > 0 && (
+        <div className="cform__wide">
+          <p className="cform__label">Band bonuses</p>
+          <BandBonusEditor id="cgr-bb" items={v.bandBonuses} bands={v.bands.length} onChange={(bandBonuses) => set({ bandBonuses })} cur={cur} tried={tried} />
+        </div>
+      )}
+      <FormSec title="Group bonus schemes" note="GSP’s own, counted across every member. Never shared with RPs." />
+      <div className="cform__wide">
+        <SchemesEditor id="cgr-schemes" items={v.bonus} onChange={(bonus) => set({ bonus })} o={o} cur={cur} tried={tried} countedLabel={v.countedPer} />
+      </div>
+      <FormSec title="Notes" />
       <Field id="cgr-notes" label="Notes" optional className="iform__wide">
         <Area id="cgr-notes" value={v.notes} onChange={(notes) => set({ notes })} />
       </Field>
@@ -1019,15 +984,17 @@ const linesOf = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean
 export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me: string; onClose: () => void; onSaved: () => void }) {
   const s = useComm();
   const [v, setV] = useState<Settings>(s.settings);
-  const [t, setT] = useState({ gst: '', groups: '', docTypes: '', studentTypes: '', partReasons: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
+  const [gstRows, setGstRows] = useState<{ dest: string; pct: number | null }[]>([]);
+  const [grpRows, setGrpRows] = useState<{ name: string; countries: string[] }[]>([]);
+  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
     const x = s.settings;
     setV(x);
+    setGstRows(Object.entries(x.gst).map(([dest, pct]) => ({ dest, pct: pct ?? null })));
+    setGrpRows(Object.entries(x.regionGroups).map(([name, countries]) => ({ name, countries })));
     setT({
-      gst: Object.entries(x.gst).map(([k, n]) => `${k}: ${n}`).join('\n'),
-      groups: Object.entries(x.regionGroups).map(([k, c]) => `${k}: ${c.join(', ')}`).join('\n'),
       docTypes: x.docTypes.join('\n'),
       studentTypes: x.studentTypes.join('\n'),
       partReasons: x.partReasons.join('\n'),
@@ -1039,13 +1006,11 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (p: Partial<Settings>) => setV((x) => ({ ...x, ...p }));
   const up = (k: keyof typeof t) => (e: { target: { value: string } }) => setT((x) => ({ ...x, [k]: e.target.value }));
-  const gst = linesOf(t.gst).map((l) => /^([^:]+):\s*(\d+(?:\.\d+)?)$/.exec(l));
-  const groups = linesOf(t.groups).map((l) => /^([^:]+):(.+)$/.exec(l));
   const days = (x: string) => daysOf(x).every((n) => Number.isInteger(n) && n >= 0 && n <= 120);
   const err = {
     weeks: !wholeIn(v.fallbackWeeks, 0, 52) ? 'A whole number of weeks, 0 to 52.' : null,
-    gst: gst.some((m) => !m || !(DESTINATIONS as readonly string[]).includes(m[1].trim())) ? `One a line, like Australia: 10. Destinations: ${DESTINATIONS.join(', ')}.` : null,
-    groups: groups.some((m) => !m) ? 'One a line, like South Asia: India, Nepal, Sri Lanka.' : null,
+    gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
+    groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
     annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
     lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length ? 'Keep at least one in each list.' : null,
     days: ![t.rpInvoice, t.uniPayment, t.rpPayment].every(days) ? 'Days, like 0, 7, 14.' : null,
@@ -1058,8 +1023,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       {
         ...v,
         annuity: { rule: v.annuity.rule, pct: v.annuity.rule === 'Flat %' ? v.annuity.pct : null },
-        gst: Object.fromEntries(gst.map((m) => [m![1].trim(), Number(m![2])])),
-        regionGroups: Object.fromEntries(groups.map((m) => [m![1].trim(), m![2].split(',').map((x) => x.trim()).filter(Boolean)])),
+        gst: Object.fromEntries(gstRows.map((g) => [g.dest, g.pct!])),
+        regionGroups: Object.fromEntries(grpRows.map((g) => [g.name.trim(), g.countries])),
         docTypes: linesOf(t.docTypes),
         studentTypes: linesOf(t.studentTypes),
         partReasons: linesOf(t.partReasons),
@@ -1077,6 +1042,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   );
   return (
     <FormSheet open={open} title="Edit Commission settings" sub="Lines not yet invoiced follow the new settings; kept lines don’t change." onClose={onClose} onSave={save}>
+      <FormSec title="Counting and dates" />
       <Field id="cst-fy" label="Financial year starts in" required>
         <SelectInput id="cst-fy" value={String(v.fyStart)} onChange={(e) => set({ fyStart: Number(e.target.value) })}>
           {MONTH_NAMES.map((m, i) => (
@@ -1089,6 +1055,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <Field id="cst-weeks" label="Census fallback (weeks)" required error={show('weeks')} hint="When an application has no census date: the study period’s start plus these weeks, shown as an estimated date.">
         <TextInput id="cst-weeks" inputMode="numeric" value={numText(v.fallbackWeeks)} invalid={!!show('weeks')} onChange={(e) => set({ fallbackWeeks: numOf(e.target.value) ?? NaN })} />
       </Field>
+      <FormSec title="RPs" note="The defaults for every RP; an RP’s record can change them." />
       <Field id="cst-ann" label="RP share after year 1" required hint="Unless the RP’s record has its own.">
         <SelectInput id="cst-ann" value={v.annuity.rule} onChange={(e) => set({ annuity: { ...v.annuity, rule: e.target.value as Settings['annuity']['rule'] } })}>
           {options(ANNUITY_RULES)}
@@ -1100,12 +1067,42 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
         </Field>
       )}
       <RpViewFields idp="cst" v={v.rpView} set={(rpView) => set({ rpView })} hint="For a new RP’s record; each RP’s record can change it." />
-      <Field id="cst-gst" label="GST on GSP’s invoices to universities" optional error={show('gst')} className="iform__wide" hint="One a line, destination: % (like Australia: 10). Nowhere else.">
-        {area('cst-gst', 'gst')}
-      </Field>
-      <Field id="cst-groups" label="Region groups" optional error={show('groups')} className="iform__wide" hint="One a line, name: countries. Rate rows, promotions, bonuses and notices can name a group.">
-        {area('cst-groups', 'groups')}
-      </Field>
+      <FormSec title="Invoices and regions" />
+      <div className="cform__wide">
+        <p className="cform__label">GST on GSP’s invoices to universities</p>
+        <p className="cform__hint">By destination. Nowhere else.</p>
+        <RuleList id="cst-gst" empty="No GST anywhere." add="Add destination" onAdd={() => setGstRows((x) => [...x, { dest: '', pct: null }])} error={show('gst')}>
+          {gstRows.map((g, i) => (
+            <RuleCard key={i} title={g.dest || `Destination ${i + 1}`} removeLabel={`Remove GST ${i + 1}`} onRemove={() => setGstRows((x) => x.filter((_, j) => j !== i))}>
+              <Field id={`cst-gst-d-${i}`} label="Destination" required>
+                <SelectInput id={`cst-gst-d-${i}`} value={g.dest} placeholder="Choose" onChange={(e) => setGstRows((x) => x.map((y, j) => (j === i ? { ...y, dest: e.target.value } : y)))}>
+                  {options(DESTINATIONS)}
+                </SelectInput>
+              </Field>
+              <Field id={`cst-gst-p-${i}`} label="GST (%)" required>
+                <TextInput id={`cst-gst-p-${i}`} inputMode="decimal" value={numText(g.pct)} onChange={(e) => setGstRows((x) => x.map((y, j) => (j === i ? { ...y, pct: numOf(e.target.value) } : y)))} />
+              </Field>
+            </RuleCard>
+          ))}
+        </RuleList>
+      </div>
+      <div className="cform__wide">
+        <p className="cform__label">Region groups</p>
+        <p className="cform__hint">A name for several countries, like SEA. Rate rows, promotions, bonuses and notices can choose a group instead of one country.</p>
+        <RuleList id="cst-groups" empty="No region groups." add="Add region group" onAdd={() => setGrpRows((x) => [...x, { name: '', countries: [] }])} error={show('groups')}>
+          {grpRows.map((g, i) => (
+            <RuleCard key={i} title={g.name || `Region group ${i + 1}`} removeLabel={`Remove region group ${i + 1}`} onRemove={() => setGrpRows((x) => x.filter((_, j) => j !== i))}>
+              <Field id={`cst-grp-n-${i}`} label="Name" required>
+                <TextInput id={`cst-grp-n-${i}`} value={g.name} onChange={(e) => setGrpRows((x) => x.map((y, j) => (j === i ? { ...y, name: e.target.value } : y)))} />
+              </Field>
+              <Field id={`cst-grp-c-${i}`} label="Countries" required className="crule__wide">
+                <MultiPick id={`cst-grp-c-${i}`} label="Countries" value={g.countries} options={COUNTRIES.map((c) => c.name)} onChange={(countries) => setGrpRows((x) => x.map((y, j) => (j === i ? { ...y, countries } : y)))} empty="Choose the countries" search />
+              </Field>
+            </RuleCard>
+          ))}
+        </RuleList>
+      </div>
+      <FormSec title="Lists" note="The choices the commission forms offer." />
       <Field id="cst-doc" label="Notice document types" required error={show('lists')} hint="One a line.">
         {area('cst-doc', 'docTypes')}
       </Field>
@@ -1115,6 +1112,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <Field id="cst-part" label="Part payment reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Record payment offers when a university pays less.">
         {area('cst-part', 'partReasons')}
       </Field>
+      <FormSec title="Reminders" note="Days, separated by commas. Bell and email; no escalation." />
       <Field id="cst-r1" label="Remind the RP to invoice (days)" required error={show('days')} hint="After its invoice is asked for.">
         <TextInput id="cst-r1" value={t.rpInvoice} invalid={!!show('days')} onChange={up('rpInvoice')} />
       </Field>

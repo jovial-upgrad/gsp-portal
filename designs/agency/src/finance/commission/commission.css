@@ -30,7 +30,48 @@
 .cmuted { color: var(--text-3); }
 .camber { color: var(--warn-text, #8a5a00); }
 
-.cform__sec { grid-column: 1 / -1; margin: var(--sp-8) 0 0; padding-top: var(--sp-12); border-top: 1px solid var(--line); font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text); }
+.cform__sec { grid-column: 1 / -1; margin: var(--sp-12) 0 0; padding-top: var(--sp-16); border-top: 1px solid var(--line); display: grid; gap: var(--sp-4); }
+.iform__grid > .cform__sec:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.cform__sech { margin: 0; font-size: var(--t-body, 15px); font-weight: var(--fw-semi); color: var(--text); }
+.cform__secnote { margin: 0; color: var(--text-2); font-size: var(--t-label); line-height: var(--lh-label, 1.45); max-width: 62ch; }
+.cform__wide { grid-column: 1 / -1; display: grid; gap: var(--sp-6); min-width: 0; }
+.cform__label { margin: 0; font-size: var(--t-label); font-weight: var(--fw-medium, 500); color: var(--text); }
+.cform__wide > .cform__hint { margin: 0; }
+
+/* rates by program level: one row a level, rate and fixed amount side by side */
+.clevels { grid-column: 1 / -1; display: grid; gap: var(--sp-8); }
+.clevels__head, .clevels__row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-8) var(--sp-12); align-items: center; }
+.clevels__head { font-size: var(--t-caption); color: var(--text-3); }
+.clevels__name { font-size: var(--t-label); color: var(--text); }
+
+/* a rule: a card with its title, Remove, and fields that fold to one column */
+.crules { display: grid; gap: var(--sp-10); min-width: 0; }
+.crules__empty { margin: 0; font-size: var(--t-label); }
+.crule__add { justify-self: start; }
+.crule { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2, transparent); padding: var(--sp-12) var(--sp-14, 14px) var(--sp-14, 14px); display: grid; gap: var(--sp-10); min-width: 0; }
+.crule__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); }
+.crule__title { font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text); overflow-wrap: anywhere; }
+.crule__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: var(--sp-10) var(--sp-12); align-items: start; min-width: 0; }
+.crule__grid > * { min-width: 0; }
+.crule__wide { grid-column: 1 / -1; }
+/* conditions */
+.ccond { display: grid; gap: var(--sp-8); padding-top: var(--sp-8); border-top: 1px dashed var(--line); }
+.ccond__lead { font-size: var(--t-caption); color: var(--text-3); }
+.ccond__row { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) 40px; gap: var(--sp-8); align-items: center; }
+.ccond__label { font-size: var(--t-label); color: var(--text-2); }
+.ccond__add { max-width: 240px; }
+/* counts in a By count bonus */
+.ccount { display: grid; gap: var(--sp-8); }
+.ccount__row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 40px; gap: var(--sp-8); align-items: end; }
+@media (max-width: 700px) {
+  .clevels__head { display: none; }
+  .clevels__row { grid-template-columns: 1fr 1fr; }
+  .clevels__name { grid-column: 1 / -1; font-weight: var(--fw-semi); }
+  .ccond__row { grid-template-columns: minmax(0, 1fr) 40px; }
+  .ccond__label { grid-column: 1 / -1; }
+  .ccount__row { grid-template-columns: 1fr 1fr; }
+  .ccount__x { grid-column: 2; justify-self: end; }
+}
 .cform__list { grid-column: 1 / -1; display: grid; gap: var(--sp-8); }
 .cform__row { display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr 40px; gap: var(--sp-8); align-items: end; }
 .cform__row--bonus { grid-template-columns: 2fr 1fr 1fr 1fr 40px; }

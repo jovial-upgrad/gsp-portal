@@ -90,7 +90,12 @@ const openApp = async (p, nav, id) => {
     await p.getByRole('button', { name: 'Add University terms' }).first().click();
     await wait(700);
     const form = await p.locator('body').innerText();
-    for (const f of ['Commission is paid', 'Chargeable for', 'Rate rows', 'Promotions', 'Band bonuses', 'Bonus schemes', 'Counted per source country', 'Levels in the tier']) ok(form.includes(f), `University terms form: ${f}`);
+    for (const f of ['Commission is paid', 'Chargeable for', 'Rate rows', 'Promotions', 'Additional commission', 'GSP’s own bonus schemes']) ok(form.includes(f), `University terms form: ${f}`);
+    ok((await p.locator('.sheet textarea').count()) === 1, 'University terms form: no typed rules, only the Notes box');
+    await p.getByRole('button', { name: 'Add band' }).first().click();
+    await wait(300);
+    const tierForm = await p.locator('body').innerText();
+    for (const f of ['Band bonuses', 'Counted per source country', 'Levels in the tier']) ok(tierForm.includes(f), `University terms form, with a band: ${f}`);
     await p.keyboard.press('Escape');
     await wait(300);
     await p.locator('main [role=tab]', { hasText: /^RP records/ }).click();

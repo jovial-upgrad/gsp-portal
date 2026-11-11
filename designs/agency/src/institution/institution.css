@@ -109,6 +109,9 @@
 .sheet.sheet--center.iform { width: min(680px, 100%); }
 .iform__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-16); }
 .iform__wide { grid-column: 1 / -1; }
+/* a long value (a picked list, a file name) never widens the form past the sheet */
+.iform__grid > * { min-width: 0; }
+.iform__grid .field { grid-template-columns: minmax(0, 1fr); }
 .control.iform__area { height: auto; align-items: stretch; }
 .control.iform__area .control__input { min-height: 84px; padding: var(--sp-10) var(--sp-14, 14px); font: inherit; font-size: var(--t-input); line-height: var(--lh-body); resize: vertical; }
 .ichecks { display: grid; gap: var(--sp-8); margin: 0; padding: 0; border: 0; min-width: 0; }
