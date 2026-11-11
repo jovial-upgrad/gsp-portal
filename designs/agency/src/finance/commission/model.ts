@@ -190,6 +190,8 @@ export type Notice = {
   regions?: string[];
   /** RPs taken off it, and the day (Jovial, 10 Nov, Q65): their enrolments before that day keep it. */
   removed: { rp: string; on: string }[];
+  /** RP Ops (BAP) issues a notice Finance created (Jovial, 11 Nov, Q107, R103): until then it applies to nobody and no RP sees it. */
+  issued?: Stamp | null;
   created: Stamp;
   updated: Stamp;
 };

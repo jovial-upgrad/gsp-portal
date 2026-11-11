@@ -97,7 +97,31 @@ export const sampleRecords = (): RpRecord[] => [
 
 /* ---------- notices ---------- */
 
-export const sampleNotices = (): Notice[] => [
+// Jovial, 11 Nov (Q107, R103): Finance (Lav) creates a notice and RP Ops (Garima, BAP) issues it; the seeded ones are issued
+const GARIMA = 'Garima Bhardwaj';
+const seededNotices = (): Notice[] => [
+  // saved by Finance on 10 Nov and not issued yet (R103): RP Ops' Notices and its T85 task show it
+  {
+    id: 'nt-nz-2027',
+    name: 'New Zealand bonus 2027',
+    doc: file('GSP-Notice-NZ-Bonus-2027.pdf', 296),
+    starts: '2027-01-01',
+    ends: '2027-12-31',
+    dests: ['New Zealand'],
+    unis: [],
+    levels: [],
+    docType: 'Notice',
+    benefit: 'Bonus per enrolment',
+    amount: 400,
+    share: null,
+    bands: [],
+    retro: false,
+    rps: ['rp-horizon'],
+    removed: [],
+    issued: null,
+    created: by(LAV, '2026-11-10'),
+    updated: by(LAV, '2026-11-10'),
+  },
   {
     id: 'nt-uk-2026',
     name: 'UK Promotion 2026',
@@ -254,6 +278,7 @@ export const sampleNotices = (): Notice[] => [
     updated: by(LAV, '2026-06-15'),
   },
 ];
+export const sampleNotices = (): Notice[] => seededNotices().map((n) => ({ ...n, issued: 'issued' in n ? n.issued : { by: GARIMA, at: n.created.at } }));
 
 /* ---------- university terms ---------- */
 

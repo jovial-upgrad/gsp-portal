@@ -189,6 +189,9 @@ function hitsFor(rule: TaskRule, rec: WorkRecords, regionOf: (country: string) =
     case 'T84':
       // a later study period waiting for Finance to confirm the student continues (D19): from its date
       return commWork(rec.comm).confirm.map((c) => ({ key: `${c.app}-${c.period}`, since: at(c.since), region: 'Global', ref: c.app, about: c.uni, vars: { student: c.student, period: String(c.period) } }));
+    case 'T85':
+      // a notice Finance saved that RP Ops hasn't issued (R103): from the day it was saved
+      return commWork(rec.comm).issue.map((n) => ({ key: n.id, since: at(n.since), region: 'Global', ref: n.name, about: n.name, vars: { notice: n.name } }));
     case 'T27':
       return rec.mails.filter((m) => m.folder === 'inbox' && categoryOf(m) === 'unlinked').map((m) => ({ key: m.id, since: m.at, region: 'Global', ref: m.subject, about: m.from.name, vars: {} }));
     default:

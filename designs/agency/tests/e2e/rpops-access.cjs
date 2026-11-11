@@ -25,7 +25,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
 
   const panelEdits = async () => (await p.locator('main [role=tabpanel] button:visible, main [role=tabpanel] label.btn:visible').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ')))).filter((l) => EDIT.test(l));
   const menu = (await p.locator('.shell__side nav button').allInnerTexts()).map((x) => x.trim());
-  ok(menu.join('|') === 'Home|Inbox|My work|Applications|Students|Course search|Recruitment partners|Master Partners|Institution partners', 'menu: ' + menu.join(', '));
+  ok(menu.join('|') === 'Home|Inbox|My work|Applications|Students|Course search|Recruitment partners|Master Partners|Institution partners|Notices', 'menu (Notices: 11 Nov, R103): ' + menu.join(', '));
 
   await nav('My work').click(); await wait(700);
   ok(await has(/Mark as completed|Assign/), 'My work: E');

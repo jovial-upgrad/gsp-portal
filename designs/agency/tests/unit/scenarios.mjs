@@ -118,7 +118,7 @@ try {
       tuitionPct: n.kind === 'tuitionPct' ? +n.flat : null,
       bands: bands(n.bands), retro: n.retro === 'yes', combine: COMBINE[n.combine ?? 'highest'],
       milestones: (n.milestones ?? []).map(([count, amount]) => ({ count, amount })),
-      rps: n.rps ?? [], regions: n.regions ?? (n.region ? [n.region] : []), removed: [], created: stamp, updated: stamp,
+      rps: n.rps ?? [], regions: n.regions ?? (n.region ? [n.region] : []), removed: [], issued: stamp, created: stamp, updated: stamp,
     }));
     const courses = new Map();
     const enrolments = Object.values(apps).map((a) => {

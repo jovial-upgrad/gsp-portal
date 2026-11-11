@@ -313,7 +313,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                       <td>{benefitText(n)}</td>
                       <td className="num">{n.rps.length || (n.regions ?? []).join(', ')}</td>
                       <td>
-                        <Pill tone={st === 'Active' ? 'ok' : st === 'Upcoming' ? 'uni' : 'grey'}>{st}</Pill>
+                        <Pill tone={!n.issued ? 'you' : st === 'Active' ? 'ok' : st === 'Upcoming' ? 'uni' : 'grey'}>{st}</Pill>
                       </td>
                       <td className="iw-acts">
                         <MoreMenu
@@ -566,8 +566,9 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
         me={me}
         onClose={() => setNtForm(null)}
         onSaved={(name) => {
+          const isNew = !ntForm?.id;
           setNtForm(null);
-          say(`${name} saved.`);
+          say(isNew ? `${name} saved. RP Ops issues it to the RPs next.` : `${name} saved.`);
         }}
       />
       <TermsForm

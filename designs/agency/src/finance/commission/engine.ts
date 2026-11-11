@@ -210,12 +210,14 @@ export function agreementOn(state: CommState, rp: string, day: string): Agreemen
 }
 /** Which band a count falls in. */
 export const bandFor = (bands: Band[], n: number) => bands.find((b) => n >= b.from && (b.to === null || n <= b.to)) ?? bands[bands.length - 1];
-export const noticeStatus = (n: Pick<Notice, 'starts' | 'ends'>, today: string) => (today < n.starts ? 'Upcoming' : today > n.ends ? 'Ended' : 'Active');
+export const noticeStatus = (n: Pick<Notice, 'starts' | 'ends' | 'issued'>, today: string) => (!n.issued ? 'Waiting for RP Ops to issue' : today < n.starts ? 'Upcoming' : today > n.ends ? 'Ended' : 'Active');
 /**
  * A notice covers an enrolment: one of its RPs (none listed: every RP in its sales regions), enrolled in its period (and
  * in one of its intake months, when it names some), and a course it applies to (empty: every course).
  */
 export const noticeCovers = (n: Notice, e: Enrolment, uni: CtxUni, level: Level, rp?: Pick<CtxRp, 'region'>, groups: Record<string, string[]> = {}) => {
+  // not issued by RP Ops yet (R103): it applies to nobody
+  if (!n.issued) return false;
   const listed = n.rps.length > 0;
   // an RP taken off a notice keeps it for enrolments before that day (Q65)
   const who = listed ? n.rps.includes(e.rp) || (n.removed ?? []).some((r) => r.rp === e.rp && e.enrolled < r.on) : !!rp && (n.regions ?? []).some((g) => g === rp.region || regionCovers({ regionGroups: groups }, g, rp.region));

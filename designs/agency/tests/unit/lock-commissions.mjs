@@ -132,6 +132,17 @@ try {
     ok('R106 once set against a payment it is Recovered', run(sP).byId.get(rec.id).status === 'Recovered');
   }
 
+  // R103 (Q107): Finance creates a notice, RP Ops (BAP) issues it; until then it applies to nobody
+  {
+    const waiting = s0.notices.find((n) => !n.issued);
+    ok('R103 a seeded notice waits for RP Ops to issue it', !!waiting && engine.noticeStatus(waiting, TODAY) === 'Waiting for RP Ops to issue');
+    ok('R103 a notice not issued makes no line', !r0.txs.some((t) => t.notice === waiting.id));
+    const issued = s0.notices.find((n) => n.issued && n.benefit === 'Bonus per enrolment' && n.rps.length);
+    const sN = { ...s0, notices: s0.notices.map((n) => (n.id === issued.id ? { ...n, issued: null } : n)) };
+    ok('R103 the same notice, not issued, stops applying', run(sN).txs.every((t) => t.notice !== issued.id) && r0.txs.some((t) => t.notice === issued.id));
+    ok('R103 RP Ops gets a task for it (T85)', store.commWork(s0, TODAY).issue.some((x) => x.id === waiting.id));
+  }
+
   // Q47 and Q54: reminders, sent back and approved
   const rq = { id: 'rq-t', rp: rp1.rp, txs: [rp1.id], date: '2026-11-01', by: 'Test', at: 4 };
   // this RP is shown every study period here, so the reminder is about lines it can see (Jovial, 11 Nov)
@@ -186,7 +197,7 @@ try {
   // Q64, Q65, Q67
   ok('Q45 the portal keeps no payment details', !('banks' in s0) && typeof seed.sampleBanks === 'undefined');
   ok('D8 no RP tax line', s0.records.every((r) => !('tax' in r)) && !('tax' in s0.settings));
-  const nt = s0.notices.find((n) => n.benefit === 'Bonus per enrolment' && n.rps.length);
+  const nt = s0.notices.find((n) => n.issued && n.benefit === 'Bonus per enrolment' && n.rps.length);
   const withNt = r0.txs.filter((t) => t.notice === nt.id);
   ok('Q67 a notice bonus is in its university’s currency', withNt.length > 0 && withNt.every((t) => t.currency === r0.byApp.get(t.app).uniItem.txs[0]?.currency), withNt.map((t) => t.currency).join());
   const rpOff = withNt[0].rp;

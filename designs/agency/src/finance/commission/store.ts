@@ -169,6 +169,14 @@ export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'ownF
 }
 
 export const newNoticeId = () => id('nt');
+/** RP Ops (BAP) issues a notice Finance created (R103): from now it applies and the RPs it's for see it. */
+export function issueNotice(nid: string, by: string) {
+  setComm((s) => {
+    const n = s.notices.find((x) => x.id === nid);
+    if (!n || n.issued) return s;
+    return withLog({ ...s, notices: s.notices.map((x) => (x.id === nid ? { ...x, issued: stamp(by) } : x)) }, log('notices', by, `${by} issued notice ${n.name}`));
+  });
+}
 export function saveNotice(nt: Omit<Notice, 'created' | 'updated'>, by: string) {
   setComm((s) => {
     const was = s.notices.find((x) => x.id === nt.id);
@@ -176,7 +184,8 @@ export function saveNotice(nt: Omit<Notice, 'created' | 'updated'>, by: string) 
     const on = todayIso();
     const off = was ? was.rps.filter((r) => !nt.rps.includes(r)) : [];
     const removed = [...(was?.removed ?? nt.removed ?? []).filter((r) => !nt.rps.includes(r.rp) && !off.includes(r.rp)), ...off.map((rp) => ({ rp, on }))];
-    const next: Notice = was ? { ...was, ...nt, removed, updated: stamp(by) } : { ...nt, removed: [], created: stamp(by), updated: stamp(by) };
+    // a new notice waits for RP Ops (BAP) to issue it (R103); an edit keeps whether it's issued
+    const next: Notice = was ? { ...was, ...nt, removed, issued: was.issued, updated: stamp(by) } : { ...nt, removed: [], issued: null, created: stamp(by), updated: stamp(by) };
     return withLog({ ...s, notices: was ? s.notices.map((x) => (x.id === nt.id ? next : x)) : [...s.notices, next] }, log('notices', by, `${by} saved notice ${nt.name}: ${benefitText(nt)}, ${nt.rps.length} ${nt.rps.length === 1 ? 'RP' : 'RPs'}`));
   });
 }
@@ -298,7 +307,9 @@ export function commWork(s: CommState = state, today = todayIso()) {
   for (const t of res.txs)
     if (t.side === 'uni' && t.toConfirm && t.period && t.trigger && t.trigger <= today && t.status !== 'Not payable' && !confirm.some((c) => c.app === t.app && c.period === t.period))
       confirm.push({ app: t.app, period: t.period, student: t.student, uni: t.uniName, since: t.trigger, tx: t.id });
-  return { exceptions, periods: [...periods.values()], confirm };
+  // T85 (R103): notices Finance created that RP Ops hasn't issued yet
+  const issue = s.notices.filter((n) => !n.issued).map((n) => ({ id: n.id, name: n.name, since: new Date(n.created.at).toISOString().slice(0, 10) }));
+  return { exceptions, periods: [...periods.values()], confirm, issue };
 }
 /** Finance confirmed students continue, so their later study periods can be invoiced (D19). */
 export function confirmContinuing(items: { app: string; period: number }[], by: string) {
