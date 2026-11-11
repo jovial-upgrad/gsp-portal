@@ -181,7 +181,7 @@ function ItemCard({ item, rp, rpView }: { item: Item; rp?: boolean; rpView?: boo
         <>
           <dl className="citem__sum">
             <div>
-              <dt>{item.side === 'uni' ? 'Total expected' : 'Total the RP earns'}</dt>
+              <dt>{item.side === 'uni' ? 'Total expected' : rpView ? 'Total you earn' : 'Total the RP earns'}</dt>
               <dd className="num">{totalsText(item.totals)}</dd>
             </div>
             <div>
@@ -196,13 +196,39 @@ function ItemCard({ item, rp, rpView }: { item: Item; rp?: boolean; rpView?: boo
   );
 }
 
-/** GSP's views of an application: the terms in force, where it stands in its tiers, bonus progress, and its exceptions. */
-function Standing({ lines }: { lines: AppLines }) {
+/**
+ * This application's terms, at the top of its Commission tab (Deepesh, 10 Nov): the fee, how the university pays, what
+ * it pays GSP and what the RP gets, so each line below reads as simple arithmetic. The RP sees its fee, how it's paid
+ * and its own terms, never GSP's rate (9 Nov).
+ */
+function AppTerms({ lines, rpOnly }: { lines: AppLines; rpOnly?: boolean }) {
+  const m = lines.summary;
+  const cur = m.currency;
+  if (m.fee === undefined) return null;
+  const fee = `${money(m.fee, cur)} a year${m.scholarship ? `, less a ${money(m.scholarship, cur)} scholarship` : ''}`;
+  const paid = `${m.payUnit === 'Year' ? 'Once a year' : `Each ${m.payUnit?.toLowerCase()}`}, for ${m.chargeable?.toLowerCase()}${m.periods ? ` (${m.periods} ${m.periods === 1 ? 'payment' : 'payments'} on this student)` : ''}`;
   return (
-    <Section title="Terms and standing" id="capp-standing" note="GSP’s view only. The RP never sees this.">
+    <Section title="This application’s terms" id="capp-terms" note={rpOnly ? 'What your commission on this student is worked out from.' : 'What every line below is worked out from. The RP sees the fee, how it’s paid and its own terms, never GSP’s rate.'}>
       <Facts
         items={[
-          ['Terms in force', lines.terms ?? 'None'],
+          ['Final tuition fee', fee],
+          ['Commission is paid', paid],
+          ...(rpOnly ? [] : ([['Earned on', m.trigger ?? '—'], ['University pays GSP', m.uniRate ? `${m.uniRate}${m.uniRateWhy ? ` (${m.uniRateWhy})` : ''}` : '—']] as [string, string][])),
+          [rpOnly ? 'Your terms' : 'GSP pays the RP', rpOnly ? [m.rpTerms, m.rpShare?.replace('GSP’s base commission', 'GSP’s commission'), m.rpLater].filter(Boolean).join('; ') || '—' : m.rpShare ? `${m.rpShare} (${m.rpShareWhy})${m.rpLater ? `; ${m.rpLater}` : ''}` : '—', 'wide'],
+          ...(rpOnly ? [] : ([['Terms in force', lines.terms ?? 'None', 'wide']] as [string, string, 'wide'][])),
+        ]}
+      />
+    </Section>
+  );
+}
+
+/** GSP's views of an application: where it stands in its tiers, bonus progress, and its exceptions. */
+function Standing({ lines }: { lines: AppLines }) {
+  if (!lines.exceptions.length && !lines.tiers.length && !lines.progress.length) return null;
+  return (
+    <Section title="Tiers and exceptions" id="capp-standing" note="GSP’s view only. The RP never sees this.">
+      <Facts
+        items={[
           ['Exceptions', lines.exceptions.length ? lines.exceptions.map((x) => `${x.type}: ${x.text}`).join('; ') : 'None', 'wide'],
         ]}
       />
@@ -260,6 +286,7 @@ export function AppCommissionTab({ a, s, rpOnly }: { a: Application; s: Student;
     );
   return (
     <>
+      <AppTerms lines={lines} rpOnly={rpOnly} />
       {!rpOnly && <Standing lines={lines} />}
       {!rpOnly && <ItemCard item={lines.uniItem} />}
       <ItemCard item={rpOnly ? shownToRp(lines.rpItem) : lines.rpItem} rp rpView={rpOnly} />

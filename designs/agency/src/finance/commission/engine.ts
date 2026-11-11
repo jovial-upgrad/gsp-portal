@@ -153,6 +153,29 @@ export type AppLines = {
   tiers: Standing[];
   progress: Progress[];
   exceptions: Exc[];
+  /** This application's terms in a few fields, for the top of its Commission tab (Deepesh, 10 Nov). */
+  summary: AppSummary;
+};
+/**
+ * The terms behind an application's lines, as the engine used them: the fee, how the university pays, its rate on the
+ * first study period (and the tier above it), and the RP's share of GSP's base lines. GSP's rate and amounts are GSP's
+ * only; the RP is shown its fee, periods and its own terms (`rpTerms`).
+ */
+export type AppSummary = {
+  currency: string;
+  fee?: number;
+  scholarship?: number;
+  feeBasis?: string;
+  payUnit?: string;
+  chargeable?: string;
+  trigger?: string;
+  periods?: number;
+  uniRate?: string;
+  uniRateWhy?: string;
+  rpShare?: string;
+  rpShareWhy?: string;
+  rpTerms?: string;
+  rpLater?: string;
 };
 export type Result = {
   txs: Tx[];
@@ -449,6 +472,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     // the higher of the university's and its group's tier counts (the sandbox's rule: they don't stack)
     const tier = [...tiers].sort((a, b) => b.pct - a.pct)[0];
     const progress: Progress[] = [];
+    const summary: AppSummary = { currency: cur };
     const version = T && tr ? (tr.earlier.length && T !== (tr as TermsBody) ? `Terms before ${dayText([...tr.earlier].sort((a, b) => a.until.localeCompare(b.until)).find((x) => startOf(e) < x.until)!.until)}` : `Terms ${tr.earlier.length ? `from ${dayText([...tr.earlier].sort((a, b) => b.until.localeCompare(a.until))[0].until)}` : `saved ${dayText(new Date(tr.updated.at).toISOString().slice(0, 10))}`}`) : undefined;
     if (!T) uniNote = `No commission terms for ${u.name} yet.`;
     else if (p.missing.length) uniNote = `Waiting for Admissions to add the ${p.missing.join(', ')} on the application.`;
@@ -456,6 +480,15 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const f = e.fees!;
       const net = (gross: number) => (T.feeBasis === 'Tuition before scholarship' ? gross : gross - (f.scholarship ?? 0));
       const fyFee = round2(net(f.tuition ?? 0), cur);
+      Object.assign(summary, {
+        fee: f.tuition ?? 0,
+        scholarship: f.scholarship ?? 0,
+        feeBasis: T.feeBasis,
+        payUnit: T.payUnit,
+        chargeable: T.charge?.unit === 'Whole course' || !T.charge ? 'The whole course' : T.charge.unit === 'Fees up to' ? `Fees up to ${money(T.charge.n ?? 0, cur)}` : `${T.charge.n ?? 1} ${(T.charge.n ?? 1) === 1 ? T.charge.unit.toLowerCase().replace(/s$/, '') : T.charge.unit.toLowerCase()}`,
+        trigger: T.trigger === 'Withdrawal deadline' ? `Withdrawal deadline (${T.triggerWeeks ?? S.fallbackWeeks} weeks after the start)` : T.trigger,
+        periods: p.periods.length,
+      });
       const head: Step[] = [
         step('Terms', `${u.name}, in ${cur}. The terms in force on the intake start, ${dayText(startOf(e))}: ${version}.`),
         step('Fee basis', `${T.feeBasis === 'Tuition before scholarship' ? 'The tuition fee before the scholarship' : 'The tuition fee less the scholarship'}: ${money(f.tuition ?? 0, cur)}${f.scholarship ? ` (scholarship ${money(f.scholarship, cur)} a year)` : ''}, as Admissions entered it${f.feeBy ? ` (${f.feeBy.by}, ${dayText(new Date(f.feeBy.at).toISOString().slice(0, 10))})` : ''}.`),
@@ -511,6 +544,10 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         const tierUp = tierTp != null && rate != null && !replaced ? Math.max(0, tierTp - rate) : 0;
         const baseFee = round2(q.fee * q.frac, cur);
         const amount = fixed != null ? fixed : ((baseFee * (rate ?? 0)) / 100);
+        if (q.k === 1) {
+          summary.uniRate = fixed != null ? `${money(fixed, cur)} fixed` : `${pct(rate ?? 0)} of the ${T.feeBasis === 'Tuition before scholarship' ? 'gross' : 'net'} tuition fee${tierUp > 0 ? `, plus a ${pct(tierUp)} tier bonus` : ''}`;
+          summary.uniRateWhy = [row.src === 'level' ? 'rate by level' : 'rate row', ...(rate !== row.pct && fixed == null ? ['after promotions and tier'] : []), ...(tierUp > 0 && tier ? [`${tier.spec.name} band ${tier.bi + 1}`] : [])].join(', ');
+        }
         steps.push(step('Amount', fixed != null ? `Fixed ${money(fixed, cur)}${row.period ? ` for study period ${row.period}` : ', once per student, with the first period'}.` : `${q.feeWhy}${q.frac < 1 ? `, × ${Math.round(q.frac * 1000) / 10}% chargeable` : ''} = ${money(baseFee, cur)}. ${money(baseFee, cur)} × ${pct(rate ?? 0)} = ${money(round2(amount, cur), cur)}${q.estimateFee ? ' (an estimate: no fee for this year on the application yet)' : ''}.`));
         drafts.push({ slot: q.slot, type: 'Course commission', what: fixed != null ? `${q.label}: fixed ${money(fixed, cur)}` : `${q.label}: ${pct(rate ?? 0)} of ${money(baseFee, cur)}`, rpWhat: `${q.label} commission`, amount, trigger: q.date, estimated: q.estimated, period: q.k, year: q.y, trace: steps, credit });
         if (tierUp > 0) {
@@ -684,6 +721,10 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // after the first year (annuity): the RP's own %, else Settings' rule
       const ann = rec.annuityPct ?? (S.annuity?.rule === 'Flat %' ? S.annuity.pct ?? 0 : S.annuity?.rule === 'None' ? 0 : null);
       const agName = from ? `notice: ${from}` : own ? 'own flat share' : ag.name;
+      summary.rpShare = `${pct(share)} of GSP’s base commission`;
+      summary.rpShareWhy = own ? 'its own flat share' : from ? `notice ${from}` : A.shareType === 'Flat' ? `${ag.name}, flat` : `${ag.name}, band of enrolment ${n}${retroOn && reached > share ? ` (raised to ${pct(reached)} by the retrospective band)` : ''}`;
+      summary.rpTerms = from ? `Notice: ${from}` : own ? 'Own flat share' : A.shareType === 'Flat' ? ag.name : `${ag.name}, enrolment ${n} in ${windowWords(A.countedPer as never, A.yearStart ?? 1)}`;
+      summary.rpLater = ann != null ? `${pct(ann)} after year 1` : undefined;
       const tuitionBox = covering.some((nt) => nt.benefit === '% of tuition' && nt.combine === 'Separate box');
       const drafts: Draft[] = [];
       uniTxs.forEach((t0) => {
@@ -817,6 +858,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       tiers: tiers.map((t) => ({ who: t.spec.who, name: t.spec.name, rank: t.rank, total: t.total, band: t.bi + 1, pct: t.pct, window: t.key, retro: t.spec.retro, ends: t.end })),
       progress,
       exceptions: exc,
+      summary,
     });
   }
   return { txs: out, apps, byId: new Map(out.map((t) => [t.id, t])), byApp: new Map(apps.map((a) => [a.app, a])), needIds: [...new Set(needIds)].sort(), exceptions };

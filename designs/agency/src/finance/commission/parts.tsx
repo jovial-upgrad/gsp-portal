@@ -159,7 +159,7 @@ export function HowWorked({ steps, id }: { steps?: Step[]; id: string }) {
   if (!steps?.length) return null;
   return (
     <details className="chow" id={id}>
-      <summary>How it’s worked out</summary>
+      <summary>Every step</summary>
       <ol>
         {steps.map((x, i) => (
           <li key={i}>
@@ -186,7 +186,7 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
             <th scope="col">Transaction ID</th>
             {app && <th scope="col">Application</th>}
             <th scope="col">Type</th>
-            <th scope="col">What it’s for</th>
+            <th scope="col">{rpView ? 'What it’s for' : 'How it’s worked out'}</th>
             <th scope="col">Due</th>
             <th scope="col" className="ctab__num">
               <span className="cinfo">
