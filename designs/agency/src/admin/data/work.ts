@@ -200,11 +200,7 @@ export const sampleRules = (): TaskRule[] => [
   r('T27', 'Email', 'Email', 'Mail not linked', 'A mail to gsp.admissions@ can’t be linked to an application and isn’t forwarded (a student with no application yet, say)', 'Link this mail to an application', 'q-global-admissions', h(1), 'fewest', 'Linked, forwarded or marked Not needed'),
   // 9 Nov (Jovial, the PRD's Commissions tab): Commissions enters an RP's commission record and a university's terms
   r('T80', 'Commission', 'RP', 'Commission record', 'RP Ops accepts an RP’s first signed agreement', 'Enter commission details for {RP}', 'q-finance', d(2), 'fewest', 'The RP’s commission record is saved'),
+  // 11 Nov (Jovial): T80 and T81 are the only commission task rules; exceptions, tier periods, continuing students and
+  // notices to issue are worked from Commission lines and RP Ops › Notices, with no task
   r('T81', 'Commission', 'University', 'Commission terms', 'A university is added', 'Enter commission terms for {university}', 'q-finance', d(5), 'fewest', 'The university’s terms are saved'),
-  // 10 Nov (Jovial, the sandbox's Commissions calendar): Finance works exceptions, closes tier periods and confirms continuing students
-  r('T82', 'Commission', 'Application', 'Commission exception', 'A commission line can’t be priced safely (an exception: rate missing, contract ended, no RP terms…)', 'Work the {exception} exception on {app}', 'q-finance', d(2), 'fewest', 'The exception is cleared'),
-  r('T83', 'Commission', 'University', 'Tier period ended', 'A university’s or group’s tier counting period has ended', 'Close the {tier} tier period {window}', 'q-finance', d(5), 'fewest', 'Finance closes the period'),
-  // 11 Nov (Jovial, Q107): Finance (Lav) creates a notice; RP Ops (Garima, BAP) issues it to the RPs
-  r('T85', 'Commission', 'RP', 'Notice to issue', 'Finance saved a new notice', 'Issue the notice {notice}', 'q-rp-ops', d(1), 'fewest', 'RP Ops issues the notice'),
-  r('T84', 'Commission', 'Application', 'Continuing student', 'A later study period’s date has come and the student isn’t confirmed as continuing', 'Confirm {student} continues into study period {period}', 'q-finance', d(3), 'fewest', 'Finance confirms the student continues'),
 ];

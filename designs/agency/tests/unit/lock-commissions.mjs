@@ -140,7 +140,6 @@ try {
     const issued = s0.notices.find((n) => n.issued && n.benefit === 'Bonus per enrolment' && n.rps.length);
     const sN = { ...s0, notices: s0.notices.map((n) => (n.id === issued.id ? { ...n, issued: null } : n)) };
     ok('R103 the same notice, not issued, stops applying', run(sN).txs.every((t) => t.notice !== issued.id) && r0.txs.some((t) => t.notice === issued.id));
-    ok('R103 RP Ops gets a task for it (T85)', store.commWork(s0, TODAY).issue.some((x) => x.id === waiting.id));
   }
 
   // Q47 and Q54: reminders, sent back and approved

@@ -319,7 +319,7 @@ export function commWork(s: CommState = state, today = todayIso()) {
   for (const t of res.txs)
     if (t.side === 'uni' && t.toConfirm && t.period && t.trigger && t.trigger <= today && t.status !== 'Not payable' && !confirm.some((c) => c.app === t.app && c.period === t.period))
       confirm.push({ app: t.app, period: t.period, student: t.student, uni: t.uniName, since: t.trigger, tx: t.id });
-  // T85 (R103): notices Finance created that RP Ops hasn't issued yet
+  // notices Finance created that RP Ops hasn't issued yet (R103; shown on RP Ops › Notices, no task)
   const issue = s.notices.filter((n) => !n.issued).map((n) => ({ id: n.id, name: n.name, since: new Date(n.created.at).toISOString().slice(0, 10) }));
   return { exceptions, periods: [...periods.values()], confirm, issue };
 }

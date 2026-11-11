@@ -12,7 +12,7 @@ import { benefitText, dayText } from './model';
 /**
  * Notices, GSP · RP Ops (Jovial, 11 Nov, Q107, R103): Finance (Lav) creates a notice in Setup; RP Ops (Garima, BAP)
  * reads it, previews its document and issues it to the RPs it's for. Until then it applies to nobody and no RP sees it;
- * T85 puts it in RP Ops' My work. Issued ones stay listed, with who issued them and when.
+ * No task (Jovial, 11 Nov): RP Ops sees what's waiting here. Issued ones stay listed, with who issued them and when.
  */
 export function Notices({ me }: { me: string }) {
   const s = useComm();

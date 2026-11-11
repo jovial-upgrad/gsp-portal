@@ -103,7 +103,7 @@ export const sampleRecords = (): RpRecord[] => [
 // Jovial, 11 Nov (Q107, R103): Finance (Lav) creates a notice and RP Ops (Garima, BAP) issues it; the seeded ones are issued
 const GARIMA = 'Garima Bhardwaj';
 const seededNotices = (): Notice[] => [
-  // saved by Finance on 10 Nov and not issued yet (R103): RP Ops' Notices and its T85 task show it
+  // saved by Finance on 10 Nov and not issued yet (R103): RP Ops' Notices shows it waiting
   {
     id: 'nt-nz-2027',
     name: 'New Zealand bonus 2027',

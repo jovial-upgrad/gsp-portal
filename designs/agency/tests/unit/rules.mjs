@@ -12,7 +12,7 @@ const ok = (name, cond, more = '') => { cond ? pass++ : fail++; console.log(`${c
 try {
   const { sampleCfg } = await vite.ssrLoadModule('/src/admin/config/ConfigPage.tsx');
   const mw = await vite.ssrLoadModule('/src/admin/data/mywork.ts');
-  const KEPT = ['T5', 'T54', 'T16', 'T57', 'T20', 'T32', 'T69', 'T37', 'T38', 'T40', 'T41', 'T42', 'T27', 'T80', 'T81', 'T82', 'T83', 'T85', 'T84'];
+  const KEPT = ['T5', 'T54', 'T16', 'T57', 'T20', 'T32', 'T69', 'T37', 'T38', 'T40', 'T41', 'T42', 'T27', 'T80', 'T81'];
   const cfg = sampleCfg();
   ok('the task rules are exactly the kept ones', cfg.taskRules.map((r) => r.code).join() === KEPT.join(), cfg.taskRules.map((r) => r.code).join());
   ok('no kinds of work, reminders or requests in the settings', !('kinds' in cfg) && !('ladder' in cfg) && !('requests' in cfg));
@@ -44,10 +44,9 @@ try {
   const fin = await vite.ssrLoadModule('/src/finance/work/data.ts');
   // 9 Nov (Commissions): T80 and T81 send Finance a task for each accepted RP with no commission record, and each university with no terms
   const fts = fin.sampleIwTasks();
-  ok('Finance gets only commission tasks (T80–T84)', fts.length > 0 && fts.every((t) => ['T80', 'T81', 'T82', 'T83', 'T84'].includes(t.rule)), fts.map((t) => t.title).join('; '));
-  // 10 Nov: T82 per exception, T83 per ended tier period, T84 per student to confirm, each from the engine's own result
-  for (const r of ['T82', 'T83', 'T84']) ok(`${r} makes tasks from the records`, fts.some((t) => t.rule === r), r);
-  // 11 Nov (R103): RP Ops issues a notice Finance saved: T85, from the seeded notice not issued yet
+  ok('Finance gets only commission tasks (T80 and T81: Jovial, 11 Nov)', fts.length > 0 && fts.every((t) => ['T80', 'T81'].includes(t.rule)), fts.map((t) => t.title).join('; '));
+  // 11 Nov (Jovial): no T82 to T85: those are worked from Commission lines and RP Ops › Notices
+  ok('No task rule T82 to T85', !fts.some((t) => ['T82', 'T83', 'T84', 'T85'].includes(t.rule)));
   // 10 Nov (Q36): a task completed early doesn't come back for that record
   const one = again[0];
   const rerun = mw.runRules(cfg.taskRules, mw.sampleRecords(), cfg.queues, cfg.regions, cfg.users, cfg.calendars, Date.now(), new Set([one.id]));
