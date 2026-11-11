@@ -28,6 +28,8 @@ export const sampleSettings = (): Settings => ({
   gst: { Australia: 10 },
   regionGroups: { SEA: ['Vietnam', 'Malaysia', 'Indonesia', 'Thailand', 'Philippines', 'Singapore', 'Cambodia', 'Myanmar'], 'South Asia': ['India', 'Nepal', 'Bangladesh', 'Sri Lanka', 'Pakistan', 'Bhutan'] },
   annuity: { rule: 'Same as year 1', pct: null },
+  // Jovial, 11 Nov: by default an RP sees every kind of line, for its first study period only (the business, 11 Nov)
+  rpView: { kinds: ['Course commission', 'Tier top-up', 'Additional commission', 'Bonus'], periods: 'First study period only' },
   docTypes: ['Notice', 'Addendum', 'Flyer', 'Email'],
   studentTypes: ['New', 'Progression', 'Transfer'],
   // Jovial, 10 Nov (Q44): why a university paid less than a line

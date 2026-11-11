@@ -9,11 +9,16 @@ import { ErrorText, Facts, useAsk } from '../../institution/records/parts';
 import { CURRENCY } from '../../data/courses';
 import { todayIso } from '../../institution/data/records';
 import { BandsEditor, FilePick, bandsError, numOf, numText } from './parts';
-import { acceptedOn, acceptedRps, ctxRps, ctxUnis, levelsOf, newAgreementId, newGroupId, newNoticeId, saveAgreement, saveGroup, saveNotice, saveRecord, saveSettings, saveTerms, termsEffect, uniName, useComm } from './store';
+import { acceptedOn, acceptedRps, saveRpView, ctxRps, ctxUnis, levelsOf, newAgreementId, newGroupId, newNoticeId, saveAgreement, saveGroup, saveNotice, saveRecord, saveSettings, saveTerms, termsEffect, uniName, useComm } from './store';
 import { BAND_BONUS_HINT, PROMO_HINT, RATE_ROW_HINT, SCHEME_HINT, bandBonusesText, condLine, parseBandBonuses, parseCond, parsePromos, parseRateRows, parseSchemes, promosText, rateRowsText, schemesText } from './rules';
 import {
   AB_WHEN,
   ANNUITY_RULES,
+  RP_VIEW_KINDS,
+  RP_VIEW_PERIODS,
+  type RpView,
+  type RpViewKind,
+  type RpViewPeriods,
   ADDL_KINDS,
   CHARGE_UNITS,
   COMBINES,
@@ -260,6 +265,7 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
   const [from, setFrom] = useState('');
   const [own, setOwn] = useState<number | null>(null);
   const [ann, setAnn] = useState<number | null>(null);
+  const [view, setView] = useState<RpView>(s.settings.rpView);
   const [tried, setTried] = useState(false);
   const { ask, dialog } = useAsk();
   useEffect(() => {
@@ -270,6 +276,7 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
     setFrom(was?.from ?? (r ? acceptedOn(r) : ''));
     setOwn(was?.ownFlat ?? null);
     setAnn(was?.annuityPct ?? null);
+    setView(was?.view ?? s.settings.rpView);
     setTried(false);
   }, [open, editRp, preset]); // eslint-disable-line react-hooks/exhaustive-deps
   const pool = acceptedRps().filter((r) => !s.records.some((x) => x.rp === r.id));
@@ -279,7 +286,7 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const name = info?.name ?? '';
   const commit = () => {
-    saveRecord({ rp, agreement, from, ownFlat: own, annuityPct: ann }, me);
+    saveRecord({ rp, agreement, from, ownFlat: own, annuityPct: ann, view }, me);
     onSaved(rp);
   };
   const save = () => {
@@ -344,6 +351,7 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
         <Field id="crec-ann" label="Share after year 1 (%)" optional error={show('ann')} hint={`For later years of a course. Empty: Settings’ rule (${s.settings.annuity.rule}${s.settings.annuity.rule === 'Flat %' && s.settings.annuity.pct != null ? ` ${s.settings.annuity.pct}%` : ''}).`}>
           <TextInput id="crec-ann" inputMode="decimal" value={numText(ann)} invalid={!!show('ann')} onChange={(e) => setAnn(numOf(e.target.value))} />
         </Field>
+        <RpViewFields idp="crec" v={view} set={setView} hint="Starts as Settings’ default. GSP sees every line." />
         {info && (
           <div className="cform__ro">
             <Facts
@@ -358,6 +366,52 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
       </FormSheet>
       {dialog}
     </>
+  );
+}
+
+/* ---------- what the RP sees ---------- */
+
+/** What an RP is shown (Jovial, 11 Nov): the kinds of line and the study periods. A line it can't see stays GSP's. */
+export function RpViewFields({ idp, v, set, hint }: { idp: string; v: RpView; set: (v: RpView) => void; hint: string }) {
+  return (
+    <>
+      <Field id={`${idp}-sees`} label="What the RP sees" optional className="iform__wide" hint={`${hint} A line the RP can’t see is never shown to it, and asking for its invoice sends it nothing.`}>
+        <MultiPick id={`${idp}-sees`} label="What the RP sees" value={v.kinds} options={[...RP_VIEW_KINDS]} onChange={(x) => set({ ...v, kinds: RP_VIEW_KINDS.filter((k) => x.includes(k)) as RpViewKind[] })} empty="Nothing" />
+      </Field>
+      <Field id={`${idp}-periods`} label="Study periods the RP sees" required>
+        <SelectInput id={`${idp}-periods`} value={v.periods} onChange={(e) => set({ ...v, periods: e.target.value as RpViewPeriods })}>
+          {RP_VIEW_PERIODS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+    </>
+  );
+}
+
+/** Finance or RP Ops changes what one RP sees, from the RP's Commission tab. */
+export function RpViewForm({ open, rp, me, onClose, onSaved }: { open: boolean; rp: { id: string; name: string }; me: string; onClose: () => void; onSaved: () => void }) {
+  const s = useComm();
+  const rec = s.records.find((r) => r.rp === rp.id);
+  const [v, setV] = useState<RpView>(rec?.view ?? s.settings.rpView);
+  useEffect(() => {
+    if (open) setV(rec?.view ?? s.settings.rpView);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <FormSheet
+      open={open}
+      title={`What ${rp.name} sees`}
+      sub="Of its commission, on Earnings and its applications"
+      onClose={onClose}
+      onSave={() => {
+        saveRpView(rp.id, v, me);
+        onSaved();
+      }}
+    >
+      <RpViewFields idp="cview" v={v} set={setV} hint="GSP sees every line." />
+    </FormSheet>
   );
 }
 
@@ -1045,6 +1099,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
           <TextInput id="cst-annpct" inputMode="decimal" value={numText(v.annuity.pct)} invalid={!!show('annuity')} onChange={(e) => set({ annuity: { ...v.annuity, pct: numOf(e.target.value) } })} />
         </Field>
       )}
+      <RpViewFields idp="cst" v={v.rpView} set={(rpView) => set({ rpView })} hint="For a new RP’s record; each RP’s record can change it." />
       <Field id="cst-gst" label="GST on GSP’s invoices to universities" optional error={show('gst')} className="iform__wide" hint="One a line, destination: % (like Australia: 10). Nowhere else.">
         {area('cst-gst', 'gst')}
       </Field>

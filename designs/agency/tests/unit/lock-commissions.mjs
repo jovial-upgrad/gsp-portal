@@ -58,9 +58,29 @@ try {
   ok('Q44 the RP stays at its share of what came in', Math.abs(r2.byId.get(rpLine0.id).amount - rp1.amount) <= 0.01);
   ok('Q44 the reasons are a seeded setting', s0.settings.partReasons.length >= 5 && s0.settings.partReasons.includes('Part payment'));
 
+  // What the RP sees (Jovial, 11 Nov): by default the first study period only; a hidden line's request sends nothing
+  {
+    const later = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) > 1);
+    const first = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) === 1 && t.type === 'Course commission');
+    ok('View: by default the RP sees its first study period’s lines', !!first && first.rpSees === true, first ? `${first.id} ${first.rpSees}` : 'no line');
+    ok('View: by default a later study period’s line is not shown to the RP', !!later && later.rpSees === false, later ? `${later.id} ${later.rpSees}` : 'no line');
+    if (later) {
+      const sh = { ...s0, requests: [...s0.requests, { id: 'rq-h', rp: later.rp, txs: [later.id], date: '2026-11-01', by: 'Test', at: 4 }] };
+      const nh = engine.commNotes(sh, run(sh), (x) => x, TODAY);
+      ok('View: asking for a hidden line’s invoice sends the RP nothing (no N16, no reminder)', !nh.some((n) => n.id === 'n16-rq-h' || n.id.startsWith('n21-rq-h')));
+    }
+    const rec = s0.records.find((r) => r.rp === first?.rp);
+    const sv = { ...s0, records: s0.records.map((r) => (r === rec ? { ...r, view: { kinds: ['Additional commission'], periods: 'Every study period' } } : r)) };
+    const rv = run(sv);
+    ok('View: an RP’s own record can hide its course commission', rv.txs.filter((t) => t.side === 'rp' && t.rp === rec.rp && t.type === 'Course commission').every((t) => t.rpSees === false));
+    ok('View: the default is a setting', Array.isArray(s0.settings.rpView.kinds) && model.RP_VIEW_PERIODS.includes(s0.settings.rpView.periods));
+  }
+
   // Q47 and Q54: reminders, sent back and approved
   const rq = { id: 'rq-t', rp: rp1.rp, txs: [rp1.id], date: '2026-11-01', by: 'Test', at: 4 };
-  const s3 = { ...s1, requests: [...s1.requests, rq] };
+  // this RP is shown every study period here, so the reminder is about lines it can see (Jovial, 11 Nov)
+  const allView = { kinds: [...model.RP_VIEW_KINDS], periods: 'Every study period' };
+  const s3 = { ...s1, settings: { ...s1.settings, rpView: allView }, requests: [...s1.requests, rq] };
   const r3 = run(s3);
   const notes3 = engine.commNotes(s3, r3, (x) => x, TODAY);
   const n19 = notes3.filter((n) => n.id.startsWith('n21-rq-t'));

@@ -15,7 +15,7 @@ import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/recor
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
 import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
-import { benefitText, money, ratesText, shareText, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
+import { benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 
 /* ---------- the store ---------- */
@@ -149,7 +149,11 @@ export function retireAgreement(agId: string, by: string) {
   });
 }
 
-export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'ownFlat' | 'annuityPct'>, by: string) {
+/** What an RP is shown of its commission (Jovial, 11 Nov): Finance or RP Ops sets it on the RP's record; logged. */
+export function saveRpView(rp: string, view: RpView, by: string) {
+  setComm((s) => withLog({ ...s, records: s.records.map((x) => (x.rp === rp ? { ...x, view, updated: stamp(by) } : x)) }, log('rps', by, `${by} set what ${rpName(rp)} sees: ${rpViewText(view)}`, { rp })));
+}
+export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'ownFlat' | 'annuityPct' | 'view'>, by: string) {
   setComm((s) => {
     const was = s.records.find((x) => x.rp === r.rp);
     const ag = s.agreements.find((a) => a.id === r.agreement)!;

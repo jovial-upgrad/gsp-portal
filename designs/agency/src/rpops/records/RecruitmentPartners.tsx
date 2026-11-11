@@ -533,7 +533,7 @@ function RpPage({
         {tab === 'commission' && showCommission && (
           // 9 Nov (Jovial): the RP's commission record, read only; Commissions changes it in Setup
           <ViewOnlyProvider on={commissionView}>
-            <RpCommissionTab rp={r} />
+            <RpCommissionTab rp={r} me={me} />
           </ViewOnlyProvider>
         )}
         {tab === 'logs' && (

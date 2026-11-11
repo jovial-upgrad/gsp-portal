@@ -63,6 +63,8 @@ export type Feature =
   | 'rp.commission.view'
   // GSP · Finance: a Master Partner's commission terms to change inside a view-only page
   | 'mp.commission.edit'
+  // GSP · Finance and GSP · RP Ops (Jovial, 11 Nov): what an RP is shown of its commission, on its Commission tab
+  | 'rp.view.edit'
   // GSP · Institution Ops (6 Nov): no Students or Applications, so Course search has no student, shortlist or Apply
   | 'courses.students';
 type Access = { hide: ReadonlySet<Feature>; show: ReadonlySet<Feature> };

@@ -201,7 +201,7 @@ export function Portal({
   };
   /** What RP Ops leaves out of the pages it shares, and adds (6 Nov access sheet; src/proto/viewOnly.tsx). */
   const HIDE: Feature[] = ['courses.commission', 'app.mail', 'app.submission', 'app.base-commission'];
-  const SHOW: Feature[] = ['rp.commission'];
+  const SHOW: Feature[] = ['rp.commission', 'rp.view.edit'];
   /** Link an RP to a Master Partner, or unlink it (null): the RP's Logs and both Master Partners' Logs say so. */
   const link = (rpId: string, mpId: string | null) => {
     const r = rps.find((x) => x.id === rpId);

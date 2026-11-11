@@ -48,6 +48,8 @@ export type Settings = {
   regionGroups: Record<string, string[]>;
   /** The RP's share after the first year (annuity), unless its record has its own: the same as year 1, a flat %, or none. */
   annuity: { rule: AnnuityRule; pct: number | null };
+  /** What a new RP is shown of its commission until its record says otherwise (Jovial, 11 Nov). */
+  rpView: RpView;
   /** A notice's source document types. */
   docTypes: string[];
   /** Student types an Australian enrolment needs (new, progression, transfer). */
@@ -60,6 +62,19 @@ export type Settings = {
    */
   reminders: { rpInvoice: number[]; uniPayment: number[]; rpPayment: number[] };
 };
+/**
+ * What an RP is shown of its commission (Jovial, 11 Nov): which kinds of line, and which study periods. GSP sees every
+ * line. A line the RP can't see is never shown to it: asking for its invoice changes the line's status for Finance and
+ * sends nothing to the RP. Set per RP on its commission record (Finance or RP Ops); Settings holds the default.
+ * Promotions count as course commission; an Adjustment follows the line it adjusts.
+ */
+export const RP_VIEW_KINDS = ['Course commission', 'Tier top-up', 'Additional commission', 'Bonus'] as const;
+export type RpViewKind = (typeof RP_VIEW_KINDS)[number];
+export const RP_VIEW_PERIODS = ['First study period only', 'Every study period'] as const;
+export type RpViewPeriods = (typeof RP_VIEW_PERIODS)[number];
+export type RpView = { kinds: RpViewKind[]; periods: RpViewPeriods };
+/** In words, for a Commission tab and a log line. */
+export const rpViewText = (v: RpView) => `${v.kinds.length ? v.kinds.join(', ') : 'Nothing'}; ${v.periods === 'Every study period' ? 'every study period' : 'the first study period only'}`;
 export const ANNUITY_RULES = ['Same as year 1', 'Flat %', 'None'] as const;
 export type AnnuityRule = (typeof ANNUITY_RULES)[number];
 
@@ -120,7 +135,7 @@ export type Agreement = AgreementTerms & { id: string; name: string; status: Agr
  * flat share instead of the agreement's (the sandbox's "own flat %"); `annuityPct`: its own share after the first year.
  * No tax line (Jovial, 10 Nov, D8: Phase 2) and no payment details (Q45).
  */
-export type RpRecord = { rp: string; agreement: string; from: string; ownFlat?: number | null; annuityPct?: number | null; moves: { agreement: string; from: string }[]; created: Stamp; updated: Stamp };
+export type RpRecord = { rp: string; agreement: string; from: string; ownFlat?: number | null; annuityPct?: number | null; view?: RpView | null; moves: { agreement: string; from: string }[]; created: Stamp; updated: Stamp };
 
 /* ---------- notices ---------- */
 

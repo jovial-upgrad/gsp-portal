@@ -27,7 +27,7 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const s = useComm();
   const res = useLines(apps, students);
   const rp = ctxRps().find((r) => r.name === agency) ?? ctxRps().find((r) => r.name === HOME_RP)!;
-  const mine = useMemo(() => res.txs.filter((t) => t.side === 'rp' && t.rp === rp.id).sort((a, b) => b.due.localeCompare(a.due)), [res, rp.id]);
+  const mine = useMemo(() => res.txs.filter((t) => t.side === 'rp' && t.rp === rp.id && t.rpSees !== false).sort((a, b) => b.due.localeCompare(a.due)), [res, rp.id]);
   const [upload, setUpload] = useState(false);
   const [doc, setDoc] = useState<InvoiceDoc | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);

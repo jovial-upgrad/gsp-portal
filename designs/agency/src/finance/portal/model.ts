@@ -39,4 +39,4 @@ export const EDIT: Section[] = ['inbox', 'work', 'students', 'courses', 'lines',
 
 /** What Finance leaves out of the pages it shares, and what it adds (src/proto/viewOnly.tsx). */
 export const HIDE: Feature[] = ['app.chat', 'app.mail', 'app.documents', 'app.submission', 'courses.commission', 'student.documents.view', 'uni.qs', 'uni.scholarships', 'uni.territory', 'uni.submission'];
-export const SHOW: Feature[] = ['app.commission', 'rp.commission', 'mp.commission.edit'];
+export const SHOW: Feature[] = ['app.commission', 'rp.commission', 'mp.commission.edit', 'rp.view.edit'];

@@ -13,7 +13,7 @@
  *
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
-import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, Side, Step, TermsBody, TxStatus, TxType, UniGroup, UniStatus, UniTerms } from './model';
+import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniGroup, UniStatus, UniTerms } from './model';
 import { EXCEPTIONS, PAY_UNITS, SIDES, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 import { bandIndex, bonusAmount, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, unreadableRows, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
@@ -129,6 +129,8 @@ export type Tx = {
   short?: string;
   /** GSP → RP: the day GSP asked the RP for its invoice. */
   requested?: string;
+  /** GSP → RP: the RP is shown this line (its record's view, or Settings'; Jovial, 11 Nov). GSP sees every line. */
+  rpSees?: boolean;
 };
 export type Item = { app: string; side: Side; label: string; totals: Record<string, number>; settled: Record<string, number>; txs: Tx[]; note?: string };
 /** Where an application stands in a count: its tier (university or group), or a bonus scheme's progress. */
@@ -611,6 +613,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
 
     // GSP → RP
     const rec = state.records.find((x) => x.rp === e.rp);
+    const rpView = rec?.view ?? state.settings.rpView;
     const ag = agreementOn(state, e.rp, startOf(e));
     const rpDone = new Set<string>();
     let rpHold: string | undefined = rp?.status === 'Suspended' ? `${rp.name} is suspended: its commission is held until it’s reactivated (D23).` : undefined;
@@ -764,6 +767,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       t.invoice = inv?.file.name;
       t.rpInvoice = inv?.id ?? sentBack.get(t.id)?.id;
       t.requested = requestedOn.get(t.id);
+      t.rpSees = rpSees(rpView, t, rpTxs);
       const o = over.get(t.id);
       if (o && !fr?.final) Object.assign(t, { override: o, amount: !fr && o.amount != null ? o.amount : t.amount, due: o.due ?? t.due });
       if (rpHeld) t.heldWhy = rpHeld;
@@ -947,6 +951,19 @@ export const rpsWithoutRecord = <R extends { id: string }>(state: CommState, acc
 export const unisWithoutTerms = <U extends { id: string }>(state: CommState, unis: U[]) => unis.filter((u) => !state.terms.some((t) => t.uni === u.id));
 
 export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22' | 'N23' | 'N24' | 'N25'; title: string; text: string; at: number };
+/** Whether an RP is shown a line, by its view (Jovial, 11 Nov): its kind (a promotion is course commission; an adjustment
+ * is what it adjusts) and its study period. */
+export function rpSees(v: RpView, t: Pick<Tx, 'type' | 'adjusts' | 'period'>, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
+  let base: TxType = t.type;
+  let at: Pick<Tx, 'type' | 'adjusts'> | undefined = t;
+  for (let i = 0; at && at.type === 'Adjustment' && i < 5; i++) {
+    at = all.find((x) => x.id === at!.adjusts);
+    if (at) base = at.type;
+  }
+  const kind = base === 'Promotion' ? 'Course commission' : base;
+  if (!(v.kinds as readonly string[]).includes(kind)) return false;
+  return v.periods === 'Every study period' || (t.period ?? 1) <= 1;
+}
 const at9 = (d: string) => Date.parse(`${d}T09:00:00`);
 /**
  * The notifications the records make (bell and email): N16 to the RP when its invoice is asked for, N17 to Finance
@@ -959,8 +976,10 @@ const at9 = (d: string) => Date.parse(`${d}T09:00:00`);
 export function commNotes(state: CommState, res: Result, rpName: (id: string) => string, today = new Date().toISOString().slice(0, 10), unis: Pick<CtxUni, 'id' | 'name' | 'agreement'>[] = []): CommNote[] {
   const total = (ids: string[]) => totalsText(sumBy(ids.map((i) => res.byId.get(i)).filter((x): x is Tx => !!x)));
   const R = state.settings.reminders ?? { rpInvoice: [], uniPayment: [] };
+  // the RP hears only of lines it's shown (Jovial, 11 Nov): asking for a hidden line's invoice sends it nothing
+  const seen = (ids: string[]) => ids.filter((i) => res.byId.get(i)?.rpSees !== false);
   const rpReminders = state.requests.flatMap((r) => {
-    const open = r.txs.filter((t) => ['Ready to invoice', 'Sent back'].includes(res.byId.get(t)?.status ?? ''));
+    const open = seen(r.txs).filter((t) => ['Ready to invoice', 'Sent back'].includes(res.byId.get(t)?.status ?? ''));
     if (!open.length) return [];
     return R.rpInvoice
       .map((d) => addDays(r.date, d))
@@ -995,7 +1014,10 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
   ];
   const monthly: CommNote[] = ending.length ? [{ id: `n25-${first}`, to: 'finance', rp: '', code: 'N25', title: `${ending.length} ${ending.length === 1 ? 'agreement or notice ends' : 'agreements and notices end'} soon`, text: `Ending by ${dayText(horizon)}: ${ending.join('; ')}. Renew or let them end.`, at: at9(first) }] : [];
   return [
-    ...state.requests.map((r): CommNote => ({ id: `n16-${r.id}`, to: 'rp', rp: r.rp, code: 'N16', title: 'GSP is ready to pay you: send your invoice', text: `${r.txs.length} ${r.txs.length === 1 ? 'line' : 'lines'}, ${total(r.txs)}. Download GSP’s invoice on Earnings, or upload your own.`, at: r.at })),
+    ...state.requests
+      .map((r) => ({ ...r, txs: seen(r.txs) }))
+      .filter((r) => r.txs.length)
+      .map((r): CommNote => ({ id: `n16-${r.id}`, to: 'rp', rp: r.rp, code: 'N16', title: 'GSP is ready to pay you: send your invoice', text: `${r.txs.length} ${r.txs.length === 1 ? 'line' : 'lines'}, ${total(r.txs)}. Download GSP’s invoice on Earnings, or upload your own.`, at: r.at })),
     ...state.rpInvoices.map((i): CommNote => ({ id: `n17-${i.id}`, to: 'finance', rp: i.rp, code: 'N17', title: `${rpName(i.rp)} sent an invoice for ${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}`, text: `${i.file.name}: ${total(i.txs)}. Check it on Commission lines.`, at: i.at })),
     ...state.rpInvoices
       .filter((i) => i.state === 'Sent back' && i.decided)
@@ -1003,7 +1025,10 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
     ...state.rpInvoices
       .filter((i) => i.state === 'Accepted' && i.decided)
       .map((i): CommNote => ({ id: `n20-${i.id}`, to: 'rp', rp: i.rp, code: 'N20', title: `GSP approved your invoice ${i.file.name}`, text: `${i.txs.length} ${i.txs.length === 1 ? 'line' : 'lines'}, ${total(i.txs)}. GSP pays it next.`, at: i.decided!.at })),
-    ...state.rpPayments.map((p): CommNote => ({ id: `n18-${p.id}`, to: 'rp', rp: p.rp, code: 'N18', title: `GSP paid you ${total(p.txs)}`, text: `${p.txs.length} ${p.txs.length === 1 ? 'line' : 'lines'}, paid on ${dayText(p.date)}.`, at: p.at })),
+    ...state.rpPayments
+      .map((p) => ({ ...p, txs: seen(p.txs) }))
+      .filter((p) => p.txs.length)
+      .map((p): CommNote => ({ id: `n18-${p.id}`, to: 'rp', rp: p.rp, code: 'N18', title: `GSP paid you ${total(p.txs)}`, text: `${p.txs.length} ${p.txs.length === 1 ? 'line' : 'lines'}, paid on ${dayText(p.date)}.`, at: p.at })),
     ...rpReminders,
     ...uniReminders,
     ...rpPayReminders,

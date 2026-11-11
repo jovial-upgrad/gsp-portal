@@ -127,7 +127,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const doRequest = () => {
     const rp = sel[0].rp;
     requestInvoice(rp, sel.map((t) => t.id), who.name);
-    say(`Invoice requested from ${rpName(rp)} for ${sel.length} ${sel.length === 1 ? 'line' : 'lines'}.`);
+    const hid = sel.filter((t) => t.rpSees === false).length;
+    say(`Invoice requested from ${rpName(rp)} for ${sel.length} ${sel.length === 1 ? 'line' : 'lines'}.${hid ? ` ${hid} ${hid === 1 ? 'isn’t' : 'aren’t'} shown to the RP, so it isn’t asked for ${hid === 1 ? 'that one' : 'those'}.` : ''}`);
     setTicked([]);
   };
 

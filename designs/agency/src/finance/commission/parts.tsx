@@ -221,6 +221,7 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
                 {rpView ? t.rpWhat : t.what}
                 {t.override && !rpView && <span className="iw-sub">Overridden by {t.override.by}: {t.override.reason}</span>}
                 {t.heldWhy && !rpView && <span className="iw-sub">Held: {t.heldWhy}</span>}
+                {!rpView && t.side === 'rp' && t.rpSees === false && <span className="iw-sub">Not shown to the RP</span>}
                 {t.toConfirm && <span className="iw-sub">{rpView ? 'Waiting for the student to continue' : 'Waiting for Finance to confirm the student continues'}</span>}
                 {!rpView && <HowWorked steps={t.trace} id={`chow-${t.id}`} />}
               </td>

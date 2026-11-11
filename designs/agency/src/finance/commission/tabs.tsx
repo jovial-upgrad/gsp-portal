@@ -1,12 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Icon';
+import { EditOnly, useShows } from '../../proto/viewOnly';
+import { RpViewForm } from './forms';
 import { Facts, Section } from '../../institution/records/parts';
 import { CURRENCY } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
 import { DocLine, SetupButton, StatusPill, TxTable } from './parts';
-import { compute, settleAll, noticeStatus, totalsText, type AppLines, type Item } from './engine';
+import { compute, settleAll, noticeStatus, sumBy, totalsText, type AppLines, type Item } from './engine';
 import { ctxOf, ctxRps, ctxUnis, enrolmentsOf, useComm } from './store';
-import { LEVELS, addlText, bandsText, benefitText, bonusText, condText, dayText, money, pct, type CommState, type Notice } from './model';
+import { LEVELS, groupOf, addlText, bandsText, benefitText, bonusText, condText, dayText, money, pct, type CommState, type Notice } from './model';
 import { rateRowsText } from './rules';
 import { todayIso } from '../../institution/data/records';
 
@@ -22,13 +26,15 @@ export const appliesText = (n: Notice) => {
  * the tab. Read only: its agreement (with its details as fields and the document to preview), its own terms, and the
  * notices it's on. Commissions changes it in Setup. No payment details: they're exchanged off the portal (Q45).
  */
-export function RpCommissionTab({ rp }: { rp: { id: string; name: string } }) {
+export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; me: string }) {
   const s = useComm();
   const rec = s.records.find((r) => r.rp === rp.id);
   const ag = rec && s.agreements.find((a) => a.id === rec.agreement);
   const region = ctxRps().find((r) => r.id === rp.id)?.region;
   const notices = s.notices.filter((n) => n.rps.includes(rp.id) || (!n.rps.length && region && (n.regions ?? []).includes(region)));
   const today = todayIso();
+  const canView = useShows('rp.view.edit');
+  const [viewing, setViewing] = useState(false);
   if (!rec || !ag)
     return (
       <Section title="Commission" id="crp-none" action={<SetupButton tab="rps" open={`new:${rp.id}`}>Add RP record</SetupButton>}>
@@ -58,6 +64,29 @@ export function RpCommissionTab({ rp }: { rp: { id: string; name: string } }) {
             ['Agreement document', <DocLine key="d" file={ag.doc} label={ag.name} />, 'wide'],
           ]}
         />
+      </Section>
+      <Section
+        title="What the RP sees"
+        id="crp-view"
+        note="Of its commission, on Earnings and its applications. GSP sees every line; asking for the invoice of a line the RP can’t see sends it nothing."
+        action={
+          canView ? (
+            <EditOnly>
+              <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setViewing(true)}>
+                Edit
+              </Button>
+            </EditOnly>
+          ) : undefined
+        }
+      >
+        <Facts
+          items={[
+            ['Kinds of commission', (rec.view ?? s.settings.rpView).kinds.join(', ') || 'Nothing'],
+            ['Study periods', (rec.view ?? s.settings.rpView).periods],
+            ['Set by', rec.view ? 'This RP’s record' : 'Settings’ default'],
+          ]}
+        />
+        <RpViewForm open={viewing} rp={rp} me={me} onClose={() => setViewing(false)} onSaved={() => setViewing(false)} />
       </Section>
       <Section title="Notices" id="crp-notices">
         {notices.length ? (
@@ -142,7 +171,8 @@ export function UniCommissionTab({ uni }: { uni: { id: string; name: string; cou
 function ItemCard({ item, rp, rpView }: { item: Item; rp?: boolean; rpView?: boolean }) {
   const s = useComm();
   // the RP never sees GSP's rate, GSP's amount or its share of GSP's commission (9 Nov)
-  const note = item.side === 'uni' ? 'What the university pays GSP.' : rpView ? 'What GSP pays you for this application, line by line.' : 'What GSP pays the RP: its share of each of the university’s lines, and its own bonuses.';
+  const hidden = item.side === 'rp' && !rpView ? item.txs.filter((t) => t.rpSees === false).length : 0;
+  const note = item.side === 'uni' ? 'What the university pays GSP.' : rpView ? 'What GSP pays you for this application, line by line.' : `What GSP pays the RP: its share of the university’s base lines at its own band, and its own bonuses.${hidden ? ` The RP isn’t shown ${hidden} of these ${item.txs.length} lines (its record’s What the RP sees).` : ''}`;
   return (
     <Section title={item.label} id={`citem-${item.side}`} note={note}>
       {item.note ? (
@@ -232,9 +262,16 @@ export function AppCommissionTab({ a, s, rpOnly }: { a: Application; s: Student;
     <>
       {!rpOnly && <Standing lines={lines} />}
       {!rpOnly && <ItemCard item={lines.uniItem} />}
-      <ItemCard item={lines.rpItem} rp rpView={rpOnly} />
+      <ItemCard item={rpOnly ? shownToRp(lines.rpItem) : lines.rpItem} rp rpView={rpOnly} />
     </>
   );
+}
+
+/** The RP's own view of its item: only the lines it's shown (Jovial, 11 Nov), with totals of those. */
+function shownToRp(item: Item): Item {
+  const txs = item.txs.filter((t) => t.rpSees !== false);
+  const live = txs.filter((t) => groupOf('rp', t.status) !== 'none');
+  return { ...item, txs, totals: sumBy(live), settled: sumBy(live.filter((t) => groupOf('rp', t.status) === 'paid')) };
 }
 
 export { StatusPill };
