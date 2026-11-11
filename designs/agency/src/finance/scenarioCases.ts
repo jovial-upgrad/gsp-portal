@@ -84,7 +84,7 @@ const add = (c) => C.push(c);
       { what: 'Second student’s tier bonus is GSP’s to invoice', calc: '1,500, not yet invoiced', exp: 'Ready to invoice', got: G.ip('ip2-02', 'tb-ip1', 'st') },
       { what: 'Second student’s RP share is NOT paid before GSP is', calc: 'GSP received 4,500 × 80% = 3,600 − 3,600 paid = 0, and nothing of the tier bonus yet', exp: 0, got: G.rpPeriod('ip2-02', 'rp1', 'due') },
       { what: 'The RP’s entitlement stays on GSP’s base rate when GSP reaches a new band', calc: '4,500 × 80% = 3,600 (GSP’s 1,500 tier bonus is GSP’s alone)', exp: 3600, got: G.rpPeriod('ip2-02', 'rp1') },
-      { what: 'Payout run pays only the tier share GSP has received', calc: 'only the first student’s 1,200', exp: 1, got: (R, X) => X.buildRun(X.cfg, R, X.today).lines.length },
+      { what: 'Payout run has no tier share to pay (GSP’s tier bonus is GSP’s alone)', calc: 'nothing: the RP’s base lines were paid already', exp: 0, got: (R, X) => X.buildRun(X.cfg, R, X.today).lines.length },
       { what: 'Seventh student (Sep 2027) starts a new academic year', calc: 'AY 2027/28: 1 student → 15%; 30,000 × 15% = 4,500', exp: 4500, got: G.ip('ip2-07', 'ip1') },
     ] });
 }
@@ -517,7 +517,7 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
     checks: [
       { what: 'Tier beats a lower promotion', calc: '6 → 20% vs promo 18%: 30,000 × 20% = 6,000', exp: 6000, got: G.period('c1-01', 'ip1', 'fullEnt') },
       { what: 'Adds on, capped at 100%', calc: '80% + 30% = 110% → 100%', exp: 100, got: G.app('c1-01', (r) => r.rpPct) },
-      { what: 'RP never above GSP’s line', calc: '6,000 × 100% = 6,000', exp: 6000, got: G.rpPeriod('c1-01', 'rp1') },
+      { what: 'RP never above GSP’s line', calc: 'base 5,400 × 100% = 5,400 (the 600 tier bonus is GSP’s alone)', exp: 5400, got: G.rpPeriod('c1-01', 'rp1') },
       { what: 'Highest wins, on GSP’s base line only', calc: 'max(85%, 80%) of the base (promotion 18%: 5,400); the 600 tier bonus is GSP’s alone: 5,400 × 85% = 4,590', exp: 4590, got: G.rpPeriod('c1-06', 'rp1') },
     ] });
 }
