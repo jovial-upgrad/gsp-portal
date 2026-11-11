@@ -344,6 +344,10 @@ export function recordPayment(uni: string, txs: string[], amount: number, cur: s
   setComm((s) => withLog({ ...s, receipts: [...s.receipts, { id: id('rc'), uni, txs, amount, paid, short, date, by, at: Date.now() }] }, lineLog(by, `${by} recorded ${money(amount, cur)} received from ${uniName(uni)} on ${date}${shortTxt}`, txs, { uni })));
 }
 /** Writes off the rest of a line paid short (Q44): the same Finance person may do it; the line counts as Paid. */
+/** A university's clawback on a line it paid (R106): the RP's share becomes a recovery line, set against its next payment. */
+export function recordClawback(tx: string, amount: number, cur: string, reason: string, date: string, by: string) {
+  setComm((s) => withLog({ ...s, clawbacks: [...(s.clawbacks ?? []), { id: id('cb'), tx, amount, reason, date, by, at: Date.now() }] }, lineLog(by, `${by} recorded a clawback of ${money(amount, cur)} on ${tx}: ${reason}`, [tx])));
+}
 export function writeOff(tx: string, amount: number, cur: string, reason: string, by: string) {
   setComm((s) => withLog({ ...s, writeOffs: [...(s.writeOffs ?? []), { id: id('wo'), tx, amount, reason, by, at: Date.now() }] }, lineLog(by, `${by} wrote off ${money(amount, cur)} on ${tx}: ${reason}`, [tx])));
 }

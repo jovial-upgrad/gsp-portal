@@ -12,7 +12,7 @@ import { ESTIMATE, FilePick, InvoiceSheet, TxTable } from './parts';
 import { bandStanding, sumBy, totalsText, type Tx } from './engine';
 import { rpInvoice, type InvoiceDoc } from './invoice';
 import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useLines } from './store';
-import { HELD, IN_REVIEW, TO_INVOICE, WAITING_UNI, dayText, groupOf, money, pct, type FileRef } from './model';
+import { RECOVERED, HELD, IN_REVIEW, TO_INVOICE, WAITING_UNI, dayText, groupOf, money, pct, type FileRef } from './model';
 import '../../institution/work/work.css';
 
 /**
@@ -36,7 +36,8 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const paidOn = new Map(s.rpPayments.flatMap((p) => p.txs.map((t) => [t, p.date] as const)));
   // the lines GSP asked it to invoice, or sent back to invoice again (Q50)
   const inReview = mine.filter((t) => t.status === IN_REVIEW).length;
-  const toSend = mine.filter((t) => (TO_INVOICE as readonly string[]).includes(t.status) && !!t.requested);
+  // R106: a recovery GSP asked to be set against this invoice goes on it, as a negative line
+  const toSend = mine.filter((t) => ((TO_INVOICE as readonly string[]).includes(t.status) || t.type === 'Recovery') && t.status !== RECOVERED && !!t.requested && !t.rpInvoice);
   const waiting = (t: Tx) => groupOf('rp', t.status) === 'estimate' || t.status === WAITING_UNI;
   const tiles: [string, Record<string, number>, string][] = [
     ['Expected', sumBy(mine.filter(waiting)), `Waiting for the universities to pay GSP. ${ESTIMATE}.`],

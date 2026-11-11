@@ -132,6 +132,8 @@ export type Tx = {
   /** Its claim window (R105): the last day it can be claimed (GSP's invoice to the university, or the RP's to GSP), and whether that has passed while it's still unclaimed. Finance only; nothing closes. */
   claimEnds?: string;
   claimLapsed?: boolean;
+  /** A clawback (University → GSP) or a recovery (GSP → RP): the line clawed back (R106). */
+  claws?: string;
   /** GSP → RP: the RP is shown this line (its record's view, or Settings'; Jovial, 11 Nov). GSP sees every line. */
   rpSees?: boolean;
 };
@@ -624,6 +626,16 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       });
     }
     uniTxs.push(...leftovers('uni', uniDone));
+    // R106: a university's clawback on a line it paid: its own negative line, taken by the university (counts as Paid)
+    (state.clawbacks ?? []).forEach((cl) => {
+      const L = uniTxs.find((x) => x.id === cl.tx);
+      if (!L) return;
+      const slot = `cb:${cl.id}`;
+      const d: Draft = { slot, type: 'Clawback', what: `${u.name} clawed back ${money(cl.amount, L.currency)} of ${L.id}: ${cl.reason}`, rpWhat: 'Clawback', amount: -cl.amount, trigger: cl.date, due: cl.date, period: L.period, year: L.year, currency: L.currency, trace: [step('Clawback', `Recorded by ${cl.by} on ${dayText(cl.date)}: ${cl.reason}. The RP’s share of it is recovered from its next payment.`)] };
+      const made = chain('uni', slot, d);
+      made.forEach((x) => (x.claws = L.id));
+      uniTxs.push(...made);
+    });
     const holdWhy = exc.find((x) => x.hold)?.text;
     // due dates and statuses
     const payDays = T?.payDays ?? 0;
@@ -649,6 +661,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const held = !!holdWhy;
       if (held) t.heldWhy = holdWhy;
       t.status = uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today, toConfirm: needs });
+      if (t.type === 'Clawback') t.status = 'Paid';
       // R105: GSP's own claim window with the university, when its terms have one
       if (T?.claimMonths && !t.invoice && !['Paid', 'Part paid', 'Not payable'].includes(t.status)) {
         t.claimEnds = keepMonth(periodEnd(t), T.claimMonths);
@@ -760,6 +773,14 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         } else if (kind === 'Promotion') {
           // a university promotion's own line is commission on the course: the RP gets its usual share of it
           if (sh > 0) drafts.push({ slot: `m:${slot}`, type: t.type, what: `${t.what}: ${pct(sh)} of GSP’s ${money(t.amount, cur)}`, rpWhat: t.rpWhat, amount: (t.amount * sh) / 100, trigger: t.trigger, period: t.period, year: t.year, matches: t.id, trace: [...rpSteps, step('Promotion', `${money(t.amount, cur)} × ${pct(sh)}, the RP’s share.`)] });
+        } else if (kind === 'Clawback') {
+          // R106: the RP gives back its share of what the university took back: what was shared with it on that line
+          const L = uniTxs.find((x) => x.id === t.claws);
+          const lk = L?.type === 'Adjustment' ? uniTxs.find((x) => x.id === L.adjusts)?.type : L?.type;
+          const shL = !L ? 0 : lk === 'Course commission' || lk === 'Promotion' ? ((L.year ?? 1) > 1 && ann != null ? ann : share) : lk === 'Additional commission' ? addlShare : 0;
+          const cl = (state.clawbacks ?? []).find((c) => `cb:${c.id}` === slot);
+          if (L && shL > 0)
+            drafts.push({ slot: `rc:${slot}`, type: 'Recovery', what: `Recovery: ${pct(shL)} of ${L.id}’s clawback, ${money(-t.amount, cur)}`, rpWhat: `Recovery: ${u.name} took back commission on this student${cl ? ` (${cl.reason})` : ''}`, amount: (t.amount * shL) / 100, trigger: t.trigger, due: t.trigger, period: L.period, year: L.year, matches: t.id, trace: [...rpSteps, step('Recovery', `${u.name} clawed back ${money(-t.amount, cur)} of ${L.id}. The RP’s share of that line was ${pct(shL)}: ${money(round2((-t.amount * shL) / 100, cur), cur)} is set against its next payment. No time limit.`)] });
         } else if (kind === 'Additional commission' && addlShare > 0) drafts.push({ slot: `m:${slot}`, type: t.type, what: `${t.what}: ${pct(addlShare)} passed on`, rpWhat: t.rpWhat, amount: (t.amount * addlShare) / 100, trigger: t.trigger, period: t.period, year: t.year, matches: t.id, trace: [...rpSteps, step('Additional commission', `${money(t.amount, cur)} × ${pct(addlShare)} passed on.`)] });
         // a university's bonus to GSP is GSP's alone (9 Nov)
       });
@@ -823,6 +844,8 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // a withdrawn student earns the RP no bonus (D28); a milestone counts students GSP was paid for, so it stands
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
       t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), due: t.due, today });
+      // R106: a recovery waits for the RP's next payment, which it's set against
+      if (t.type === 'Recovery') t.status = paidRp.has(t.id) ? 'Recovered' : 'To recover';
       // R105: the RP's claim window, from the end of the study period the line pays for; the line stays as it is
       if (['Ready to invoice', 'Sent back'].includes(t.status) && !inv) {
         const months = (ag ? termsAt<AgreementTerms>(ag, startOf(e)).claimMonths : null) ?? S.rpClaimMonths;
@@ -1012,10 +1035,12 @@ export const rpsWithoutRecord = <R extends { id: string }>(state: CommState, acc
 /** Universities without terms: each makes a T81 task, and the "without terms" tile counts them. */
 export const unisWithoutTerms = <U extends { id: string }>(state: CommState, unis: U[]) => unis.filter((u) => !state.terms.some((t) => t.uni === u.id));
 
-export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22' | 'N23' | 'N24' | 'N25'; title: string; text: string; at: number };
+export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22' | 'N23' | 'N24' | 'N25' | 'N26'; title: string; text: string; at: number };
 /** Whether an RP is shown a line, by its view (Jovial, 11 Nov): its kind (a promotion is course commission; an adjustment
  * is what it adjusts) and its study period. */
 export function rpSees(v: RpView, t: Pick<Tx, 'type' | 'adjusts' | 'period'>, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
+  // a recovery is always shown: the RP must see why its payment is less (R106)
+  if (t.type === 'Recovery') return true;
   let base: TxType = t.type;
   let at: Pick<Tx, 'type' | 'adjusts'> | undefined = t;
   for (let i = 0; at && at.type === 'Adjustment' && i < 5; i++) {
@@ -1091,6 +1116,10 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
       .map((p) => ({ ...p, txs: seen(p.txs) }))
       .filter((p) => p.txs.length)
       .map((p): CommNote => ({ id: `n18-${p.id}`, to: 'rp', rp: p.rp, code: 'N18', title: `GSP paid you ${total(p.txs)}`, text: `${p.txs.length} ${p.txs.length === 1 ? 'line' : 'lines'}, paid on ${dayText(p.date)}.`, at: p.at })),
+    // N26 (R106, Q54's "recovery applied"): the RP is told when GSP will recover a university's clawback from its next payment
+    ...res.txs
+      .filter((t) => t.side === 'rp' && t.type === 'Recovery' && t.status === 'To recover')
+      .map((t): CommNote => ({ id: `n26-${t.id}`, to: 'rp', rp: t.rp, code: 'N26', title: `${t.uniName} took back commission on ${t.student}`, text: `${money(-t.amount, t.currency)} will be set against your next payment from GSP (${t.id}). Questions: reply to the commission email.`, at: Date.parse(`${t.trigger}T09:00:00`) || Date.now() })),
     ...rpReminders,
     ...uniReminders,
     ...rpPayReminders,

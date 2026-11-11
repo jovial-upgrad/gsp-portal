@@ -13,8 +13,8 @@ import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } f
 import { sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { uniInvoice, type InvoiceDoc } from './invoice';
-import { acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, requestInvoice, rpName, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
-import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus } from './model';
+import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, requestInvoice, rpName, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER } from './model';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -42,6 +42,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [paidOut, setPaidOut] = useState<Tx[] | null>(null);
   const [over, setOver] = useState<Tx | null>(null);
   const [writing, setWriting] = useState<Tx | null>(null);
+  const [clawing, setClawing] = useState<Tx | null>(null);
   const [history, setHistory] = useState<Tx | null>(null);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
@@ -119,6 +120,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     check: { side: 'rp', statuses: [IN_REVIEW], label: 'Invoices to check', n: toCheck.length, tone: 'you' },
     approved: { side: 'rp', statuses: [...TO_PAY], label: 'Approved to pay', n: res.txs.filter((t) => t.side === 'rp' && (TO_PAY as readonly string[]).includes(t.status)).length, tone: 'gsp' },
     confirm: { side: 'uni', statuses: [], label: 'To confirm', n: work.confirm.length, tone: 'you' },
+    recover: { side: 'rp', statuses: [TO_RECOVER], label: TO_RECOVER, n: res.txs.filter((t) => t.side === 'rp' && t.status === TO_RECOVER).length, tone: 'you' },
     lapsed: { side: lapsed('rp') || !lapsed('uni') ? 'rp' : 'uni', statuses: [], label: 'Past the claim window', n: lapsed('rp') + lapsed('uni'), tone: 'bad', lapsed: true },
   };
   const pickTile = (k: TileKey | '') => {
@@ -127,11 +129,14 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses, lapsed: TILE[k].lapsed });
   };
   const fixIn = (type: string): SetupTab | null => (EXCEPTIONS.find((x) => x.type === type)?.fix as SetupTab | undefined) ?? null;
+  // R106: a recovery not yet set against a payment goes with the RP's next invoice and payment, by itself
+  const recoveriesOf = (rp: string) => res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.status === TO_RECOVER && !t.requested);
   const doRequest = () => {
     const rp = sel[0].rp;
-    requestInvoice(rp, sel.map((t) => t.id), who.name);
+    const rec = recoveriesOf(rp).filter((t) => !sel.some((x) => x.id === t.id));
+    requestInvoice(rp, [...sel, ...rec].map((t) => t.id), who.name);
     const hid = sel.filter((t) => t.rpSees === false).length;
-    say(`Invoice requested from ${rpName(rp)} for ${sel.length} ${sel.length === 1 ? 'line' : 'lines'}.${hid ? ` ${hid} ${hid === 1 ? 'isn’t' : 'aren’t'} shown to the RP, so it isn’t asked for ${hid === 1 ? 'that one' : 'those'}.` : ''}`);
+    say(`Invoice requested from ${rpName(rp)} for ${sel.length} ${sel.length === 1 ? 'line' : 'lines'}${rec.length ? `, less ${rec.length} ${rec.length === 1 ? 'recovery' : 'recoveries'} (${totalsText(sumBy(rec))})` : ''}.${hid ? ` ${hid} ${hid === 1 ? 'isn’t' : 'aren’t'} shown to the RP, so it isn’t asked for ${hid === 1 ? 'that one' : 'those'}.` : ''}`);
     setTicked([]);
   };
 
@@ -405,7 +410,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                 <Button size="sm" disabled={!request} onClick={doRequest}>
                   Request invoice
                 </Button>
-                <Button size="sm" variant="secondary" disabled={!pay} onClick={() => setPaidOut(sel)}>
+                <Button size="sm" variant="secondary" disabled={!pay} onClick={() => setPaidOut([...sel, ...res.txs.filter((t) => t.side === 'rp' && t.rp === sel[0]?.rp && t.status === TO_RECOVER && !sel.some((x) => x.id === t.id))])}>
                   Mark paid
                 </Button>
                 {!request && !pay && <span className="cmuted">Tick {ACTION_FROM.request.join(' or ')} lines of one RP to request its invoice, or its {ACTION_FROM.pay.join(' or ')} lines to mark them paid.</span>}
@@ -499,6 +504,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                             // a Paid line never changes (9 Nov): no override
                             ...(groupOf(t.side, t.status) === 'paid' ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
                             ...(t.status === PART_PAID ? [{ id: 'writeoff', label: 'Write off the rest', icon: 'minus' as const, onPick: () => setWriting(t) }] : []),
+                            // R106: a university takes back commission it paid on this line
+                            ...(t.side === 'uni' && t.type !== 'Clawback' && (groupOf(t.side, t.status) === 'paid' || t.status === PART_PAID) ? [{ id: 'clawback', label: 'Record clawback', icon: 'minus' as const, onPick: () => setClawing(t) }] : []),
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
                           ]}
@@ -551,6 +558,17 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
           setWriting(null);
         }}
       />
+      <ClawbackSheet
+        t={clawing}
+        already={(s.clawbacks ?? []).filter((c) => c.tx === clawing?.id).reduce((n, c) => n + c.amount, 0)}
+        ask={ask}
+        onClose={() => setClawing(null)}
+        onDone={(amount, reason, date) => {
+          recordClawback(clawing!.id, amount, clawing!.currency, reason, date, who.name);
+          say(`Clawback of ${money(amount, clawing!.currency)} recorded on ${clawing!.id}. The RP’s share is set against its next payment.`);
+          setClawing(null);
+        }}
+      />
       <PaidSheet
         txs={paidOut}
         onClose={() => setPaidOut(null)}
@@ -599,7 +617,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   );
 }
 
-type TileKey = 'ready' | 'overdue' | 'part' | 'check' | 'approved' | 'confirm' | 'lapsed';
+type TileKey = 'ready' | 'overdue' | 'part' | 'check' | 'approved' | 'confirm' | 'recover' | 'lapsed';
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
 /** Record lump sum: a university, the amount (in its currency), why, and the day it came in. */
@@ -751,6 +769,47 @@ function WriteOffSheet({ t, reasons, onClose, onDone, ask }: { t: Tx | null; rea
               </option>
             ))}
           </SelectInput>
+        </Field>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Record clawback (R106): how much the university took back on the line, why, and when. */
+function ClawbackSheet({ t, already, onClose, onDone, ask }: { t: Tx | null; already: number; onClose: () => void; onDone: (amount: number, reason: string, date: string) => void; ask: AskFn }) {
+  const [amount, setAmount] = useState<number | null>(null);
+  const [reason, setReason] = useState('');
+  const [date, setDate] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    setAmount(null);
+    setReason('');
+    setDate(todayIso());
+    setTried(false);
+  }, [t]);
+  if (!t) return null;
+  const most = roundMoney((t.received ?? t.amount) - already, t.currency);
+  const err = {
+    amount: amount === null || !(amount > 0) ? 'Enter the amount taken back.' : amount > most + 0.005 ? `At most ${money(most, t.currency)}, what’s left of what was paid.` : null,
+    reason: !reason.trim() ? 'Say why, as the university does.' : null,
+    date: !date ? 'Choose the date.' : date > todayIso() ? 'It can’t be in the future.' : null,
+  };
+  const go = () => {
+    setTried(true);
+    if (Object.values(err).some(Boolean)) return;
+    ask(`Record a clawback of ${money(amount!, t.currency)} on ${t.id}?`, 'Record clawback', <p>{t.uniName} took it back. The RP’s share of it is set against its next payment from GSP, and the RP is told.</p>, () => onDone(amount!, reason.trim(), date));
+  };
+  return (
+    <Sheet open onClose={onClose} center className="iform" title={`Record clawback on ${t.id}`} sub={`${t.uniName} · ${t.student} · paid ${money(t.received ?? t.amount, t.currency)}`} footer={<Foot onClose={onClose} label="Record clawback" onGo={go} />}>
+      <div className="iform__grid">
+        <Field id="ccb-amount" label={`Amount taken back (${t.currency})`} required error={tried ? err.amount : null}>
+          <TextInput id="ccb-amount" inputMode="decimal" value={amount ?? ''} invalid={tried && !!err.amount} onChange={(e) => setAmount(e.target.value.trim() === '' ? null : Number(e.target.value.replace(/,/g, '')))} />
+        </Field>
+        <Field id="ccb-date" label="Date" required error={tried ? err.date : null}>
+          <TextInput id="ccb-date" type="date" value={date} invalid={tried && !!err.date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <Field id="ccb-why" label="Why" required error={tried ? err.reason : null} className="iform__wide" hint="Shown to the RP with its recovery.">
+          <TextInput id="ccb-why" value={reason} placeholder="Like: the student withdrew in the first semester" invalid={tried && !!err.reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
       </div>
     </Sheet>

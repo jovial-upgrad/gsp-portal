@@ -475,6 +475,7 @@ export const sampleComm = (): CommState => {
   rpInvoices,
   rpPayments,
   writeOffs: [],
+  clawbacks: [],
   overrides,
   lumps: [],
   confirms: sampleConfirms(),

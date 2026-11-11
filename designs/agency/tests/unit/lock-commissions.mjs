@@ -35,7 +35,7 @@ try {
   // Q50: only the agreed RP statuses
   const rpStatuses = new Set(r0.txs.filter((t) => t.side === 'rp').map((t) => t.status));
   ok('Q50 RP lines use only the agreed statuses', [...rpStatuses].every((x) => model.RP_STATUSES.includes(x)), [...rpStatuses].join());
-  ok('Q50 the agreed list (with D24’s Overdue to pay)', model.RP_STATUSES.join() === 'Expected,Waiting for university,Ready to invoice,Invoice in review,Approved,Overdue to pay,On hold,Sent back,Paid,Not payable');
+  ok('Q50 the agreed list (with D24’s Overdue to pay, and R106’s To recover and Recovered)', model.RP_STATUSES.join() === 'Expected,Waiting for university,Ready to invoice,Invoice in review,Approved,Overdue to pay,On hold,Sent back,To recover,Paid,Recovered,Not payable');
   const waitingOk = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Waiting for university').every((t) => {
     const u = r0.byId.get(t.matches) ?? r0.byApp.get(t.app).uniItem.txs[0];
     return u && !['Expected', 'Paid', 'Part paid'].includes(u.status);
@@ -110,6 +110,26 @@ try {
     const lapsedU = run(sU).txs.filter((t) => t.side === 'uni' && t.uni === u.uni && t.claimLapsed);
     ok('R105 a university’s own window flags GSP’s uninvoiced lines', lapsedU.length > 0 && lapsedU.every((t) => !t.invoice));
     ok('R105 no university window, no flag', r0.txs.filter((t) => t.side === 'uni').every((t) => !t.claimLapsed));
+  }
+
+  // R106: clawbacks. The RP gives back its share of what the university took back, set against its next payment
+  {
+    const paidU = r0.txs.find((t) => t.side === 'uni' && t.status === 'Paid' && t.type === 'Course commission' && r0.txs.some((x) => x.side === 'rp' && x.matches === t.id && x.amount > 0));
+    const rpL = r0.txs.find((x) => x.side === 'rp' && x.matches === paidU.id && x.type === 'Course commission');
+    const half = model.roundMoney(paidU.amount / 2, paidU.currency);
+    const sC = { ...s0, clawbacks: [{ id: 'cb-t', tx: paidU.id, amount: half, reason: 'Withdrew in semester 1', date: '2026-11-05', by: 'Test', at: 9 }] };
+    const rC = run(sC);
+    const cl = rC.txs.find((t) => t.side === 'uni' && t.type === 'Clawback' && t.claws === paidU.id);
+    ok('R106 the clawback is its own negative University → GSP line', !!cl && Math.abs(cl.amount + half) < 0.01 && cl.status === 'Paid', cl && `${cl.amount} ${cl.status}`);
+    const rec = rC.txs.find((t) => t.side === 'rp' && t.type === 'Recovery' && t.matches === cl.id);
+    const share = rpL.amount / paidU.amount;
+    ok('R106 the RP gives back its share of what was taken back', !!rec && Math.abs(rec.amount + half * share) <= 0.02, rec && `${rec.amount} vs ${-half * share}`);
+    ok('R106 the recovery waits for the RP’s next payment: To recover', rec.status === 'To recover');
+    ok('R106 the RP always sees its recovery, with the reason', rec.rpSees === true && rec.rpWhat.includes('Withdrew in semester 1'));
+    ok('R106 the RP is told (N26)', engine.commNotes(sC, rC, (x) => x, TODAY).some((n) => n.code === 'N26' && n.to === 'rp' && n.rp === rec.rp));
+    ok('R106 the paid RP line itself never changes', rC.byId.get(rpL.id).amount === rpL.amount && rC.byId.get(rpL.id).status === rpL.status);
+    const sP = { ...sC, rpPayments: [...sC.rpPayments, { id: 'pay-t', rp: rec.rp, txs: [rec.id], date: '2026-11-08', by: 'Test', at: 10 }] };
+    ok('R106 once set against a payment it is Recovered', run(sP).byId.get(rec.id).status === 'Recovered');
   }
 
   // Q47 and Q54: reminders, sent back and approved

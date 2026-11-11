@@ -335,7 +335,7 @@ export type Side = 'uni' | 'rp';
 export const SIDES: Record<Side, string> = { uni: 'University → GSP', rp: 'GSP → RP' };
 export const SIDE_KEYS = Object.keys(SIDES) as Side[];
 /** Adjustment: the difference when a line's worked-out amount changes after it was invoiced, requested or paid (Jovial, 9 Nov). */
-export const TX_TYPES = ['Course commission', 'Tier bonus', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment'] as const;
+export const TX_TYPES = ['Course commission', 'Tier bonus', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment', 'Clawback', 'Recovery'] as const;
 export type TxType = (typeof TX_TYPES)[number];
 
 /** Part paid (Jovial, 10 Nov, Q44): the university paid less than the line, with a reason, until the rest comes or is written off. */
@@ -343,9 +343,9 @@ export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdu
 /**
  * The RP's statuses (Jovial, 10 Nov, Q50, the Commissions flow's #21): Expected, Waiting for university (GSP's line is
  * due but not paid yet), Ready to invoice, Invoice in review (the RP's invoice is with Finance), Approved, Paid; and
- * On hold, Sent back, Not payable. (Recovered comes with clawbacks, phase 2.)
+ * On hold, Sent back, Not payable. To recover and Recovered: a university's clawback the RP's share of which is set against its next payment (R106).
  */
-export const RP_STATUSES = ['Expected', 'Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'Paid', 'Not payable'] as const;
+export const RP_STATUSES = ['Expected', 'Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover', 'Paid', 'Recovered', 'Not payable'] as const;
 export type UniStatus = (typeof UNI_STATUSES)[number];
 export type RpStatus = (typeof RP_STATUSES)[number];
 export type TxStatus = UniStatus | RpStatus;
@@ -354,8 +354,8 @@ export const STATUSES_OF: Record<Side, readonly TxStatus[]> = { uni: UNI_STATUSE
 /** The status groups (the Commission lines page's tabs, but Not counted, which shows under All). */
 export const GROUPS = [
   { key: 'estimate', label: 'Not yet ready', uni: ['Expected'], rp: ['Expected'], tab: true },
-  { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held'], rp: ['Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back'], tab: true },
-  { key: 'paid', label: 'Paid', uni: ['Paid'], rp: ['Paid'], tab: true },
+  { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held'], rp: ['Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover'], tab: true },
+  { key: 'paid', label: 'Paid', uni: ['Paid'], rp: ['Paid', 'Recovered'], tab: true },
   { key: 'none', label: 'Not counted', uni: ['Not payable'], rp: ['Not payable'], tab: false },
 ] as const satisfies readonly { key: string; label: string; uni: readonly UniStatus[]; rp: readonly RpStatus[]; tab: boolean }[];
 export type GroupKey = (typeof GROUPS)[number]['key'];
@@ -376,6 +376,9 @@ export const TO_INVOICE: readonly RpStatus[] = ['Ready to invoice', 'Sent back']
 export const WAITING_UNI: RpStatus = 'Waiting for university';
 /** The RP's invoice is with Finance. */
 export const IN_REVIEW: RpStatus = 'Invoice in review';
+/** A university's clawback, the RP's share waiting to be set against its next payment, then set against it (R106). */
+export const TO_RECOVER: RpStatus = 'To recover';
+export const RECOVERED: RpStatus = 'Recovered';
 /** A university line paid short (Q44): Write off the rest acts on it. */
 export const PART_PAID: UniStatus = 'Part paid';
 /** University → GSP lines Finance can invoice, and those past due. */
@@ -403,6 +406,8 @@ export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' 
   'Invoice in review': 'gsp',
   Approved: 'gsp',
   'Overdue to pay': 'bad',
+  'To recover': 'you',
+  Recovered: 'ok',
 };
 
 /**
@@ -439,6 +444,11 @@ export type UniInvoice = { number: string; uni: string; date: string; txs: strin
 export type Receipt = { id: string; uni: string; txs: string[]; amount: number | null; paid: Record<string, number>; short: Record<string, string>; date: string; by: string; at: number };
 /** The rest of a line paid short, written off by Finance (the same person may do it): the line counts as Paid. */
 export type WriteOff = { id: string; tx: string; amount: number; reason: string; by: string; at: number };
+/**
+ * A university takes back commission it paid GSP on a line (the commissions team, 11 Nov, R106): GSP recovers the
+ * RP's share of it (what was shared with the RP), set against the RP's next payments. No time limit.
+ */
+export type Clawback = { id: string; tx: string; amount: number; reason: string; date: string; by: string; at: number };
 /** Commissions asked an RP for its invoice. */
 export type InvoiceRequest = { id: string; rp: string; txs: string[]; date: string; by: string; at: number };
 export const RP_INVOICE_STATES = ['To check', 'Accepted', 'Sent back'] as const;
@@ -490,6 +500,7 @@ export type CommState = {
   rpInvoices: RpInvoice[];
   rpPayments: RpPayment[];
   writeOffs: WriteOff[];
+  clawbacks?: Clawback[];
   overrides: Override[];
   lumps: Lump[];
   confirms: Confirm[];
