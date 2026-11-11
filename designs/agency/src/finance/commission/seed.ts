@@ -89,10 +89,13 @@ export const sampleAgreements = (): Agreement[] => [
 
 export const sampleRecords = (): RpRecord[] => [
   { rp: 'rp-horizon', agreement: 'ag-std-2026', from: '2026-07-01', moves: [{ agreement: 'ag-std-2024', from: '2024-08-10' }], created: by(LAV, '2024-08-12'), updated: by(RHYTHM, '2026-06-24') },
-  { rp: 'rp-delhi', agreement: 'ag-std-2024', from: '2024-11-10', moves: [], created: by(LAV, '2024-11-26'), updated: by(LAV, '2024-11-26') },
+  // walkthrough (Deepesh, 10 Nov): Capital Career Abroad moved to the tiered Standard 2026 from 1 Apr 2026 and has 12 students
+  // this financial year, so it reached its 80% band (retrospective: earlier ones rise too)
+  { rp: 'rp-delhi', agreement: 'ag-std-2026', from: '2026-04-01', moves: [{ agreement: 'ag-std-2024', from: '2024-11-10' }], created: by(LAV, '2024-11-26'), updated: by(LAV, '2026-03-30') },
   { rp: 'rp-saigon', agreement: 'ag-vietnam', from: '2025-01-19', moves: [], created: by(JOANA, '2025-02-03'), updated: by(JOANA, '2025-02-03') },
   // its own flat share instead of the agreement's (the sandbox's own flat %)
-  { rp: 'rp-pokhara', agreement: 'ag-pilot-2023', from: '2025-03-12', ownFlat: 72, moves: [], created: by(LAV, '2025-03-29'), updated: by(LAV, '2025-03-29') },
+  // walkthrough: Himalayan Study Centre's terms changed partway: the Pilot 2023 agreement until 30 Jun 2026, Standard 2026 from 1 Jul
+  { rp: 'rp-pokhara', agreement: 'ag-std-2026', from: '2026-07-01', moves: [{ agreement: 'ag-pilot-2023', from: '2025-03-12' }], created: by(LAV, '2025-03-29'), updated: by(LAV, '2026-06-26') },
 ];
 
 /* ---------- notices ---------- */
@@ -405,6 +408,17 @@ export const sampleEnrolments = (): Enrolment[] => [
   { app: 'GSP-23560', student: 'Aarav Shrestha', nationality: 'Nepal', rp: 'rp-pokhara', course: 'cqu-1', intake: 'Mar 2026', enrolled: '2026-03-16', fees: fees(28800, 2880, '2026-03-09', { paid: ['2026-03-02'] }, { studentType: 'New' }) },
   // Federation pays at the withdrawal deadline (start + 4 weeks), no census date needed
   { app: 'GSP-23568', student: 'Ishaan Verma', nationality: 'India', rp: 'rp-delhi', course: 'feduni-1', intake: 'Jul 2026', enrolled: '2026-07-21', fees: fees(30400, 0, '2026-07-13', {}, { studentType: 'New' }) },
+  // walkthrough (Deepesh, 10 Nov): ten more of Capital Career Abroad's students this financial year, its 11th and 12th reach the 80% band
+  { app: 'GSP-23610', student: 'Aditya Rao', nationality: 'India', rp: 'rp-delhi', course: 'flinders-1', intake: 'Jul 2026', enrolled: '2026-07-12', fees: fees(33750, 6750, '2026-07-06', { census: ['2026-08-12', '2027-03-12'] }, { studentType: 'New' }) },
+  { app: 'GSP-23611', student: 'Neha Sharma', nationality: 'India', rp: 'rp-delhi', course: 'flinders-2', intake: 'Jul 2026', enrolled: '2026-07-13', fees: fees(38400, 9600, '2026-07-06', { census: ['2026-08-13', '2027-03-13'] }, { studentType: 'New' }) },
+  { app: 'GSP-23612', student: 'Karan Mehta', nationality: 'India', rp: 'rp-delhi', course: 'flinders-14', intake: 'Jul 2026', enrolled: '2026-07-14', fees: fees(38450, 0, '2026-07-06', { census: ['2026-08-14', '2027-03-14'] }, { studentType: 'New' }) },
+  { app: 'GSP-23613', student: 'Pooja Iyer', nationality: 'India', rp: 'rp-delhi', course: 'flinders-15', intake: 'Jul 2026', enrolled: '2026-07-15', fees: fees(37450, 0, '2026-07-06', { census: ['2026-08-15', '2027-03-15'] }, { studentType: 'New' }) },
+  { app: 'GSP-23614', student: 'Rahul Gupta', nationality: 'India', rp: 'rp-delhi', course: 'flinders-17', intake: 'Jul 2026', enrolled: '2026-07-16', fees: fees(39700, 0, '2026-07-06', { census: ['2026-08-16', '2027-03-16'] }, { studentType: 'New' }) },
+  { app: 'GSP-23615', student: 'Sneha Patil', nationality: 'India', rp: 'rp-delhi', course: 'flinders-22', intake: 'Jul 2026', enrolled: '2026-07-17', fees: fees(37650, 0, '2026-07-06', { census: ['2026-08-17', '2027-03-17'] }, { studentType: 'New' }) },
+  { app: 'GSP-23616', student: 'Vikram Singh', nationality: 'India', rp: 'rp-delhi', course: 'flinders-25', intake: 'Jul 2026', enrolled: '2026-07-18', fees: fees(34650, 0, '2026-07-06', { census: ['2026-08-18', '2027-03-18'] }, { studentType: 'New' }) },
+  { app: 'GSP-23617', student: 'Ananya Das', nationality: 'India', rp: 'rp-delhi', course: 'flinders-27', intake: 'Jul 2026', enrolled: '2026-07-19', fees: fees(41150, 0, '2026-07-06', { census: ['2026-08-19', '2027-03-19'] }, { studentType: 'New' }) },
+  { app: 'GSP-23618', student: 'Arnav Joshi', nationality: 'India', rp: 'rp-delhi', course: 'flinders-7', intake: 'Jul 2026', enrolled: '2026-07-20', fees: fees(38350, 5750, '2026-07-06', { census: ['2026-08-20', '2027-03-20'] }, { studentType: 'New' }) },
+  { app: 'GSP-23619', student: 'Divya Menon', nationality: 'India', rp: 'rp-delhi', course: 'flinders-24', intake: 'Jul 2026', enrolled: '2026-07-21', fees: fees(36950, 5550, '2026-07-06', { census: ['2026-08-21', '2027-03-21'] }, { studentType: 'New' }) },
 ];
 
 /** Finance confirmed these students continue, so their later study periods can be invoiced (D19). */

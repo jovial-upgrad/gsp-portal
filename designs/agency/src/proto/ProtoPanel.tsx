@@ -1,3 +1,4 @@
+import { ctxRps, setEarnAs, useComm, useEarnAs } from '../finance/commission/store';
 import { useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icon } from '../components/Icon';
@@ -112,6 +113,8 @@ export function ProtoPanel({
               </Section>
             );
           })}
+
+          {role.startsWith('rp-admin') && <EarnAs />}
 
           <p className="proto__label">Theme</p>
           <div className="proto__seg" role="radiogroup" aria-label="Theme">
@@ -249,5 +252,28 @@ export function ProtoPanel({
         </button>
       </div>
     </div>
+  );
+}
+
+/** RP Admin: whose Earnings to show (Deepesh's walkthrough, 11 Nov): any RP with a commission record. Prototype only. */
+function EarnAs() {
+  const s = useComm();
+  const as = useEarnAs();
+  const rps = ctxRps().filter((r) => s.records.some((x) => x.rp === r.id));
+  return (
+    <>
+      <p className="proto__label" id="proto-earn">
+        Earnings as
+      </p>
+      <p className="proto__note">See another RP’s Earnings: one that reached a new band, one whose terms changed, one on notices.</p>
+      <select className="proto__select" aria-labelledby="proto-earn" value={as} onChange={(e) => setEarnAs(e.target.value)}>
+        <option value="">Your agency</option>
+        {rps.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.name}
+          </option>
+        ))}
+      </select>
+    </>
   );
 }

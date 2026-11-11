@@ -37,6 +37,18 @@ export function setComm(fn: (s: CommState) => CommState) {
 export const resetComm = () => setComm(() => sampleComm());
 export const useComm = () => useSyncExternalStore(subscribe, commState, commState);
 
+/**
+ * The Prototype panel's "Earnings as" (RP Admin, for Deepesh's walkthrough, 11 Nov): see another seeded RP's Earnings.
+ * Prototype only; empty is the signed-in agency.
+ */
+let earnAs = '';
+const earnSubs = new Set<() => void>();
+export const setEarnAs = (rp: string) => {
+  earnAs = rp;
+  earnSubs.forEach((f) => f());
+};
+export const useEarnAs = () => useSyncExternalStore((f) => (earnSubs.add(f), () => void earnSubs.delete(f)), () => earnAs, () => earnAs);
+
 /* ---------- what the engine reads from other modules ---------- */
 
 let unis: CtxUni[] | null = null;

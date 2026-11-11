@@ -9,11 +9,11 @@ import { CURRENCY, setEarnOf, type Course } from '../../data/courses';
 import { agreementOn, bandStanding, noticeCovers, termsAt } from './engine';
 import { pickRate } from './pricing';
 import { commState, ctxOf, ctxRps, ctxUnis } from './store';
-import type { AgreementTerms, CommState, Level, TermsBody } from './model';
+import type { AgreementTerms, CommState, Enrolment, Level, TermsBody } from './model';
 
 export type Estimate = { amount: number; currency: string; pctOfFee: number; share: number | null; basis: 'net' | 'gross'; next?: { more: number; amount: number; pctOfFee: number } };
 
-export function estimateFor(s: CommState, c: Course, rpId: string | null, today: string): Estimate | null {
+export function estimateFor(s: CommState, c: Course, rpId: string | null, today: string, extra: Enrolment[] = []): Estimate | null {
   const rec = s.terms.find((t) => t.uni === c.uni.id);
   if (!rec) return null;
   const T = termsAt<TermsBody>(rec as never, today);
@@ -43,7 +43,7 @@ export function estimateFor(s: CommState, c: Course, rpId: string | null, today:
         .filter((n) => (n.benefit === 'Share' || n.benefit === 'Tiered share' || n.benefit === 'Share plus amount per enrolment') && noticeCovers(n, { app: '', student: '', rp: rpId, course: c.id, intake: '', enrolled: today, nationality: rp?.country } as never, uni, c.level as Level, rp, S.regionGroups))
         .sort((a, b) => (b.rps.length ? 1 : 0) - (a.rps.length ? 1 : 0) || (b.share ?? b.bands[0]?.pct ?? 0) - (a.share ?? a.bands[0]?.pct ?? 0))[0]
     : undefined;
-  const stand = bandStanding(s, ctx, rpId);
+  const stand = bandStanding(s, ctx, rpId, extra);
   let share = r.ownFlat != null ? r.ownFlat : A.shareType === 'Flat' ? A.share ?? 0 : stand?.share ?? A.bands[0]?.pct ?? 0;
   const ns = notice ? (notice.benefit === 'Tiered share' ? notice.bands[0]?.pct ?? 0 : notice.share ?? 0) : 0;
   if (notice) share = notice.combine === 'Separate box' ? ns : notice.combine === 'Adds on top' ? share + ns : Math.max(share, ns);

@@ -2,66 +2,162 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
-import { Checkbox, Field } from '../../components/forms';
+import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
+import { COURSES } from '../../data/courses';
+import { estimateFor } from './estimate';
 import { Toast } from '../../institution/records/parts';
 import { todayIso } from '../../institution/data/records';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { HOME_RP } from '../../gsp/rps';
 import { ESTIMATE, FilePick, InvoiceSheet, TxTable } from './parts';
-import { bandStanding, sumBy, totalsText, type Tx } from './engine';
+import { addDays, bandStanding, sumBy, totalsText, type Tx } from './engine';
 import { rpInvoice, type InvoiceDoc } from './invoice';
-import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useLines } from './store';
-import { RECOVERED, HELD, IN_REVIEW, TO_INVOICE, WAITING_UNI, dayText, groupOf, money, pct, type FileRef } from './model';
+import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useEarnAs, useLines } from './store';
+import { benefitText, GROUPS, RECOVERED, IN_REVIEW, TO_INVOICE, dayText, groupOf, money, pct, type FileRef } from './model';
 import '../../institution/work/work.css';
 
 /**
- * Earnings, RP side (Jovial, 9 Nov: the PRD's Commissions tab), RP Admin only: what the RP sees of its commission.
- * Tiles for Expected, Ready to invoice and Paid this year (in each currency), and the RP's band (Q43);
- * **Invoices to send**, the lines GSP asked it to invoice, with GSP's filled-in invoice to download and Upload
- * invoice (one file can cover several lines); and its GSP → RP lines, with how to question an amount (by email:
- * there's no dispute form). Amounts are in each university's currency. No payment details: GSP and the RP exchange
- * them by email, off the portal (Q45). Amounts that can still change are labelled as estimates, with their history (D21).
+ * Earnings, RP side (Jovial, 9 Nov; redesigned 11 Nov from Deepesh's review): what the RP earns, in the university's
+ * currency, from the lines it's shown (its What the RP sees).
+ * - **Quarters**: paid last quarter; this quarter, paid so far and still due; next quarter, expected (GSP's financial
+ *   year quarters, Settings' financial year start).
+ * - **Month by month / quarter by quarter**: paid (by the day GSP paid) and expected (by the due date), in one currency
+ *   at a time when there are several.
+ * - **Still to come**: everything not paid yet, labelled as estimates (D21); and, per university it has students at,
+ *   about what it earns on a course there as a % of the fee, and its next band (Q101, R104).
+ * - **Applications**: one card each, "x of y paid", what's next; picking one narrows the lines to it.
+ * - **Invoices to send** (the lines GSP asked for, with recoveries set against them, R106) and **Commission lines**
+ *   with filters. No payment details: GSP and the RP exchange them by email (Q45).
  */
 export function Earnings({ agency, me, apps, students }: { agency: string; me: string; apps: Application[]; students: Student[] }) {
   const s = useComm();
   const res = useLines(apps, students);
-  const rp = ctxRps().find((r) => r.name === agency) ?? ctxRps().find((r) => r.name === HOME_RP)!;
+  const as = useEarnAs();
+  const rp = (as && ctxRps().find((r) => r.id === as)) || ctxRps().find((r) => r.name === agency) || ctxRps().find((r) => r.name === HOME_RP)!;
   const mine = useMemo(() => res.txs.filter((t) => t.side === 'rp' && t.rp === rp.id && t.rpSees !== false).sort((a, b) => b.due.localeCompare(a.due)), [res, rp.id]);
   const [upload, setUpload] = useState(false);
   const [doc, setDoc] = useState<InvoiceDoc | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
+  const [scale, setScale] = useState<'month' | 'quarter'>('month');
+  const [focusApp, setFocusApp] = useState('');
+  const [fUni, setFUni] = useState('');
+  const [fGroup, setFGroup] = useState('');
+  const [q, setQ] = useState('');
   const say = (text: string) => setMsg({ text, key: Date.now() });
-  const year = todayIso().slice(0, 4);
+  const today = todayIso();
   const paidOn = new Map(s.rpPayments.flatMap((p) => p.txs.map((t) => [t, p.date] as const)));
-  // the lines GSP asked it to invoice, or sent back to invoice again (Q50)
+  const live = mine.filter((t) => groupOf('rp', t.status) !== 'none');
+  const isPaid = (t: Tx) => groupOf('rp', t.status) === 'paid';
+  /** When a line's money moves: the day GSP paid it, else its due date. */
+  const when = (t: Tx) => (isPaid(t) ? paidOn.get(t.id) ?? t.due : t.due);
+  // the lines GSP asked it to invoice, or sent back to invoice again (Q50); a recovery asked with them (R106)
   const inReview = mine.filter((t) => t.status === IN_REVIEW).length;
-  // R106: a recovery GSP asked to be set against this invoice goes on it, as a negative line
   const toSend = mine.filter((t) => ((TO_INVOICE as readonly string[]).includes(t.status) || t.type === 'Recovery') && t.status !== RECOVERED && !!t.requested && !t.rpInvoice);
-  const waiting = (t: Tx) => groupOf('rp', t.status) === 'estimate' || t.status === WAITING_UNI;
-  const tiles: [string, Record<string, number>, string][] = [
-    ['Expected', sumBy(mine.filter(waiting)), `Waiting for the universities to pay GSP. ${ESTIMATE}.`],
-    ['Ready to invoice', sumBy(mine.filter((t) => groupOf('rp', t.status) === 'progress' && !waiting(t) && !(HELD as readonly string[]).includes(t.status))), 'The universities have paid GSP'],
-    [`Paid in ${year}`, sumBy(mine.filter((t) => groupOf('rp', t.status) === 'paid' && (paidOn.get(t.id) ?? '').startsWith(year))), 'Paid to you'],
-  ];
   const sentBack = s.rpInvoices.filter((i) => i.rp === rp.id && i.state === 'Sent back' && i.txs.some((t) => toSend.some((x) => x.id === t)));
   // Q43: where the RP stands in its agreement's bands (a flat share has none)
   const stand = useMemo(() => bandStanding(s, ctxOf(), rp.id, enrolmentsOf(apps, students)), [s, rp.id, apps, students]);
+
+  // its terms: the agreement now and before (moves), and the issued notices it's on that haven't ended
+  const rec = s.records.find((x) => x.rp === rp.id);
+  const agName = (id: string) => s.agreements.find((a) => a.id === id)?.name ?? id;
+  const myNotices = s.notices.filter((n) => n.issued && n.ends >= today && (n.rps.includes(rp.id) || (!n.rps.length && (n.regions ?? []).some((g) => g === rp.region || (s.settings.regionGroups[g] ?? []).includes(rp.country)))));
+  /* quarters: GSP's financial year (Settings), three months each */
+  const qStart = (d: string) => {
+    const m = Number(d.slice(5, 7));
+    const off = (((m - s.settings.fyStart) % 3) + 3) % 3;
+    return addMonths(`${d.slice(0, 7)}-01`, -off);
+  };
+  const thisQ = qStart(today);
+  const lastQ = addMonths(thisQ, -3);
+  const nextQ = addMonths(thisQ, 3);
+  const inQ = (d: string, start: string) => !!d && d >= start && d < addMonths(start, 3);
+  const qLabel = (start: string) => `${monthShort(start)} to ${monthShort(addMonths(start, 2))} ${addMonths(start, 2).slice(0, 4)}`;
+  const quarters: { key: string; title: string; sub: string; main: Record<string, number>; note: string }[] = [
+    { key: 'last', title: 'Last quarter', sub: qLabel(lastQ), main: sumBy(live.filter((t) => isPaid(t) && inQ(when(t), lastQ))), note: 'Paid to you' },
+    {
+      key: 'this',
+      title: 'This quarter',
+      sub: qLabel(thisQ),
+      main: sumBy(live.filter((t) => isPaid(t) && inQ(when(t), thisQ))),
+      note: (() => {
+        const due = sumBy(live.filter((t) => !isPaid(t) && inQ(t.due, thisQ)));
+        return Object.keys(due).length ? `Paid so far. ${totalsText(due)} more due by ${dayText(addDays(addMonths(thisQ, 3), -1))}` : 'Paid so far';
+      })(),
+    },
+    { key: 'next', title: 'Next quarter', sub: qLabel(nextQ), main: sumBy(live.filter((t) => !isPaid(t) && inQ(t.due, nextQ))), note: `Expected. ${ESTIMATE}` },
+  ];
+
+  /* the chart: one currency at a time */
+  const currencies = [...new Set(live.map((t) => t.currency))];
+  const [curPick, setCurPick] = useState('');
+  const cur = currencies.includes(curPick) ? curPick : currencies[0] ?? '';
+  const buckets = (() => {
+    const step = scale === 'month' ? 1 : 3;
+    const first = scale === 'month' ? addMonths(`${today.slice(0, 7)}-01`, -5) : addMonths(thisQ, -9);
+    const n = scale === 'month' ? 12 : 6;
+    return Array.from({ length: n }, (_, i) => {
+      const start = addMonths(first, i * step);
+      const end = addMonths(start, step);
+      const inB = (d: string) => !!d && d >= start && d < end;
+      const paid = live.filter((t) => t.currency === cur && isPaid(t) && inB(when(t))).reduce((x, t) => x + t.amount, 0);
+      // not paid and already due: still to come, so it counts in this month (or quarter), not in the past
+      const expected = live.filter((t) => t.currency === cur && !isPaid(t) && inB(t.due && t.due < today ? today : t.due)).reduce((x, t) => x + t.amount, 0);
+      return { start, label: scale === 'month' ? monthShort(start) : `${monthShort(start)}–${monthShort(addMonths(start, 2))}`, year: start.slice(0, 4), paid, expected, now: today >= start && today < end };
+    });
+  })();
+  const top = Math.max(1, ...buckets.map((b) => b.paid + b.expected));
+
+  /* still to come, and about what it earns per university (R104) */
+  const toCome = sumBy(live.filter((t) => !isPaid(t)));
+  const perUni = useMemo(() => {
+    const seen = new Map<string, Tx>();
+    mine.forEach((t) => !seen.has(t.uni) && seen.set(t.uni, t));
+    return [...seen.values()]
+      .map((t) => {
+        const c = COURSES.find((x) => x.uni.id === t.uni && x.name === t.course);
+        const e = c ? estimateFor(s, c, rp.id, today, enrolmentsOf(apps, students)) : null;
+        return e ? { uni: t.uniName, course: t.course, e } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x);
+  }, [mine, s, rp.id, today, apps, students]);
+
+  /* applications: one card each */
+  const cards = useMemo(() => {
+    const by = new Map<string, Tx[]>();
+    live.forEach((t) => by.set(t.app, [...(by.get(t.app) ?? []), t]));
+    return [...by.entries()]
+      .map(([app, txs]) => {
+        const paid = txs.filter(isPaid);
+        const next = txs.filter((t) => !isPaid(t) && t.due).sort((a, b) => a.due.localeCompare(b.due))[0];
+        return { app, student: txs[0].student, uni: txs[0].uniName, course: txs[0].course, n: txs.length, paid: paid.length, total: sumBy(txs), got: sumBy(paid), next };
+      })
+      .sort((a, b) => (a.next?.due ?? '9999').localeCompare(b.next?.due ?? '9999'));
+  }, [live]);
+
+  /* the lines, filtered */
+  const unis = [...new Set(mine.map((t) => t.uniName))].sort();
+  const groups = GROUPS.filter((g) => g.tab);
+  const shown = mine.filter((t) => (!focusApp || t.app === focusApp) && (!fUni || t.uniName === fUni) && (!fGroup || groupOf('rp', t.status) === fGroup) && (!q.trim() || [t.student, t.app, t.id].some((x) => x.toLowerCase().includes(q.trim().toLowerCase()))));
+  const focus = cards.find((c) => c.app === focusApp);
+
   return (
     <div className="ipage cearn">
       <header className="stu__head ihead">
         <div className="stu__titles">
           <h1 className="page__title">Earnings</h1>
-          <p className="stu__lead">The commission {rp.name} earns on each enrolled student, and when GSP pays it.</p>
+          <p className="stu__lead">The commission {rp.name} earns on each enrolled student, and when GSP pays it. In each university’s currency.</p>
         </div>
       </header>
 
-      <div className="cearn__tiles" role="group" aria-label="Your commission">
-        {tiles.map(([k, m, sub]) => (
-          <div key={k} className="card cearn__tile">
-            <span className="k">{k}</span>
-            <span className="n num">{totalsText(m)}</span>
-            <span className="k">{sub}</span>
+      <div className="cearn__tiles" role="group" aria-label="Your commission by quarter">
+        {quarters.map((x) => (
+          <div key={x.key} className={`card cearn__tile ${x.key === 'this' ? 'is-now' : ''}`}>
+            <span className="k">
+              {x.title} · {x.sub}
+            </span>
+            <span className="n num">{totalsText(x.main) || '—'}</span>
+            <span className="k">{x.note}</span>
           </div>
         ))}
         {stand && (
@@ -75,6 +171,157 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
           </div>
         )}
       </div>
+
+      {rec && (
+        <section className="card irsec" aria-labelledby="cearn-terms">
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id="cearn-terms">
+                Your terms
+              </h2>
+              <p className="irsec__note">Each student is paid on the terms in force on their intake.</p>
+            </div>
+          </div>
+          <ul className="cearn__unis">
+            <li>
+              <span className="iw-strong">{agName(rec.agreement)}</span>
+              <span>From {dayText(rec.from)}{rec.ownFlat != null ? `, at your own ${pct(rec.ownFlat)} of GSP’s commission` : ''}</span>
+            </li>
+            {[...rec.moves]
+              .sort((a, b) => b.from.localeCompare(a.from))
+              .map((m, i, all) => (
+                <li key={m.from}>
+                  <span className="iw-strong">{agName(m.agreement)}</span>
+                  <span className="cmuted">
+                    {dayText(m.from)} to {dayText(addDays(i === 0 ? rec.from : all[i - 1].from, -1))}: students with an intake then keep these terms
+                  </span>
+                </li>
+              ))}
+            {myNotices.map((n) => (
+              <li key={n.id}>
+                <span className="iw-strong">Notice: {n.name}</span>
+                <span>
+                  {benefitText(n)}, {dayText(n.starts)} to {dayText(n.ends)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="card irsec" aria-labelledby="cearn-chart">
+        <div className="irsec__head">
+          <div className="irsec__t">
+            <h2 className="irsec__title" id="cearn-chart">
+              {scale === 'month' ? 'Month by month' : 'Quarter by quarter'}
+            </h2>
+            <p className="irsec__note">Paid, by the day GSP paid; expected, by the day it’s due. Expected amounts can change until GSP is paid.</p>
+          </div>
+          <div className="cearn__acts">
+            {currencies.length > 1 && (
+              <div className="cseg" role="group" aria-label="Currency">
+                {currencies.map((c) => (
+                  <button key={c} type="button" aria-pressed={c === cur} onClick={() => setCurPick(c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="cseg" role="group" aria-label="By month or quarter">
+              <button type="button" aria-pressed={scale === 'month'} onClick={() => setScale('month')}>
+                Month
+              </button>
+              <button type="button" aria-pressed={scale === 'quarter'} onClick={() => setScale('quarter')}>
+                Quarter
+              </button>
+            </div>
+          </div>
+        </div>
+        {live.length ? (
+          <>
+            <div className="cchart" role="img" aria-label={`${cur} paid and expected ${scale === 'month' ? 'by month' : 'by quarter'}: ${buckets.map((b) => `${b.label} ${b.year}: paid ${money(b.paid, cur)}, expected ${money(b.expected, cur)}`).join('; ')}`}>
+              {buckets.map((b) => (
+                <div key={b.start} className={`cchart__col ${b.now ? 'is-now' : ''}`} title={`${b.label} ${b.year}: paid ${money(b.paid, cur)}, expected ${money(b.expected, cur)}`}>
+                  <div className="cchart__bar">
+                    <span className="cchart__exp" style={{ height: `${(b.expected / top) * 100}%` }} />
+                    <span className="cchart__paid" style={{ height: `${(b.paid / top) * 100}%` }} />
+                  </div>
+                  <span className="cchart__x">{b.label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="cchart__key">
+              <span className="cchart__sw cchart__sw--paid" /> Paid <span className="cchart__sw cchart__sw--exp" /> Expected <span className="cmuted">· {cur} · highest {money(top, cur)}</span>
+            </p>
+          </>
+        ) : (
+          <p className="iempty">Shows once one of your students enrols.</p>
+        )}
+      </section>
+
+      <section className="card irsec" aria-labelledby="cearn-come">
+        <div className="irsec__head">
+          <div className="irsec__t">
+            <h2 className="irsec__title" id="cearn-come">
+              Still to come
+            </h2>
+            <p className="irsec__note">
+              {Object.keys(toCome).length ? `${totalsText(toCome)} not paid yet, across your students. ${ESTIMATE}.` : 'Nothing waiting: everything is paid.'}
+            </p>
+          </div>
+        </div>
+        {perUni.length > 0 && (
+          <ul className="cearn__unis">
+            {perUni.map((x) => (
+              <li key={x.uni}>
+                <span className="iw-strong">{x.uni}</span>
+                <span>
+                  You earn about <strong>{x.e.pctOfFee}%</strong> of the {x.e.basis} fee ({money(x.e.amount, x.e.currency)} on {x.course})
+                </span>
+                {x.e.next && (
+                  <span className="cmuted">
+                    {x.e.next.more} more {x.e.next.more === 1 ? 'enrolment' : 'enrolments'} and it’s about {x.e.next.pctOfFee}% ({money(x.e.next.amount, x.e.currency)})
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="card irsec" aria-labelledby="cearn-apps">
+        <div className="irsec__head">
+          <div className="irsec__t">
+            <h2 className="irsec__title" id="cearn-apps">
+              Your students
+            </h2>
+            <p className="irsec__note">Pick one to see its lines.</p>
+          </div>
+        </div>
+        {cards.length ? (
+          <ul className="cearn__cards">
+            {cards.map((c) => (
+              <li key={c.app}>
+                <button type="button" className={`card cearn__card ${focusApp === c.app ? 'is-on' : ''}`} aria-pressed={focusApp === c.app} onClick={() => setFocusApp(focusApp === c.app ? '' : c.app)}>
+                  <span className="iw-strong">{c.student}</span>
+                  <span className="iw-sub">
+                    {c.uni} · {c.course}
+                  </span>
+                  <span className="cearn__prog" aria-hidden="true">
+                    <span style={{ width: `${(c.paid / Math.max(1, c.n)) * 100}%` }} />
+                  </span>
+                  <span className="num">
+                    {c.paid} of {c.n} paid · {totalsText(c.got) || '—'} of {totalsText(c.total)}
+                  </span>
+                  <span className="iw-sub num">{c.next ? `Next: ${money(c.next.amount, c.next.currency)}, due ${dayText(c.next.due)}` : 'All paid'}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="iempty">Shows once one of your students enrols.</p>
+        )}
+      </section>
 
       <section className="card irsec" aria-labelledby="cearn-send">
         <div className="irsec__head">
@@ -125,16 +372,45 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         {inReview > 0 && <p className="cline">{inReview === 1 ? 'One line is' : `${inReview} lines are`} on an invoice you sent: GSP is checking it.</p>}
       </section>
 
+
       <section className="card irsec" aria-labelledby="cearn-lines">
         <div className="irsec__head">
           <div className="irsec__t">
             <h2 className="irsec__title" id="cearn-lines">
               Commission lines
             </h2>
-            <p className="irsec__note">What GSP pays you, line by line, in the university’s currency.</p>
+            <p className="irsec__note">{focus ? `${focus.student}, ${focus.uni}: ${focus.paid} of ${focus.n} paid.` : 'What GSP pays you, line by line, in the university’s currency.'}</p>
           </div>
+          {focus && (
+            <Button variant="secondary" size="sm" onClick={() => setFocusApp('')}>
+              Every student
+            </Button>
+          )}
         </div>
-        {mine.length ? <TxTable txs={mine} rp rpView app caption="Your commission lines" amountNote={`To question an amount, email ${s.settings.disputeEmail} with the transaction ID.`} /> : <p className="iempty">Lines show once one of your students enrols.</p>}
+        {mine.length > 0 && (
+          <div className="cearn__filters">
+            <TextInput id="cearn-q" aria-label="Search by student, application or transaction ID" placeholder="Student, application or transaction ID" value={q} onChange={(e) => setQ(e.target.value)} />
+            <SelectInput id="cearn-uni" aria-label="University" placeholder="Every university" allowEmpty value={fUni} onChange={(e) => setFUni(e.target.value)}>
+              {unis.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </SelectInput>
+            <SelectInput id="cearn-status" aria-label="Status" placeholder="Every status" allowEmpty value={fGroup} onChange={(e) => setFGroup(e.target.value)}>
+              {groups.map((g) => (
+                <option key={g.key} value={g.key}>
+                  {g.label}
+                </option>
+              ))}
+            </SelectInput>
+          </div>
+        )}
+        {shown.length ? (
+          <TxTable txs={shown} rp rpView app caption="Your commission lines" amountNote={`To question an amount, email ${s.settings.disputeEmail} with the transaction ID.`} />
+        ) : (
+          <p className="iempty">{mine.length ? 'No lines match.' : 'Lines show once one of your students enrols.'}</p>
+        )}
       </section>
 
       <UploadSheet
@@ -212,3 +488,13 @@ function UploadSheet({ open, lines, maxMb, onClose, onSend }: { open: boolean; l
     </Sheet>
   );
 }
+
+/** yyyy-mm-01 moved by whole months; "Nov" for a month. */
+function addMonths(d: string, n: number) {
+  const y = Number(d.slice(0, 4));
+  const m = Number(d.slice(5, 7)) - 1 + n;
+  const yy = y + Math.floor(m / 12);
+  const mm = ((m % 12) + 12) % 12;
+  return `${yy}-${String(mm + 1).padStart(2, '0')}-01`;
+}
+const monthShort = (d: string) => new Date(`${d.slice(0, 7)}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'short' });

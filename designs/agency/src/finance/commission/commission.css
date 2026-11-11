@@ -137,3 +137,37 @@
 .cmeter__bar > span { display: block; height: 100%; background: var(--primary, #e51e3f); }
 .cmeter__t { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .cpre { white-space: pre-line; }
+
+/* Earnings (11 Nov, Deepesh's review): quarters, the chart, still to come, student cards, filters */
+.cearn__tile.is-now { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.cseg { display: inline-flex; padding: 2px; border-radius: var(--r-pill); background: var(--surface-2); gap: 2px; }
+.cseg > button { border: 0; background: none; font: inherit; font-size: var(--t-label); color: var(--text-2); padding: var(--sp-6) var(--sp-12); border-radius: var(--r-pill); cursor: pointer; min-height: 32px; }
+.cseg > button[aria-pressed='true'] { background: var(--surface); color: var(--text); font-weight: var(--fw-semi); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+.cseg > button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.cchart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: end; height: 180px; padding-top: var(--sp-8); }
+.cchart__col { display: grid; grid-template-rows: 1fr auto; gap: var(--sp-6); height: 100%; min-width: 0; }
+.cchart__bar { display: flex; flex-direction: column-reverse; justify-content: flex-start; border-bottom: 1px solid var(--line); min-height: 0; }
+.cchart__paid { display: block; background: var(--primary); border-radius: 4px 4px 0 0; }
+.cchart__exp { display: block; background: color-mix(in srgb, var(--primary) 28%, transparent); border-radius: 4px 4px 0 0; }
+.cchart__paid + .cchart__exp, .cchart__exp:has(+ .cchart__paid) { border-radius: 0; }
+.cchart__x { font-size: var(--t-caption); color: var(--text-3); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cchart__col.is-now .cchart__x { color: var(--text); font-weight: var(--fw-semi); }
+.cchart__key { display: flex; align-items: center; gap: var(--sp-6); flex-wrap: wrap; margin: var(--sp-10) 0 0; font-size: var(--t-caption); color: var(--text-2); }
+.cchart__sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.cchart__sw--paid { background: var(--primary); }
+.cchart__sw--exp { background: color-mix(in srgb, var(--primary) 28%, transparent); margin-left: var(--sp-8); }
+.cearn__unis { list-style: none; margin: 0; padding: 0; display: grid; }
+.cearn__unis > li { display: grid; gap: 2px; padding: var(--sp-10) 0; border-top: 1px solid var(--line); font-size: var(--t-label); }
+.cearn__unis > li:first-child { border-top: 0; }
+.cearn__cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: var(--sp-10); }
+.cearn__card { width: 100%; display: grid; gap: var(--sp-4); text-align: left; padding: var(--sp-12) var(--sp-14, 14px); font: inherit; font-size: var(--t-label); color: var(--text); cursor: pointer; border: 1px solid var(--line); }
+.cearn__card.is-on { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.cearn__card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cearn__prog { display: block; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin: var(--sp-4) 0 2px; }
+.cearn__prog > span { display: block; height: 100%; background: var(--ok, var(--primary)); }
+.cearn__filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-8); margin-bottom: var(--sp-12); }
+@media (max-width: 700px) {
+  .cearn__filters { grid-template-columns: 1fr; }
+  .cchart { gap: 3px; height: 150px; }
+  .cchart__x { font-size: 10px; }
+}
