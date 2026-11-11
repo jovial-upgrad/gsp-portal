@@ -17,6 +17,8 @@ export type LineView = {
   from: string;
   to: string;
   q: string;
+  /** Only lines past their claim window, still unclaimed (R105). */
+  lapsed?: boolean;
 };
 export const blankView = (side: Side): LineView => ({ side, tab: 'all', who: [], regions: [], types: [], statuses: [], from: '', to: '', q: '' });
 
@@ -30,6 +32,7 @@ export function filterLines(txs: Tx[], v: LineView, invoiceNo: (t: Tx) => string
     .filter((t) => !v.regions.length || v.regions.includes(t.region))
     .filter((t) => !v.types.length || v.types.includes(t.type))
     .filter((t) => !v.statuses.length || v.statuses.includes(t.status))
+    .filter((t) => !v.lapsed || !!t.claimLapsed)
     .filter((t) => (!v.from || t.due >= v.from) && (!v.to || t.due <= v.to))
     .filter((t) => !q || [t.student, t.app, t.id, invoiceNo(t)].some((x) => x.toLowerCase().includes(q)))
     .sort((a, b) => a.due.localeCompare(b.due) || a.id.localeCompare(b.id));

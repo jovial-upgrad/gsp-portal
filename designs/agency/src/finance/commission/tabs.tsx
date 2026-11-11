@@ -60,6 +60,7 @@ export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; 
             ['Additional commission passed on', ag.addl === null ? 'The same as the share' : pct(ag.addl)],
             ['Bonus', ag.bonuses.length ? ag.bonuses.map((b) => `${b.desc}: ${b.amount.toLocaleString('en-GB')} in the university’s currency, ${b.when === 'Every enrolment' ? 'on every enrolment' : `on enrolment ${b.nth}, counted per ${ag.countedPer.toLowerCase()}`}`).join('; ') : 'None', 'wide'],
             ['Pay within', `${ag.payDays} days of GSP receiving the accepted invoice`],
+            ['Can claim for', `${ag.claimMonths ?? s.settings.rpClaimMonths} months after the study period ends${ag.claimMonths == null ? ' (Settings)' : ''}`],
             ['Agreement details', ag.details, 'wide'],
             ['Agreement document', <DocLine key="d" file={ag.doc} label={ag.name} />, 'wide'],
           ]}
@@ -129,6 +130,7 @@ export function termsFacts(t: CommState['terms'][number], cur: string): ([string
     ['Chargeable for', t.charge.unit === 'Whole course' ? 'The whole course' : t.charge.unit === 'Fees up to' ? `Fees up to ${money(t.charge.n ?? 0, cur)}` : `${t.charge.n} ${t.charge.unit.toLowerCase()}`],
     ['Trigger', t.trigger === 'Withdrawal deadline' ? `${t.trigger}: ${t.triggerWeeks ?? '(Settings’ fallback)'} weeks after the study period starts` : t.trigger],
     ['Pay within', `${t.payDays} days of GSP’s invoice`],
+    ['GSP can invoice for', t.claimMonths ? `${t.claimMonths} months after the study period ends` : 'No limit'],
     ['First-year cap per student', t.cap === null ? 'None' : money(t.cap, cur)],
     ['Tier bands', t.bands.length ? `${bandsText(t.bands)}, counted per ${t.countedPer.toLowerCase()}${t.tierRetro ? ', retrospective' : ''}${t.tierPerCountry ? ', per source country' : ''}${t.tierLevels.length ? `, ${t.tierLevels.join(', ')} only` : ''}` : 'None', 'wide'],
     ['Band bonuses', t.bandBonuses.length ? t.bandBonuses.map((b) => `Band ${b.band}: ${b.kind === '%' ? `${pct(b.value)} of the first-year fee` : money(b.value, cur)}`).join(', ') : 'None'],

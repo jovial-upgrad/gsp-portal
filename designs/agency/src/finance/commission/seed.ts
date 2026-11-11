@@ -29,6 +29,8 @@ export const sampleSettings = (): Settings => ({
   regionGroups: { SEA: ['Vietnam', 'Malaysia', 'Indonesia', 'Thailand', 'Philippines', 'Singapore', 'Cambodia', 'Myanmar'], 'South Asia': ['India', 'Nepal', 'Bangladesh', 'Sri Lanka', 'Pakistan', 'Bhutan'] },
   annuity: { rule: 'Same as year 1', pct: null },
   // Jovial, 11 Nov: by default an RP sees every kind of line, for its first study period only (the business, 11 Nov)
+  // the commissions team, 11 Nov (R105): an RP can claim for 12 months after the study period ends
+  rpClaimMonths: 12,
   rpView: { kinds: ['Course commission', 'Tier top-up', 'Additional commission', 'Bonus'], periods: 'First study period only' },
   docTypes: ['Notice', 'Addendum', 'Flyer', 'Email'],
   studentTypes: ['New', 'Progression', 'Transfer'],

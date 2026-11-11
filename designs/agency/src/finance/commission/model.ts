@@ -50,6 +50,12 @@ export type Settings = {
   annuity: { rule: AnnuityRule; pct: number | null };
   /** What a new RP is shown of its commission until its record says otherwise (Jovial, 11 Nov). */
   rpView: RpView;
+  /**
+   * Months after a study period ends that an RP can claim its commission (the commissions team, 11 Nov, R105: 12, the
+   * same in every new agreement; an agreement can say otherwise). Past it the line stays, isn't closed and the RP isn't
+   * told; Finance sees it flagged and adjusts the books (Xero).
+   */
+  rpClaimMonths: number;
   /** A notice's source document types. */
   docTypes: string[];
   /** Student types an Australian enrolment needs (new, progression, transfer). */
@@ -94,6 +100,8 @@ export type Band = { from: number; to: number | null; pct: number };
 
 /** What an agreement says: the share, its bands, how they're counted, what's passed on, how soon GSP pays. */
 export type AgreementTerms = {
+  /** Months after a study period ends that the RP can claim (R105); empty: Settings'. */
+  claimMonths?: number | null;
   shareType: ShareType;
   share: number | null;
   bands: Band[];
@@ -258,6 +266,8 @@ export type Addl = { id: string; desc: string; kind: AddlKind; value: number; wh
 export const UNI_COUNTED_PER = ['Calendar year', 'Academic year', 'Financial year', 'Intake'] as const;
 export type UniCountedPer = (typeof UNI_COUNTED_PER)[number];
 export type TermsBody = {
+  /** Months after a study period ends that GSP can invoice the university (R105: it varies by contract); empty: no limit. */
+  claimMonths?: number | null;
   /** The currency the university pays in (D20): its country's by default, editable from the contract. */
   currency?: string;
   rates: Partial<Record<Level, number>>;

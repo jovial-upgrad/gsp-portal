@@ -94,6 +94,24 @@ try {
     ok('R104 an RP not shown course commission gets no estimate', est.estimateFor(hid, withTerms, rp0, TODAY) === null);
   }
 
+  // R105: claim windows. Lines stay as they are; Finance sees the ones past their window, still unclaimed
+  {
+    const ready = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Ready to invoice');
+    ok('R105 a fresh RP line inside 12 months isn’t flagged', ready.every((t) => !t.claimLapsed), ready.filter((t) => t.claimLapsed).map((t) => t.id).join(' '));
+    ok('R105 its claim window ends 12 months after its study period ends', ready.length > 0 && ready.every((t) => !!t.claimEnds));
+    const s1m = { ...s0, settings: { ...s0.settings, rpClaimMonths: 1 } };
+    const r1m = run(s1m);
+    const lapsedRp = r1m.txs.filter((t) => t.side === 'rp' && t.claimLapsed);
+    ok('R105 with a 1-month window, older unclaimed RP lines are flagged', lapsedRp.length > 0 && lapsedRp.every((t) => ['Ready to invoice', 'Sent back'].includes(t.status)));
+    ok('R105 a flagged line keeps its status and amount (nothing closes)', lapsedRp.every((t) => r0.byId.get(t.id)?.status === t.status && r0.byId.get(t.id)?.amount === t.amount));
+    ok('R105 the RP hears nothing about it', !engine.commNotes(s1m, r1m, (x) => x, TODAY).some((n) => n.to === 'rp' && /claim/i.test(n.title + n.text)));
+    const u = r0.txs.find((t) => t.side === 'uni' && t.status === 'Ready to invoice');
+    const sU = { ...s0, terms: s0.terms.map((t) => (t.uni === u.uni ? { ...t, claimMonths: 1 } : t)) };
+    const lapsedU = run(sU).txs.filter((t) => t.side === 'uni' && t.uni === u.uni && t.claimLapsed);
+    ok('R105 a university’s own window flags GSP’s uninvoiced lines', lapsedU.length > 0 && lapsedU.every((t) => !t.invoice));
+    ok('R105 no university window, no flag', r0.txs.filter((t) => t.side === 'uni').every((t) => !t.claimLapsed));
+  }
+
   // Q47 and Q54: reminders, sent back and approved
   const rq = { id: 'rq-t', rp: rp1.rp, txs: [rp1.id], date: '2026-11-01', by: 'Test', at: 4 };
   // this RP is shown every study period here, so the reminder is about lines it can see (Jovial, 11 Nov)

@@ -121,6 +121,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
   const flat = v.shareType === 'Flat';
   const lastFrom = edit ? [...edit.earlier].map((x) => x.until).sort().pop() ?? '' : '';
   const err = {
+    claim: v.claimMonths != null && !wholeIn(v.claimMonths, 1, 120) ? 'A whole number of months, 1 to 120.' : null,
     name: !v.name.trim() ? 'Name the agreement.' : s.agreements.some((a) => a.id !== v.id && a.name.trim().toLowerCase() === v.name.trim().toLowerCase()) ? 'There’s already an agreement with this name.' : null,
     share: flat && pctBad(v.share, true) ? 'A number from 0 to 100.' : null,
     bands: !flat ? bandsError(v.bands) : null,
@@ -199,6 +200,9 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
       <FormSec title="Payment" />
       <Field id="cag-pay" label="Pay within (days)" required error={show('payDays')} hint="Days after GSP receives the RP’s accepted invoice.">
         <TextInput id="cag-pay" inputMode="numeric" value={numText(v.payDays)} invalid={!!show('payDays')} onChange={(e) => set({ payDays: numOf(e.target.value) ?? NaN })} />
+      </Field>
+      <Field id="cag-claim" label="The RP can claim for (months)" optional error={show('claim')} hint={`After the study period ends. Empty: Settings’ ${s.settings.rpClaimMonths} months. Past it the line stays and Finance adjusts the books; the RP isn’t told.`}>
+        <TextInput id="cag-claim" inputMode="numeric" value={numText(v.claimMonths ?? null)} invalid={!!show('claim')} onChange={(e) => set({ claimMonths: numOf(e.target.value) })} />
       </Field>
       <Field id="cag-addl" label="Additional commission passed on (%)" optional error={show('addl')} hint="Share of any additional commission the university pays. Empty: the same as the share above.">
         <TextInput id="cag-addl" inputMode="decimal" value={numText(v.addl)} invalid={!!show('addl')} onChange={(e) => set({ addl: numOf(e.target.value) })} />
@@ -859,6 +863,9 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
         <Field id="cut-pay" label="Pay within (days)" required error={show('payDays')} hint="Days after GSP’s invoice.">
           <TextInput id="cut-pay" inputMode="numeric" value={numText(v.payDays)} invalid={!!show('payDays')} onChange={(e) => set({ payDays: numOf(e.target.value) })} />
         </Field>
+        <Field id="cut-claim" label="GSP can invoice for (months)" optional hint="After the study period ends, as the contract says. Lines not invoiced by then are flagged for Finance; nothing closes. Empty: no limit.">
+          <TextInput id="cut-claim" inputMode="numeric" value={numText(v.claimMonths ?? null)} onChange={(e) => set({ claimMonths: numOf(e.target.value) })} />
+        </Field>
         <Field id="cut-cap" label={`First-year cap per student${cur ? ` (${cur})` : ''}`} optional hint="The most course commission and Tier bonus per student in the first year. Additional commission isn’t capped.">
           <TextInput id="cut-cap" inputMode="decimal" value={numText(v.cap)} onChange={(e) => set({ cap: numOf(e.target.value) })} />
         </Field>
@@ -1009,6 +1016,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const days = (x: string) => daysOf(x).every((n) => Number.isInteger(n) && n >= 0 && n <= 120);
   const err = {
     weeks: !wholeIn(v.fallbackWeeks, 0, 52) ? 'A whole number of weeks, 0 to 52.' : null,
+    claim: !wholeIn(v.rpClaimMonths, 1, 120) ? 'A whole number of months, 1 to 120.' : null,
     gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
     groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
     annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
@@ -1056,6 +1064,9 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
         <TextInput id="cst-weeks" inputMode="numeric" value={numText(v.fallbackWeeks)} invalid={!!show('weeks')} onChange={(e) => set({ fallbackWeeks: numOf(e.target.value) ?? NaN })} />
       </Field>
       <FormSec title="RPs" note="The defaults for every RP; an RP’s record can change them." />
+      <Field id="cst-claim" label="RPs can claim for (months)" required error={show('claim')} hint="After the study period ends; an agreement can say otherwise. Past it the line stays on the portal, isn’t closed and the RP isn’t told: Finance adjusts the books.">
+        <TextInput id="cst-claim" inputMode="numeric" value={numText(v.rpClaimMonths)} invalid={!!show('claim')} onChange={(e) => set({ rpClaimMonths: numOf(e.target.value) ?? NaN })} />
+      </Field>
       <Field id="cst-ann" label="RP share after year 1" required hint="Unless the RP’s record has its own.">
         <SelectInput id="cst-ann" value={v.annuity.rule} onChange={(e) => set({ annuity: { ...v.annuity, rule: e.target.value as Settings['annuity']['rule'] } })}>
           {options(ANNUITY_RULES)}

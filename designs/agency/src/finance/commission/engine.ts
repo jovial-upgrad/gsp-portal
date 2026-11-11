@@ -15,7 +15,7 @@
  */
 import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniGroup, UniStatus, UniTerms } from './model';
 import { EXCEPTIONS, PAY_UNITS, SIDES, TRIGGERS, dayText, money, pct, roundMoney } from './model';
-import { bandIndex, bonusAmount, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, unreadableRows, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
+import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, unreadableRows, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
 
@@ -129,6 +129,9 @@ export type Tx = {
   short?: string;
   /** GSP → RP: the day GSP asked the RP for its invoice. */
   requested?: string;
+  /** Its claim window (R105): the last day it can be claimed (GSP's invoice to the university, or the RP's to GSP), and whether that has passed while it's still unclaimed. Finance only; nothing closes. */
+  claimEnds?: string;
+  claimLapsed?: boolean;
   /** GSP → RP: the RP is shown this line (its record's view, or Settings'; Jovial, 11 Nov). GSP sees every line. */
   rpSees?: boolean;
 };
@@ -646,6 +649,11 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const held = !!holdWhy;
       if (held) t.heldWhy = holdWhy;
       t.status = uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today, toConfirm: needs });
+      // R105: GSP's own claim window with the university, when its terms have one
+      if (T?.claimMonths && !t.invoice && !['Paid', 'Part paid', 'Not payable'].includes(t.status)) {
+        t.claimEnds = keepMonth(periodEnd(t), T.claimMonths);
+        t.claimLapsed = today > t.claimEnds;
+      }
     });
 
     // GSP → RP
@@ -815,6 +823,18 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // a withdrawn student earns the RP no bonus (D28); a milestone counts students GSP was paid for, so it stands
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
       t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), due: t.due, today });
+      // R105: the RP's claim window, from the end of the study period the line pays for; the line stays as it is
+      if (['Ready to invoice', 'Sent back'].includes(t.status) && !inv) {
+        const months = (ag ? termsAt<AgreementTerms>(ag, startOf(e)).claimMonths : null) ?? S.rpClaimMonths;
+        t.claimEnds = keepMonth(periodEnd(anchor ?? t), months);
+        t.claimLapsed = today > t.claimEnds;
+      }
+    }
+    /** The end of the study period a line pays for (R105): the course start + its periods (by how the university pays);
+     *  per unit or per fee payment, the line's own date. */
+    function periodEnd(t: Pick<Tx, 'period' | 'trigger'>) {
+      const per = T ? PAY_UNITS.find((x) => x.label === T.payUnit)?.per ?? 0 : 0;
+      return per ? keepMonth(startOf(e), Math.round(((t.period ?? 1) * 12) / per)) : t.trigger;
     }
     function first() {
       return uniTxs.find((t) => t.type === 'Course commission' && !t.adjusts) ?? uniTxs.find((t) => !t.adjusts);

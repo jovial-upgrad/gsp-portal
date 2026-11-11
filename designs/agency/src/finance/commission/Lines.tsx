@@ -57,7 +57,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const pg = usePaged(shown, [JSON.stringify(v)]);
   useEffect(() => setTicked([]), [JSON.stringify(v)]); // eslint-disable-line react-hooks/exhaustive-deps
   const sel = shown.filter((t) => ticked.includes(t.id));
-  const filtered = v.who.length + v.regions.length + v.types.length + v.statuses.length > 0 || !!v.from || !!v.to || !!v.q;
+  const filtered = v.who.length + v.regions.length + v.types.length + v.statuses.length > 0 || !!v.from || !!v.to || !!v.q || !!v.lapsed;
   const clear = () => setV((x) => ({ ...blankView(x.side), tab: x.tab }));
   const onlyOne = (k: 'uni' | 'rp') => new Set(sel.map((t) => t[k])).size === 1;
   const all = (st: readonly string[]) => sel.length > 0 && sel.every((t) => st.includes(t.status));
@@ -110,18 +110,21 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     );
   };
   // the worklist tiles (D1): each picks the side and the statuses it counts
-  const TILE: Record<TileKey, { side: Side; statuses: TxStatus[]; label: string; n: number; tone: 'you' | 'bad' | 'uni' | 'gsp' }> = {
+  // R105: lines past their claim window, still unclaimed; nothing closes, Finance adjusts the books (Xero)
+  const lapsed = (sd: Side) => res.txs.filter((t) => t.side === sd && t.claimLapsed).length;
+  const TILE: Record<TileKey, { side: Side; statuses: TxStatus[]; label: string; n: number; tone: 'you' | 'bad' | 'uni' | 'gsp'; lapsed?: boolean }> = {
     ready: { side: 'uni', statuses: [READY_UNI], label: READY_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === READY_UNI).length, tone: 'you' },
     overdue: { side: 'uni', statuses: [OVERDUE_UNI], label: OVERDUE_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === OVERDUE_UNI).length, tone: 'bad' },
     part: { side: 'uni', statuses: [PART_PAID], label: PART_PAID, n: res.txs.filter((t) => t.side === 'uni' && t.status === PART_PAID).length, tone: 'uni' },
     check: { side: 'rp', statuses: [IN_REVIEW], label: 'Invoices to check', n: toCheck.length, tone: 'you' },
     approved: { side: 'rp', statuses: [...TO_PAY], label: 'Approved to pay', n: res.txs.filter((t) => t.side === 'rp' && (TO_PAY as readonly string[]).includes(t.status)).length, tone: 'gsp' },
     confirm: { side: 'uni', statuses: [], label: 'To confirm', n: work.confirm.length, tone: 'you' },
+    lapsed: { side: lapsed('rp') || !lapsed('uni') ? 'rp' : 'uni', statuses: [], label: 'Past the claim window', n: lapsed('rp') + lapsed('uni'), tone: 'bad', lapsed: true },
   };
   const pickTile = (k: TileKey | '') => {
     setTile(k);
     if (!k) return setV((x) => blankView(x.side));
-    setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses });
+    setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses, lapsed: TILE[k].lapsed });
   };
   const fixIn = (type: string): SetupTab | null => (EXCEPTIONS.find((x) => x.type === type)?.fix as SetupTab | undefined) ?? null;
   const doRequest = () => {
@@ -596,7 +599,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   );
 }
 
-type TileKey = 'ready' | 'overdue' | 'part' | 'check' | 'approved' | 'confirm';
+type TileKey = 'ready' | 'overdue' | 'part' | 'check' | 'approved' | 'confirm' | 'lapsed';
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
 /** Record lump sum: a university, the amount (in its currency), why, and the day it came in. */

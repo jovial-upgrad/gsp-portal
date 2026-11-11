@@ -136,7 +136,7 @@ export function saveAgreement(a: Omit<Agreement, 'created' | 'updated' | 'earlie
     const was = s.agreements.find((x) => x.id === a.id);
     const today = from;
     const next: Agreement = was
-      ? { ...was, ...a, updated: stamp(by), earlier: [...was.earlier, { shareType: was.shareType, share: was.share, bands: was.bands, countedPer: was.countedPer, retro: was.retro, addl: was.addl, bonuses: was.bonuses, payDays: was.payDays, details: was.details, doc: was.doc, until: today }] }
+      ? { ...was, ...a, updated: stamp(by), earlier: [...was.earlier, { shareType: was.shareType, share: was.share, bands: was.bands, countedPer: was.countedPer, retro: was.retro, addl: was.addl, bonuses: was.bonuses, payDays: was.payDays, claimMonths: was.claimMonths, details: was.details, doc: was.doc, until: today }] }
       : { ...a, created: stamp(by), updated: stamp(by), earlier: [] };
     return withLog({ ...s, agreements: was ? s.agreements.map((x) => (x.id === a.id ? next : x)) : [...s.agreements, next] }, log('agreements', by, `${by} saved agreement ${a.name}: ${shareText(a)}${was ? `, effective from ${from}` : ''}`));
   });
