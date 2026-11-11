@@ -140,7 +140,7 @@ export function AppDetail({
   const pending = reviews.filter((r) => toReview(r, a));
   const reached = stageDates(a);
   const unreadMail = desk.mails.filter((m) => m.box === 'in' && !m.read).length;
-  const refMissing = isOpen(a) && isSubmitted(a) && !a.uniRef;
+  const refMissing = isOpen(a) && isSubmitted(a) && !a.uniRef && !a.noRef;
 
   // a request started from Documents is for this visit to the chat only
   useEffect(() => {
@@ -191,16 +191,31 @@ export function AppDetail({
   const changeStatus = (pick: StatusPick) => {
     setChanging(false);
     if ('end' in pick) return close(pick.end, '', pick.stage);
-    const { k } = pick;
+    // what the pop-up asked for comes with it (STATUS_NEEDS): the university reference (or none), who lodges the
+    // visa, and the letter GSP uploaded, into Documents
+    const { k, ref, noRef, letter, visaBy } = pick;
     const now = Date.now();
     const from = statusText(a);
     const to = STATUS[k].text(d);
-    update((x) => ({
-      ...arriveAt({ ...x, history: [...x.history, { at: now, who: 'gsp', text: `Changed the status from “${from}” to “${to}”`, by: gsp.name }] }, k, now, gsp.name),
-      status: k,
-      since: now,
-      end: undefined,
-    }));
+    const line = (text: string) => ({ at: now, who: 'gsp' as const, text, by: gsp.name });
+    update((x) => {
+      const y: Application = {
+        ...x,
+        ...(ref ? { uniRef: ref, noRef: undefined } : {}),
+        ...(noRef ? { noRef: true, uniRef: undefined } : {}),
+        ...(visaBy ? { visaBy } : {}),
+        files: letter ? [...x.files, { name: letter.name, file: letter.file, from: 'gsp', at: now, status: 'verified' }] : x.files,
+        history: [
+          ...x.history,
+          line(`Changed the status from “${from}” to “${to}”`),
+          ...(ref && ref !== x.uniRef ? [line(x.uniRef ? `Changed the university reference from ${x.uniRef} to ${ref}` : `Added the university reference ${ref}`)] : []),
+          ...(noRef ? [line(`No reference ID from ${c.uni.name}`)] : []),
+          ...(visaBy ? [line(visaBy === 'gsp' ? 'GSP lodges the visa' : 'The RP lodges the visa')] : []),
+          ...(letter ? [line(`${letter.name} added to Documents: ${letter.file}`)] : []),
+        ],
+      };
+      return { ...arriveAt(y, k, now, gsp.name), status: k, since: now, end: undefined };
+    });
     const mail = statusMail({ ...a, status: k }, s, k, now - 15 * 60_000);
     if (mail) setDesk((x) => (x.mails.some((m) => m.id === mail.id) ? x : { ...x, mails: [mail, ...x.mails] }));
     say(`Status changed to ${to}.`);

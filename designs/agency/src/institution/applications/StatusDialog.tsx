@@ -6,8 +6,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Icon } from '../../components/Icon';
 import { Checkbox, Field, TextInput } from '../../components/forms';
 import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
-import { CLOSE_AT, ENROL_DOC, ENROL_DOC_LONG, STAGES, STATUS, STATUS_ORDER, courseOf, destOf, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
-import type { Destination } from '../../data/courses';
+import { CLOSE_AT, STAGES, STATUS, STATUS_NEEDS, STATUS_ORDER, courseOf, destOf, letterFor, letterOnFile, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
 import './applications.css';
 
 /**
@@ -19,17 +18,7 @@ export type StatusPick =
   | { k: StatusKey; ref?: string; noRef?: boolean; letter?: { name: string; file: string }; visaBy?: 'you' | 'gsp' }
   | { end: EndKind; stage: number };
 
-/** The acceptance letter, with the destination's own name where it has a short one: "Acceptance letter (CoE)". */
-const acceptName = (d: Destination) => (['CoE', 'CAS', 'I-20', 'LOA'].includes(ENROL_DOC[d]) ? `Acceptance letter (${ENROL_DOC[d]})` : 'Acceptance letter');
-/** The letter a status needs uploaded with it: its name in the field, and in Documents. The visa grant only when GSP lodged the visa. */
-export function letterFor(k: StatusKey, a: Application): { label: string; name: string } | undefined {
-  const d = destOf(a);
-  if (k === 'conditions') return { label: 'Conditional offer letter', name: 'Conditional offer letter' };
-  if (k === 'uol') return { label: 'Unconditional offer letter', name: 'Unconditional offer letter' };
-  if (k === 'acceptrec') return { label: acceptName(d), name: ENROL_DOC_LONG[d] };
-  if (k === 'startdate' && a.visaBy === 'gsp') return { label: 'Visa grant letter', name: 'Visa grant letter' };
-  return undefined;
-}
+export { letterFor };
 
 const REF = /^[A-Za-z0-9][A-Za-z0-9/_-]{2,29}$/;
 const MAX_MB = 20;
@@ -59,7 +48,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
   const [noRef, setNoRef] = useState(false);
   const [file, setFile] = useState<{ name: string; size: number } | null>(null);
   const [bad, setBad] = useState('');
-  const [visaBy, setVisaBy] = useState<'you' | 'gsp'>('you');
+  const [visaBy, setVisaBy] = useState<'you' | 'gsp' | ''>('');
   useEffect(() => {
     if (!open) return;
     setStage(stageOf(a));
@@ -70,7 +59,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
     setNoRef(false);
     setFile(null);
     setBad('');
-    setVisaBy(a.visaBy ?? 'you');
+    setVisaBy(a.visaBy ?? '');
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const stages: MenuOption[] = STAGES.map((st, i) => ({ value: String(i), label: `${i + 1}. ${st}`, note: i === stageOf(a) ? 'Now' : undefined }));
   const statuses: MenuOption[] = [
@@ -78,25 +67,30 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
     ...CLOSE_AT[stage].map((kind) => ({ value: `end:${stage}:${kind}`, label: kind, group: 'Close the application', tone: 'end' as const })),
   ];
   const picked = k && !k.startsWith('end:') && k in STATUS ? (k as StatusKey) : undefined;
+  const need = picked ? STATUS_NEEDS[picked] : undefined;
   const letter = picked ? letterFor(picked, a) : undefined;
+  // a copy already in Documents (from GSP or the university) counts, so it isn't asked for again
+  const onFile = letter ? letterOnFile(a, letter.name) : undefined;
+  const mustUpload = !!letter && !letter.optional && !onFile;
   const okStatus = !!k && k !== a.status;
   // Student enrolled needs the fee and dates commission is worked out from (9 Nov)
   const enrolErr = picked === 'enrolled' && okStatus ? enrolBlock(a) : okStatus ? leaveBlock(a, k) : '';
   const clean = ref.trim().toUpperCase();
-  const refErr = picked === 'lodged' && !noRef ? (!clean ? 'Add the university reference ID, or tick No reference ID.' : !REF.test(clean) ? 'Use 3 to 30 letters, numbers or dashes, as the university wrote it.' : '') : '';
-  const fileErr = letter && !file ? bad || `Upload the ${letter.label.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase())}.` : bad;
+  const refErr = need?.reference && !noRef ? (!clean ? 'Add the university reference ID, or tick No reference ID.' : !REF.test(clean) ? 'Use 3 to 30 letters, numbers or dashes, as the university wrote it.' : '') : '';
+  const fileErr = mustUpload && !file ? bad || `Upload the ${letter!.label.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase())}.` : bad;
+  const visaErr = need?.lodger && !visaBy ? 'Pick who lodges the visa.' : '';
   const go = () => {
     setTried(true);
     if (!okStatus || enrolErr) return;
     const [, at, kind] = k.split(':');
     if (k.startsWith('end:')) return setClosing({ end: kind as EndKind, stage: Number(at) });
-    if (refErr || (letter && fileErr)) return;
+    if (refErr || fileErr || visaErr) return;
     const to = k as StatusKey;
     onConfirm({
       k: to,
-      ...(to === 'lodged' ? (noRef ? { noRef: true } : { ref: clean }) : {}),
+      ...(need?.reference ? (noRef ? { noRef: true } : { ref: clean }) : {}),
       ...(letter && file ? { letter: { name: letter.name, file: file.name } } : {}),
-      ...(to === 'visa' ? { visaBy } : {}),
+      ...(need?.lodger && visaBy ? { visaBy } : {}),
     });
   };
   const pickFile = (f: File | null) => {
@@ -159,7 +153,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
             />
           </Field>
 
-          {picked === 'lodged' && okStatus && (
+          {need?.reference && okStatus && (
             <div className="gstat__more">
               <Field id="gstat-ref" label="University reference ID" required={!noRef} error={tried && refErr ? refErr : null}>
                 <TextInput
@@ -179,8 +173,8 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
             </div>
           )}
 
-          {picked === 'visa' && okStatus && (
-            <div className="field gstat__more">
+          {need?.lodger && okStatus && (
+            <div className={`field gstat__more ${tried && visaErr ? 'field--error' : ''}`}>
               <p className="field__label" id="gstat-lodger-l">
                 Who lodges the visa?
                 <span className="field__req" aria-hidden="true">
@@ -201,12 +195,23 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
                   </label>
                 ))}
               </div>
+              {tried && visaErr && (
+                <p className="field__msg field__msg--error" role="alert">
+                  <Icon name="alert" size={16} />
+                  <span>{visaErr}</span>
+                </p>
+              )}
             </div>
           )}
 
           {letter && okStatus && (
             <div className="gstat__more">
-              <LetterField id="gstat-letter" label={letter.label} file={file} error={tried || bad ? fileErr : ''} onFile={pickFile} onRemove={() => setFile(null)} />
+              {onFile && !file ? (
+                <p className="small">
+                  {letter.label} is already in Documents ({onFile.file}). Upload a newer copy only if it changed.
+                </p>
+              ) : null}
+              <LetterField id="gstat-letter" label={letter.optional ? `${letter.label} (optional)` : letter.label} required={mustUpload} file={file} error={tried || bad ? fileErr : ''} onFile={pickFile} onRemove={() => setFile(null)} />
             </div>
           )}
         </div>
@@ -232,7 +237,7 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
 }
 
 /** A letter to upload with the status: a drop zone until a file is in, then the file with Replace and Remove. */
-function LetterField({ id, label, file, error, onFile, onRemove }: { id: string; label: string; file: { name: string; size: number } | null; error?: string; onFile: (f: File | null) => void; onRemove: () => void }) {
+function LetterField({ id, label, required = true, file, error, onFile, onRemove }: { id: string; label: string; required?: boolean; file: { name: string; size: number } | null; error?: string; onFile: (f: File | null) => void; onRemove: () => void }) {
   const [over, setOver] = useState(false);
   const drop = (e: DragEvent) => {
     e.preventDefault();
@@ -256,10 +261,14 @@ function LetterField({ id, label, file, error, onFile, onRemove }: { id: string;
     <div className={`field ${error ? 'field--error' : ''}`}>
       <label className="field__label" htmlFor={id}>
         {label}
-        <span className="field__req" aria-hidden="true">
-          *
-        </span>
-        <span className="vh"> (required)</span>
+        {required && (
+          <>
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+            <span className="vh"> (required)</span>
+          </>
+        )}
       </label>
       {file ? (
         <div className="mfile gstat__file">

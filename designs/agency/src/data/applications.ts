@@ -149,6 +149,45 @@ export const REUPLOAD_AT: (StatusKey | undefined)[] = [undefined, 'reupload', un
 /** The statuses in journey order (GSP's status list follows it). */
 export const STATUS_ORDER = Object.keys(STATUS).filter((k) => k !== 'closed') as StatusKey[];
 
+/**
+ * What a status needs when GSP sets it by hand in Change status (slice 3 PRD: "fills in what that status needs:
+ * reference, letter, who lodges the visa"; Nesil, 4 Nov; Q27 and Q60, 10 Nov). The pop-up reads this table; it holds
+ * no list of its own.
+ * - **reference**: the university reference ID, or a tick on No reference ID.
+ * - **lodger**: who lodges the visa, the RP or GSP, with no default (who has it follows it: `ownerAt`).
+ * - **letter**: a document uploaded with the status, into Documents. `ifGspLodged`: only when GSP lodged the visa.
+ *   `optional`: offered, not required. A copy already in Documents (from GSP or the university) counts.
+ */
+export type StatusNeed = {
+  reference?: true;
+  lodger?: true;
+  letter?: { name: (d: Destination) => string; label?: (d: Destination) => string; ifGspLodged?: true; optional?: true };
+};
+/** The acceptance letter, with the destination's own short name where it has one: "Acceptance letter (CoE)". */
+export const acceptLabel = (d: Destination) => (['CoE', 'CAS', 'I-20', 'LOA'].includes(ENROL_DOC[d]) ? `Acceptance letter (${ENROL_DOC[d]})` : 'Acceptance letter');
+export const STATUS_NEEDS: Partial<Record<StatusKey, StatusNeed>> = {
+  lodged: { reference: true },
+  conditions: { letter: { name: () => 'Conditional offer letter' } },
+  uol: { letter: { name: () => 'Unconditional offer letter' } },
+  acceptrec: { letter: { name: (d) => ENROL_DOC_LONG[d], label: acceptLabel } },
+  visa: { lodger: true },
+  startdate: { letter: { name: () => 'Visa grant letter', ifGspLodged: true } },
+  enrolled: { letter: { name: (d) => ENROL_DOC_LONG[d], label: acceptLabel, optional: true } },
+};
+/** The letter a status asks for on this application (none when the visa letter is the RP's to upload). */
+export function letterFor(k: StatusKey, a: Application, lodger?: 'you' | 'gsp'): { name: string; label: string; optional: boolean } | undefined {
+  const l = STATUS_NEEDS[k]?.letter;
+  if (!l) return undefined;
+  if (l.ifGspLodged && (lodger ?? a.visaBy) !== 'gsp') return undefined;
+  const d = destOf(a);
+  return { name: l.name(d), label: (l.label ?? l.name)(d), optional: !!l.optional };
+}
+/** That letter already in Documents, from GSP or the university (the old prototype's rule, 2 Nov): it counts. */
+export function letterOnFile(a: Pick<Application, 'files'>, name: string) {
+  const n = name.toLowerCase();
+  return [...a.files].reverse().find((f) => f.from !== 'you' && f.name.toLowerCase() === n);
+}
+
 export const OWNER_WORD: Record<AppOwner, string> = { you: 'Pending on you', gsp: 'With GSP', uni: 'With university', done: 'Enrolled', end: 'Closed' };
 /** The short tag for who has a status: in the journey and the stage path. */
 export const OWNER_TAG: Record<AppOwner, string> = { you: 'You', gsp: 'GSP', uni: 'University', done: 'Done', end: 'Closed' };
