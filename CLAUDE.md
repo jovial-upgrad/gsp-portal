@@ -19,7 +19,7 @@ The agency portal prototype lives in `designs/agency/`. `README.md` there descri
 
 ## Asking Jovial for input
 
-- **Anything that needs Jovial's input goes in a Google Sheet** (Jovial, 31 Oct), not a doc or a chat list: his *Pending Questions* sheet (https://docs.google.com/spreadsheets/d/1juXEYGiEFImRorfnEksCvLn_H4XSGrsqjwWtJOUEzRk/edit). Add a tab or rows there, prefilled with what the prototype uses today. (The earlier sheet, *GSP portal: inputs from Jovial*, is answered.)
+- **Ask Jovial in the chat** (Jovial, 11 Nov): the Pending Questions sheet became too much, so it is no longer used. Put every question in the conversation, numbered, each with what the prototype does today and a proposed answer, so he can reply "ok" or change it. (The sheet stays as the record of Q1–Q116.)
 
 ## Nothing hard-coded (Jovial, 2 Nov): a hard rule, no exceptions
 
@@ -39,5 +39,5 @@ The agency portal prototype lives in `designs/agency/`. `README.md` there descri
 
 ## Regression across slices (Jovial, 2 Nov)
 
-- **Any decision that changes something already written or drawn** (an earlier slice's PRD or the prototype) gets a row in the *Regression* tab of the Pending Questions sheet: the decision, its source (e.g. S3-21), the slices affected, and whether the docs and prototype are updated (the Figma columns are no longer used).
+- **Any decision that changes something already written or drawn** (an earlier slice's PRD or the prototype) gets a row in `designs/agency/REGRESSION.md` (from 11 Nov; earlier rows stay in the sheet's *Regression* tab): the decision, its source, the slices affected, and whether the docs and prototype are updated.
 - Before engineering picks up a slice, run a regression pass: apply every open Regression row to the docs and the prototype, then mark the row done.
