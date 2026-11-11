@@ -11,7 +11,7 @@
  * checking a document before GSP sees it, checking eligibility, forecasting dates and drafting messages.
  * They answer only from the application's own data, and they never change it.
  */
-import { COURSES, blockedFor, daysTo, earnOf, intakeState, money, type Course, type Destination } from './courses';
+import { COURSES, blockedFor, daysTo, earnOf, earnText, intakeState, money, type Course, type Destination } from './courses';
 import { LEVELS as EDU_LEVELS, TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
 
@@ -675,7 +675,7 @@ export function intakeStart(intake: string) {
 /** What the agency earns on the application, once the student enrols and the census date passes. */
 export const earnFor = (a: Application) => {
   const c = courseOf(a);
-  return { amount: earnOf(c), currency: c.currency, text: money(earnOf(c), c.currency) };
+  return { amount: earnOf(c) ?? 0, currency: c.currency, text: earnText(c) ?? '—' };
 };
 
 /* ---------- moving an application on ---------- */

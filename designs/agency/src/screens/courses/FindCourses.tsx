@@ -7,7 +7,7 @@ import { Checkbox, Field, Form, SelectInput, Switch } from '../../components/for
 import { Sheet } from '../../components/Sheet';
 import { COUNTRIES } from '../../data/partners';
 import { fullName, type Student } from '../../data/students';
-import { COURSES, FLAG, FLAG_COLOURS, earnOf, money, type Course } from '../../data/courses';
+import { COURSES, FLAG, FLAG_COLOURS, earnText, money, type Course } from '../../data/courses';
 import {
   AREAS,
   DESTINATIONS,
@@ -759,7 +759,7 @@ function CourseCard({
     ['Duration', duration(c.months)],
     ['QS world ranking', c.uni.qs ? `#${c.uni.qs}` : 'Not ranked'],
   ];
-  if (!s.studentView && !noCommission) facts.push(['Base commission', `≈ ${money(earnOf(c), c.currency)}`, 'earn']);
+  if (!s.studentView && !noCommission && earnText(c)) facts.push(['You earn', earnText(c)!, 'earn']);
   const tags = [
     c.scholarship > 0 && `Scholarship up to ${money(c.scholarship, c.currency)}`,
     c.englishFlex && 'English test can wait',

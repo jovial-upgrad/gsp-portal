@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Earnings } from '../../finance/commission/Earnings';
+import { setEstimateRp } from '../../finance/commission/estimate';
 import { commNotes } from '../../finance/commission/engine';
 import { ctxRps, ctxUnis, rpName as commRpName, useComm, useLines } from '../../finance/commission/store';
 import { HOME_RP } from '../../gsp/rps';
@@ -144,6 +145,9 @@ export function Portal({
   const [anns] = useState(() => ({ list: sampleAnnouncements(), names: {} }));
   const comm = useComm();
   const commLines = useLines(apps, students);
+  // Find courses and the course page show what this RP would earn (R104); GSP's roles show GSP's own
+  const meRp = ctxRps().find((r) => r.name === acc.agency) ?? ctxRps().find((r) => r.name === HOME_RP);
+  setEstimateRp(meRp?.id ?? null);
   const commExtra = useMemo<Note[]>(() => {
     const me = ctxRps().find((r) => r.name === acc.agency) ?? ctxRps().find((r) => r.name === HOME_RP);
     return commNotes(comm, commLines, commRpName, undefined, ctxUnis())

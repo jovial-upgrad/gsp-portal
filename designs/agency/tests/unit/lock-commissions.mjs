@@ -76,6 +76,24 @@ try {
     ok('View: the default is a setting', Array.isArray(s0.settings.rpView.kinds) && model.RP_VIEW_PERIODS.includes(s0.settings.rpView.periods));
   }
 
+  // R104 (Q101): what a course earns, from the university's terms and the RP's own terms, as the engine prices it
+  {
+    const est = await vite.ssrLoadModule('/src/finance/commission/estimate.ts');
+    const courses = await vite.ssrLoadModule('/src/data/courses.ts');
+    const rp0 = s0.records[0].rp;
+    const withTerms = courses.COURSES.find((c) => s0.terms.some((t) => t.uni === c.uni.id && t.rates[c.level] != null && !(t.rateRows ?? []).length));
+    const T = s0.terms.find((t) => t.uni === withTerms.uni.id);
+    const g = est.estimateFor(s0, withTerms, null, TODAY);
+    const fee = T.feeBasis === 'Tuition before scholarship' ? withTerms.tuition : withTerms.tuition - (withTerms.scholarship ?? 0);
+    ok('R104 GSP’s view: the university’s rate on the fee', !!g && Math.abs(g.amount - Math.round((fee * T.rates[withTerms.level]) / 100 / 10) * 10) <= 10, g && `${g.amount}`);
+    const r = est.estimateFor(s0, withTerms, rp0, TODAY);
+    ok('R104 the RP’s view: its share of GSP’s amount, and the % of the fee', !!r && r.share > 0 && Math.abs(r.amount - Math.round((g.amount * r.share) / 100 / 10) * 10) <= 20 && r.pctOfFee > 0, r && `${r.amount} ${r.share}% ${r.pctOfFee}%`);
+    const noTerms = courses.COURSES.find((c) => !s0.terms.some((t) => t.uni === c.uni.id));
+    ok('R104 no university terms: no estimate', !noTerms || est.estimateFor(s0, noTerms, rp0, TODAY) === null);
+    const hid = { ...s0, records: s0.records.map((x) => (x.rp === rp0 ? { ...x, view: { kinds: ['Bonus'], periods: 'Every study period' } } : x)) };
+    ok('R104 an RP not shown course commission gets no estimate', est.estimateFor(hid, withTerms, rp0, TODAY) === null);
+  }
+
   // Q47 and Q54: reminders, sent back and approved
   const rq = { id: 'rq-t', rp: rp1.rp, txs: [rp1.id], date: '2026-11-01', by: 'Test', at: 4 };
   // this RP is shown every study period here, so the reminder is about lines it can see (Jovial, 11 Nov)

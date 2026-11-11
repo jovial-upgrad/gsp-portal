@@ -23,13 +23,13 @@ const ok = (c, m) => (c ? (pass++, console.log('PASS ', m)) : (fails.push(m), co
     await nav('Find courses').click(); await wait(800);
     await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click().catch(() => {}); await wait(1200);
     ok((await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) > 0, R('Find courses: E'));
-    ok((await p.locator('main').innerText()).includes('Base commission'), R('Find courses › Commissions: V (shown)'));
+    ok(/You earn\s*≈ [A-Z]{3} [\d,]+ \([\d.]+% of the (net|gross) fee\)/.test(await p.locator('main').innerText()), R('Find courses › Commissions: V (shown: about how much, and the % of the fee, R104)'));
     await nav('Students').click(); await wait(800);
     ok((await p.getByRole('button', { name: 'Add student' }).count()) >= 1, R('Students list: E'));
     await nav('Applications').click(); await wait(800);
     ok((await p.getByRole('button', { name: /Add application/ }).count()) >= 1, R('Applications list: E'));
     await p.locator('main .arow, main tbody tr').first().click(); await wait(900);
-    ok((await tabNames()).join('|') === 'Chat|Documents|Logs', R('Application record: Chat, Documents, Logs; no Mail or Submission (' + (await tabNames()).join(', ') + ')'));
+    ok((await tabNames()).join('|') === 'Chat|Documents|Commission|Logs', R('Application record: Chat, Documents, Commission (9 Nov), Logs; no Mail or Submission (' + (await tabNames()).join(', ') + ')'));
     ok((await p.locator('main').innerText()).includes('Base commission'), R('Application › Commission: V (shown, nothing to change)'));
     ok((await p.locator('main textarea').count()) >= 1, R('Application › Chat: E'));
     ok(errs.length === 0, R('no page errors ' + errs.join(' | ')));

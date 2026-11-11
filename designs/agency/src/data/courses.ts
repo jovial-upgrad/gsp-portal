@@ -478,7 +478,22 @@ function closeThird(c: Course): Course {
 export const COURSES: Course[] = build().map(closeThird);
 
 /** What the agency earns: 70% of GSP's commission on first-year tuition after any scholarship. */
-export const earnOf = (c: Course) => Math.round(((c.tuition - c.scholarship) * c.rate * 0.7) / 100 / 10) * 10;
+/**
+ * What a course earns (Jovial, 11 Nov, R104): the commission module's estimate from the university's terms and the RP's
+ * own terms (finance/commission/estimate.ts registers it at start-up). None when the university has no terms yet, or
+ * the RP isn't shown course commission.
+ */
+type Earn = { amount: number; pctOfFee: number; basis: 'net' | 'gross' };
+let EARN: ((c: Course) => Earn | null) | null = null;
+export const setEarnOf = (f: (c: Course) => Earn | null) => {
+  EARN = f;
+};
+export const earnOf = (c: Course): number | null => EARN?.(c)?.amount ?? null;
+/** "about AUD 3,600 (12% of the net fee)", or none. */
+export const earnText = (c: Course): string | null => {
+  const e = EARN?.(c);
+  return e ? `≈ ${money(e.amount, c.currency)} (${e.pctOfFee}% of the ${e.basis} fee)` : null;
+};
 
 export const money = (n: number, cur: string) => `${cur} ${n.toLocaleString('en-GB')}`;
 

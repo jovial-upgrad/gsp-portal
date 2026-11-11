@@ -240,9 +240,9 @@ function Facts({ c, s, canApply, agency }: { c: Course; s: CourseSearch; canAppl
         </div>
         {!s.studentView && !noCommission && (
           <div className="cs-stat is-earn">
-            <dt>Base commission</dt>
+            <dt>You earn</dt>
             <dd className="cs-stat__v">
-              <Money v={earnOf(c)} cur={c.currency} approx />
+              {earnOf(c) != null ? <Money v={earnOf(c)!} cur={c.currency} approx /> : '—'}
             </dd>
             <dd className="cs-stat__sub">Once the student enrols</dd>
           </div>

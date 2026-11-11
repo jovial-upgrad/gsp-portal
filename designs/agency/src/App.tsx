@@ -1,3 +1,4 @@
+import { setEstimateRp } from './finance/commission/estimate';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { SignupBar, SignupPanel, accountMade } from './screens/signup/SignupFlow';
@@ -90,6 +91,8 @@ function writePref(key: string, v: string) {
 }
 
 export default function App() {
+  // GSP's roles see GSP's own course commission; the partner's portal sets its RP below (R104)
+  setEstimateRp(null);
   const reduce = useReducedMotion();
   const first = readHash();
   const [token, setToken] = useState<string | null>(first);

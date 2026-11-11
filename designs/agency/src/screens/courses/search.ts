@@ -370,7 +370,7 @@ export function results(s: CourseSearch): Results {
     match: (a, b) => Number(isPriority(b, n.country)) - Number(isPriority(a, n.country)) || Number(!!nextOpen(b)) - Number(!!nextOpen(a)) || nextDeadline(a) - nextDeadline(b) || a.offerDays - b.offerDays,
     fee: (a, b) => a.tuition - b.tuition,
     rank: (a, b) => (a.uni.qs ?? 9999) - (b.uni.qs ?? 9999),
-    earn: (a, b) => earnOf(b) - earnOf(a),
+    earn: (a, b) => (earnOf(b) ?? -1) - (earnOf(a) ?? -1),
   };
   list = [...list].sort(by[s.studentView && s.sort === 'earn' ? 'match' : s.sort]);
   return { list, hidden: blocked.length, hiddenBy: [...new Set(blocked.map((c) => c.uni.name))], uni: named?.uni ?? null, alias: named?.alias, before };

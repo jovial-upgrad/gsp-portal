@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
-import { FLAG, daysTo, earnOf, intakeState, money, type Course } from '../../data/courses';
+import { FLAG, daysTo, earnOf, earnText, intakeState, money, type Course } from '../../data/courses';
 import { campusLabel, duration } from './parts';
 
 /** Up to this many courses are compared or downloaded together (as in the PM prototype). */
@@ -68,7 +68,7 @@ export const FIELDS: Field[] = [
   { key: 'qs', label: 'QS world ranking', get: (c) => (c.uni.qs ? `#${c.uni.qs}` : 'Not ranked'), num: (c) => c.uni.qs ?? null, best: 'low', compare: true, csv: true },
   { key: 'psw', label: 'Post-study work visa', get: (c) => (c.psw ? 'Yes' : 'No'), compare: true, csv: true },
   { key: 'web', label: 'University website', get: (c) => c.uni.website ?? '', csv: true },
-  { key: 'earn', label: 'Base commission (approx.)', get: (c) => `≈ ${money(earnOf(c), c.currency)}`, num: (c) => earnOf(c), best: 'high', money: true, compare: true, csv: true, agent: true },
+  { key: 'earn', label: 'You earn (about)', get: (c) => earnText(c) ?? '—', num: (c) => earnOf(c) ?? -1, best: 'high', money: true, compare: true, csv: true, agent: true },
 ];
 const BEST_WORD: Record<string, string> = { low: 'lowest', high: 'highest' };
 

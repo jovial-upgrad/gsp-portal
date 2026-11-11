@@ -31,7 +31,8 @@ const URL = process.env.GSP_URL || require('url').pathToFileURL(require('path').
   await p.click('.fchip:has-text("Tuition up to")'); await p.waitForTimeout(300);
   ok('removing a chip widens the results', (await count()) >= n);
   // student view
-  ok('You earn shows', (await p.$$('.course .is-earn')).length > 0);
+  // R104 (11 Nov): what a course earns comes from the agency's own commission terms; a new agency has none yet
+  ok('You earn: not shown until the agency has a commission record (R104)', (await p.$$('.course .is-earn')).length === 0);
   ok('cards: no GSP priority tag (review, 27 Oct)', (await p.$$('.course')).length > 0 && (await p.locator('.course .tag', { hasText: 'GSP priority' }).count()) === 0);
   await p.click('#fc-view'); await p.waitForTimeout(300);
   ok('Student view hides You earn', (await p.$$('.course .is-earn')).length === 0 && !(await p.$$eval('.fbar__select option', (o) => o.map((x) => x.value))).includes('earn'));
