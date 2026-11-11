@@ -834,7 +834,7 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
           <TextInput id="cut-cap" inputMode="decimal" value={numText(v.cap)} onChange={(e) => set({ cap: numOf(e.target.value) })} />
         </Field>
         <p className="cform__sec">Tier</p>
-        <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide" hint="Enrolments with this university, counted per its year. A band above the student’s rate adds a Tier bonus line, which the RP shares. A group’s tier, when the university is in one, wins when higher.">
+        <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide" hint="Enrolments with this university, counted per its year. A band above the student’s rate adds a Tier bonus line, which is GSP’s alone: RPs are paid on the base rate. A group’s tier, when the university is in one, wins when higher.">
           <BandsEditor id="cut-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
         </Field>
         <TierOptions idp="cut" v={v} set={tier} />

@@ -697,9 +697,12 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         const raise = !later && reached > share && !kept;
         const sh = later && ann != null ? ann : raise ? reached : share;
         if (tuitionBox && (kind === 'Course commission' || kind === 'Tier bonus')) return;
-        if (kind === 'Course commission' || kind === 'Tier bonus') {
+        // GSP's Tier bonus (what GSP's tier with the university unlocks) is GSP's alone: the RP gets only what its own
+        // contract gives, its share of the base course commission at its own band (Jovial, 11 Nov; reverses Q70)
+        if (kind === 'Tier bonus') return;
+        if (kind === 'Course commission') {
           const pr = t.period;
-          const label = kind === 'Tier bonus' ? `Study period ${pr} tier bonus` : `Study period ${pr} commission`;
+          const label = `Study period ${pr} commission`;
           if (sh > 0) drafts.push({ slot: `m:${slot}`, type: t.type, what: `${t.type === 'Adjustment' ? `Adjustment to ${t.adjusts}, ` : ''}${label}: ${pct(sh)} of GSP’s ${money(t.amount, cur)} (${later && ann != null ? 'after year 1' : agName})`, rpWhat: t.type === 'Adjustment' ? `${label}, adjusted` : label, amount: (t.amount * sh) / 100, trigger: t.trigger, period: pr, year: t.year, matches: t.id, trace: [...rpSteps, ...(raise ? [step('Retrospective band', `The RP’s count reached ${countNow} enrolments in the window: every enrolment in it is at ${pct(reached)}.`)] : []), ...(later && ann != null ? [step('After the first year', `The RP’s share after year 1: ${pct(ann)}${rec.annuityPct != null ? ' (its own)' : ` (Settings: ${S.annuity.rule})`}.`)] : []), step('GSP’s line', `${money(t.amount, cur)} × ${pct(sh)} = ${money(round2((t.amount * sh) / 100, cur), cur)}.`)] });
           if (reached > share && !later && kept) drafts.push({ slot: `rt:${slot}`, type: 'Tier top-up', what: `${label}: retrospective band, ${pct(share)} → ${pct(reached)} of ${money(t.amount, cur)}`, rpWhat: `Tier top-up, study period ${pr}`, amount: (t.amount * (reached - share)) / 100, trigger: t.trigger, period: pr, year: t.year, matches: t.id, trace: [...rpSteps, step('Tier top-up', `The RP’s count reached ${pct(reached)} (${countNow} enrolments): every earlier enrolment in the window is raised. ${money(t.amount, cur)} × (${pct(reached)} − ${pct(share)}).`)] });
         } else if (kind === 'Promotion') {

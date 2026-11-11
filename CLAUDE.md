@@ -26,7 +26,7 @@ The agency portal prototype lives in `designs/agency/`. `README.md` there descri
 - **Never hard-code anything into the prototype.** Every task, notification, email, log line, status, count, list of options, label that names data, rate, rule and date must come from the data stores and settings (Admin, Finance, work rules) through the same code path the real product would use.
 - Sample data is allowed only as seeded **records** (RPs, students, universities, courses, applications, settings) loaded into the stores. Everything derived from them (tasks, SLAs, notifications, emails, commission lines, dashboards, Activity) is computed by the rules at run time, never written into the seed or a component.
 - No fixed lists in components: dropdown options, filters, tags, levels, countries, statuses and reasons come from their settings or data module. No placeholder or example rows in UI code.
-- Anything a page needs that has no data source yet gets one (a setting or a store) before the page uses it. If that isn't possible, stop and ask Jovial (in the Pending Questions sheet); don't fake it.
+- Anything a page needs that has no data source yet gets one (a setting or a store) before the page uses it. If that isn't possible, stop and ask Jovial (in the chat); don't fake it.
 - Every branch's checks include a scan for hard-coded data, and a test that fails if a derived item exists that no rule produced.
 
 ## Branches
