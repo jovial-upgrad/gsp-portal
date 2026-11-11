@@ -1054,3 +1054,7 @@ button.nachip:hover { border-color: var(--line-strong); }
 .sheet.sheet--center.conddlg { width: min(560px, 100%); }
 .conddlg__sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6) var(--sp-10); margin-top: var(--sp-4); }
 .adocs__k { margin: var(--sp-16) 0 var(--sp-4); font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); }
+/* Key details scrolls inside its own frame, so a long list never stretches the chat beside it (Jovial, 11 Nov) */
+.acard--keys { max-height: min(560px, 62vh); overflow-y: auto; overscroll-behavior: contain; }
+.acard--keys > .acard__title { position: sticky; top: calc(-1 * var(--sp-20)); z-index: 1; background: inherit; padding-block: var(--sp-4); margin-block: calc(-1 * var(--sp-4)); }
+@container app (max-width: 1180px) { .acard--keys { max-height: none; overflow: visible; } }

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
+import { SelectInput } from '../../components/forms';
+import { sampleCategories } from '../../admin/data/config';
+
+const OTHER_CATEGORY = 'Other';
 import { Icon } from '../../components/Icon';
 import { shortDate } from '../../data/dates';
 import type { Student } from '../../data/students';
@@ -337,14 +341,19 @@ export function Chat({
 /** The Request document template: what the document is, what's needed, and when by (optional). */
 function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: { title: string; text: string; due?: number }) => void; onCancel: () => void }) {
   const reduce = useReducedMotion();
-  const [title, setTitle] = useState(init?.title ?? '');
+  // What GSP can ask for comes from Admin's request categories (GSP · Admin › Document configuration); Other lets the officer type a name (Jovial, 11 Nov: restore the dropdown)
+  const cats = sampleCategories().filter((c) => c !== OTHER_CATEGORY);
+  const seedCat = init?.title ? (cats.find((c) => c.toLowerCase() === init.title!.trim().toLowerCase()) ?? OTHER_CATEGORY) : '';
+  const [cat, setCat] = useState(seedCat);
+  const [other, setOther] = useState(seedCat === OTHER_CATEGORY ? (init?.title ?? '') : '');
+  const title = cat === OTHER_CATEGORY ? other : cat;
   const [text, setText] = useState(init?.text ?? '');
   const [due, setDue] = useState('');
   const [tried, setTried] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    window.setTimeout(() => ref.current?.focus(), 60);
-  }, []);
+    if (cat === OTHER_CATEGORY) window.setTimeout(() => ref.current?.focus(), 60);
+  }, [cat]);
   const ok = title.trim().length > 1 && text.trim().length > 4;
   return (
     <motion.form
@@ -374,13 +383,24 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
           <Icon name="close" size={16} />
         </button>
       </div>
-      <label className="greq__field" htmlFor="greq-title">
-        <span className="greq__label">Title</span>
-        <span className={`control ${tried && title.trim().length < 2 ? 'is-invalid' : ''}`}>
-          <input ref={ref} id="greq-title" className="control__input" value={title} placeholder="Like: Gap explanation document" onChange={(e) => setTitle(e.target.value)} />
-        </span>
-      </label>
-      <label className="greq__field" htmlFor="greq-text">
+      <div className="greq__field greq__field--doc">
+        <label className="greq__label" htmlFor="greq-cat">Document</label>
+        <SelectInput id="greq-cat" value={cat} placeholder="Pick a document" invalid={tried && !cat} onChange={(e) => setCat(e.target.value)}>
+          <option value="">Pick a document</option>
+          {cats.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+          <option value={OTHER_CATEGORY}>{OTHER_CATEGORY} (type its name)</option>
+        </SelectInput>
+        {cat === OTHER_CATEGORY && (
+          <span className={`control ${tried && title.trim().length < 2 ? 'is-invalid' : ''}`}>
+            <input ref={ref} id="greq-title" className="control__input" aria-label="The document’s name" value={other} placeholder="Like: Gap explanation document" onChange={(e) => setOther(e.target.value)} />
+          </span>
+        )}
+      </div>
+      <label className="greq__field greq__field--text" htmlFor="greq-text">
         <span className="greq__label">What’s needed</span>
         <span className={`control gstat__area ${tried && text.trim().length < 5 ? 'is-invalid' : ''}`}>
           <textarea id="greq-text" className="control__input" rows={3} value={text} placeholder="What it should show, and why the university needs it" onChange={(e) => setText(e.target.value)} />
@@ -397,7 +417,7 @@ function RequestForm({ init, onSend, onCancel }: { init?: AskSeed; onSend: (r: {
       {tried && !ok && (
         <p className="gmail__err" role="alert">
           <Icon name="alert" size={14} />
-          {title.trim().length < 2 ? 'Add a title.' : 'Say what’s needed.'}
+          {!cat ? 'Pick a document.' : title.trim().length < 2 ? 'Type the document’s name.' : 'Say what’s needed.'}
         </p>
       )}
       <div className="greq__acts">

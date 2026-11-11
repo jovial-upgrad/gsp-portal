@@ -520,7 +520,8 @@ export const docRuleApplies = (r: DocRule, a: { level: string; area: string; uni
  * documents requested), an offer's conditions (Request conditions), an assessment or interview, the tuition or deposit
  * payment, and the visa lodgement proof.
  */
-export const sampleCategories = (): string[] => ['Missing document', 'Additional documents for the university', 'Offer conditions', 'University assessment or interview', 'Tuition or deposit receipt', 'Visa lodgement proof'];
+// Jovial, 2 Nov (restored 11 Nov): the document types GSP picks from in Request a document; Other is always offered after them
+export const sampleCategories = (): string[] => ['ITR', 'Loan', 'Marriage Certificate', 'Visa Lodgement Proof', 'Visa', 'Acceptance Letter (CoE, CAS, I-20)', 'Bank Statement'];
 export type RpDocRule = { id: string; applies: 'Only these countries' | 'All countries except' | 'All countries'; countries: string[]; docs: string[] };
 export const sampleRpDocs = (): RpDocRule[] => [
   { id: 'r1', applies: 'Only these countries', countries: ['India'], docs: ['Business registration certificate', 'PAN card', 'GST certificate (if registered)'] },

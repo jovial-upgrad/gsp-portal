@@ -633,7 +633,7 @@ export function AppDetail({
               </div>
             </dl>
           </section>
-          <section className="card acard">
+          <section className="card acard acard--keys">
             <h2 className="acard__title">Key details</h2>
             <dl className="cdl">
               <Row k="Application" v={<span className="num">{a.id}</span>} />

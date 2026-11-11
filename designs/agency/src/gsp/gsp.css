@@ -277,3 +277,8 @@
 .gdocs__k2 { margin: var(--sp-10) 0 0; font-size: var(--t-caption); font-weight: var(--fw-semi); color: var(--text-2); }
 
 .nanone__hint { margin: 0; padding: var(--sp-12) var(--sp-14, 14px); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); font-size: var(--t-label); color: var(--text-2); }
+/* Request a document: the document picked from the list (or typed under Other) and the due date share a row; what's needed spans below */
+.greq .greq__field--doc { grid-column: 1; grid-row: 2; }
+.greq .greq__field--due { grid-column: 2; grid-row: 2; align-self: start; }
+.greq .greq__field--text { grid-column: 1 / -1; grid-row: 3; }
+@media (max-width: 560px) { .greq .greq__field--doc, .greq .greq__field--due, .greq .greq__field--text { grid-column: 1 / -1; grid-row: auto; } }
