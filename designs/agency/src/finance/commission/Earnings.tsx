@@ -5,7 +5,7 @@ import { Sheet } from '../../components/Sheet';
 import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
 import { COURSES } from '../../data/courses';
 import { estimateFor } from './estimate';
-import { Toast } from '../../institution/records/parts';
+import { RecordTabs, Toast } from '../../institution/records/parts';
 import { todayIso } from '../../institution/data/records';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
@@ -55,6 +55,8 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const inReview = mine.filter((t) => t.status === IN_REVIEW).length;
   const toSend = mine.filter((t) => ((TO_INVOICE as readonly string[]).includes(t.status) || t.type === 'Recovery') && t.status !== RECOVERED && !!t.requested && !t.rpInvoice);
   const sentBack = s.rpInvoices.filter((i) => i.rp === rp.id && i.state === 'Sent back' && i.txs.some((t) => toSend.some((x) => x.id === t)));
+  // Jovial, 12 Nov: three tabs; it opens on Invoices to send when GSP has asked for an invoice
+  const [tab, setTab] = useState<'overview' | 'send' | 'lines'>(() => (toSend.length ? 'send' : 'overview'));
   // Q43: where the RP stands in its agreement's bands (a flat share has none)
   const stand = useMemo(() => bandStanding(s, ctxOf(), rp.id, enrolmentsOf(apps, students)), [s, rp.id, apps, students]);
 
@@ -150,6 +152,20 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         </div>
       </header>
 
+      <RecordTabs
+        id="cearn-page"
+        label="Earnings"
+        tab={tab}
+        setTab={setTab}
+        tabs={[
+          { key: 'overview', label: 'Overview' },
+          { key: 'send', label: 'Invoices to send', n: toSend.length },
+          { key: 'lines', label: 'Commission lines', n: mine.length },
+        ]}
+      />
+
+      {tab === 'overview' && (
+        <>
       <div className="cearn__tiles" role="group" aria-label="Your commission by quarter">
         {quarters.map((x) => (
           <div key={x.key} className={`card cearn__tile ${x.key === 'this' ? 'is-now' : ''}`}>
@@ -288,41 +304,10 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
           </ul>
         )}
       </section>
+        </>
+      )}
 
-      <section className="card irsec" aria-labelledby="cearn-apps">
-        <div className="irsec__head">
-          <div className="irsec__t">
-            <h2 className="irsec__title" id="cearn-apps">
-              Your students
-            </h2>
-            <p className="irsec__note">Pick one to see its lines.</p>
-          </div>
-        </div>
-        {cards.length ? (
-          <ul className="cearn__cards">
-            {cards.map((c) => (
-              <li key={c.app}>
-                <button type="button" className={`card cearn__card ${focusApp === c.app ? 'is-on' : ''}`} aria-pressed={focusApp === c.app} onClick={() => setFocusApp(focusApp === c.app ? '' : c.app)}>
-                  <span className="iw-strong">{c.student}</span>
-                  <span className="iw-sub">
-                    {c.uni} · {c.course}
-                  </span>
-                  <span className="cearn__prog" aria-hidden="true">
-                    <span style={{ width: `${(c.paid / Math.max(1, c.n)) * 100}%` }} />
-                  </span>
-                  <span className="num">
-                    {c.paid} of {c.n} paid · {totalsText(c.got) || '—'} of {totalsText(c.total)}
-                  </span>
-                  <span className="iw-sub num">{c.next ? `Next: ${money(c.next.amount, c.next.currency)}, due ${dayText(c.next.due)}` : 'All paid'}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="iempty">Shows once one of your students enrols.</p>
-        )}
-      </section>
-
+      {tab === 'send' && (
       <section className="card irsec" aria-labelledby="cearn-send">
         <div className="irsec__head">
           <div className="irsec__t">
@@ -371,7 +356,43 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         )}
         {inReview > 0 && <p className="cline">{inReview === 1 ? 'One line is' : `${inReview} lines are`} on an invoice you sent: GSP is checking it.</p>}
       </section>
+      )}
 
+      {tab === 'lines' && (
+        <>
+      <section className="card irsec" aria-labelledby="cearn-apps">
+        <div className="irsec__head">
+          <div className="irsec__t">
+            <h2 className="irsec__title" id="cearn-apps">
+              Your students
+            </h2>
+            <p className="irsec__note">Pick one to see its lines.</p>
+          </div>
+        </div>
+        {cards.length ? (
+          <ul className="cearn__cards">
+            {cards.map((c) => (
+              <li key={c.app}>
+                <button type="button" className={`card cearn__card ${focusApp === c.app ? 'is-on' : ''}`} aria-pressed={focusApp === c.app} onClick={() => setFocusApp(focusApp === c.app ? '' : c.app)}>
+                  <span className="iw-strong">{c.student}</span>
+                  <span className="iw-sub">
+                    {c.uni} · {c.course}
+                  </span>
+                  <span className="cearn__prog" aria-hidden="true">
+                    <span style={{ width: `${(c.paid / Math.max(1, c.n)) * 100}%` }} />
+                  </span>
+                  <span className="num">
+                    {c.paid} of {c.n} paid · {totalsText(c.got) || '—'} of {totalsText(c.total)}
+                  </span>
+                  <span className="iw-sub num">{c.next ? `Next: ${money(c.next.amount, c.next.currency)}, due ${dayText(c.next.due)}` : 'All paid'}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="iempty">Shows once one of your students enrols.</p>
+        )}
+      </section>
 
       <section className="card irsec" aria-labelledby="cearn-lines">
         <div className="irsec__head">
@@ -412,6 +433,8 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
           <p className="iempty">{mine.length ? 'No lines match.' : 'Lines show once one of your students enrols.'}</p>
         )}
       </section>
+        </>
+      )}
 
       <UploadSheet
         open={upload}

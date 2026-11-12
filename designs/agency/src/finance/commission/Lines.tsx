@@ -48,6 +48,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
   const [lump, setLump] = useState(false);
   const [tile, setTile] = useState<TileKey | ''>('');
+  // Jovial, 12 Nov: two tabs, To do (the tiles and worklists) and All lines (the table)
+  const [page, setPage] = useState<'todo' | 'lines'>('todo');
   const nav = useCommNav();
   const work = useMemo(() => commWork(s), [s]);
   const { ask, dialog } = useAsk();
@@ -126,8 +128,12 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const pickTile = (k: TileKey | '') => {
     setTile(k);
     if (!k) return setV((x) => blankView(x.side));
+    // a worklist on To do: go to it; anything else opens All lines, filtered
+    if (k === 'confirm' || k === 'check') return void document.getElementById(k === 'confirm' ? 'clines-confirm' : 'clines-check')?.scrollIntoView({ block: 'start' });
     setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses, lapsed: TILE[k].lapsed });
+    setPage('lines');
   };
+  const todoN = (Object.keys(TILE) as TileKey[]).reduce((n, k) => n + TILE[k].n, 0) + res.exceptions.length + work.periods.length;
   const fixIn = (type: string): SetupTab | null => (EXCEPTIONS.find((x) => x.type === type)?.fix as SetupTab | undefined) ?? null;
   // R106: a recovery not yet set against a payment goes with the RP's next invoice and payment, by itself
   const recoveriesOf = (rp: string) => res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.status === TO_RECOVER && !t.requested);
@@ -151,9 +157,22 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         </Button>
       </PageHead>
 
+      <RecordTabs
+        id="clines-page"
+        label="Commission lines"
+        tab={page}
+        setTab={(k) => (setPage(k), k === 'todo' && setTile(''))}
+        tabs={[
+          { key: 'todo', label: 'To do', n: todoN },
+          { key: 'lines', label: 'All lines', n: res.txs.length },
+        ]}
+      />
+
+      {page === 'todo' && (
+        <>
       <Tiles label="To do" value={tile} onPick={pickTile} items={(Object.keys(TILE) as TileKey[]).map((k) => ({ key: k, n: TILE[k].n, label: TILE[k].label, tone: TILE[k].n ? TILE[k].tone : 'grey' }))} />
 
-      {tile === 'confirm' && (
+      {work.confirm.length > 0 && (
         <section className="card irsec" aria-labelledby="clines-confirm">
           <div className="irsec__head">
             <div className="irsec__t">
@@ -302,15 +321,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         </section>
       )}
 
-      <div className="clines__switch" role="group" aria-label="Lines">
-        {(['uni', 'rp'] as Side[]).map((k) => (
-          <button key={k} type="button" className="ichip" aria-pressed={side === k} onClick={() => (setTile(''), setV(blankView(k)))}>
-            {k === 'uni' ? 'Universities' : 'RPs'} <span className="num">{res.txs.filter((t) => t.side === k).length}</span>
-          </button>
-        ))}
-      </div>
-
-      {side === 'rp' && (
+      {toCheck.length > 0 && (
         <section className="card irsec clines__check" aria-labelledby="clines-check">
           <div className="irsec__head">
             <div className="irsec__t">
@@ -360,7 +371,32 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         </section>
       )}
 
-      <RecordTabs id="clines-tabs" label="Status" tab={v.tab} setTab={(tab) => set({ tab })} tabs={LINE_TABS.map((t) => ({ key: t.key, label: t.label, n: tabCount(t.key) }))} />
+      {todoN === 0 && (
+        <div className="snone">
+          <p className="snone__title">Nothing to do</p>
+          <p className="snone__text">No line needs Finance now. All lines has every line.</p>
+        </div>
+      )}
+        </>
+      )}
+
+      {page === 'lines' && (
+        <>
+      <div className="clines__switch" role="group" aria-label="Lines">
+        {(['uni', 'rp'] as Side[]).map((k) => (
+          <button key={k} type="button" className="ichip" aria-pressed={side === k} onClick={() => (setTile(''), setV(blankView(k)))}>
+            {k === 'uni' ? 'Universities' : 'RPs'} <span className="num">{res.txs.filter((t) => t.side === k).length}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="clines__switch" role="group" aria-label="Status">
+        {LINE_TABS.map((t) => (
+          <button key={t.key} type="button" className="ichip" aria-pressed={v.tab === t.key} onClick={() => set({ tab: t.key })}>
+            {t.label} <span className="num">{tabCount(t.key)}</span>
+          </button>
+        ))}
+      </div>
 
       <section className="card stable" aria-labelledby="clines-count">
         <div className="stools">
@@ -530,6 +566,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         )}
         <Pager pg={pg} what="lines" />
       </section>
+        </>
+      )}
 
       <InvoiceSheet doc={inv} onClose={() => setInv(null)} />
       <PaymentSheet

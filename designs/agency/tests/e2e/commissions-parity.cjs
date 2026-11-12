@@ -133,7 +133,11 @@ const openApp = async (p, nav, id) => {
     const { ctx, p, errs, nav, main } = await role(b, 'rp-admin');
     await nav('Earnings').click();
     await wait(1200);
-    const t = await main();
+    // the lines are on Earnings' Commission lines tab (12 Nov)
+    await p.locator('main [role=tab]', { hasText: /^Overview/ }).first().click(); await wait(400);
+    const over = await main();
+    await p.locator('main [role=tab]', { hasText: /^Commission lines/ }).first().click(); await wait(500);
+    const t = over + (await main());
     ok(!/bank/i.test(t), 'RP Admin › Earnings: no bank details');
     ok(t.includes('Estimate, can change until GSP is paid'), 'Earnings: amounts that can change are labelled as estimates (D21)');
     const whats = await p.locator('main table tbody tr td:nth-child(4)').allInnerTexts();

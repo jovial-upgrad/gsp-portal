@@ -14,12 +14,21 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
     const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
     await p.goto(URL + '#home'); await wait(1500);
     await p.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => e.textContent.trim() === 'Earnings'); x && x.click(); }); await wait(1000);
+    // three tabs (12 Nov): Overview, Invoices to send, Commission lines
+    const tabs = (await p.locator('main [role=tab]').allInnerTexts()).map((x) => x.replace(/\s*\d+\s*$/, '').trim());
+    ok(tabs.join('|') === 'Overview|Invoices to send|Commission lines', `${width}px: tabs ${tabs.join('|')}`);
+    const tab = (n) => p.locator('main [role=tab]', { hasText: new RegExp('^' + n) }).first();
+    await tab('Overview').click(); await wait(400);
     const t = await p.locator('main').innerText();
-    for (const k of ['Last quarter', 'This quarter', 'Next quarter', 'Your band', 'Your terms', 'Month by month', 'Still to come', 'Your students', 'Commission lines']) ok(t.includes(k), `${width}px: ${k}`);
+    for (const k of ['Last quarter', 'This quarter', 'Next quarter', 'Your band', 'Your terms', 'Month by month', 'Still to come']) ok(t.includes(k), `${width}px: Overview: ${k}`);
     ok(/You earn about [\d.]+% of the (net|gross) fee/.test(t), `${width}px: about what it earns per university (R104)`);
     ok(!/GSP’s [A-Z]{3} /.test(t) && !t.includes('How it’s worked out'), `${width}px: no GSP amount or working`);
     await p.getByRole('button', { name: 'Quarter', exact: true }).click(); await wait(300);
     ok((await p.locator('main').innerText()).includes('Quarter by quarter') && (await p.locator('.cchart__col').count()) === 6, `${width}px: quarter by quarter, 6 bars`);
+    await tab('Invoices to send').click(); await wait(300);
+    ok((await p.locator('main').innerText()).includes('Download GSP') || (await p.locator('main').innerText()).includes('Nothing to invoice now'), `${width}px: Invoices to send`);
+    await tab('Commission lines').click(); await wait(400);
+    ok((await p.locator('main').innerText()).includes('Your students'), `${width}px: Commission lines: Your students`);
     const card = p.locator('.cearn__card').first();
     const who = (await card.locator('.iw-strong').innerText()).trim();
     await card.click(); await wait(300);
@@ -32,6 +41,7 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
         await p.locator('.proto__fab').click(); await wait(300);
         await p.selectOption('.proto__panel select.proto__select', rp); await wait(300);
         await p.locator('.proto__close').click().catch(() => {}); await wait(500);
+        await tab('Overview').click(); await wait(400);
         const x = await p.locator('main').innerText();
         ok(x.includes(name) && k.test(x), `Earnings as ${name}: ${k}`);
       }

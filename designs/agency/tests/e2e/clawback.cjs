@@ -12,8 +12,9 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto(URL + '#home'); await wait(1500);
   await p.locator('.shell__side nav button', { hasText: /^Commission lines$/ }).first().click(); await wait(1000);
-  // the Universities side, Paid tab
-  await p.locator('main [role=tab]', { hasText: /^Paid/ }).first().click().catch(() => {}); await wait(600);
+  // All lines (12 Nov: To do | All lines), the Universities side, Paid
+  await p.locator('main [role=tab]', { hasText: /^All lines/ }).first().click(); await wait(400);
+  await p.locator('main [role=group][aria-label=Status] button', { hasText: /^Paid/ }).first().click(); await wait(600);
   const row = p.locator('main tbody tr').filter({ hasText: 'Course commission' }).first();
   ok(await row.count() > 0, 'a paid University → GSP line to claw back');
   await row.locator('button[aria-label^="More for"]').click(); await wait(300);
@@ -22,7 +23,8 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
   await p.fill('#ccb-why', 'The student withdrew in semester 1');
   await p.getByRole('button', { name: 'Record clawback', exact: true }).last().click(); await wait(400);
   await p.getByRole('button', { name: 'Record clawback', exact: true }).last().click(); await wait(800);
-  const tile = p.locator('main', { hasText: 'To recover' });
+  await p.locator('main [role=tab]', { hasText: /^To do/ }).first().click(); await wait(400);
+  const tile = p.locator('main .itile', { hasText: 'To recover' });
   ok(await tile.count() > 0, 'a To recover tile');
   await p.getByRole('button', { name: /To recover/ }).first().click(); await wait(800);
   const t2 = await p.locator('main tbody').innerText();
