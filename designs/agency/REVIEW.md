@@ -567,3 +567,45 @@ GSP's shared inboxes, as a page of its own in every GSP role. RP Admin doesn't h
 
 - Jovial: data source for every field and piece of copy; research what Summary, Documents, Chat and Activity mean on other portals; examples of each chat template.
 - Rishi: product architecture and data needs while the designs are finished.
+
+# Business walkthrough, 11 Nov 2026
+
+Jovial with Ramish Jafery, Nippun Sharma, Saurabh Chaudhary and P Manikandan. Full list with priorities: the "Prototype walkthrough, 11 Nov: changes" doc. Every page here is in a tab locked with Engineering.
+
+## Sign in, Become a partner (11 Nov)
+
+- [ ] Mobile number with country code, mandatory, on the first form.
+- [ ] Commission email: "Same as business email" tick box.
+- [ ] Rename "Owner's contact details" (team or director contact).
+- [ ] How-to video link beside the form.
+- [ ] India documents: add cancelled cheque, optional; reminders for missing optional documents.
+- [ ] BAP verification SLA visible to country heads.
+- [ ] Agreement upload: note on which pages to sign.
+
+## Find courses, course page (11 Nov)
+
+- [ ] AI-native name; search starts with program stream; Add application and Add student as buttons under the student view.
+- [ ] Sub-filter tags with the first filters (about five per destination).
+- [ ] "N courses from M universities" on results.
+- [ ] Compare download white-labelled (RP's name only, no GSP watermark).
+- [ ] "Official course page" link, lower and clickable; deposit and CAS deadlines where known.
+- [ ] A deadlines page, downloadable per destination.
+
+## Students, Add a student (11 Nov)
+
+- [ ] Add student at the top right on Home, Find courses, Applications and Students.
+- [ ] "No passport yet" swaps in the applied-for number.
+- [ ] No English test upload when adding a student.
+- [ ] Passport + university + course + intake unique across GSP.
+- [ ] Student consent form, mandatory, once per student, with a template.
+
+## Application page, Applications list (11 Nov)
+
+- [ ] Mandatory: passport (or applied-for number), academics, CV, consent form. Optional: ELT, SOP, LOR.
+- [ ] Statuses move forward one step at a time; only one person per sales region can move back.
+- [ ] Rejection letter mandatory to close as rejected.
+- [ ] Date and time on every status change.
+- [ ] Rename New to Application initiated, Pre-screening to Compliance check (final names with Myleeta, Ramit).
+- [ ] GSP list: missing documents count and names, RP name and code, counsellor, BDM; Excel download.
+- [ ] Automatic emails for stuck applications go to the RP and the BDM.
+- Open question: an Indian RP sees only the India rate when a university pays different rates by nationality? (commissions call)
