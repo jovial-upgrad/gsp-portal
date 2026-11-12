@@ -488,27 +488,45 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
   const days = (d: number[]) => (d.length ? `${d.join(', ')} days` : 'None');
   const stTab = (
     <>
-      <p className="cline">The rules every commission line uses.</p>
-      <section className="card">
-        <Facts
-          items={[
+      <p className="cline">The rules every commission line follows, for every university and RP. Finance changes them with Edit settings; each change is logged below.</p>
+      {(
+        [
+          ['cset-st-dates', 'Dates and shares', 'How periods are counted, and what to use when a date or a later year’s share is missing.', [
             ['Financial year starts', new Date(Date.UTC(2000, S.fyStart - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' })],
             ['Census fallback', `${S.fallbackWeeks} weeks after the study period starts (an estimated date)`],
             ['RP share after year 1', S.annuity.rule === 'Flat %' && S.annuity.pct != null ? `Flat ${pct(S.annuity.pct)}` : S.annuity.rule],
+          ]],
+          ['cset-st-invoices', 'Invoices and tax', 'What goes on GSP’s invoices to universities, and the file size allowed for uploads.', [
             ['GST on invoices to universities', Object.entries(S.gst).map(([k, n]) => `${k} ${pct(n ?? 0)}`).join(', ') || 'None'],
-            ['Region groups', Object.entries(S.regionGroups).map(([k, c]) => `${k} (${c.join(', ')})`).join('; ') || 'None'],
-            ['Notice document types', S.docTypes.join(', ')],
-            ['Student types (Australia)', S.studentTypes.join(', ') || 'None'],
-            ['Part payment reasons', S.partReasons.join(', ')],
-            ['Remind the RP to invoice', days(S.reminders.rpInvoice)],
-            ['Remind Finance of a university payment', days(S.reminders.uniPayment)],
-            ['Remind Finance to pay an RP', days(S.reminders.rpPayment)],
             ['GSP’s invoice number', S.invoiceFormat],
             ['Invoices to universities go from', S.invoiceFrom],
             ['Largest file', `${S.maxFileMb} MB`],
-          ]}
-        />
-      </section>
+          ]],
+          ['cset-st-reminders', 'Reminders', 'When reminders go out: days after GSP asks the RP for an invoice, or after a payment falls due.', [
+            ['Remind the RP to invoice', days(S.reminders.rpInvoice)],
+            ['Remind Finance of a university payment', days(S.reminders.uniPayment)],
+            ['Remind Finance to pay an RP', days(S.reminders.rpPayment)],
+          ]],
+          ['cset-st-lists', 'Lists in the forms', 'The choices offered when Finance sets up terms and notices or records a payment.', [
+            ['Region groups', Object.entries(S.regionGroups).map(([k, c]) => `${k} (${c.join(', ')})`).join('; ') || 'None', 'wide'],
+            ['Notice document types', S.docTypes.join(', ')],
+            ['Student types (Australia)', S.studentTypes.join(', ') || 'None'],
+            ['Part payment reasons', S.partReasons.join(', '), 'wide'],
+          ]],
+        ] as [string, string, string, ([string, ReactNode] | [string, ReactNode, 'wide'])[]][]
+      ).map(([id, title, note, items]) => (
+        <section key={id} className="card irsec" aria-labelledby={id}>
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id={id}>
+                {title}
+              </h2>
+              <p className="irsec__note">{note}</p>
+            </div>
+          </div>
+          <Facts items={items} />
+        </section>
+      ))}
       <LogsFold id="cset-st-logs" logs={logs('settings')} />
     </>
   );
