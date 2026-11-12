@@ -54,6 +54,9 @@ const openApp = async (p, nav, id) => {
     ok((await main()).includes('Students to confirm'), 'The To confirm tile opens Students to confirm');
     const before = await p.getByRole('button', { name: /^Confirm continuing/ }).count();
     await p.getByRole('button', { name: /^Confirm continuing/ }).first().click();
+    // 12 Nov: every confirm asks first
+    ok(await p.locator('[role=dialog], [role=alertdialog]').last().isVisible().catch(() => false), 'Confirm continuing: asks first');
+    await p.locator('[role=dialog] button, [role=alertdialog] button', { hasText: /^Confirm$/ }).last().click(); await wait(500);
     await wait(800);
     ok((await p.getByRole('button', { name: /^Confirm continuing/ }).count()) === before - 1, `Confirm continuing: the student leaves the list (${before} → ${before - 1})`);
     await p.locator('main .itile', { hasText: 'Ready to invoice' }).first().click();

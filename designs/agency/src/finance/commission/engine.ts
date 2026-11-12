@@ -136,6 +136,8 @@ export type Tx = {
   claws?: string;
   /** GSP → RP: the RP is shown this line (its record's view, or Settings'; Jovial, 11 Nov). GSP sees every line. */
   rpSees?: boolean;
+  /** GSP → RP: a kind of line the RP is shown (whatever the study period): one it can be asked to invoice. */
+  rpKind?: boolean;
 };
 export type Item = { app: string; side: Side; label: string; totals: Record<string, number>; settled: Record<string, number>; txs: Tx[]; note?: string };
 /** Where an application stands in a count: its tier (university or group), or a bonus scheme's progress. */
@@ -840,6 +842,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       t.rpInvoice = inv?.id ?? sentBack.get(t.id)?.id;
       t.requested = requestedOn.get(t.id);
       t.rpSees = rpSees(rpView, t, rpTxs);
+      t.rpKind = rpKindShown(rpView, t, rpTxs);
       const o = over.get(t.id);
       if (o && !fr?.final) Object.assign(t, { override: o, amount: !fr && o.amount != null ? o.amount : t.amount, due: o.due ?? t.due });
       if (rpHeld) t.heldWhy = rpHeld;
@@ -974,8 +977,32 @@ export function settle(state: CommState, res: Result, at = Date.now()): CommStat
       ? { ...was, amount: t.amount, due: t.due, final: true }
       : { key: t.key, app: t.app, side: t.side, type: t.type, what: t.what, rpWhat: t.rpWhat, base: t.base.amount, amount: t.amount, currency: t.currency, due: t.due, trigger: t.trigger, period: t.period, matches: t.matches, notice: t.notice, adjusts: t.adjusts, final: paid || undefined, at, trace: t.trace, gst: t.gst };
   });
-  const same = ids === state.ids && frozen === state.frozen && seenAmt === (state.seen ?? {}) && history === (state.history ?? []);
-  return same && state.seen ? state : { ...state, ids, idSeq: seq, frozen, seen: seenAmt, history };
+  // Jovial, 12 Nov: the RP's invoice is asked for by itself once GSP has its money. A line the RP sees that turns
+  // Ready to invoice gets a request at once, dated the day GSP was paid for it (its university line's receipt), so the
+  // line is on the RP's Invoices to send, N16 tells the RP, and N21's reminders count from that day. The RP's recoveries
+  // not yet set against a payment go with it (R106). A later study period shows to the RP from then (Q108); a kind of
+  // line the RP isn't shown at all isn't asked for.
+  let requests = state.requests;
+  const asked = new Set(state.requests.flatMap((r) => r.txs));
+  const paidDay = (uniTx?: string) => (uniTx ? state.receipts.filter((r) => r.txs.includes(uniTx)).map((r) => r.date).sort().pop() : undefined);
+  const due = res.txs.filter((t) => t.side === 'rp' && !isNewId(t.id) && t.status === 'Ready to invoice' && t.rpKind !== false && !asked.has(t.id));
+  if (due.length) {
+    const groups = new Map<string, Tx[]>();
+    due.forEach((t) => {
+      const k = `${t.rp}|${paidDay(t.matches) ?? t.trigger ?? ''}`;
+      groups.set(k, [...(groups.get(k) ?? []), t]);
+    });
+    const recovering = new Set<string>();
+    requests = [...state.requests];
+    groups.forEach((txs, k) => {
+      const [rp, date] = k.split('|');
+      const rec = res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.status === 'To recover' && !isNewId(t.id) && !asked.has(t.id) && !recovering.has(t.id));
+      rec.forEach((t) => recovering.add(t.id));
+      requests.push({ id: `rqa-${txs[0].id}`, rp, txs: [...txs, ...rec].map((t) => t.id), date, by: 'System', at });
+    });
+  }
+  const same = ids === state.ids && frozen === state.frozen && seenAmt === (state.seen ?? {}) && history === (state.history ?? []) && requests === state.requests;
+  return same && state.seen ? state : { ...state, ids, idSeq: seq, frozen, seen: seenAmt, history, requests };
 }
 /** Work out and keep until nothing more is to be kept (a new ID can make a line that then needs keeping). */
 export function settleAll(state: CommState, ctx: Ctx, extra: Enrolment[] = []): CommState {
@@ -1040,7 +1067,7 @@ export const unisWithoutTerms = <U extends { id: string }>(state: CommState, uni
 export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22' | 'N23' | 'N24' | 'N25' | 'N26'; title: string; text: string; at: number };
 /** Whether an RP is shown a line, by its view (Jovial, 11 Nov): its kind (a promotion is course commission; an adjustment
  * is what it adjusts) and its study period. */
-export function rpSees(v: RpView, t: Pick<Tx, 'type' | 'adjusts' | 'period'>, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
+export function rpSees(v: RpView, t: Pick<Tx, 'type' | 'adjusts' | 'period'> & { requested?: string; status?: string }, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
   // a recovery is always shown: the RP must see why its payment is less (R106)
   if (t.type === 'Recovery') return true;
   let base: TxType = t.type;
@@ -1051,7 +1078,12 @@ export function rpSees(v: RpView, t: Pick<Tx, 'type' | 'adjusts' | 'period'>, al
   }
   const kind = base === 'Promotion' ? 'Course commission' : base;
   if (!(v.kinds as readonly string[]).includes(kind)) return false;
-  return v.periods === 'Every study period' || (t.period ?? 1) <= 1;
+  // a later study period shows once GSP is paid for it and its invoice is asked for (Q108, Jovial 12 Nov)
+  return v.periods === 'Every study period' || (t.period ?? 1) <= 1 || !!t.requested;
+}
+/** The kinds of line an RP is shown (its view's kinds): what it can be asked to invoice. */
+export function rpKindShown(v: RpView, t: Pick<Tx, 'type' | 'adjusts'>, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
+  return rpSees({ ...v, periods: 'Every study period' } as RpView, t, all);
 }
 const at9 = (d: string) => Date.parse(`${d}T09:00:00`);
 /**

@@ -60,20 +60,34 @@ try {
 
   // What the RP sees (Jovial, 11 Nov): by default the first study period only; a hidden line's request sends nothing
   {
-    const later = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) > 1);
+    // 12 Nov: a later study period shows once GSP is paid for it and the RP's invoice is asked for (by itself)
+    const later = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) > 1 && !t.requested);
+    const laterAsked = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) > 1 && t.requested);
+    if (laterAsked) ok('View: a later study period shows once its invoice is asked for', laterAsked.rpSees === true, laterAsked.id);
     const first = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) === 1 && t.type === 'Course commission');
     ok('View: by default the RP sees its first study period’s lines', !!first && first.rpSees === true, first ? `${first.id} ${first.rpSees}` : 'no line');
     ok('View: by default a later study period’s line is not shown to the RP', !!later && later.rpSees === false, later ? `${later.id} ${later.rpSees}` : 'no line');
-    if (later) {
-      const sh = { ...s0, requests: [...s0.requests, { id: 'rq-h', rp: later.rp, txs: [later.id], date: '2026-11-01', by: 'Test', at: 4 }] };
-      const nh = engine.commNotes(sh, run(sh), (x) => x, TODAY);
-      ok('View: asking for a hidden line’s invoice sends the RP nothing (no N16, no reminder)', !nh.some((n) => n.id === 'n16-rq-h' || n.id.startsWith('n21-rq-h')));
-    }
     const rec = s0.records.find((r) => r.rp === first?.rp);
     const sv = { ...s0, records: s0.records.map((r) => (r === rec ? { ...r, view: { kinds: ['Additional commission'], periods: 'Every study period' } } : r)) };
     const rv = run(sv);
     ok('View: an RP’s own record can hide its course commission', rv.txs.filter((t) => t.side === 'rp' && t.rp === rec.rp && t.type === 'Course commission').every((t) => t.rpSees === false));
+    // a kind of line the RP isn't shown is never asked for, and a request for one sends the RP nothing
+    const cc = rv.txs.find((t) => t.side === 'rp' && t.rp === rec.rp && t.type === 'Course commission' && !t.requested);
+    if (cc) {
+      const sh = { ...sv, requests: [...sv.requests, { id: 'rq-h', rp: cc.rp, txs: [cc.id], date: '2026-11-01', by: 'Test', at: 4 }] };
+      const nh = engine.commNotes(sh, run(sh), (x) => x, TODAY);
+      ok('View: asking for a hidden kind of line sends the RP nothing (no N16, no reminder)', !nh.some((n) => n.id === 'n16-rq-h' || n.id.startsWith('n21-rq-h')));
+    }
     ok('View: the default is a setting', Array.isArray(s0.settings.rpView.kinds) && model.RP_VIEW_PERIODS.includes(s0.settings.rpView.periods));
+  }
+
+  // Jovial, 12 Nov: the RP's invoice is asked for by itself once GSP has its money: every RP line Ready to invoice of a
+  // kind the RP is shown has a request (from the System, dated the day the university paid), and is on its Invoices to send
+  {
+    const ready = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Ready to invoice' && t.rpKind !== false);
+    ok('Auto request: every Ready to invoice line the RP is shown is asked for', ready.length > 0 && ready.every((t) => !!t.requested), ready.filter((t) => !t.requested).map((t) => t.id).join(', '));
+    const auto = s0.requests.find((r) => r.by === 'System');
+    ok('Auto request: made by the System, dated the day the university paid', !auto || (auto.date <= TODAY && /^\d{4}-\d{2}-\d{2}$/.test(auto.date)));
   }
 
   // R104 (Q101): what a course earns, from the university's terms and the RP's own terms, as the engine prices it
@@ -139,7 +153,8 @@ try {
     ok('R103 a notice not issued makes no line', !r0.txs.some((t) => t.notice === waiting.id));
     const issued = s0.notices.find((n) => n.issued && n.benefit === 'Bonus per enrolment' && n.rps.length);
     const sN = { ...s0, notices: s0.notices.map((n) => (n.id === issued.id ? { ...n, issued: null } : n)) };
-    ok('R103 the same notice, not issued, stops applying', run(sN).txs.every((t) => t.notice !== issued.id) && r0.txs.some((t) => t.notice === issued.id));
+    // a line already asked for or paid is kept as it was (9 Nov); every other line of the notice goes
+    ok('R103 the same notice, not issued, stops applying', run(sN).txs.filter((t) => t.notice === issued.id).every((t) => t.requested || t.status === 'Paid') && r0.txs.some((t) => t.notice === issued.id));
   }
 
   // Q47 and Q54: reminders, sent back and approved
