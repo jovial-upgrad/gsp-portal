@@ -69,6 +69,12 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
       const v = await p.locator('[role=dialog] select').evaluateAll((ss) => Object.fromEntries(ss.map((s) => [s.id, s.value])));
       ok(v['cut-rows-course-0'] === 'Nursing' && v['cut-rows-level-0'] === 'Bachelor’s degree' && v['cut-rows-course-1'] === 'IT', 'IP6: the rate rows show their level and course in the form');
       ok((await p.locator('[role=dialog]').innerText()).includes('ELICOS'), 'IP6: the form has a rate field for ELICOS');
+      // a level the university has no courses at can be added from the contract (Jovial, 12 Nov)
+      const more = await p.locator('#cut-add-level option').evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
+      if (more.length) {
+        await p.selectOption('#cut-add-level', more[0]); await wait(250);
+      }
+      ok(more.length > 0 && (await p.locator('.clevels__name').allInnerTexts()).includes(more[0]), `IP6: Add a program level adds a row (${more[0]})`);
       await p.keyboard.press('Escape'); await wait(400);
       await p.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /^(Discard|Leave)/.test(e.textContent.trim())); x && x.click(); }); await wait(300);
     }

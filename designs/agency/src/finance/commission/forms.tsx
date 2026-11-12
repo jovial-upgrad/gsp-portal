@@ -710,7 +710,12 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
   const u = all.find((x) => x.id === v.uni);
   const home = u ? CURRENCY[u.country] : '';
   const cur = v.currency || home;
-  const levels = v.uni ? levelsOf(v.uni) : [];
+  // the levels the university has courses at (and any its terms price), plus any Finance adds from the contract
+  const [added, setAdded] = useState<Level[]>([]);
+  useEffect(() => setAdded([]), [v.uni, open]);
+  const drafted = COMM_LEVELS.filter((l) => v.rates[l] !== undefined || v.fixed[l] !== undefined);
+  const levels = v.uni ? COMM_LEVELS.filter((l) => levelsOf(v.uni).includes(l) || added.includes(l) || drafted.includes(l)) : [];
+  const more = v.uni ? COMM_LEVELS.filter((l) => !levels.includes(l)) : [];
   const rateVals = levels.map((l) => v.rates[l]).filter((x) => x !== undefined) as number[];
   const o = condOpts(v.uni ? [v.uni] : null, levels.length ? levels : COMM_LEVELS, s.settings.regionGroups, todayIso());
   const needWeeks = v.trigger === 'Withdrawal deadline';
@@ -820,6 +825,13 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
           </div>
         ) : (
           <p className="cmuted cform__wide">Choose the university to see the program levels it offers.</p>
+        )}
+        {more.length > 0 && (
+          <Field id="cut-add-level" label="Add a program level" optional hint="A level the contract prices that the university has no courses at yet, like VET or ELICOS." className="iform__wide">
+            <SelectInput id="cut-add-level" placeholder="Choose a level" value="" onChange={(e) => e.target.value && setAdded((a) => [...a, e.target.value as Level])}>
+              {options(more)}
+            </SelectInput>
+          </Field>
         )}
         <Field id="cut-basis" label="Rates are on" required>
           <SelectInput id="cut-basis" value={v.feeBasis} onChange={(e) => set({ feeBasis: e.target.value as TermsDraft['feeBasis'] })}>
