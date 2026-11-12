@@ -644,7 +644,7 @@ const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(2000,
 const chargeNeedsN = (u: ChargeUnit) => u !== CHARGE_UNITS[0].label;
 
 /** A tier's options, shared by University terms and Groups: counted per, academic year start, retrospective, per country, levels. */
-function TierOptions({ idp, v, set }: { idp: string; v: Pick<TermsBody, 'countedPer' | 'yearStart' | 'tierRetro' | 'tierPerCountry' | 'tierLevels'>; set: (p: Partial<TermsBody>) => void }) {
+function TierOptions({ idp, v, set, yearField = true }: { idp: string; v: Pick<TermsBody, 'countedPer' | 'yearStart' | 'tierRetro' | 'tierPerCountry' | 'tierLevels'>; set: (p: Partial<TermsBody>) => void; /** University terms ask for the academic year with the contract instead. */ yearField?: boolean }) {
   return (
     <>
       <Field id={`${idp}-per`} label="Tier counted per" required hint="The university’s year, as its contract has it. Only students GSP will be paid for count.">
@@ -652,7 +652,7 @@ function TierOptions({ idp, v, set }: { idp: string; v: Pick<TermsBody, 'counted
           {options(UNI_COUNTED_PER)}
         </SelectInput>
       </Field>
-      {v.countedPer === 'Academic year' && (
+      {yearField && v.countedPer === 'Academic year' && (
         <Field id={`${idp}-ystart`} label="Academic year starts in" required>
           <SelectInput id={`${idp}-ystart`} value={String(v.yearStart)} onChange={(e) => set({ yearStart: Number(e.target.value) })}>
             {MONTH_NAMES.map((m, i) => (
@@ -802,6 +802,15 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
         <Field id="cut-cur" label="Currency" optional error={show('currency')} hint={home ? `Empty: ${home}, the university’s country’s. Change it when the contract pays in another.` : 'The university’s country’s, unless the contract says otherwise.'}>
           <TextInput id="cut-cur" maxLength={3} value={v.currency ?? ''} placeholder={home} invalid={!!show('currency')} onChange={(e) => set({ currency: e.target.value.toUpperCase() })} />
         </Field>
+        <Field id="cut-ystart" label="Academic year starts in" required hint="The university’s year, as its contract has it (UK often September, Australia January). Used when its tier or a bonus counts per academic year.">
+          <SelectInput id="cut-ystart" value={String(v.yearStart || 1)} onChange={(e) => set({ yearStart: Number(e.target.value) })}>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={String(i + 1)}>
+                {m}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
         <Field id="cut-contract" label="Contract" required error={show('contract')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Its dates come from the institution partner’s agreement.`} className="iform__wide">
           <FilePick id="cut-contract" value={v.contract} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('contract')} onTooBig={setBig} onChange={(contract) => set({ contract })} />
         </Field>
@@ -885,7 +894,7 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
         <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide">
           <BandsEditor id="cut-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
         </Field>
-        {v.bands.length > 0 && <TierOptions idp="cut" v={v} set={tier} />}
+        {v.bands.length > 0 && <TierOptions idp="cut" v={v} set={tier} yearField={false} />}
         {v.bands.length > 0 && (
           <div className="cform__wide">
             <p className="cform__label">Band bonuses</p>

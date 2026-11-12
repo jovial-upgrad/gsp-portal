@@ -126,6 +126,7 @@ export function termsFacts(t: CommState['terms'][number], cur: string): ([string
     ['Fee basis', t.feeBasis],
     ['Fixed amounts', fixed.length ? fixed.map((l) => `${l} ${money(t.fixed[l]!, cur)}`).join(', ') : 'None'],
     ['Rate rows', t.rateRows.length ? <span key="rr" className="cpre">{rateRowsText(t.rateRows)}</span> : 'None', 'wide'],
+    ['Academic year starts in', new Date(Date.UTC(2000, (t.yearStart || 1) - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' })],
     ['Commission is paid', t.payUnit],
     ['Chargeable for', t.charge.unit === 'Whole course' ? 'The whole course' : t.charge.unit === 'Fees up to' ? `Fees up to ${money(t.charge.n ?? 0, cur)}` : `${t.charge.n} ${t.charge.unit.toLowerCase()}`],
     ['Trigger', t.trigger === 'Withdrawal deadline' ? `${t.trigger}: ${t.triggerWeeks ?? '(Settings’ fallback)'} weeks after the study period starts` : t.trigger],
