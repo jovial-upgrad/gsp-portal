@@ -79,6 +79,20 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
       await p.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /^(Discard|Leave)/.test(e.textContent.trim())); x && x.click(); }); await wait(300);
     }
 
+    // IP12B's group: tier and bonus per source country, and no empty conditions on the bonus (12 Nov)
+    if (width === 1440) {
+      await pick('IP12B');
+      await nav('Setup');
+      await p.locator('main [role=tab]', { hasText: /^Groups/ }).click(); await wait(400);
+      await p.locator('main tbody tr').first().locator('button').last().click(); await wait(300);
+      await p.getByRole('menuitem', { name: /Edit/ }).first().click(); await wait(700);
+      const g = await p.locator('[role=dialog] select').evaluateAll((ss) => Object.fromEntries(ss.map((s) => [s.id, s.value])));
+      ok(g['cgr-country'] === 'Yes' && g['cgr-schemes-pc-0'] === 'Yes', 'IP12B: the group tier and its bonus count per source country');
+      ok((await p.locator('[role=dialog] .ccond__row').count()) === 0, 'IP12B: the group bonus has no empty conditions');
+      await p.keyboard.press('Escape'); await wait(400);
+      await p.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /^(Discard|Leave)/.test(e.textContent.trim())); x && x.click(); }); await wait(300);
+    }
+
     // the clock: a month on, the date and at least one line's status move (IP3: students reach their census dates)
     await pick('IP3');
     await nav(width < 700 ? 'Lines' : 'Commission lines');

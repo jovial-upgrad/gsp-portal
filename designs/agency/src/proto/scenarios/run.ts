@@ -46,7 +46,8 @@ const addMonths = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCMont
 const stamp = { by: 'Scenario', at: 0 };
 const file = { name: 'scenario.pdf', size: 1 };
 const lvl = (l) => { const x = LEVEL[l]; if (!x) throw new Error(`level ${l}`); return x; };
-const cond = (o) => ({ from: o.from, to: o.to, intakes: o.intakes, regions: o.regions, courses: o.courses, levels: o.levels?.map(lvl), campuses: o.campuses });
+// only the conditions the case sets: an empty one would read as a condition being added in the forms
+const cond = (o) => Object.fromEntries(Object.entries({ from: o.from, to: o.to, intakes: o.intakes, regions: o.regions, courses: o.courses, levels: o.levels?.map(lvl), campuses: o.campuses }).filter(([, v]) => (Array.isArray(v) ? v.length : !!v)));
 const bands = (b = []) => b.map(([from, to, pct]) => ({ from, to, pct }));
 const scheme = (B) => ({ id: B.id, name: B.name, per: BONUS_PER[B.per ?? 'student'], kind: KIND(B.kind), value: +B.v || 0, threshold: B.threshold ?? null, bands: (B.bands ?? []).map(([from, to, v, k]) => ({ from, to, value: v, kind: KIND(k) })), countedPer: B.window ? WINDOW[B.window] : undefined, retro: B.retro !== false, perCountry: !!B.perCountry, cond: cond(B) });
 const tierOf = (t) => (t ? { bands: bands(t.bands), countedPer: WINDOW[t.window ?? 'CY'], yearStart: t.ayStart ?? 1, tierRetro: !!t.retro, tierPerCountry: t.scope === 'country', tierLevels: (t.levels ?? []).map(lvl), bandBonuses: Object.entries(t.bandBonus ?? {}).map(([b, x]) => ({ band: Number(b), kind: KIND(x.kind), value: +x.v })) } : { bands: [], countedPer: 'Calendar year', yearStart: 1, tierRetro: true, tierPerCountry: false, tierLevels: [], bandBonuses: [] });
