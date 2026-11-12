@@ -2,9 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { Icon } from '../../components/Icon';
 import { MultiPick } from '../../components/MultiPick';
 import { Field, SelectInput, TextInput } from '../../components/forms';
-import { COURSES } from '../../data/courses';
 import { COUNTRIES } from '../../data/partners';
 import { numOf, numText } from './parts';
+import { catalogue } from './store';
 import { ADDL_KINDS, ADDL_WHEN, BONUS_PER, COMM_LEVELS, PROMO_COMBINES, UNI_COUNTED_PER, YES_NO, type Addl, type AddlKind, type BandBonus, type BonusScheme, type Cond, type CountBand, type Level, type Milestone, type Promo, type RateRow } from './model';
 
 /*
@@ -30,11 +30,11 @@ const intakeMonths = (today: string) => {
   return out;
 };
 export function condOpts(unis: string[] | null, levels: readonly string[], groups: Record<string, string[]>, today: string): CondOpts {
-  const cs = COURSES.filter((c) => !unis || unis.includes(c.uni.id));
+  const cs = catalogue().filter((c) => !unis || unis.includes(c.uni));
   return {
     levels: [...levels],
     courses: [...new Set(cs.map((c) => c.name))].sort(),
-    campuses: [...new Set(cs.map((c) => c.campus.name))].sort(),
+    campuses: [...new Set(cs.map((c) => c.campus).filter(Boolean))].sort(),
     regions: [...Object.keys(groups), ...COUNTRIES.map((c) => c.name)],
     intakes: intakeMonths(today),
   };
@@ -153,7 +153,8 @@ export function CondEditor({ id, value, onChange, o }: { id: string; value: Cond
               id={`${id}-${k.key}`}
               label={k.label}
               value={k.key === 'intakes' ? (c.intakes ?? []).map(MONTH) : ((c[k.key] as string[] | undefined) ?? [])}
-              options={list(k.key)}
+              // values saved earlier stay on the list even when the catalogue no longer has them
+              options={[...new Set([...(k.key === 'intakes' ? (c.intakes ?? []).map(MONTH) : ((c[k.key] as string[] | undefined) ?? [])), ...list(k.key)])]}
               onChange={(x) => set(k.key, k.key === 'intakes' ? x.map((l) => o.intakes.find((i) => i.label === l)?.value ?? l) : k.key === 'levels' ? (x as Level[]) : x)}
               empty="Choose"
               search={list(k.key).length > 10}
@@ -185,7 +186,8 @@ export function RateRowsEditor({ id, rows, onChange, o, cur, tried }: { id: stri
   const any = (k: 'level' | 'course' | 'campus' | 'region', label: string, xs: string[], i: number, r: RateRow) => (
     <Field id={`${id}-${k}-${i}`} label={label} optional>
       <SelectInput id={`${id}-${k}-${i}`} placeholder="Any" allowEmpty value={(r[k] as string) ?? ''} onChange={(e) => up(i, { [k]: e.target.value || undefined } as Partial<RateRow>)}>
-        {opts(xs)}
+        {/* a value saved earlier stays on the list even when the catalogue no longer has it */}
+        {opts(r[k] && !xs.includes(r[k] as string) ? [r[k] as string, ...xs] : xs)}
       </SelectInput>
     </Field>
   );

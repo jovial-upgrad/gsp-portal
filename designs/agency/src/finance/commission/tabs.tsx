@@ -10,7 +10,7 @@ import type { Application } from '../../data/applications';
 import { DocLine, SetupButton, StatusPill, TxTable } from './parts';
 import { compute, settleAll, noticeStatus, sumBy, totalsText, type AppLines, type Item } from './engine';
 import { ctxOf, ctxRps, ctxUnis, enrolmentsOf, useComm } from './store';
-import { LEVELS, groupOf, addlText, bandsText, benefitText, bonusText, condText, dayText, money, pct, type CommState, type Notice } from './model';
+import { COMM_LEVELS, groupOf, addlText, bandsText, benefitText, bonusText, condText, dayText, money, pct, type CommState, type Notice } from './model';
 import { rateRowsText } from './rules';
 import { todayIso } from '../../institution/data/records';
 
@@ -119,8 +119,8 @@ export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; 
 
 /** Everything a university's terms say, as fields: its Commission tab, and Setup's form when read only. */
 export function termsFacts(t: CommState['terms'][number], cur: string): ([string, React.ReactNode] | [string, React.ReactNode, 'wide'])[] {
-  const levels = LEVELS.filter((l) => t.rates[l] !== undefined);
-  const fixed = LEVELS.filter((l) => t.fixed[l] !== undefined);
+  const levels = COMM_LEVELS.filter((l) => t.rates[l] !== undefined);
+  const fixed = COMM_LEVELS.filter((l) => t.fixed[l] !== undefined);
   return [
     ['Rates by program level', levels.length ? levels.map((l) => `${l} ${pct(t.rates[l]!)}`).join(', ') : 'None', 'wide'],
     ['Fee basis', t.feeBasis],

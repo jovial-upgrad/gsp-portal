@@ -5,7 +5,7 @@
  * Each change goes through one of the actions below, which also writes its Logs line.
  */
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { COURSES, LEVELS } from '../../data/courses';
+import { COURSES } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
 import { sampleCourseRecs, sampleUniRecs } from '../../institution/data/catalogue';
@@ -15,7 +15,7 @@ import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/recor
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
 import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
-import { benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
+import { COMM_LEVELS, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 
 /* ---------- the store ---------- */
@@ -128,7 +128,20 @@ export const intakeCensus = (courseId: string, intake: string) => {
   return c?.dates?.[intake.split(' ')[0]]?.census || c?.dates?.[intake]?.census || '';
 };
 /** The program levels a university offers, in the levels' order: University terms asks a rate for each. */
-export const levelsOf = (uni: string) => LEVELS.filter((l) => COURSES.some((c) => c.uni.id === uni && c.level === l));
+/**
+ * The courses the forms offer (rate rows, promotions, bonus conditions): the catalogue, or a commission scenario's own
+ * courses while one is open.
+ */
+export const catalogue = (): { name: string; level: string; uni: string; campus: string }[] =>
+  world
+    ? [...world.courses.values()].filter((c): c is CtxCourse => !!c).map((c) => ({ name: c.name, level: c.level, uni: c.uni, campus: '' }))
+    : COURSES.map((c) => ({ name: c.name, level: c.level, uni: c.uni.id, campus: c.campus.name }));
+/** The levels University terms asks a rate for: the university's courses' levels, and any level its terms already price. */
+export const levelsOf = (uni: string) => {
+  const t = state.terms.find((x) => x.uni === uni);
+  const priced = new Set([...Object.keys(t?.rates ?? {}), ...Object.keys(t?.fixed ?? {})]);
+  return COMM_LEVELS.filter((l) => priced.has(l) || catalogue().some((c) => c.uni === uni && c.level === l));
+};
 let ips: { id: string; name: string }[] | null = null;
 /** Institution partners' names, for University terms' list. */
 export const ipName = (id?: string) => (ips ??= samplePartners().map((p) => ({ id: p.id, name: p.name }))).find((p) => p.id === id)?.name ?? '';

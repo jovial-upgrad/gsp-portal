@@ -7,13 +7,15 @@
  *
  * This module holds the shapes and every option list and status the pages show: no page has a list of its own.
  */
-import { DESTINATIONS, LEVELS, type Destination, type Level } from '../../data/courses';
+import { DESTINATIONS, LEVELS, type Destination } from '../../data/courses';
 import type { AppFees } from '../../data/applications';
 
 export { DESTINATIONS, LEVELS };
 /** Program levels a university's terms can price (the sandbox's): the catalogue's, plus vocational, English and study abroad. */
 export const COMM_LEVELS = [...LEVELS, 'VET', 'ELICOS', 'Study Abroad'] as const;
-export type { Destination, Level };
+export type { Destination };
+/** A level commission can be priced at: a course's level, or VET, ELICOS or Study Abroad (the sandbox's sectors). */
+export type Level = (typeof COMM_LEVELS)[number];
 
 /** A file someone uploaded: its name and size in bytes. */
 export type FileRef = { name: string; size: number };
@@ -566,7 +568,7 @@ export const stampText = (s: Stamp) => `${s.by}, ${new Date(s.at).toLocaleDateSt
 export const sizeText = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 /** "UG 15%, PG 17.5%": a university's rates by level, in the levels' order. */
 export const ratesText = (t: Pick<TermsBody, 'rates' | 'fixed'>, cur: string) =>
-  LEVELS.filter((l) => t.rates[l] !== undefined || t.fixed[l] !== undefined)
+  COMM_LEVELS.filter((l) => t.rates[l] !== undefined || t.fixed[l] !== undefined)
     .map((l) => `${l} ${t.fixed[l] !== undefined ? money(t.fixed[l]!, cur) : pct(t.rates[l]!)}`)
     .join(', ') || 'No rates';
 /** "Per student, AUD 500", "On the 20th student, AUD 3,000", "By count: 10–14: AUD 800, 15+: AUD 1,200". */

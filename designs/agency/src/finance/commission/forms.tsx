@@ -27,7 +27,6 @@ import {
   COUNTED_PER,
   DESTINATIONS,
   FEE_BASES,
-  LEVELS,
   SHARE_TYPES,
   TRIGGER_LABELS,
   UNI_COUNTED_PER,
@@ -551,7 +550,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         <MultiPick id="cnt-unis" label="Universities" value={v.unis.map(uniLabel)} options={unis.map((u) => u.name)} onChange={(x) => set({ unis: x.map((n) => unis.find((u) => u.name === n)?.id ?? n) })} empty="Every university" search />
       </Field>
       <Field id="cnt-levels" label="Program levels" optional>
-        <MultiPick id="cnt-levels" label="Program levels" value={v.levels} options={[...LEVELS]} onChange={(x) => set({ levels: x as Level[] })} empty="Every program level" />
+        <MultiPick id="cnt-levels" label="Program levels" value={v.levels} options={[...COMM_LEVELS]} onChange={(x) => set({ levels: x as Level[] })} empty="Every program level" />
       </Field>
       <Field id="cnt-intakes" label="Intake months" optional>
         <IntakePick id="cnt-intakes" label="Intake months" value={v.intakes ?? []} onChange={(intakes) => set({ intakes })} today={todayIso()} />
@@ -675,7 +674,7 @@ function TierOptions({ idp, v, set }: { idp: string; v: Pick<TermsBody, 'counted
         </SelectInput>
       </Field>
       <Field id={`${idp}-levels`} label="Levels in the tier" optional hint="Empty: every level counts.">
-        <MultiPick id={`${idp}-levels`} label="Levels in the tier" value={v.tierLevels} options={[...LEVELS]} onChange={(x) => set({ tierLevels: x as Level[] })} empty="Every level" />
+        <MultiPick id={`${idp}-levels`} label="Levels in the tier" value={v.tierLevels} options={[...COMM_LEVELS]} onChange={(x) => set({ tierLevels: x as Level[] })} empty="Every level" />
       </Field>
     </>
   );
@@ -814,8 +813,8 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
             {levels.map((l) => (
               <div key={l} className="clevels__row">
                 <span className="clevels__name">{l}</span>
-                <TextInput id={`cut-rate-${LEVELS.indexOf(l)}`} aria-label={`${l}: rate (%)`} inputMode="decimal" value={numText(v.rates[l])} invalid={!!show('rates')} onChange={(e) => setLevel('rates', l, numOf(e.target.value))} />
-                <TextInput id={`cut-fixed-${LEVELS.indexOf(l)}`} aria-label={`${l}: fixed amount`} inputMode="decimal" value={numText(v.fixed[l])} onChange={(e) => setLevel('fixed', l, numOf(e.target.value))} />
+                <TextInput id={`cut-rate-${COMM_LEVELS.indexOf(l)}`} aria-label={`${l}: rate (%)`} inputMode="decimal" value={numText(v.rates[l])} invalid={!!show('rates')} onChange={(e) => setLevel('rates', l, numOf(e.target.value))} />
+                <TextInput id={`cut-fixed-${COMM_LEVELS.indexOf(l)}`} aria-label={`${l}: fixed amount`} inputMode="decimal" value={numText(v.fixed[l])} onChange={(e) => setLevel('fixed', l, numOf(e.target.value))} />
               </div>
             ))}
           </div>

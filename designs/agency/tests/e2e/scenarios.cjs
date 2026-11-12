@@ -58,8 +58,25 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
       ok(navs.length > 3 && broke.length === 0, `every Finance page and tab opens in a scenario (${navs.length} pages)${broke.length ? `: ${broke.join(', ')}` : ''}`);
     }
 
+    // the terms form shows what the case set up (12 Nov: VET and ELICOS rates, and scenario courses in rate rows, were missing)
+    if (width === 1440) {
+      await pick('IP6');
+      await nav('Setup');
+      await p.locator('main [role=tab]', { hasText: /^University terms/ }).click(); await wait(400);
+      ok(/VET 10%.*ELICOS 20%/.test(await p.locator('main').innerText()), 'IP6: the terms list shows VET and ELICOS rates');
+      await p.locator('main tbody tr').first().locator('button').last().click(); await wait(300);
+      await p.getByRole('menuitem', { name: /Edit/ }).first().click(); await wait(700);
+      const v = await p.locator('[role=dialog] select').evaluateAll((ss) => Object.fromEntries(ss.map((s) => [s.id, s.value])));
+      ok(v['cut-rows-course-0'] === 'Nursing' && v['cut-rows-level-0'] === 'Bachelor’s degree' && v['cut-rows-course-1'] === 'IT', 'IP6: the rate rows show their level and course in the form');
+      ok((await p.locator('[role=dialog]').innerText()).includes('ELICOS'), 'IP6: the form has a rate field for ELICOS');
+      await p.keyboard.press('Escape'); await wait(400);
+      await p.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /^(Discard|Leave)/.test(e.textContent.trim())); x && x.click(); }); await wait(300);
+    }
+
     // the clock: a month on, the date and at least one line's status move (IP3: students reach their census dates)
     await pick('IP3');
+    await nav(width < 700 ? 'Lines' : 'Commission lines');
+    await p.locator('main [role=tab]', { hasText: /^All lines/ }).first().click().catch(() => {}); await wait(400);
     const d0 = await p.locator('.scen__date').innerText();
     const s0 = await p.locator('main').innerText();
     for (let i = 0; i < 6; i++) { await p.locator('.scen__clock button', { hasText: '+1 month' }).click(); await wait(250); }
