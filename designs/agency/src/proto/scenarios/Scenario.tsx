@@ -9,6 +9,7 @@ import { useMemo, useState, useSyncExternalStore } from 'react';
 import { Icon } from '../../components/Icon';
 import { clockOn, dateText, setClock, subscribeClock } from '../../institution/data/records';
 import { enterWorld, leaveWorld, setEarnAs, useWorld, type World } from '../../finance/commission/store';
+import { sampleOps, type OpsRp } from '../../rpops/records/data';
 import type { Role } from '../roles';
 import { SCENARIOS, caseWorld, runChecks, skipOf } from './run';
 import './scenario.css';
@@ -33,12 +34,20 @@ export function openScenario(id: string) {
   if (!c) return closeScenario();
   const { state, ctx } = caseWorld(c);
   const courses = new Map(state.enrolments.map((e: { course: string }) => [e.course, ctx.course(e.course)]));
-  const w: World = { id: c.id, unis: ctx.unis, rps: ctx.rps, courses };
+  // each case RP is a whole RP Ops record (pages beyond Commissions read its agreements, offices and team): one with a
+  // signed partner agreement, taken as accepted from the day its commission record starts
+  const like = sampleOps().find((r) => r.agreements.some((a) => a.status === 'accepted'))!;
+  const rps = ctx.rps.map((r: { id: string; name: string; country: string; region: string }) => {
+    const from = state.records.find((x: { rp: string }) => x.rp === r.id)?.from ?? c.today;
+    const ag = like.agreements.find((a) => a.status === 'accepted')!;
+    return { ...like, id: r.id, code: r.id, name: r.name, city: '', country: r.country, region: r.region, status: 'Agreement signed', docs: [], branches: [], team: [], log: [], activity: [], mp: undefined, commission: undefined, agreements: [{ ...ag, id: `${r.id}-ag`, effective: from }] } as OpsRp & { region: string };
+  });
+  const w: World = { id: c.id, unis: ctx.unis, rps, courses };
   setClock(c.today);
   enterWorld(state, w);
   // the RP on the case's focus student, else its first RP: whose Earnings RP Admin sees
   const focus = c.apps[c.focus];
-  setEarnAs(focus?.rp ?? ctx.rps[0]?.id ?? '');
+  setEarnAs(focus?.rp ?? rps[0]?.id ?? '');
 }
 export function closeScenario() {
   setClock(null);

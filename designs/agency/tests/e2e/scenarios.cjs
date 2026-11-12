@@ -39,6 +39,25 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
     }
     ok(shown === (width < 700 ? 3 : cases.length), `${width}px: each scenario shows its own (sample) lines to Finance (${shown})`);
 
+    // every Finance page and tab opens inside a scenario (12 Nov: Setup failed on the case RPs' agreements)
+    if (width === 1440) {
+      await pick('C1');
+      const broke = [];
+      const navs = await p.evaluate(() => [...new Set([...document.querySelectorAll('nav button')].map((e) => e.textContent.trim()).filter(Boolean))]);
+      for (const n of navs) {
+        await p.evaluate((n) => { const x = [...document.querySelectorAll('nav button')].find((e) => e.textContent.trim() === n); x && x.click(); }, n); await wait(500);
+        const tabs = await p.locator('main [role=tab]').count();
+        for (let i = -1; i < Math.min(tabs, 8); i++) {
+          if (i >= 0) { await p.locator('main [role=tab]').nth(i).click().catch(() => {}); await wait(250); }
+          if ((await p.locator('body').innerText()).includes('This screen didn’t open')) {
+            broke.push(`${n}${i >= 0 ? ` tab ${i + 1}` : ''}`);
+            await p.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => e.textContent.trim() === 'Back to the screen'); x && x.click(); }); await wait(300);
+          }
+        }
+      }
+      ok(navs.length > 3 && broke.length === 0, `every Finance page and tab opens in a scenario (${navs.length} pages)${broke.length ? `: ${broke.join(', ')}` : ''}`);
+    }
+
     // the clock: a month on, the date and at least one line's status move (IP3: students reach their census dates)
     await pick('IP3');
     const d0 = await p.locator('.scen__date').innerText();
