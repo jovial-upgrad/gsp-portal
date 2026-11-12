@@ -43,7 +43,22 @@ export const checkedText = (d: string) => {
 const pad = (n: number) => String(n).padStart(2, '0');
 export const isoOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 /** Today and n days from it, as "2026-10-29". */
-export const todayIso = () => isoOf(new Date());
+/**
+ * The Prototype panel's clock (commission scenarios, Jovial 12 Nov): a scenario is looked at on its own date, and the
+ * date can be moved on to watch lines fall due. Prototype only; empty is the real today.
+ */
+let clockDay: string | null = null;
+const clockSubs = new Set<() => void>();
+export const setClock = (d: string | null) => {
+  clockDay = d;
+  clockSubs.forEach((f) => f());
+};
+export const clockOn = () => clockDay;
+export const subscribeClock = (f: () => void) => {
+  clockSubs.add(f);
+  return () => void clockSubs.delete(f);
+};
+export const todayIso = () => clockDay ?? isoOf(new Date());
 export const inDays = (n: number) => isoOf(new Date(Date.now() + n * DAY));
 const at = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00`).getTime();
 /** "30 Jun 2027"; with `short`, "30 Jun". */

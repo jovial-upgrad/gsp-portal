@@ -1,0 +1,60 @@
+/* Commission scenario bar: prototype chrome, kept apart from the product like the Prototype panel (inverted) */
+.scen {
+  position: fixed;
+  z-index: 199;
+  left: max(var(--sp-16), env(safe-area-inset-left, 0px));
+  bottom: max(var(--sp-16), env(safe-area-inset-bottom, 0px));
+  width: min(440px, calc(100vw - 2 * var(--sp-16)));
+  max-height: calc(100vh - 2 * var(--sp-16) - 56px);
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  border-radius: 16px;
+  background: var(--text);
+  color: var(--surface);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.28);
+  font-size: var(--t-caption);
+  overflow: hidden;
+}
+.scen__head { display: flex; align-items: flex-start; gap: var(--sp-6); padding: var(--sp-12) var(--sp-12) var(--sp-6) var(--sp-16); }
+.scen__t { flex: 1; min-width: 0; }
+.scen__kicker { margin: 0; opacity: 0.7; font-size: 12px; }
+.scen__title { margin: 2px 0 0; font-weight: 600; font-size: 14px; line-height: 1.35; }
+.scen__icon { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.scen__icon:hover { background: rgb(255 255 255 / 0.12); }
+.scen:not(.is-open) .scen__icon[aria-expanded] svg { transform: rotate(180deg); }
+.scen__clock { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6); padding: 0 var(--sp-16) var(--sp-12); }
+.scen__date { display: inline-flex; align-items: center; gap: var(--sp-6); margin-right: var(--sp-6); font-weight: 600; }
+.scen__clock button,
+.scen__go button {
+  height: 30px;
+  padding: 0 var(--sp-10);
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.scen__clock button:hover,
+.scen__go button:hover { background: rgb(255 255 255 / 0.12); }
+.scen__body { overflow-y: auto; padding: var(--sp-12) var(--sp-16) var(--sp-16); border-top: 1px solid rgb(255 255 255 / 0.14); }
+.scen__sheet { margin: 0 0 var(--sp-10); opacity: 0.85; line-height: 1.45; }
+.scen__skip { margin: 0 0 var(--sp-10); padding: var(--sp-8) var(--sp-10); border-radius: 8px; background: rgb(255 255 255 / 0.1); }
+.scen__h { margin: var(--sp-12) 0 var(--sp-6); font-weight: 600; }
+.scen__list { margin: 0; padding-left: 18px; line-height: 1.45; opacity: 0.9; }
+.scen__go { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-8); padding: 0 var(--sp-16) var(--sp-10); }
+.scen__more { margin: 0; padding: var(--sp-8) var(--sp-16) var(--sp-12); border: 0; background: transparent; color: inherit; font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 3px; opacity: 0.85; cursor: pointer; }
+.scen__go button { height: auto; padding: var(--sp-8) var(--sp-10); border-radius: 10px; text-align: left; font-weight: 600; }
+.scen__go button span { display: block; font-weight: 400; opacity: 0.75; }
+.scen__go button[aria-pressed='true'] { background: var(--surface); color: var(--text); }
+.scen__checks { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-8); }
+.scen__checks li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--sp-8); line-height: 1.4; }
+.scen__mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-weight: 700; font-size: 12px; }
+.scen__checks .is-ok .scen__mark { background: #2f9e6a; color: #fff; }
+.scen__checks .is-bad .scen__mark { background: #d64545; color: #fff; }
+.scen__checks .is-skip .scen__mark { background: rgb(255 255 255 / 0.18); }
+.scen__soft { opacity: 0.75; }
+/* a narrow window: at the top, clear of the role and Prototype buttons at the bottom */
+@media (max-width: 720px) {
+  .scen { top: max(var(--sp-8), env(safe-area-inset-top, 0px)); bottom: auto; max-height: 70vh; }
+}

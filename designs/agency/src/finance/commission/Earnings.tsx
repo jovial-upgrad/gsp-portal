@@ -34,7 +34,7 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const s = useComm();
   const res = useLines(apps, students);
   const as = useEarnAs();
-  const rp = (as && ctxRps().find((r) => r.id === as)) || ctxRps().find((r) => r.name === agency) || ctxRps().find((r) => r.name === HOME_RP)!;
+  const rp = (as && ctxRps().find((r) => r.id === as)) || ctxRps().find((r) => r.name === agency) || ctxRps().find((r) => r.name === HOME_RP) || ctxRps()[0];
   const mine = useMemo(() => res.txs.filter((t) => t.side === 'rp' && t.rp === rp.id && t.rpSees !== false).sort((a, b) => b.due.localeCompare(a.due)), [res, rp.id]);
   const [upload, setUpload] = useState(false);
   const [doc, setDoc] = useState<InvoiceDoc | null>(null);

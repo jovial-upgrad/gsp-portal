@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon';
 import type { Theme } from '../theme';
 import { PAIR, ROLES, roleLabel, type Role } from './roles';
 import type { Link } from './link';
+import { ScenarioPick } from './scenarios/Scenario';
 import './proto.css';
 
 export type Device = 'desktop' | 'phone';
@@ -113,6 +114,8 @@ export function ProtoPanel({
               </Section>
             );
           })}
+
+          <ScenarioPick />
 
           {role.startsWith('rp-admin') && <EarnAs />}
 

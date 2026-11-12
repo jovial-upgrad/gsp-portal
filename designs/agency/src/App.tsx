@@ -41,6 +41,7 @@ import type { PortalStart } from './screens/portal/Portal';
 import type { Section } from './screens/portal/model';
 import { AuthScene } from './shell/AuthScene';
 import { ProtoPanel, type Device } from './proto/ProtoPanel';
+import { ScenarioBar } from './proto/scenarios/Scenario';
 import { roleOf, type Role } from './proto/roles';
 import { setLink, useLink } from './proto/link';
 import { SideBySide } from './proto/SideBySide';
@@ -364,6 +365,7 @@ export default function App() {
           <div id="layer" className="layer" />
         </>
       )}
+      {!isPublic && <ScenarioBar role={role} onRole={switchRole} />}
       <ProtoPanel
         groups={team ? teamGroups : groups}
         current={token}

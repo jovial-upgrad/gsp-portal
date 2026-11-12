@@ -39,7 +39,7 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
     if (width === 1440) {
       for (const [rp, name, k] of [['rp-delhi', 'Capital Career Abroad', /80%/], ['rp-pokhara', 'Himalayan Study Centre', /Pilot agreement 2023/], ['rp-saigon', 'Saigon Bridge Education', /Notice: /]]) {
         await p.locator('.proto__fab').click(); await wait(300);
-        await p.selectOption('.proto__panel select.proto__select', rp); await wait(300);
+        await p.selectOption('.proto__panel select[aria-labelledby="proto-earn"]', rp); await wait(300);
         await p.locator('.proto__close').click().catch(() => {}); await wait(500);
         await tab('Overview').click(); await wait(400);
         const x = await p.locator('main').innerText();

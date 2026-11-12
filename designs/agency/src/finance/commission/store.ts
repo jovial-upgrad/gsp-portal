@@ -9,7 +9,7 @@ import { COURSES, LEVELS } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
 import { sampleCourseRecs, sampleUniRecs } from '../../institution/data/catalogue';
-import { samplePartners, todayIso } from '../../institution/data/records';
+import { samplePartners, subscribeClock, todayIso } from '../../institution/data/records';
 import { HOME_RP } from '../../gsp/rps';
 import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/records/data';
 import { sampleComm } from './seed';
@@ -36,6 +36,34 @@ export function setComm(fn: (s: CommState) => CommState) {
 /** Back to the seeded records (the Prototype panel's reset, and tests). */
 export const resetComm = () => setComm(() => sampleComm());
 export const useComm = () => useSyncExternalStore(subscribe, commState, commState);
+// the Prototype panel's clock moved: every line's status is worked out again for the new date
+subscribeClock(() => setComm((s) => ({ ...s })));
+
+/**
+ * A commission scenario (Prototype panel, Jovial 12 Nov): one of the sandbox's cases, its own small world of
+ * universities, RPs, courses and records, in place of the seeded ones until the reviewer leaves it. Its lines are
+ * worked out by this same engine; nothing is written for the scenario but its records.
+ */
+export type World = { id: string; unis: CtxUni[]; rps: (OpsRp & { region: string })[]; courses: Map<string, CtxCourse> };
+let world: World | null = null;
+let saved: CommState | null = null;
+const worldSubs = new Set<() => void>();
+export const worldOn = () => world;
+export const useWorld = () => useSyncExternalStore((f) => (worldSubs.add(f), () => void worldSubs.delete(f)), worldOn, worldOn);
+export function enterWorld(s: CommState, w: World) {
+  if (!world) saved = state;
+  world = w;
+  worldSubs.forEach((f) => f());
+  setComm(() => s);
+}
+export function leaveWorld() {
+  if (!world) return;
+  world = null;
+  const back = saved ?? sampleComm();
+  saved = null;
+  worldSubs.forEach((f) => f());
+  setComm(() => back);
+}
 
 /**
  * The Prototype panel's "Earnings as" (RP Admin, for Deepesh's walkthrough, 11 Nov): see another seeded RP's Earnings.
@@ -55,7 +83,7 @@ let unis: CtxUni[] | null = null;
 let rps: (OpsRp & { region: string })[] | null = null;
 const courses = new Map(COURSES.map((c) => [c.id, c]));
 /** The universities, as the Institution Team keeps them (seeded). */
-export const ctxUnis = () => (unis ??= sampleUniRecs().map((u) => ({ id: u.id, name: u.name, country: u.country, ip: u.ip, status: u.status, added: u.added, agreement: agreementDates(u.ip) }) as CtxUni & { status: string; added: string }));
+export const ctxUnis = (): CtxUni[] => world?.unis ?? (unis ??= sampleUniRecs().map((u) => ({ id: u.id, name: u.name, country: u.country, ip: u.ip, status: u.status, added: u.added, agreement: agreementDates(u.ip) }) as CtxUni & { status: string; added: string }));
 /**
  * A university's agreement dates, from its institution partner's documents (the IP tab's rule): from the earliest start
  * to the latest end of its New agreement and Renewal documents. Enrolments outside them are held (D11).
@@ -67,7 +95,7 @@ function agreementDates(ip?: string) {
   return { start: docs.map((d) => d.start).sort()[0], end: docs.map((d) => d.end).sort().slice(-1)[0] };
 }
 /** The recruitment partners, as RP Ops keeps them (seeded), with their sales region. */
-export const ctxRps = () => (rps ??= sampleOps().map((r) => ({ ...r, region: regionOf(r.country) })));
+export const ctxRps = () => world?.rps ?? (rps ??= sampleOps().map((r) => ({ ...r, region: regionOf(r.country) })));
 /** RPs whose partner agreement GSP has accepted: the ones that can have a commission record. */
 export const acceptedRps = () => ctxRps().filter((r) => !!agreementsOf(r).active || !!agreementsOf(r).next);
 /** The day the RP's accepted agreement took effect: From's default. */
@@ -77,6 +105,7 @@ export const acceptedOn = (rp: string) => {
   return a?.effective ?? todayIso();
 };
 const course = (id: string): CtxCourse | undefined => {
+  if (world) return world.courses.get(id);
   const c = courses.get(id);
   // no fee: commission is worked out from the student's own fee on the application (9 Nov)
   return c && { id: c.id, name: c.name, level: c.level, months: c.months, currency: c.currency, uni: c.uni.id };
@@ -108,6 +137,8 @@ export const uniName = (id: string) => ctxUnis().find((u) => u.id === id)?.name 
 
 /** The portal's own applications at Student enrolled, as the engine reads them (their RP: the one on it, else the prototype's agency). */
 export function enrolmentsOf(apps: Application[], students: Pick<Student, 'id' | 'first' | 'last' | 'oneName'>[]): Enrolment[] {
+  // a scenario's world has only its own enrolments
+  if (world) return [];
   return apps
     .filter((a) => a.status === 'enrolled')
     .map((a) => {
