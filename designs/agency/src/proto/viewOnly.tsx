@@ -40,6 +40,8 @@ export type Feature =
   | 'uni.scholarships'
   | 'uni.territory'
   | 'uni.submission'
+  // Jovial, 13 Nov: a university's Commission tab (GSP · Admissions and RP Ops see no commission at all)
+  | 'uni.commission'
   // GSP · Global Ops (6 Nov)
   | 'app.base-commission'
   | 'rp.documents'

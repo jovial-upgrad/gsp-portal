@@ -365,18 +365,18 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
 
 /* ---------- what the RP sees ---------- */
 
-/** What an RP is shown (Jovial, 11 Nov): the kinds of line and the study periods. A line it can't see stays GSP's. */
+/** What an RP is shown (Jovial, 11 Nov): the kinds of line; and (R112, 13 Nov) before its invoice is asked for, its first payment as an estimate, or nothing. A line it can't see stays GSP's. */
 export function RpViewFields({ idp, v, set, hint }: { idp: string; v: RpView; set: (v: RpView) => void; hint: string }) {
   return (
     <>
       <Field id={`${idp}-sees`} label="What the RP sees" optional className="iform__wide" hint={`${hint} A line the RP can’t see is never shown to it, and asking for its invoice sends it nothing.`}>
         <MultiPick id={`${idp}-sees`} label="What the RP sees" value={v.kinds} options={[...RP_VIEW_KINDS]} onChange={(x) => set({ ...v, kinds: RP_VIEW_KINDS.filter((k) => x.includes(k)) as RpViewKind[] })} empty="Nothing" />
       </Field>
-      <Field id={`${idp}-periods`} label="Study periods the RP sees" required>
+      <Field id={`${idp}-periods`} label="Before its invoice is asked for" required hint="Once Finance asks for an invoice, the RP sees those lines.">
         <SelectInput id={`${idp}-periods`} value={v.periods} onChange={(e) => set({ ...v, periods: e.target.value as RpViewPeriods })}>
           {RP_VIEW_PERIODS.map((p) => (
             <option key={p} value={p}>
-              {p}
+              {p === 'Nothing' ? 'Nothing' : 'Its first payment, as an estimate (study period 1’s course commission)'}
             </option>
           ))}
         </SelectInput>

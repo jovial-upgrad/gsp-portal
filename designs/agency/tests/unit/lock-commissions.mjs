@@ -35,7 +35,7 @@ try {
   // Q50: only the agreed RP statuses
   const rpStatuses = new Set(r0.txs.filter((t) => t.side === 'rp').map((t) => t.status));
   ok('Q50 RP lines use only the agreed statuses', [...rpStatuses].every((x) => model.RP_STATUSES.includes(x)), [...rpStatuses].join());
-  ok('Q50 the agreed list (with D24’s Overdue to pay, and R106’s To recover and Recovered)', model.RP_STATUSES.join() === 'Expected,Waiting for university,Ready to invoice,Invoice in review,Approved,Overdue to pay,On hold,Sent back,To recover,Paid,Recovered,Not payable');
+  ok('Q50 the agreed list (with D24’s Overdue to pay, R106’s To recover and Recovered, R112’s Ready to request and Invoice requested)', model.RP_STATUSES.join() === 'Expected,Waiting for university,Ready to request,Invoice requested,Invoice in review,Approved,Overdue to pay,On hold,Sent back,To recover,Paid,Recovered,Not payable');
   const waitingOk = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Waiting for university').every((t) => {
     const u = r0.byId.get(t.matches) ?? r0.byApp.get(t.app).uniItem.txs[0];
     return u && !['Expected', 'Paid', 'Part paid'].includes(u.status);
@@ -51,27 +51,38 @@ try {
   const u1 = r1.byId.get(u.id);
   ok('Q44 a line paid short is Part paid, with what came in and why', u1.status === 'Part paid' && u1.received === half && u1.short === 'Bank charges', `${u1.status} ${u1.received} ${u1.short}`);
   const rp1 = r1.byId.get(rpLine0.id);
-  ok('Q44 its RP line is ready for its share of what came in', rp1.status === 'Ready to invoice' && Math.abs(rp1.amount - model.roundMoney((rpLine0.amount * half) / u.amount, u.currency)) <= 0.01, `${rp1.status} ${rp1.amount} of ${rpLine0.amount}`);
+  ok('Q44 its RP line is ready for its share of what came in', rp1.status === 'Ready to request' && Math.abs(rp1.amount - model.roundMoney((rpLine0.amount * half) / u.amount, u.currency)) <= 0.01, `${rp1.status} ${rp1.amount} of ${rpLine0.amount}`);
   const s2 = { ...s1, writeOffs: [{ id: 'wo', tx: u.id, amount: u.amount - half, reason: 'Bank charges', by: 'Test', at: 3 }] };
   const r2 = run(s2);
   ok('Q44 writing off the rest makes it Paid', r2.byId.get(u.id).status === 'Paid');
   ok('Q44 the RP stays at its share of what came in', Math.abs(r2.byId.get(rpLine0.id).amount - rp1.amount) <= 0.01);
   ok('Q44 the reasons are a seeded setting', s0.settings.partReasons.length >= 5 && s0.settings.partReasons.includes('Part payment'));
 
-  // What the RP sees (Jovial, 11 Nov): by default the first study period only; a hidden line's request sends nothing
+  // What the RP sees (Jovial, 11 Nov; R112, 13 Nov): before its invoice is asked for, only its first payment (study period
+  // 1's course commission) as an estimate; every line once Finance asks for it; a kind it isn't shown, never
   {
-    // 12 Nov: a later study period shows once GSP is paid for it and the RP's invoice is asked for (by itself)
-    const later = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) > 1 && !t.requested);
-    const laterAsked = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) > 1 && t.requested);
-    if (laterAsked) ok('View: a later study period shows once its invoice is asked for', laterAsked.rpSees === true, laterAsked.id);
-    const first = r0.txs.find((t) => t.side === 'rp' && (t.period ?? 1) === 1 && t.type === 'Course commission');
-    ok('View: by default the RP sees its first study period’s lines', !!first && first.rpSees === true, first ? `${first.id} ${first.rpSees}` : 'no line');
-    ok('View: by default a later study period’s line is not shown to the RP', !!later && later.rpSees === false, later ? `${later.id} ${later.rpSees}` : 'no line');
-    const rec = s0.records.find((r) => r.rp === first?.rp);
-    const sv = { ...s0, records: s0.records.map((r) => (r === rec ? { ...r, view: { kinds: ['Additional commission'], periods: 'Every study period' } } : r)) };
+    const rpl = r0.txs.filter((t) => t.side === 'rp');
+    const notAsked = rpl.filter((t) => !t.requested && !['Invoice in review', 'Approved', 'Overdue to pay', 'Paid', 'Recovered', 'Sent back'].includes(t.status));
+    const shownEarly = notAsked.filter((t) => t.rpSees);
+    ok('R112 before a request the RP sees only study period 1’s course commission, as an estimate', shownEarly.length > 0 && shownEarly.every((t) => ['Course commission', 'Promotion', 'Adjustment'].includes(t.type) && (t.period ?? 1) === 1 && model.RP_ESTIMATE.includes(t.status)), shownEarly.filter((t) => !(['Course commission', 'Promotion', 'Adjustment'].includes(t.type) && (t.period ?? 1) === 1)).map((t) => `${t.id} ${t.type} ${t.status}`).join());
+    ok('R112 a bonus or a later study period not asked for is hidden', notAsked.filter((t) => t.type === 'Bonus' || (t.period ?? 1) > 1).every((t) => t.rpSees === false));
+    ok('R112 Ready to request is hidden from the RP but its first payment estimate', notAsked.filter((t) => t.status === 'Ready to request').every((t) => !t.rpSees || (t.type === 'Course commission' && (t.period ?? 1) === 1)));
+    ok('R112 the RP reads Ready to request as Estimate, Invoice requested as To invoice', model.rpLabel('Ready to request') === 'Estimate' && model.rpLabel('Invoice requested') === 'To invoice' && model.rpLabel('Paid') === 'Paid');
+    ok('R112 nothing asks for an invoice by itself', !s0.requests.some((r) => r.by === 'System'));
+    // Finance asks: the line becomes Invoice requested and the RP sees it
+    const ready = rpl.find((t) => t.status === 'Ready to request' && t.rpKind !== false && (t.type !== 'Course commission' || (t.period ?? 1) > 1));
+    if (ready) {
+      const sq = { ...s0, requests: [...s0.requests, { id: 'rq-v', rp: ready.rp, txs: [ready.id], date: TODAY, by: 'Fin', at: 4 }] };
+      const rq = run(sq).byId.get(ready.id);
+      ok('R112 once asked for: Invoice requested, and the RP sees it', rq.status === 'Invoice requested' && rq.rpSees === true, `${rq.status} ${rq.rpSees}`);
+    }
+    const rec = s0.records.find((r) => rpl.some((t) => t.rp === r.rp && t.type === 'Course commission'));
+    const sv = { ...s0, records: s0.records.map((r) => (r === rec ? { ...r, view: { kinds: ['Additional commission'], periods: 'First study period only' } } : r)) };
     const rv = run(sv);
-    ok('View: an RP’s own record can hide its course commission', rv.txs.filter((t) => t.side === 'rp' && t.rp === rec.rp && t.type === 'Course commission').every((t) => t.rpSees === false));
-    // a kind of line the RP isn't shown is never asked for, and a request for one sends the RP nothing
+    ok('View: an RP’s own record can hide its course commission', rv.txs.filter((t) => t.side === 'rp' && t.rp === rec.rp && t.type === 'Course commission').every((t) => t.rpSees === false && t.rpKind === false));
+    const sn = { ...s0, records: s0.records.map((r) => (r === rec ? { ...r, view: { kinds: [...model.RP_VIEW_KINDS], periods: 'Nothing' } } : r)) };
+    ok('R112 an RP set to Nothing sees no estimate', run(sn).txs.filter((t) => t.side === 'rp' && t.rp === rec.rp && !t.requested && model.RP_ESTIMATE.includes(t.status)).every((t) => t.rpSees === false));
+    // a kind of line the RP isn't shown: a request for one sends the RP nothing
     const cc = rv.txs.find((t) => t.side === 'rp' && t.rp === rec.rp && t.type === 'Course commission' && !t.requested);
     if (cc) {
       const sh = { ...sv, requests: [...sv.requests, { id: 'rq-h', rp: cc.rp, txs: [cc.id], date: '2026-11-01', by: 'Test', at: 4 }] };
@@ -79,15 +90,6 @@ try {
       ok('View: asking for a hidden kind of line sends the RP nothing (no N16, no reminder)', !nh.some((n) => n.id === 'n16-rq-h' || n.id.startsWith('n21-rq-h')));
     }
     ok('View: the default is a setting', Array.isArray(s0.settings.rpView.kinds) && model.RP_VIEW_PERIODS.includes(s0.settings.rpView.periods));
-  }
-
-  // Jovial, 12 Nov: the RP's invoice is asked for by itself once GSP has its money: every RP line Ready to invoice of a
-  // kind the RP is shown has a request (from the System, dated the day the university paid), and is on its Invoices to send
-  {
-    const ready = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Ready to invoice' && t.rpKind !== false);
-    ok('Auto request: every Ready to invoice line the RP is shown is asked for', ready.length > 0 && ready.every((t) => !!t.requested), ready.filter((t) => !t.requested).map((t) => t.id).join(', '));
-    const auto = s0.requests.find((r) => r.by === 'System');
-    ok('Auto request: made by the System, dated the day the university paid', !auto || (auto.date <= TODAY && /^\d{4}-\d{2}-\d{2}$/.test(auto.date)));
   }
 
   // R104 (Q101): what a course earns, from the university's terms and the RP's own terms, as the engine prices it
@@ -104,19 +106,19 @@ try {
     ok('R104 the RP’s view: its share of GSP’s amount, and the % of the fee', !!r && r.share > 0 && Math.abs(r.amount - Math.round((g.amount * r.share) / 100 / 10) * 10) <= 20 && r.pctOfFee > 0, r && `${r.amount} ${r.share}% ${r.pctOfFee}%`);
     const noTerms = courses.COURSES.find((c) => !s0.terms.some((t) => t.uni === c.uni.id));
     ok('R104 no university terms: no estimate', !noTerms || est.estimateFor(s0, noTerms, rp0, TODAY) === null);
-    const hid = { ...s0, records: s0.records.map((x) => (x.rp === rp0 ? { ...x, view: { kinds: ['Bonus'], periods: 'Every study period' } } : x)) };
+    const hid = { ...s0, records: s0.records.map((x) => (x.rp === rp0 ? { ...x, view: { kinds: ['Bonus'], periods: 'First study period only' } } : x)) };
     ok('R104 an RP not shown course commission gets no estimate', est.estimateFor(hid, withTerms, rp0, TODAY) === null);
   }
 
   // R105: claim windows. Lines stay as they are; Finance sees the ones past their window, still unclaimed
   {
-    const ready = r0.txs.filter((t) => t.side === 'rp' && t.status === 'Ready to invoice');
+    const ready = r0.txs.filter((t) => t.side === 'rp' && ['Ready to request', 'Invoice requested'].includes(t.status));
     ok('R105 a fresh RP line inside 12 months isn’t flagged', ready.every((t) => !t.claimLapsed), ready.filter((t) => t.claimLapsed).map((t) => t.id).join(' '));
     ok('R105 its claim window ends 12 months after its study period ends', ready.length > 0 && ready.every((t) => !!t.claimEnds));
     const s1m = { ...s0, settings: { ...s0.settings, rpClaimMonths: 1 } };
     const r1m = run(s1m);
     const lapsedRp = r1m.txs.filter((t) => t.side === 'rp' && t.claimLapsed);
-    ok('R105 with a 1-month window, older unclaimed RP lines are flagged', lapsedRp.length > 0 && lapsedRp.every((t) => ['Ready to invoice', 'Sent back'].includes(t.status)));
+    ok('R105 with a 1-month window, older unclaimed RP lines are flagged', lapsedRp.length > 0 && lapsedRp.every((t) => ['Ready to request', 'Invoice requested', 'Sent back'].includes(t.status)));
     ok('R105 a flagged line keeps its status and amount (nothing closes)', lapsedRp.every((t) => r0.byId.get(t.id)?.status === t.status && r0.byId.get(t.id)?.amount === t.amount));
     ok('R105 the RP hears nothing about it', !engine.commNotes(s1m, r1m, (x) => x, TODAY).some((n) => n.to === 'rp' && /claim/i.test(n.title + n.text)));
     const u = r0.txs.find((t) => t.side === 'uni' && t.status === 'Ready to invoice');
@@ -139,8 +141,11 @@ try {
     const share = rpL.amount / paidU.amount;
     ok('R106 the RP gives back its share of what was taken back', !!rec && Math.abs(rec.amount + half * share) <= 0.02, rec && `${rec.amount} vs ${-half * share}`);
     ok('R106 the recovery waits for the RP’s next payment: To recover', rec.status === 'To recover');
-    ok('R106 the RP always sees its recovery, with the reason', rec.rpSees === true && rec.rpWhat.includes('Withdrew in semester 1'));
-    ok('R106 the RP is told (N26)', engine.commNotes(sC, rC, (x) => x, TODAY).some((n) => n.code === 'N26' && n.to === 'rp' && n.rp === rec.rp));
+    ok('R112 the RP doesn’t see the recovery, or hear of it, until Finance asks for an invoice', rec.rpSees === false && !engine.commNotes(sC, rC, (x) => x, TODAY).some((n) => n.code === 'N26' && n.rp === rec.rp));
+    const sR = { ...sC, requests: [...sC.requests, { id: 'rq-r', rp: rec.rp, txs: [rec.id], date: TODAY, by: 'Fin', at: 9.5 }] };
+    const rR = run(sR);
+    ok('R106 once asked for, the RP sees its recovery, with the reason', rR.byId.get(rec.id).rpSees === true && rec.rpWhat.includes('Withdrew in semester 1'));
+    ok('R106 the RP is told (N26) with the request', engine.commNotes(sR, rR, (x) => x, TODAY).some((n) => n.code === 'N26' && n.to === 'rp' && n.rp === rec.rp));
     ok('R106 the paid RP line itself never changes', rC.byId.get(rpL.id).amount === rpL.amount && rC.byId.get(rpL.id).status === rpL.status);
     const sP = { ...sC, rpPayments: [...sC.rpPayments, { id: 'pay-t', rp: rec.rp, txs: [rec.id], date: '2026-11-08', by: 'Test', at: 10 }] };
     ok('R106 once set against a payment it is Recovered', run(sP).byId.get(rec.id).status === 'Recovered');
@@ -160,7 +165,7 @@ try {
   // Q47 and Q54: reminders, sent back and approved
   const rq = { id: 'rq-t', rp: rp1.rp, txs: [rp1.id], date: '2026-11-01', by: 'Test', at: 4 };
   // this RP is shown every study period here, so the reminder is about lines it can see (Jovial, 11 Nov)
-  const allView = { kinds: [...model.RP_VIEW_KINDS], periods: 'Every study period' };
+  const allView = { kinds: [...model.RP_VIEW_KINDS], periods: 'First study period only' };
   const s3 = { ...s1, settings: { ...s1.settings, rpView: allView }, requests: [...s1.requests, rq] };
   const r3 = run(s3);
   const notes3 = engine.commNotes(s3, r3, (x) => x, TODAY);

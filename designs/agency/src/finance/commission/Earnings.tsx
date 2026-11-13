@@ -11,10 +11,10 @@ import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { HOME_RP } from '../../gsp/rps';
 import { ESTIMATE, FilePick, InvoiceSheet, TxTable } from './parts';
-import { addDays, bandStanding, sumBy, totalsText, type Tx } from './engine';
+import { addDays, bandStanding, sumBy, totalsText, type RpStanding, type Tx } from './engine';
 import { rpInvoice, type InvoiceDoc } from './invoice';
 import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useEarnAs, useLines } from './store';
-import { benefitText, GROUPS, RECOVERED, IN_REVIEW, TO_INVOICE, dayText, groupOf, money, pct, type FileRef } from './model';
+import { benefitText, GROUPS, RECOVERED, IN_REVIEW, TO_INVOICE, dayText, groupOf, money, pct, rpLabel, type FileRef } from './model';
 import '../../institution/work/work.css';
 
 /**
@@ -111,7 +111,10 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const top = Math.max(1, ...buckets.map((b) => b.paid + b.expected));
 
   /* still to come, and about what it earns per university (R104) */
+  // R112: what's coming is what GSP asked for (and is checking or paying), and first payments as estimates
   const toCome = sumBy(live.filter((t) => !isPaid(t)));
+  const early = sumBy(live.filter((t) => !isPaid(t) && rpLabel(t.status) === 'Estimate'));
+  const asked = sumBy(live.filter((t) => !isPaid(t) && rpLabel(t.status) !== 'Estimate'));
   const perUni = useMemo(() => {
     const seen = new Map<string, Tx>();
     mine.forEach((t) => !seen.has(t.uni) && seen.set(t.uni, t));
@@ -176,17 +179,9 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
             <span className="k">{x.note}</span>
           </div>
         ))}
-        {stand && (
-          <div className="card cearn__tile">
-            <span className="k">Your band</span>
-            <span className="n num">{pct(stand.share)}</span>
-            <span className="k">
-              {stand.count} {stand.count === 1 ? 'enrolment' : 'enrolments'} in {stand.window}
-              {stand.next ? `. ${stand.next.more} more for ${pct(stand.next.share)}` : ', the top band'}
-            </span>
-          </div>
-        )}
       </div>
+
+      {stand && <Unlock st={stand} />}
 
       {rec && (
         <section className="card irsec" aria-labelledby="cearn-terms">
@@ -279,10 +274,17 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         <div className="irsec__head">
           <div className="irsec__t">
             <h2 className="irsec__title" id="cearn-come">
-              Still to come
+              Coming to you
             </h2>
             <p className="irsec__note">
-              {Object.keys(toCome).length ? `${totalsText(toCome)} not paid yet, across your students. ${ESTIMATE}.` : 'Nothing waiting: everything is paid.'}
+              {Object.keys(toCome).length
+                ? [
+                    Object.keys(asked).length ? `${totalsText(asked)} GSP has asked you to invoice, or is checking or paying` : '',
+                    Object.keys(early).length ? `${totalsText(early)} in first payments, estimated: GSP asks for your invoice once the university pays it` : '',
+                  ]
+                    .filter(Boolean)
+                    .join('. ') + '.'
+                : 'Nothing waiting: everything is paid.'}
             </p>
           </div>
         </div>
@@ -521,3 +523,71 @@ function addMonths(d: string, n: number) {
   return `${yy}-${String(mm + 1).padStart(2, '0')}-01`;
 }
 const monthShort = (d: string) => new Date(`${d.slice(0, 7)}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'short' });
+
+/**
+ * What the RP's next enrolments unlock (Jovial, 13 Nov): from its own agreement only (its bands and its bonuses at an
+ * enrolment number), counted in the agreement's window: where it stands, how many more reach each band, and whether
+ * reaching one raises the enrolments it already has.
+ */
+function Unlock({ st }: { st: RpStanding }) {
+  const nextBand = st.bands.find((b) => b.more > 0 && b.pct > st.share);
+  const top = st.bands.length ? Math.max(...st.bands.map((b) => b.from)) : 0;
+  const goal = nextBand?.from ?? top;
+  const fill = goal ? Math.min(100, (st.count / goal) * 100) : 100;
+  const raises = st.retro && (!st.retroTop || (nextBand && nextBand.from === top));
+  const bonusesAhead = st.bonuses.filter((b) => b.more > 0).sort((a, b) => a.more - b.more);
+  return (
+    <section className="card irsec cunlock" aria-labelledby="cearn-unlock">
+      <div className="irsec__head">
+        <div className="irsec__t">
+          <h2 className="irsec__title" id="cearn-unlock">
+            {nextBand ? `${nextBand.more} more ${nextBand.more === 1 ? 'enrolment' : 'enrolments'} to reach ${pct(nextBand.pct)}` : st.bands.length ? `You’re in your top band: ${pct(st.share)}` : 'Your next bonus'}
+          </h2>
+          <p className="irsec__note">
+            {st.count} {st.count === 1 ? 'enrolment' : 'enrolments'} counted in {st.window}
+            {st.ends ? `, which ends ${dayText(st.ends)}` : ''}. From your agreement, {st.agreement}; a student who withdraws before the university pays doesn’t count.
+          </p>
+        </div>
+      </div>
+      {st.bands.length > 0 && (
+        <>
+          <div className="cunlock__bar" role="img" aria-label={`${st.count} of ${goal} enrolments`}>
+            <span style={{ width: `${fill}%` }} />
+          </div>
+          <ol className="cunlock__bands">
+            {st.bands.map((b) => (
+              <li key={b.from} className={b.now ? 'is-now' : b.more === 0 ? 'is-done' : ''}>
+                <span className="cunlock__pct num">{pct(b.pct)}</span>
+                <span className="cunlock__range num">
+                  {b.from}
+                  {b.to == null ? '+' : `–${b.to}`} enrolments
+                </span>
+                <span className="cunlock__state">{b.now ? 'You’re here' : b.more === 0 ? 'Reached' : `${b.more} more`}</span>
+              </li>
+            ))}
+          </ol>
+          {nextBand && (
+            <p className="cunlock__note">
+              {raises
+                ? `When you reach ${nextBand.from}, every enrolment counted in ${st.window} moves to ${pct(nextBand.pct)}, not just the new ones.`
+                : `From your ${ordinalText(nextBand.from)} enrolment in ${st.window}, each new one earns ${pct(nextBand.pct)}; the ones before stay at their band.`}
+            </p>
+          )}
+        </>
+      )}
+      {bonusesAhead.length > 0 && (
+        <ul className="cearn__unis">
+          {bonusesAhead.map((b) => (
+            <li key={b.desc + b.nth}>
+              <span className="iw-strong">{b.desc}</span>
+              <span>
+                {b.amount.toLocaleString('en-GB')} in the university’s currency, at your {ordinalText(b.nth)} enrolment: {b.more} more
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+const ordinalText = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;

@@ -178,7 +178,7 @@ function view(res, state) {
   const T = (uni) => state.terms.find((t) => t.uni === uni);
   const ip = res.txs.filter((t) => t.side === 'uni').map((t) => ({ app: t.app, l: { key: sandboxKey(t, T(t.uni), 'uni'), ent: t.amount, fullEnt: t.amount, amt: t.amount, gst: t.gst ?? 0, date: t.trigger, type: TYPE[t.type], st: [t.status] }, t }));
   // the RP has earned a line once GSP has its money for it (Q50); before that it's 0 earned
-  const EARNED = ['Ready to invoice', 'Invoice in review', 'Approved', 'Overdue to pay', 'Sent back', 'Paid'];
+  const EARNED = ['Ready to request', 'Invoice requested', 'Invoice in review', 'Approved', 'Overdue to pay', 'Sent back', 'Paid'];
   const rp = res.txs.filter((t) => t.side === 'rp').map((t) => {
     const earned = EARNED.includes(t.status) ? t.amount : 0;
     return { app: t.app, key: sandboxKey(t, T(t.uni), 'rp'), ent: t.amount, fullEnt: t.amount, earned, due: t.status === 'Paid' ? 0 : earned, st: [t.status], t };
@@ -241,7 +241,8 @@ function compute(cfg, apps, today) {
   return { view: view(r, s), state: s, ctx };
 }
 
-const WORDS = { 'Ready for payout': 'Ready to invoice', 'Waiting for university payment': 'Waiting for university', 'Top-up ready for payout': 'Ready to invoice', 'Held: agreement not yet in force': 'Held', 'Held: contract ended': 'Held' };
+// R112 (13 Nov): the sandbox's "ready for payout" is GSP paid and Finance not yet asking for the RP's invoice: Ready to request
+const WORDS = { 'Ready for payout': 'Ready to request', 'Waiting for university payment': 'Waiting for university', 'Top-up ready for payout': 'Ready to request', 'Held: agreement not yet in force': 'Held', 'Held: contract ended': 'Held' };
 const same0 = (e, g) => (typeof e === 'number' && typeof g === 'number' ? Math.abs(e - g) < 0.005 : JSON.stringify(e) === JSON.stringify(g));
 const same = (e, g) => same0(typeof e === 'string' && WORDS[e] ? WORDS[e] : e, g);
 

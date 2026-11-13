@@ -97,6 +97,8 @@ export function Applications({
           setTab={setTab}
           update={(fn) => setApps((l) => l.map((x) => (x.id === open.id ? fn(x) : x)))}
           studentApps={apps.filter((x) => x.studentId === open.studentId)}
+          allApps={apps}
+          allStudents={students}
           updateStudent={(fn) => setStudents((l) => l.map((x) => (x.id === open.studentId ? fn(x) : x)))}
           onBack={() => {
             setOpenId(null);

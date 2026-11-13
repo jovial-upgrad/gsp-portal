@@ -231,7 +231,7 @@ export function Portal({
     scrollTop();
   };
   /** What GSP · Admissions leaves out of the pages it shares (6 Nov access sheet; src/proto/viewOnly.tsx). */
-  const HIDE: Feature[] = ['courses.commission', 'app.base-commission', 'rp.documents', 'rp.branches', 'rp.team', 'rp.commission-email', 'rp.master', 'uni.qs-update'];
+  const HIDE: Feature[] = ['courses.commission', 'app.base-commission', 'rp.documents', 'rp.branches', 'rp.team', 'rp.commission-email', 'rp.master', 'uni.qs-update', 'uni.commission', 'ip.commission', 'mp.commission'];
   const openDocs = () => setDocsOpen(true);
   const openNote = (t: NoteTarget) => {
     if ('app' in t) jumpTo({ section: 'applications', app: { open: t.app } });

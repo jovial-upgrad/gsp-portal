@@ -36,7 +36,7 @@ try {
   ok('a matching university line is on the same application', wrongApp.length === 0, wrongApp.map((t) => t.id).join());
 
   // an RP line isn't Ready to invoice (or later) before GSP has its university line's money (Paid, or Part paid: Q44)
-  const LATER = ['Ready to invoice', 'Invoice in review', 'Approved', 'Sent back', 'Paid'];
+  const LATER = ['Ready to request', 'Invoice requested', 'Invoice in review', 'Approved', 'Sent back', 'Paid'];
   const firstUni = (t) => res.byApp.get(t.app).uniItem.txs.find((x) => x.type === 'Course commission') ?? res.byApp.get(t.app).uniItem.txs[0];
   const early = rp.filter((t) => LATER.includes(t.status) && !['Paid', 'Part paid'].includes(t.matches ? res.byId.get(t.matches).status : firstUni(t)?.status));
   ok('no RP line is Ready to invoice before its university line is paid', early.length === 0, early.map((t) => `${t.id} ${t.status}`).join());

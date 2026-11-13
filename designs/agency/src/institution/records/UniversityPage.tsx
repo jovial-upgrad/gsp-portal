@@ -53,6 +53,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
   const noScholarships = useHides('uni.scholarships');
   const noTerritory = useHides('uni.territory');
   const noSubmission = useHides('uni.submission');
+  const noCommission = useHides('uni.commission');
   // GSP · Global Ops (6 Nov): Territory to look at
   const territoryView = useHides('uni.territory.view');
   const viewOnly = useViewOnly();
@@ -168,8 +169,9 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
           ...(noScholarships ? [] : [{ key: 'scholarships' as Tab, label: 'Scholarships', n: u.scholarships.length }]),
           ...(noTerritory ? [] : [{ key: 'territory' as Tab, label: 'Territory' }]),
           ...(noSubmission ? [] : [{ key: 'submission' as Tab, label: 'Submission and contacts' }]),
-          // 9 Nov (Jovial): the university's commission terms, for every team that can see the university
-          { key: 'commission', label: 'Commission' },
+          // 9 Nov (Jovial): the university's commission terms, for the teams that can see the university; 13 Nov: not
+          // GSP · Admissions or RP Ops, who see no commission at all
+          ...(noCommission ? [] : [{ key: 'commission' as Tab, label: 'Commission' }]),
           { key: 'logs', label: 'Logs', n: u.log.length + 1 },
         ]}
       />
@@ -316,7 +318,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
           </ViewOnlyProvider>
         )}
         {tab === 'submission' && !noSubmission && <Submission u={u} p={p} part={part} say={say} me={me} />}
-        {tab === 'commission' && <UniCommissionTab uni={u} />}
+        {tab === 'commission' && !noCommission && <UniCommissionTab uni={u} />}
         {tab === 'logs' && <Logs id="iu-logs" lines={u.log} created={u.created} added="Added the university" parts={PARTS} />}
       </TabPanel>
 

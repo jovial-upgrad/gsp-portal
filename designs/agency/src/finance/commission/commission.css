@@ -131,7 +131,7 @@
 /* How it's worked out (GSP's views): a line's traced steps */
 .chow { margin-top: 4px; font-size: 13px; }
 .chow > summary { cursor: pointer; color: var(--link, var(--primary)); width: max-content; }
-.chow ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--text-2, inherit); }
+.chow ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--text-2); }
 .chow strong { font-weight: 600; }
 /* the application's tier meter and bonus progress */
 .cmeter { display: grid; gap: 10px; }
@@ -174,3 +174,19 @@
   .cchart { gap: 3px; height: 150px; }
   .cchart__x { font-size: 10px; }
 }
+/* Earnings: what the next enrolments unlock (Jovial, 13 Nov) */
+.cunlock__bar { height: 10px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; margin: var(--sp-4) 0 var(--sp-12); }
+.cunlock__bar span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.cunlock__bands { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-8); }
+.cunlock__bands li { display: grid; gap: 2px; padding: var(--sp-10) var(--sp-12); border: 1px solid var(--line); border-radius: 12px; }
+.cunlock__bands li.is-now { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.cunlock__bands li.is-done { opacity: 0.6; }
+.cunlock__pct { font-size: 20px; font-weight: 600; }
+.cunlock__range, .cunlock__state { font-size: var(--t-caption); color: var(--text-2); }
+.cunlock__state { font-weight: 600; }
+.cunlock__note { margin: var(--sp-12) 0 0; }
+.cunlock__kicker { margin: 0 0 2px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-2); }
+.cunlock__splits { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-16); margin-top: var(--sp-16); padding-top: var(--sp-12); border-top: 1px solid var(--line); }
+.cunlock__splits ul { list-style: none; margin: var(--sp-6) 0 0; padding: 0; display: grid; gap: 4px; }
+.cunlock__splits li { display: flex; justify-content: space-between; gap: var(--sp-8); font-size: var(--t-caption); }
+.cunlock .cunlock__pct { font-size: 16px; }

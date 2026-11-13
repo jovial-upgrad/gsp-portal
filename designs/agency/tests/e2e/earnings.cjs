@@ -20,7 +20,9 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
     const tab = (n) => p.locator('main [role=tab]', { hasText: new RegExp('^' + n) }).first();
     await tab('Overview').click(); await wait(400);
     const t = await p.locator('main').innerText();
-    for (const k of ['Last quarter', 'This quarter', 'Next quarter', 'Your band', 'Your terms', 'Month by month', 'Still to come']) ok(t.includes(k), `${width}px: Overview: ${k}`);
+    for (const k of ['Last quarter', 'This quarter', 'Next quarter', 'Your terms', 'Month by month', 'Coming to you']) ok(t.includes(k), `${width}px: Overview: ${k}`);
+    // Jovial, 13 Nov: what the RP's next enrolments unlock, from its agreement's bands
+    ok(/\d+ more enrolments? to reach \d+%|top band/.test(t) && (await p.locator('.cunlock__bands li').count()) > 1, `${width}px: Overview: how many more enrolments reach the next band`);
     ok(/You earn about [\d.]+% of the (net|gross) fee/.test(t), `${width}px: about what it earns per university (R104)`);
     ok(!/GSP’s [A-Z]{3} /.test(t) && !t.includes('How it’s worked out'), `${width}px: no GSP amount or working`);
     await p.getByRole('button', { name: 'Quarter', exact: true }).click(); await wait(300);

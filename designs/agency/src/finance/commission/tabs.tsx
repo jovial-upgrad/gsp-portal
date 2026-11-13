@@ -83,7 +83,7 @@ export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; 
         <Facts
           items={[
             ['Kinds of commission', (rec.view ?? s.settings.rpView).kinds.join(', ') || 'Nothing'],
-            ['Study periods', (rec.view ?? s.settings.rpView).periods],
+            ['Before its invoice is asked for', (rec.view ?? s.settings.rpView).periods === 'Nothing' ? 'Nothing' : 'Its first payment, as an estimate'],
             ['Set by', rec.view ? 'This RP’s record' : 'Settings’ default'],
           ]}
         />
@@ -273,13 +273,14 @@ function Standing({ lines }: { lines: AppLines }) {
  * An application's Commission tab (Jovial, 9 Nov): the money on one application, as two commission items, University →
  * GSP and GSP → RP, each with its transactions. GSP's roles see both; the RP (`rpOnly`) sees only GSP → RP.
  */
-export function AppCommissionTab({ a, s, rpOnly }: { a: Application; s: Student; rpOnly?: boolean }) {
+export function AppCommissionTab({ a, s, rpOnly, apps, students }: { a: Application; s: Student; rpOnly?: boolean; apps?: Application[]; students?: Student[] }) {
   const st = useComm();
-  // with each line's ID and, once acted on, as it was kept (the portal keeps them in the store)
+  // with each line's ID and, once acted on, as it was kept (the portal keeps them in the store). Jovial, 13 Nov: tiers
+  // count every enrolment in the portal, as Commission lines does, so a band reads the same everywhere
   const res = useMemo(() => {
-    const extra = enrolmentsOf([a], [s]);
+    const extra = enrolmentsOf(apps ? [a, ...apps.filter((x) => x.id !== a.id)] : [a], students ? [s, ...students.filter((x) => x.id !== s.id)] : [s]);
     return compute(settleAll(st, ctxOf(), extra), ctxOf(), extra);
-  }, [st, a, s]);
+  }, [st, a, s, apps, students]);
   const lines = res.byApp.get(a.id);
   if (!lines)
     return (

@@ -7,7 +7,7 @@ import { downloadInvoice, invoiceHtml, type InvoiceDoc } from './invoice';
 import { TextInput } from '../../components/forms';
 import { Fold, Pill } from '../../institution/records/parts';
 import type { Tx } from './engine';
-import { RP_ESTIMATE, STATUS_TONE, dayText, money, sizeText, type Band, type FileRef, type Log, type Step, type TxStatus } from './model';
+import { READY_RP, READY_UNI, RP_ESTIMATE, STATUS_TONE, rpLabel, dayText, money, sizeText, type Band, type FileRef, type Log, type Step, type TxStatus } from './model';
 import { useComm } from './store';
 import './commission.css';
 
@@ -21,7 +21,8 @@ const NavCtx = createContext<CommNav | null>(null);
 export const CommNavProvider = ({ nav, children }: { nav: CommNav; children: ReactNode }) => <NavCtx.Provider value={nav}>{children}</NavCtx.Provider>;
 export const useCommNav = () => useContext(NavCtx);
 
-export const StatusPill = ({ s }: { s: TxStatus }) => <Pill tone={STATUS_TONE[s]}>{s}</Pill>;
+/** A line's status; `rpView`: as the RP reads it (R112: Estimate before its invoice is asked for, then To invoice). */
+export const StatusPill = ({ s, rpView }: { s: TxStatus; rpView?: boolean }) => <Pill tone={rpView && rpLabel(s) === 'Estimate' ? 'grey' : STATUS_TONE[s]}>{rpView ? rpLabel(s) : s}</Pill>;
 
 /** A file and its Preview, as the Commission tabs and Setup show an agreement, a notice or a contract. */
 export function DocLine({ file, label }: { file: FileRef | null; label: string }) {
@@ -171,7 +172,7 @@ export function HowWorked({ steps, id }: { steps?: Step[]; id: string }) {
   );
 }
 /** A line the RP sees can still change until GSP is paid for it (D21). */
-export const isEstimate = (t: Tx) => t.side === 'rp' && (RP_ESTIMATE as readonly string[]).includes(t.status);
+export const isEstimate = (t: Tx) => t.side === 'rp' && (RP_ESTIMATE as readonly string[]).includes(t.status) && t.status !== READY_RP;
 export const ESTIMATE = 'Estimate, can change until GSP is paid';
 
 export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx[]; rp?: boolean; rpView?: boolean; amountNote?: string; caption: string; app?: boolean }) {
@@ -222,13 +223,14 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
                 {t.override && !rpView && <span className="iw-sub">Overridden by {t.override.by}: {t.override.reason}</span>}
                 {t.heldWhy && !rpView && <span className="iw-sub">Held: {t.heldWhy}</span>}
                 {!rpView && t.side === 'rp' && t.rpSees === false && <span className="iw-sub">Not shown to the RP</span>}
+                {!rpView && t.side === 'uni' && t.amount < 0 && t.status === READY_UNI && <span className="iw-sub">A credit: it goes on GSP’s next invoice to {t.uniName}</span>}
                 {!rpView && t.claimLapsed && t.claimEnds && <span className="iw-sub">Claim window ended {dayText(t.claimEnds)}, not claimed: adjust it in the books</span>}
                 {t.toConfirm && <span className="iw-sub">{rpView ? 'Waiting for the student to continue' : 'Waiting for Finance to confirm the student continues'}</span>}
                 {!rpView && <HowWorked steps={t.trace} id={`chow-${t.id}`} />}
               </td>
               <td className="num iw-nowrap">
-                {t.due ? dayText(t.due) : <span className="muted">Waiting for the date</span>}
-                {t.due && t.estimated && <span className="iw-sub">Estimated date</span>}
+                {rpView && rpLabel(t.status) === 'Estimate' ? (t.due ? `About ${dayText(t.due)}` : <span className="muted">Date to come</span>) : t.due ? dayText(t.due) : <span className="muted">Waiting for the date</span>}
+                {t.due && t.estimated && !(rpView && rpLabel(t.status) === 'Estimate') && <span className="iw-sub">Estimated date</span>}
               </td>
               <td className="num ctab__num">
                 {money(t.amount, t.currency)}
@@ -241,7 +243,7 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
                 ))}
               </td>
               <td>
-                <StatusPill s={t.status} />
+                <StatusPill s={t.status} rpView={rpView} />
               </td>
               {rp && <td>{t.invoice ?? <span className="muted">—</span>}</td>}
             </tr>
