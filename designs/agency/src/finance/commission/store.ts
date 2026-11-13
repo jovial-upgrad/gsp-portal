@@ -393,13 +393,13 @@ export const uniFinanceContact = (uni: string) => {
   return p?.contacts.find((c) => c.for === 'Finance and invoices') ?? null;
 };
 /** D17: GSP's invoice goes to the university's finance contact from Settings' mailbox, logged on its lines. */
-export function sendUniInvoice(number: string, by: string) {
+export function sendUniInvoice(number: string, by: string, again = false) {
   setComm((s) => {
     const inv = s.invoices.find((i) => i.number === number);
     const to = inv && uniFinanceContact(inv.uni)?.email;
     if (!inv || !to) return s;
     const sent = { from: s.settings.invoiceFrom, to, by, at: Date.now() };
-    return withLog({ ...s, invoices: s.invoices.map((i) => (i.number === number ? { ...i, sent } : i)) }, lineLog(by, `${by} sent invoice ${number} from ${sent.from} to ${to}`, inv.txs, { uni: inv.uni }));
+    return withLog({ ...s, invoices: s.invoices.map((i) => (i.number === number ? { ...i, sent } : i)) }, lineLog(by, `${by} sent invoice ${number}${again ? ' again' : ''} from ${sent.from} to ${to}`, inv.txs, { uni: inv.uni }));
   });
 }
 /**
