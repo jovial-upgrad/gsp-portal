@@ -148,7 +148,7 @@ export type Agreement = AgreementTerms & { id: string; name: string; status: Agr
  * flat share instead of the agreement's (the sandbox's "own flat %"); `annuityPct`: its own share after the first year.
  * No tax line (Jovial, 10 Nov, D8: Phase 2) and no payment details (Q45).
  */
-export type RpRecord = { rp: string; agreement: string; from: string; ownFlat?: number | null; annuityPct?: number | null; view?: RpView | null; moves: { agreement: string; from: string }[]; created: Stamp; updated: Stamp };
+export type RpRecord = { rp: string; agreement: string; from: string; /** Jovial, 13 Nov: the last day the agreement applies (empty: open-ended). */ to?: string; ownFlat?: number | null; annuityPct?: number | null; view?: RpView | null; moves: { agreement: string; from: string }[]; created: Stamp; updated: Stamp };
 
 /* ---------- notices ---------- */
 

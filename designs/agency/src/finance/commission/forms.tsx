@@ -101,7 +101,7 @@ function Area({ id, value, onChange, placeholder }: { id: string; value: string;
 type AgDraft = AgreementTerms & { id: string; name: string };
 const blankAg = (): AgDraft => ({ id: '', name: '', shareType: 'Flat', share: null, bands: [], countedPer: 'Financial year', retro: false, addl: null, bonuses: [], payDays: 30, details: '', doc: null });
 
-/** Add and Edit Agreement (the PRD's form): name, share or bands, how they're counted, what's passed on, pay within, details and document. */
+/** Add and Edit Agreement (the PRD's form): name and its document (required, 13 Nov), share or bands, how they're counted, what's passed on, pay within. */
 export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: boolean; edit: Agreement | null; me: string; onClose: () => void; onSaved: (name: string) => void }) {
   const s = useComm();
   const [v, setV] = useState<AgDraft>(blankAg);
@@ -127,7 +127,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
     addl: pctBad(v.addl, false) ? 'A number from 0 to 100.' : null,
     bonuses: v.bonuses.some((b) => !b.desc.trim() || !(b.amount > 0) || (b.when !== AB_WHEN[0] && !wholeIn(b.nth, 1, 999))) ? 'Give each bonus a description, an amount and, for an enrolment number, the number.' : null,
     payDays: !wholeIn(v.payDays, 1, 90) ? 'A whole number from 1 to 90.' : null,
-    doc: big ? `The file is over ${s.settings.maxFileMb} MB.` : null,
+    doc: big ? `The file is over ${s.settings.maxFileMb} MB.` : !v.doc ? 'Upload the agreement.' : null,
     from: edit && (!/^\d{4}-\d{2}-\d{2}$/.test(from) || from <= lastFrom) ? (lastFrom ? `A date after ${lastFrom}, the last edit’s.` : 'Pick the date the new terms start.') : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
@@ -144,6 +144,10 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
       <FormSec title="The agreement" />
       <Field id="cag-name" label="Name" required error={show('name')} className="iform__wide">
         <TextInput id="cag-name" maxLength={80} value={v.name} invalid={!!show('name')} placeholder="Like: Standard agreement 2026" onChange={(e) => set({ name: e.target.value })} />
+      </Field>
+      {/* Jovial, 13 Nov: the agreement document is required, and there are no free-text details */}
+      <Field id="cag-doc" label="Agreement document" required error={show('doc')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Shown to preview on the RP’s Commission tab.`} className="iform__wide">
+        <FilePick id="cag-doc" value={v.doc} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('doc')} onTooBig={setBig} onChange={(doc) => set({ doc })} />
       </Field>
       {edit && (
         <Field id="cag-from" label="Effective from" required error={show('from')} hint="The intake start date the changed terms apply from.">
@@ -230,13 +234,6 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
           <Icon name="plus" size={16} /> Add bonus
         </button>
       </div>
-      <FormSec title="Details and document" />
-      <Field id="cag-details" label="Agreement details" optional className="iform__wide" hint="Shown on every RP’s Commission tab.">
-        <Area id="cag-details" value={v.details} placeholder="Anything else the agreement says" onChange={(details) => set({ details })} />
-      </Field>
-      <Field id="cag-doc" label="Agreement document" optional error={show('doc')} hint={`PDF, up to ${s.settings.maxFileMb} MB. Shown to preview on the RP’s Commission tab.`} className="iform__wide">
-        <FilePick id="cag-doc" value={v.doc} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('doc')} onTooBig={setBig} onChange={(doc) => set({ doc })} />
-      </Field>
     </FormSheet>
   );
 }
@@ -254,9 +251,7 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
   const [rp, setRp] = useState('');
   const [agreement, setAgreement] = useState('');
   const [from, setFrom] = useState('');
-  const [own, setOwn] = useState<number | null>(null);
-  const [ann, setAnn] = useState<number | null>(null);
-  const [view, setView] = useState<RpView>(s.settings.rpView);
+  const [to, setTo] = useState('');
   const [tried, setTried] = useState(false);
   const { ask, dialog } = useAsk();
   useEffect(() => {
@@ -265,19 +260,17 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
     setRp(r);
     setAgreement(was?.agreement ?? '');
     setFrom(was?.from ?? (r ? acceptedOn(r) : ''));
-    setOwn(was?.ownFlat ?? null);
-    setAnn(was?.annuityPct ?? null);
-    setView(was?.view ?? s.settings.rpView);
+    setTo(was?.to ?? '');
     setTried(false);
   }, [open, editRp, preset]); // eslint-disable-line react-hooks/exhaustive-deps
   const pool = acceptedRps().filter((r) => !s.records.some((x) => x.rp === r.id));
   const info = ctxRps().find((r) => r.id === rp);
   const active = s.agreements.filter((a) => a.status === 'Active' || a.id === was?.agreement);
-  const err = { rp: !rp ? 'Choose the RP.' : null, agreement: !agreement ? 'Choose the agreement.' : null, from: !from ? 'Choose the date.' : null, own: pctBad(own, false) ? 'A number from 0 to 100.' : null, ann: ann !== null && !(ann >= 0 && ann <= 100) ? 'A number from 0 to 100.' : null };
+  const err = { rp: !rp ? 'Choose the RP.' : null, agreement: !agreement ? 'Choose the agreement.' : null, from: !from ? 'Choose the date.' : null, to: to && from && to < from ? 'On or after the From date.' : null };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const name = info?.name ?? '';
   const commit = () => {
-    saveRecord({ rp, agreement, from, ownFlat: own, annuityPct: ann, view }, me);
+    saveRecord({ rp, agreement, from, to: to || undefined }, me);
     onSaved(rp);
   };
   const save = () => {
@@ -337,15 +330,9 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
         <Field id="crec-from" label="From" required error={show('from')} hint="The RP’s accepted agreement’s effective date, to start with.">
           <TextInput id="crec-from" type="date" value={from} invalid={!!show('from')} onChange={(e) => setFrom(e.target.value)} />
         </Field>
-        <FormSec title="This RP’s own terms" note="Only when this RP’s terms differ from its agreement’s. Empty: the agreement’s." />
-        <Field id="crec-own" label="Own flat share (%)" optional error={show('own')} hint="Instead of the agreement’s share, for this RP only. Empty: the agreement’s.">
-          <TextInput id="crec-own" inputMode="decimal" value={numText(own)} invalid={!!show('own')} onChange={(e) => setOwn(numOf(e.target.value))} />
+        <Field id="crec-to" label="To" optional error={show('to')} hint="The last day this agreement applies. Empty: until it’s changed.">
+          <TextInput id="crec-to" type="date" value={to} invalid={!!show('to')} onChange={(e) => setTo(e.target.value)} />
         </Field>
-        <Field id="crec-ann" label="Share after year 1 (%)" optional error={show('ann')} hint={`For later years of a course. Empty: Settings’ rule (${s.settings.annuity.rule}${s.settings.annuity.rule === 'Flat %' && s.settings.annuity.pct != null ? ` ${s.settings.annuity.pct}%` : ''}).`}>
-          <TextInput id="crec-ann" inputMode="decimal" value={numText(ann)} invalid={!!show('ann')} onChange={(e) => setAnn(numOf(e.target.value))} />
-        </Field>
-        <FormSec title="What the RP sees" />
-        <RpViewFields idp="crec" v={view} set={setView} hint="Starts as Settings’ default. GSP sees every line." />
         {info && (
           <div className="cform__ro">
             <Facts
@@ -469,7 +456,6 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
   const set = (p: Partial<NtDraft>) => setV((x) => ({ ...x, ...p }));
   const unis = ctxUnis();
   const use = v.benefit ? USES[v.benefit] : {};
-  const salesRegions = [...new Set([...ctxRps().map((r) => r.region), ...Object.keys(s.settings.regionGroups)])].filter(Boolean).sort();
   const err = {
     name: !v.name.trim() ? 'Name the notice.' : s.notices.some((n) => n.id !== v.id && n.name.trim().toLowerCase() === v.name.trim().toLowerCase()) ? 'There’s already a notice with this name.' : null,
     doc: big ? `The file is over ${s.settings.maxFileMb} MB.` : !v.doc ? 'Upload the notice.' : null,
@@ -481,7 +467,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
     bands: use.bands ? bandsError(v.bands) : null,
     milestones: use.milestones ? (!(v.milestones ?? []).length ? 'Add at least one milestone.' : (v.milestones ?? []).map(milestoneBad).find(Boolean) ?? null) : null,
     tuition: use.tuition && pctBad(v.tuitionPct ?? null, true) ? 'A number from 0 to 100.' : null,
-    who: !v.rps.length && !(v.regions ?? []).length ? 'List the RPs, or choose the sales regions it’s for.' : null,
+    who: !v.rps.length ? 'List the RPs it’s for.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const save = () => {
@@ -532,15 +518,11 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         <TextInput id="cnt-ends" type="date" value={v.ends} invalid={!!show('dates')} onChange={(e) => set({ ends: e.target.value })} />
       </Field>
 
-      <FormSec title="Who it’s for" note="List the RPs, or leave the list empty and choose sales regions: every RP in them gets it." />
-      <Field id="cnt-rps" label="RPs" optional error={show('who')} className="iform__wide" hint="RPs with a commission record. An RP taken off keeps the notice for its enrolments before today.">
+      {/* Jovial, 13 Nov: a notice lists its RPs; no sales regions */}
+      <FormSec title="Who it’s for" />
+      <Field id="cnt-rps" label="RPs" required error={show('who')} className="iform__wide" hint="RPs with a commission record. An RP taken off keeps the notice for its enrolments before today.">
         <RpPicker id="cnt-rps" value={v.rps} onChange={(rps) => set({ rps })} />
       </Field>
-      {!v.rps.length && (
-        <Field id="cnt-regions" label="Sales regions" required error={show('who')} className="iform__wide">
-          <MultiPick id="cnt-regions" label="Sales regions" value={v.regions ?? []} options={salesRegions} onChange={(regions) => set({ regions })} empty="Choose the regions" />
-        </Field>
-      )}
 
       <FormSec title="Which enrolments" note="Leave a field empty for every one." />
       <Field id="cnt-dests" label="Destinations" optional>

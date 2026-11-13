@@ -259,7 +259,7 @@ const seededNotices = (): Notice[] => [
     created: by(JOANA, '2026-05-20'),
     updated: by(JOANA, '2026-05-20'),
   },
-  // no RPs listed: every RP in its sales regions
+  // Jovial, 13 Nov: a notice lists its RPs (no sales regions): here the South Asia RPs
   {
     id: 'nt-south-asia-bonus',
     name: 'South Asia Australia bonus',
@@ -275,8 +275,8 @@ const seededNotices = (): Notice[] => [
     share: null,
     bands: [],
     retro: false,
-    rps: [],
-    regions: ['South Asia'],
+    rps: ['rp-dhaka', 'rp-eduvista', 'rp-lanka', 'rp-colombo', 'rp-kathmandu', 'rp-brightpath', 'rp-horizon', 'rp-delhi', 'rp-pokhara', 'rp-pune', 'rp-chittagong'],
+    regions: [],
     removed: [],
     created: by(LAV, '2026-06-15'),
     updated: by(LAV, '2026-06-15'),

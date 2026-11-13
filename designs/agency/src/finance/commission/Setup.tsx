@@ -157,8 +157,8 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                   <th scope="col">Sales region</th>
                   <th scope="col">Agreement</th>
                   <th scope="col">Notices</th>
-                  <th scope="col">Own terms</th>
                   <th scope="col">From</th>
+                  <th scope="col">To</th>
                   <th scope="col">
                     <span className="vh">Actions</span>
                   </th>
@@ -179,8 +179,8 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
                         {ag?.status === 'Retired' && <span className="iw-sub">Retired</span>}
                       </td>
                       <td className="num">{notices}</td>
-                      <td>{[r.ownFlat != null ? `Own flat ${pct(r.ownFlat)}` : '', r.annuityPct != null ? `${pct(r.annuityPct)} after year 1` : ''].filter(Boolean).join(', ') || <span className="cmuted">—</span>}</td>
                       <td className="num iw-nowrap">{dayText(r.from)}</td>
+                      <td className="num iw-nowrap">{r.to ? dayText(r.to) : <span className="cmuted">—</span>}</td>
                       <td className="iw-acts">
                         <MoreMenu
                           id={`cset-rp-${r.rp}`}

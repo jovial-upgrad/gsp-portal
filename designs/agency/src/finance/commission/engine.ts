@@ -234,6 +234,8 @@ export function termsAt<T extends object>(rec: T & { earlier: (T & { until: stri
 export function agreementOn(state: CommState, rp: string, day: string): Agreement | undefined {
   const r = state.records.find((x) => x.rp === rp);
   if (!r) return undefined;
+  // Jovial, 13 Nov: past the record's To date, the RP has no agreement for new intakes
+  if (r.to && day > r.to) return undefined;
   const all = [...r.moves, { agreement: r.agreement, from: r.from }].sort((a, b) => a.from.localeCompare(b.from));
   const on = [...all].reverse().find((m) => m.from <= day) ?? all[0];
   return state.agreements.find((a) => a.id === on.agreement);

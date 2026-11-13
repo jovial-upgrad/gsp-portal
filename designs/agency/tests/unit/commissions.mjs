@@ -68,7 +68,9 @@ try {
   ok('only a notice’s RPs get its bonus', strays.length === 0, strays.map((t) => `${t.id} ${t.rpName}`).join());
   const missing = rp.filter((t) => t.notice && !forRp(state.notices.find((n) => n.id === t.notice), t.rp));
   ok('no RP outside a notice gets its bonus', missing.length === 0);
-  ok('a region-wide notice reaches an RP in its region', noticed.some((t) => !state.notices.find((n) => n.id === t.notice).rps.length));
+  // Jovial, 13 Nov: a notice lists its RPs (no sales regions)
+  ok('every notice lists its RPs', state.notices.every((n) => n.rps.length > 0 && !(n.regions ?? []).length));
+  ok('the South Asia notice reaches its listed RPs', noticed.some((t) => t.notice === 'nt-south-asia-bonus'));
 
   // amounts stay in the university's currency (an RP's own bonuses, from a notice or its agreement, in theirs)
   const cur = res.txs.filter((t) => !(t.side === 'rp' && t.type === 'Bonus') && t.currency !== store.uniCurrency(t.uni));
