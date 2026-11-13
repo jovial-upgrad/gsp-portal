@@ -122,6 +122,30 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
       },
     );
   };
+  /** Q132: GSP's invoice as it was raised (its number, date and lines), to look at again. */
+  const viewInvoice = (number: string) => {
+    const i = s.invoices.find((x) => x.number === number);
+    const u = i && ctxUnis().find((x) => x.id === i.uni);
+    if (!i || !u) return;
+    setInv(uniInvoice(s, { number: i.number, date: i.date, uni: i.uni }, i.txs.map((id) => res.byId.get(id)).filter((x): x is Tx => !!x), { name: u.name, country: u.country }));
+  };
+  /** Q132: the same invoice sent again to the university's Finance contact (no new number or due date). */
+  const resend = (number: string) => {
+    const i = s.invoices.find((x) => x.number === number);
+    if (!i) return;
+    const contact = uniFinanceContact(i.uni);
+    ask(
+      `Send invoice ${number} to ${uniName(i.uni)} again?`,
+      contact ? 'Send again' : 'Download',
+      <p>{contact ? `The same invoice, dated ${dayText(i.date)}, goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}) through Mail. Its number and due date don’t change; the send is logged on its lines.` : `${uniName(i.uni)} has no Finance and invoices contact: download the invoice and send it yourself.`}</p>,
+      () => {
+        if (contact) {
+          sendUniInvoice(number, who.name, true);
+          say(`Invoice ${number} sent again to ${contact.email}.`);
+        } else viewInvoice(number);
+      },
+    );
+  };
   // the worklist tiles (D1): each picks the side and the statuses it counts
   // R105: lines past their claim window, still unclaimed; nothing closes, Finance adjusts the books (Xero)
   const lapsed = (sd: Side) => res.txs.filter((t) => t.side === sd && t.claimLapsed).length;
@@ -689,6 +713,9 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                             ...(groupOf(t.side, t.status) === 'paid' ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
                             ...(t.status === PART_PAID ? [{ id: 'writeoff', label: 'Write off the rest', icon: 'minus' as const, onPick: () => setWriting(t) }] : []),
                             // R106: a university takes back commission it paid on this line
+                            // Q132 (Jovial, 13 Nov): the invoice a line is on, to look at again or send again (same number, same due date)
+                            ...(t.side === 'uni' && t.invoice ? [{ id: 'view-inv', label: 'View invoice', icon: 'eye' as const, onPick: () => viewInvoice(t.invoice!) }] : []),
+                            ...(t.side === 'uni' && t.invoice && (ACTION_FROM.record as readonly string[]).includes(t.status) ? [{ id: 'resend', label: 'Send again', icon: 'send' as const, onPick: () => resend(t.invoice!) }] : []),
                             ...(t.side === 'uni' && t.type !== 'Clawback' && (groupOf(t.side, t.status) === 'paid' || t.status === PART_PAID) ? [{ id: 'clawback', label: 'Record clawback', icon: 'minus' as const, onPick: () => setClawing(t) }] : []),
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
