@@ -61,7 +61,6 @@ export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; 
             ['Bonus', ag.bonuses.length ? ag.bonuses.map((b) => `${b.desc}: ${b.amount.toLocaleString('en-GB')} in the university’s currency, ${b.when === 'Every enrolment' ? 'on every enrolment' : `on enrolment ${b.nth}, counted per ${ag.countedPer.toLowerCase()}`}`).join('; ') : 'None', 'wide'],
             ['Pay within', `${ag.payDays} days of GSP receiving the accepted invoice`],
             ['Can claim for', `${ag.claimMonths ?? s.settings.rpClaimMonths} months after the study period ends${ag.claimMonths == null ? ' (Settings)' : ''}`],
-            ['Agreement details', ag.details, 'wide'],
             ['Agreement document', <DocLine key="d" file={ag.doc} label={ag.name} />, 'wide'],
           ]}
         />

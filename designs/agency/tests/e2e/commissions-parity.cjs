@@ -104,7 +104,8 @@ const openApp = async (p, nav, id) => {
     await p.locator('main [role=tab]', { hasText: /^RP records/ }).click();
     await wait(600);
     ok(!/bank/i.test(await main()), 'Setup › RP records: no bank details');
-    ok((await main()).includes('Own terms'), 'Setup › RP records: an Own terms column (own flat share, share after year 1)');
+    // Jovial, 13 Nov: no own terms on an RP record; a From and a To date
+    ok(!(await main()).includes('Own terms') && /\bTo\b/.test(await main()), 'Setup › RP records: From and To, no Own terms column');
     // the application's Commission tab, GSP side: terms in force, exceptions, and the working on each line
     if (await openApp(p, nav, 'GSP-23318')) {
       await p.locator('main [role=tab]', { hasText: /^Commission/ }).first().click().catch(() => {});

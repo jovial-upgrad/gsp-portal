@@ -209,7 +209,7 @@ export function retireAgreement(agId: string, by: string) {
 export function saveRpView(rp: string, view: RpView, by: string) {
   setComm((s) => withLog({ ...s, records: s.records.map((x) => (x.rp === rp ? { ...x, view, updated: stamp(by) } : x)) }, log('rps', by, `${by} set what ${rpName(rp)} sees: ${rpViewText(view)}`, { rp })));
 }
-export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'ownFlat' | 'annuityPct' | 'view'>, by: string) {
+export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'to'>, by: string) {
   setComm((s) => {
     const was = s.records.find((x) => x.rp === r.rp);
     const ag = s.agreements.find((a) => a.id === r.agreement)!;
@@ -217,9 +217,8 @@ export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'ownF
     const next: RpRecord = was
       ? { ...was, ...r, moves: moved ? [...was.moves, { agreement: was.agreement, from: was.from }] : was.moves, updated: stamp(by) }
       : { ...r, moves: [], created: stamp(by), updated: stamp(by) };
-    const own = r.ownFlat != null ? `, own flat share ${r.ownFlat}%` : '';
-    const ann = r.annuityPct != null ? `, ${r.annuityPct}% after year 1` : '';
-    const text = !was || moved ? `${by} set ${rpName(r.rp)} on ${ag.name} from ${r.from}${own}${ann}` : `${by} changed ${rpName(r.rp)}’s record${own || ', no own flat share'}${ann}`;
+    const until = r.to ? ` to ${r.to}` : '';
+    const text = !was || moved ? `${by} set ${rpName(r.rp)} on ${ag.name} from ${r.from}${until}` : `${by} changed ${rpName(r.rp)}’s record: ${ag.name} from ${r.from}${until || ', no end date'}`;
     return withLog({ ...s, records: was ? s.records.map((x) => (x.rp === r.rp ? next : x)) : [...s.records, next] }, log('rps', by, text, { rp: r.rp }));
   });
 }
