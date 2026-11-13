@@ -610,6 +610,14 @@ export function sampleStudents(me: string): Student[] {
         ['S-24702', 'Ananya', 'Iyer', 'ananya.iyer01@gmail.com', '98450 31207', 'T4417820', 'karthik', '2025-03-10'],
         ['S-24715', 'Rahul', 'Menon', 'rahul.menon.k@gmail.com', '99860 22418', 'U2290457', 'divya', '2025-09-02'],
         ['S-24733', 'Kavya', 'Reddy', 'kavya.reddy23@gmail.com', '90084 66315', 'V1068832', 'karthik', '2026-01-19'],
+        // Jovial, 13 Nov: students whose applications show every Key details field commission can ask for
+        ['S-24751', 'Priya', 'Nair', 'priya.nair.cq@gmail.com', '98471 20563', 'W3301284', 'karthik', '2026-01-12'],
+        ['S-24752', 'Arjun', 'Pillai', 'arjun.pillai.nz@gmail.com', '99456 11870', 'W3301925', 'divya', '2026-01-20'],
+        ['S-24753', 'Sneha', 'Kulkarni', 'sneha.kulkarni09@gmail.com', '97302 64418', 'W3302207', 'karthik', '2025-12-04'],
+        ['S-24754', 'Rohan', 'Das', 'rohan.das.uk@gmail.com', '98112 70394', 'W3302781', 'divya', '2025-09-15'],
+        ['S-24755', 'Meghna', 'Iyer', 'meghna.iyer.au@gmail.com', '90036 51742', 'W3303016', 'karthik', '2025-10-27'],
+        ['S-24756', 'Aditya', 'Rao', 'aditya.rao.lu@gmail.com', '96633 08145', 'W3303459', 'divya', '2025-11-10'],
+        ['S-24757', 'Nisha', 'Varma', 'nisha.varma.rm@gmail.com', '98864 25730', 'W3303802', 'karthik', '2026-06-02'],
       ] as const
     ).map(([id, first, last, email, phone, passport, counsellor, added]) => ({
       ...blank(me),

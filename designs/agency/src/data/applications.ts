@@ -1052,6 +1052,20 @@ export function sampleApplications(): Application[] {
         ['GSP-23305', 'S-24702', 'Ananya Iyer', 'coventry-1', 'Sep 2025', '2025-04-02', '2025-09-29', 'COV-25118204', { tuition: 19500, scholarship: 2000, start: '2025-09-22', census: ['2025-10-17', '2026-03-27', '2026-10-16', '2027-03-26'], confirmed: [], paid: [] }],
         ['GSP-23318', 'S-24715', 'Rahul Menon', 'deakin-4', 'Feb 2026', '2025-10-06', '2026-03-02', 'DKN-2533017', { tuition: 33250, scholarship: 0, start: '2026-02-23', census: ['2026-03-20', '2026-08-07'], confirmed: [], paid: [] }],
         ['GSP-23402', 'S-24733', 'Kavya Reddy', 'flinders-1', 'Jul 2026', '2026-02-03', '2026-07-27', 'FLN-2647711', { tuition: 33750, scholarship: 6750, start: '2026-07-27', census: ['2026-08-21', '2027-03-12'], confirmed: [], paid: [] }],
+        // Jovial, 13 Nov: between them, every Key details field a university's terms can ask Admissions for
+        // CQUniversity: three campuses, Australian (student type), paid on fees paid each trimester, a 4-year course (years 2 to 4's fees)
+        ['GSP-23610', 'S-24751', 'Priya Nair', 'cqu-2', 'Jul 2026', '2026-02-10', '2026-07-20', 'CQU-2671408', { tuition: 31000, scholarship: 3100, start: '2026-07-13', census: [], confirmed: [], paid: ['2026-07-03', '2026-10-30', '2027-03-05'], yearFees: [null, 32000, 33000, 34000], campus: 'Melbourne', studentType: 'New' }],
+        // Waikato: two campuses, chargeable on 120 credit points (credit points a year), census per semester, a leave of absence
+        ['GSP-23611', 'S-24752', 'Arjun Pillai', 'waikato-9', 'Jul 2026', '2026-02-18', '2026-07-24', 'WKT-2690144', { tuition: 42300, scholarship: 5000, start: '2026-07-13', census: ['2026-07-31', '2027-03-19', '2027-07-30', '2028-03-17'], confirmed: [], paid: [], yearFees: [null, 43500], campus: 'Tauranga', points: 120, leave: { from: '2027-03-01', to: '2027-06-30' } }],
+        // Windsor: paid on each fee payment, up to CAD 30,000 (fee payments, date and amount)
+        ['GSP-23612', 'S-24753', 'Sneha Kulkarni', 'windsor-9', 'May 2026', '2025-12-15', '2026-05-11', 'WIN-2614520', { tuition: 24000, scholarship: 0, start: '2026-05-04', census: [], confirmed: [], paid: ['2026-04-20', '2026-08-25', '2027-01-05'], yearFees: [null, 24800], feePayments: [{ date: '2026-04-20', amount: 12000 }, { date: '2026-08-25', amount: 12000 }, { date: '2027-01-05', amount: 12400 }] }],
+        // Hertfordshire: earned on enrolment confirmed each semester (semester 1's is the day it became Student enrolled, so
+        // Key details asks for semester 2's), a 2-year course
+        ['GSP-23613', 'S-24754', 'Rohan Das', 'herts-1', 'Jan 2026', '2025-09-22', '2026-01-26', 'HER-2603377', { tuition: 16950, scholarship: 2000, start: '2026-01-19', census: [], confirmed: ['', '2026-06-01'], paid: [], yearFees: [null, 17500] }],
+        // Federation: earned at the withdrawal deadline (start + 4 weeks, no date to add), two campuses, Australian
+        ['GSP-23614', 'S-24755', 'Meghna Iyer', 'feduni-9', 'Feb 2026', '2025-11-03', '2026-02-27', 'FED-2618892', { tuition: 31200, scholarship: 6240, start: '2026-02-23', census: [], confirmed: [], paid: [], yearFees: [null, 32100], campus: 'Mt Helen', studentType: 'Transfer' }],
+        // Lincoln: paid per unit of study (units: name, fee, census date)
+        ['GSP-23615', 'S-24756', 'Aditya Rao', 'lincoln-3', 'Feb 2026', '2025-11-17', '2026-02-27', 'LIN-2620413', { tuition: null, scholarship: 0, start: '2026-02-16', census: [], confirmed: [], paid: [], yearFees: [null, 36500], units: [{ name: 'ACCT601 Financial Accounting', fee: 4400, census: '2026-03-13' }, { name: 'ACCT602 Management Accounting', fee: 4400, census: '2026-03-13' }, { name: 'FINC601 Corporate Finance', fee: 4400, census: '2026-07-31' }, { name: 'LAWS601 Commercial Law', fee: 4400, census: '2026-07-31' }] }],
       ] as const
     ).map(([id, studentId, name, courseId, intake, made, enrolled, uniRef, fees]): Application => {
       const t = (iso: string) => new Date(`${iso}T11:00`).getTime();
@@ -1066,7 +1080,8 @@ export function sampleApplications(): Application[] {
         since: t(enrolled),
         uniRef,
         // D7: who entered the fee, and when: the Admissions officer who moved it to Student enrolled
-        fees: { ...fees, census: [...fees.census], confirmed: [...fees.confirmed], paid: [...fees.paid], feeBy: { by: 'Meera Pillai', at: t(enrolled) } },
+        // readonly seed rows copied into fresh arrays (the page edits them)
+        fees: JSON.parse(JSON.stringify({ ...fees, feeBy: { by: 'Meera Pillai', at: t(enrolled) } })) as AppFees,
         needs: [],
         files: [f('Proof of enrolment', `${name.split(' ')[0].toLowerCase()}_enrolment_${uniRef}.pdf`, 'gsp', t(enrolled), 'verified')],
         history: [
@@ -1077,6 +1092,27 @@ export function sampleApplications(): Application[] {
         chat: [],
       };
     }),
+    // Jovial, 13 Nov: waiting for enrolment confirmation, its Key details half filled: Student enrolled is blocked until
+    // the scholarship and the course start date are added (commission is worked out from them)
+    {
+      id: 'GSP-23616',
+      studentId: 'S-24757',
+      courseId: 'rmit-1',
+      intake: 'Jul 2026',
+      status: 'enrolconf',
+      created: new Date('2026-06-04T11:00').getTime(),
+      since: new Date('2026-07-06T11:00').getTime(),
+      uniRef: 'RMT-2655019',
+      fees: { tuition: 36480, scholarship: null, start: '', census: [], confirmed: [], paid: [] },
+      needs: [],
+      files: [],
+      history: [
+        { at: new Date('2026-06-04T11:00').getTime(), who: 'you', text: 'Application started for Nisha Varma', by: 'Karthik Nair' },
+        { at: new Date('2026-06-06T11:00').getTime(), who: 'gsp', text: 'Submitted to RMIT University. Reference RMT-2655019', by: 'Meera Pillai' },
+        { at: new Date('2026-07-06T11:00').getTime(), who: 'gsp', text: 'Waiting for the university to confirm enrolment', by: 'Meera Pillai' },
+      ],
+      chat: [],
+    },
   ];
 }
 

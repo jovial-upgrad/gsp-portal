@@ -27,7 +27,7 @@ try {
   const rp = res.txs.filter((t) => t.side === 'rp');
   console.log(`${res.apps.length} enrolled applications, ${uni.length} University → GSP and ${rp.length} GSP → RP lines`);
   ok('there are lines on both sides', uni.length > 0 && rp.length > 0);
-  ok('the prototype’s own enrolled applications are read', extra.length === 3 && extra.every((e) => res.byApp.has(e.app)), extra.map((e) => e.app).join());
+  ok('the prototype’s own enrolled applications are read', extra.length === appsMod.sampleApplications().filter((a) => a.status === 'enrolled').length && extra.length >= 9 && extra.every((e) => res.byApp.has(e.app)), extra.map((e) => e.app).join());
 
   // every RP line has a matching university line, or comes from a notice
   const orphan = rp.filter((t) => (t.matches ? !res.byId.has(t.matches) : !t.notice && !t.key.includes('|rp|ab:')));
