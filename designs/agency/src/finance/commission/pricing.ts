@@ -36,28 +36,26 @@ const lc = (s?: string) => String(s ?? '').trim().toLowerCase().replace(/[’']/
 
 /* ---------- counting windows: by the intake start, never the census or payment date ---------- */
 
-/** The window a day falls in, for a count by calendar, academic or financial year, intake, or two intakes. */
-export function windowKey(per: UniCountedPer | 'Two intakes', d: string, yearStart: number, fyStart: number, intake?: string) {
+/** The window a day falls in, for a count by calendar, academic or financial year, or intake. */
+export function windowKey(per: UniCountedPer, d: string, yearStart: number, fyStart: number, intake?: string) {
   if (!d) return '';
   const y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7));
   if (per === 'Intake') return `Intake ${intake ?? monthName(d.slice(0, 7))}`;
-  if (per === 'Two intakes') return m >= 4 && m <= 7 ? `Apr–Jul ${y}` : m >= 8 ? `Aug ${y}–Mar ${y + 1}` : `Aug ${y - 1}–Mar ${y}`;
   const start = per === 'Financial year' ? fyStart : per === 'Academic year' ? yearStart || 1 : 1;
   if (start === 1) return `${per === 'Calendar year' ? 'CY' : per === 'Financial year' ? 'FY' : 'AY'} ${y}`;
   const from = m >= start ? y : y - 1;
   return `${per === 'Financial year' ? 'FY' : 'AY'} ${from}–${String((from + 1) % 100).padStart(2, '0')}`;
 }
 /** The last day of the window a day falls in ('' for an intake: it ends with its last trigger date). */
-export function windowEnd(per: UniCountedPer | 'Two intakes', d: string, yearStart: number, fyStart: number) {
+export function windowEnd(per: UniCountedPer, d: string, yearStart: number, fyStart: number) {
   if (!d || per === 'Intake') return '';
   const y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7));
-  if (per === 'Two intakes') return m >= 4 && m <= 7 ? `${y}-07-31` : `${m >= 8 ? y + 1 : y}-03-31`;
   const start = per === 'Financial year' ? fyStart : per === 'Academic year' ? yearStart || 1 : 1;
   const from = m >= start ? y : y - 1;
   return plusDays(plusMonths(`${from}-${String(start).padStart(2, '0')}-01`, 12), -1);
 }
-export const windowWords = (per: UniCountedPer | 'Two intakes', yearStart: number) =>
-  per === 'Academic year' ? `academic year starting ${MON[(yearStart || 1) - 1]}` : per === 'Two intakes' ? 'two intakes (Apr–Jul, Aug–Mar)' : per.toLowerCase();
+export const windowWords = (per: UniCountedPer, yearStart: number) =>
+  per === 'Academic year' ? `academic year starting ${MON[(yearStart || 1) - 1]}` : per.toLowerCase();
 
 /* ---------- regions and conditions ---------- */
 
