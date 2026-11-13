@@ -78,11 +78,12 @@ export type Settings = {
  */
 export const RP_VIEW_KINDS = ['Course commission', 'Tier top-up', 'Additional commission', 'Bonus'] as const;
 export type RpViewKind = (typeof RP_VIEW_KINDS)[number];
-export const RP_VIEW_PERIODS = ['First study period only', 'Every study period'] as const;
+/** R112 (13 Nov): what the RP is shown before its invoice is asked for: its first payment as an estimate, or nothing. */
+export const RP_VIEW_PERIODS = ['First study period only', 'Nothing'] as const;
 export type RpViewPeriods = (typeof RP_VIEW_PERIODS)[number];
 export type RpView = { kinds: RpViewKind[]; periods: RpViewPeriods };
 /** In words, for a Commission tab and a log line. */
-export const rpViewText = (v: RpView) => `${v.kinds.length ? v.kinds.join(', ') : 'Nothing'}; ${v.periods === 'Every study period' ? 'every study period' : 'the first study period only'}`;
+export const rpViewText = (v: RpView) => `${v.kinds.length ? v.kinds.join(', ') : 'Nothing'}; before its invoice is asked for, ${v.periods === 'Nothing' ? 'nothing' : 'its first payment as an estimate'}`;
 export const ANNUITY_RULES = ['Same as year 1', 'Flat %', 'None'] as const;
 export type AnnuityRule = (typeof ANNUITY_RULES)[number];
 
@@ -346,10 +347,11 @@ export type TxType = (typeof TX_TYPES)[number];
 export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held', 'Paid', 'Not payable'] as const;
 /**
  * The RP's statuses (Jovial, 10 Nov, Q50, the Commissions flow's #21): Expected, Waiting for university (GSP's line is
- * due but not paid yet), Ready to invoice, Invoice in review (the RP's invoice is with Finance), Approved, Paid; and
+ * due but not paid yet), Ready to request (GSP is paid; Finance hasn't asked for the RP's invoice yet), Invoice requested
+ * (R112, 13 Nov: Finance asked; the RP sees it as To invoice), Invoice in review (the RP's invoice is with Finance), Approved, Paid; and
  * On hold, Sent back, Not payable. To recover and Recovered: a university's clawback the RP's share of which is set against its next payment (R106).
  */
-export const RP_STATUSES = ['Expected', 'Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover', 'Paid', 'Recovered', 'Not payable'] as const;
+export const RP_STATUSES = ['Expected', 'Waiting for university', 'Ready to request', 'Invoice requested', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover', 'Paid', 'Recovered', 'Not payable'] as const;
 export type UniStatus = (typeof UNI_STATUSES)[number];
 export type RpStatus = (typeof RP_STATUSES)[number];
 export type TxStatus = UniStatus | RpStatus;
@@ -358,7 +360,7 @@ export const STATUSES_OF: Record<Side, readonly TxStatus[]> = { uni: UNI_STATUSE
 /** The status groups (the Commission lines page's tabs, but Not counted, which shows under All). */
 export const GROUPS = [
   { key: 'estimate', label: 'Not yet ready', uni: ['Expected'], rp: ['Expected'], tab: true },
-  { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held'], rp: ['Waiting for university', 'Ready to invoice', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover'], tab: true },
+  { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held'], rp: ['Waiting for university', 'Ready to request', 'Invoice requested', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover'], tab: true },
   { key: 'paid', label: 'Paid', uni: ['Paid'], rp: ['Paid', 'Recovered'], tab: true },
   { key: 'none', label: 'Not counted', uni: ['Not payable'], rp: ['Not payable'], tab: false },
 ] as const satisfies readonly { key: string; label: string; uni: readonly UniStatus[]; rp: readonly RpStatus[]; tab: boolean }[];
@@ -371,11 +373,11 @@ export const LINE_TABS: { key: GroupKey | 'all'; label: string }[] = [{ key: 'al
 export const ACTION_FROM = {
   raise: ['Ready to invoice'],
   record: ['Invoiced', 'Overdue', 'Part paid'],
-  request: ['Ready to invoice', 'Sent back'],
+  request: ['Ready to request'],
   pay: ['Approved', 'Overdue to pay'],
 } as const satisfies Record<string, readonly TxStatus[]>;
 /** The RP's lines it can invoice (Earnings' Invoices to send: those GSP has asked for). */
-export const TO_INVOICE: readonly RpStatus[] = ['Ready to invoice', 'Sent back'];
+export const TO_INVOICE: readonly RpStatus[] = ['Invoice requested', 'Sent back'];
 /** GSP's line is due but the university hasn't paid it: the RP waits (Q50). */
 export const WAITING_UNI: RpStatus = 'Waiting for university';
 /** The RP's invoice is with Finance. */
@@ -391,13 +393,22 @@ export const OVERDUE_UNI: UniStatus = 'Overdue';
 /** GSP → RP lines GSP has approved and owes (D24: past Pay within, Overdue to pay). */
 export const TO_PAY: readonly RpStatus[] = ['Approved', 'Overdue to pay'];
 /** GSP → RP lines whose amount can still change until GSP is paid (D21). */
-export const RP_ESTIMATE: readonly RpStatus[] = ['Expected', 'Waiting for university'];
+export const RP_ESTIMATE: readonly RpStatus[] = ['Expected', 'Waiting for university', 'Ready to request'];
+/** R112: Finance asks for the RP's invoice on these, with Request invoice. */
+export const READY_RP: RpStatus = 'Ready to request';
+/**
+ * The status as the RP reads it on Earnings (R112): a line it's shown before its invoice is asked for is its first
+ * payment, an Estimate; once asked for, it's To invoice. Every other status reads the same.
+ */
+export const rpLabel = (s: TxStatus): string => ((RP_ESTIMATE as readonly string[]).includes(s) ? 'Estimate' : s === 'Invoice requested' ? 'To invoice' : s);
 /** Held lines: In progress, but not ready (Earnings leaves them out of Ready to invoice). */
 export const HELD: readonly TxStatus[] = ['Held', 'On hold'];
 /** Each status's colour (as Pill tones). */
 export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' | 'grey'> = {
   Expected: 'grey',
   'Ready to invoice': 'you',
+  'Ready to request': 'you',
+  'Invoice requested': 'uni',
   Invoiced: 'gsp',
   Overdue: 'bad',
   'Part paid': 'bad',

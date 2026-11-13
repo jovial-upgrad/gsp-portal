@@ -13,8 +13,8 @@
  *
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
-import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniGroup, UniStatus, UniTerms } from './model';
-import { EXCEPTIONS, PAY_UNITS, SIDES, TRIGGERS, dayText, money, pct, roundMoney } from './model';
+import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
+import { EXCEPTIONS, PAY_UNITS, RP_ESTIMATE, SIDES, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, unreadableRows, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
@@ -193,6 +193,30 @@ export type Result = {
   needIds: string[];
   /** What couldn't be priced safely (D10, D11): the Exceptions list. */
   exceptions: Exc[];
+  /** Each university and group tier and bonus scheme, in its counting windows still open: what more enrolments unlock. */
+  unlocks: Unlock[];
+};
+/**
+ * What the next enrolments unlock with a university (Jovial, 13 Nov, for Finance): one tier (a university's own or its
+ * group's) or one bonus scheme, in one counting window (and source country, when it counts per country). Its count, its
+ * bands with how many more reach each, and who the counted students are, by course level, sales region, source country
+ * and course. Worked out from the same pool the lines are priced on.
+ */
+export type Unlock = {
+  id: string;
+  kind: 'Tier' | 'Bonus scheme';
+  who: 'university' | 'group';
+  name: string;
+  unis: string[];
+  window: string;
+  country?: string;
+  ends: string;
+  retro: boolean;
+  levels: Level[];
+  currency: string;
+  count: number;
+  bands: { from: number; to: number | null; label: string; more: number; now: boolean }[];
+  by: { level: Record<string, number>; region: Record<string, number>; country: Record<string, number>; course: Record<string, number> };
 };
 
 /* ---------- records as they stood on a day ---------- */
@@ -382,6 +406,80 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     const gt = g && tierOfGroup(g);
     if (gt && (!gt.levels.length || gt.levels.includes(p.level))) list.push(standing(gt, e));
     tiersOf.set(e.app, list);
+  }
+
+  /* ---------- what the next enrolments unlock (Jovial, 13 Nov): every tier and bonus scheme, its open windows ---------- */
+  const unlocks: Unlock[] = [];
+  {
+    const splitOf = (xs: Enrolment[]) => {
+      const add = (m: Record<string, number>, k: string) => ((m[k] = (m[k] ?? 0) + 1), m);
+      const by = { level: {} as Record<string, number>, region: {} as Record<string, number>, country: {} as Record<string, number>, course: {} as Record<string, number> };
+      xs.forEach((x) => {
+        const px = pre.get(x.app)!;
+        add(by.level, px.level);
+        add(by.region, rpOf.get(x.rp)?.region || '—');
+        add(by.country, x.nationality || '—');
+        add(by.course, courseOf(x)?.name ?? x.course);
+      });
+      return by;
+    };
+    /** Windows still counting: one that ends today or later; for an intake, the two latest. */
+    const open = (groups: Map<string, Enrolment[]>, per: UniCountedPer, yearStart: number) => {
+      const ent = [...groups.entries()].map(([k, xs]) => ({ k, xs, end: windowEnd(per, startOf(xs[0]), yearStart, S.fyStart), last: xs.reduce((m, x) => (startOf(x) > m ? startOf(x) : m), '') }));
+      if (per === 'Intake') {
+        const latest = [...new Set(ent.sort((a, b) => b.last.localeCompare(a.last)).map((x) => x.k.split(' · ')[0]))].slice(0, 2);
+        return ent.filter((x) => latest.includes(x.k.split(' · ')[0]));
+      }
+      return ent.filter((x) => x.end >= today);
+    };
+    const specs = new Map<string, { spec: TierSpec; cur: string; bonus: { B: TermsBody['bonus'][number]; per: UniCountedPer; T: TermsBody; uni: string }[] }>();
+    for (const e of all) {
+      const p = pre.get(e.app);
+      if (!p?.T) continue;
+      const own = tierOfTerms(p.T, p.uni.id, p.uni.name);
+      const g = groupOf(p.uni.id);
+      const gt = g ? tierOfGroup(g) : null;
+      const k1 = `u:${p.uni.id}`, k2 = g ? `g:${g.id}` : '';
+      if (!specs.has(k1)) specs.set(k1, { spec: own ?? { who: 'university', name: p.uni.name, members: [p.uni.id], bands: [], countedPer: p.T.countedPer ?? 'Calendar year', yearStart: p.T.yearStart ?? 1, retro: false, perCountry: false, levels: [], bandBonuses: [] }, cur: p.cur, bonus: (p.T.bonus ?? []).filter((B) => B.per !== 'Per student').map((B) => ({ B, per: bonusWindow(B, p.T!), T: p.T!, uni: p.uni.id })) });
+      if (g && k2 && !specs.has(k2)) specs.set(k2, { spec: gt ?? { who: 'group', name: g.name, members: g.members, bands: [], countedPer: g.countedPer ?? 'Calendar year', yearStart: g.yearStart ?? 1, retro: false, perCountry: false, levels: [], bandBonuses: [] }, cur: p.cur, bonus: (g.bonus ?? []).filter((B) => B.per !== 'Per student').map((B) => ({ B, per: bonusWindow(B, p.T!), T: p.T!, uni: p.uni.id })) });
+    }
+    specs.forEach(({ spec, cur, bonus }, sk) => {
+      const inSpec = (x: Enrolment) => {
+        const px = pre.get(x.app);
+        return !!px?.T && spec.members.includes(px.uni.id) && payable(x);
+      };
+      if (spec.bands.length) {
+        const keyOf = (x: Enrolment) => windowKey(spec.countedPer, startOf(x), spec.yearStart, S.fyStart, x.intake) + (spec.perCountry ? ` · ${x.nationality ?? '—'}` : '');
+        const groups = new Map<string, Enrolment[]>();
+        all.filter((x) => inSpec(x) && (!spec.levels.length || spec.levels.includes(pre.get(x.app)!.level))).forEach((x) => groups.set(keyOf(x), [...(groups.get(keyOf(x)) ?? []), x]));
+        open(groups, spec.countedPer, spec.yearStart).forEach(({ k, xs, end }) => {
+          const n = xs.length;
+          const bi = bandIndex(spec.bands, Math.max(1, n));
+          unlocks.push({
+            id: `${sk}:tier:${k}`, kind: 'Tier', who: spec.who, name: spec.name, unis: spec.members, window: k.split(' · ')[0], country: spec.perCountry ? k.split(' · ')[1] : undefined, ends: end, retro: spec.retro, levels: spec.levels, currency: cur, count: n,
+            bands: spec.bands.map((b, i) => {
+              const bb = spec.bandBonuses.find((x) => x.band === i + 1);
+              return { from: b.from, to: b.to, label: `${pct(b.pct)}${bb?.value ? ` + ${bb.kind === '%' ? `${pct(bb.value)} bonus` : `${money(bb.value, cur)} bonus`} per student` : ''}`, more: Math.max(0, b.from - n), now: i === bi };
+            }),
+            by: splitOf(xs),
+          });
+        });
+      }
+      bonus.forEach(({ B, per, T }) => {
+        const keyOf = (x: Enrolment) => windowKey(per, startOf(x), T.yearStart ?? 1, S.fyStart, x.intake) + (B.perCountry ? ` · ${x.nationality ?? '—'}` : '');
+        const groups = new Map<string, Enrolment[]>();
+        all.filter((x) => inSpec(x) && !condTest(B.cond, pre.get(x.app)!.who, S).length).forEach((x) => groups.set(keyOf(x), [...(groups.get(keyOf(x)) ?? []), x]));
+        open(groups, per, T.yearStart ?? 1).forEach(({ k, xs, end }) => {
+          const n = xs.length;
+          const val = (kind: typeof B.kind, v: number) => (kind === '%' ? `${pct(v)} of the first-year fee` : money(v, cur));
+          const bands =
+            B.per === 'At a number'
+              ? [{ from: B.threshold ?? 0, to: null, label: `${val(B.kind, B.value)}, once`, more: Math.max(0, (B.threshold ?? 0) - n), now: n >= (B.threshold ?? 0) }]
+              : B.bands.map((b) => ({ from: b.from, to: b.to, label: `${val(b.kind, b.value)} per student`, more: Math.max(0, b.from - n), now: n >= b.from && (b.to === null || n <= b.to) }));
+          unlocks.push({ id: `${sk}:bonus:${B.id}:${k}`, kind: 'Bonus scheme', who: spec.who, name: `${spec.who === 'group' ? `${spec.name}: ` : ''}${B.name}`, unis: spec.members, window: k.split(' · ')[0], country: B.perCountry ? k.split(' · ')[1] : undefined, ends: end, retro: B.retro, levels: [], currency: cur, count: n, bands, by: splitOf(xs) });
+        });
+      });
+    });
   }
 
   const out: Tx[] = [];
@@ -841,18 +939,18 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       t.invoice = inv?.file.name;
       t.rpInvoice = inv?.id ?? sentBack.get(t.id)?.id;
       t.requested = requestedOn.get(t.id);
-      t.rpSees = rpSees(rpView, t, rpTxs);
       t.rpKind = rpKindShown(rpView, t, rpTxs);
       const o = over.get(t.id);
       if (o && !fr?.final) Object.assign(t, { override: o, amount: !fr && o.amount != null ? o.amount : t.amount, due: o.due ?? t.due });
       if (rpHeld) t.heldWhy = rpHeld;
       // a withdrawn student earns the RP no bonus (D28); a milestone counts students GSP was paid for, so it stands
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
-      t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), due: t.due, today });
+      t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), requested: !!t.requested, due: t.due, today });
       // R106: a recovery waits for the RP's next payment, which it's set against
       if (t.type === 'Recovery') t.status = paidRp.has(t.id) ? 'Recovered' : 'To recover';
+      t.rpSees = rpSees(rpView, t, rpTxs);
       // R105: the RP's claim window, from the end of the study period the line pays for; the line stays as it is
-      if (['Ready to invoice', 'Sent back'].includes(t.status) && !inv) {
+      if (['Ready to request', 'Invoice requested', 'Sent back'].includes(t.status) && !inv) {
         const months = (ag ? termsAt<AgreementTerms>(ag, startOf(e)).claimMonths : null) ?? S.rpClaimMonths;
         t.claimEnds = keepMonth(periodEnd(anchor ?? t), months);
         t.claimLapsed = today > t.claimEnds;
@@ -909,21 +1007,36 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       summary,
     });
   }
-  return { txs: out, apps, byId: new Map(out.map((t) => [t.id, t])), byApp: new Map(apps.map((a) => [a.app, a])), needIds: [...new Set(needIds)].sort(), exceptions };
+  return { txs: out, apps, byId: new Map(out.map((t) => [t.id, t])), byApp: new Map(apps.map((a) => [a.app, a])), needIds: [...new Set(needIds)].sort(), exceptions, unlocks };
 }
 const bandsTxt = (b: Band[]) => b.map((x) => `${x.from}${x.to === null ? '+' : `–${x.to}`}: ${pct(x.pct)}`).join(', ');
 
 /**
- * Where an RP stands in its agreement's bands today (Jovial, 10 Nov, Q43), for Earnings' band tile: its payable
- * students in the agreement's current window (by intake start), the band's share, and how many more reach the next.
- * Null: a flat share, or no commission record.
+ * Where an RP stands in its agreement (Q43; Jovial, 13 Nov: Earnings' Overview shows what its next enrolments unlock):
+ * its count in the agreement's current counting window, its band, every band with how many more reach it, when the
+ * window ends, whether reaching a band raises earlier enrolments too, and its agreement's bonuses at an enrolment number.
+ * Its agreement's terms only. A flat share has no bands; null with no agreement.
  */
-export function bandStanding(state: CommState, ctx: Ctx, rp: string, extra: Enrolment[] = []): { count: number; share: number; window: string; next?: { more: number; share: number } } | null {
+export type RpStanding = {
+  agreement: string;
+  count: number;
+  share: number;
+  window: string;
+  /** The window's last day ('' for an intake). */
+  ends: string;
+  retro: boolean;
+  retroTop: boolean;
+  bands: { from: number; to: number | null; pct: number; more: number; now: boolean }[];
+  next?: { more: number; share: number };
+  bonuses: { desc: string; amount: number; nth: number; more: number }[];
+};
+export function bandStanding(state: CommState, ctx: Ctx, rp: string, extra: Enrolment[] = []): RpStanding | null {
   const today = ctx.today;
   const ag = agreementOn(state, rp, today);
   if (!ag) return null;
   const A = termsAt<AgreementTerms>(ag, today);
-  if (A.shareType === 'Flat' || !A.bands.length) return null;
+  const atNumber = (A.bonuses ?? []).filter((b) => b.when === 'At an enrolment number' && b.nth);
+  if ((A.shareType === 'Flat' || !A.bands.length) && !atNumber.length) return null;
   const seen = new Set<string>();
   const all = [...extra, ...state.enrolments].filter((e) => (seen.has(e.app) ? false : (seen.add(e.app), true)));
   const S = state.settings;
@@ -932,10 +1045,22 @@ export function bandStanding(state: CommState, ctx: Ctx, rp: string, extra: Enro
   const latest = [...mine].sort((a, b) => startOf(b).localeCompare(startOf(a)))[0];
   const now = A.countedPer === 'Intake' ? key(latest ? startOf(latest) : today, latest?.intake) : key(today);
   const count = mine.filter((x) => key(startOf(x), x.intake) === now).length;
-  const band = bandFor(A.bands, Math.max(1, count));
-  const nextBand = A.bands.find((b) => b.from > count && b.pct > band.pct);
+  const banded = A.shareType !== 'Flat' && A.bands.length > 0;
+  const band = banded ? bandFor(A.bands, Math.max(1, count)) : undefined;
+  const nextBand = band ? A.bands.find((b) => b.from > count && b.pct > band.pct) : undefined;
   const window = A.countedPer === 'Intake' ? `the ${latest?.intake ?? 'current'} intake` : A.countedPer === 'Financial year' ? `GSP’s financial year ${fyOf(today, S.fyStart)}–${String((fyOf(today, S.fyStart) + 1) % 100).padStart(2, '0')}` : now;
-  return { count, share: band.pct, window, next: nextBand ? { more: nextBand.from - count, share: nextBand.pct } : undefined };
+  return {
+    agreement: ag.name,
+    count,
+    share: band?.pct ?? A.share ?? 0,
+    window,
+    ends: windowEnd(A.countedPer as never, today, A.yearStart ?? 1, S.fyStart),
+    retro: !!A.retro,
+    retroTop: !!A.retroTop,
+    bands: banded ? A.bands.map((b) => ({ ...b, more: Math.max(0, b.from - count), now: b === band })) : [],
+    next: nextBand ? { more: nextBand.from - count, share: nextBand.pct } : undefined,
+    bonuses: atNumber.map((b) => ({ desc: b.desc, amount: b.amount, nth: b.nth!, more: Math.max(0, b.nth! - count) })),
+  };
 }
 
 /** Acted on: invoiced (University → GSP), its invoice requested (GSP → RP), or paid. From then on it's kept as it was. */
@@ -977,30 +1102,9 @@ export function settle(state: CommState, res: Result, at = Date.now()): CommStat
       ? { ...was, amount: t.amount, due: t.due, final: true }
       : { key: t.key, app: t.app, side: t.side, type: t.type, what: t.what, rpWhat: t.rpWhat, base: t.base.amount, amount: t.amount, currency: t.currency, due: t.due, trigger: t.trigger, period: t.period, matches: t.matches, notice: t.notice, adjusts: t.adjusts, final: paid || undefined, at, trace: t.trace, gst: t.gst };
   });
-  // Jovial, 12 Nov: the RP's invoice is asked for by itself once GSP has its money. A line the RP sees that turns
-  // Ready to invoice gets a request at once, dated the day GSP was paid for it (its university line's receipt), so the
-  // line is on the RP's Invoices to send, N16 tells the RP, and N21's reminders count from that day. The RP's recoveries
-  // not yet set against a payment go with it (R106). A later study period shows to the RP from then (Q108); a kind of
-  // line the RP isn't shown at all isn't asked for.
-  let requests = state.requests;
-  const asked = new Set(state.requests.flatMap((r) => r.txs));
-  const paidDay = (uniTx?: string) => (uniTx ? state.receipts.filter((r) => r.txs.includes(uniTx)).map((r) => r.date).sort().pop() : undefined);
-  const due = res.txs.filter((t) => t.side === 'rp' && !isNewId(t.id) && t.status === 'Ready to invoice' && t.rpKind !== false && !asked.has(t.id));
-  if (due.length) {
-    const groups = new Map<string, Tx[]>();
-    due.forEach((t) => {
-      const k = `${t.rp}|${paidDay(t.matches) ?? t.trigger ?? ''}`;
-      groups.set(k, [...(groups.get(k) ?? []), t]);
-    });
-    const recovering = new Set<string>();
-    requests = [...state.requests];
-    groups.forEach((txs, k) => {
-      const [rp, date] = k.split('|');
-      const rec = res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.status === 'To recover' && !isNewId(t.id) && !asked.has(t.id) && !recovering.has(t.id));
-      rec.forEach((t) => recovering.add(t.id));
-      requests.push({ id: `rqa-${txs[0].id}`, rp, txs: [...txs, ...rec].map((t) => t.id), date, by: 'System', at });
-    });
-  }
+  // R112 (Jovial, 13 Nov): nothing asks for the RP's invoice by itself any more (R111 is reversed): Finance does, with
+  // Request invoice on Commission lines, and only then does the RP see the line.
+  const requests = state.requests;
   const same = ids === state.ids && frozen === state.frozen && seenAmt === (state.seen ?? {}) && history === (state.history ?? []) && requests === state.requests;
   return same && state.seen ? state : { ...state, ids, idSeq: seq, frozen, seen: seenAmt, history, requests };
 }
@@ -1030,7 +1134,7 @@ export function uniStatus(t: Pick<Tx, 'trigger' | 'due'>, o: { withdrawn?: strin
  * A GSP → RP line's status (Q50): it can't be Ready to invoice until GSP has its money for the matching University →
  * GSP line (all of it, or part of it: then the line is the RP's share of what came in).
  */
-export function rpStatus(o: { uni?: TxStatus; paid: boolean; hold: boolean; invoice?: RpInvoice['state']; sentBack?: boolean; due?: string; today?: string }): RpStatus {
+export function rpStatus(o: { uni?: TxStatus; paid: boolean; hold: boolean; invoice?: RpInvoice['state']; sentBack?: boolean; requested?: boolean; due?: string; today?: string }): RpStatus {
   if (o.paid) return 'Paid';
   // an exception holds the RP's lines even when there's no university line yet (Rate missing, No terms)
   if (!o.uni && o.hold) return 'On hold';
@@ -1042,7 +1146,8 @@ export function rpStatus(o: { uni?: TxStatus; paid: boolean; hold: boolean; invo
   if (o.invoice === 'Accepted') return o.due && o.today && o.today > o.due ? 'Overdue to pay' : 'Approved';
   if (o.invoice === 'To check') return 'Invoice in review';
   if (o.sentBack) return 'Sent back';
-  return 'Ready to invoice';
+  // Jovial, 13 Nov (R112): GSP has its money; Finance asks for the RP's invoice, and only then can the RP send it
+  return o.requested ? 'Invoice requested' : 'Ready to request';
 }
 
 /** Adds money by currency: "AUD 2,000 + GBP 300". */
@@ -1068,22 +1173,34 @@ export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N1
 /** Whether an RP is shown a line, by its view (Jovial, 11 Nov): its kind (a promotion is course commission; an adjustment
  * is what it adjusts) and its study period. */
 export function rpSees(v: RpView, t: Pick<Tx, 'type' | 'adjusts' | 'period'> & { requested?: string; status?: string }, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
-  // a recovery is always shown: the RP must see why its payment is less (R106)
-  if (t.type === 'Recovery') return true;
   let base: TxType = t.type;
   let at: Pick<Tx, 'type' | 'adjusts'> | undefined = t;
   for (let i = 0; at && at.type === 'Adjustment' && i < 5; i++) {
     at = all.find((x) => x.id === at!.adjusts);
     if (at) base = at.type;
   }
+  // R112 (Jovial, 13 Nov): the RP sees a line once Finance has asked for its invoice (and from then on, through review,
+  // approval and payment); a recovery too, which goes with the request (R106 as changed)
+  const asked = !!t.requested || (!!t.status && (AFTER_ASK as readonly string[]).includes(t.status));
+  if (t.type === 'Recovery') return asked;
   const kind = base === 'Promotion' ? 'Course commission' : base;
   if (!(v.kinds as readonly string[]).includes(kind)) return false;
-  // a later study period shows once GSP is paid for it and its invoice is asked for (Q108, Jovial 12 Nov)
-  return v.periods === 'Every study period' || (t.period ?? 1) <= 1 || !!t.requested;
+  if (asked) return true;
+  // before that, only the first payment, as an estimate: study period 1's course commission, while it's still coming
+  return v.periods === 'First study period only' && kind === 'Course commission' && (t.period ?? 1) <= 1 && (!t.status || (RP_ESTIMATE as readonly string[]).includes(t.status));
 }
+/** The RP's statuses that mean its invoice was asked for (a line can't reach them otherwise). */
+const AFTER_ASK = ['Invoice requested', 'Sent back', 'Invoice in review', 'Approved', 'Overdue to pay', 'Paid', 'Recovered'] as const;
 /** The kinds of line an RP is shown (its view's kinds): what it can be asked to invoice. */
 export function rpKindShown(v: RpView, t: Pick<Tx, 'type' | 'adjusts'>, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
-  return rpSees({ ...v, periods: 'Every study period' } as RpView, t, all);
+  let base: TxType = t.type;
+  let at: Pick<Tx, 'type' | 'adjusts'> | undefined = t;
+  for (let i = 0; at && at.type === 'Adjustment' && i < 5; i++) {
+    at = all.find((x) => x.id === at!.adjusts);
+    if (at) base = at.type;
+  }
+  if (t.type === 'Recovery') return true;
+  return (v.kinds as readonly string[]).includes(base === 'Promotion' ? 'Course commission' : base);
 }
 const at9 = (d: string) => Date.parse(`${d}T09:00:00`);
 /**
@@ -1100,7 +1217,7 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
   // the RP hears only of lines it's shown (Jovial, 11 Nov): asking for a hidden line's invoice sends it nothing
   const seen = (ids: string[]) => ids.filter((i) => res.byId.get(i)?.rpSees !== false);
   const rpReminders = state.requests.flatMap((r) => {
-    const open = seen(r.txs).filter((t) => ['Ready to invoice', 'Sent back'].includes(res.byId.get(t)?.status ?? ''));
+    const open = seen(r.txs).filter((t) => ['Invoice requested', 'Sent back'].includes(res.byId.get(t)?.status ?? ''));
     if (!open.length) return [];
     return R.rpInvoice
       .map((d) => addDays(r.date, d))
@@ -1150,10 +1267,11 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
       .map((p) => ({ ...p, txs: seen(p.txs) }))
       .filter((p) => p.txs.length)
       .map((p): CommNote => ({ id: `n18-${p.id}`, to: 'rp', rp: p.rp, code: 'N18', title: `GSP paid you ${total(p.txs)}`, text: `${p.txs.length} ${p.txs.length === 1 ? 'line' : 'lines'}, paid on ${dayText(p.date)}.`, at: p.at })),
-    // N26 (R106, Q54's "recovery applied"): the RP is told when GSP will recover a university's clawback from its next payment
+    // N26 (R106, Q54's "recovery applied"): the RP is told when GSP will recover a university's clawback from its next
+    // payment: since 13 Nov (R112), when Finance's invoice request takes the recovery with it
     ...res.txs
-      .filter((t) => t.side === 'rp' && t.type === 'Recovery' && t.status === 'To recover')
-      .map((t): CommNote => ({ id: `n26-${t.id}`, to: 'rp', rp: t.rp, code: 'N26', title: `${t.uniName} took back commission on ${t.student}`, text: `${money(-t.amount, t.currency)} will be set against your next payment from GSP (${t.id}). Questions: reply to the commission email.`, at: Date.parse(`${t.trigger}T09:00:00`) || Date.now() })),
+      .filter((t) => t.side === 'rp' && t.type === 'Recovery' && t.status === 'To recover' && !!t.requested)
+      .map((t): CommNote => ({ id: `n26-${t.id}`, to: 'rp', rp: t.rp, code: 'N26', title: `${t.uniName} took back commission on ${t.student}`, text: `${money(-t.amount, t.currency)} is set against this payment from GSP (${t.id}). Questions: reply to the commission email.`, at: state.requests.find((r) => r.txs.includes(t.id))?.at ?? Date.now() })),
     ...rpReminders,
     ...uniReminders,
     ...rpPayReminders,

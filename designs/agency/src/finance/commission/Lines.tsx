@@ -13,8 +13,9 @@ import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } f
 import { sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { uniInvoice, type InvoiceDoc } from './invoice';
-import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, rpName, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
-import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER } from './model';
+import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, requestInvoice, rpName, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP } from './model';
+import { Unlocks } from './Unlocks';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -23,8 +24,9 @@ type Who = { name: string; email: string; role: string; region: string };
  * Commission lines (Jovial, 9 Nov: the PRD's Commissions tab): every transaction as its own line, with its commission
  * item and application. A switch between **Universities** (University → GSP) and **RPs** (GSP → RP); status tabs
  * **All**, **Estimate**, **In progress** and **Paid** with counts; filters, a search and Due between; **Export CSV** of
- * the lines shown. Ticked lines: Raise invoice and Record payment (Universities), Mark paid (RPs); the RP's invoice is asked
- * for by itself once the university has paid (12 Nov).
+ * the lines shown. Ticked lines: Raise invoice and Record payment (Universities), Request invoice and Mark paid (RPs):
+ * R112 (13 Nov) brings Request invoice back; the RP sees a line only once its invoice is asked for (but its first payment,
+ * as an estimate).
  * RPs only: **Invoices to check**, each uploaded RP invoice to Accept or Send back. Each line's three dots: Override
  * (Commissions and Admin), History, and the application.
  *
@@ -50,7 +52,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [lump, setLump] = useState(false);
   const [tile, setTile] = useState<TileKey | ''>('');
   // Jovial, 12 Nov: two tabs, To do (the tiles and worklists) and All lines (the table)
-  const [page, setPage] = useState<'todo' | 'lines'>('todo');
+  const [page, setPage] = useState<'todo' | 'lines' | 'unlocks'>('todo');
   const nav = useCommNav();
   const work = useMemo(() => commWork(s), [s]);
   const { ask, dialog } = useAsk();
@@ -67,9 +69,15 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const all = (st: readonly string[]) => sel.length > 0 && sel.every((t) => st.includes(t.status));
 
   // what the ticked lines allow, and why not
-  const raise = all(ACTION_FROM.raise) && onlyOne('uni');
+  // Jovial, 13 Nov: a credit (a negative line) is never invoiced on its own: it goes on GSP's next invoice to that
+  // university as a minus line, so an invoice needs at least one line that isn't a credit
+  const raise = all(ACTION_FROM.raise) && onlyOne('uni') && sel.some((t) => t.amount > 0);
+  const creditsOf = (uni: string) => res.txs.filter((t) => t.side === 'uni' && t.uni === uni && t.status === READY_UNI && t.amount < 0);
   const record = all(ACTION_FROM.record) && onlyOne('uni');
   const pay = all(ACTION_FROM.pay) && onlyOne('rp');
+  // R112: lines of a kind the RP isn't shown ("What the RP sees") can't be asked for
+  const hiddenSel = sel.filter((t) => t.side === 'rp' && t.rpKind === false);
+  const request = all(ACTION_FROM.request) && onlyOne('rp') && !hiddenSel.length;
 
   const whoOptions = side === 'uni' ? [...new Set(res.txs.filter((t) => t.side === 'uni').map((t) => t.uni))] : [...new Set(res.txs.filter((t) => t.side === 'rp').map((t) => t.rp))];
   const regions = [...new Set(ctxRps().map((r) => r.region))].sort();
@@ -82,8 +90,9 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   };
   const doRaise = () => {
     const uni = sel[0].uni;
-    const ids = sel.map((t) => t.id);
-    const lines = [...sel];
+    const credits = creditsOf(uni).filter((t) => !sel.some((x) => x.id === t.id));
+    const lines = [...sel, ...credits];
+    const ids = lines.map((t) => t.id);
     const contact = uniFinanceContact(uni);
     // D7: who entered each fee, and when, as the line's working says it
     const fees = lines.map((t) => [t.id, t.trace?.find((x) => x.h === 'Fee basis')?.t ?? ''] as const).filter(([, f]) => f);
@@ -91,7 +100,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
       `Raise an invoice to ${uniName(uni)} for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}?`,
       contact ? 'Raise and send' : 'Raise',
       <>
-        <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}. {contact ? `It goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}, Finance and invoices), through Mail.` : 'The university has no Finance and invoices contact: download the invoice and send it yourself.'}</p>
+        <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}{credits.length ? `, after ${credits.length} ${credits.length === 1 ? 'credit' : 'credits'} (${totalsText(sumBy(credits))}) that ${credits.length === 1 ? 'goes' : 'go'} on this invoice` : ''}. {contact ? `It goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}, Finance and invoices), through Mail.` : 'The university has no Finance and invoices contact: download the invoice and send it yourself.'}</p>
         {fees.length > 0 && (
           <ul className="cline">
             {fees.map(([id, f]) => (
@@ -116,9 +125,10 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   // R105: lines past their claim window, still unclaimed; nothing closes, Finance adjusts the books (Xero)
   const lapsed = (sd: Side) => res.txs.filter((t) => t.side === sd && t.claimLapsed).length;
   const TILE: Record<TileKey, { side: Side; statuses: TxStatus[]; label: string; n: number; tone: 'you' | 'bad' | 'uni' | 'gsp'; lapsed?: boolean }> = {
-    ready: { side: 'uni', statuses: [READY_UNI], label: READY_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === READY_UNI).length, tone: 'you' },
+    ready: { side: 'uni', statuses: [READY_UNI], label: READY_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === READY_UNI && t.amount >= 0).length, tone: 'you' },
     overdue: { side: 'uni', statuses: [OVERDUE_UNI], label: OVERDUE_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === OVERDUE_UNI).length, tone: 'bad' },
     part: { side: 'uni', statuses: [PART_PAID], label: PART_PAID, n: res.txs.filter((t) => t.side === 'uni' && t.status === PART_PAID).length, tone: 'uni' },
+    request: { side: 'rp', statuses: [READY_RP], label: 'Invoices to request', n: res.txs.filter((t) => t.side === 'rp' && t.status === READY_RP).length, tone: 'you' },
     check: { side: 'rp', statuses: [IN_REVIEW], label: 'Invoices to check', n: toCheck.length, tone: 'you' },
     approved: { side: 'rp', statuses: [...TO_PAY], label: 'Approved to pay', n: res.txs.filter((t) => t.side === 'rp' && (TO_PAY as readonly string[]).includes(t.status)).length, tone: 'gsp' },
     confirm: { side: 'uni', statuses: [], label: 'To confirm', n: work.confirm.length, tone: 'you' },
@@ -134,6 +144,26 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     setPage('lines');
   };
   const todoN = (Object.keys(TILE) as TileKey[]).reduce((n, k) => n + TILE[k].n, 0) + res.exceptions.length + work.periods.length;
+  // R106, R112: the RP's recoveries not yet asked for go with its next invoice request, by themselves
+  const recoveriesOf = (rp: string) => res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.status === TO_RECOVER && !t.requested);
+  const doRequest = () => {
+    const rp = sel[0].rp;
+    const lines = [...sel];
+    const rec = recoveriesOf(rp).filter((t) => !lines.some((x) => x.id === t.id));
+    ask(
+      `Ask ${rpName(rp)} for its invoice for ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}?`,
+      'Request invoice',
+      <p>
+        {totalsText(sumBy(lines))}
+        {rec.length ? `, less ${rec.length} ${rec.length === 1 ? 'recovery' : 'recoveries'} (${totalsText(sumBy(rec))}) that ${rec.length === 1 ? 'goes' : 'go'} with it` : ''}. {rpName(rp)} sees {lines.length === 1 ? 'it' : 'them'} on Earnings › Invoices to send and is told (N16{rec.length ? ', and N26 for the recovery' : ''}); reminders follow at {(s.settings.reminders?.rpInvoice ?? []).join(', ')} days.
+      </p>,
+      () => {
+        requestInvoice(rp, [...lines, ...rec].map((t) => t.id), who.name);
+        setTicked([]);
+        say(`Invoice requested from ${rpName(rp)} for ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}${rec.length ? `, less ${rec.length} ${rec.length === 1 ? 'recovery' : 'recoveries'}` : ''}.`);
+      },
+    );
+  };
   const fixIn = (type: string): SetupTab | null => (EXCEPTIONS.find((x) => x.type === type)?.fix as SetupTab | undefined) ?? null;
 
   return (
@@ -155,6 +185,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         tabs={[
           { key: 'todo', label: 'To do', n: todoN },
           { key: 'lines', label: 'All lines', n: res.txs.length },
+          // Jovial, 13 Nov: what the next enrolments unlock, per university, with its splits
+          { key: 'unlocks', label: 'Tiers to unlock', n: res.unlocks.filter((u) => u.bands.some((b) => b.more > 0)).length },
         ]}
       />
 
@@ -386,6 +418,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         </>
       )}
 
+      {page === 'unlocks' && <Unlocks res={res} apps={apps} students={students} />}
+
       {page === 'lines' && (
         <>
       <div className="clines__switch" role="group" aria-label="Lines">
@@ -445,14 +479,27 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                 <Button size="sm" variant="secondary" disabled={!record} onClick={() => setPaying(sel)}>
                   Record payment
                 </Button>
-                {!raise && !record && <span className="cmuted">Tick {ACTION_FROM.raise.join(' or ')} lines of one university to raise an invoice, or its {ACTION_FROM.record.join(' or ')} lines to record a payment.</span>}
+                {!raise && !record && (
+                  <span className="cmuted">
+                    {sel.length && sel.every((t) => t.amount < 0) ? 'A credit goes on GSP’s next invoice to the university, not on its own: tick a line to invoice and it’s added.' : `Tick ${ACTION_FROM.raise.join(' or ')} lines of one university to raise an invoice, or its ${ACTION_FROM.record.join(' or ')} lines to record a payment.`}
+                  </span>
+                )}
               </>
             ) : (
               <>
-                <Button size="sm" disabled={!pay} onClick={() => setPaidOut([...sel, ...res.txs.filter((t) => t.side === 'rp' && t.rp === sel[0]?.rp && t.status === TO_RECOVER && !sel.some((x) => x.id === t.id))])}>
+                <Button size="sm" disabled={!request} onClick={doRequest}>
+                  Request invoice
+                </Button>
+                <Button size="sm" variant="secondary" disabled={!pay} onClick={() => setPaidOut([...sel, ...res.txs.filter((t) => t.side === 'rp' && t.rp === sel[0]?.rp && t.status === TO_RECOVER && !!t.requested && !sel.some((x) => x.id === t.id))])}>
                   Mark paid
                 </Button>
-                {!pay && <span className="cmuted">Tick {ACTION_FROM.pay.join(' or ')} lines of one RP to mark them paid. GSP asks the RP for its invoice by itself once the university has paid (12 Nov).</span>}
+                {hiddenSel.length > 0 ? (
+                  <span className="cmuted">
+                    {hiddenSel.map((t) => t.id).join(', ')} {hiddenSel.length === 1 ? 'is a kind' : 'are kinds'} of commission {sel[0].rpName} isn’t shown (What the RP sees), so {hiddenSel.length === 1 ? 'it' : 'they'} can’t be asked for.
+                  </span>
+                ) : (
+                  !request && !pay && <span className="cmuted">Tick {ACTION_FROM.request.join(' or ')} lines of one RP to ask for its invoice, or its {ACTION_FROM.pay.join(' or ')} lines to mark them paid.</span>
+                )}
               </>
             )}
             <button type="button" className="btn btn--link" onClick={() => setTicked([])}>
@@ -658,7 +705,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   );
 }
 
-type TileKey = 'ready' | 'overdue' | 'part' | 'check' | 'approved' | 'confirm' | 'recover' | 'lapsed';
+type TileKey = 'ready' | 'overdue' | 'part' | 'request' | 'check' | 'approved' | 'confirm' | 'recover' | 'lapsed';
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
 /** Record lump sum: a university, the amount (in its currency), why, and the day it came in. */
@@ -750,7 +797,7 @@ function PaymentSheet({ txs, reasons, onClose, onDone, ask }: { txs: Tx[] | null
     setTried(true);
     if (err.lines || err.date || !txs) return;
     const nShort = txs.filter(isShort).length;
-    const body = <p>{txs.length - nShort} {txs.length - nShort === 1 ? 'line becomes' : 'lines become'} Paid{nShort ? `, ${nShort} Part paid` : ''}, and the matching RP lines Ready to invoice for their share of what came in.</p>;
+    const body = <p>{txs.length - nShort} {txs.length - nShort === 1 ? 'line becomes' : 'lines become'} Paid{nShort ? `, ${nShort} Part paid` : ''}, and the matching RP lines Ready to request for their share of what came in.</p>;
     ask(`Record ${money(total, cur)} received from ${txs[0].uniName} on ${dayText(date)}?`, 'Record payment', body, () =>
       onDone(Object.fromEntries(txs.filter((t) => (paid[t.id] ?? 0) > 0).map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), Object.fromEntries(txs.filter(isShort).map((t) => [t.id, short[t.id]])), date),
     );

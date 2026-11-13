@@ -94,6 +94,8 @@ export function AppDetail({
   update,
   updateStudent,
   studentApps: mine,
+  allApps,
+  allStudents,
   onBack,
   onOpenStudent,
   say,
@@ -110,6 +112,9 @@ export function AppDetail({
   updateStudent: (fn: (s: Student) => Student) => void;
   /** The student's applications, for the primary tag (6 Nov). */
   studentApps: Application[];
+  /** Every application and student in the portal: the Commission tab counts tiers over all of them (Jovial, 13 Nov). */
+  allApps?: Application[];
+  allStudents?: Student[];
   onBack: () => void;
   onOpenStudent: (id: string, tab?: RecordTab) => void;
   say: (m: string) => void;
@@ -572,7 +577,7 @@ export function AppDetail({
             {shown === 'commission' && (
               <ViewOnlyProvider on={commissionView}>
                 {/* 9 Nov (Jovial): two commission items, University → GSP and GSP → RP, worked out from the records */}
-                <AppCommissionTab a={a} s={s} />
+                <AppCommissionTab a={a} s={s} apps={allApps} students={allStudents} />
               </ViewOnlyProvider>
             )}
             {shown === 'chat' && <ViewOnlyProvider on={viewOnly && !chatEdit}><Chat a={a} s={s} agency={agency} update={update} onShare={(f) => addFile(f, 'chat')} ask={ask} say={say} /></ViewOnlyProvider>}

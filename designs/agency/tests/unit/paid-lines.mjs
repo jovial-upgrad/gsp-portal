@@ -74,7 +74,7 @@ try {
     r = run(s);
     ok('2. an RP line not yet kept is raised to the band itself', byKey(r, k('GSP-20005', 'rp', 'm:p1'))?.what.includes('80%'), byKey(r, k('GSP-20005', 'rp', 'm:p1'))?.what);
     const top = byKey(r, k('GSP-20000', 'rp', 'rt:p1'));
-    ok('2. reaching the 80% band makes a top-up line on the first enrolment', !!top && top.amount > 0 && top.status === 'Ready to invoice', top ? `${top.status} ${top.amount}` : 'none');
+    ok('2. reaching the 80% band makes a top-up line on the first enrolment', !!top && top.amount > 0 && top.status === 'Ready to request', top ? `${top.status} ${top.amount}` : 'none');
     s = engine.settleAll(pay(s, top), ctx, baseExtra);
     const rPaid = run(s);
     ok('2. … paid', rPaid.byId.get(top.id).status === 'Paid');
