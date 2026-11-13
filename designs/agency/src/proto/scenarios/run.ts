@@ -142,7 +142,7 @@ function world(cfg, apps, today) {
     };
   });
   const ctx = { unis, rps: cfg.rps.map((r) => ({ id: r.id, name: r.name, code: r.id, country: r.region, region: r.region, status: 'Active' })), course: (id) => courses.get(id), today };
-  const state = { ...base, settings, agreements, records, notices, terms, groups, enrolments, invoices: [], receipts: [], requests: [], rpInvoices: [], rpPayments: [], writeOffs: [], overrides: [], lumps: [], confirms: [], closes: [], logs: [], ids: {}, idSeq: 0, frozen: {}, seen: {}, history: [] };
+  const state = { ...base, settings, agreements, records, notices, terms, groups, enrolments, invoices: [], receipts: [], requests: [], rpInvoices: [], rpPayments: [], writeOffs: [], overrides: [], confirms: [], closes: [], logs: [], ids: {}, idSeq: 0, frozen: {}, seen: {}, history: [] };
   return { state, ctx };
 }
 

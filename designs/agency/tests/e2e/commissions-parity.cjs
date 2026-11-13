@@ -1,5 +1,5 @@
 // Commissions, parity with the sandbox (Jovial, 10 Nov): GSP · Finance's Commission lines (worklist tiles, exceptions,
-// tier periods to close, students to confirm, lump sums, the Promotion type) and Setup (Groups, Settings, the new terms
+// tier periods to close, students to confirm, the Promotion type) and Setup (Groups, Settings, the new terms
 // fields); GSP · Admissions' Key details inputs and the GSP-side Commission tab; RP Admin's Earnings and Commission tab
 // with no payment details, no GSP amounts or rates, and none of Admissions' commission fields.
 //   cd designs/agency && npm run build:artifact && node tests/e2e/commissions-parity.cjs
@@ -62,11 +62,8 @@ const openApp = async (p, nav, id) => {
     await p.locator('main .itile', { hasText: 'Ready to invoice' }).first().click();
     await wait(600);
     ok((await p.locator('main tbody tr').count()) > 0, 'The Ready to invoice tile filters the lines');
-    await p.getByRole('button', { name: 'Record lump sum' }).click();
-    await wait(600);
-    ok((await p.locator('[role=dialog]', { hasText: 'Record lump sum' }).count()) > 0 || (await p.getByText('A payment that isn’t one student’s line').count()) > 0, 'Record lump sum opens its form');
-    await p.keyboard.press('Escape');
-    await wait(400);
+    // Jovial, 13 Nov: no lump sums (a one-off payment is a Record payment on its lines, or goes in Xero)
+    ok((await p.getByRole('button', { name: 'Record lump sum' }).count()) === 0, 'No Record lump sum');
     await p.locator('#clines-type').click().catch(() => {});
     await wait(300);
     ok((await p.getByText('Promotion', { exact: true }).count()) > 0, 'Type filter offers Promotion');
