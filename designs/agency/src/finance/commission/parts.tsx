@@ -184,9 +184,8 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
         <caption className="vh">{caption}</caption>
         <thead>
           <tr>
-            <th scope="col">Transaction ID</th>
+            <th scope="col">Transaction</th>
             {app && <th scope="col">Application</th>}
-            <th scope="col">Type</th>
             <th scope="col">{rpView ? 'What it’s for' : 'How it’s worked out'}</th>
             <th scope="col">Due</th>
             <th scope="col" className="ctab__num">
@@ -209,14 +208,16 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
         <tbody>
           {txs.map((t) => (
             <tr key={t.id}>
-              <td className="num">{t.id}</td>
+              <td className="ctab__id">
+                <span className="num iw-strong">{t.id}</span>
+                <span className="iw-sub">{t.type}</span>
+              </td>
               {app && (
                 <td>
                   <span className="num">{t.app}</span> · {t.student}
                   <span className="iw-sub">{t.uniName}</span>
                 </td>
               )}
-              <td>{t.type}</td>
               <td>
                 {/* the RP's own view: what it's for in plain words, never GSP's rate or amount (9 Nov) */}
                 {rpView ? t.rpWhat : t.what}
