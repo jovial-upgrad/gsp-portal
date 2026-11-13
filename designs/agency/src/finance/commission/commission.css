@@ -192,3 +192,8 @@
 .cunlock .cunlock__pct { font-size: 16px; }
 /* the tick column takes only the checkbox's width (Jovial, 13 Nov: the table gave it the spare width) */
 .clines .itab .iw-tick { width: 1%; min-width: 0; padding-right: var(--sp-8); }
+/* a line table (Commission tabs, Earnings): the ID column only as wide as the ID, the working gets the room (Jovial, 13 Nov) */
+.itab.ctab td.ctab__id, .itab.ctab th:first-child { min-width: 0; width: 1%; white-space: nowrap; }
+.ctab td:nth-last-child(1) .dpill, .ctab td .dpill { white-space: nowrap; }
+.ctab td.num, .ctab td.ctab__num { white-space: nowrap; }
+.itab.ctab td { vertical-align: top; }
