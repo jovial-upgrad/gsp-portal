@@ -151,6 +151,28 @@ try {
     ok('R106 once set against a payment it is Recovered', run(sP).byId.get(rec.id).status === 'Recovered');
   }
 
+  // Jovial, 13 Nov (Q117, Q123, Q124): a payment sets off a recovery only up to what's paid in its currency; the rest
+  // stays To recover; another currency waits. A partial set-off keeps the line To recover with what's been recovered
+  {
+    const L = (id, amount, currency, type = 'Course commission') => ({ id, amount, currency, type, trigger: '2026-01-01' });
+    const off = engine.setOff([L('a', 100, 'GBP'), L('b', 50, 'AUD')], [L('r1', -150, 'GBP', 'Recovery'), L('r2', -20, 'AUD', 'Recovery'), L('r3', -10, 'USD', 'Recovery')]);
+    ok('Q123 a recovery bigger than what’s paid is set off only up to it', off.get('r1') === 100);
+    ok('Q124 a recovery is set off only against lines in its currency; another waits', off.get('r2') === 20 && !off.has('r3'));
+    const paidU = r0.txs.find((t) => t.side === 'uni' && t.status === 'Paid' && t.type === 'Course commission' && r0.txs.some((x) => x.side === 'rp' && x.matches === t.id && x.amount > 0));
+    const sC = { ...s0, clawbacks: [{ id: 'cb-p', tx: paidU.id, amount: paidU.amount, reason: 'Withdrew', date: '2026-11-05', by: 'Test', at: 9 }] };
+    const rec = run(sC).txs.find((t) => t.side === 'rp' && t.type === 'Recovery');
+    const part = model.roundMoney(-rec.amount / 2, rec.currency);
+    const sP = { ...sC, rpPayments: [...sC.rpPayments, { id: 'pp', rp: rec.rp, txs: [rec.id], date: '2026-11-08', by: 'T', at: 10, recovered: { [rec.id]: part } }] };
+    const rP = run(sP).byId.get(rec.id);
+    ok('Q123 a part set-off keeps it To recover, with what’s been recovered', rP.status === 'To recover' && rP.recovered === part, `${rP.status} ${rP.recovered}`);
+    const sQ = { ...sP, rpPayments: [...sP.rpPayments, { id: 'pq', rp: rec.rp, txs: [rec.id], date: '2026-11-09', by: 'T', at: 11, recovered: { [rec.id]: model.roundMoney(-rec.amount - part, rec.currency) } }] };
+    ok('Q123 the rest set off later makes it Recovered', run(sQ).byId.get(rec.id).status === 'Recovered');
+    const sD = { ...sC, debitNotes: [{ id: 'dn', number: 'DN-X-2026-001', rp: rec.rp, txs: [rec.id], date: TODAY, by: 'Fin', at: 12 }] };
+    const rD = run(sD);
+    ok('Q118 a debit note is on the recovery and tells the RP (N27)', rD.byId.get(rec.id).debitNote === 'DN-X-2026-001' && engine.commNotes(sD, rD, (x) => x, TODAY).some((n) => n.code === 'N27' && n.rp === rec.rp));
+    ok('Q118 the days before chasing are a setting', s0.settings.recoveryChaseDays === 90);
+  }
+
   // R103 (Q107): Finance creates a notice, RP Ops (BAP) issues it; until then it applies to nobody
   {
     const waiting = s0.notices.find((n) => !n.issued);

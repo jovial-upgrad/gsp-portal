@@ -436,8 +436,21 @@ export function sendBackRpInvoice(invId: string, reason: string, by: string) {
     return withLog({ ...s, rpInvoices: s.rpInvoices.map((x) => (x.id === invId ? { ...x, state: 'Sent back', reason, decided: stamp(by) } : x)) }, lineLog(by, `${by} sent back ${rpName(i.rp)}’s invoice ${i.file.name}: ${reason}`, i.txs, { rp: i.rp }));
   });
 }
-export function markPaid(rp: string, txs: string[], date: string, by: string) {
-  setComm((s) => withLog({ ...s, rpPayments: [...s.rpPayments, { id: id('rpp'), rp, txs, date, by, at: Date.now() }] }, lineLog(by, `${by} marked paid to ${rpName(rp)} on ${date}`, txs, { rp })));
+export function markPaid(rp: string, txs: string[], date: string, by: string, recovered?: Record<string, number>) {
+  setComm((s) => withLog({ ...s, rpPayments: [...s.rpPayments, { id: id('rpp'), rp, txs, date, by, at: Date.now(), ...(recovered && Object.keys(recovered).length ? { recovered } : {}) }] }, lineLog(by, `${by} marked paid to ${rpName(rp)} on ${date}`, txs, { rp })));
+}
+/** Q118/Q125 (Jovial, 13 Nov): GSP's debit note asks the RP to pay back recoveries with nothing to set them against. */
+export function sendDebitNote(rp: string, txs: string[], by: string) {
+  const day = todayIso();
+  const code = ctxRps().find((r) => r.id === rp)?.code ?? rp;
+  const n = (state.debitNotes ?? []).filter((d) => d.rp === rp).length + 1;
+  const number = `DN-${code}-${day.slice(0, 4)}-${String(n).padStart(3, '0')}`;
+  setComm((s) => withLog({ ...s, debitNotes: [...(s.debitNotes ?? []), { id: id('dn'), number, rp, txs, date: day, by, at: Date.now() }] }, lineLog(by, `${by} sent ${rpName(rp)} debit note ${number}`, txs, { rp })));
+  return number;
+}
+/** The RP paid a recovery back itself (after GSP's debit note): Recovered. */
+export function recordRepayment(rp: string, tx: string, amount: number, date: string, by: string) {
+  setComm((s) => withLog({ ...s, rpPayments: [...s.rpPayments, { id: id('rpp'), rp, txs: [tx], date, by, at: Date.now(), recovered: { [tx]: amount }, repaid: true }] }, lineLog(by, `${by} recorded ${rpName(rp)} paying back ${tx} on ${date}`, [tx], { rp })));
 }
 export function overrideLine(tx: string, o: { amount: number | null; due: string | null; hold: boolean; reason: string }, old: string, now: string, by: string) {
   setComm((s) => withLog({ ...s, overrides: [...s.overrides, { id: id('ov'), tx, ...o, by, at: Date.now() }] }, lineLog(by, `${by} overrode ${tx}: ${old} → ${now}. ${o.reason}`, [tx])));

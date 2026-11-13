@@ -10,11 +10,11 @@ import { todayIso } from '../../institution/data/records';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } from './parts';
-import { sumBy, totalsText, type Tx } from './engine';
+import { addDays, setOff, sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
-import { uniInvoice, type InvoiceDoc } from './invoice';
-import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, requestInvoice, rpName, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
-import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP } from './model';
+import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
+import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
 import '../../institution/work/work.css';
 
@@ -43,6 +43,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [inv, setInv] = useState<InvoiceDoc | null>(null);
   const [paying, setPaying] = useState<Tx[] | null>(null);
   const [paidOut, setPaidOut] = useState<Tx[] | null>(null);
+  const [paidOff, setPaidOff] = useState<Record<string, number>>({});
   const [over, setOver] = useState<Tx | null>(null);
   const [writing, setWriting] = useState<Tx | null>(null);
   const [clawing, setClawing] = useState<Tx | null>(null);
@@ -124,6 +125,10 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   // the worklist tiles (D1): each picks the side and the statuses it counts
   // R105: lines past their claim window, still unclaimed; nothing closes, Finance adjusts the books (Xero)
   const lapsed = (sd: Side) => res.txs.filter((t) => t.side === sd && t.claimLapsed).length;
+  /** Q118/Q125: recoveries with nothing to set them against for the Settings' days, by RP. */
+  const chaseDays = s.settings.recoveryChaseDays ?? 90;
+  const toChase = res.txs.filter((t) => t.side === 'rp' && t.status === TO_RECOVER && !!t.trigger && addDays(t.trigger, chaseDays) <= todayIso());
+  const chaseRps = [...new Set(toChase.map((t) => t.rp))];
   const TILE: Record<TileKey, { side: Side; statuses: TxStatus[]; label: string; n: number; tone: 'you' | 'bad' | 'uni' | 'gsp'; lapsed?: boolean }> = {
     ready: { side: 'uni', statuses: [READY_UNI], label: READY_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === READY_UNI && t.amount >= 0).length, tone: 'you' },
     overdue: { side: 'uni', statuses: [OVERDUE_UNI], label: OVERDUE_UNI, n: res.txs.filter((t) => t.side === 'uni' && t.status === OVERDUE_UNI).length, tone: 'bad' },
@@ -132,6 +137,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     check: { side: 'rp', statuses: [IN_REVIEW], label: 'Invoices to check', n: toCheck.length, tone: 'you' },
     approved: { side: 'rp', statuses: [...TO_PAY], label: 'Approved to pay', n: res.txs.filter((t) => t.side === 'rp' && (TO_PAY as readonly string[]).includes(t.status)).length, tone: 'gsp' },
     confirm: { side: 'uni', statuses: [], label: 'To confirm', n: work.confirm.length, tone: 'you' },
+    chase: { side: 'rp', statuses: [], label: 'Recoveries to chase', n: toChase.length, tone: 'bad' },
     recover: { side: 'rp', statuses: [TO_RECOVER], label: TO_RECOVER, n: res.txs.filter((t) => t.side === 'rp' && t.status === TO_RECOVER).length, tone: 'you' },
     lapsed: { side: lapsed('rp') || !lapsed('uni') ? 'rp' : 'uni', statuses: [], label: 'Past the claim window', n: lapsed('rp') + lapsed('uni'), tone: 'bad', lapsed: true },
   };
@@ -139,7 +145,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     setTile(k);
     if (!k) return setV((x) => blankView(x.side));
     // a worklist on To do: go to it; anything else opens All lines, filtered
-    if (k === 'confirm' || k === 'check') return void document.getElementById(k === 'confirm' ? 'clines-confirm' : 'clines-check')?.scrollIntoView({ block: 'start' });
+    if (k === 'confirm' || k === 'check' || k === 'chase') return void document.getElementById(k === 'confirm' ? 'clines-confirm' : k === 'check' ? 'clines-check' : 'clines-chase')?.scrollIntoView({ block: 'start' });
     setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses, lapsed: TILE[k].lapsed });
     setPage('lines');
   };
@@ -149,7 +155,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const doRequest = () => {
     const rp = sel[0].rp;
     const lines = [...sel];
-    const rec = recoveriesOf(rp).filter((t) => !lines.some((x) => x.id === t.id));
+    // Q124: only a recovery in the currency of a line asked for goes with it; another waits
+    const rec = recoveriesOf(rp).filter((t) => !lines.some((x) => x.id === t.id) && lines.some((x) => x.currency === t.currency));
     ask(
       `Ask ${rpName(rp)} for its invoice for ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}?`,
       'Request invoice',
@@ -163,6 +170,18 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         say(`Invoice requested from ${rpName(rp)} for ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}${rec.length ? `, less ${rec.length} ${rec.length === 1 ? 'recovery' : 'recoveries'}` : ''}.`);
       },
     );
+  };
+  /**
+   * Mark paid (Jovial, 13 Nov): the RP's recoveries asked for with its invoice, and (Q117) any recovery on a line being
+   * paid now, come off this payment, each only up to what's paid in its currency (Q123, Q124); the rest stays To recover.
+   */
+  const startPay = () => {
+    const rp = sel[0].rp;
+    const clawedLine = (r: Tx) => res.byId.get(r.matches ?? '')?.claws;
+    const cands = res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.status === TO_RECOVER && !sel.some((x) => x.id === t.id) && (!!t.requested || sel.some((x) => x.matches && x.matches === clawedLine(t))));
+    const off = setOff(sel, cands);
+    setPaidOff(Object.fromEntries(off));
+    setPaidOut([...sel, ...cands.filter((t) => off.has(t.id)).map((t) => ({ ...t, amount: -off.get(t.id)! }))]);
   };
   const fixIn = (type: string): SetupTab | null => (EXCEPTIONS.find((x) => x.type === type)?.fix as SetupTab | undefined) ?? null;
 
@@ -409,6 +428,78 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         </section>
       )}
 
+      {chaseRps.length > 0 && (
+        <section className="card irsec clines__check" aria-labelledby="clines-chase">
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id="clines-chase">
+                Recoveries to chase <span className="num cmuted">({toChase.length})</span>
+              </h2>
+              <p className="irsec__note">An RP’s share of a university’s clawback with no payment from GSP to set it against for {chaseDays} days or more (Settings). Send the RP a debit note; record it when the RP pays back.</p>
+            </div>
+          </div>
+          <ul className="clines__inv">
+            {chaseRps.map((rp) => {
+              const txs = toChase.filter((t) => t.rp === rp);
+              const fresh = txs.filter((t) => !t.debitNote);
+              const left = sumBy(txs.map((t) => ({ ...t, amount: -t.amount - (t.recovered ?? 0) })));
+              const r = ctxRps().find((x) => x.id === rp);
+              return (
+                <li key={rp}>
+                  <Icon name="file" size={18} />
+                  <span className="cinv__t">
+                    <span className="iw-strong">{rpName(rp)}</span>
+                    <span className="iw-sub">
+                      {txs.map((t) => `${t.id}${t.debitNote ? ` (debit note ${t.debitNote})` : ''}`).join(', ')} · {totalsText(left)} to recover
+                    </span>
+                  </span>
+                  <span className="cinv__acts">
+                    {fresh.length > 0 && r && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          ask(
+                            `Send ${rpName(rp)} a debit note for ${fresh.length} ${fresh.length === 1 ? 'recovery' : 'recoveries'}?`,
+                            'Send debit note',
+                            <p>{totalsText(sumBy(fresh.map((t) => ({ ...t, amount: -t.amount - (t.recovered ?? 0) }))))} to pay back. {rpName(rp)} is told (N27) and can download it on Earnings.</p>,
+                            () => {
+                              const number = sendDebitNote(rp, fresh.map((t) => t.id), who.name);
+                              setInv(debitNote(s, r, number, fresh, todayIso()));
+                              say(`Debit note ${number} sent to ${rpName(rp)}.`);
+                            },
+                          )
+                        }
+                      >
+                        Send debit note<span className="vh"> to {rpName(rp)}</span>
+                      </Button>
+                    )}
+                    {txs
+                      .filter((t) => t.debitNote)
+                      .map((t) => (
+                        <Button
+                          key={t.id}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            ask(
+                              `Record ${rpName(rp)} paying back ${t.id}?`,
+                              'Record repayment',
+                              <p>{money(-t.amount - (t.recovered ?? 0), t.currency)}, paid back today against debit note {t.debitNote}. The line becomes Recovered.</p>,
+                              () => (recordRepayment(rp, t.id, roundMoney(-t.amount - (t.recovered ?? 0), t.currency), todayIso(), who.name), say(`${t.id} recorded as paid back.`)),
+                            )
+                          }
+                        >
+                          Paid back {t.id}
+                        </Button>
+                      ))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {todoN === 0 && (
         <div className="snone">
           <p className="snone__title">Nothing to do</p>
@@ -490,7 +581,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                 <Button size="sm" disabled={!request} onClick={doRequest}>
                   Request invoice
                 </Button>
-                <Button size="sm" variant="secondary" disabled={!pay} onClick={() => setPaidOut([...sel, ...res.txs.filter((t) => t.side === 'rp' && t.rp === sel[0]?.rp && t.status === TO_RECOVER && !!t.requested && !sel.some((x) => x.id === t.id))])}>
+                <Button size="sm" variant="secondary" disabled={!pay} onClick={startPay}>
                   Mark paid
                 </Button>
                 {hiddenSel.length > 0 ? (
@@ -498,7 +589,14 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                     {hiddenSel.map((t) => t.id).join(', ')} {hiddenSel.length === 1 ? 'is a kind' : 'are kinds'} of commission {sel[0].rpName} isn’t shown (What the RP sees), so {hiddenSel.length === 1 ? 'it' : 'they'} can’t be asked for.
                   </span>
                 ) : (
-                  !request && !pay && <span className="cmuted">Tick {ACTION_FROM.request.join(' or ')} lines of one RP to ask for its invoice, or its {ACTION_FROM.pay.join(' or ')} lines to mark them paid.</span>
+                  !request &&
+                  !pay && (
+                    <span className="cmuted">
+                      {sel.every((t) => t.status === ASKED_RP) && onlyOne('rp')
+                        ? `Waiting for ${sel[0].rpName}’s invoice, asked for on ${dayText(sel.map((t) => t.requested ?? '').sort()[0])}. Reminders go at ${(s.settings.reminders?.rpInvoice ?? []).join(', ')} days; when it arrives, it’s in To do › Invoices to check.`
+                        : `Tick ${ACTION_FROM.request.join(' or ')} lines of one RP to ask for its invoice, or its ${ACTION_FROM.pay.join(' or ')} lines to mark them paid.`}
+                    </span>
+                  )
                 )}
               </>
             )}
@@ -662,7 +760,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         onClose={() => setPaidOut(null)}
         ask={ask}
         onDone={(date) => {
-          markPaid(paidOut![0].rp, paidOut!.map((x) => x.id), date, who.name);
+          markPaid(paidOut![0].rp, paidOut!.map((x) => x.id), date, who.name, paidOff);
           say(`${paidOut!.length} ${paidOut!.length === 1 ? 'line' : 'lines'} marked paid to ${paidOut![0].rpName}.`);
           setPaidOut(null);
           setTicked([]);
@@ -705,7 +803,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   );
 }
 
-type TileKey = 'ready' | 'overdue' | 'part' | 'request' | 'check' | 'approved' | 'confirm' | 'recover' | 'lapsed';
+type TileKey = 'ready' | 'overdue' | 'part' | 'request' | 'check' | 'chase' | 'approved' | 'confirm' | 'recover' | 'lapsed';
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
 /** Record lump sum: a university, the amount (in its currency), why, and the day it came in. */

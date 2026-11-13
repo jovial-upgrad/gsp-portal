@@ -6,7 +6,7 @@
  * from the records and the lines; the page shows it in a preview and downloads it as a printable page.
  */
 import type { Tx } from './engine';
-import { addDays, sumBy } from './engine';
+import { addDays, setOff, sumBy } from './engine';
 import { dayText, money, roundMoney, type CommState } from './model';
 
 export type InvoiceDoc = {
@@ -60,7 +60,11 @@ export function uniInvoice(state: CommState, inv: { number: string; date: string
  * per line its transaction ID, GSP ID, student, university, course, intake, study period and amount; and the total. No
  * tax line (D8) and no payment details (Q45: exchanged by email, off the portal). The RP signs it and uploads it.
  */
-export function rpInvoice(state: CommState, rp: { id: string; code: string; name: string; city: string; state?: string; country: string }, txs: Tx[], date: string): InvoiceDoc {
+export function rpInvoice(state: CommState, rp: { id: string; code: string; name: string; city: string; state?: string; country: string }, all: Tx[], date: string): InvoiceDoc {
+  // Q123, Q124 (Jovial, 13 Nov): a recovery comes off only up to what's paid in its currency; the rest is carried forward
+  const off = setOff(all, all.filter((t) => t.type === 'Recovery'));
+  const txs = all.filter((t) => t.type !== 'Recovery' || off.has(t.id)).map((t) => (t.type === 'Recovery' ? { ...t, amount: -off.get(t.id)! } : t));
+  const carried = all.filter((t) => t.type === 'Recovery' && roundMoney(-t.amount - (t.recovered ?? 0) - (off.get(t.id) ?? 0), t.currency) > 0);
   const sums = sumBy(txs);
   const totals: InvoiceDoc['totals'] = Object.entries(sums).map(([c, n]) => ({ label: `Total (${c})`, value: money(n, c), strong: true }));
   return {
@@ -72,8 +76,28 @@ export function rpInvoice(state: CommState, rp: { id: string; code: string; name
     columns: ['Transaction ID', 'GSP ID', 'Student', 'University', 'Course', 'Intake', 'Study period', 'Amount'],
     rows: txs.map((t) => [t.id, t.app, t.student, t.uniName, t.course, t.intake, studyPeriod(t), money(t.amount, t.currency)]),
     totals,
-    notes: ['Amounts are in each university’s currency, as GSP’s lines show them.', 'Payment details are exchanged with GSP by email, not on the portal.', `To question an amount, email ${state.settings.disputeEmail} with the transaction ID.`],
+    notes: ['Amounts are in each university’s currency, as GSP’s lines show them.', ...(carried.length ? [`Carried forward to a later payment: ${carried.map((t) => `${t.id} ${money(-t.amount - (t.recovered ?? 0) - (off.get(t.id) ?? 0), t.currency)}`).join(', ')}.`] : []), 'Payment details are exchanged with GSP by email, not on the portal.', `To question an amount, email ${state.settings.disputeEmail} with the transaction ID.`],
     sign: `Signed for ${rp.name}`,
+  };
+}
+
+/**
+ * GSP's debit note to an RP (Jovial, 13 Nov, Q118/Q125): the recoveries GSP had nothing to set against, what's left of
+ * each, for the RP to pay back.
+ */
+export function debitNote(state: CommState, rp: { name: string; city: string; state?: string; country: string }, number: string, txs: Tx[], date: string): InvoiceDoc {
+  const left = (t: Tx) => roundMoney(-t.amount - (t.recovered ?? 0), t.currency);
+  const sums = sumBy(txs.map((t) => ({ ...t, amount: left(t) })));
+  return {
+    title: 'Debit note',
+    number,
+    date,
+    from: state.settings.gsp,
+    to: { name: rp.name, lines: [[rp.city, rp.state].filter(Boolean).join(', '), rp.country] },
+    columns: ['Transaction ID', 'GSP ID', 'Student', 'University', 'Why', 'Amount'],
+    rows: txs.map((t) => [t.id, t.app, t.student, t.uniName, t.rpWhat, money(left(t), t.currency)]),
+    totals: Object.entries(sums).map(([c, n]) => ({ label: `To pay back (${c})`, value: money(n, c), strong: true })),
+    notes: [`Commission the universities took back on these students (their clawbacks), your share, with no payment from GSP to set it against for ${state.settings.recoveryChaseDays ?? 90} days or more.`, 'Payment details are exchanged with GSP by email, not on the portal.', `To question an amount, email ${state.settings.disputeEmail} with the transaction ID.`],
   };
 }
 
