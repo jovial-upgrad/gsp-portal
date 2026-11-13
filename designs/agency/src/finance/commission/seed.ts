@@ -519,7 +519,6 @@ export const sampleComm = (): CommState => {
   writeOffs: [],
   clawbacks: [],
   overrides,
-  lumps: [],
   confirms: sampleConfirms(),
   seen: {},
   history: [],

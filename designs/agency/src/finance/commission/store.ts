@@ -333,10 +333,6 @@ export function deleteGroup(gid: string, by: string) {
 export function saveSettings(next: Settings, by: string, what: string) {
   setComm((s) => withLog({ ...s, settings: next }, log('settings', by, `${by} changed ${what}`)));
 }
-/** A lump sum a university paid that isn't one student's line (a volume bonus, a tier true-up), on the university. */
-export function recordLump(uni: string, amount: number, currency: string, reason: string, date: string, by: string) {
-  setComm((s) => withLog({ ...s, lumps: [...(s.lumps ?? []), { id: id('lp'), uni, amount, currency, reason, date, by, at: Date.now() }] }, lineLog(by, `${by} recorded a lump sum of ${money(amount, currency)} from ${uniName(uni)} on ${date}: ${reason}`, [], { uni })));
-}
 /** Finance closed a tier period (T83, Q68): the count is final; credits and top-ups for it fall due at its end. */
 export function closePeriod(scope: string, window: string, by: string) {
   setComm((s) => withLog({ ...s, closes: [...(s.closes ?? []), { scope, window, by, at: Date.now() }] }, lineLog(by, `${by} closed the ${scope} tier period ${window}`, [])));

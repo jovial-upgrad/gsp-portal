@@ -485,8 +485,6 @@ export type RpPayment = { id: string; rp: string; txs: string[]; date: string; b
 export type DebitNote = { id: string; number: string; rp: string; txs: string[]; date: string; by: string; at: number };
 /** An override on one line: its amount, due date and hold, and why. The latest for a line counts. */
 export type Override = { id: string; tx: string; amount: number | null; due: string | null; hold: boolean; reason: string; by: string; at: number };
-/** A lump sum a university paid GSP that isn't one student's line (a volume bonus, a tier true-up): recorded on the university. */
-export type Lump = { id: string; uni: string; amount: number; currency: string; reason: string; date: string; by: string; at: number };
 /** Finance confirmed the student is still studying, so a study period after the first can be invoiced (Jovial, 10 Nov, D19). */
 export type Confirm = { app: string; period: number; by: string; at: number };
 /** A tier period Finance closed (Q68): the tier (university or group name) and its window, recounted at the period end. */
@@ -529,7 +527,6 @@ export type CommState = {
   writeOffs: WriteOff[];
   clawbacks?: Clawback[];
   overrides: Override[];
-  lumps: Lump[];
   confirms: Confirm[];
   /** Tier periods Finance closed (T83). */
   closes?: PeriodClose[];

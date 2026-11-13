@@ -13,7 +13,7 @@ import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } f
 import { addDays, setOff, sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
-import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordLump, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniCurrency, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
 import '../../institution/work/work.css';
@@ -32,7 +32,7 @@ type Who = { name: string; email: string; role: string; region: string };
  *
  * Finance's to-do (Jovial, 10 Nov, D1): worklist tiles (Ready to invoice, Overdue, Part paid, Invoices to check, Approved
  * to pay, To confirm) that filter the lines; **Exceptions** (lines that can't be priced safely, held, each a T82 task);
- * **Tier periods to close** (no task: T82–T85 dropped 11 Nov) and **Students to confirm** (D19); **Record lump sum** against a university;
+ * **Tier periods to close** (no task: T82–T85 dropped 11 Nov) and **Students to confirm** (D19); (no lump sums: Jovial, 13 Nov, a university's one-off payment is a Record payment on its lines or goes in Xero);
  * and GSP's invoice sent to the university's finance contact through Mail (D17).
  */
 export function Lines({ apps, students, who, say, onOpenApp }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void }) {
@@ -50,7 +50,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [history, setHistory] = useState<Tx | null>(null);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
-  const [lump, setLump] = useState(false);
   const [tile, setTile] = useState<TileKey | ''>('');
   // Jovial, 12 Nov: two tabs, To do (the tiles and worklists) and All lines (the table)
   const [page, setPage] = useState<'todo' | 'lines' | 'unlocks'>('todo');
@@ -212,9 +211,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   return (
     <div className="ipage clines">
       <PageHead title="Commission lines" lead="Every transaction GSP gets from universities and pays to RPs: Finance’s to-do.">
-        <Button variant="secondary" iconLeft={<Icon name="plus" size={18} />} onClick={() => setLump(true)}>
-          Record lump sum
-        </Button>
         <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={exportCsv}>
           Export CSV
         </Button>
@@ -361,34 +357,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                   <Button size="sm" onClick={() => ask(`Close ${p.scope}’s ${p.window} tier period?`, 'Close period', <p>{p.count} {p.count === 1 ? 'student' : 'students'} counted. Lines already invoiced keep their amounts; differences become Adjustment lines.</p>, () => (closePeriod(p.scope, p.window, who.name), say(`${p.scope} ${p.window} closed.`)))}>
                     Close period<span className="vh"> {p.scope} {p.window}</span>
                   </Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {(s.lumps ?? []).length > 0 && (
-        <section className="card irsec" aria-labelledby="clines-lumps">
-          <div className="irsec__head">
-            <div className="irsec__t">
-              <h2 className="irsec__title" id="clines-lumps">
-                Lump sums <span className="num cmuted">({s.lumps.length})</span>
-              </h2>
-              <p className="irsec__note">Money a university paid that isn’t one student’s line: a volume bonus, a tier true-up.</p>
-            </div>
-          </div>
-          <ul className="clines__inv">
-            {s.lumps.map((l) => (
-              <li key={l.id}>
-                <Icon name="wallet" size={18} />
-                <span className="cinv__t">
-                  <span className="iw-strong">
-                    {uniName(l.uni)} · {money(l.amount, l.currency)}
-                  </span>
-                  <span className="iw-sub">
-                    {l.reason} · {dayText(l.date)} · {l.by}
-                  </span>
                 </span>
               </li>
             ))}
@@ -814,16 +782,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         }}
       />
       <HistorySheet t={history} onClose={() => setHistory(null)} />
-      <LumpSheet
-        open={lump}
-        onClose={() => setLump(false)}
-        onSave={(uni, amount, reason, date) => {
-          const cur = uniCurrency(uni);
-          recordLump(uni, amount, cur, reason, date, who.name);
-          say(`${money(amount, cur)} from ${uniName(uni)} recorded.`);
-          setLump(false);
-        }}
-      />
       {preview && <PreviewSheet d={preview} open onClose={() => setPreview(null)} />}
       {dialog}
     </div>
@@ -833,50 +791,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
 type TileKey = 'ready' | 'overdue' | 'part' | 'request' | 'check' | 'chase' | 'approved' | 'confirm' | 'recover' | 'lapsed';
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
-/** Record lump sum: a university, the amount (in its currency), why, and the day it came in. */
-function LumpSheet({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (uni: string, amount: number, reason: string, date: string) => void }) {
-  const s = useComm();
-  const [uni, setUni] = useState('');
-  const [amount, setAmount] = useState<number | null>(null);
-  const [reason, setReason] = useState('');
-  const [date, setDate] = useState(todayIso());
-  const [tried, setTried] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    setUni('');
-    setAmount(null);
-    setReason('');
-    setDate(todayIso());
-    setTried(false);
-  }, [open]);
-  const unis = ctxUnis().filter((u) => s.terms.some((t) => t.uni === u.id));
-  const err = { uni: !uni ? 'Choose the university.' : null, amount: !(amount !== null && amount > 0) ? 'Enter the amount.' : null, reason: !reason.trim() ? 'Say what it’s for.' : null, date: !date || date > todayIso() ? 'A day up to today.' : null };
-  const show = (k: keyof typeof err) => (tried ? err[k] : null);
-  return (
-    <Sheet open={open} onClose={onClose} center className="iform" title="Record lump sum" sub="A payment that isn’t one student’s line. It’s logged against the university." footer={<Foot onClose={onClose} label="Record" onGo={() => (setTried(true), !Object.values(err).some(Boolean) && onSave(uni, amount!, reason.trim(), date))} />}>
-      <div className="iform__grid">
-        <Field id="clump-uni" label="University" required error={show('uni')}>
-          <SelectInput id="clump-uni" value={uni} placeholder="Choose the university" invalid={!!show('uni')} onChange={(e) => setUni(e.target.value)}>
-            {unis.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        <Field id="clump-amt" label={`Amount${uni ? ` (${uniCurrency(uni)})` : ''}`} required error={show('amount')}>
-          <TextInput id="clump-amt" inputMode="decimal" value={numText(amount)} invalid={!!show('amount')} onChange={(e) => setAmount(numOf(e.target.value))} />
-        </Field>
-        <Field id="clump-why" label="What it’s for" required error={show('reason')} className="iform__wide">
-          <TextInput id="clump-why" value={reason} invalid={!!show('reason')} onChange={(e) => setReason(e.target.value)} />
-        </Field>
-        <Field id="clump-date" label="Received on" required error={show('date')}>
-          <TextInput id="clump-date" type="date" value={date} invalid={!!show('date')} onChange={(e) => setDate(e.target.value)} />
-        </Field>
-      </div>
-    </Sheet>
-  );
-}
 function Foot({ onClose, label, onGo }: { onClose: () => void; label: string; onGo: () => void }) {
   return (
     <div className="asf">
