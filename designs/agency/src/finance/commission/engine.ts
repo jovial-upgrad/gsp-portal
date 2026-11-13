@@ -383,7 +383,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   };
   // an enrolment's place among the payable ones counted together (1 = the first)
   const ordinal = (e: Enrolment, same: (x: Enrolment) => boolean) => all.filter((x) => same(x) && payable(x) && before(x, e)).length;
-  /** The window a day falls in for an RP count: the year as the agreement counts it, the intake, or two intakes. */
+  /** The window a day falls in for an RP count: the year as the agreement counts it, or the intake. */
   const windowOf = (x: Enrolment, per: string, yearStart: number) => windowKey(per as never, startOf(x), yearStart || 1, S.fyStart, x.intake);
 
   /* ---------- pass 2: tiers (the university's own and its group's), on the intake start ---------- */

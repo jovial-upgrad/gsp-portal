@@ -93,8 +93,8 @@ export type AnnuityRule = (typeof ANNUITY_RULES)[number];
 
 export const SHARE_TYPES = ['Flat', 'Tiered by enrolments'] as const;
 export type ShareType = (typeof SHARE_TYPES)[number];
-/** How an agreement's (or a notice's) bands count enrolments (Jovial, 10 Nov, D14: the same options as university terms, and two intakes). */
-export const COUNTED_PER = ['Financial year', 'Calendar year', 'Academic year', 'Intake', 'Two intakes'] as const;
+/** How an agreement's (or a notice's) bands count enrolments (Jovial, 10 Nov, D14: the same options as university terms; 13 Nov: no two intakes). */
+export const COUNTED_PER = ['Financial year', 'Calendar year', 'Academic year', 'Intake'] as const;
 export type CountedPer = (typeof COUNTED_PER)[number];
 export const AGREEMENT_STATUSES = ['Active', 'Retired'] as const;
 export type AgreementStatus = (typeof AGREEMENT_STATUSES)[number];
