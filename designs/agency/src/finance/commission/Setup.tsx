@@ -495,6 +495,8 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
             ['Financial year starts', new Date(Date.UTC(2000, S.fyStart - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' })],
             ['Census fallback', `${S.fallbackWeeks} weeks after the study period starts (an estimated date)`],
             ['RP share after year 1', S.annuity.rule === 'Flat %' && S.annuity.pct != null ? `Flat ${pct(S.annuity.pct)}` : S.annuity.rule],
+            ['RPs can claim for', `${S.rpClaimMonths} months after the study period ends`],
+            ['Chase a recovery after', `${S.recoveryChaseDays ?? 90} days with nothing to set it against`],
           ]],
           ['cset-st-invoices', 'Invoices and tax', 'What goes on GSP’s invoices to universities, and the file size allowed for uploads.', [
             ['GST on invoices to universities', Object.entries(S.gst).map(([k, n]) => `${k} ${pct(n ?? 0)}`).join(', ') || 'None'],

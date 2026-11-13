@@ -9,8 +9,8 @@ import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { HOME_RP } from '../../gsp/rps';
 import { ESTIMATE, FilePick, InvoiceSheet, TxTable } from './parts';
-import { addDays, bandStanding, sumBy, totalsText, type RpStanding, type Tx } from './engine';
-import { rpInvoice, type InvoiceDoc } from './invoice';
+import { addDays, bandStanding, setOff, sumBy, totalsText, type RpStanding, type Tx } from './engine';
+import { debitNote, rpInvoice, type InvoiceDoc } from './invoice';
 import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useEarnAs, useLines } from './store';
 import { benefitText, GROUPS, RECOVERED, IN_REVIEW, TO_INVOICE, dayText, groupOf, money, pct, type FileRef } from './model';
 import '../../institution/work/work.css';
@@ -52,6 +52,9 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   // the lines GSP asked it to invoice, or sent back to invoice again (Q50); a recovery asked with them (R106)
   const inReview = mine.filter((t) => t.status === IN_REVIEW).length;
   const toSend = mine.filter((t) => ((TO_INVOICE as readonly string[]).includes(t.status) || t.type === 'Recovery') && t.status !== RECOVERED && !!t.requested && !t.rpInvoice);
+  // Q123, Q124: a recovery shows at what this invoice sets off of it (the rest is carried forward)
+  const offNow = setOff(toSend, toSend.filter((t) => t.type === 'Recovery'));
+  const myNotes = (s.debitNotes ?? []).filter((d) => d.rp === rp.id);
   const sentBack = s.rpInvoices.filter((i) => i.rp === rp.id && i.state === 'Sent back' && i.txs.some((t) => toSend.some((x) => x.id === t)));
   // Jovial, 12 Nov: three tabs; it opens on Invoices to send when GSP has asked for an invoice
   const [tab, setTab] = useState<'overview' | 'send' | 'lines'>(() => (toSend.length ? 'send' : 'overview'));
@@ -292,9 +295,10 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
                   </span>
                   <span className="iw-sub num">
                     {t.id} · {t.app}
+                    {t.type === 'Recovery' ? ` · ${t.rpWhat}${(offNow.get(t.id) ?? 0) < -t.amount - (t.recovered ?? 0) - 0.005 ? `; the rest, ${money(round2(-t.amount - (t.recovered ?? 0) - (offNow.get(t.id) ?? 0)), t.currency)}, comes off a later payment` : ''}` : ''}
                   </span>
                 </span>
-                <span className="num iw-strong">{money(t.amount, t.currency)}</span>
+                <span className="num iw-strong">{money(t.type === 'Recovery' ? -(offNow.get(t.id) ?? 0) : t.amount, t.currency)}</span>
               </li>
             ))}
           </ul>
@@ -303,6 +307,38 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         )}
         {inReview > 0 && <p className="cline">{inReview === 1 ? 'One line is' : `${inReview} lines are`} on an invoice you sent: GSP is checking it.</p>}
       </section>
+      )}
+
+      {tab === 'send' && myNotes.length > 0 && (
+        <section className="card irsec" aria-labelledby="cearn-debit">
+          <div className="irsec__head">
+            <div className="irsec__t">
+              <h2 className="irsec__title" id="cearn-debit">
+                Debit notes from GSP
+              </h2>
+              <p className="irsec__note">Commission universities took back on your students, with no payment from GSP to set it against. Pay it back as the note says; payment details are exchanged by email.</p>
+            </div>
+          </div>
+          <ul className="cearn__unis">
+            {myNotes.map((d) => {
+              const txs = d.txs.map((id) => res.byId.get(id)).filter((x): x is Tx => !!x);
+              const open = txs.filter((t) => t.status !== RECOVERED);
+              return (
+                <li key={d.id}>
+                  <span className="iw-strong">
+                    {d.number} · {dayText(d.date)}
+                  </span>
+                  <span>{open.length ? `${totalsText(sumBy(open.map((t) => ({ ...t, amount: -t.amount - (t.recovered ?? 0) }))))} to pay back` : 'Paid back'}</span>
+                  <span>
+                    <Button variant="secondary" size="sm" iconLeft={<Icon name="download" size={16} />} onClick={() => setDoc(debitNote(s, rp, d.number, txs, d.date))}>
+                      Download<span className="vh"> {d.number}</span>
+                    </Button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
       {tab === 'lines' && (
@@ -535,4 +571,5 @@ function Unlock({ st }: { st: RpStanding }) {
     </section>
   );
 }
+const round2 = (n: number) => Math.round(n * 100) / 100;
 const ordinalText = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
