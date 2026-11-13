@@ -1037,6 +1037,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const err = {
     weeks: !wholeIn(v.fallbackWeeks, 0, 52) ? 'A whole number of weeks, 0 to 52.' : null,
     claim: !wholeIn(v.rpClaimMonths, 1, 120) ? 'A whole number of months, 1 to 120.' : null,
+    chase: !wholeIn(v.recoveryChaseDays ?? 90, 1, 730) ? 'A whole number of days, 1 to 730.' : null,
     gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
     groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
     annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
@@ -1086,6 +1087,9 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <FormSec title="RPs" note="The defaults for every RP; an RP’s record can change them." />
       <Field id="cst-claim" label="RPs can claim for (months)" required error={show('claim')} hint="After the study period ends; an agreement can say otherwise. Past it the line stays on the portal, isn’t closed and the RP isn’t told: Finance adjusts the books.">
         <TextInput id="cst-claim" inputMode="numeric" value={numText(v.rpClaimMonths)} invalid={!!show('claim')} onChange={(e) => set({ rpClaimMonths: numOf(e.target.value) ?? NaN })} />
+      </Field>
+      <Field id="cst-chase" label="Chase a recovery after (days)" required error={show('chase')} hint="A recovery with no payment to set it against this long goes to To do › Recoveries to chase, for a debit note to the RP.">
+        <TextInput id="cst-chase" inputMode="numeric" value={numText(v.recoveryChaseDays ?? 90)} invalid={!!show('chase')} onChange={(e) => set({ recoveryChaseDays: numOf(e.target.value) ?? NaN })} />
       </Field>
       <Field id="cst-ann" label="RP share after year 1" required hint="Unless the RP’s record has its own.">
         <SelectInput id="cst-ann" value={v.annuity.rule} onChange={(e) => set({ annuity: { ...v.annuity, rule: e.target.value as Settings['annuity']['rule'] } })}>
