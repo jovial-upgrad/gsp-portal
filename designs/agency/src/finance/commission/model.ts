@@ -58,6 +58,8 @@ export type Settings = {
    * told; Finance sees it flagged and adjusts the books (Xero).
    */
   rpClaimMonths: number;
+  /** Q118/Q125 (Jovial, 13 Nov): days a recovery waits with nothing to set it against before Finance chases it with a debit note. */
+  recoveryChaseDays?: number;
   /** A notice's source document types. */
   docTypes: string[];
   /** Student types an Australian enrolment needs (new, progression, transfer). */
@@ -396,6 +398,8 @@ export const TO_PAY: readonly RpStatus[] = ['Approved', 'Overdue to pay'];
 export const RP_ESTIMATE: readonly RpStatus[] = ['Expected', 'Waiting for university', 'Ready to request'];
 /** R112: Finance asks for the RP's invoice on these, with Request invoice. */
 export const READY_RP: RpStatus = 'Ready to request';
+/** R112: Finance has asked for the RP's invoice; the RP hasn't sent it yet. */
+export const ASKED_RP: RpStatus = 'Invoice requested';
 /**
  * The status as the RP reads it on Earnings (R112): a line it's shown before its invoice is asked for is its first
  * payment, an Estimate; once asked for, it's To invoice. Every other status reads the same.
@@ -471,7 +475,14 @@ export type RpInvoiceState = (typeof RP_INVOICE_STATES)[number];
 /** The RP's invoice: one file, covering the requested lines it ticked. */
 export type RpInvoice = { id: string; rp: string; file: FileRef; txs: string[]; by: string; at: number; state: RpInvoiceState; reason?: string; decided?: Stamp };
 /** GSP paid an RP for some lines. */
-export type RpPayment = { id: string; rp: string; txs: string[]; date: string; by: string; at: number };
+/**
+ * GSP's payment to an RP. `recovered` (Jovial, 13 Nov, Q123): how much of each recovery this payment set off, when it
+ * couldn't take all of it (the rest stays To recover); a recovery listed without it was set off in full. `repaid`: the RP
+ * paid a recovery back itself, after GSP's debit note (Q118).
+ */
+export type RpPayment = { id: string; rp: string; txs: string[]; date: string; by: string; at: number; recovered?: Record<string, number>; repaid?: boolean };
+/** GSP's debit note to an RP (Jovial, 13 Nov, Q118/Q125): asks it to pay back recoveries GSP had nothing to set against. */
+export type DebitNote = { id: string; number: string; rp: string; txs: string[]; date: string; by: string; at: number };
 /** An override on one line: its amount, due date and hold, and why. The latest for a line counts. */
 export type Override = { id: string; tx: string; amount: number | null; due: string | null; hold: boolean; reason: string; by: string; at: number };
 /** A lump sum a university paid GSP that isn't one student's line (a volume bonus, a tier true-up): recorded on the university. */
@@ -513,6 +524,7 @@ export type CommState = {
   receipts: Receipt[];
   requests: InvoiceRequest[];
   rpInvoices: RpInvoice[];
+  debitNotes?: DebitNote[];
   rpPayments: RpPayment[];
   writeOffs: WriteOff[];
   clawbacks?: Clawback[];

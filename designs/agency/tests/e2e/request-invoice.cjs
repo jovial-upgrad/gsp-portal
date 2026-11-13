@@ -27,7 +27,7 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
     await p.locator('.clines__switch button', { hasText: /^RPs/ }).click(); await wait(300);
     const row = p.locator('main tbody tr', { hasText: 'Ready to request' }).first();
     const id = (await row.locator('td').nth(1).innerText()).split('\n')[0];
-    await p.locator(`label[for="clines-t-${id}"]`).click(); await wait(200);
+    await p.evaluate((id) => document.getElementById(`clines-t-${id}`).click(), id); await wait(200);
     await p.getByRole('button', { name: 'Request invoice' }).click(); await wait(300);
     ok((await p.locator('[role=alertdialog]').count()) === 1, `${width}px: Request invoice asks first`);
     await p.evaluate(() => { const x = [...document.querySelectorAll('[role=alertdialog] button')].find((e) => e.textContent.trim() === 'Request invoice'); x && x.click(); }); await wait(500);

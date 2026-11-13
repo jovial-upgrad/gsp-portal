@@ -125,6 +125,10 @@ export type Tx = {
   override?: Override;
   /** University → GSP: what came in for it so far, what was written off, and why it was paid short (Q44). */
   received?: number;
+  /** A recovery: how much has been set off so far (Q123); the rest is still To recover. */
+  recovered?: number;
+  /** A recovery: GSP's debit note asking the RP to pay it back (Q118). */
+  debitNote?: string;
   writtenOff?: number;
   short?: string;
   /** GSP → RP: the day GSP asked the RP for its invoice. */
@@ -297,6 +301,10 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   );
   const writtenOff = new Map((state.writeOffs ?? []).map((w) => [w.tx, w]));
   const paidRp = new Set(state.rpPayments.flatMap((r) => r.txs));
+  // Q123: how much of each recovery the payments set off (a payment that lists one without an amount took all of it)
+  const recoveredOf = new Map<string, number>();
+  state.rpPayments.forEach((p) => p.txs.forEach((t) => recoveredOf.set(t, (recoveredOf.get(t) ?? 0) + (p.recovered?.[t] ?? Infinity))));
+  const debitOf = new Map((state.debitNotes ?? []).flatMap((d) => d.txs.map((t) => [t, d.number] as const)));
   const rpInv = new Map<string, RpInvoice>();
   const sentBack = new Map<string, RpInvoice>();
   [...state.rpInvoices]
@@ -947,7 +955,12 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
       t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), requested: !!t.requested, due: t.due, today });
       // R106: a recovery waits for the RP's next payment, which it's set against
-      if (t.type === 'Recovery') t.status = paidRp.has(t.id) ? 'Recovered' : 'To recover';
+      if (t.type === 'Recovery') {
+        const got = Math.min(-t.amount, recoveredOf.get(t.id) ?? 0);
+        if (got > 0) t.recovered = round2(got, t.currency);
+        t.debitNote = debitOf.get(t.id);
+        t.status = got >= -t.amount - 0.005 ? 'Recovered' : 'To recover';
+      }
       t.rpSees = rpSees(rpView, t, rpTxs);
       // R105: the RP's claim window, from the end of the study period the line pays for; the line stays as it is
       if (['Ready to request', 'Invoice requested', 'Sent back'].includes(t.status) && !inv) {
@@ -1150,6 +1163,26 @@ export function rpStatus(o: { uni?: TxStatus; paid: boolean; hold: boolean; invo
   return o.requested ? 'Invoice requested' : 'Ready to request';
 }
 
+/**
+ * What a payment to an RP sets off of its recoveries (Jovial, 13 Nov, Q123, Q124): each recovery in the currency of the
+ * lines being paid, oldest first, up to what's left of those lines; the rest of a recovery stays To recover. A recovery
+ * in a currency with nothing being paid waits. Returns each recovery's amount set off (positive), leaving out zeros.
+ */
+export function setOff(lines: Pick<Tx, 'amount' | 'currency' | 'type'>[], recs: Pick<Tx, 'id' | 'amount' | 'currency' | 'recovered' | 'trigger'>[]): Map<string, number> {
+  const room = new Map<string, number>();
+  lines.filter((t) => t.type !== 'Recovery' && t.amount > 0).forEach((t) => room.set(t.currency, (room.get(t.currency) ?? 0) + t.amount));
+  const out = new Map<string, number>();
+  [...recs]
+    .sort((a, b) => (a.trigger ?? '').localeCompare(b.trigger ?? ''))
+    .forEach((r) => {
+      const left = round2(-r.amount - (r.recovered ?? 0), r.currency);
+      const take = round2(Math.min(left, room.get(r.currency) ?? 0), r.currency);
+      if (take <= 0) return;
+      out.set(r.id, take);
+      room.set(r.currency, round2((room.get(r.currency) ?? 0) - take, r.currency));
+    });
+  return out;
+}
 /** Adds money by currency: "AUD 2,000 + GBP 300". */
 export const totalsText = (m: Record<string, number>) => (Object.keys(m).length ? Object.entries(m).map(([c, n]) => money(n, c)).join(' + ') : '—');
 export const sumBy = (txs: Pick<Tx, 'amount' | 'currency'>[]) => txs.reduce<Record<string, number>>((m, t) => ((m[t.currency] = round2((m[t.currency] ?? 0) + t.amount, t.currency)), m), {});
@@ -1169,7 +1202,7 @@ export const rpsWithoutRecord = <R extends { id: string }>(state: CommState, acc
 /** Universities without terms: each makes a T81 task, and the "without terms" tile counts them. */
 export const unisWithoutTerms = <U extends { id: string }>(state: CommState, unis: U[]) => unis.filter((u) => !state.terms.some((t) => t.uni === u.id));
 
-export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22' | 'N23' | 'N24' | 'N25' | 'N26'; title: string; text: string; at: number };
+export type CommNote = { id: string; to: 'rp' | 'finance'; rp: string; code: 'N16' | 'N17' | 'N18' | 'N19' | 'N20' | 'N21' | 'N22' | 'N23' | 'N24' | 'N25' | 'N26' | 'N27'; title: string; text: string; at: number };
 /** Whether an RP is shown a line, by its view (Jovial, 11 Nov): its kind (a promotion is course commission; an adjustment
  * is what it adjusts) and its study period. */
 export function rpSees(v: RpView, t: Pick<Tx, 'type' | 'adjusts' | 'period'> & { requested?: string; status?: string }, all: Pick<Tx, 'id' | 'type' | 'adjusts'>[]): boolean {
@@ -1270,8 +1303,10 @@ export function commNotes(state: CommState, res: Result, rpName: (id: string) =>
     // N26 (R106, Q54's "recovery applied"): the RP is told when GSP will recover a university's clawback from its next
     // payment: since 13 Nov (R112), when Finance's invoice request takes the recovery with it
     ...res.txs
-      .filter((t) => t.side === 'rp' && t.type === 'Recovery' && t.status === 'To recover' && !!t.requested)
-      .map((t): CommNote => ({ id: `n26-${t.id}`, to: 'rp', rp: t.rp, code: 'N26', title: `${t.uniName} took back commission on ${t.student}`, text: `${money(-t.amount, t.currency)} is set against this payment from GSP (${t.id}). Questions: reply to the commission email.`, at: state.requests.find((r) => r.txs.includes(t.id))?.at ?? Date.now() })),
+      .filter((t) => t.side === 'rp' && t.type === 'Recovery' && ((t.status === 'To recover' && !!t.requested) || (!t.requested && t.status === 'Recovered')))
+      .map((t): CommNote => ({ id: `n26-${t.id}`, to: 'rp', rp: t.rp, code: 'N26', title: `${t.uniName} took back commission on ${t.student}`, text: `${money(-t.amount, t.currency)} is set against this payment from GSP (${t.id}). Questions: reply to the commission email.`, at: state.requests.find((r) => r.txs.includes(t.id))?.at ?? state.rpPayments.find((r) => r.txs.includes(t.id))?.at ?? Date.now() })),
+    // N27 (Jovial, 13 Nov, Q118/Q125): GSP's debit note asks the RP to pay back a recovery it had nothing to set against
+    ...(state.debitNotes ?? []).map((d): CommNote => ({ id: `n27-${d.id}`, to: 'rp', rp: d.rp, code: 'N27', title: `GSP asks you to pay back ${totalsText(sumBy(d.txs.map((i) => res.byId.get(i)).filter((x): x is Tx => !!x).map((x) => ({ ...x, amount: -x.amount - (x.recovered ?? 0) }))))}`, text: `Debit note ${d.number}, ${dayText(d.date)}: commission universities took back on your students, with no payment from GSP to set it against. Download it on Earnings; pay it as the note says.`, at: d.at })),
     ...rpReminders,
     ...uniReminders,
     ...rpPayReminders,

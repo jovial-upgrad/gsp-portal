@@ -190,3 +190,5 @@
 .cunlock__splits ul { list-style: none; margin: var(--sp-6) 0 0; padding: 0; display: grid; gap: 4px; }
 .cunlock__splits li { display: flex; justify-content: space-between; gap: var(--sp-8); font-size: var(--t-caption); }
 .cunlock .cunlock__pct { font-size: 16px; }
+/* the tick column takes only the checkbox's width (Jovial, 13 Nov: the table gave it the spare width) */
+.clines .itab .iw-tick { width: 1%; min-width: 0; padding-right: var(--sp-8); }

@@ -3,8 +3,6 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
 import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
-import { COURSES } from '../../data/courses';
-import { estimateFor } from './estimate';
 import { RecordTabs, Toast } from '../../institution/records/parts';
 import { todayIso } from '../../institution/data/records';
 import type { Application } from '../../data/applications';
@@ -14,7 +12,7 @@ import { ESTIMATE, FilePick, InvoiceSheet, TxTable } from './parts';
 import { addDays, bandStanding, sumBy, totalsText, type RpStanding, type Tx } from './engine';
 import { rpInvoice, type InvoiceDoc } from './invoice';
 import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useEarnAs, useLines } from './store';
-import { benefitText, GROUPS, RECOVERED, IN_REVIEW, TO_INVOICE, dayText, groupOf, money, pct, rpLabel, type FileRef } from './model';
+import { benefitText, GROUPS, RECOVERED, IN_REVIEW, TO_INVOICE, dayText, groupOf, money, pct, type FileRef } from './model';
 import '../../institution/work/work.css';
 
 /**
@@ -24,8 +22,8 @@ import '../../institution/work/work.css';
  *   year quarters, Settings' financial year start).
  * - **Month by month / quarter by quarter**: paid (by the day GSP paid) and expected (by the due date), in one currency
  *   at a time when there are several.
- * - **Still to come**: everything not paid yet, labelled as estimates (D21); and, per university it has students at,
- *   about what it earns on a course there as a % of the fee, and its next band (Q101, R104).
+ * - **What the next enrolments unlock** (Jovial, 13 Nov): its agreement's bands and bonuses at an enrolment number.
+ *   (Still to come, later Coming to you, was dropped the same day: Jovial didn't need it.)
  * - **Applications**: one card each, "x of y paid", what's next; picking one narrows the lines to it.
  * - **Invoices to send** (the lines GSP asked for, with recoveries set against them, R106) and **Commission lines**
  *   with filters. No payment details: GSP and the RP exchange them by email (Q45).
@@ -109,23 +107,6 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
     });
   })();
   const top = Math.max(1, ...buckets.map((b) => b.paid + b.expected));
-
-  /* still to come, and about what it earns per university (R104) */
-  // R112: what's coming is what GSP asked for (and is checking or paying), and first payments as estimates
-  const toCome = sumBy(live.filter((t) => !isPaid(t)));
-  const early = sumBy(live.filter((t) => !isPaid(t) && rpLabel(t.status) === 'Estimate'));
-  const asked = sumBy(live.filter((t) => !isPaid(t) && rpLabel(t.status) !== 'Estimate'));
-  const perUni = useMemo(() => {
-    const seen = new Map<string, Tx>();
-    mine.forEach((t) => !seen.has(t.uni) && seen.set(t.uni, t));
-    return [...seen.values()]
-      .map((t) => {
-        const c = COURSES.find((x) => x.uni.id === t.uni && x.name === t.course);
-        const e = c ? estimateFor(s, c, rp.id, today, enrolmentsOf(apps, students)) : null;
-        return e ? { uni: t.uniName, course: t.course, e } : null;
-      })
-      .filter((x): x is NonNullable<typeof x> => !!x);
-  }, [mine, s, rp.id, today, apps, students]);
 
   /* applications: one card each */
   const cards = useMemo(() => {
@@ -270,42 +251,6 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
         )}
       </section>
 
-      <section className="card irsec" aria-labelledby="cearn-come">
-        <div className="irsec__head">
-          <div className="irsec__t">
-            <h2 className="irsec__title" id="cearn-come">
-              Coming to you
-            </h2>
-            <p className="irsec__note">
-              {Object.keys(toCome).length
-                ? [
-                    Object.keys(asked).length ? `${totalsText(asked)} GSP has asked you to invoice, or is checking or paying` : '',
-                    Object.keys(early).length ? `${totalsText(early)} in first payments, estimated: GSP asks for your invoice once the university pays it` : '',
-                  ]
-                    .filter(Boolean)
-                    .join('. ') + '.'
-                : 'Nothing waiting: everything is paid.'}
-            </p>
-          </div>
-        </div>
-        {perUni.length > 0 && (
-          <ul className="cearn__unis">
-            {perUni.map((x) => (
-              <li key={x.uni}>
-                <span className="iw-strong">{x.uni}</span>
-                <span>
-                  You earn about <strong>{x.e.pctOfFee}%</strong> of the {x.e.basis} fee ({money(x.e.amount, x.e.currency)} on {x.course})
-                </span>
-                {x.e.next && (
-                  <span className="cmuted">
-                    {x.e.next.more} more {x.e.next.more === 1 ? 'enrolment' : 'enrolments'} and it’s about {x.e.next.pctOfFee}% ({money(x.e.next.amount, x.e.currency)})
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
         </>
       )}
 
