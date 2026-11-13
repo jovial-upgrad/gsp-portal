@@ -363,6 +363,8 @@ export const sampleTerms = (): UniTerms[] => [
   uniTerms('dbs', [null, 15, 15, 15, 15, null], 'Enrolment confirmed', 1, 30, '2025-03-27'),
   uniTerms('ul', [12, 12, 12, 12, 12, null], 'Census date', 1, 45, '2025-07-15'),
   uniTerms('pace', [12, 12, 12, 12, 12, null], 'Census date', 2, 60, '2025-08-20'),
+  // Jovial, 13 Nov: a university that pays per unit of study, so Key details asks for the units (name, fee, census)
+  uniTerms('lincoln', [12.5, 12.5, 12.5, 12.5, 12.5, null], 'Census date', 2, 60, '2025-10-01', { payUnit: 'Per unit', charge: { unit: 'Units', n: 8 } }),
   uniTerms('canberra', [15, 15, 15, 15, 15, null], 'Census date', 2, 30, '2025-09-02'),
   uniTerms('unisc', [15, 15, 15, 15, 15, null], 'Census date', 2, 30, '2025-09-02'),
 ];
