@@ -51,6 +51,7 @@ import {
   type Trigger,
   type UniCountedPer,
   type UniTerms,
+  type Enrolment,
 } from './model';
 
 /** A Setup form: a centred sheet with Cancel and Save on the right. */
@@ -668,7 +669,7 @@ function TierOptions({ idp, v, set, yearField = true }: { idp: string; v: Pick<T
  * with their options and band bonuses, promotions, additional commission, GSP's bonus schemes, the contract and notes.
  * Saving an edit shows its effect first (D15).
  */
-export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: { open: boolean; uni: string | null; preset?: string; me: string; onClose: () => void; onSaved: (uni: string) => void }) {
+export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSaved }: { open: boolean; uni: string | null; preset?: string; me: string; extra?: Enrolment[]; onClose: () => void; onSaved: (uni: string) => void }) {
   const s = useComm();
   const was = editUni ? s.terms.find((t) => t.uni === editUni) : undefined;
   const [v, setV] = useState<TermsDraft>(blankTerms);
@@ -747,7 +748,7 @@ export function TermsForm({ open, uni: editUni, preset, me, onClose, onSaved }: 
     };
     if (!was) return commit();
     // D15: see the effect first; a back-dated edit re-prices lines not yet invoiced, and kept lines get Adjustment lines
-    const fx = termsEffect(t, from, me);
+    const fx = termsEffect(t, from, me, extra);
     const none = !fx.repriced && !fx.adjusted && !fx.added;
     ask(
       `Save ${uniName(v.uni)}’s terms from ${dayText(from)}?`,

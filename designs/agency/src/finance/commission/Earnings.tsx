@@ -9,10 +9,10 @@ import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { HOME_RP } from '../../gsp/rps';
 import { ESTIMATE, FilePick, InvoiceSheet, TxTable } from './parts';
-import { addDays, bandStanding, setOff, sumBy, totalsText, type RpStanding, type Tx } from './engine';
+import { addDays, bandStanding, rpToSend, setOff, sumBy, totalsText, type RpStanding, type Tx } from './engine';
 import { debitNote, rpInvoice, type InvoiceDoc } from './invoice';
 import { ctxOf, ctxRps, enrolmentsOf, uploadRpInvoice, useComm, useEarnAs, useLines } from './store';
-import { benefitText, GROUPS, RECOVERED, IN_REVIEW, TO_INVOICE, dayText, groupOf, money, pct, type FileRef } from './model';
+import { benefitText, GROUPS, RECOVERED, IN_REVIEW, dayText, groupOf, money, pct, type FileRef } from './model';
 import '../../institution/work/work.css';
 
 /**
@@ -51,7 +51,7 @@ export function Earnings({ agency, me, apps, students }: { agency: string; me: s
   const when = (t: Tx) => (isPaid(t) ? paidOn.get(t.id) ?? t.due : t.due);
   // the lines GSP asked it to invoice, or sent back to invoice again (Q50); a recovery asked with them (R106)
   const inReview = mine.filter((t) => t.status === IN_REVIEW).length;
-  const toSend = mine.filter((t) => ((TO_INVOICE as readonly string[]).includes(t.status) || t.type === 'Recovery') && t.status !== RECOVERED && !!t.requested && !t.rpInvoice);
+  const toSend = rpToSend(mine);
   // Q123, Q124: a recovery shows at what this invoice sets off of it (the rest is carried forward)
   const offNow = setOff(toSend, toSend.filter((t) => t.type === 'Recovery'));
   const myNotes = (s.debitNotes ?? []).filter((d) => d.rp === rp.id);

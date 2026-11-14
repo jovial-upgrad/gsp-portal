@@ -317,7 +317,7 @@ export function Portal({
     ) : section === 'lines' ? (
       <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : section === 'setup' ? (
-      <Setup me={GSP_USER.name} say={say} start={setupStart} openRp={(id) => openRecord({ section: 'rps', id, tab: 'commission' })} />
+      <Setup me={GSP_USER.name} say={say} start={setupStart} apps={apps} students={students} openRp={(id) => openRecord({ section: 'rps', id, tab: 'commission' })} />
     ) : section === 'inbox' ? (
       <MailInbox box={mailbox} setBox={setMailbox} me={GSP_USER} apps={apps} students={students} navKey={navKey} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'profile' ? (

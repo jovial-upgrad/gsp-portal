@@ -198,6 +198,15 @@ try {
   const s4 = { ...s3, rpInvoices: [...s3.rpInvoices, { id: 'ri-t', rp: rp1.rp, file: { name: 'inv.pdf', size: 1 }, txs: [rp1.id], by: 'RP', at: 5, state: 'Sent back', reason: 'The amount doesn’t match.', decided: { by: 'Fin', at: 6 } }] };
   const r4 = run(s4);
   ok('Q50 a sent-back line is Sent back', r4.byId.get(rp1.id).status === 'Sent back');
+  {
+    // D15: the terms preview counts the portal's own enrolments too, as the lines do (Meghna Iyer, GSP-23664, Federation)
+    const fed = s0.terms.find((t) => t.uni === 'feduni');
+    const { created, updated, earlier, ...body } = fed;
+    const up = { ...body, rates: Object.fromEntries(Object.entries(fed.rates).map(([k, v]) => [k, v == null ? v : v + 2])) };
+    const withPortal = store.termsEffect(up, '2026-01-01', 'Test', extra), seedOnly = store.termsEffect(up, '2026-01-01', 'Test', []);
+    ok('D15 the terms preview counts the portal’s own enrolments', withPortal.repriced + withPortal.adjusted > seedOnly.repriced + seedOnly.adjusted, `${JSON.stringify(withPortal)} vs ${JSON.stringify(seedOnly)}`);
+  }
+  ok('Q50 a sent-back line is back in the RP’s Invoices to send', engine.rpToSend(r4.txs.filter((t) => t.rp === rp1.rp)).some((t) => t.id === rp1.id));
   ok('Q54 the RP is told it was sent back, with the reason', engine.commNotes(s4, r4, (x) => x, TODAY).some((n) => n.code === 'N19' && n.to === 'rp' && n.text.includes('doesn’t match')));
   const s5 = { ...s4, rpInvoices: [...s4.rpInvoices, { id: 'ri-t2', rp: rp1.rp, file: { name: 'inv2.pdf', size: 1 }, txs: [rp1.id], by: 'RP', at: 7, state: 'To check' }] };
   ok('Q50 a new invoice puts it In review', run(s5).byId.get(rp1.id).status === 'Invoice in review');

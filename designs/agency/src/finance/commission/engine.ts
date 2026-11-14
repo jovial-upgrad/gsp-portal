@@ -14,7 +14,7 @@
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
 import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
-import { EXCEPTIONS, PAY_UNITS, RP_ESTIMATE, SIDES, TRIGGERS, dayText, money, pct, roundMoney } from './model';
+import { EXCEPTIONS, PAY_UNITS, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, unreadableRows, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
@@ -1170,6 +1170,15 @@ export function rpStatus(o: { uni?: TxStatus; paid: boolean; hold: boolean; invo
  * lines being paid, oldest first, up to what's left of those lines; the rest of a recovery stays To recover. A recovery
  * in a currency with nothing being paid waits. Returns each recovery's amount set off (positive), leaving out zeros.
  */
+/**
+ * The lines an RP is asked to invoice (Earnings › Invoices to send): asked for and not yet invoiced, or sent back to
+ * invoice again (Q50), and a recovery asked with them (R106). A sent-back line still names the invoice that came back,
+ * so that alone doesn't take it off the list.
+ */
+export function rpToSend<T extends Pick<Tx, 'status' | 'type' | 'requested' | 'rpInvoice'>>(mine: T[]): T[] {
+  return mine.filter((t) => ((TO_INVOICE as readonly string[]).includes(t.status) || t.type === 'Recovery') && t.status !== RECOVERED && !!t.requested && (!t.rpInvoice || t.status === 'Sent back'));
+}
+
 export function setOff(lines: Pick<Tx, 'amount' | 'currency' | 'type'>[], recs: Pick<Tx, 'id' | 'amount' | 'currency' | 'recovered' | 'trigger'>[]): Map<string, number> {
   const room = new Map<string, number>();
   lines.filter((t) => t.type !== 'Recovery' && t.amount > 0).forEach((t) => room.set(t.currency, (room.get(t.currency) ?? 0) + t.amount));

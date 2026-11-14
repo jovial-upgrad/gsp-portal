@@ -10,9 +10,11 @@ import { DocLine, LogsFold, type SetupTab } from './parts';
 import { AgreementForm, GroupForm, NoticeForm, RecordForm, RpPicker, SettingsForm, TermsForm } from './forms';
 import { appliesText } from './tabs';
 import { noticeStatus, rpsWithoutRecord, unisWithoutTerms } from './engine';
-import { acceptedRps, addNoticeRps, ctxRps, ctxUnis, deleteGroup, endNotice, ipName, removeNoticeRp, retireAgreement, rpName, uniName, useComm } from './store';
+import { acceptedRps, addNoticeRps, ctxRps, ctxUnis, deleteGroup, endNotice, enrolmentsOf, ipName, removeNoticeRp, retireAgreement, rpName, uniName, useComm } from './store';
 import { benefitText, bonusText, dayText, pct, ratesText, shareText, bandsText, type Notice } from './model';
 import { Facts } from '../../institution/records/parts';
+import type { Application } from '../../data/applications';
+import type { Student } from '../../data/students';
 
 const TABS: { key: SetupTab; label: string }[] = [
   { key: 'rps', label: 'RP records' },
@@ -55,7 +57,8 @@ const has = (q: string, ...xs: (string | undefined)[]) => !q.trim() || xs.some((
  * Commissions keeps every record the commission engine reads here. `start` opens a tab (and a record's form) from a
  * Commission tab's Edit in Setup.
  */
-export function Setup({ me, say, start, openRp }: { me: string; say: (m: string) => void; start?: SetupStart; openRp?: (id: string) => void }) {
+export function Setup({ me, say, start, openRp, apps, students }: { me: string; say: (m: string) => void; start?: SetupStart; openRp?: (id: string) => void; apps?: Application[]; students?: Student[] }) {
+  const extra = useMemo(() => (apps && students ? enrolmentsOf(apps, students) : []), [apps, students]);
   const s = useComm();
   const [tab, setTab] = useState<SetupTab>(start?.tab ?? 'rps');
   const [q, setQ] = useState('');
@@ -592,6 +595,7 @@ export function Setup({ me, say, start, openRp }: { me: string; say: (m: string)
         }}
       />
       <TermsForm
+        extra={extra}
         open={!!tmForm}
         uni={tmForm?.uni ?? null}
         preset={tmForm?.preset}

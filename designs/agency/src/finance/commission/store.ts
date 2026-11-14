@@ -285,12 +285,12 @@ export function saveTerms(t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, 
 }
 /**
  * See the effect (D15): what saving these terms would do to the university's lines, worked out by the same engine on
- * the seeded enrolments: lines not yet invoiced are re-priced, kept lines get an Adjustment line, new lines appear.
+ * the seeded enrolments and the portal's own (`extra`, as the lines are priced): lines not yet invoiced are re-priced, kept lines get an Adjustment line, new lines appear.
  */
-export function termsEffect(t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, from: string, by: string) {
+export function termsEffect(t: Omit<UniTerms, 'created' | 'updated' | 'earlier'>, from: string, by: string, extra: Enrolment[] = []) {
   const ctx = ctxOf();
-  const now = compute(settleAll(state, ctx), ctx);
-  const then = compute(settleAll(withTerms(state, t, by, from), ctx), ctx);
+  const now = compute(settleAll(state, ctx, extra), ctx, extra);
+  const then = compute(settleAll(withTerms(state, t, by, from), ctx, extra), ctx, extra);
   const mine = (r: Result) => new Map(r.txs.filter((x) => x.uni === t.uni && x.side === 'uni').map((x) => [x.key, x]));
   const a = mine(now);
   const b = mine(then);
