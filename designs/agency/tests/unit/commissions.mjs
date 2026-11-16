@@ -98,15 +98,17 @@ try {
     { ...lines.blankView('rp'), types: ['Bonus'] },
     { ...lines.blankView('rp'), q: 'Simran' },
     { ...lines.blankView('uni'), statuses: ['Overdue'], regions: ['Vietnam'] },
+    { ...lines.blankView('rp'), statuses: ['Not payable'] },
   ];
   for (const v of views) {
     const shown = lines.filterLines(res.txs, v);
     const csv = lines.csvRows(shown);
     const okRows = csv.length === shown.length + 1 && csv.slice(1).every((r, i) => r[0] === shown[i].id);
-    const allMatch = shown.every((t) => t.side === v.side && (v.tab === 'all' || model.groupOf(t.side, t.status) === v.tab) && (!v.from || t.due >= v.from) && (!v.to || t.due <= v.to) && (!v.types.length || v.types.includes(t.type)) && (!v.statuses.length || v.statuses.includes(t.status)) && (!v.who.length || v.who.includes(v.side === 'uni' ? t.uni : t.rp)));
+    const allMatch = shown.every((t) => t.side === v.side && (v.tab === 'all' ? model.groupOf(t.side, t.status) !== 'none' || v.statuses.includes(t.status) : model.groupOf(t.side, t.status) === v.tab) && (!v.from || t.due >= v.from) && (!v.to || t.due <= v.to) && (!v.types.length || v.types.includes(t.type)) && (!v.statuses.length || v.statuses.includes(t.status)) && (!v.who.length || v.who.includes(v.side === 'uni' ? t.uni : t.rp)));
     const none = res.txs.filter((t) => !shown.includes(t)).every((t) => lines.filterLines([t], v).length === 0);
     ok(`export respects the view: ${lines.viewText(v, (x) => x)}`, okRows && allMatch && none, `${shown.length} shown, ${csv.length - 1} exported`);
   }
+  ok('16 Nov Not payable lines show only when the Status filter asks for them', !lines.filterLines(res.txs, views[0]).some((t) => t.status === 'Not payable') && lines.filterLines(res.txs, views[views.length - 1]).length > 0);
   ok('a filtered export is smaller than the whole list', lines.filterLines(res.txs, views[2]).length < lines.filterLines(res.txs, views[0]).length);
 
   // tasks T80 and T81 come from the records, and closing them is saving the record

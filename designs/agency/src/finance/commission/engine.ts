@@ -107,6 +107,8 @@ export type Tx = {
   gst?: number;
   /** Why it's held: an exception, or a suspended RP. */
   heldWhy?: string;
+  /** Why a Not payable line isn't (16 Nov): from the withdrawal date and the trigger it came before. */
+  nopayWhy?: string;
   /** A study period after the first waits for Finance to confirm the student continues (D19). */
   toConfirm?: boolean;
   /** Its trigger date is estimated (no census date on the application: start + fallback weeks). */
@@ -777,6 +779,8 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       if (held) t.heldWhy = holdWhy;
       t.status = uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today, toConfirm: needs });
       if (t.type === 'Clawback') t.status = 'Paid';
+      if (t.status === 'Not payable' && e.withdrawn)
+        t.nopayWhy = `Student withdrew ${dayText(e.withdrawn)}, before ${t.period ? `study period ${t.period}’s ` : 'its '}${(T?.trigger ?? 'trigger date').toLowerCase()}${t.trigger ? ` (${dayText(t.trigger)})` : ''}`;
       // R105: GSP's own claim window with the university, when its terms have one
       if (T?.claimMonths && !t.invoice && !['Paid', 'Part paid', 'Not payable'].includes(t.status)) {
         t.claimEnds = keepMonth(periodEnd(t), T.claimMonths);
@@ -957,6 +961,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // a withdrawn student earns the RP no bonus (D28); a milestone counts students GSP was paid for, so it stands
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
       t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), requested: !!t.requested, due: t.due, today });
+      if (t.status === 'Not payable') t.nopayWhy = noBonus ? `Student withdrew ${dayText(e.withdrawn!)}; an RP bonus isn’t paid for a withdrawn student` : anchor?.nopayWhy;
       // R106: a recovery waits for the RP's next payment, which it's set against
       if (t.type === 'Recovery') {
         const got = Math.min(-t.amount, recoveredOf.get(t.id) ?? 0);

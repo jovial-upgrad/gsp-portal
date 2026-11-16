@@ -62,7 +62,9 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const tabCount = (k: LineView['tab']) => filterLines(res.txs, { ...v, tab: k }).length;
   const pg = usePaged(shown, [JSON.stringify(v)]);
   useEffect(() => setTicked([]), [JSON.stringify(v)]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sel = shown.filter((t) => ticked.includes(t.id));
+  // 16 Nov (Jovial): a line that counts toward nothing (Not payable) can't be ticked; it's there as a record
+  const canTick = (t: Tx) => groupOf(t.side, t.status) !== 'none';
+  const sel = shown.filter((t) => ticked.includes(t.id) && canTick(t));
   const filtered = v.who.length + v.regions.length + v.types.length + v.statuses.length > 0 || !!v.from || !!v.to || !!v.q || !!v.lapsed;
   const clear = () => setV((x) => ({ ...blankView(x.side), tab: x.tab }));
   const onlyOne = (k: 'uni' | 'rp') => new Set(sel.map((t) => t[k])).size === 1;
@@ -545,7 +547,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
             )}
           </div>
           <p className="stools__count" id="clines-count" role="status">
-            <span className="num">{shown.length}</span> {shown.length === 1 ? 'line' : 'lines'} · {totalsText(sumBy(shown.filter((t) => groupOf(t.side, t.status) !== 'none')))}
+            <span className="num">{shown.length}</span> {shown.length === 1 ? 'line' : 'lines'} · {shown.some(canTick) ? totalsText(sumBy(shown.filter(canTick))) : 'nothing payable'}
           </p>
         </div>
 
@@ -604,7 +606,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
               <thead>
                 <tr>
                   <th scope="col" className="iw-tick">
-                    <Checkbox id="clines-all" checked={pg.rows.length > 0 && pg.rows.every((t) => ticked.includes(t.id))} onChange={(on) => setTicked(on ? [...new Set([...ticked, ...pg.rows.map((t) => t.id)])] : ticked.filter((x) => !pg.rows.some((t) => t.id === x)))}>
+                    <Checkbox id="clines-all" checked={pg.rows.some(canTick) && pg.rows.filter(canTick).every((t) => ticked.includes(t.id))} onChange={(on) => setTicked(on ? [...new Set([...ticked, ...pg.rows.filter(canTick).map((t) => t.id)])] : ticked.filter((x) => !pg.rows.some((t) => t.id === x)))}>
                       <span className="vh">Tick every line on this page</span>
                     </Checkbox>
                   </th>
@@ -628,9 +630,11 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                   return (
                     <tr key={t.id} className={ticked.includes(t.id) ? 'is-ticked' : ''}>
                       <td className="iw-tick">
-                        <Checkbox id={`clines-t-${t.id}`} checked={ticked.includes(t.id)} onChange={(on) => setTicked((x) => (on ? [...x, t.id] : x.filter((y) => y !== t.id)))}>
-                          <span className="vh">Tick {t.id}</span>
-                        </Checkbox>
+                        {canTick(t) && (
+                          <Checkbox id={`clines-t-${t.id}`} checked={ticked.includes(t.id)} onChange={(on) => setTicked((x) => (on ? [...x, t.id] : x.filter((y) => y !== t.id)))}>
+                            <span className="vh">Tick {t.id}</span>
+                          </Checkbox>
+                        )}
                       </td>
                       <td>
                         <span className="iw-strong num">{t.id}</span>
@@ -665,6 +669,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                       <td>
                         <StatusPill s={t.status} />
                         {t.heldWhy && <span className="iw-sub">{t.heldWhy}</span>}
+                        {t.nopayWhy && <span className="iw-sub">{t.nopayWhy}</span>}
                         {t.toConfirm && <span className="iw-sub">Waiting for Finance to confirm the student continues</span>}
                         {t.override && (
                           <span className="iw-sub">
@@ -678,7 +683,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                           label={`More for ${t.id}`}
                           items={[
                             // a Paid line never changes (9 Nov): no override
-                            ...(groupOf(t.side, t.status) === 'paid' ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
+                            ...(groupOf(t.side, t.status) === 'paid' || !canTick(t) ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
                             ...(t.status === PART_PAID ? [{ id: 'writeoff', label: 'Write off the rest', icon: 'minus' as const, onPick: () => setWriting(t) }] : []),
                             // R106: a university takes back commission it paid on this line
                             // Q132 (Jovial, 13 Nov): the invoice a line is on, to look at again or send again (same number, same due date)
