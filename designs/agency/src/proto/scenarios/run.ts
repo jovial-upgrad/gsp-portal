@@ -94,7 +94,7 @@ function world(cfg, apps, today) {
     }
     return { ...termsBody(cur), uni: u.id, created: stamp, updated: stamp, earlier };
   });
-  const groups = (cfg.groups ?? []).map((g) => ({ id: g.id, name: g.name, members: g.members, ...tierOf(g.tier), bonus: (g.bonuses ?? []).map(scheme), notes: '', created: stamp, updated: stamp }));
+  const groups = (cfg.groups ?? []).map((g) => ({ id: g.id, ip: g.ip ?? '', name: g.name, members: g.members, ...tierOf(g.tier), bonus: (g.bonuses ?? []).map(scheme), notes: '', created: stamp, updated: stamp }));
   const agreements = [];
   const records = [];
   for (const r of cfg.rps) {

@@ -308,12 +308,15 @@ export type TermsBody = {
 export type UniTerms = TermsBody & { uni: string; created: Stamp; updated: Stamp; earlier: (TermsBody & { until: string })[] };
 
 /**
- * A university group (Jovial, 10 Nov, Q56): universities counted together for a tier and for group bonuses, a university
- * in at most one. When a university's own tier and its group's both apply, the group's wins (the sandbox's rule).
+ * IP terms (Q56; 16 Nov: a group is an institution partner): some or all of an IP's universities counted together for a
+ * tier and GSP's bonuses. A partner has an IP tier or tiers per university, never both (R124).
  */
 export type UniGroup = {
   id: string;
+  /** The institution partner whose terms these are (16 Nov: a group is an IP); its name is the IP's. */
+  ip: string;
   name: string;
+  /** The IP's universities that count toward its tier and bonuses: all of them, or some. */
   members: string[];
   bands: Band[];
   countedPer: UniCountedPer;

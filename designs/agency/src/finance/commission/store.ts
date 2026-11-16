@@ -320,13 +320,13 @@ export function saveGroup(g: Omit<UniGroup, 'created' | 'updated'>, by: string) 
     const was = (s.groups ?? []).find((x) => x.id === g.id);
     const next: UniGroup = was ? { ...was, ...g, updated: stamp(by) } : { ...g, created: stamp(by), updated: stamp(by) };
     const groups = was ? s.groups.map((x) => (x.id === g.id ? next : x)) : [...(s.groups ?? []), next];
-    return withLog({ ...s, groups }, log('groups', by, `${by} saved group ${g.name}: ${g.members.map(uniName).join(', ')}`));
+    return withLog({ ...s, groups }, log('groups', by, `${by} saved ${g.name}’s IP terms: ${g.members.map(uniName).join(', ')}`));
   });
 }
 export function deleteGroup(gid: string, by: string) {
   setComm((s) => {
     const g = s.groups.find((x) => x.id === gid)!;
-    return withLog({ ...s, groups: s.groups.filter((x) => x.id !== gid) }, log('groups', by, `${by} deleted group ${g.name}`));
+    return withLog({ ...s, groups: s.groups.filter((x) => x.id !== gid) }, log('groups', by, `${by} deleted ${g.name}’s IP terms`));
   });
 }
 /** Commission settings (Finance › Setup › Settings). */

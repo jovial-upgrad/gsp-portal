@@ -161,7 +161,7 @@ export function UniCommissionTab({ uni }: { uni: { id: string; name: string; cou
       <Facts
         items={[
           ...termsFacts(t, cur),
-          ['Group', group ? `${group.name}${group.bands.length ? `: tier ${bandsText(group.bands)}` : ''}${group.bonus.length ? `; ${group.bonus.map((b) => `${b.name}: ${bonusText(b, cur)}`).join('; ')}` : ''}` : 'None', 'wide'],
+          ['Institution partner terms', group ? `${group.name}${group.bands.length ? `: tier ${bandsText(group.bands)}` : ''}${group.bonus.length ? `; ${group.bonus.map((b) => `${b.name}: ${bonusText(b, cur)}`).join('; ')}` : ''}` : 'None', 'wide'],
           ['Contract', <DocLine key="c" file={t.contract} label={`${uni.name}: contract`} />, 'wide'],
         ]}
       />
@@ -240,7 +240,7 @@ function Standing({ lines }: { lines: AppLines }) {
             <div key={`${t.who}-${t.name}`} className="cmeter__row">
               <div className="cmeter__t">
                 <span>
-                  {t.who === 'group' ? 'Group tier' : 'University tier'}: {t.name}, {t.window}
+                  {t.who === 'group' ? 'IP tier' : 'University tier'}: {t.name}, {t.window}
                 </span>
                 <span className="num">
                   Student {t.rank} of {t.total} · band {t.band} · {pct(t.pct)}

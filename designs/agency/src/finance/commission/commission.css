@@ -36,6 +36,7 @@
 .cform__secnote { margin: 0; color: var(--text-2); font-size: var(--t-label); line-height: var(--lh-label, 1.45); max-width: 62ch; }
 .cform__wide { grid-column: 1 / -1; display: grid; gap: var(--sp-6); min-width: 0; }
 .cform__label { margin: 0; font-size: var(--t-label); font-weight: var(--fw-medium, 500); color: var(--text); }
+.cgr-all { margin-top: 6px; align-self: flex-start; }
 .cform__wide > .cform__hint { margin: 0; }
 
 /* rates by program level: one row a level, rate and fixed amount side by side */

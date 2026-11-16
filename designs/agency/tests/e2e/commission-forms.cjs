@@ -11,7 +11,7 @@ const FORMS = [
   ['Agreements', 'Add Agreement', ['The agreement', 'The RP’s share', 'Payment', 'Bonus']],
   ['Notices', 'Add Notice', ['The notice', 'Who it’s for', 'Which enrolments', 'What the RP gets']],
   ['University terms', 'Add University terms', ['The university and its contract', 'What GSP earns', 'How and when it pays', 'Tier', 'Promotions and additional commission', 'GSP’s own bonus schemes']],
-  ['Groups', 'Add Group', ['The group', 'Group tier', 'Group bonus schemes']],
+  ['Institution partners', 'Add IP terms', ['Institution partner', 'IP tier', 'IP bonus schemes']],
   ['Settings', 'Edit settings', ['Counting and dates', 'RPs', 'Invoices and regions', 'Lists', 'Reminders']],
 ];
 async function open(b, width) {

@@ -35,7 +35,7 @@ export function Unlocks({ res, apps, students }: { res: Result; apps: Applicatio
             <h2 className="irsec__title" id="cunl-h">
               What the next enrolments unlock
             </h2>
-            <p className="irsec__note">Each university’s and group’s tier and bonus schemes, in the counting windows still open. Counted as the lines are: students GSP will be paid for, by intake start. Closest to the next band first.</p>
+            <p className="irsec__note">Each university’s and institution partner’s tier and bonus schemes, in the counting windows still open. Counted as the lines are: students GSP will be paid for, by intake start. Closest to the next band first.</p>
           </div>
           <div className="cearn__acts">
             <SelectInput id="cunl-uni" aria-label="University" placeholder="Every university" allowEmpty value={uni} onChange={(e) => setUni(e.target.value)}>

@@ -72,10 +72,10 @@ const openApp = async (p, nav, id) => {
     await nav('Setup').click();
     await wait(1000);
     const tabs = (await p.locator('main [role=tab]').allInnerTexts()).map((x) => x.trim().split('\n')[0].replace(/\s*\d+$/, ''));
-    ok(tabs.includes('Groups') && tabs.includes('Settings'), `Setup tabs: ${tabs.join(', ')}`);
+    ok(tabs.includes('Institution partners') && tabs.includes('Settings'), `Setup tabs: ${tabs.join(', ')}`);
     await p.locator('main [role=tab]', { hasText: /^Groups/ }).click();
     await wait(600);
-    ok((await main()).includes('UK partner group') && (await main()).includes('Group volume bonus'), 'Setup › Groups: the UK partner group with its group bonus');
+    ok((await main()).includes('Northgate University Group') && (await main()).includes('Northgate volume bonus'), 'Setup › Institution partners: Northgate with its volume bonus');
     await p.locator('main [role=tab]', { hasText: /^Settings/ }).click();
     await wait(600);
     const st = await main();
