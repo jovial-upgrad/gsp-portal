@@ -13,7 +13,7 @@ import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } f
 import { addDays, setOff, sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
-import { recordClawback, acceptRpInvoice, closePeriod, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { recordClawback, acceptRpInvoice, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
 import '../../institution/work/work.css';
@@ -32,7 +32,7 @@ type Who = { name: string; email: string; role: string; region: string };
  *
  * Finance's to-do (Jovial, 10 Nov, D1): worklist tiles (Ready to invoice, Overdue, Part paid, Invoices to check, Approved
  * to pay, To confirm) that filter the lines; **Exceptions** (lines that can't be priced safely, held, each a T82 task);
- * **Tier periods to close** (no task: T82–T85 dropped 11 Nov) and **Students to confirm** (D19); (no lump sums: Jovial, 13 Nov, a university's one-off payment is a Record payment on its lines or goes in Xero);
+ * **Students to confirm** (D19; no button to close a tier period, Jovial 16 Nov); (no lump sums: Jovial, 13 Nov, a university's one-off payment is a Record payment on its lines or goes in Xero);
  * and GSP's invoice sent to the university's finance contact through Mail (D17).
  */
 export function Lines({ apps, students, who, say, onOpenApp }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void }) {
@@ -174,7 +174,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses, lapsed: TILE[k].lapsed });
     setPage('lines');
   };
-  const todoN = (Object.keys(TILE) as TileKey[]).reduce((n, k) => n + TILE[k].n, 0) + res.exceptions.length + work.periods.length;
+  const todoN = (Object.keys(TILE) as TileKey[]).reduce((n, k) => n + TILE[k].n, 0) + res.exceptions.length;
   // R106, R112: the RP's recoveries not yet asked for go with its next invoice request, by themselves
   const recoveriesOf = (rp: string) => res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.status === TO_RECOVER && !t.requested);
   const doRequest = () => {
@@ -333,39 +333,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         </section>
       )}
 
-      {work.periods.length > 0 && (
-        <section className="card irsec" aria-labelledby="clines-close">
-          <div className="irsec__head">
-            <div className="irsec__t">
-              <h2 className="irsec__title" id="clines-close">
-                Tier periods to close <span className="num cmuted">({work.periods.length})</span>
-              </h2>
-              <p className="irsec__note">The count is final once closed: credits and top-ups for the period fall due at its end (Q68).</p>
-            </div>
-          </div>
-          <ul className="clines__inv">
-            {work.periods.map((p) => (
-              <li key={`${p.scope}-${p.window}`}>
-                <Icon name="clock" size={18} />
-                <span className="cinv__t">
-                  <span className="iw-strong">
-                    {p.scope} · {p.window}
-                  </span>
-                  <span className="iw-sub">
-                    Ended {dayText(p.ends)} · {p.count} {p.count === 1 ? 'student' : 'students'} counted
-                  </span>
-                </span>
-                <span className="cinv__acts">
-                  <Button size="sm" onClick={() => ask(`Close ${p.scope}’s ${p.window} tier period?`, 'Close period', <p>{p.count} {p.count === 1 ? 'student' : 'students'} counted. Lines already invoiced keep their amounts; differences become Adjustment lines.</p>, () => (closePeriod(p.scope, p.window, who.name), say(`${p.scope} ${p.window} closed.`)))}>
-                    Close period<span className="vh"> {p.scope} {p.window}</span>
-                  </Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       {toCheck.length > 0 && (
         <section className="card irsec clines__check" aria-labelledby="clines-check">
           <div className="irsec__head">
@@ -503,7 +470,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         </>
       )}
 
-      {page === 'unlocks' && <Unlocks res={res} apps={apps} students={students} />}
+      {page === 'unlocks' && <Unlocks res={res} />}
 
       {page === 'lines' && (
         <>

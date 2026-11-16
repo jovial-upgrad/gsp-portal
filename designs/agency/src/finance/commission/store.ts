@@ -333,13 +333,8 @@ export function deleteGroup(gid: string, by: string) {
 export function saveSettings(next: Settings, by: string, what: string) {
   setComm((s) => withLog({ ...s, settings: next }, log('settings', by, `${by} changed ${what}`)));
 }
-/** Finance closed a tier period (T83, Q68): the count is final; credits and top-ups for it fall due at its end. */
-export function closePeriod(scope: string, window: string, by: string) {
-  setComm((s) => withLog({ ...s, closes: [...(s.closes ?? []), { scope, window, by, at: Date.now() }] }, lineLog(by, `${by} closed the ${scope} tier period ${window}`, [])));
-}
 /**
- * Finance's commission work, as the task rules read it (Jovial, 10 Nov): T82 one task per exception; T83 one per tier
- * period that has ended and isn't closed; T84 one per later study period whose date has come and that waits for
+ * Finance's commission work, as the task rules read it (Jovial, 10 Nov): T82 one task per exception; T84 one per later study period whose date has come and that waits for
  * Finance to confirm the student continues (D19). All worked out by the engine from the records, on the seeded enrolments.
  */
 export function commWork(s: CommState = state, today = todayIso()) {
@@ -347,20 +342,13 @@ export function commWork(s: CommState = state, today = todayIso()) {
   const res = compute(settleAll(s, ctx), ctx);
   const enrolledOn = new Map(res.apps.map((a) => [a.app, a.enrolled]));
   const exceptions = res.exceptions.map((x) => ({ ...x, since: enrolledOn.get(x.app) ?? today, uni: res.byApp.get(x.app)?.uniName ?? '' }));
-  const periods = new Map<string, { scope: string; window: string; ends: string; count: number }>();
-  for (const a of res.apps)
-    for (const t of a.tiers) {
-      if (!t.ends || t.ends >= today || (s.closes ?? []).some((c) => c.scope === t.name && c.window === t.window)) continue;
-      const k = `${t.name}|${t.window}`;
-      periods.set(k, { scope: t.name, window: t.window, ends: t.ends, count: Math.max(periods.get(k)?.count ?? 0, t.total) });
-    }
   const confirm: { app: string; period: number; student: string; uni: string; since: string; tx: string }[] = [];
   for (const t of res.txs)
     if (t.side === 'uni' && t.toConfirm && t.period && t.trigger && t.trigger <= today && t.status !== 'Not payable' && !confirm.some((c) => c.app === t.app && c.period === t.period))
       confirm.push({ app: t.app, period: t.period, student: t.student, uni: t.uniName, since: t.trigger, tx: t.id });
   // notices Finance created that RP Ops hasn't issued yet (R103; shown on RP Ops › Notices, no task)
   const issue = s.notices.filter((n) => !n.issued).map((n) => ({ id: n.id, name: n.name, since: new Date(n.created.at).toISOString().slice(0, 10) }));
-  return { exceptions, periods: [...periods.values()], confirm, issue };
+  return { exceptions, confirm, issue };
 }
 /** Finance confirmed students continue, so their later study periods can be invoiced (D19). */
 export function confirmContinuing(items: { app: string; period: number }[], by: string) {

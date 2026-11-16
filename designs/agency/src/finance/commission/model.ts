@@ -159,7 +159,9 @@ export type RpRecord = { rp: string; agreement: string; from: string; /** Jovial
  */
 export const BENEFITS = ['Bonus per enrolment', 'Share', 'Tiered share', 'Share plus amount per enrolment', 'Milestone', '% of tuition'] as const;
 /** How a share notice combines with the RP's own terms (D12): a separate box (not counted in the RP's tier), the higher wins, or it adds on top. */
-export const COMBINES = ['Highest wins', 'Separate box', 'Adds on top'] as const;
+// Q142 (Jovial, 16 Nov): the options in plain words
+export const COMBINES = ['The higher of the two', 'Counted separately (own band)', 'Added to the RP’s share'] as const;
+export const [HIGHER, SEPARATE, ADDS] = COMBINES;
 export type Combine = (typeof COMBINES)[number];
 /** A milestone: the lump sum due once GSP has been paid for `count` enrolments under the notice. */
 export type Milestone = { count: number; amount: number };
@@ -486,7 +488,6 @@ export type Override = { id: string; tx: string; amount: number | null; due: str
 /** Finance confirmed the student is still studying, so a study period after the first can be invoiced (Jovial, 10 Nov, D19). */
 export type Confirm = { app: string; period: number; by: string; at: number };
 /** A tier period Finance closed (Q68): the tier (university or group name) and its window, recounted at the period end. */
-export type PeriodClose = { scope: string; window: string; by: string; at: number };
 /** A line's amount changed (D21): the RP sees its lines' history. */
 export type AmountChange = { tx: string; at: number; from: number; to: number };
 
@@ -526,8 +527,6 @@ export type CommState = {
   clawbacks?: Clawback[];
   overrides: Override[];
   confirms: Confirm[];
-  /** Tier periods Finance closed (T83). */
-  closes?: PeriodClose[];
   /** Each line's last worked-out amount, and its changes (D21). */
   seen: Record<string, number>;
   history: AmountChange[];
@@ -576,7 +575,7 @@ export const benefitText = (n: Pick<Notice, 'benefit' | 'amount' | 'share' | 'ba
           ? `${pct(n.tuitionPct ?? 0)} of the tuition fee`
           : n.benefit === 'Share plus amount per enrolment'
             ? `Share ${pct(n.share ?? 0)} plus ${(n.amount ?? 0).toLocaleString('en-GB')} per enrolment`
-            : `Share ${pct(n.share ?? 0)}`) + (n.combine && n.combine !== 'Highest wins' && ['Share', 'Tiered share', 'Share plus amount per enrolment', '% of tuition'].includes(n.benefit) ? ` (${n.combine.toLowerCase()})` : '');
+            : `Share ${pct(n.share ?? 0)}`) + (n.combine && n.combine !== HIGHER && ['Share', 'Tiered share', 'Share plus amount per enrolment', '% of tuition'].includes(n.benefit) ? ` (${n.combine.toLowerCase()})` : '');
 /** "3 Nov 2026". */
 export const dayText = (iso: string) => {
   const d = new Date(`${iso.slice(0, 10)}T00:00`);

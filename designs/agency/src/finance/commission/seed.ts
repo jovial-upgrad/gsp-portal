@@ -6,6 +6,7 @@
  * prototype's own RP (Horizon Overseas) has its enrolled applications in the applications seed (data/applications.ts).
  */
 import { idText, lineKey } from './engine';
+import { ADDS, HIGHER, SEPARATE } from './model';
 import type { Addl, Agreement, AgreementBonus, AgreementTerms, Band, BonusScheme, CommState, Confirm, Enrolment, FileRef, InvoiceRequest, Level, Notice, Override, PayUnit, Receipt, RpInvoice, RpPayment, RpRecord, Settings, Stamp, TermsBody, Trigger, UniGroup, UniInvoice, UniTerms } from './model';
 
 const at = (iso: string, time = '10:30') => new Date(`${iso}T${time}`).getTime();
@@ -157,7 +158,7 @@ const seededNotices = (): Notice[] => [
     levels: ['Master’s degree', 'Postgraduate diploma'],
     docType: 'Notice',
     benefit: 'Share',
-    combine: 'Highest wins',
+    combine: HIGHER,
     amount: null,
     share: 85,
     bands: [],
@@ -201,7 +202,7 @@ const seededNotices = (): Notice[] => [
     unis: [],
     levels: ['Bachelor’s degree'],
     benefit: 'Share',
-    combine: 'Separate box',
+    combine: SEPARATE,
     amount: null,
     share: 80,
     bands: [],
@@ -248,7 +249,7 @@ const seededNotices = (): Notice[] => [
     unis: ['waikato'],
     levels: [],
     benefit: '% of tuition',
-    combine: 'Adds on top',
+    combine: ADDS,
     tuitionPct: 2,
     amount: null,
     share: null,

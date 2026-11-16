@@ -546,7 +546,7 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         </SelectInput>
       </Field>
       {use.combine ? (
-        <Field id="cnt-combine" label="With the RP’s own share" required hint="Separate box: its own line, not counted in the RP’s band. Highest wins: the higher of the two. Adds on top: added to the RP’s share.">
+        <Field id="cnt-combine" label="With the RP’s own share" required hint="Counted separately: the notice’s share stands alone, and these students don’t count toward the RP’s band.">
           <SelectInput id="cnt-combine" value={v.combine ?? COMBINES[0]} onChange={(e) => set({ combine: e.target.value as Combine })}>
             {options(COMBINES)}
           </SelectInput>
@@ -693,12 +693,10 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
   const u = all.find((x) => x.id === v.uni);
   const home = u ? CURRENCY[u.country] : '';
   const cur = v.currency || home;
-  // the levels the university has courses at (and any its terms price), plus any Finance adds from the contract
-  const [added, setAdded] = useState<Level[]>([]);
-  useEffect(() => setAdded([]), [v.uni, open]);
+  // the levels the university has courses at (and any its terms already price)
   const drafted = COMM_LEVELS.filter((l) => v.rates[l] !== undefined || v.fixed[l] !== undefined);
-  const levels = v.uni ? COMM_LEVELS.filter((l) => levelsOf(v.uni).includes(l) || added.includes(l) || drafted.includes(l)) : [];
-  const more = v.uni ? COMM_LEVELS.filter((l) => !levels.includes(l)) : [];
+  // Q147 (Jovial, 16 Nov): the levels are the university's own, from its courses; nothing to add by hand
+  const levels = v.uni ? COMM_LEVELS.filter((l) => levelsOf(v.uni).includes(l) || drafted.includes(l)) : [];
   const rateVals = levels.map((l) => v.rates[l]).filter((x) => x !== undefined) as number[];
   const o = condOpts(v.uni ? [v.uni] : null, levels.length ? levels : COMM_LEVELS, s.settings.regionGroups, todayIso());
   const needWeeks = v.trigger === 'Withdrawal deadline';
@@ -818,13 +816,6 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
           </div>
         ) : (
           <p className="cmuted cform__wide">Choose the university to see the program levels it offers.</p>
-        )}
-        {more.length > 0 && (
-          <Field id="cut-add-level" label="Add a program level" optional hint="A level the contract prices that the university has no courses at yet, like VET or ELICOS." className="iform__wide">
-            <SelectInput id="cut-add-level" placeholder="Choose a level" value="" onChange={(e) => e.target.value && setAdded((a) => [...a, e.target.value as Level])}>
-              {options(more)}
-            </SelectInput>
-          </Field>
         )}
         <Field id="cut-basis" label="Rates are on" required>
           <SelectInput id="cut-basis" value={v.feeBasis} onChange={(e) => set({ feeBasis: e.target.value as TermsDraft['feeBasis'] })}>

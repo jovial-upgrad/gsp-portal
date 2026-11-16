@@ -7,6 +7,7 @@
  */
 import { compute as compute0, settleAll } from '../../finance/commission/engine';
 import { sampleComm } from '../../finance/commission/seed';
+import { ADDS, HIGHER, SEPARATE } from '../../finance/commission/model';
 import { SCENARIOS } from './cases';
 
 export { SCENARIOS };
@@ -36,7 +37,7 @@ const PAY = { year: 'Year', semester: 'Semester', trimester: 'Trimester', term: 
 const PER = { year: 1, semester: 2, trimester: 3, term: 4 };
 const CHARGE = { course: 'Whole course', year: 'Years', semester: 'Semesters', trimester: 'Trimesters', term: 'Terms', unit: 'Units', fees: 'Fees up to', points: 'Credit points' };
 const WINDOW = { CY: 'Calendar year', AY: 'Academic year', FY: 'Financial year', intake: 'Intake' };
-const COMBINE = { box: 'Separate box', highest: 'Highest wins', adds: 'Adds on top' };
+const COMBINE = { box: SEPARATE, highest: HIGHER, adds: ADDS };
 const PROMO = { highest: 'Highest wins', replace: 'Replaces the rate', additional: 'Additional line' };
 const BONUS_PER = { student: 'Per student', threshold: 'At a number', band: 'By count' };
 const KIND = (k) => (k === 'pct' ? '%' : 'Amount');
@@ -142,7 +143,7 @@ function world(cfg, apps, today) {
     };
   });
   const ctx = { unis, rps: cfg.rps.map((r) => ({ id: r.id, name: r.name, code: r.id, country: r.region, region: r.region, status: 'Active' })), course: (id) => courses.get(id), today };
-  const state = { ...base, settings, agreements, records, notices, terms, groups, enrolments, invoices: [], receipts: [], requests: [], rpInvoices: [], rpPayments: [], writeOffs: [], overrides: [], confirms: [], closes: [], logs: [], ids: {}, idSeq: 0, frozen: {}, seen: {}, history: [] };
+  const state = { ...base, settings, agreements, records, notices, terms, groups, enrolments, invoices: [], receipts: [], requests: [], rpInvoices: [], rpPayments: [], writeOffs: [], overrides: [], confirms: [], logs: [], ids: {}, idSeq: 0, frozen: {}, seen: {}, history: [] };
   return { state, ctx };
 }
 

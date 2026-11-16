@@ -14,7 +14,7 @@
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
 import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
-import { EXCEPTIONS, PAY_UNITS, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
+import { ADDS, EXCEPTIONS, HIGHER, PAY_UNITS, SEPARATE, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
@@ -813,7 +813,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         const n0 = state.notices
           .filter((nt) => noticeCovers(nt, x, px.uni, px.level, rpx, S.regionGroups) && (nt.benefit === 'Share' || nt.benefit === 'Tiered share' || nt.benefit === 'Share plus amount per enrolment'))
           .sort((a, b) => (b.rps.length ? 1 : 0) - (a.rps.length ? 1 : 0))[0];
-        return n0?.combine === 'Separate box';
+        return n0?.combine === SEPARATE;
       };
       // the RP's count (Q43): its payable students in the agreement's window, not in a notice's separate box
       const periodSame = (x: Enrolment) => x.rp === e.rp && !boxed(x) && windowOf(x, A.countedPer, A.yearStart ?? 1) === windowOf(e, A.countedPer, A.yearStart ?? 1);
@@ -838,13 +838,13 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         // a tiered notice counts like an agreement: by enrolment date, and retrospective when it says so (Q57)
         const count = nt0.retro ? all.filter((x) => covered(x) && payable(x) && x.enrolled <= today).length : ordinal(e, covered);
         const s = nt0.benefit === 'Tiered share' ? bandFor(nt0.bands, count)?.pct ?? 0 : nt0.share ?? 0;
-        const comb = nt0.combine ?? 'Highest wins';
-        if (comb === 'Separate box') {
+        const comb = nt0.combine ?? HIGHER;
+        if (comb === SEPARATE) {
           share = s;
           reached = s;
           from = nt0.name;
-          rpSteps.push(step('Notice', `${nt0.name}: ${pct(s)}, a separate box: it replaces the standard share, and this enrolment doesn’t count toward the RP’s standard tier.`));
-        } else if (comb === 'Adds on top') {
+          rpSteps.push(step('Notice', `${nt0.name}: ${pct(s)}, counted separately: it replaces the standard share, and this enrolment doesn’t count toward the RP’s standard tier.`));
+        } else if (comb === ADDS) {
           share = share + s;
           reached = reached + s;
           from = nt0.name;
@@ -864,7 +864,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       summary.rpShareWhy = own ? 'its own flat share' : from ? `notice ${from}` : A.shareType === 'Flat' ? `${ag.name}, flat` : `${ag.name}, band of enrolment ${n}${retroOn && reached > share ? ` (raised to ${pct(reached)} by the retrospective band)` : ''}`;
       summary.rpTerms = from ? `Notice: ${from}` : own ? 'Own flat share' : A.shareType === 'Flat' ? ag.name : `${ag.name}, enrolment ${n} in ${windowWords(A.countedPer as never, A.yearStart ?? 1)}`;
       summary.rpLater = ann != null ? `${pct(ann)} after year 1` : undefined;
-      const tuitionBox = covering.some((nt) => nt.benefit === '% of tuition' && nt.combine === 'Separate box');
+      const tuitionBox = covering.some((nt) => nt.benefit === '% of tuition' && nt.combine === SEPARATE);
       const drafts: Draft[] = [];
       uniTxs.forEach((t0) => {
         // a university line paid short (Q44): the RP's line is its share of what came in, until the rest comes or is written off
@@ -913,7 +913,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         .forEach((nt) => {
           const v = (round2((e.fees?.tuition ?? 0) - (e.fees?.scholarship ?? 0), cur) * (nt.tuitionPct ?? 0)) / 100;
           // Q151 (Jovial, 16 Nov): if the RP gets more than GSP earns on a student, it gets more: no exception
-          drafts.push({ slot: `tp:${nt.id}`, type: 'Bonus', what: `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the tuition fee`, rpWhat: `Notice: ${nt.name}`, amount: v, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, trace: [step('Promotion on tuition', `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the student’s final tuition fee. ${nt.combine === 'Separate box' ? 'A separate box: it replaces the RP’s share of GSP’s commission.' : 'Paid on top of the RP’s share.'}`)] });
+          drafts.push({ slot: `tp:${nt.id}`, type: 'Bonus', what: `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the tuition fee`, rpWhat: `Notice: ${nt.name}`, amount: v, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, trace: [step('Promotion on tuition', `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the student’s final tuition fee. ${nt.combine === SEPARATE ? 'A separate box: it replaces the RP’s share of GSP’s commission.' : 'Paid on top of the RP’s share.'}`)] });
         });
       (A.bonuses ?? []).forEach((b) => {
         if (b.when === 'Every enrolment' || n === b.nth) drafts.push({ slot: `ab:${b.id}`, type: 'Bonus', what: `${b.desc} (${ag.name})${b.when === 'Every enrolment' ? '' : `: enrolment ${b.nth}`}`, rpWhat: `Bonus: ${b.desc}`, amount: b.amount, trigger: firstT?.trigger ?? e.enrolled, trace: [step('Agreement bonus', `${b.desc}: ${money(b.amount, cur)}${b.when === 'Every enrolment' ? ' on every enrolment' : `, on the ${b.nth}th enrolment GSP is paid for in the window`}.`)] });

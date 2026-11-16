@@ -43,12 +43,7 @@ const openApp = async (p, nav, id) => {
     const t = await main();
     for (const k of ['Ready to invoice', 'Overdue', 'Part paid', 'Invoices to check', 'Approved to pay', 'To confirm']) ok(t.includes(k), `Finance › Commission lines: the ${k} tile`);
     ok(/Exceptions/.test(t) && t.includes('Contract ended') && t.includes('Rate missing'), 'Commission lines: Exceptions lists Contract ended and Rate missing (held)');
-    ok(t.includes('Tier periods to close') && t.includes('UK partner group'), 'Commission lines: Tier periods to close shows the UK partner group’s ended year');
-    await p.getByRole('button', { name: /^Close period/ }).first().click();
-    await wait(500);
-    await p.locator('#layer button', { hasText: /^Close period$/ }).last().click();
-    await wait(800);
-    ok(!(await main()).includes('Tier periods to close'), 'Close period: asked first, then the period leaves the list');
+    ok(!t.includes('Tier periods to close') && !(await p.getByRole('button', { name: /^Close period/ }).count()), 'Commission lines: no tier periods to close (Jovial, 16 Nov)');
     await p.locator('main .itile', { hasText: 'To confirm' }).first().click();
     await wait(800);
     ok((await main()).includes('Students to confirm'), 'The To confirm tile opens Students to confirm');
