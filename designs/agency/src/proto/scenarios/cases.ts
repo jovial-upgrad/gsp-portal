@@ -659,8 +659,7 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
       { what: '180-point year: commission on 120 of its 180 points', calc: '45,000 × 120/180 = 30,000; × 12.5% = 3,750', exp: 3750, got: G.ip('c9-180', 'ip1') },
       { what: '120-point year: the whole first year', calc: '30,000 × 12.5% = 3,750', exp: 3750, got: G.ip('c9-120', 'ip1') },
       { what: 'No commission after the first 120 points', calc: 'years 2 and 3 are beyond 120 points: 1 line', exp: 1, got: G.ipCount('c9-120') },
-      { what: 'No points on the application: 120 assumed', calc: '30,000 × 12.5% = 3,750', exp: 3750, got: G.ip('c9-none', 'ip1') },
-      { what: '…and flagged for Admissions', calc: 'exception “Points missing”', exp: true, got: G.exc('c9-none', 'Points missing') },
+      { what: 'No points on the application: no lines until Admissions adds them', calc: 'credit points are required at Student enrolled (Q148, 16 Nov)', exp: 0, got: G.ipCount('c9-none') },
       { what: 'RP share', calc: '3,750 × 80% = 3,000', exp: 3000, got: G.rp('c9-180', 'rp1') },
     ] });
 }

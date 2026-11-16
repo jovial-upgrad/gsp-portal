@@ -40,7 +40,7 @@ try {
     return { ok: bad.length === 0, bad: bad.map((t) => `${t.id} ${t.amount}→${after.byId.get(t.id)?.amount}`).join(', ') };
   };
   const adjOf = (res, id) => res.txs.filter((t) => t.adjusts === id);
-  const fee = (tuition, scholarship, start, census) => ({ tuition, scholarship, start, census, confirmed: [], paid: [] });
+  const fee = (tuition, scholarship, start, census) => ({ tuition, scholarship, start, census, confirmed: [], paid: [], studentType: 'New' });
 
   /* ---------- G3: the scenarios that used to change paid lines ---------- */
 
