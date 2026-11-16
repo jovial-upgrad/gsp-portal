@@ -21,7 +21,7 @@ import { feesMissing } from './engine';
 import { PAY_UNITS, TRIGGERS, dayText } from './model';
 import { SelectInput } from '../../components/forms';
 import { plusDays } from './pricing';
-import { commState, intakeCensus, termsForCourse, useComm } from './store';
+import { commState, earningPeriods, intakeCensus, termsForCourse, useComm } from './store';
 
 /** Why the application can't be Student enrolled yet (empty: it can). */
 export function enrolBlock(a: Pick<Application, 'courseId' | 'fees'>): string {
@@ -64,8 +64,11 @@ const parsePays = (t: string) => {
 export function FeeRows({ a, me, currency, update, log, say }: { a: Application; me?: string; currency: string; update: (fn: (a: Application) => Application) => void; log: (text: string) => void; say: (m: string) => void }) {
   const st = useComm(); // the university's terms can change while the page is open
   const f = a.fees ?? blankFees();
-  const { trig, periods } = datesWanted(a.courseId);
+  const { trig } = datesWanted(a.courseId);
   const { terms } = termsForCourse(a.courseId);
+  // Q136 (Jovial, 16 Nov): only the study periods that earn commission, and the years they fall in
+  const earn = earningPeriods(a.courseId, a.fees);
+  const periods = earn.periods;
   const course = courseOf(a);
   const set = (p: Partial<AppFees>, line: string) => {
     update((x) => ({ ...x, fees: { ...(x.fees ?? blankFees()), ...p } }));
@@ -93,9 +96,11 @@ export function FeeRows({ a, me, currency, update, log, say }: { a: Application;
     const weeks = terms.trigger === 'Withdrawal deadline' ? terms.triggerWeeks ?? st.settings.fallbackWeeks : st.settings.fallbackWeeks;
     return plusDays(start.toISOString().slice(0, 10), weeks * 7);
   };
-  const years = Math.max(1, Math.ceil((course.months ?? 12) / 12));
   const unit = terms?.payUnit;
   const charge = terms?.charge.unit;
+  const years = Math.min(earn.years, Math.max(1, Math.ceil((course.months ?? 12) / 12)));
+  // Q137: per unit and per fee payment, the fee comes from the units or the payments, so no tuition fee a year
+  const byYear = unit !== 'Per unit' && unit !== 'Each fee payment';
   const isAU = course.uni.country === 'Australia';
   const campuses = course.uni.campuses.map((c) => c.name);
   const setDate = (k: number, v: string) => {
@@ -106,9 +111,9 @@ export function FeeRows({ a, me, currency, update, log, say }: { a: Application;
   };
   return (
     <>
-      <FeeRow id="fee" k="Tuition fee a year" kind="money" currency={currency} value={f.tuition} note={f.feeBy?.by ? `Entered by ${f.feeBy.by}, ${dayText(new Date(f.feeBy.at).toISOString().slice(0, 10))}` : undefined} onSave={(n) => setFee({ tuition: n as number }, `Set the tuition fee to ${money(n as number, currency)} a year`)} />
+      {byYear && <FeeRow id="fee" k="Tuition fee a year" kind="money" currency={currency} value={f.tuition} note={f.feeBy?.by ? `Entered by ${f.feeBy.by}, ${dayText(new Date(f.feeBy.at).toISOString().slice(0, 10))}` : undefined} onSave={(n) => setFee({ tuition: n as number }, `Set the tuition fee to ${money(n as number, currency)} a year`)} />}
       <FeeRow id="schol" k="Scholarship a year" kind="money" currency={currency} zero value={f.scholarship} onSave={(n) => setFee({ scholarship: n as number }, `Set the scholarship to ${money(n as number, currency)} a year`)} />
-      {years > 1 &&
+      {byYear && years > 1 &&
         Array.from({ length: years - 1 }, (_, i) => (
           <FeeRow key={`y${i}`} id={`yfee-${i}`} k={`Tuition fee, year ${i + 2}`} kind="money" currency={currency} value={f.yearFees?.[i + 1] ?? null} note="Empty: the same as year 1." onSave={(n) => {
             const list = [...(f.yearFees ?? [])];
@@ -117,7 +122,6 @@ export function FeeRows({ a, me, currency, update, log, say }: { a: Application;
             setFee({ yearFees: list }, `Set the year ${i + 2} tuition fee to ${money(n as number, currency)}`);
           }} />
         ))}
-      {campuses.length > 1 && <FeeRow id="campus" k="Campus" kind="select" options={campuses} value={f.campus ?? null} onSave={(v) => set({ campus: v as string }, `Set the campus to ${v}`)} />}
       {isAU && st.settings.studentTypes.length > 0 && <FeeRow id="stype" k="Student type" kind="select" options={st.settings.studentTypes} value={f.studentType ?? null} onSave={(v) => set({ studentType: v as string }, `Set the student type to ${v}`)} />}
       {charge === 'Credit points' && <FeeRow id="points" k="Credit points a year" kind="number" value={f.points ?? null} onSave={(n) => set({ points: n as number }, `Set the credit points to ${n} a year`)} />}
       {unit === 'Per unit' && <FeeRow id="units" k="Units (name; fee; census date)" kind="lines" value={unitsText(f.units) || null} hint="One a line, like: ACC101; 3200; 2027-03-31" onSave={(v) => { const u = parseUnits(v as string); if (u) set({ units: u }, `Set ${u.length} ${u.length === 1 ? 'unit' : 'units'} of study`); }} validate={(v) => !!parseUnits(v)} />}
@@ -125,17 +129,24 @@ export function FeeRows({ a, me, currency, update, log, say }: { a: Application;
       <FeeRow id="leave-from" k="Leave of absence from" kind="date" value={f.leave?.from || null} onSave={(v) => set({ leave: { from: v as string, to: f.leave?.to ?? '' } }, `Set a leave of absence from ${dayText(v as string)}`)} />
       {f.leave?.from && <FeeRow id="leave-to" k="Leave of absence to" kind="date" value={f.leave?.to || null} onSave={(v) => set({ leave: { from: f.leave!.from, to: v as string } }, `Set the leave of absence to end ${dayText(v as string)}`)} />}
       <FeeRow id="start" k="Course starts" kind="date" value={f.start || null} onSave={(v) => set({ start: v as string }, `Set the course start date to ${dayText(v as string)}`)} />
-      {Array.from({ length: periods }, (_, k) =>
-        trig.field === 'confirmed' && k === 0 ? null : (
-          <FeeRow key={k} id={`trig-${k}`} k={periods > 1 ? `${trig.date}, study period ${k + 1}` : trig.date} kind="date" value={f[trig.field][k] || null} note={!f[trig.field][k] && est(k) ? `Estimated ${dayText(est(k))} until it’s added` : undefined} onSave={(v) => setDate(k, v as string)} />
-        ),
+      {periods > (trig.field === 'confirmed' ? 1 : 0) && (
+        <PeriodDates
+          label={trig.date}
+          n={periods}
+          skipFirst={trig.field === 'confirmed'}
+          values={f[trig.field]}
+          est={est}
+          onSave={setDate}
+        />
       )}
+      {/* Q138 (Jovial, 16 Nov): the campus once. The student's campus stands in for the course's campuses on the line after it */}
+      {campuses.length > 1 && <FeeRow id="campus" k="Campus" kind="select" options={campuses} value={f.campus ?? null} onSave={(v) => set({ campus: v as string }, `Set the campus to ${v}`)} className="cfee--campus" />}
     </>
   );
 }
 
 /** A Key details line Admissions fills in: the value (or Not added yet) with a pencil, then a field with Save and Cancel. */
-function FeeRow({ id, k, kind, value, currency, zero, onSave, note, hint, options = [], validate }: { id: string; k: string; kind: Kind; value: number | string | null; currency?: string; zero?: boolean; onSave: (v: number | string) => void; note?: string; hint?: string; options?: string[]; validate?: (v: string) => boolean }) {
+function FeeRow({ id, k, kind, value, currency, zero, onSave, note, hint, options = [], validate, className = '' }: { id: string; k: string; kind: Kind; value: number | string | null; currency?: string; zero?: boolean; onSave: (v: number | string) => void; note?: string; hint?: string; options?: string[]; validate?: (v: string) => boolean; className?: string }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState('');
   const [bad, setBad] = useState(false);
@@ -180,7 +191,7 @@ function FeeRow({ id, k, kind, value, currency, zero, onSave, note, hint, option
     end();
   };
   return (
-    <div className={`cdl__row gedit ${editing ? 'is-editing' : ''}`}>
+    <div className={`cdl__row gedit ${editing ? 'is-editing' : ''} ${className}`}>
       <dt>{editing ? <label htmlFor={`gfee-${id}`}>{k}</label> : k}</dt>
       <dd>
         {editing ? (
@@ -258,6 +269,85 @@ function FeeRow({ id, k, kind, value, currency, zero, onSave, note, hint, option
               </button>
             </EditOnly>
           </span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * Q136 (Jovial, 16 Nov): the trigger dates of the study periods that earn commission, in one compact row instead of a
+ * line each: a small grid of numbered periods, each with its date (or the estimate, or Not added yet) and a pencil.
+ * Editing one opens a date field in its place.
+ */
+function PeriodDates({ label, n, skipFirst, values, est, onSave }: { label: string; n: number; skipFirst: boolean; values: string[]; est: (k: number) => string; onSave: (k: number, v: string) => void }) {
+  const [edit, setEdit] = useState<number | null>(null);
+  const [v, setV] = useState('');
+  const [bad, setBad] = useState(false);
+  const pens = useRef<Record<number, HTMLButtonElement | null>>({});
+  const one = label;
+  const begin = (k: number) => {
+    setV(values[k] ?? '');
+    setBad(false);
+    setEdit(k);
+  };
+  const end = (k: number) => {
+    setEdit(null);
+    window.setTimeout(() => pens.current[k]?.focus(), 30);
+  };
+  const ks = Array.from({ length: n }, (_, k) => k).filter((k) => !(skipFirst && k === 0));
+  return (
+    <div className={`cdl__row gedit cper ${edit !== null ? 'is-editing' : ''}`}>
+      <dt>{edit !== null ? <label htmlFor="gfee-period">{`${label}, study period ${edit + 1}`}</label> : label}</dt>
+      <dd>
+        {edit !== null ? (
+          <form
+            className="gedit__form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return setBad(true);
+              if (v !== values[edit]) onSave(edit, v);
+              end(edit);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Escape') return;
+              e.stopPropagation();
+              end(edit);
+            }}
+          >
+            <span className={`control gedit__control ${bad ? 'is-invalid' : ''}`}>
+              <input id="gfee-period" className="control__input num" type="date" autoFocus value={v} aria-invalid={bad || undefined} aria-describedby={bad ? 'gfee-period-err' : undefined} onChange={(e) => (setV(e.target.value), setBad(false))} />
+            </span>
+            {bad && (
+              <span id="gfee-period-err" className="gedit__err" role="alert">
+                Pick a date.
+              </span>
+            )}
+            <span className="gedit__acts">
+              <Button type="submit" size="sm">
+                Save
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => end(edit)}>
+                Cancel
+              </Button>
+            </span>
+          </form>
+        ) : (
+          <ol className="cper__list">
+            {ks.map((k) => (
+              <li key={k} className="cper__item">
+                <span className="cper__k" aria-label={`Study period ${k + 1}`}>
+                  {k + 1}
+                </span>
+                {values[k] ? <span className="num">{dayText(values[k])}</span> : est(k) ? <span className="num muted">Est. {dayText(est(k))}</span> : <span className="muted">Not added yet</span>}
+                <EditOnly>
+                  <button ref={(el) => { pens.current[k] = el; }} type="button" className="scopy gedit__pen" aria-label={`${values[k] ? 'Edit' : 'Add'} the ${one.toLowerCase()} for study period ${k + 1}`} title={`${values[k] ? 'Edit' : 'Add'} the ${one.toLowerCase()} for study period ${k + 1}`} onClick={() => begin(k)}>
+                    <Icon name="edit" size={14} />
+                  </button>
+                </EditOnly>
+              </li>
+            ))}
+          </ol>
         )}
       </dd>
     </div>

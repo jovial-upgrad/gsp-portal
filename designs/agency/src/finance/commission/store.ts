@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { COURSES } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
-import type { Application } from '../../data/applications';
+import type { AppFees, Application } from '../../data/applications';
 import { sampleCourseRecs, sampleUniRecs } from '../../institution/data/catalogue';
 import { samplePartners, subscribeClock, todayIso } from '../../institution/data/records';
 import { HOME_RP } from '../../gsp/rps';
@@ -17,6 +17,7 @@ import { sampleUsers } from '../../admin/data/config';
 import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
 import { COMM_LEVELS, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
+import { periodsOf } from './pricing';
 
 /* ---------- the store ---------- */
 
@@ -120,6 +121,20 @@ export const termsForCourse = (courseId: string) => {
   const c = courses.get(courseId);
   const t = c && state.terms.find((x) => x.uni === c.uni.id);
   return { terms: t, periods: c && t ? periodCount(t, c.months) : 1 };
+};
+/**
+ * Q136 (Jovial, 16 Nov): the study periods that earn commission under the university's terms (how long it's
+ * chargeable: a year, N periods, the first N credit points...), so Key details asks only for their dates, and the
+ * course years they fall in (later years' fees). Worked out by the same rule the lines use; a fee or start not added
+ * yet doesn't shorten the list.
+ */
+export const earningPeriods = (courseId: string, fees?: AppFees) => {
+  const c = courses.get(courseId);
+  const t = c && state.terms.find((x) => x.uni === c.uni.id);
+  if (!c || !t) return { periods: 1, years: 1 };
+  const f = { census: [], confirmed: [], paid: [], scholarship: 0, ...fees, tuition: fees?.tuition ?? 1, start: fees?.start || todayIso() } as AppFees;
+  const q = periodsOf(t, { app: '', student: '', rp: '', course: courseId, intake: '', enrolled: f.start, fees: f } as Enrolment, c.months, state.settings).periods.filter((p) => p.frac > 0);
+  return { periods: q.length ? Math.max(...q.map((p) => p.k)) : 0, years: q.length ? Math.max(...q.map((p) => p.y)) : 1 };
 };
 let courseRecs: ReturnType<typeof sampleCourseRecs> | null = null;
 /** The census date the Institution team keeps on a course's intake (D6: Key details starts from it; empty when none). */

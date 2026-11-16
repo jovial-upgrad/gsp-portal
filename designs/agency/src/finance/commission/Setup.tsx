@@ -421,7 +421,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
   const grTab = (
     <>
       <p className="cline">Institution partners whose universities count together for a tier and GSP’s bonuses: all of a partner’s universities, or some. With an IP tier, the universities that count don’t have tiers of their own.</p>
-      <Card count={`${grRows.length} institution partners`} tools={<Search id="cset-gr-q" value={q} onChange={setQ} placeholder="Institution partner or university" />}>
+      <Card count={`${grRows.length} ${grRows.length === 1 ? "institution partner" : "institution partners"}`} tools={<Search id="cset-gr-q" value={q} onChange={setQ} placeholder="Institution partner or university" />}>
         {grRows.length ? (
           <div className="stab-wrap">
             <table className="itab">
@@ -550,7 +550,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
   const notice = ntRps ? s.notices.find((n) => n.id === ntRps) ?? null : null;
   return (
     <div className="ipage csetup">
-      <PageHead title="Setup" lead="Every RP’s and every university’s commission terms, the agreements GSP issues, its notices, university groups and the settings.">
+      <PageHead title="Setup" lead="Every RP’s and every university’s commission terms, the agreements GSP issues, its notices, institution partners’ terms and the settings.">
         <Button iconLeft={<Icon name={add[tab][2]} size={18} />} onClick={add[tab][1]}>
           {add[tab][0]}
         </Button>
