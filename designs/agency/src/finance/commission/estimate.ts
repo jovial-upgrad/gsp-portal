@@ -9,6 +9,7 @@ import { CURRENCY, setEarnOf, type Course } from '../../data/courses';
 import { agreementOn, bandStanding, noticeCovers, termsAt } from './engine';
 import { pickRate } from './pricing';
 import { commState, ctxOf, ctxRps, ctxUnis } from './store';
+import { ADDS, SEPARATE } from './model';
 import type { AgreementTerms, CommState, Enrolment, Level, TermsBody } from './model';
 
 export type Estimate = { amount: number; currency: string; pctOfFee: number; share: number | null; basis: 'net' | 'gross'; next?: { more: number; amount: number; pctOfFee: number } };
@@ -46,7 +47,7 @@ export function estimateFor(s: CommState, c: Course, rpId: string | null, today:
   const stand = bandStanding(s, ctx, rpId, extra);
   let share = r.ownFlat != null ? r.ownFlat : A.shareType === 'Flat' ? A.share ?? 0 : stand?.share ?? A.bands[0]?.pct ?? 0;
   const ns = notice ? (notice.benefit === 'Tiered share' ? notice.bands[0]?.pct ?? 0 : notice.share ?? 0) : 0;
-  if (notice) share = notice.combine === 'Separate box' ? ns : notice.combine === 'Adds on top' ? share + ns : Math.max(share, ns);
+  if (notice) share = notice.combine === SEPARATE ? ns : notice.combine === ADDS ? share + ns : Math.max(share, ns);
   const next = !notice && r.ownFlat == null && stand?.next ? { more: stand.next.more, ...out(stand.next.share) } : undefined;
   return { ...out(share), currency, share, basis, next };
 }

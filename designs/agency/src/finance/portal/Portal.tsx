@@ -313,7 +313,7 @@ export function Portal({
       <TeamHome first={GSP_USER.first} db={db} open={openInst} me={GSP_USER.name} />
     ) : section === 'work' ? (
       // a T80 or T81 task closes once its record is saved in Setup
-      <MyWork stillOpen={(t) => (t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : t.rule === 'T84' ? !comm.confirms.some((c) => t.id === `T84-${c.app}-${c.period}`) : t.rule === 'T83' ? !(comm.closes ?? []).some((c) => t.id === `T83-${`${c.scope}-${c.window}`.replace(/\W+/g, '-').toLowerCase()}`) : t.rule === 'T82' ? openExc.some((x) => t.id === `T82-${x.app}-${x.type.replace(/\W+/g, '-').toLowerCase()}`) : true)} />
+      <MyWork stillOpen={(t) => (t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : t.rule === 'T84' ? !comm.confirms.some((c) => t.id === `T84-${c.app}-${c.period}`) : t.rule === 'T82' ? openExc.some((x) => t.id === `T82-${x.app}-${x.type.replace(/\W+/g, '-').toLowerCase()}`) : true)} />
     ) : section === 'lines' ? (
       <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : section === 'setup' ? (

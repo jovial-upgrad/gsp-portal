@@ -36,6 +36,7 @@
 .cform__secnote { margin: 0; color: var(--text-2); font-size: var(--t-label); line-height: var(--lh-label, 1.45); max-width: 62ch; }
 .cform__wide { grid-column: 1 / -1; display: grid; gap: var(--sp-6); min-width: 0; }
 .cform__label { margin: 0; font-size: var(--t-label); font-weight: var(--fw-medium, 500); color: var(--text); }
+.cgr-all { margin-top: 6px; align-self: flex-start; }
 .cform__wide > .cform__hint { margin: 0; }
 
 /* rates by program level: one row a level, rate and fixed amount side by side */
@@ -197,3 +198,24 @@
 .ctab td:nth-last-child(1) .dpill, .ctab td .dpill { white-space: nowrap; }
 .ctab td.num, .ctab td.ctab__num { white-space: nowrap; }
 .itab.ctab td { vertical-align: top; }
+
+/* Key details (Q136, 16 Nov): the earning study periods' dates in one compact row */
+.cdl__row.cper { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8, 8px); }
+.cdl__row.cper dd { text-align: left; }
+.cper__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 2px 12px; }
+.cper__item { display: flex; align-items: center; gap: 6px; min-height: 30px; white-space: nowrap; }
+.cper__k { flex: none; width: 18px; height: 18px; font-size: 11px; border-radius: 50%; display: inline-grid; place-items: center; font-weight: 600; background: var(--surface-2, #f1f2f6); color: var(--text-2, #5b6070); font-variant-numeric: tabular-nums; }
+.cper__item .gedit__pen { margin-left: auto; width: 24px; height: 24px; min-width: 24px; padding: 0; }
+/* Q138 (16 Nov): the student's campus stands in for the course's campuses on the line after it, so Campus shows once */
+.cfee--campus + .cdl__row { display: none; }
+
+/* An application's Commission tab (Q139, 16 Nov): exceptions on top, the terms folded to one row */
+.capp-exc { padding: var(--sp-16, 16px) var(--sp-20, 20px); border-left: 4px solid var(--warn-text, #8a5a00); }
+.capp-exc__t { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: var(--t-body, 15px); font-weight: 600; color: var(--warn-text, #8a5a00); }
+.capp-exc ul { margin: 0; padding-left: 26px; display: grid; gap: 4px; color: var(--text-2); }
+.capp-terms__row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.capp-terms__row .irsec__title { margin: 0; }
+.capp-terms__sum { flex: 1 1 260px; color: var(--text-2); }
+.capp-terms__row .btn--link { display: inline-flex; align-items: center; gap: 4px; }
+.capp-terms__row [aria-expanded='true'] svg { transform: rotate(180deg); }
+.capp-terms__more { margin-top: var(--sp-12, 12px); }

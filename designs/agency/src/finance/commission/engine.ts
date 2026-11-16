@@ -14,7 +14,7 @@
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
 import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
-import { EXCEPTIONS, PAY_UNITS, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
+import { ADDS, EXCEPTIONS, HIGHER, PAY_UNITS, SEPARATE, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
@@ -107,6 +107,8 @@ export type Tx = {
   gst?: number;
   /** Why it's held: an exception, or a suspended RP. */
   heldWhy?: string;
+  /** Why a Not payable line isn't (16 Nov): from the withdrawal date and the trigger it came before. */
+  nopayWhy?: string;
   /** A study period after the first waits for Finance to confirm the student continues (D19). */
   toConfirm?: boolean;
   /** Its trigger date is estimated (no census date on the application: start + fallback weeks). */
@@ -616,7 +618,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         step('Paid and chargeable', `Paid ${T.payUnit.toLowerCase()}${PAY_UNITS.find((x) => x.label === T.payUnit)?.per ? '' : ''}; chargeable for ${T.charge?.unit === 'Whole course' ? 'the whole course' : `${T.charge?.n ?? 1} ${(T.charge?.unit ?? 'Years').toLowerCase()}`}.${p.dropped ? ` ${p.dropped} later period${p.dropped === 1 ? ' is' : 's are'} outside the chargeable time, so no line.` : ''}`),
       ];
       const tierSteps: Step[] = tiers.map((t) =>
-        step(`${t.spec.who === 'group' ? 'Group tier' : 'University tier'}: ${t.spec.name}`, `${t.spec.retro ? 'Retrospective' : 'Prospective'}, counted per ${windowWords(t.spec.countedPer, t.spec.yearStart)}${t.spec.perCountry ? ' and per source country' : ''}${t.spec.levels.length ? `, levels ${t.spec.levels.join(', ')}` : ''}. ${t.key}: ${t.total} student${t.total === 1 ? '' : 's'} counted; this student is number ${t.rank}. ${t.spec.retro ? `The total (${t.total})` : `This student’s own place (${t.rank})`} sets the band: band ${t.bi + 1}, ${pct(t.pct)}.`),
+        step(`${t.spec.who === 'group' ? 'IP tier' : 'University tier'}: ${t.spec.name}`, `${t.spec.retro ? 'Retrospective' : 'Prospective'}, counted per ${windowWords(t.spec.countedPer, t.spec.yearStart)}${t.spec.perCountry ? ' and per source country' : ''}${t.spec.levels.length ? `, levels ${t.spec.levels.join(', ')}` : ''}. ${t.key}: ${t.total} student${t.total === 1 ? '' : 's'} counted; this student is number ${t.rank}. ${t.spec.retro ? `The total (${t.total})` : `This student’s own place (${t.rank})`} sets the band: band ${t.bi + 1}, ${pct(t.pct)}.`),
       );
       const promoStates = (T.promos ?? []).map((pr) => ({ pr, why: condTest(pr.cond, p.who, S) }));
       const drafts: Draft[] = [];
@@ -777,6 +779,8 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       if (held) t.heldWhy = holdWhy;
       t.status = uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today, toConfirm: needs });
       if (t.type === 'Clawback') t.status = 'Paid';
+      if (t.status === 'Not payable' && e.withdrawn)
+        t.nopayWhy = `Student withdrew ${dayText(e.withdrawn)}, before ${t.period ? `study period ${t.period}’s ` : 'its '}${(T?.trigger ?? 'trigger date').toLowerCase()}${t.trigger ? ` (${dayText(t.trigger)})` : ''}`;
       // R105: GSP's own claim window with the university, when its terms have one
       if (T?.claimMonths && !t.invoice && !['Paid', 'Part paid', 'Not payable'].includes(t.status)) {
         t.claimEnds = keepMonth(periodEnd(t), T.claimMonths);
@@ -809,7 +813,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         const n0 = state.notices
           .filter((nt) => noticeCovers(nt, x, px.uni, px.level, rpx, S.regionGroups) && (nt.benefit === 'Share' || nt.benefit === 'Tiered share' || nt.benefit === 'Share plus amount per enrolment'))
           .sort((a, b) => (b.rps.length ? 1 : 0) - (a.rps.length ? 1 : 0))[0];
-        return n0?.combine === 'Separate box';
+        return n0?.combine === SEPARATE;
       };
       // the RP's count (Q43): its payable students in the agreement's window, not in a notice's separate box
       const periodSame = (x: Enrolment) => x.rp === e.rp && !boxed(x) && windowOf(x, A.countedPer, A.yearStart ?? 1) === windowOf(e, A.countedPer, A.yearStart ?? 1);
@@ -834,13 +838,13 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         // a tiered notice counts like an agreement: by enrolment date, and retrospective when it says so (Q57)
         const count = nt0.retro ? all.filter((x) => covered(x) && payable(x) && x.enrolled <= today).length : ordinal(e, covered);
         const s = nt0.benefit === 'Tiered share' ? bandFor(nt0.bands, count)?.pct ?? 0 : nt0.share ?? 0;
-        const comb = nt0.combine ?? 'Highest wins';
-        if (comb === 'Separate box') {
+        const comb = nt0.combine ?? HIGHER;
+        if (comb === SEPARATE) {
           share = s;
           reached = s;
           from = nt0.name;
-          rpSteps.push(step('Notice', `${nt0.name}: ${pct(s)}, a separate box: it replaces the standard share, and this enrolment doesn’t count toward the RP’s standard tier.`));
-        } else if (comb === 'Adds on top') {
+          rpSteps.push(step('Notice', `${nt0.name}: ${pct(s)}, counted separately: it replaces the standard share, and this enrolment doesn’t count toward the RP’s standard tier.`));
+        } else if (comb === ADDS) {
           share = share + s;
           reached = reached + s;
           from = nt0.name;
@@ -860,7 +864,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       summary.rpShareWhy = own ? 'its own flat share' : from ? `notice ${from}` : A.shareType === 'Flat' ? `${ag.name}, flat` : `${ag.name}, band of enrolment ${n}${retroOn && reached > share ? ` (raised to ${pct(reached)} by the retrospective band)` : ''}`;
       summary.rpTerms = from ? `Notice: ${from}` : own ? 'Own flat share' : A.shareType === 'Flat' ? ag.name : `${ag.name}, enrolment ${n} in ${windowWords(A.countedPer as never, A.yearStart ?? 1)}`;
       summary.rpLater = ann != null ? `${pct(ann)} after year 1` : undefined;
-      const tuitionBox = covering.some((nt) => nt.benefit === '% of tuition' && nt.combine === 'Separate box');
+      const tuitionBox = covering.some((nt) => nt.benefit === '% of tuition' && nt.combine === SEPARATE);
       const drafts: Draft[] = [];
       uniTxs.forEach((t0) => {
         // a university line paid short (Q44): the RP's line is its share of what came in, until the rest comes or is written off
@@ -909,7 +913,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         .forEach((nt) => {
           const v = (round2((e.fees?.tuition ?? 0) - (e.fees?.scholarship ?? 0), cur) * (nt.tuitionPct ?? 0)) / 100;
           // Q151 (Jovial, 16 Nov): if the RP gets more than GSP earns on a student, it gets more: no exception
-          drafts.push({ slot: `tp:${nt.id}`, type: 'Bonus', what: `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the tuition fee`, rpWhat: `Notice: ${nt.name}`, amount: v, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, trace: [step('Promotion on tuition', `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the student’s final tuition fee. ${nt.combine === 'Separate box' ? 'A separate box: it replaces the RP’s share of GSP’s commission.' : 'Paid on top of the RP’s share.'}`)] });
+          drafts.push({ slot: `tp:${nt.id}`, type: 'Bonus', what: `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the tuition fee`, rpWhat: `Notice: ${nt.name}`, amount: v, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, trace: [step('Promotion on tuition', `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the student’s final tuition fee. ${nt.combine === SEPARATE ? 'A separate box: it replaces the RP’s share of GSP’s commission.' : 'Paid on top of the RP’s share.'}`)] });
         });
       (A.bonuses ?? []).forEach((b) => {
         if (b.when === 'Every enrolment' || n === b.nth) drafts.push({ slot: `ab:${b.id}`, type: 'Bonus', what: `${b.desc} (${ag.name})${b.when === 'Every enrolment' ? '' : `: enrolment ${b.nth}`}`, rpWhat: `Bonus: ${b.desc}`, amount: b.amount, trigger: firstT?.trigger ?? e.enrolled, trace: [step('Agreement bonus', `${b.desc}: ${money(b.amount, cur)}${b.when === 'Every enrolment' ? ' on every enrolment' : `, on the ${b.nth}th enrolment GSP is paid for in the window`}.`)] });
@@ -957,6 +961,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // a withdrawn student earns the RP no bonus (D28); a milestone counts students GSP was paid for, so it stands
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
       t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), requested: !!t.requested, due: t.due, today });
+      if (t.status === 'Not payable') t.nopayWhy = noBonus ? `Student withdrew ${dayText(e.withdrawn!)}; an RP bonus isn’t paid for a withdrawn student` : anchor?.nopayWhy;
       // R106: a recovery waits for the RP's next payment, which it's set against
       if (t.type === 'Recovery') {
         const got = Math.min(-t.amount, recoveredOf.get(t.id) ?? 0);

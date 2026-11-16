@@ -209,11 +209,20 @@ try {
   {
     // 16 Nov (Finance): a partner has a group tier or tiers per school, never both. If old data still has both, the
     // student counts toward the group's tier only, even when the school's own would pay more; no comparison.
-    const sG = { ...s0, terms: s0.terms.map((t) => (t.uni === 'coventry' ? { ...t, bands: [{ from: 1, to: null, pct: 30 }] } : t)) };
+    const sG = { ...s0, terms: s0.terms.map((t) => (t.uni === 'greenwich' ? { ...t, bands: [{ from: 1, to: null, pct: 30 }] } : t)) };
     const rG = run(sG);
-    const cov = rG.apps.filter((a) => a.uni === 'coventry');
+    const cov = rG.apps.filter((a) => a.uni === 'greenwich');
     ok('16 Nov a school in a tiered group counts toward the group’s tier only', cov.length > 0 && cov.every((a) => a.tiers.length === 1 && a.tiers[0].who === 'group'), JSON.stringify(cov.slice(0, 2).map((a) => a.tiers)));
     ok('16 Nov no “the higher wins” step in the working', !rG.txs.some((t) => (t.trace ?? []).some((s) => /higher wins/.test(s.text ?? s.what ?? ''))));
+    // 16 Nov (Jovial): a Not payable line says why, from the withdrawal date and the trigger
+    const r0 = run(seed.sampleComm());
+    const np = r0.txs.filter((t) => t.status === 'Not payable');
+    ok('16 Nov every Not payable line says why', np.length > 0 && np.every((t) => t.nopayWhy && /withdrew/.test(t.nopayWhy)), JSON.stringify(np.filter((t) => !t.nopayWhy).map((t) => t.id)));
+    const ro = np.filter((t) => t.app === 'GSP-23577').map((t) => t.nopayWhy);
+    ok('16 Nov Rohit Bansal: withdrew before study period 2’s census date; no bonus', ro.some((w) => /study period 2’s census date \(12 Jun 2026\)/.test(w)) && ro.some((w) => /bonus/.test(w)), JSON.stringify(ro));
+    // 16 Nov (Jovial): a group is an institution partner; its universities that count are some or all of the IP's own
+    const U = store.ctxUnis();
+    ok('16 Nov IP terms: each names an IP, once, and counts only that IP’s universities', s0.groups.every((g) => g.ip && g.name && g.members.length >= 2 && g.members.every((m) => U.find((u) => u.id === m)?.ip === g.ip)) && new Set(s0.groups.map((g) => g.ip)).size === s0.groups.length, JSON.stringify(s0.groups.map((g) => [g.ip, g.members])));
   }
   ok('Q50 a sent-back line is back in the RP’s Invoices to send', engine.rpToSend(r4.txs.filter((t) => t.rp === rp1.rp)).some((t) => t.id === rp1.id));
   ok('Q54 the RP is told it was sent back, with the reason', engine.commNotes(s4, r4, (x) => x, TODAY).some((n) => n.code === 'N19' && n.to === 'rp' && n.text.includes('doesn’t match')));

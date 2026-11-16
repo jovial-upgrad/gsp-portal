@@ -41,7 +41,7 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') 
     const unis = await p.locator('#cunl-uni option').evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
     if (unis.length) { await p.selectOption('#cunl-uni', unis[0]); await wait(300); }
     ok(unis.length > 0 && (await p.locator('section.cunlock').count()) <= cards, `${width}px: the university filter narrows the cards`);
-    ok((await p.locator('main').innerText()).includes('RPs and their next band'), `${width}px: RPs and their next band`);
+    ok(!(await p.locator('main').innerText()).includes('RPs and their next band'), `${width}px: no RPs and their next band (16 Nov)`);
     ok((await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 0, `${width}px: nothing off the page`);
     // the RP's side: what it sees
     await p.evaluate(() => localStorage.setItem('gsp-proto-role', 'rp-admin')); await p.reload(); await wait(1500);

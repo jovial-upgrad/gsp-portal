@@ -21,7 +21,7 @@ const TABS: { key: SetupTab; label: string }[] = [
   { key: 'agreements', label: 'Agreements' },
   { key: 'notices', label: 'Notices' },
   { key: 'terms', label: 'University terms' },
-  { key: 'groups', label: 'Groups' },
+  { key: 'groups', label: 'Institution partners' },
   { key: 'settings', label: 'Settings' },
 ];
 export type SetupStart = { tab: SetupTab; open?: string; key: number };
@@ -420,15 +420,15 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
   const grRows = s.groups.filter((g) => has(q, g.name, ...g.members.map(uniName)));
   const grTab = (
     <>
-      <p className="cline">Universities counted together for a tier and GSP’s group bonuses. A university is in at most one group. A group with a tier counts every member toward it; its members don’t have tiers of their own.</p>
-      <Card count={`${grRows.length} groups`} tools={<Search id="cset-gr-q" value={q} onChange={setQ} placeholder="Group or university" />}>
+      <p className="cline">Institution partners whose universities count together for a tier and GSP’s bonuses: all of a partner’s universities, or some. With an IP tier, the universities that count don’t have tiers of their own.</p>
+      <Card count={`${grRows.length} ${grRows.length === 1 ? "institution partner" : "institution partners"}`} tools={<Search id="cset-gr-q" value={q} onChange={setQ} placeholder="Institution partner or university" />}>
         {grRows.length ? (
           <div className="stab-wrap">
             <table className="itab">
               <thead>
                 <tr>
-                  <th scope="col">Group</th>
-                  <th scope="col">Universities</th>
+                  <th scope="col">Institution partner</th>
+                  <th scope="col">Universities that count</th>
                   <th scope="col">Tier</th>
                   <th scope="col">Counted per</th>
                   <th scope="col">Bonus schemes</th>
@@ -446,7 +446,10 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
                       <td>
                         <span className="iw-strong">{g.name}</span>
                       </td>
-                      <td>{g.members.map(uniName).join(', ')}</td>
+                      <td>
+                        {g.members.map(uniName).join(', ')}
+                        {ctxUnis().filter((u) => u.ip === g.ip).length > g.members.length && <span className="iw-sub">{`${g.members.length} of ${ctxUnis().filter((u) => u.ip === g.ip).length}`}</span>}
+                      </td>
                       <td>{g.bands.length ? bandsText(g.bands) : <span className="cmuted">—</span>}</td>
                       <td>
                         {g.countedPer}
@@ -465,7 +468,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
                               icon: 'trash',
                               danger: true,
                               onPick: () =>
-                                ask(`Delete ${g.name}?`, 'Delete', <p>Its universities are counted on their own from now. Lines already invoiced don’t change.</p>, () => {
+                                ask(`Delete ${g.name}’s terms?`, 'Delete', <p>Its universities are counted on their own from now. Lines already invoiced don’t change.</p>, () => {
                                   deleteGroup(g.id, me);
                                   say(`${g.name} deleted.`);
                                 }),
@@ -480,7 +483,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
             </table>
           </div>
         ) : (
-          <NoMatch what="groups" onClear={() => setQ('')} />
+          <NoMatch what="institution partners" onClear={() => setQ('')} />
         )}
       </Card>
       <LogsFold id="cset-gr-logs" logs={logs('groups')} />
@@ -541,13 +544,13 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
     agreements: ['Add Agreement', () => setAgForm({ id: null }), 'plus'],
     notices: ['Add Notice', () => setNtForm({ id: null }), 'plus'],
     terms: ['Add University terms', () => setTmForm({ uni: null }), 'plus'],
-    groups: ['Add Group', () => setGrForm({ id: null }), 'plus'],
+    groups: ['Add IP terms', () => setGrForm({ id: null }), 'plus'],
     settings: ['Edit settings', () => setStForm(true), 'edit'],
   };
   const notice = ntRps ? s.notices.find((n) => n.id === ntRps) ?? null : null;
   return (
     <div className="ipage csetup">
-      <PageHead title="Setup" lead="Every RP’s and every university’s commission terms, the agreements GSP issues, its notices, university groups and the settings.">
+      <PageHead title="Setup" lead="Every RP’s and every university’s commission terms, the agreements GSP issues, its notices, institution partners’ terms and the settings.">
         <Button iconLeft={<Icon name={add[tab][2]} size={18} />} onClick={add[tab][1]}>
           {add[tab][0]}
         </Button>
@@ -614,7 +617,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
         onClose={() => setGrForm(null)}
         onSaved={(name) => {
           setGrForm(null);
-          say(`${name} saved.`);
+          say(`${name}: terms saved.`);
         }}
       />
       <SettingsForm

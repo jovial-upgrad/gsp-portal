@@ -6,6 +6,7 @@
  * prototype's own RP (Horizon Overseas) has its enrolled applications in the applications seed (data/applications.ts).
  */
 import { idText, lineKey } from './engine';
+import { ADDS, HIGHER, SEPARATE } from './model';
 import type { Addl, Agreement, AgreementBonus, AgreementTerms, Band, BonusScheme, CommState, Confirm, Enrolment, FileRef, InvoiceRequest, Level, Notice, Override, PayUnit, Receipt, RpInvoice, RpPayment, RpRecord, Settings, Stamp, TermsBody, Trigger, UniGroup, UniInvoice, UniTerms } from './model';
 
 const at = (iso: string, time = '10:30') => new Date(`${iso}T${time}`).getTime();
@@ -157,7 +158,7 @@ const seededNotices = (): Notice[] => [
     levels: ['Master’s degree', 'Postgraduate diploma'],
     docType: 'Notice',
     benefit: 'Share',
-    combine: 'Highest wins',
+    combine: HIGHER,
     amount: null,
     share: 85,
     bands: [],
@@ -201,7 +202,7 @@ const seededNotices = (): Notice[] => [
     unis: [],
     levels: ['Bachelor’s degree'],
     benefit: 'Share',
-    combine: 'Separate box',
+    combine: SEPARATE,
     amount: null,
     share: 80,
     bands: [],
@@ -248,7 +249,7 @@ const seededNotices = (): Notice[] => [
     unis: ['waikato'],
     levels: [],
     benefit: '% of tuition',
-    combine: 'Adds on top',
+    combine: ADDS,
     tuitionPct: 2,
     amount: null,
     share: null,
@@ -369,13 +370,14 @@ export const sampleTerms = (): UniTerms[] => [
   uniTerms('unisc', [15, 15, 15, 15, 15, null], 'Census date', 2, 30, '2025-09-02'),
 ];
 
-/* ---------- university groups (Q56): counted together for a tier and for group bonuses ---------- */
+/* ---------- IP terms (Q56; 16 Nov a group is an institution partner): counted together for a tier and GSP's bonuses ---------- */
 
 export const sampleGroups = (): UniGroup[] => [
   {
-    id: 'grp-uk-partners',
-    name: 'UK partner group',
-    members: ['coventry', 'herts', 'greenwich'],
+    id: 'grp-northgate',
+    ip: 'ip-northgate',
+    name: 'Northgate University Group',
+    members: ['abertay', 'greenwich', 'ulster'],
     bands: [band(1, 2, 15), band(3, null, 16)],
     countedPer: 'Calendar year',
     yearStart: 1,
@@ -383,8 +385,8 @@ export const sampleGroups = (): UniGroup[] => [
     tierPerCountry: false,
     tierLevels: [],
     bandBonuses: [],
-    bonus: [scheme('gb-uk-volume', 'Group volume bonus', { per: 'By count', bands: [{ from: 3, to: null, value: 250, kind: 'Amount' }], countedPer: 'Calendar year', perCountry: true })],
-    notes: 'One agreement covers these universities: students at any of them count toward the group’s tier.',
+    bonus: [scheme('gb-northgate-volume', 'Northgate volume bonus', { per: 'By count', bands: [{ from: 3, to: null, value: 250, kind: 'Amount' }], countedPer: 'Calendar year', perCountry: true })],
+    notes: 'One agreement with Northgate covers its universities: students at any of them count toward its tier.',
     created: by(LAV, '2025-11-04'),
     updated: by(LAV, '2025-11-04'),
   },

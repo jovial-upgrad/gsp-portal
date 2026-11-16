@@ -28,6 +28,8 @@ export function filterLines(txs: Tx[], v: LineView, invoiceNo: (t: Tx) => string
   return txs
     .filter((t) => t.side === v.side)
     .filter((t) => v.tab === 'all' || groupOf(t.side, t.status) === v.tab)
+    // 16 Nov (Jovial): lines that count toward nothing (Not payable) show only when the Status filter asks for them
+    .filter((t) => v.tab !== 'all' || groupOf(t.side, t.status) !== 'none' || v.statuses.includes(t.status))
     .filter((t) => !v.who.length || v.who.includes(v.side === 'uni' ? t.uni : t.rp))
     .filter((t) => !v.regions.length || v.regions.includes(t.region))
     .filter((t) => !v.types.length || v.types.includes(t.type))
