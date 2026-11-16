@@ -702,6 +702,7 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
   const rateVals = levels.map((l) => v.rates[l]).filter((x) => x !== undefined) as number[];
   const o = condOpts(v.uni ? [v.uni] : null, levels.length ? levels : COMM_LEVELS, s.settings.regionGroups, todayIso());
   const needWeeks = v.trigger === 'Withdrawal deadline';
+  const groupTier = s.groups.find((g) => g.members.includes(v.uni) && g.bands.length);
   const err = {
     uni: !v.uni ? 'Choose the university.' : null,
     currency: v.currency && !/^[A-Z]{3}$/.test(v.currency) ? 'A three-letter currency code, like AUD.' : null,
@@ -711,7 +712,7 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
     weeks: needWeeks && v.triggerWeeks !== null && !wholeIn(v.triggerWeeks, 0, 52) ? 'A whole number of weeks, 0 to 52.' : null,
     charge: chargeNeedsN(v.charge.unit) && !(v.charge.n !== null && v.charge.n > 0) ? 'How many (or how much).' : null,
     payDays: !wholeIn(v.payDays, 1, 180) ? 'A whole number from 1 to 180.' : null,
-    bands: v.bands.length ? bandsError(v.bands) : null,
+    bands: v.bands.length ? (groupTier ? `${groupTier.name} has a group tier, so this university’s students count toward it. It can’t have its own tier too.` : bandsError(v.bands)) : null,
     bandBonuses: v.bandBonuses.map((b) => bandBonusBad(b, v.bands.length)).find(Boolean) ?? null,
     promos: v.promos.map(promoBad).find(Boolean) ?? null,
     addl: v.addl.map(addlBad).find(Boolean) ?? null,
@@ -873,7 +874,7 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
           <TextInput id="cut-cap" inputMode="decimal" value={numText(v.cap)} onChange={(e) => set({ cap: numOf(e.target.value) })} />
         </Field>
 
-        <FormSec title="Tier" note="A higher rate once GSP enrols more students with this university. The part above the student’s rate is its own Tier bonus line, GSP’s alone: RPs are paid on the base rate. A group’s tier, when the university is in one, wins when higher." />
+        <FormSec title="Tier" note={`A higher rate once GSP enrols more students with this university. The part above the student’s rate is its own Tier bonus line, GSP’s alone: RPs are paid on the base rate.${groupTier ? ` ${groupTier.name} has a group tier, so this university counts toward that instead.` : ''}`} />
         <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide">
           <BandsEditor id="cut-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
         </Field>
@@ -938,7 +939,12 @@ export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean;
   })();
   const err = {
     name: !v.name.trim() ? 'Name the group.' : s.groups.some((g) => g.id !== v.id && g.name.trim().toLowerCase() === v.name.trim().toLowerCase()) ? 'There’s already a group with this name.' : null,
-    members: v.members.length < 2 ? 'Choose at least two universities.' : null,
+    members:
+      v.members.length < 2
+        ? 'Choose at least two universities.'
+        : v.bands.length && v.members.some((m) => s.terms.find((x) => x.uni === m)?.bands.length)
+          ? `${v.members.filter((m) => s.terms.find((x) => x.uni === m)?.bands.length).map((m) => unis.find((u) => u.id === m)?.name ?? m).join(', ')} ${v.members.filter((m) => s.terms.find((x) => x.uni === m)?.bands.length).length === 1 ? 'has its' : 'have their'} own tier. A group with a tier can’t have members with their own: remove theirs, or leave the group’s bands empty.`
+          : null,
     bands: v.bands.length ? bandsError(v.bands) : !v.bonus.length ? 'Add tier bands or a bonus scheme.' : null,
     bandBonuses: v.bandBonuses.map((b) => bandBonusBad(b, v.bands.length)).find(Boolean) ?? null,
     schemes: v.bonus.map(schemeBad).find(Boolean) ?? null,
@@ -958,10 +964,10 @@ export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean;
       <Field id="cgr-name" label="Name" required error={show('name')} className="iform__wide">
         <TextInput id="cgr-name" maxLength={80} value={v.name} invalid={!!show('name')} placeholder="Like: UK partner group" onChange={(e) => set({ name: e.target.value })} />
       </Field>
-      <Field id="cgr-members" label="Universities" required error={show('members')} className="iform__wide" hint="Universities not in another group. Their own tier still applies; the group’s wins when higher.">
+      <Field id="cgr-members" label="Universities" required error={show('members')} className="iform__wide" hint="Universities not in another group. With a group tier, every member’s students count toward it, and members can’t have their own tier.">
         <MultiPick id="cgr-members" label="Universities" value={v.members.map(label)} options={free.map((u) => u.name)} onChange={(x) => set({ members: x.map((n) => unis.find((u) => u.name === n)?.id ?? n) })} empty="Choose the universities" search />
       </Field>
-      <FormSec title="Group tier" note="Enrolments across every member, counted per the group’s year. Wins over a member’s own tier when higher. A group needs a tier or a bonus scheme." />
+      <FormSec title="Group tier" note="Enrolments across every member, counted per the group’s year. A partner has a group tier or tiers per school, not both. A group needs a tier or a bonus scheme." />
       <Field id="cgr-bands" label="Group tier bands" optional error={show('bands')} className="iform__wide">
         <BandsEditor id="cgr-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
       </Field>

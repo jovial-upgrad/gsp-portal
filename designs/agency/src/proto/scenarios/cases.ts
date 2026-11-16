@@ -234,16 +234,16 @@ const add = (c) => C.push(c);
   const at = (u, ids) => ids.map((id) => app(id, { uni: u, rp: 'SC-R80' }));
   const L = [...at('SC-12A', ['ip12-a1', 'ip12-a2', 'ip12-a3']), ...at('SC-12B', ['ip12-b1', 'ip12-b2']), ...at('SC-12C', ['ip12-c1', 'ip12-c2'])];
   add({ id: 'IP12', tab: 'IP', sheetNo: 'Scenario 12', title: 'Institution / Institution Partner Tier', sheet: 'Commission or bonus can be determined according to an institution or Institution partner tier. This may support institution-specific tiers or Institution partner tiers applied across the wider like Navitas group.\nInstitition wise tiers (particular Institution under Navitas)\nInstitution partners wise tier (Navitas as whole)',
-    terms: ['University group “Group partner (sample)” with colleges A, B and C (Finance › University groups). Group tier: 1–5 students 15%, 6+ 18%, retrospective, calendar year.', 'College A also has its own tier: 1–2 students 15%, 3+ 20%, retrospective.', 'Colleges B and C have no tier of their own (UG 15%). Their students still count toward the group.', 'College tier and group tier: the higher rate wins.'],
+    terms: ['University group “Group partner (sample)” with colleges A, B and C (Finance › University groups). Group tier: 1–5 students 15%, 6+ 18%, retrospective, calendar year.', 'Colleges B and C have no tier of their own (UG 15%). Their students still count toward the group.', 'A partner has a group tier or tiers per school, not both (Finance, 16 Nov): every college counts toward the group’s.'],
     today: '2026-05-01', focus: 'ip12-b1',
-    cfg: world({ unis: [uni('SC-12A', { name: 'Group College A (sample)', tier: { retro: true, window: 'CY', scope: 'all', pool: 'uni', levels: [], bands: [[1, 2, 15], [3, null, 20]] } }), uni('SC-12B', { name: 'Group College B (sample)' }), uni('SC-12C', { name: 'Group College C (sample)' })], groups: [{ id: 'SC-GRP', name: 'Group partner (sample)', members: ['SC-12A', 'SC-12B', 'SC-12C'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 15], [6, null, 18]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    cfg: world({ unis: [uni('SC-12A', { name: 'Group College A (sample)' }), uni('SC-12B', { name: 'Group College B (sample)' }), uni('SC-12C', { name: 'Group College C (sample)' })], groups: [{ id: 'SC-GRP', name: 'Group partner (sample)', members: ['SC-12A', 'SC-12B', 'SC-12C'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 15], [6, null, 18]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
     apps: byId(L),
     checks: [
       { what: 'Group count includes college C (no tier of its own)', calc: '3 + 2 + 2 = 7', exp: 7, got: G.app('ip12-b1', (r) => r.uniTier.total) },
       { what: 'College B student at the group band', calc: '7 → 18%; 30,000 × 18% = 5,400', exp: 5400, got: G.period('ip12-b1', 'ip1', 'fullEnt') },
       { what: 'College C student at the group band', calc: '7 → 18% = 5,400', exp: 5400, got: G.period('ip12-c1', 'ip1') },
-      { what: 'College A: own tier beats group tier', calc: 'college 3 → 20% vs group 18%: 20%; 30,000 × 20% = 6,000', exp: 6000, got: G.period('ip12-a1', 'ip1', 'fullEnt') },
-      { what: 'College A’s winning tier is the college’s', calc: '', exp: 'college', got: G.app('ip12-a1', (r) => r.uniTier.who) },
+      { what: 'College A at the group band too', calc: '7 → 18% = 5,400', exp: 5400, got: G.period('ip12-a1', 'ip1', 'fullEnt') },
+      { what: 'The tier that applies is the group’s', calc: '', exp: 'group', got: G.app('ip12-a1', (r) => r.uniTier.who) },
     ] });
 }
 {
@@ -537,14 +537,14 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
 }
 {
   const L = [...['c3-a1', 'c3-a2', 'c3-a3'].map((id) => app(id, { uni: 'SC-C3A', rp: 'SC-R80' })), ...['c3-b1', 'c3-b2', 'c3-b3'].map((id) => app(id, { uni: 'SC-C3B', rp: 'SC-R80' }))];
-  add({ id: 'C3', tab: 'Combination', title: 'College tier vs group tier: the group wins here', sheet: 'A college with its own tier inside a group that has a group tier.',
-    terms: ['Group: colleges A and B; group tier 1–5 students 15%, 6+ 18%, retrospective, calendar year.', 'College A’s own tier: 1–2 students 15%, 3+ 16%, retrospective. College B has none.', 'Three students at each college, Feb 2026. Higher rate wins.'],
+  add({ id: 'C3', tab: 'Combination', title: 'A college in a tiered group counts toward the group tier', sheet: 'A partner has a group tier or tiers per school, never both (Finance, 16 Nov).',
+    terms: ['Group: colleges A and B; group tier 1–5 students 15%, 6+ 18%, retrospective, calendar year.', 'Neither college has a tier of its own.', 'Three students at each college, Feb 2026.'],
     today: '2026-05-01', focus: 'c3-a1',
-    cfg: world({ unis: [uni('SC-C3A', { name: 'Tiered College (sample)', tier: { retro: true, window: 'CY', scope: 'all', pool: 'uni', levels: [], bands: [[1, 2, 15], [3, null, 16]] } }), uni('SC-C3B', { name: 'Untiered College (sample)' })], groups: [{ id: 'SC-G3', name: 'Two-college group (sample)', members: ['SC-C3A', 'SC-C3B'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 15], [6, null, 18]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    cfg: world({ unis: [uni('SC-C3A', { name: 'Group College (sample)' }), uni('SC-C3B', { name: 'Untiered College (sample)' })], groups: [{ id: 'SC-G3', name: 'Two-college group (sample)', members: ['SC-C3A', 'SC-C3B'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 15], [6, null, 18]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
     apps: byId(L),
     checks: [
-      { what: 'College A: group 18% beats college 16%', calc: '30,000 × 18% = 5,400', exp: 5400, got: G.period('c3-a1', 'ip1', 'fullEnt') },
-      { what: 'Winning tier is the group’s', calc: '', exp: 'group', got: G.app('c3-a1', (r) => r.uniTier.who) },
+      { what: 'College A at the group band', calc: '6 → 18%; 30,000 × 18% = 5,400', exp: 5400, got: G.period('c3-a1', 'ip1', 'fullEnt') },
+      { what: 'The tier that applies is the group’s', calc: '', exp: 'group', got: G.app('c3-a1', (r) => r.uniTier.who) },
       { what: 'College B at the group band', calc: '6 → 18% = 5,400', exp: 5400, got: G.period('c3-b1', 'ip1', 'fullEnt') },
     ] });
 }

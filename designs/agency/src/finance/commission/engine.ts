@@ -585,9 +585,11 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     let rpNote: string | undefined;
     const uniDone = new Set<string>();
     const T = p.T;
-    const tiers = tiersOf.get(e.app) ?? [];
-    // the higher of the university's and its group's tier counts (the sandbox's rule: they don't stack)
-    const tier = [...tiers].sort((a, b) => b.pct - a.pct)[0];
+    // A partner has a group tier or tiers per school, never both (Finance, Suman Verma, 16 Nov): the student counts
+    // toward whichever applies. Setup doesn't let both exist; if old data has both, the group's applies.
+    const tiersAll = tiersOf.get(e.app) ?? [];
+    const tier = tiersAll.find((t) => t.spec.who === 'group') ?? tiersAll[0];
+    const tiers = tier ? [tier] : [];
     const progress: Progress[] = [];
     const summary: AppSummary = { currency: cur };
     const version = T && tr ? (tr.earlier.length && T !== (tr as TermsBody) ? `Terms before ${dayText([...tr.earlier].sort((a, b) => a.until.localeCompare(b.until)).find((x) => startOf(e) < x.until)!.until)}` : `Terms ${tr.earlier.length ? `from ${dayText([...tr.earlier].sort((a, b) => b.until.localeCompare(a.until))[0].until)}` : `saved ${dayText(new Date(tr.updated.at).toISOString().slice(0, 10))}`}`) : undefined;
@@ -614,7 +616,6 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const tierSteps: Step[] = tiers.map((t) =>
         step(`${t.spec.who === 'group' ? 'Group tier' : 'University tier'}: ${t.spec.name}`, `${t.spec.retro ? 'Retrospective' : 'Prospective'}, counted per ${windowWords(t.spec.countedPer, t.spec.yearStart)}${t.spec.perCountry ? ' and per source country' : ''}${t.spec.levels.length ? `, levels ${t.spec.levels.join(', ')}` : ''}. ${t.key}: ${t.total} student${t.total === 1 ? '' : 's'} counted; this student is number ${t.rank}. ${t.spec.retro ? `The total (${t.total})` : `This student’s own place (${t.rank})`} sets the band: band ${t.bi + 1}, ${pct(t.pct)}.`),
       );
-      if (tiers.length > 1) tierSteps.push(step('University and group tier', `${tiers.map((t) => `${t.spec.name} ${pct(t.pct)}`).join(' vs ')}: the higher wins, ${pct(tier!.pct)}. They don’t stack.`));
       const promoStates = (T.promos ?? []).map((pr) => ({ pr, why: condTest(pr.cond, p.who, S) }));
       const drafts: Draft[] = [];
       const credit = tier?.end && tier.end > today ? tier.end : undefined;

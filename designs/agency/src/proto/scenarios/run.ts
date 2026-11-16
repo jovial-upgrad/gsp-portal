@@ -189,11 +189,11 @@ function view(res, state) {
     if (top) Object.assign(x, { due: x.due + top.ent, st: top.st });
   }
   const exc = res.exceptions.map((x) => ({ app: x.app, type: EXC[x.type] ?? x.type }));
-  // an application's workings: the tier that set its band (the higher of the university's and its group's)
+  // an application's workings: the tier that set its band (the group's or the school's: never both, 16 Nov)
   const winKey = (w) => w.replace(/^(AY|CY|FY) /, '$1').replace('–', '/');
   const apps = Object.fromEntries(
     res.apps.map((a) => {
-      const best = [...a.tiers].sort((x, y) => y.pct - x.pct || (x.who === 'group' ? -1 : 1))[0];
+      const best = a.tiers[0];
       return [a.app, { uniTier: best && { key: winKey(best.window), total: best.total, rank: best.rank, who: best.who === 'group' ? 'group' : 'college', band: best.band } }];
     }),
   );
