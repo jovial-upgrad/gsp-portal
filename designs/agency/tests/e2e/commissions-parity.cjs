@@ -108,7 +108,7 @@ const openApp = async (p, nav, id) => {
       await p.locator('main [role=tab]', { hasText: /^Commission/ }).first().click().catch(() => {});
       await wait(800);
       const c = await main();
-      ok(c.includes('This application’s terms') && c.includes('University pays GSP') && c.includes('GSP pays the RP') && c.includes('Tiers and exceptions') && c.includes('Student type missing'), 'Finance › application Commission: the terms at the top (fee, GSP’s rate, the RP’s share) and the exception (GSP view)');
+      ok(c.includes('This application’s terms') && c.includes('University pays GSP') && c.includes('GSP pays the RP') && !c.includes('Student type missing'), 'Finance › application Commission: the terms, both sides, and no Key details exception (Q148)');
       ok((await p.locator('main details.chow').count()) > 0, 'Finance › application Commission: How it’s worked out on the lines');
       ok(c.includes('GST'), 'Finance › application Commission: GST on the Australian university’s lines (C6)');
     } else ok(false, 'Finance: opens GSP-23318');

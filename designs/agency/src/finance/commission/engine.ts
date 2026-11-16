@@ -15,7 +15,7 @@
  */
 import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
 import { EXCEPTIONS, PAY_UNITS, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
-import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, unreadableRows, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
+import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
 
@@ -257,10 +257,16 @@ export const noticeCovers = (n: Notice, e: Enrolment, uni: CtxUni, level: Level,
   return who && e.enrolled >= n.starts && e.enrolled <= n.ends && (!(n.intakes ?? []).length || n.intakes!.includes(month)) && (!n.dests.length || n.dests.includes(uni.country)) && (!n.unis.length || n.unis.includes(uni.id)) && (!n.levels.length || n.levels.includes(level));
 };
 /** What the application still needs from Admissions before commission can be worked out (empty: nothing). */
-export function feesMissing(e: Pick<Enrolment, 'fees'>, terms?: Pick<TermsBody, 'trigger' | 'payUnit'>): string[] {
+export function feesMissing(e: Pick<Enrolment, 'fees'>, terms?: Pick<TermsBody, 'trigger' | 'payUnit' | 'charge'>, uni?: { country?: string; studentTypes?: readonly string[] }): string[] {
   const f = e.fees;
   const trig = TRIGGERS.find((t) => t.label === terms?.trigger);
   return [
+    // Q146/Q148 (Jovial, 16 Nov): what used to be exceptions is required at Student enrolled instead (student type also at
+    // pre-screening, in Nesil's application form): an Australian university's student type, the credit points when the
+    // terms charge by them, and study period 1's units when it pays per unit (later units are added as they come)
+    ...(uni?.country === 'Australia' && uni.studentTypes?.length && !f?.studentType ? ['student type'] : []),
+    ...(terms?.charge?.unit === 'Credit points' && f?.points == null ? ['credit points a year'] : []),
+    ...(terms?.payUnit === 'Per unit' && !(f?.units ?? []).length ? ['units'] : []),
     ...(f?.tuition == null && terms?.payUnit !== 'Per unit' && terms?.payUnit !== 'Each fee payment' ? ['tuition fee'] : []),
     ...(f?.scholarship == null ? ['scholarship'] : []),
     ...(!f?.start ? ['course start date'] : []),
@@ -348,7 +354,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     const who: Who = { level: c.level, course: c.name, campus: e.fees?.campus, nationality: e.nationality, start: startOf(e) };
     const exc: Exc[] = [];
     const add = (type: ExceptionType, text: string) => exc.push({ app: e.app, type, text, hold: HOLDS.has(type) });
-    const missing = feesMissing(e, T);
+    const missing = feesMissing(e, T, { country: u.country, studentTypes: S.studentTypes });
     let periods: Pre['periods'] = [];
     let dropped = 0;
     if (!T) add('No terms', `No commission terms for ${u.name} yet. Finance adds them in Setup.`);
@@ -356,13 +362,9 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const pr = periodsOf(T, e, c.months, S);
       periods = pr.periods;
       dropped = pr.dropped;
-      if (pr.missing.includes('units')) add('Units missing', `${u.name} pays per unit of study, but the application lists no units. Admissions adds them from the enrolment statement.`);
-      pr.warn.forEach((w) => add('Credit points missing', `${u.name} ${w}. Admissions adds the points from the offer letter.`));
       const ag = u.agreement;
       if (ag?.start && startOf(e) < ag.start) add('Agreement not yet in force', `${u.name}’s agreement starts ${dayText(ag.start)}; this intake (${dayText(startOf(e))}) is before it. Held until Finance confirms which terms apply.`);
       if (ag?.end && startOf(e) > ag.end) add('Contract ended', `${u.name}’s agreement ended ${dayText(ag.end)}. Enrolments after that are held until a renewal is entered.`);
-      if (u.country === 'Australia' && !e.fees?.studentType) add('Student type missing', 'Student type (new, progression or transfer) is needed for Australian universities. Admissions adds it in Key details.');
-      unreadableRows(T).forEach((x) => add('Rate row unreadable', `${u.name}: ${rowLabel(x, c.currency)} has “:” or “=” in a value, so it matches no student. Write it as course=Nursing; region=Bangladesh : 5000.`));
       const anyRate = periods.some((q) => pickRate(T, who, q.k, S).best);
       if (periods.length && !anyRate) add('Rate missing', `${u.name} has no rate for ${c.level}${c.name ? ` (${c.name})` : ''}. Add it to the university’s terms.`);
     }
@@ -788,7 +790,6 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     const ag = agreementOn(state, e.rp, startOf(e));
     const rpDone = new Set<string>();
     let rpHold: string | undefined = rp?.status === 'Suspended' ? `${rp.name} is suspended: its commission is held until it’s reactivated (D23).` : undefined;
-    if (!rp) addExc('No RP', `Recruitment partner ${e.rp} isn’t in RP Ops’ list.`);
     if (!ag || !rec) rpNote = `No commission record for ${rp?.name ?? e.rp} yet.`;
     else if ([...rec.moves.map((m) => m.from), rec.from].every((d) => d > startOf(e))) {
       addExc('RP terms not in force', `${rp?.name ?? e.rp}’s commission record starts ${dayText([...rec.moves.map((m) => m.from), rec.from].sort()[0])}, after this intake (${dayText(startOf(e))}). Add the terms that applied then.`);
@@ -907,8 +908,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         .filter((nt) => nt.benefit === '% of tuition')
         .forEach((nt) => {
           const v = (round2((e.fees?.tuition ?? 0) - (e.fees?.scholarship ?? 0), cur) * (nt.tuitionPct ?? 0)) / 100;
-          const gspTot = uniTxs.filter((x) => x.type !== 'Bonus').reduce((s2, x) => s2 + x.amount, 0);
-          if (v > gspTot) addExc('Promotion costs more than GSP earns', `${nt.name} pays ${rp?.name ?? e.rp} ${money(round2(v, cur), cur)} (${pct(nt.tuitionPct ?? 0)} of tuition), more than GSP’s own ${money(round2(gspTot, cur), cur)} for this student. Confirm with the approver.`);
+          // Q151 (Jovial, 16 Nov): if the RP gets more than GSP earns on a student, it gets more: no exception
           drafts.push({ slot: `tp:${nt.id}`, type: 'Bonus', what: `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the tuition fee`, rpWhat: `Notice: ${nt.name}`, amount: v, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, trace: [step('Promotion on tuition', `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the student’s final tuition fee. ${nt.combine === 'Separate box' ? 'A separate box: it replaces the RP’s share of GSP’s commission.' : 'Paid on top of the RP’s share.'}`)] });
         });
       (A.bonuses ?? []).forEach((b) => {

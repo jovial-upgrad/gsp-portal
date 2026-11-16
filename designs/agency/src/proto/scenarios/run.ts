@@ -172,7 +172,7 @@ function sandboxKey(t, T, side) {
   return slot;
 }
 const TYPE = { 'Course commission': 'standard', 'Tier bonus': 'tier', Promotion: 'additional', 'Additional commission': 'additional', Bonus: 'bonus', 'Tier top-up': 'topup', Adjustment: 'topup' };
-const EXC = { 'Credit points missing': 'Points missing', 'Units missing': 'Units missing', 'Rate missing': 'Rate missing', 'Contract ended': 'Contract ended', 'Agreement not yet in force': 'Agreement not yet in force', 'Rate rows overlap': 'Rate rows overlap', 'Rate row unreadable': 'Rate row unreadable', 'Student type missing': 'Student type missing', 'Promotion costs more than GSP earns': 'Promotion costs more than GSP earns' };
+const EXC = { 'Rate missing': 'Rate missing', 'Contract ended': 'Contract ended', 'Agreement not yet in force': 'Agreement not yet in force', 'Rate rows overlap': 'Rate rows overlap' };
 
 function view(res, state) {
   const T = (uni) => state.terms.find((t) => t.uni === uni);

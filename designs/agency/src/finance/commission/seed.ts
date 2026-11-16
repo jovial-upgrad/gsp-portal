@@ -401,7 +401,7 @@ export const sampleEnrolments = (): Enrolment[] => [
   { app: 'GSP-23120', student: 'Nguyen Minh Anh', nationality: 'Vietnam', rp: 'rp-saigon', course: 'uow-4', intake: 'Feb 2026', enrolled: '2026-03-01', fees: fees(45900, 4600, '2026-02-23', { census: ['2026-03-20', '2026-08-21'] }, { studentType: 'New', campus: 'Wollongong' }) },
   { app: 'GSP-23466', student: 'Tran Bao Ngoc', nationality: 'Vietnam', rp: 'rp-saigon', course: 'waikato-2', intake: 'Jul 2026', enrolled: '2026-07-25', fees: fees(41100, 8200, '2026-07-13', { census: ['2026-08-07', '2027-03-26'] }, { points: 180 }) },
   // no student type yet: the Exceptions list asks Admissions for it
-  { app: 'GSP-23490', student: 'Sita Gurung', nationality: 'Nepal', rp: 'rp-pokhara', course: 'uow-2', intake: 'Jul 2026', enrolled: '2026-07-26', fees: fees(31350, 7850, '2026-07-20', { census: ['2026-08-21', '2027-03-19'] }) },
+  { app: 'GSP-23490', student: 'Sita Gurung', nationality: 'Nepal', rp: 'rp-pokhara', course: 'uow-2', intake: 'Jul 2026', enrolled: '2026-07-26', fees: fees(31350, 7850, '2026-07-20', { census: ['2026-08-21', '2027-03-19'] }, { studentType: 'New' }) },
   { app: 'GSP-23533', student: 'Le Thu Ha', nationality: 'Vietnam', rp: 'rp-hanoi', course: 'windsor-2', intake: 'Sep 2026', enrolled: '2026-09-28', fees: fees(26900, 5400, '2026-09-08', { paid: ['2026-08-28'] }, { feePayments: [{ date: '2026-08-28', amount: 10750 }, { date: '2027-01-05', amount: 10750 }] }) },
   // a PhD at Deakin, whose terms have no rate for it: Rate missing, held (D10)
   { app: 'GSP-23545', student: 'Kavya Nair', nationality: 'India', rp: 'rp-delhi', course: 'deakin-13', intake: 'Jul 2026', enrolled: '2026-07-24', fees: fees(36800, 0, '2026-07-13', { census: ['2026-08-31'] }, { studentType: 'New' }) },

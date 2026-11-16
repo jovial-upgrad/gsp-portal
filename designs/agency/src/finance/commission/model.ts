@@ -434,19 +434,14 @@ export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' 
  * Finance fixes the terms or the application. `hold`: the lines are held; otherwise it's a warning. A rule, like the
  * statuses, not a list anyone keeps.
  */
+// Q148 (Jovial, 16 Nov): six left, all gaps in a contract or in Setup; Key details are required at the right stage instead
 export const EXCEPTIONS = [
   { type: 'Rate missing', hold: true, fix: 'terms' },
   { type: 'Rate rows overlap', hold: false, fix: 'terms' },
-  { type: 'Rate row unreadable', hold: false, fix: 'terms' },
   { type: 'No terms', hold: true, fix: 'terms' },
   { type: 'Contract ended', hold: true, fix: null },
   { type: 'Agreement not yet in force', hold: true, fix: null },
   { type: 'RP terms not in force', hold: true, fix: 'rps' },
-  { type: 'No RP', hold: true, fix: 'rps' },
-  { type: 'Student type missing', hold: false, fix: null },
-  { type: 'Units missing', hold: true, fix: null },
-  { type: 'Credit points missing', hold: false, fix: null },
-  { type: 'Promotion costs more than GSP earns', hold: false, fix: 'terms' },
 ] as const;
 export type ExceptionType = (typeof EXCEPTIONS)[number]['type'];
 export type Exc = { app: string; type: ExceptionType; text: string; hold: boolean };

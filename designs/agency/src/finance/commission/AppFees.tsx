@@ -26,7 +26,7 @@ import { commState, intakeCensus, termsForCourse, useComm } from './store';
 /** Why the application can't be Student enrolled yet (empty: it can). */
 export function enrolBlock(a: Pick<Application, 'courseId' | 'fees'>): string {
   const { terms } = termsForCourse(a.courseId);
-  const miss = feesMissing({ fees: a.fees }, terms);
+  const miss = feesMissing({ fees: a.fees }, terms, { country: courseOf(a)?.uni.country, studentTypes: commState().settings.studentTypes });
   if (!miss.length) return '';
   const list = miss.length === 1 ? miss[0] : `${miss.slice(0, -1).join(', ')} and ${miss[miss.length - 1]}`;
   return `Add the ${list} in Key details first: commission is worked out from them.`;
