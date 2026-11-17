@@ -523,6 +523,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
             ['Countries that need the student type', S.studentTypeCountries.join(', ') || 'None'],
             ['Commission is forecast from', STATUS[S.forecastFrom as keyof typeof STATUS]?.text('Australia') ?? S.forecastFrom],
             ['Part payment reasons', S.partReasons.join(', '), 'wide'],
+            ['Not payable reasons', (S.notPayableReasons ?? []).join(', ') || 'None', 'wide'],
           ]],
         ] as [string, string, string, ([string, ReactNode] | [string, ReactNode, 'wide'])[]][]
       ).map(([id, title, note, items]) => (

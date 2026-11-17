@@ -1009,7 +1009,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const [v, setV] = useState<Settings>(s.settings);
   const [gstRows, setGstRows] = useState<{ dest: string; pct: number | null }[]>([]);
   const [grpRows, setGrpRows] = useState<{ name: string; countries: string[] }[]>([]);
-  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
+  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -1021,6 +1021,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       docTypes: x.docTypes.join('\n'),
       studentTypes: x.studentTypes.join('\n'),
       partReasons: x.partReasons.join('\n'),
+      notPayable: (x.notPayableReasons ?? []).join('\n'),
       rpInvoice: daysText(x.reminders.rpInvoice),
       uniPayment: daysText(x.reminders.uniPayment),
       rpPayment: daysText(x.reminders.rpPayment),
@@ -1037,7 +1038,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
     groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
     annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
-    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length ? 'Keep at least one in each list.' : null,
+    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length || !linesOf(t.notPayable).length ? 'Keep at least one in each list.' : null,
     days: ![t.rpInvoice, t.uniPayment, t.rpPayment].every(days) ? 'Days, like 0, 7, 14.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
@@ -1053,6 +1054,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
         docTypes: linesOf(t.docTypes),
         studentTypes: linesOf(t.studentTypes),
         partReasons: linesOf(t.partReasons),
+        notPayableReasons: linesOf(t.notPayable),
         reminders: { rpInvoice: daysOf(t.rpInvoice), uniPayment: daysOf(t.uniPayment), rpPayment: daysOf(t.rpPayment) },
       },
       me,
@@ -1154,6 +1156,9 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       </Field>
       <Field id="cst-part" label="Part payment reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Record payment offers when a university pays less.">
         {area('cst-part', 'partReasons')}
+      </Field>
+      <Field id="cst-np" label="Not payable reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Mark not payable offers. The last one asks for a few words.">
+        {area('cst-np', 'notPayable')}
       </Field>
       <FormSec title="Reminders" note="Days, separated by commas. Bell and email; no escalation." />
       <Field id="cst-r1" label="Remind the RP to invoice (days)" required error={show('days')} hint="After its invoice is asked for.">

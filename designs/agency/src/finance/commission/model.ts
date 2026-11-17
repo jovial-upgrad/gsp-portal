@@ -70,6 +70,8 @@ export type Settings = {
   forecastFrom: string;
   /** Why a university paid less than a line's amount (Jovial, 10 Nov, Q44): the reasons Record payment offers. */
   partReasons: string[];
+  /** 17 Nov (Jovial, Finance demo): what Mark not payable offers; 'Other' asks for a few words. */
+  notPayableReasons?: string[];
   /**
    * Reminders, email and bell (Jovial, 10 Nov, Q47), in days: to the RP after its invoice is asked for and not sent;
    * to Finance (and the university's contact) from a University → GSP line's due date while it isn't paid. No escalation.
@@ -388,6 +390,8 @@ export const ACTION_FROM = {
   request: ['Ready to request'],
   pay: ['Approved', 'Overdue to pay'],
 } as const satisfies Record<string, readonly TxStatus[]>;
+/** University lines to chase (17 Nov: Finance's IP queue): past due, or paid short. */
+export const CHASE: readonly UniStatus[] = ['Overdue', 'Part paid'];
 /** The RP's lines it can invoice (Earnings' Invoices to send: those GSP has asked for). */
 export const TO_INVOICE: readonly RpStatus[] = ['Invoice requested', 'Sent back'];
 /** GSP's line is due but the university hasn't paid it: the RP waits (Q50). */
@@ -504,6 +508,8 @@ export type RpPayment = { id: string; rp: string; txs: string[]; date: string; b
 /** GSP's debit note to an RP (Jovial, 13 Nov, Q118/Q125): asks it to pay back recoveries GSP had nothing to set against. */
 export type DebitNote = { id: string; number: string; rp: string; txs: string[]; date: string; by: string; at: number };
 /** An override on one line: its amount, due date and hold, and why. The latest for a line counts. */
+/** A line Finance marked Not payable by hand (17 Nov, the Finance demo): the university said so, say. Lifted by `lifted`. */
+export type NotPayable = { id: string; tx: string; reason: string; by: string; at: number; lifted?: { by: string; at: number } };
 export type Override = { id: string; tx: string; amount: number | null; due: string | null; hold: boolean; reason: string; by: string; at: number };
 /** Finance confirmed the student is still studying, so a study period after the first can be invoiced (Jovial, 10 Nov, D19). */
 export type Confirm = { app: string; period: number; by: string; at: number };
@@ -549,6 +555,8 @@ export type CommState = {
   withdrawals?: Withdrawal[];
   manual?: ManualLine[];
   overrides: Override[];
+  /** 17 Nov: lines Finance marked Not payable by hand, with its reason. */
+  notPayable?: NotPayable[];
   confirms: Confirm[];
   /** Each line's last worked-out amount, and its changes (D21). */
   seen: Record<string, number>;

@@ -139,7 +139,7 @@ export const sampleUsers = (): User[] => [
   ...team('Institution Ops', 'IP Ops Lead', 'Global', '+91', ['Gauri Bhardwaj']),
   ...team('Institution Ops', 'IP Ops Executive', 'Global', '+91', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi']),
   ...team('Finance', 'Finance Lead', 'Global', '+91', ['Suman Verma']),
-  ...team('Finance', 'Commissions Executive', 'Global', '+91', ['Rhythm Jain', 'Pallavi Thakur', 'Nandini Sharma']),
+  ...team('Finance', 'Commissions Executive', 'Global', '+91', ['Rhythm Jain', 'Pallavi Thakur', 'Nandini Sharma', 'Monika Shukla']),
   ...team('Finance', 'Commissions Executive', 'Global', '+63', ['Joana Cabrera', 'Arcelin Landayan']),
   ...team('Admin', 'Product Manager', 'Global', '+91', ['Jovial Lejo']),
 ];
@@ -178,6 +178,8 @@ const P: [string, string][] = [
   ['Courses, intakes and entry rules', 'V V V M E V V V M VX V V V V'],
   ['Held changes', 'V V V M E N V V M V N N N N'],
   ['Commission terms', 'N N N N V N V M M V N N N N'],
+  // 17 Nov (Jovial, the Finance demo): an application's commission Key details; Finance edits them after Student enrolled
+  ['Commission Key details', 'E E N N N N N E M V N N N N'],
   ['Commission lines', 'N N N N N N N M M VX V N N V'],
   ['Invoices and receipts', 'N N N N N N V M M V N N N N'],
   ['Payout runs and statements', 'N N N N N N V M M V V N N V'],
@@ -244,6 +246,10 @@ export const sampleQueues = (users: User[]): Queue[] => {
     q('q-institution', 'Institution', 'Lalaine Dizon', ['Namita Nath', 'Raj Shamani', 'Kavya Menon'], 'owner'),
     q('q-ip-ops', 'IP Ops', 'Gauri Bhardwaj', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi', 'Riya Sen', 'Arjun Mehta'], 'fewest'),
     q('q-finance', 'Finance', 'Suman Verma', ['Rhythm Jain', 'Joana Cabrera', 'Arcelin Landayan', 'Lav Likhi', 'Pallavi Thakur', 'Nandini Sharma'], 'fewest'),
+    // 17 Nov (Jovial, after the Finance demo): commission work in two queues, Fewest open
+    // two people each (Jovial, 17 Nov): one keeps each IP, one keeps each RP
+    q('q-comm-ip', 'Commissions: IP lines', 'Nandini Sharma', ['Monika Shukla'], 'fewest'),
+    q('q-comm-rp', 'Commissions: RP lines', 'Rhythm Jain', ['Pallavi Thakur'], 'fewest'),
     q('q-admin', 'Admin', 'Jovial Lejo', [], 'fewest'),
   ];
 };

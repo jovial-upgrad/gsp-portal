@@ -863,7 +863,7 @@ function RuleSheet({ rule, queues, onClose, onSave }: { rule: TaskRule | null; q
     : null;
   const dirty = !!rule && JSON.stringify(next) !== JSON.stringify(rule);
   const regional = rule ? regionalFor(rule) : null;
-  const sharings = RULE_SHARINGS.filter((s) => s !== 'officer' || rule?.record === 'Application');
+  const sharings = RULE_SHARINGS.filter((s) => (s !== 'officer' || rule?.record === 'Application') && (s !== 'keeper' || rule?.cat === 'Commission'));
   const save = () => {
     setTried(true);
     if (Object.values(err).some(Boolean) || !next) return;

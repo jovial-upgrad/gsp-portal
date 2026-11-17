@@ -18,6 +18,7 @@ import { HOME_RP } from '../../gsp/rps';
 import { agreementsOf, sampleOps, type OpsRp } from '../../rpops/records/data';
 import { sampleComm } from '../../finance/commission/seed';
 import { rpsWithoutRecord, unisWithoutTerms } from '../../finance/commission/engine';
+import { commHits, commRuleOf } from '../../finance/commission/work';
 import type { CommState } from '../../finance/commission/model';
 
 export type { RecordType };
@@ -102,7 +103,7 @@ export function sampleRecords(me: { name: string; email: string } = { name: '', 
 }
 
 /** A record a rule's condition holds for: when it started holding, its region, and the words its task fills in. */
-type Hit = { key: string; since: number; region: string; ref: string; about: string; owner?: string; vars: Record<string, string> };
+type Hit = { key: string; since: number; region: string; ref: string; about: string; owner?: string; vars: Record<string, string>; keep?: string };
 const at = (iso: string) => new Date(`${iso}T09:30`).getTime();
 const activityAt = (rp: RecruitmentPartner, what: RegExp) => {
   const a = rp.activity.find((x) => what.test(x.what));
@@ -179,6 +180,15 @@ function hitsFor(rule: TaskRule, rec: WorkRecords, regionOf: (country: string) =
     case 'T81':
       // a university with no commission terms: from the day it was added
       return unisWithoutTerms(rec.comm, rec.unis).map((u) => ({ key: u.id, since: at(u.added), region: 'Global', ref: u.name, about: u.name, vars: { university: u.name } }));
+    case 'T86':
+    case 'T87':
+    case 'T88':
+    case 'T89':
+    case 'T90':
+    case 'T91':
+    case 'T92':
+      // 17 Nov: commission work, from the lines as the engine works them out (finance/commission/work.ts)
+      return commRuleOf(rule.code) ? commHits(rule.code, rec.comm, rec.apps, rec.students).map((h) => ({ ...h, region: 'Global' })) : [];
     case 'T27':
       return rec.mails.filter((m) => m.folder === 'inbox' && categoryOf(m) === 'unlinked').map((m) => ({ key: m.id, since: m.at, region: 'Global', ref: m.subject, about: m.from.name, vars: {} }));
     default:
@@ -241,6 +251,11 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
         // the application's officer: picked once, by Fewest open, and every later application task goes to them
         who = officers.get(hit.key) ?? fewest(q);
         officers.set(hit.key, who);
+      } else if (way === 'keeper') {
+        // 17 Nov: one person per IP or RP: the first of its tasks goes by Fewest open, and they keep it
+        const k = `${q.id}|${hit.keep ?? hit.key}`;
+        who = officers.get(k) ?? fewest(q);
+        officers.set(k, who);
       } else if (way === 'owner' && hit.owner && members.includes(hit.owner)) who = hit.owner;
       else who = fewest(q);
       open.set(`${q.id}|${who}`, (open.get(`${q.id}|${who}`) ?? 0) + 1);

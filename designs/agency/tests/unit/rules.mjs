@@ -12,7 +12,9 @@ const ok = (name, cond, more = '') => { cond ? pass++ : fail++; console.log(`${c
 try {
   const { sampleCfg } = await vite.ssrLoadModule('/src/admin/config/ConfigPage.tsx');
   const mw = await vite.ssrLoadModule('/src/admin/data/mywork.ts');
-  const KEPT = ['T5', 'T54', 'T16', 'T57', 'T20', 'T32', 'T69', 'T37', 'T38', 'T40', 'T41', 'T42', 'T27', 'T80', 'T81'];
+  // 17 Nov (Jovial, after the Finance demo): commission work in two queues, T86–T92 (R134)
+  const COMM = ['T86', 'T87', 'T88', 'T89', 'T90', 'T91', 'T92'];
+  const KEPT = ['T5', 'T54', 'T16', 'T57', 'T20', 'T32', 'T69', 'T37', 'T38', 'T40', 'T41', 'T42', 'T27', 'T80', 'T81', ...COMM];
   const cfg = sampleCfg();
   ok('the task rules are exactly the kept ones', cfg.taskRules.map((r) => r.code).join() === KEPT.join(), cfg.taskRules.map((r) => r.code).join());
   ok('no kinds of work, reminders or requests in the settings', !('kinds' in cfg) && !('ladder' in cfg) && !('requests' in cfg));
@@ -44,8 +46,16 @@ try {
   const fin = await vite.ssrLoadModule('/src/finance/work/data.ts');
   // 9 Nov (Commissions): T80 and T81 send Finance a task for each accepted RP with no commission record, and each university with no terms
   const fts = fin.sampleIwTasks();
-  ok('Finance gets only commission tasks (T80 and T81: Jovial, 11 Nov)', fts.length > 0 && fts.every((t) => ['T80', 'T81'].includes(t.rule)), fts.map((t) => t.title).join('; '));
-  // 11 Nov (Jovial): no T82 to T85: those are worked from Commission lines and RP Ops › Notices
+  ok('Finance gets only commission tasks (T80, T81, and T86–T92 since 17 Nov)', fts.length > 0 && fts.every((t) => ['T80', 'T81', ...COMM].includes(t.rule)), fts.map((t) => t.title).join('; '));
+  // 17 Nov: IP work in Commissions: IP lines, RP work in Commissions: RP lines; the same person keeps an IP or an RP
+  const ipQ = fts.filter((t) => ['T86', 'T87', 'T88'].includes(t.rule));
+  const rpQ = fts.filter((t) => ['T89', 'T90', 'T91', 'T92'].includes(t.rule));
+  ok('17 Nov IP work lands in Commissions: IP lines, RP work in Commissions: RP lines', ipQ.length > 0 && rpQ.length > 0 && ipQ.every((t) => t.queue === 'Commissions: IP lines') && rpQ.every((t) => t.queue === 'Commissions: RP lines'), fts.map((t) => `${t.rule} ${t.queue}`).join('; '));
+  const keeps = (xs) => { const m = new Map(); return xs.every((t) => (m.has(t.rp) ? m.get(t.rp) === t.assignee : (m.set(t.rp, t.assignee), true))); };
+  ok('17 Nov one person keeps an IP, and one an RP', keeps(ipQ) && keeps(rpQ));
+  const people = new Set(ipQ.map((t) => t.assignee));
+  ok('17 Nov IP work is shared out (Fewest open), not all to one person', people.size > 1, [...people].join());
+  // 11 Nov (Jovial): no T82 to T85 (17 Nov: commission work is T86–T92 instead)
   ok('No task rule T82 to T85', !fts.some((t) => ['T82', 'T83', 'T84', 'T85'].includes(t.rule)));
   // 10 Nov (Q36): a task completed early doesn't come back for that record
   const one = again[0];

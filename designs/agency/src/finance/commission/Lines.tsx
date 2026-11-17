@@ -13,6 +13,9 @@ import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } f
 import { addDays, setOff, sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
+import { appliedOptions, feeInvoiced, lineFees, termsApplied } from './applied';
+import { NotPayableSheet } from './NotPayableSheet';
+import { liftNotPayable, manualNotPayable, markNotPayable } from './store';
 import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
@@ -54,6 +57,9 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [raising, setRaising] = useState<{ title: string; sub: string; body: ReactNode; go: (xero: string) => void } | null>(null);
   const takenNos = [...s.invoices.map((i) => i.number), ...(s.credits ?? []).flatMap((c) => [c.number, c.reissue ?? ''])].filter(Boolean);
   const [history, setHistory] = useState<Tx | null>(null);
+  // 17 Nov: Finance marks a line Not payable by hand, with a reason
+  const [noPay, setNoPay] = useState<Tx | null>(null);
+  const manual = useMemo(() => manualNotPayable(s), [s]);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
   const [tile, setTile] = useState<TileKey | ''>('');
@@ -63,14 +69,19 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const { ask, dialog } = useAsk();
   const set = (p: Partial<LineView>) => setV((x) => ({ ...x, ...p }));
   const side = v.side;
-  const shown = useMemo(() => filterLines(res.txs, v), [res, v]);
-  const tabCount = (k: LineView['tab']) => filterLines(res.txs, { ...v, tab: k }).length;
+  // 17 Nov (Jovial): show the working: the terms that priced each line, its fee, and each student's fee invoiced so far
+  const applied = useMemo(() => new Map(res.txs.map((t) => [t.id, termsApplied(t, s, res)])), [res, s]);
+  const fees = useMemo(() => lineFees(res, s, apps), [res, s, apps]);
+  const invoicedFee = useMemo(() => feeInvoiced(res, fees), [res, fees]);
+  const appliedOf = (t: Tx) => applied.get(t.id) ?? '';
+  const shown = useMemo(() => filterLines(res.txs, v, undefined, appliedOf), [res, v, applied]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tabCount = (k: LineView['tab']) => filterLines(res.txs, { ...v, tab: k }, undefined, appliedOf).length;
   const pg = usePaged(shown, [JSON.stringify(v)]);
   useEffect(() => setTicked([]), [JSON.stringify(v)]); // eslint-disable-line react-hooks/exhaustive-deps
   // 16 Nov (Jovial): a line that counts toward nothing (Not payable) can't be ticked; it's there as a record
   const canTick = (t: Tx) => groupOf(t.side, t.status) !== 'none';
   const sel = shown.filter((t) => ticked.includes(t.id) && canTick(t));
-  const filtered = v.who.length + v.regions.length + v.types.length + v.statuses.length > 0 || !!v.from || !!v.to || !!v.q || !!v.lapsed;
+  const filtered = v.who.length + v.regions.length + v.types.length + v.statuses.length + (v.applied?.length ?? 0) > 0 || !!v.from || !!v.to || !!v.q || !!v.lapsed;
   const clear = () => setV((x) => ({ ...blankView(x.side), tab: x.tab }));
   const onlyOne = (k: 'uni' | 'rp') => new Set(sel.map((t) => t[k])).size === 1;
   // GSP invoices the IP in all cases (Jovial, 17 Nov): one invoice per IP and currency can cover several of its universities
@@ -461,6 +472,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
             <Filter id="clines-region" label="Sales region" all="All regions" value={v.regions} options={regions} onChange={(regions) => set({ regions })} />
             <Filter id="clines-type" label="Type" all="All types" value={v.types} options={TX_TYPES} onChange={(types) => set({ types })} />
             <Filter id="clines-status" label="Status" all="All statuses" value={v.statuses} options={STATUSES_OF[side]} onChange={(statuses) => set({ statuses })} />
+            {side === 'rp' && <Filter id="clines-applied" label="Terms applied" all="All terms" value={v.applied ?? []} options={appliedOptions(s)} onChange={(x) => set({ applied: x })} search />}
             <div className="clines__dates" role="group" aria-label="Due between">
               <TextInput id="clines-from" type="date" aria-label="Due from" value={v.from} onChange={(e) => set({ from: e.target.value })} />
               <span className="cmuted">to</span>
@@ -572,6 +584,10 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                       <td>
                         {SIDES[t.side]}
                         <span className="iw-sub">{t.what}</span>
+                        <span className="iw-sub">
+                          Terms applied: {applied.get(t.id)}
+                          {fees.has(t.id) ? ` · worked out on a fee of ${money(fees.get(t.id)!, t.currency)}` : ''}
+                        </span>
                       </td>
                       <td>
                         {canOpen ? (
@@ -585,6 +601,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                         <span className="iw-sub">
                           {t.uniName} · {t.course}
                         </span>
+                        {invoicedFee.has(t.app) && <span className="iw-sub">Fee invoiced so far: {money(invoicedFee.get(t.app)!, t.currency)}</span>}
                       </td>
                       <td>
                         {side === 'uni' ? t.uniName : t.rpName}
@@ -600,6 +617,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                         {t.heldWhy && <span className="iw-sub">{t.heldWhy}</span>}
                         {t.nopayWhy && <span className="iw-sub">{t.nopayWhy}</span>}
                         {t.credited && <span className="iw-sub">Reversed by {t.credited}; a new line takes its place</span>}
+                        {t.forecast && <span className="iw-sub">Forecast: the student isn’t enrolled yet</span>}
                         {t.override && (
                           <span className="iw-sub">
                             Overridden by {t.override.by}, {dayText(new Date(t.override.at).toISOString())}: {t.override.reason}
@@ -620,6 +638,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                             ...(t.side === 'uni' && t.invoice && (ACTION_FROM.record as readonly string[]).includes(t.status) ? [{ id: 'resend', label: 'Send again', icon: 'send' as const, onPick: () => resend(t.invoice!) }] : []),
                             ...(t.side === 'uni' && t.type !== 'Clawback' && (groupOf(t.side, t.status) === 'paid' || t.status === PART_PAID) ? [{ id: 'clawback', label: 'Record clawback', icon: 'minus' as const, onPick: () => setClawing(t) }] : []),
                             ...(t.side === 'uni' && !(s.withdrawals ?? []).some((w) => w.app === t.app) ? [{ id: 'withdrew', label: 'Student withdrew', icon: 'minus' as const, onPick: () => setLeaving(t.app) }] : []),
+                            ...(manual.has(t.id) ? [{ id: 'lift-np', label: 'Lift Not payable', icon: 'refresh' as const, onPick: () => (liftNotPayable(t.id, who.name), say(`${t.id}: Not payable lifted.`)) }] : groupOf(t.side, t.status) === 'paid' || !canTick(t) ? [] : [{ id: 'not-payable', label: 'Mark not payable', icon: 'minus' as const, onPick: () => setNoPay(t) }]),
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
                           ]}
@@ -648,6 +667,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
       )}
 
       <InvoiceSheet doc={inv} onClose={() => setInv(null)} />
+      <NotPayableSheet t={noPay} reasons={s.settings.notPayableReasons ?? []} onClose={() => setNoPay(null)} onDone={(reason) => (markNotPayable([noPay!.id], reason, who.name), say(`${noPay!.id} marked not payable.`), setNoPay(null))} />
       <PaymentSheet
         txs={paying}
         onClose={() => setPaying(null)}

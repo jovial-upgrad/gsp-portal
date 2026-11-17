@@ -307,6 +307,15 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   const creditOf = new Map<string, CreditNote>();
   (state.credits ?? []).forEach((c) => c.txs.forEach((t) => creditOf.set(t, c)));
   const reissueOf = (key: string) => reissueIn(state, key);
+  // lines Finance marked Not payable by hand, with why (17 Nov); a lifted one is payable again
+  const markedNP = new Map<string, { reason: string; by: string; at: number }>();
+  [...(state.notPayable ?? [])].sort((a, b) => a.at - b.at).forEach((n) => (n.lifted ? markedNP.delete(n.tx) : markedNP.set(n.tx, { reason: n.reason, by: n.by, at: n.at })));
+  const byHand = (t: Tx) => {
+    const np = markedNP.get(t.id);
+    if (!np || t.status === 'Paid' || t.credited) return;
+    t.status = 'Not payable';
+    t.nopayWhy = `Marked not payable by ${np.by}, ${dayText(iso(np.at))}: ${np.reason}`;
+  };
   const uniName0 = (id: string) => uniOf.get(id)?.name ?? id;
   // what came in for each line over all receipts (an older receipt with no per-line amounts paid its lines in full), and write-offs (Q44)
   const received = new Map<string, number>();
@@ -815,6 +824,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const held = !!holdWhy;
       if (held) t.heldWhy = holdWhy;
       t.status = t.credited ? 'Credited' : uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today });
+      byHand(t);
       // not enrolled yet (17 Nov): a forecast, never ready to invoice
       if (e.estimate) {
         t.forecast = true;
@@ -1010,6 +1020,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // a withdrawn student earns the RP no bonus (D28); a milestone counts students GSP was paid for, so it stands
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
       t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), requested: !!t.requested, due: t.due, today });
+      byHand(t);
       if (e.estimate && !paidRp.has(t.id)) {
         // a forecast (17 Nov): the student isn't enrolled yet
         t.forecast = true;

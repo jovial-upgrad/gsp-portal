@@ -8,7 +8,7 @@ import { Checkbox, Field } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { SearchPick } from '../../institution/records/SearchPick';
 import { Pager, usePaged } from '../../admin/config/parts';
-import { LEADER, QUEUE, STANDING, TEAM, dueDate, sampleIwTasks, standingOf, whShort, whText, type IwTask, type Standing } from './data';
+import { QUEUES, STANDING, TEAM, TEAM_OF, dueDate, sampleIwTasks, standingOf, whShort, whText, type IwTask, type Standing } from './data';
 import { GSP_USER } from '../../institution/user';
 import '../../institution/work/work.css';
 
@@ -116,7 +116,7 @@ export function MyWork({ stillOpen = () => true }: { stillOpen?: (t: IwTask) => 
           {view !== 'waiting' && (
             <div className="iw-filters">
               <div className="iw-filter">
-                <MultiPick id="iw-queues" label="Queues" value={qs} options={[QUEUE]} onChange={setQs} empty="All queues" />
+                <MultiPick id="iw-queues" label="Queues" value={qs} options={QUEUES} onChange={setQs} empty="All queues" />
               </div>
               <div className="iw-filter">
                 <MultiPick id="iw-status" label="SLA status" value={sts} options={Object.values(STANDING)} onChange={setSts} empty="Any SLA status" />
@@ -262,6 +262,10 @@ function AssignSheet({ tasks, onClose, onSave }: { tasks: IwTask[] | null; onClo
   useEffect(() => setWho(one?.assignee ?? ''), [tasks]); // eslint-disable-line react-hooks/exhaustive-deps
   const n = tasks?.length ?? 0;
   const re = !!one?.assignee;
+  // the ticked tasks' queue (one queue: its people); tasks from several queues: everyone in them
+  const qnames = [...new Set((tasks ?? []).map((t) => t.queue))];
+  const qname = qnames.length === 1 ? qnames[0] : qnames.join(', ');
+  const qteam = qnames.length === 1 && TEAM_OF[qnames[0]] ? TEAM_OF[qnames[0]] : { leader: '', team: TEAM };
   return (
     <Sheet
       open={!!tasks}
@@ -283,8 +287,8 @@ function AssignSheet({ tasks, onClose, onSave }: { tasks: IwTask[] | null; onClo
         </div>
       }
     >
-      <Field id="iw-who" label={`People in ${QUEUE}`} required>
-        <SearchPick id="iw-who" label={`People in ${QUEUE}`} value={who} placeholder="Search for a person" options={TEAM.map((p) => ({ value: p, label: p === LEADER ? `${p} (leader)` : p === GSP_USER.name ? `${p} (you)` : p }))} onChange={setWho} />
+      <Field id="iw-who" label={`People in ${qname}`} required>
+        <SearchPick id="iw-who" label={`People in ${qname}`} value={who} placeholder="Search for a person" options={qteam.team.map((p) => ({ value: p, label: p === qteam.leader ? `${p} (leader)` : p === GSP_USER.name ? `${p} (you)` : p }))} onChange={setWho} />
       </Field>
     </Sheet>
   );

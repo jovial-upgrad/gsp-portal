@@ -9,6 +9,10 @@ import type { Account } from '../../screens/signin/model';
 import type { SignupState } from '../../screens/signup/model';
 import { EDIT, HIDE, NAV, SHOW, TABS, type NavItem, type Section } from './model';
 import { MyWork } from '../work/MyWork';
+import { COMM_RULES, commHits, commRuleOf } from '../commission/work';
+import { samplePerms } from '../../admin/data/config';
+/** 17 Nov: Finance edits commission Key details when GSP · Admin's permissions give Commissions & Finance View and Edit on them. */
+const KEYS_EDIT = samplePerms()['Commission Key details']?.['Commissions & Finance'] === 'E';
 import { AccessProvider, ViewOnlyNote, ViewOnlyProvider } from '../../proto/viewOnly';
 // GSP · Institution's own pages, as GSP · Admin uses them: a change there shows here too
 import { FindCourses } from '../../institution/courses/FindCourses';
@@ -136,6 +140,8 @@ export function Portal({
   // N17: an RP sent an invoice, to the Finance queue's members (bell)
   // T82 tasks stay open while their exception still holds
   const openExc = useMemo(() => commWork(comm).exceptions, [comm]);
+  // 17 Nov: a commission task (T86–T92) stays open while its rule's condition still holds on the lines as they are now
+  const commOpen = useMemo(() => new Set(Object.values(COMM_RULES).flatMap((code) => commHits(code, comm, apps, students).map((h) => `${code}-${h.key}`))), [comm, apps, students]);
   const commExtra = useMemo<Note[]>(() => commNotes(comm, lines, commRpName, undefined, ctxUnis()).filter((n) => n.to === 'finance').map((n) => ({ id: n.id, kind: 'system', title: n.title, text: n.text, at: n.at, read: n.at < Date.now() - 2 * 86_400_000 })), [comm, lines]);
 
   // the bell and the megaphone, as in every role
@@ -313,7 +319,7 @@ export function Portal({
       <TeamHome first={GSP_USER.first} db={db} open={openInst} me={GSP_USER.name} />
     ) : section === 'work' ? (
       // a T80 or T81 task closes once its record is saved in Setup
-      <MyWork stillOpen={(t) => (t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : t.rule === 'T84' ? !comm.confirms.some((c) => t.id === `T84-${c.app}-${c.period}`) : t.rule === 'T82' ? openExc.some((x) => t.id === `T82-${x.app}-${x.type.replace(/\W+/g, '-').toLowerCase()}`) : true)} />
+      <MyWork stillOpen={(t) => (commRuleOf(t.rule) ? commOpen.has(t.id) : t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : t.rule === 'T84' ? !comm.confirms.some((c) => t.id === `T84-${c.app}-${c.period}`) : t.rule === 'T82' ? openExc.some((x) => t.id === `T82-${x.app}-${x.type.replace(/\W+/g, '-').toLowerCase()}`) : true)} />
     ) : section === 'lines' ? (
       <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : section === 'setup' ? (
@@ -416,7 +422,7 @@ export function Portal({
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
           transition={{ duration: 0.22, ease }}
         >
-          <AccessProvider hide={HIDE} show={SHOW}>
+          <AccessProvider hide={HIDE} show={KEYS_EDIT ? [...SHOW, 'app.keydetails.edit'] : SHOW}>
             <CommNavProvider nav={commNav}>
             <ViewOnlyProvider on={!EDIT.includes(section)}>
               {!EDIT.includes(section) && (

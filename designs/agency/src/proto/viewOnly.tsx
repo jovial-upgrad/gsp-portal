@@ -67,6 +67,8 @@ export type Feature =
   | 'mp.commission.edit'
   // GSP · Finance and GSP · RP Ops (Jovial, 11 Nov): what an RP is shown of its commission, on its Commission tab
   | 'rp.view.edit'
+  // 17 Nov (Jovial, the Finance demo): an application's commission Key details to change inside a view-only page
+  | 'app.keydetails.edit'
   // GSP · Finance (Deepesh, 10 Nov): an application without what's only Admissions' (offer facts, counsellor) and without the enrolled banner
   | 'app.admissions-facts'
   | 'app.celebrate'

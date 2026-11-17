@@ -123,8 +123,9 @@ export const spansShort = (xs: Span[]) => (xs.length ? xs.map(spanShort).join(' 
 export const spansText = (xs: Span[]) => xs.map(spanText).join(' and ');
 
 /** How a rule's task is shared: to the application's officer (application rules only), the queue's own way, or one of the three. */
-export type RuleSharing = 'officer' | 'queue' | Sharing;
-export const RULE_SHARING: Record<RuleSharing, string> = { officer: 'The application’s officer', queue: 'The queue’s own way', fewest: 'Fewest open', owner: 'Record owner', leader: 'To the leader' };
+export type RuleSharing = 'officer' | 'keeper' | 'queue' | Sharing;
+/** `keeper` (Jovial, 17 Nov): commission rules only. The first task for an IP or RP goes by Fewest open; that person keeps it. */
+export const RULE_SHARING: Record<RuleSharing, string> = { officer: 'The application’s officer', keeper: 'One person per IP or RP (Fewest open, then kept)', queue: 'The queue’s own way', fewest: 'Fewest open', owner: 'Record owner', leader: 'To the leader' };
 export const RULE_SHARINGS = Object.keys(RULE_SHARING) as RuleSharing[];
 
 /** The rule groups, as Task Rules' tabs. */
@@ -203,4 +204,13 @@ export const sampleRules = (): TaskRule[] => [
   // 11 Nov (Jovial): T80 and T81 are the only commission task rules; exceptions, tier periods, continuing students and
   // notices to issue are worked from Commission lines and RP Ops › Notices, with no task
   r('T81', 'Commission', 'University', 'Commission terms', 'A university is added', 'Enter commission terms for {university}', 'q-finance', d(5), 'fewest', 'The university’s terms are saved'),
+  // 17 Nov (Jovial, after the Finance demo): commission work in two queues, Fewest open, and the same person keeps an
+  // IP or an RP. Replaces 11 Nov's "no commission tasks but T80 and T81" (R134)
+  r('T86', 'Commission', 'Institution partner', 'Ready to invoice', 'Lines for the IP’s universities are Ready to invoice', 'Raise invoices for {IP} ({lines})', 'q-comm-ip', d(2), 'keeper', 'No line for the IP is Ready to invoice'),
+  r('T87', 'Commission', 'Institution partner', 'Overdue or part paid', 'Lines for the IP’s universities are Overdue or Part paid', 'Chase {IP}: {lines} unpaid', 'q-comm-ip', d(3), 'keeper', 'No line for the IP is Overdue or Part paid'),
+  r('T88', 'Commission', 'Institution partner', 'Exceptions', 'Lines for the IP’s universities are held by an exception', 'Fix exceptions for {IP} ({lines})', 'q-comm-ip', d(2), 'keeper', 'No exception for the IP is left'),
+  r('T89', 'Commission', 'RP', 'Ready to request', 'GSP is paid for lines of the RP’s, and its invoice isn’t asked for yet', 'Request {RP}’s invoice ({lines})', 'q-comm-rp', d(2), 'keeper', 'No line for the RP is Ready to request'),
+  r('T90', 'Commission', 'RP', 'Invoice to check', 'The RP uploaded an invoice', 'Check {RP}’s invoice', 'q-comm-rp', d(2), 'keeper', 'The invoice is accepted or sent back'),
+  r('T91', 'Commission', 'RP', 'To pay', 'Lines of the RP’s are Approved or Overdue to pay', 'Pay {RP} ({lines})', 'q-comm-rp', d(3), 'keeper', 'No line for the RP is Approved or Overdue to pay'),
+  r('T92', 'Commission', 'RP', 'To recover', 'A recovery from the RP is To recover', 'Recover from {RP} ({lines})', 'q-comm-rp', d(10), 'keeper', 'No recovery from the RP is left'),
 ];
