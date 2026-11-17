@@ -383,6 +383,8 @@ export const ACTION_FROM = {
   request: ['Ready to request'],
   pay: ['Approved', 'Overdue to pay'],
 } as const satisfies Record<string, readonly TxStatus[]>;
+/** University lines to chase (17 Nov: Finance's IP queue): past due, or paid short. */
+export const CHASE: readonly UniStatus[] = ['Overdue', 'Part paid'];
 /** The RP's lines it can invoice (Earnings' Invoices to send: those GSP has asked for). */
 export const TO_INVOICE: readonly RpStatus[] = ['Invoice requested', 'Sent back'];
 /** GSP's line is due but the university hasn't paid it: the RP waits (Q50). */
