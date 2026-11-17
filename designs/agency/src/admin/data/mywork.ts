@@ -205,8 +205,10 @@ export const fillTask = (task: string, vars: Record<string, string>) => task.rep
 export function queueFor(to: string, region: string, queues: Queue[], regions: Region[]): Queue | undefined {
   const reg = REGIONAL[to];
   if (!reg) return queues.find((q) => q.id === to);
-  const routed = to.endsWith('Admissions') ? queues.find((q) => q.id === regions.find((r) => r.name === region)?.queue) : undefined;
-  return routed ?? queues.find((q) => q.name === `${region} ${reg.suffix}`) ?? queues.find((q) => q.name === reg.fallback);
+  // the region names its queue for each (17 Nov: Recruitment too); a region with none set uses the fallback queue
+  const r = regions.find((x) => x.name === region);
+  const routed = queues.find((q) => q.id === (to.endsWith('Admissions') ? r?.queue : r?.recruitment));
+  return routed ?? queues.find((q) => q.name === reg.fallback);
 }
 
 /**

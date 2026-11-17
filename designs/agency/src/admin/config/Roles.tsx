@@ -67,7 +67,7 @@ export function Regions(props: ConfigProps) {
               <div className="stab-wrap">
                 <table className="itab cfg__tab cfg__tab--even">
                   <colgroup>
-                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                    {[0, 1, 2, 3, 4, 5, 6].map((i) => (
                       <col key={i} />
                     ))}
                     <col className="cfg__actcol" />
@@ -79,6 +79,7 @@ export function Regions(props: ConfigProps) {
                       <th scope="col">Admission contact</th>
                       <th scope="col">BDM contact</th>
                       <th scope="col">Admission queue</th>
+                      <th scope="col">Recruitment queue</th>
                       <th scope="col">Users</th>
                       <th scope="col">
                         <span className="vh">Actions</span>
@@ -101,6 +102,7 @@ export function Regions(props: ConfigProps) {
                           <td>{r.contact || dash}</td>
                           <td>{r.bdm || dash}</td>
                           <td>{q || dash}</td>
+                          <td>{queueName(r.recruitment) || dash}</td>
                           <td className="num">{usersIn(r.name)}</td>
                           <td className="cfg__acts">
                             {!fixed && (
@@ -134,7 +136,7 @@ export function Regions(props: ConfigProps) {
         onClose={() => setEdit(null)}
         onSave={(r) => {
           const was = edit === 'new' ? null : edit;
-          const facts = `${r.countries.length} ${r.countries.length === 1 ? 'country' : 'countries'}, Admission contact ${r.contact}, BDM contact ${r.bdm}, admission queue ${queueName(r.queue) ?? ''}`;
+          const facts = `${r.countries.length} ${r.countries.length === 1 ? 'country' : 'countries'}, Admission contact ${r.contact}, BDM contact ${r.bdm}, admission queue ${queueName(r.queue) ?? ''}, recruitment queue ${queueName(r.recruitment) ?? ''}`;
           if (!was) {
             change('Sales regions', `Added ${r.name}: ${facts}`, (c) => {
               const at = c.regions.findIndex((x) => FIXED_REGIONS.includes(x.name));
@@ -380,14 +382,15 @@ function NationalityDialog({ open, rows, regions, onClose, onSave }: { open: boo
   );
 }
 
-/** Add or edit a sales region: its name, countries, Admission contact, BDM contact and admission queue (one, since
- *  4 Nov), all needed. */
+/** Add or edit a sales region: its name, countries, Admission contact, BDM contact, admission queue (one, since
+ *  4 Nov) and recruitment queue (17 Nov: where its RP tasks go), all needed. */
 function RegionDialog({ open, region, regions, users, queues, onClose, onSave }: { open: boolean; region: Region | null; regions: Region[]; users: User[]; queues: Queue[]; onClose: () => void; onSave: (r: Region) => void }) {
   const [name, setName] = useState('');
   const [countries, setCountries] = useState<string[]>([]);
   const [contact, setContact] = useState('');
   const [bdm, setBdm] = useState('');
   const [queue, setQueue] = useState('');
+  const [rec, setRec] = useState('');
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -396,6 +399,7 @@ function RegionDialog({ open, region, regions, users, queues, onClose, onSave }:
     setContact(region?.contact ?? '');
     setBdm(region?.bdm ?? '');
     setQueue(queues.some((q) => q.id === region?.queue) ? region!.queue : '');
+    setRec(queues.some((q) => q.id === region?.recruitment) ? region!.recruitment : '');
     setTried(false);
   }, [open, region?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const v = name.trim();
@@ -405,18 +409,20 @@ function RegionDialog({ open, region, regions, users, queues, onClose, onSave }:
   const admissions = users.filter((u) => u.role === 'GSP · Admissions' && u.status !== 'Deactivated');
   const bdms = users.filter((u) => u.role === 'GSP · Recruitment' && u.status !== 'Deactivated');
   const admissionQueues = queues.filter((q) => /admission/i.test(q.name));
+  const recruitmentQueues = queues.filter((q) => /recruitment/i.test(q.name));
   const err = {
     name: v.length < 2 ? 'Name the region, like Middle East.' : regions.some((r) => r.name !== region?.name && r.name.toLowerCase() === v.toLowerCase()) ? 'There’s already a region with this name.' : null,
     countries: !countries.length ? 'Pick its countries.' : null,
     contact: !contact ? 'Pick its Admission contact.' : null,
     bdm: !bdm ? 'Pick its BDM contact.' : null,
     queue: !queue ? 'Pick its admission queue.' : null,
+    rec: !rec ? 'Pick its recruitment queue.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const save = () => {
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
-    onSave({ name: v, countries, contact, bdm, queue });
+    onSave({ name: v, countries, contact, bdm, queue, recruitment: rec });
   };
   return (
     <Sheet
@@ -466,6 +472,15 @@ function RegionDialog({ open, region, regions, users, queues, onClose, onSave }:
         <Field id="rg-queue" label="Admission queue" required error={show('queue')}>
           <SelectInput id="rg-queue" value={queue} placeholder="Choose one queue" invalid={!!show('queue')} onChange={(e) => setQueue(e.target.value)}>
             {admissionQueues.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="rg-rec" label="Recruitment queue" required error={show('rec')} hint="Its RPs’ tasks go here, to each RP’s BDM.">
+          <SelectInput id="rg-rec" value={rec} placeholder="Choose one queue" invalid={!!show('rec')} onChange={(e) => setRec(e.target.value)}>
+            {recruitmentQueues.map((q) => (
               <option key={q.id} value={q.id}>
                 {q.name}
               </option>

@@ -453,6 +453,8 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 - [x] Jovial, 10 Nov (All pending questions Q34–Q38), My work in every GSP role and Admin › Work: **Waiting on others** is worked out from the records (applications whose status is with the RP or the university, the GSP clock paused), no hand-written rows; **any task can be marked completed**: a Done rule's with a click, any other early with a required note, and it doesn't come back for that record; **Reassign offers only the queue's people**; switching a task rule **off makes no new tasks and its open ones stay**; a queue that rules or regions send work to **can't be deleted** (already so). Q33 (every sales region has an Admissions queue) is true of the seed and tested; making the queue mandatory on the sales region form is Admin Config, locked with engineering. (10 Nov, commit “Queues and My work: Waiting on others from the records, complete early with a note, members only”)
 
+- [x] Jovial, 17 Nov (engineering asked what the second variable on the BDM follow-up task is): each **Sales Region** names its **Recruitment queue**, like its Admission queue. RP tasks (T37) go to that queue, then to the RP's BDM; a region with none set uses Rest of world Recruitment; a renamed queue keeps its regions. REGRESSION R147. (17 Nov, branch region-recruitment-queue)
+
 ## RP Ops
 
 - [x] Nesil, 4 Nov: **a new role, RP Ops**, with GSP · Institution's **Applications**, **Students**, **Course search** and **Recruitment partners**. (4 Nov, commit “RP Ops: a fifth role, with GSP · Institution’s Applications, Students, Course search and Recruitment partners”)

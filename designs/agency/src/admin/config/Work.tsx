@@ -56,9 +56,9 @@ const dateOf = (iso: string) => new Date(`${iso}T00:00`).toLocaleDateString('en-
 /** What sends work to a queue: the task rules that name it, and the sales regions whose own queue it is (for the rules that go to each region's queue). */
 const usersOf = (q: Queue, cfg: ConfigProps['cfg']) => {
   const rules = cfg.taskRules.filter((r) => r.to === q.id).map((r) => r.code);
-  const regional = Object.entries(REGIONAL).filter(([to, x]) => cfg.taskRules.some((r) => r.to === to) && (q.name.endsWith(` ${x.suffix}`) || q.name === x.fallback));
+  const used = (to: string) => cfg.taskRules.some((r) => r.to === to);
   const regions = cfg.regions
-    .filter((r) => r.queue === q.id || regional.some(([, x]) => q.name === `${r.name} ${x.suffix}`))
+    .filter((r) => (r.queue === q.id && used(REGION_ADMISSIONS)) || (r.recruitment === q.id && used(REGION_RECRUITMENT)))
     .map((r) => r.name);
   return [...rules, ...regions];
 };
