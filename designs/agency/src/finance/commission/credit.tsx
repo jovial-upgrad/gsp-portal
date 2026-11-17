@@ -5,6 +5,8 @@ import { Field, SelectInput, TextInput } from '../../components/forms';
 import { todayIso } from '../../institution/data/records';
 import { useAsk } from '../../institution/records/parts';
 import { numOf, numText } from './parts';
+import { FeeRows } from './AppFees';
+import type { Application } from '../../data/applications';
 import type { Result, Tx } from './engine';
 import { addLines, commState, creditAndReinvoice, studentWithdrew } from './store';
 import { ACTION_FROM, SIDES, SIDE_KEYS, TX_TYPES, dayText, groupOf, money, roundMoney } from './model';
@@ -407,5 +409,40 @@ export function AppActions({ app, res, by }: { app: string; res: Result; by: str
       {leaving && <WithdrawSheet app={app} res={res} by={by} ask={ask} onClose={() => setLeaving(false)} onDone={(m) => (setMsg(m), setLeaving(false))} />}
       {dialog}
     </div>
+  );
+}
+
+/**
+ * Key details from Commission lines (Jovial, 17 Nov): the application's commission Key details beside the line, to see
+ * and change without leaving the page. Changes go on the application and its log, as they do there. Another RP's
+ * enrolment the portal doesn't hold shows its details read only.
+ */
+export function KeyDetailsSheet({ app, res, apps, setApps, by, onClose, say }: { app: string | null; res: Result; apps: Application[]; setApps?: (fn: (l: Application[]) => Application[]) => void; by: string; onClose: () => void; say: (m: string) => void }) {
+  if (!app) return null;
+  const a = apps.find((x) => x.id === app);
+  const l = res.byApp.get(app);
+  const update = (fn: (x: Application) => Application) => setApps?.((list) => list.map((x) => (x.id === app ? fn(x) : x)));
+  const log = (text: string) => update((x) => ({ ...x, history: [...x.history, { at: Date.now(), who: 'gsp', text, by }] }));
+  const m = l?.summary;
+  return (
+    <Sheet open onClose={onClose} center expandable className="iform" title="Key details" sub={l ? `${app} · ${l.student} · ${l.uniName}` : app}>
+      {a && setApps ? (
+        <dl className="cdl ckeys">
+          <FeeRows a={a} me={by} currency={m?.currency ?? ''} update={update} log={log} say={say} />
+        </dl>
+      ) : (
+        <div className="iform__grid">
+          <p className="iform__wide cmuted">This enrolment isn’t an application in this portal; its details as recorded:</p>
+          {m && (
+            <ul className="iform__wide">
+              <li>Tuition fee a year: {m.fee != null ? money(m.fee, m.currency) : 'Not added yet'}</li>
+              <li>Scholarship a year: {m.scholarship != null ? money(m.scholarship, m.currency) : 'Not added yet'}</li>
+              <li>Paid: {m.payUnit ?? '—'}, for {m.chargeable ?? '—'}</li>
+              <li>Earned on: {m.trigger ?? '—'}</li>
+            </ul>
+          )}
+        </div>
+      )}
+    </Sheet>
   );
 }

@@ -223,3 +223,5 @@
 /* 17 Nov: an application's own commission actions, and Add lines' rows */
 .capp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .cadd__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 12px; align-items: end; padding-bottom: 8px; border-bottom: 1px solid var(--line, #e6e8ef); }
+/* Key details beside a line (17 Nov) */
+.ckeys { margin: 0; }
