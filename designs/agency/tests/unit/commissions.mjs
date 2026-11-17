@@ -27,7 +27,10 @@ try {
   const rp = res.txs.filter((t) => t.side === 'rp');
   console.log(`${res.apps.length} enrolled applications, ${uni.length} University → GSP and ${rp.length} GSP → RP lines`);
   ok('there are lines on both sides', uni.length > 0 && rp.length > 0);
-  ok('the prototype’s own enrolled applications are read', extra.length === appsMod.sampleApplications().filter((a) => a.status === 'enrolled').length && extra.length >= 9 && extra.every((e) => res.byApp.has(e.app)), extra.map((e) => e.app).join());
+  ok('the prototype’s own enrolled applications are read', extra.filter((e) => !e.estimate).length === appsMod.sampleApplications().filter((a) => a.status === 'enrolled').length && extra.length >= 9 && extra.every((e) => res.byApp.has(e.app)), extra.map((e) => e.app).join());
+  // 17 Nov: an application past Acceptance letter received, with its fee, is forecast: Expected lines, counted toward nothing
+  const fc = extra.filter((e) => e.estimate);
+  ok('17 Nov applications past Acceptance letter received are forecast, never ready to invoice', fc.every((e) => res.txs.filter((t) => t.app === e.app && t.side === 'uni').every((t) => t.forecast && !['Ready to invoice', 'Invoiced'].includes(t.status))), fc.map((e) => e.app).join());
 
   // every RP line has a matching university line, or comes from a notice
   const orphan = rp.filter((t) => (t.matches ? !res.byId.has(t.matches) : !t.notice && !t.key.includes('|rp|ab:')));

@@ -64,6 +64,10 @@ export type Settings = {
   docTypes: string[];
   /** Student types an Australian enrolment needs (new, progression, transfer). */
   studentTypes: string[];
+  /** The countries whose universities need the student type (Jovial, 17 Nov: a setting, not written in the code). */
+  studentTypeCountries: string[];
+  /** The application status from which commission is forecast and the fee, scholarship and course start are required (17 Nov). */
+  forecastFrom: string;
   /** Why a university paid less than a line's amount (Jovial, 10 Nov, Q44): the reasons Record payment offers. */
   partReasons: string[];
   /**
@@ -339,7 +343,8 @@ export type UniGroup = {
  * An enrolled application, as the engine reads it: from the portal's applications (status Student enrolled) or the
  * seeded records of other RPs' enrolments. `withdrawn`: the day the student withdrew, if they did.
  */
-export type Enrolment = { app: string; student: string; rp: string; course: string; intake: string; enrolled: string; withdrawn?: string; fees?: AppFees; nationality?: string };
+/** `estimate` (Jovial, 17 Nov): the application is past Acceptance letter received but not enrolled yet: its lines are Expected, for the forecast, and it counts toward no tier or band. */
+export type Enrolment = { app: string; student: string; rp: string; course: string; intake: string; enrolled: string; withdrawn?: string; fees?: AppFees; nationality?: string; estimate?: boolean };
 
 /* ---------- transactions ---------- */
 

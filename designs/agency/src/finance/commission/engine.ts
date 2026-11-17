@@ -14,7 +14,7 @@
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
 import type { Agreement, AgreementTerms, Band, CommState, CreditNote, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
-import { ADDS, EXCEPTIONS, HIGHER, PAY_UNITS, SEPARATE, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
+import { ADDS, EXCEPTIONS, HIGHER, groupOf as groupOf0, PAY_UNITS, SEPARATE, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
@@ -111,6 +111,8 @@ export type Tx = {
   nopayWhy?: string;
   /** The credit note that reversed it (17 Nov): the line stays as a record, a new line takes its place. */
   credited?: string;
+  /** A forecast (17 Nov): the student has an acceptance letter but isn't enrolled yet, so the line stays Expected. */
+  forecast?: boolean;
   /** Its trigger date is estimated (no census date on the application: start + fallback weeks). */
   estimated?: boolean;
   /** GSP → RP: the University → GSP transaction it matches (none for a bonus). */
@@ -259,14 +261,14 @@ export const noticeCovers = (n: Notice, e: Enrolment, uni: CtxUni, level: Level,
   return who && e.enrolled >= n.starts && e.enrolled <= n.ends && (!(n.intakes ?? []).length || n.intakes!.includes(month)) && (!n.dests.length || n.dests.includes(uni.country)) && (!n.unis.length || n.unis.includes(uni.id)) && (!n.levels.length || n.levels.includes(level));
 };
 /** What the application still needs from Admissions before commission can be worked out (empty: nothing). */
-export function feesMissing(e: Pick<Enrolment, 'fees'>, terms?: Pick<TermsBody, 'trigger' | 'payUnit' | 'charge'>, uni?: { country?: string; studentTypes?: readonly string[] }): string[] {
+export function feesMissing(e: Pick<Enrolment, 'fees'>, terms?: Pick<TermsBody, 'trigger' | 'payUnit' | 'charge'>, uni?: { country?: string; studentTypes?: readonly string[]; typeCountries?: readonly string[] }): string[] {
   const f = e.fees;
   const trig = TRIGGERS.find((t) => t.label === terms?.trigger);
   return [
     // Q146/Q148 (Jovial, 16 Nov): what used to be exceptions is required at Student enrolled instead (student type also at
     // pre-screening, in Nesil's application form): an Australian university's student type, the credit points when the
     // terms charge by them, and study period 1's units when it pays per unit (later units are added as they come)
-    ...(uni?.country === 'Australia' && uni.studentTypes?.length && !f?.studentType ? ['student type'] : []),
+    ...(!!uni?.country && (uni.typeCountries ?? []).includes(uni.country) && uni.studentTypes?.length && !f?.studentType ? ['student type'] : []),
     ...(terms?.charge?.unit === 'Credit points' && f?.points == null ? ['credit points a year'] : []),
     ...(terms?.payUnit === 'Per unit' && !(f?.units ?? []).length ? ['units'] : []),
     ...(f?.tuition == null && terms?.payUnit !== 'Per unit' && terms?.payUnit !== 'Each fee payment' ? ['tuition fee'] : []),
@@ -365,7 +367,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     const who: Who = { level: c.level, course: c.name, campus: e.fees?.campus, nationality: e.nationality, start: startOf(e) };
     const exc: Exc[] = [];
     const add = (type: ExceptionType, text: string) => exc.push({ app: e.app, type, text, hold: HOLDS.has(type) });
-    const missing = feesMissing(e, T, { country: u.country, studentTypes: S.studentTypes });
+    const missing = feesMissing(e, T, { country: u.country, studentTypes: S.studentTypes, typeCountries: S.studentTypeCountries });
     let periods: Pre['periods'] = [];
     let dropped = 0;
     if (!T) add('No terms', `No commission terms for ${u.name} yet. Finance adds them in Setup.`);
@@ -386,6 +388,8 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   }
   /** A student GSP will be paid for (Q43, Q55): not withdrawn before study period 1's trigger date. */
   const payable = (x: Enrolment) => {
+    // an application not enrolled yet (a forecast line, 17 Nov) counts toward nothing
+    if (x.estimate) return false;
     const t = pre.get(x.app)?.trig1;
     return !x.withdrawn || (!!t && x.withdrawn >= t);
   };
@@ -804,6 +808,11 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const held = !!holdWhy;
       if (held) t.heldWhy = holdWhy;
       t.status = t.credited ? 'Credited' : uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today });
+      // not enrolled yet (17 Nov): a forecast, never ready to invoice
+      if (e.estimate) {
+        t.forecast = true;
+        if (t.status === 'Ready to invoice') t.status = 'Expected';
+      }
       if (t.type === 'Clawback') t.status = 'Paid';
       if (t.status === 'Not payable' && e.withdrawn)
         t.nopayWhy = `Student withdrew ${dayText(e.withdrawn)}, before ${t.period ? `study period ${t.period}’s ` : 'its '}${(T?.trigger ?? 'trigger date').toLowerCase()}${t.trigger ? ` (${dayText(t.trigger)})` : ''}`;
@@ -989,7 +998,12 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // a withdrawn student earns the RP no bonus (D28); a milestone counts students GSP was paid for, so it stands
       const noBonus = t.type === 'Bonus' && !!e.withdrawn && !t.key.includes('|ms:');
       t.status = noBonus && !paidRp.has(t.id) ? 'Not payable' : rpStatus({ uni: anchor?.status, paid: paidRp.has(t.id), hold: !!o?.hold || !!rpHeld, invoice: inv?.state, sentBack: sentBack.has(t.id), requested: !!t.requested, due: t.due, today });
-      if (t.status === 'Not payable') t.nopayWhy = noBonus ? `Student withdrew ${dayText(e.withdrawn!)}; an RP bonus isn’t paid for a withdrawn student` : anchor?.nopayWhy;
+      if (e.estimate && !paidRp.has(t.id)) {
+        // a forecast (17 Nov): the student isn't enrolled yet
+        t.forecast = true;
+        t.status = 'Expected';
+      }
+      if (t.status === 'Not payable') t.nopayWhy = noBonus ? `Student withdrew ${dayText(e.withdrawn!)}; an RP bonus isn’t paid for a withdrawn student` : anchor?.nopayWhy ?? (uniNote ? `No university line yet: ${uniNote}` : 'GSP isn’t paid on this student');
       // R106: a recovery waits for the RP's next payment, which it's set against
       if (t.type === 'Recovery') {
         const got = Math.min(-t.amount, recoveredOf.get(t.id) ?? 0);
@@ -1090,7 +1104,11 @@ export function bandStanding(state: CommState, ctx: Ctx, rp: string, extra: Enro
   const all = [...extra, ...state.enrolments].filter((e) => (seen.has(e.app) ? false : (seen.add(e.app), true)));
   const S = state.settings;
   const key = (d: string, intake?: string) => windowKey(A.countedPer as never, d, A.yearStart ?? 1, S.fyStart, intake);
-  const mine = all.filter((x) => x.rp === rp && !x.withdrawn);
+  // Jovial, 17 Nov: the students GSP earns on for this RP: a GSP → RP line that's payable (a student who withdrew after
+  // GSP earned still counts; one at a university with no terms, or not enrolled yet, doesn't)
+  const res = compute(state, ctx, extra);
+  const earning = new Set(res.txs.filter((t) => t.side === 'rp' && t.rp === rp && t.type === 'Course commission' && groupOf0(t.side, t.status) !== 'none').map((t) => t.app));
+  const mine = all.filter((x) => x.rp === rp && !x.estimate && earning.has(x.app));
   const latest = [...mine].sort((a, b) => startOf(b).localeCompare(startOf(a)))[0];
   const now = A.countedPer === 'Intake' ? key(latest ? startOf(latest) : today, latest?.intake) : key(today);
   const count = mine.filter((x) => key(startOf(x), x.intake) === now).length;

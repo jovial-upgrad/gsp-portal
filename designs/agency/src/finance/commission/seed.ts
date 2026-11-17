@@ -36,6 +36,8 @@ export const sampleSettings = (): Settings => ({
   rpView: { kinds: ['Course commission', 'Tier top-up', 'Additional commission', 'Bonus'], periods: 'First study period only' },
   docTypes: ['Notice', 'Addendum', 'Flyer', 'Email'],
   studentTypes: ['New', 'Progression', 'Transfer'],
+  studentTypeCountries: ['Australia'],
+  forecastFrom: 'acceptrec',
   // Jovial, 10 Nov (Q44): why a university paid less than a line
   partReasons: ['Part payment', 'Rate dispute', 'Student not recognised', 'Bank charges', 'Exchange difference'],
   // Jovial, 10 Nov (Q47): days after an invoice request (RP) and after a line's due date (university); no escalation

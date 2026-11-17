@@ -1,3 +1,4 @@
+import { STATUS } from '../../data/applications';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -518,7 +519,9 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
           ['cset-st-lists', 'Lists in the forms', 'The choices offered when Finance sets up terms and notices or records a payment.', [
             ['Region groups', Object.entries(S.regionGroups).map(([k, c]) => `${k} (${c.join(', ')})`).join('; ') || 'None', 'wide'],
             ['Notice document types', S.docTypes.join(', ')],
-            ['Student types (Australia)', S.studentTypes.join(', ') || 'None'],
+            ['Student types', S.studentTypes.join(', ') || 'None'],
+            ['Countries that need the student type', S.studentTypeCountries.join(', ') || 'None'],
+            ['Commission is forecast from', STATUS[S.forecastFrom as keyof typeof STATUS]?.text('Australia') ?? S.forecastFrom],
             ['Part payment reasons', S.partReasons.join(', '), 'wide'],
           ]],
         ] as [string, string, string, ([string, ReactNode] | [string, ReactNode, 'wide'])[]][]

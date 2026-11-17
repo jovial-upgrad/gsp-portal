@@ -1,3 +1,4 @@
+import { STATUS, STATUS_ORDER } from '../../data/applications';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -1136,8 +1137,20 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <Field id="cst-doc" label="Notice document types" required error={show('lists')} hint="One a line.">
         {area('cst-doc', 'docTypes')}
       </Field>
-      <Field id="cst-stype" label="Student types (Australia)" optional hint="One a line. An Australian enrolment without one is an exception.">
+      <Field id="cst-stype" label="Student types" optional hint="One a line. Admissions picks one from pre-screening, for a university in the countries below.">
         {area('cst-stype', 'studentTypes')}
+      </Field>
+      <Field id="cst-stype-c" label="Countries that need the student type" optional hint="A university in one of these can’t have a student enrolled without it.">
+        <MultiPick id="cst-stype-c" label="Countries that need the student type" value={v.studentTypeCountries} options={[...new Set(ctxUnis().map((u) => u.country))].sort()} onChange={(x) => set({ studentTypeCountries: x })} empty="None" />
+      </Field>
+      <Field id="cst-fc" label="Commission is forecast from" required hint="From this application status, lines show as Expected and Admissions must enter the fee, scholarship and course start.">
+        <SelectInput id="cst-fc" value={v.forecastFrom} onChange={(e) => set({ forecastFrom: e.target.value })}>
+          {STATUS_ORDER.filter((k) => k !== 'enrolled').map((k) => (
+            <option key={k} value={k}>
+              {STATUS[k].text('Australia')}
+            </option>
+          ))}
+        </SelectInput>
       </Field>
       <Field id="cst-part" label="Part payment reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Record payment offers when a university pays less.">
         {area('cst-part', 'partReasons')}

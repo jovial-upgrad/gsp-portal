@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { COURSES } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
-import type { AppFees, Application } from '../../data/applications';
+import { STATUS_ORDER, type AppFees, type Application } from '../../data/applications';
 import { sampleCourseRecs, sampleUniRecs } from '../../institution/data/catalogue';
 import { samplePartners, subscribeClock, todayIso } from '../../institution/data/records';
 import { HOME_RP } from '../../gsp/rps';
@@ -164,15 +164,18 @@ export const rpName = (id: string) => ctxRps().find((r) => r.id === id)?.name ??
 export const uniName = (id: string) => ctxUnis().find((u) => u.id === id)?.name ?? id;
 
 /** The portal's own applications at Student enrolled, as the engine reads them (their RP: the one on it, else the prototype's agency). */
+/** At or after Acceptance letter received in the journey, and not closed (17 Nov): commission is forecast from here. */
+export const pastAcceptance = (status: string) => status !== 'closed' && STATUS_ORDER.indexOf(status as never) >= STATUS_ORDER.indexOf(state.settings.forecastFrom as never);
 export function enrolmentsOf(apps: Application[], students: Pick<Student, 'id' | 'first' | 'last' | 'oneName'>[]): Enrolment[] {
   // a scenario's world has only its own enrolments
   if (world) return [];
+  // 17 Nov (after the Finance demo): lines from Acceptance letter received, as a forecast, until Student enrolled
   return apps
-    .filter((a) => a.status === 'enrolled')
+    .filter((a) => a.status === 'enrolled' || (pastAcceptance(a.status) && a.fees?.tuition != null))
     .map((a) => {
       const s = students.find((x) => x.id === a.studentId);
       const rp = ctxRps().find((r) => r.name === (a.rp ?? HOME_RP));
-      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, nationality: (s as Student | undefined)?.nationality, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10), fees: a.fees };
+      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, nationality: (s as Student | undefined)?.nationality, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10), fees: a.fees, ...(a.status === 'enrolled' ? {} : { estimate: true }) };
     });
 }
 
