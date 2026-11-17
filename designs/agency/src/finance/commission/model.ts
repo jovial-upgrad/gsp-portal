@@ -486,6 +486,8 @@ export type CreditNote = { number: string; invoice: string; uni: string; date: s
  * application's stage doesn't change. Lines triggered after the date are Not payable; invoiced ones are credited.
  */
 export type Withdrawal = { id: string; app: string; date: string; reason: string; by: string; at: number };
+/** A line Finance adds to an application by hand (17 Nov): what the rules don't make. A University → GSP line gives the RP its usual share. */
+export type ManualLine = { id: string; app: string; side: Side; type: TxType; amount: number; period?: number; date: string; reason: string; by: string; at: number };
 /** Commissions asked an RP for its invoice. */
 export type InvoiceRequest = { id: string; rp: string; txs: string[]; date: string; by: string; at: number };
 export const RP_INVOICE_STATES = ['To check', 'Accepted', 'Sent back'] as const;
@@ -545,6 +547,7 @@ export type CommState = {
   clawbacks?: Clawback[];
   credits?: CreditNote[];
   withdrawals?: Withdrawal[];
+  manual?: ManualLine[];
   overrides: Override[];
   confirms: Confirm[];
   /** Each line's last worked-out amount, and its changes (D21). */

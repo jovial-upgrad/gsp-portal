@@ -15,7 +15,7 @@ import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/recor
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
 import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
-import { COMM_LEVELS, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
+import { COMM_LEVELS, TX_TYPES, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 import { periodsOf } from './pricing';
 
@@ -445,6 +445,11 @@ export function creditAndReinvoice(items: { tx: string; invoice: string; uni: st
 export function studentWithdrew(app: string, date: string, reason: string, by: string, invoiced: { tx: string; invoice: string; uni: string; also?: string[] }[]) {
   setComm((s) => withLog({ ...s, withdrawals: [...(s.withdrawals ?? []).filter((w) => w.app !== app), { id: id('wd'), app, date, reason, by, at: Date.now() }] }, lineLog(by, `${by} recorded that the student on ${app} withdrew on ${date}: ${reason}`, invoiced.map((x) => x.tx))));
   if (invoiced.length) creditAndReinvoice(invoiced, `Student withdrew ${date}: ${reason}`, by, false);
+}
+/** Finance adds lines to an application by hand (17 Nov), one or several at once, with why. */
+export function addLines(app: string, lines: { side: 'uni' | 'rp'; type: (typeof TX_TYPES)[number]; amount: number; period?: number; date: string }[], reason: string, by: string) {
+  const made = lines.map((l) => ({ ...l, id: id('ml'), app, reason, by, at: Date.now() }));
+  setComm((s) => withLog({ ...s, manual: [...(s.manual ?? []), ...made] }, lineLog(by, `${by} added ${made.length} ${made.length === 1 ? 'line' : 'lines'} to ${app} by hand: ${reason}`, [])));
 }
 export function writeOff(tx: string, amount: number, cur: string, reason: string, by: string) {
   setComm((s) => withLog({ ...s, writeOffs: [...(s.writeOffs ?? []), { id: id('wo'), tx, amount, reason, by, at: Date.now() }] }, lineLog(by, `${by} wrote off ${money(amount, cur)} on ${tx}: ${reason}`, [tx])));

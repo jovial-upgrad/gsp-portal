@@ -774,6 +774,13 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         uniTxs.push(...chain('uni', d.slot, d));
       });
     }
+    // lines Finance added by hand (17 Nov)
+    const manualDraft = (m: NonNullable<CommState['manual']>[number]): Draft => ({ slot: `man:${m.id}`, type: m.type, what: `${m.type}, added by ${m.by}: ${m.reason}`, rpWhat: m.period ? `Study period ${m.period}: ${m.type.toLowerCase()}` : m.type, amount: m.amount, trigger: m.date, period: m.period, trace: [step('Added by hand', `${m.by} added this line on ${dayText(iso(m.at))}: ${m.reason}.`)] });
+    (state.manual ?? []).filter((m) => m.app === e.app && m.side === 'uni').forEach((m) => {
+      const d = manualDraft(m);
+      uniDone.add(lineKey(e.app, 'uni', d.slot));
+      uniTxs.push(...chain('uni', d.slot, d));
+    });
     uniTxs.push(...leftovers('uni', uniDone));
     // R106: a university's clawback on a line it paid: its own negative line, taken by the university (counts as Paid)
     (state.clawbacks ?? []).forEach((cl) => {
@@ -978,6 +985,11 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
           rpTxs.push(...chain('rp', slot, { slot, type: 'Bonus', what: `${nt.name}: milestone of ${m.count} paid enrolments`, rpWhat: `Milestone: ${nt.name}`, amount: m.amount, trigger: firstPaidOn(e.app), notice: nt.id, trace: [step('Milestone', `${nt.name}: ${m.count} enrolments GSP has been paid for → ${money(m.amount, cur)}. This student was number ${m.count} (paid ${dayText(firstPaidOn(e.app))}). Due once GSP is paid, even after the notice ends.`)] }));
         });
       });
+    (state.manual ?? []).filter((m) => m.app === e.app && m.side === 'rp').forEach((m) => {
+      const d = manualDraft(m);
+      rpDone.add(lineKey(e.app, 'rp', d.slot));
+      rpTxs.push(...chain('rp', d.slot, d));
+    });
     rpTxs.push(...leftovers('rp', rpDone));
     const rpHeld = rpHold ?? holdWhy;
     rpTxs.forEach((t) => statusRp(t, ag ? termsAt<AgreementTerms>(ag, startOf(e)).payDays : 0));
