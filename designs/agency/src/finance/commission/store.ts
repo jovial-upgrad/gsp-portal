@@ -367,9 +367,10 @@ export function commWork(s: CommState = state, today = todayIso()) {
 /* the lines */
 const lineLog = (by: string, text: string, txs: string[], more: Partial<Log> = {}) => log('lines', by, text, { txs, ...more });
 
-export function raiseInvoice(uni: string, txs: string[], by: string) {
+/** Raise invoice: Xero gives the number (Jovial, 17 Nov); without one (a test), the Settings format numbers it. */
+export function raiseInvoice(uni: string, txs: string[], by: string, xero?: string) {
   const day = todayIso();
-  const number = nextInvoiceNumber(state, uni, day);
+  const number = xero?.trim() || nextInvoiceNumber(state, uni, day);
   setComm((s) => withLog({ ...s, invoices: [...s.invoices, { number, uni, date: day, txs, by, at: Date.now() }] }, lineLog(by, `${by} raised invoice ${number}`, txs, { uni })));
   return number;
 }
@@ -407,7 +408,7 @@ export function recordClawback(tx: string, amount: number, cur: string, reason: 
  * reversing the ticked lines in full (and any kept Adjustments to them). Each takes a new line at the statement's amount
  * (`amount`, with the fee it used) or as worked out; with `reissue`, all of them go on one new invoice dated today.
  */
-export function creditAndReinvoice(items: { tx: string; invoice: string; uni: string; amount?: number; fee?: number; also?: string[] }[], reason: string, by: string, reissue = true) {
+export function creditAndReinvoice(items: { tx: string; invoice: string; uni: string; amount?: number; fee?: number; also?: string[] }[], reason: string, by: string, reissue = true, xero?: string) {
   if (!items.length) return [];
   const day = todayIso();
   const made: string[] = [];
@@ -416,7 +417,7 @@ export function creditAndReinvoice(items: { tx: string; invoice: string; uni: st
     const byUni = new Map<string, typeof items>();
     items.forEach((x) => byUni.set(x.uni, [...(byUni.get(x.uni) ?? []), x]));
     byUni.forEach((xs, uni) => {
-      const newInv = reissue ? nextInvoiceNumber(next, uni, day) : undefined;
+      const newInv = reissue ? xero?.trim() || nextInvoiceNumber(next, uni, day) : undefined;
       const byInv = new Map<string, typeof items>();
       xs.forEach((x) => byInv.set(x.invoice, [...(byInv.get(x.invoice) ?? []), x]));
       byInv.forEach((ys, inv) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { MoreMenu } from '../../components/MoreMenu';
@@ -16,7 +16,7 @@ import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
 import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
-import { CreditSheet, WithdrawSheet, canCredit } from './credit';
+import { CreditSheet, WithdrawSheet, XeroSheet, canCredit } from './credit';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -51,6 +51,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   // 17 Nov (after the Finance demo): Credit and re-invoice, and Student withdrew
   const [crediting, setCrediting] = useState<Tx[] | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);
+  const [raising, setRaising] = useState<{ title: string; sub: string; body: ReactNode; go: (xero: string) => void } | null>(null);
+  const takenNos = [...s.invoices.map((i) => i.number), ...(s.credits ?? []).flatMap((c) => [c.number, c.reissue ?? ''])].filter(Boolean);
   const [history, setHistory] = useState<Tx | null>(null);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
@@ -104,30 +106,33 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     const contact = uniFinanceContact(uni);
     // D7: who entered each fee, and when, as the line's working says it
     const fees = lines.map((t) => [t.id, t.trace?.find((x) => x.h === 'Fee basis')?.t ?? ''] as const).filter(([, f]) => f);
-    ask(
-      `Raise an invoice to ${ipName(payerOf(uni)) || uniName(uni)} for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}${new Set(lines.map((t) => t.uni)).size > 1 ? ` at ${new Set(lines.map((t) => t.uni)).size} universities` : ''}?`,
-      contact ? 'Raise and send' : 'Raise',
-      <>
-        <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}{credits.length ? `, after ${credits.length} ${credits.length === 1 ? 'credit' : 'credits'} (${totalsText(sumBy(credits))}) that ${credits.length === 1 ? 'goes' : 'go'} on this invoice` : ''}. {contact ? `It goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}, Finance and invoices), through Mail.` : 'The university has no Finance and invoices contact: download the invoice and send it yourself.'}</p>
-        {fees.length > 0 && (
-          <ul className="cline">
-            {fees.map(([id, f]) => (
-              <li key={id}>
-                <span className="num">{id}</span>: {f}
-              </li>
-            ))}
-          </ul>
-        )}
-      </>,
-      () => {
-        const number = raiseInvoice(uni, ids, who.name);
+    setRaising({
+      title: `Raise an invoice to ${ipName(payerOf(uni)) || uniName(uni)}`,
+      sub: `${ids.length} ${ids.length === 1 ? 'line' : 'lines'}${new Set(lines.map((t) => t.uni)).size > 1 ? ` at ${new Set(lines.map((t) => t.uni)).size} universities` : ''}`,
+      body: (
+        <>
+          <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}{credits.length ? `, after ${credits.length} ${credits.length === 1 ? 'credit' : 'credits'} (${totalsText(sumBy(credits))}) that ${credits.length === 1 ? 'goes' : 'go'} on this invoice` : ''}. {contact ? `It goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}, Finance and invoices), through Mail.` : 'The university has no Finance and invoices contact: download the invoice and send it yourself.'}</p>
+          {fees.length > 0 && (
+            <ul className="cline">
+              {fees.map(([id, f]) => (
+                <li key={id}>
+                  <span className="num">{id}</span>: {f}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ),
+      go: (xero: string) => {
+        const number = raiseInvoice(uni, ids, who.name, xero);
         if (contact) sendUniInvoice(number, who.name);
         const u = ctxUnis().find((x) => x.id === uni)!;
         setInv(uniInvoice({ ...s, invoices: [...s.invoices] }, { number, date: todayIso(), uni }, lines, { name: u.name, country: u.country }));
         setTicked([]);
+        setRaising(null);
         say(`Invoice ${number} raised for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}${contact ? ` and sent to ${contact.email}` : ''}.`);
       },
-    );
+    });
   };
   /** Q132: GSP's invoice as it was raised (its number, date and lines), to look at again. */
   const viewInvoice = (number: string) => {
@@ -658,9 +663,11 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
           setTicked([]);
         }}
       />
+      <XeroSheet open={!!raising} title={raising?.title ?? ''} sub={raising?.sub} body={raising?.body} taken={takenNos} go={(n) => raising?.go(n)} onClose={() => setRaising(null)} />
       <CreditSheet
         txs={crediting}
         res={res}
+        taken={takenNos}
         by={who.name}
         ask={ask}
         onClose={() => setCrediting(null)}

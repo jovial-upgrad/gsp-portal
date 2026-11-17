@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
 import { Field, TextInput } from '../../components/forms';
@@ -52,16 +52,18 @@ export function readStatement(text: string): { rows: StatementRow[]; error?: str
  * lines GSP has invoiced, and the month is closed in Xero. GSP never edits the invoice: a credit note reverses the lines
  * in full, and a new invoice carries the revised amounts. Finance uploads the statement or types the amounts.
  */
-export function CreditSheet({ txs, res, by, onClose, onDone, ask }: { txs: Tx[] | null; res: Result; by: string; onClose: () => void; onDone: (msg: string) => void; ask: AskFn }) {
+export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask }: { txs: Tx[] | null; res: Result; by: string; taken: string[]; onClose: () => void; onDone: (msg: string) => void; ask: AskFn }) {
   const [amt, setAmt] = useState<Record<string, number | null>>({});
   const [fee, setFee] = useState<Record<string, number | null>>({});
   const [reason, setReason] = useState('');
+  const [xero, setXero] = useState('');
   const [note, setNote] = useState('');
   const [tried, setTried] = useState(false);
   useEffect(() => {
     setAmt(Object.fromEntries((txs ?? []).map((t) => [t.id, t.amount])));
     setFee({});
     setReason('');
+    setXero('');
     setNote('');
     setTried(false);
   }, [txs]);
@@ -87,12 +89,12 @@ export function CreditSheet({ txs, res, by, onClose, onDone, ask }: { txs: Tx[] 
     setNote(`${f.name}: ${hit} of ${rows.length} ${rows.length === 1 ? 'row matches' : 'rows match'} the ticked lines${rows.length - hit ? `; ${rows.length - hit} didn’t (another student or study period)` : ''}.`);
   };
   const lineErr = (t: Tx) => (amt[t.id] == null || Number.isNaN(amt[t.id]!) || amt[t.id]! < 0 ? 'Enter the new amount (0 or more).' : null);
-  const err = { lines: txs.some(lineErr) ? 'Check each line.' : null, reason: reason.trim() ? null : 'Say why (for example, the university’s statement of 12 Nov).' };
+  const err = { lines: txs.some(lineErr) ? 'Check each line.' : null, reason: reason.trim() ? null : 'Say why (for example, the university’s statement of 12 Nov).', xero: !xero.trim() ? 'Enter the new invoice’s number from Xero.' : taken.includes(xero.trim()) ? 'That number is already used.' : null };
   const was = roundMoney(txs.reduce((n, t) => n + t.amount, 0), cur);
   const now = roundMoney(txs.reduce((n, t) => n + (amt[t.id] ?? 0), 0), cur);
   const go = () => {
     setTried(true);
-    if (err.lines || err.reason) return;
+    if (err.lines || err.reason || err.xero) return;
     ask(
       `Credit ${invoices.join(', ')} and invoice ${money(now, cur)}?`,
       'Credit and re-invoice',
@@ -105,6 +107,7 @@ export function CreditSheet({ txs, res, by, onClose, onDone, ask }: { txs: Tx[] 
           reason.trim(),
           by,
           true,
+          xero.trim(),
         );
         onDone(`${made.length ? made.join(', ') : 'Credit note'} issued; the new amounts are invoiced.`);
       },
@@ -149,6 +152,9 @@ export function CreditSheet({ txs, res, by, onClose, onDone, ask }: { txs: Tx[] 
             </Field>
           </div>
         ))}
+        <Field id="ccn-xero" label="New invoice number (from Xero)" required error={tried ? err.xero : null} hint="Raise the new invoice in Xero, then enter its number.">
+          <TextInput id="ccn-xero" value={xero} invalid={tried && !!err.xero} onChange={(e) => setXero(e.target.value)} />
+        </Field>
         <Field id="ccn-why" label="Why" required className="iform__wide" error={tried ? err.reason : null}>
           <TextInput id="ccn-why" value={reason} invalid={tried && !!err.reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
@@ -222,6 +228,52 @@ export function WithdrawSheet({ app, res, by, onClose, onDone, ask }: { app: str
         </Field>
         <Field id="cwd-why" label="What the university said" required className="iform__wide" error={tried ? err.reason : null}>
           <TextInput id="cwd-why" value={reason} invalid={tried && !!err.reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * Raise invoice (Jovial, 17 Nov): Xero gives the invoice number. Finance raises it in Xero and enters the number here;
+ * the lines go on it and it's sent from the portal as before.
+ */
+export function XeroSheet({ open, title, sub, body, taken, go, onClose }: { open: boolean; title: string; sub?: string; body: ReactNode; taken: string[]; go: (number: string) => void; onClose: () => void }) {
+  const [n, setN] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    setN('');
+    setTried(false);
+  }, [open]);
+  if (!open) return null;
+  const err = !n.trim() ? 'Enter the invoice number from Xero.' : taken.includes(n.trim()) ? 'That number is already used.' : null;
+  const submit = () => {
+    setTried(true);
+    if (!err) go(n.trim());
+  };
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      center
+      className="iform"
+      title={title}
+      sub={sub}
+      footer={
+        <div className="asf">
+          <div className="asf__acts">
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={submit}>Raise invoice</Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="iform__grid">
+        <div className="iform__wide">{body}</div>
+        <Field id="cxero-no" label="Invoice number (from Xero)" required error={tried ? err : null} hint="Raise the invoice in Xero, then enter its number here.">
+          <TextInput id="cxero-no" value={n} invalid={tried && !!err} onChange={(e) => setN(e.target.value)} />
         </Field>
       </div>
     </Sheet>
