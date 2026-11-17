@@ -1,3 +1,5 @@
+import { AppActions } from './credit';
+import { FIN_USER } from '../user';
 import { useMemo, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -324,6 +326,11 @@ export function AppCommissionTab({ a, s, rpOnly, apps, students }: { a: Applicat
   return (
     <>
       {!rpOnly && <Exceptions lines={lines} />}
+      {!rpOnly && (
+        <EditOnly>
+          <AppActions app={a.id} res={res} by={FIN_USER.name} />
+        </EditOnly>
+      )}
       <AppTerms lines={lines} rpOnly={rpOnly} />
       {!rpOnly && <Standing lines={lines} />}
       {!rpOnly && <ItemCard item={lines.uniItem} />}

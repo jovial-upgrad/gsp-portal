@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
-import { Field, TextInput } from '../../components/forms';
+import { Field, SelectInput, TextInput } from '../../components/forms';
 import { todayIso } from '../../institution/data/records';
 import { useAsk } from '../../institution/records/parts';
 import { numOf, numText } from './parts';
 import type { Result, Tx } from './engine';
-import { creditAndReinvoice, studentWithdrew } from './store';
-import { ACTION_FROM, dayText, groupOf, money, roundMoney } from './model';
+import { addLines, commState, creditAndReinvoice, studentWithdrew } from './store';
+import { ACTION_FROM, SIDES, SIDE_KEYS, TX_TYPES, dayText, groupOf, money, roundMoney } from './model';
 
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
@@ -277,5 +277,135 @@ export function XeroSheet({ open, title, sub, body, taken, go, onClose }: { open
         </Field>
       </div>
     </Sheet>
+  );
+}
+
+type Draft = { side: 'uni' | 'rp'; type: (typeof TX_TYPES)[number]; amount: number | null; period: number | null; date: string };
+/**
+ * Add lines (Jovial, 17 Nov, after the Finance demo): what the rules don't make, added to an application by hand, one
+ * or several at once, with why. A University → GSP line gives the RP its usual share.
+ */
+export function AddLinesSheet({ app, res, by, onClose, onDone, ask }: { app: string | null; res: Result; by: string; onClose: () => void; onDone: (msg: string) => void; ask: AskFn }) {
+  const blank = (): Draft => ({ side: 'uni', type: TX_TYPES[0], amount: null, period: null, date: todayIso() });
+  const [rows, setRows] = useState<Draft[]>([blank()]);
+  const [reason, setReason] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    setRows([blank()]);
+    setReason('');
+    setTried(false);
+  }, [app]);
+  if (!app) return null;
+  const a = res.byApp.get(app);
+  const cur = a?.summary.currency ?? '';
+  const rowErr = (r: Draft) => (r.amount == null || Number.isNaN(r.amount) || r.amount === 0 ? 'Enter the amount (a minus for a credit).' : !r.date ? 'Choose the date it’s due from.' : null);
+  const err = { rows: rows.some(rowErr) ? 'Check each line.' : null, reason: reason.trim() ? null : 'Say why the rules don’t make this line.' };
+  const set = (i: number, p: Partial<Draft>) => setRows((x) => x.map((r, k) => (k === i ? { ...r, ...p } : r)));
+  const go = () => {
+    setTried(true);
+    if (err.rows || err.reason) return;
+    ask(`Add ${rows.length} ${rows.length === 1 ? 'line' : 'lines'} to ${a?.student ?? app}?`, 'Add', <p>{rows.map((r) => `${SIDES[r.side]}: ${r.type}, ${money(r.amount!, cur)}`).join('; ')}. They’re worked like any other line, and logged with why.</p>, () => {
+      addLines(app, rows.map((r) => ({ side: r.side, type: r.type, amount: r.amount!, period: r.period ?? undefined, date: r.date })), reason.trim(), by);
+      onDone(`${rows.length} ${rows.length === 1 ? 'line' : 'lines'} added to ${app}.`);
+    });
+  };
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      center
+      expandable
+      className="iform"
+      title="Add lines"
+      sub={a ? `${a.student} · ${a.uniName}, in ${cur}` : app}
+      footer={
+        <div className="asf">
+          <div className="asf__acts">
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={go}>Add</Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="iform__grid">
+        {rows.map((r, i) => (
+          <div key={i} className="iform__wide cadd__row">
+            <Field id={`cadd-side-${i}`} label="Side" required>
+              <SelectInput id={`cadd-side-${i}`} value={r.side} onChange={(e) => set(i, { side: e.target.value as Draft['side'] })}>
+                {SIDE_KEYS.map((k) => (
+                  <option key={k} value={k}>
+                    {SIDES[k]}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field id={`cadd-type-${i}`} label="Type" required>
+              <SelectInput id={`cadd-type-${i}`} value={r.type} onChange={(e) => set(i, { type: e.target.value as Draft['type'] })}>
+                {TX_TYPES.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field id={`cadd-amt-${i}`} label={`Amount (${cur})`} required error={tried ? rowErr(r) : null}>
+              <TextInput id={`cadd-amt-${i}`} inputMode="decimal" value={numText(r.amount)} invalid={tried && !!rowErr(r)} onChange={(e) => set(i, { amount: numOf(e.target.value) })} />
+            </Field>
+            <Field id={`cadd-per-${i}`} label="Study period" optional>
+              <TextInput id={`cadd-per-${i}`} inputMode="numeric" value={numText(r.period)} onChange={(e) => set(i, { period: numOf(e.target.value) })} />
+            </Field>
+            <Field id={`cadd-date-${i}`} label="Due from" required>
+              <TextInput id={`cadd-date-${i}`} type="date" value={r.date} onChange={(e) => set(i, { date: e.target.value })} />
+            </Field>
+            {rows.length > 1 && (
+              <button type="button" className="btn btn--link" onClick={() => setRows((x) => x.filter((_, k) => k !== i))}>
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" className="btn btn--link iform__wide" onClick={() => setRows((x) => [...x, blank()])}>
+          Add another line
+        </button>
+        <Field id="cadd-why" label="Why" required className="iform__wide" error={tried ? err.reason : null}>
+          <TextInput id="cadd-why" value={reason} invalid={tried && !!err.reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+      </div>
+    </Sheet>
+  );
+}
+
+/** An application's own commission actions (17 Nov), on its Commission tab: Add lines and Student withdrew. Finance only. */
+export function AppActions({ app, res, by }: { app: string; res: Result; by: string }) {
+  const { ask, dialog } = useAsk();
+  const [adding, setAdding] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const left = (commState().withdrawals ?? []).find((w) => w.app === app);
+  return (
+    <div className="capp-acts">
+      <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
+        Add lines
+      </Button>
+      {left ? (
+        <span className="cmuted">
+          Withdrew {dayText(left.date)}, recorded by {left.by}: {left.reason}
+        </span>
+      ) : (
+        <Button size="sm" variant="secondary" onClick={() => setLeaving(true)}>
+          Student withdrew
+        </Button>
+      )}
+      {msg && (
+        <span className="cmuted" role="status">
+          {msg}
+        </span>
+      )}
+      {adding && <AddLinesSheet app={app} res={res} by={by} ask={ask} onClose={() => setAdding(false)} onDone={(m) => (setMsg(m), setAdding(false))} />}
+      {leaving && <WithdrawSheet app={app} res={res} by={by} ask={ask} onClose={() => setLeaving(false)} onDone={(m) => (setMsg(m), setLeaving(false))} />}
+      {dialog}
+    </div>
   );
 }

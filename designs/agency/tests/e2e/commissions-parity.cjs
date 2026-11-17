@@ -41,19 +41,11 @@ const openApp = async (p, nav, id) => {
     await nav('Commission lines').click();
     await wait(1200);
     const t = await main();
-    for (const k of ['Ready to invoice', 'Overdue', 'Part paid', 'Invoices to check', 'Approved to pay', 'To confirm']) ok(t.includes(k), `Finance › Commission lines: the ${k} tile`);
+    for (const k of ['Ready to invoice', 'Overdue', 'Part paid', 'Invoices to check', 'Approved to pay']) ok(t.includes(k), `Finance › Commission lines: the ${k} tile`);
     ok(/Exceptions/.test(t) && t.includes('Contract ended') && t.includes('Rate missing'), 'Commission lines: Exceptions lists Contract ended and Rate missing (held)');
     ok(!t.includes('Tier periods to close') && !(await p.getByRole('button', { name: /^Close period/ }).count()), 'Commission lines: no tier periods to close (Jovial, 16 Nov)');
-    await p.locator('main .itile', { hasText: 'To confirm' }).first().click();
-    await wait(800);
-    ok((await main()).includes('Students to confirm'), 'The To confirm tile opens Students to confirm');
-    const before = await p.getByRole('button', { name: /^Confirm continuing/ }).count();
-    await p.getByRole('button', { name: /^Confirm continuing/ }).first().click();
-    // 12 Nov: every confirm asks first
-    ok(await p.locator('[role=dialog], [role=alertdialog]').last().isVisible().catch(() => false), 'Confirm continuing: asks first');
-    await p.locator('[role=dialog] button, [role=alertdialog] button', { hasText: /^Confirm$/ }).last().click(); await wait(500);
-    await wait(800);
-    ok((await p.getByRole('button', { name: /^Confirm continuing/ }).count()) === before - 1, `Confirm continuing: the student leaves the list (${before} → ${before - 1})`);
+    // 17 Nov (after the Finance demo): no continuity check, so no To confirm tile or Students to confirm
+    ok(!t.includes('To confirm') && !t.includes('Students to confirm'), 'Commission lines: no Students to confirm (17 Nov)');
     await p.locator('main .itile', { hasText: 'Ready to invoice' }).first().click();
     await wait(600);
     ok((await p.locator('main tbody tr').count()) > 0, 'The Ready to invoice tile filters the lines');

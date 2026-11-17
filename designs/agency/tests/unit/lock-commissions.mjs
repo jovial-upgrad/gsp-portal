@@ -237,6 +237,16 @@ try {
       const rpNew = r2.txs.find((x) => x.side === 'rp' && repl && x.matches === repl.id);
       ok('17 Nov credit note: the RP line follows the new amount', !!rpNew && Math.abs(rpNew.amount - (rpOld.amount * newAmt) / h.amount) < 0.02, JSON.stringify({ old: rpOld?.amount, now: rpNew?.amount }));
       ok('17 Nov credit note: no Adjustment line is made for the difference', !r2.txs.some((t) => t.adjusts === h.id || (repl && t.adjusts === repl.id)), JSON.stringify(r2.txs.filter((t) => t.adjusts === h.id || (repl && t.adjusts === repl.id)).map((t) => [t.id, t.side, t.amount, t.what])));
+      // lines added by hand (17 Nov): a University → GSP line gives the RP its usual share; marked Not payable by hand says why
+      const app0 = h.app;
+      const sM = { ...s1, manual: [{ id: 'ml1', app: app0, side: 'uni', type: 'Course commission', amount: 1000, date: TODAY, reason: 'Missed by the rules', by: 'Test', at: 1 }] };
+      const rM = run(sM);
+      const ml = rM.txs.find((t) => t.key.endsWith('|man:ml1') && t.side === 'uni');
+      ok('17 Nov a line added by hand is worked like any other, with why', !!ml && ml.amount === 1000 && /Missed by the rules/.test(ml.what), JSON.stringify(ml && [ml.amount, ml.what, ml.status]));
+      ok('17 Nov the RP gets its share of a university line added by hand', rM.txs.some((t) => t.side === 'rp' && ml && t.matches === ml.id && t.amount > 0));
+      const np = r1.txs.find((t) => t.side === 'uni' && t.status === 'Ready to invoice');
+      const rNP = run({ ...s1, notPayable: [{ id: 'np1', tx: np.id, reason: 'University: not commissionable', by: 'Test', at: 1 }] });
+      ok('17 Nov a line marked Not payable by hand says why', rNP.byId.get(np.id)?.status === 'Not payable' && /not commissionable/.test(rNP.byId.get(np.id)?.nopayWhy ?? ''));
       // Student withdrew: lines after the date aren't payable; nothing still waits for a continuity check
       const later = r1.txs.find((t) => t.side === 'uni' && t.status === 'Expected' && (t.period ?? 1) > 1 && t.trigger > TODAY);
       const sW = { ...s1, withdrawals: [{ id: 'wd1', app: later.app, date: TODAY, reason: 'University said so', by: 'Test', at: 1 }] };
