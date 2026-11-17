@@ -16,10 +16,10 @@ import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
 import { appliedOptions, feeInvoiced, lineFees, termsApplied } from './applied';
 import { NotPayableSheet } from './NotPayableSheet';
 import { liftNotPayable, manualNotPayable, markNotPayable } from './store';
-import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
-import { AddLinesSheet, CreditSheet, KeyDetailsSheet, WithdrawSheet, XeroSheet, canCredit } from './credit';
+import { AddLinesSheet, BulkWithdrawSheet, CreditSheet, KeyDetailsSheet, WithdrawSheet, XeroSheet, canCredit } from './credit';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -37,7 +37,7 @@ type Who = { name: string; email: string; role: string; region: string };
  * Finance's to-do (Jovial, 10 Nov, D1): worklist tiles (Ready to invoice, Overdue, Part paid, Invoices to check, Approved
  * to pay, To confirm) that filter the lines; **Exceptions** (lines that can't be priced safely, held, each a T82 task);
  * **Students to confirm** (D19; no button to close a tier period, Jovial 16 Nov); (no lump sums: Jovial, 13 Nov, a university's one-off payment is a Record payment on its lines or goes in Xero);
- * and GSP's invoice sent to the university's finance contact through Mail (D17).
+ * and GSP's invoice raised and sent in Xero, its number recorded here (17 Nov; replaces D17).
  */
 export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void; setApps?: (fn: (l: Application[]) => Application[]) => void }) {
   const s = useComm();
@@ -54,6 +54,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
   // 17 Nov (after the Finance demo): Credit and re-invoice, and Student withdrew
   const [crediting, setCrediting] = useState<Tx[] | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);
+  const [bulkOut, setBulkOut] = useState(false);
   // 17 Nov: Key details and Add lines from a line, without leaving the page
   const [keysOf, setKeysOf] = useState<string | null>(null);
   const [addTo, setAddTo] = useState<string | null>(null);
@@ -117,7 +118,6 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
     const credits = creditsOf(uni).filter((t) => !sel.some((x) => x.id === t.id));
     const lines = [...sel, ...credits];
     const ids = lines.map((t) => t.id);
-    const contact = uniFinanceContact(uni);
     // D7: who entered each fee, and when, as the line's working says it
     const fees = lines.map((t) => [t.id, t.trace?.find((x) => x.h === 'Fee basis')?.t ?? ''] as const).filter(([, f]) => f);
     setRaising({
@@ -125,7 +125,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
       sub: `${ids.length} ${ids.length === 1 ? 'line' : 'lines'}${new Set(lines.map((t) => t.uni)).size > 1 ? ` at ${new Set(lines.map((t) => t.uni)).size} universities` : ''}`,
       body: (
         <>
-          <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}{credits.length ? `, after ${credits.length} ${credits.length === 1 ? 'credit' : 'credits'} (${totalsText(sumBy(credits))}) that ${credits.length === 1 ? 'goes' : 'go'} on this invoice` : ''}. {contact ? `It goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}, Finance and invoices), through Mail.` : 'The university has no Finance and invoices contact: download the invoice and send it yourself.'}</p>
+          <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}{credits.length ? `, after ${credits.length} ${credits.length === 1 ? 'credit' : 'credits'} (${totalsText(sumBy(credits))}) that ${credits.length === 1 ? 'goes' : 'go'} on this invoice` : ''}. Xero sends the invoice (Jovial, 17 Nov): raise it there, then enter its number here so the lines are Invoiced.</p>
           {fees.length > 0 && (
             <ul className="cline">
               {fees.map(([id, f]) => (
@@ -139,12 +139,9 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
       ),
       go: (xero: string) => {
         const number = raiseInvoice(uni, ids, who.name, xero);
-        if (contact) sendUniInvoice(number, who.name);
-        const u = ctxUnis().find((x) => x.id === uni)!;
-        setInv(uniInvoice({ ...s, invoices: [...s.invoices] }, { number, date: todayIso(), uni }, lines, { name: u.name, country: u.country }));
         setTicked([]);
         setRaising(null);
-        say(`Invoice ${number} raised for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}${contact ? ` and sent to ${contact.email}` : ''}.`);
+        say(`Invoice ${number} recorded on ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}.`);
       },
     });
   };
@@ -155,23 +152,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
     if (!i || !u) return;
     setInv(uniInvoice(s, { number: i.number, date: i.date, uni: i.uni }, i.txs.map((id) => res.byId.get(id)).filter((x): x is Tx => !!x), { name: u.name, country: u.country }));
   };
-  /** Q132: the same invoice sent again to the university's Finance contact (no new number or due date). */
-  const resend = (number: string) => {
-    const i = s.invoices.find((x) => x.number === number);
-    if (!i) return;
-    const contact = uniFinanceContact(i.uni);
-    ask(
-      `Send invoice ${number} to ${uniName(i.uni)} again?`,
-      contact ? 'Send again' : 'Download',
-      <p>{contact ? `The same invoice, dated ${dayText(i.date)}, goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}) through Mail. Its number and due date don’t change; the send is logged on its lines.` : `${uniName(i.uni)} has no Finance and invoices contact: download the invoice and send it yourself.`}</p>,
-      () => {
-        if (contact) {
-          sendUniInvoice(number, who.name, true);
-          say(`Invoice ${number} sent again to ${contact.email}.`);
-        } else viewInvoice(number);
-      },
-    );
-  };
+
   // the worklist tiles (D1): each picks the side and the statuses it counts
   // R105: lines past their claim window, still unclaimed; nothing closes, Finance adjusts the books (Xero)
   const lapsed = (sd: Side) => res.txs.filter((t) => t.side === sd && t.claimLapsed).length;
@@ -237,6 +218,9 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
   return (
     <div className="ipage clines">
       <PageHead title="Commission lines" lead="Every transaction GSP gets from universities and pays to RPs: Finance’s to-do.">
+        <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setBulkOut(true)}>
+          Students withdrew
+        </Button>
         <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={exportCsv}>
           Export CSV
         </Button>
@@ -638,7 +622,6 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                             // R106: a university takes back commission it paid on this line
                             // Q132 (Jovial, 13 Nov): the invoice a line is on, to look at again or send again (same number, same due date)
                             ...(t.side === 'uni' && t.invoice ? [{ id: 'view-inv', label: 'View invoice', icon: 'eye' as const, onPick: () => viewInvoice(t.invoice!) }] : []),
-                            ...(t.side === 'uni' && t.invoice && (ACTION_FROM.record as readonly string[]).includes(t.status) ? [{ id: 'resend', label: 'Send again', icon: 'send' as const, onPick: () => resend(t.invoice!) }] : []),
                             ...(t.side === 'uni' && t.type !== 'Clawback' && (groupOf(t.side, t.status) === 'paid' || t.status === PART_PAID) ? [{ id: 'clawback', label: 'Record clawback', icon: 'minus' as const, onPick: () => setClawing(t) }] : []),
                             ...(t.side === 'uni' && !(s.withdrawals ?? []).some((w) => w.app === t.app) ? [{ id: 'withdrew', label: 'Student withdrew', icon: 'minus' as const, onPick: () => setLeaving(t.app) }] : []),
                             ...(manual.has(t.id) ? [{ id: 'lift-np', label: 'Lift Not payable', icon: 'refresh' as const, onPick: () => (liftNotPayable(t.id, who.name), say(`${t.id}: Not payable lifted.`)) }] : groupOf(t.side, t.status) === 'paid' || !canTick(t) ? [] : [{ id: 'not-payable', label: 'Mark not payable', icon: 'minus' as const, onPick: () => setNoPay(t) }]),
@@ -723,6 +706,17 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
         onDone={(msg) => {
           say(msg);
           setLeaving(null);
+        }}
+      />
+      <BulkWithdrawSheet
+        open={bulkOut}
+        res={res}
+        by={who.name}
+        ask={ask}
+        onClose={() => setBulkOut(false)}
+        onDone={(msg) => {
+          say(msg);
+          setBulkOut(false);
         }}
       />
       <WriteOffSheet

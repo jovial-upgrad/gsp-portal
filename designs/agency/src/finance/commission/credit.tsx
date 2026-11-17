@@ -29,10 +29,11 @@ type StatementRow = { app: string; period: number | null; fee: number | null; am
  * Reads a university's statement (CSV): one row per student and study period, with the GSP application ID, the study
  * period, the fee and the commission the university works out. Columns are found by their headings.
  */
+/** One CSV line's cells (quoted cells may hold commas). */
+const split = (l: string) => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.map((c) => c.replace(/,$/, '').replace(/^"|"$/g, '').replace(/""/g, '"').trim()).slice(0, -1);
 export function readStatement(text: string): { rows: StatementRow[]; error?: string } {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return { rows: [], error: 'The file has no rows.' };
-  const split = (l: string) => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.map((c) => c.replace(/,$/, '').replace(/^"|"$/g, '').replace(/""/g, '"').trim()).slice(0, -1);
   const head = split(lines[0]).map((h) => h.toLowerCase());
   const col = (...words: string[]) => head.findIndex((h) => words.some((w) => h.includes(w)));
   const cApp = col('application', 'gsp id', 'gsp-', 'app id');
@@ -231,6 +232,151 @@ export function WithdrawSheet({ app, res, by, onClose, onDone, ask }: { app: str
         <Field id="cwd-why" label="What the university said" required className="iform__wide" error={tried ? err.reason : null}>
           <TextInput id="cwd-why" value={reason} invalid={tried && !!err.reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
+      </div>
+    </Sheet>
+  );
+}
+
+/** One row of a withdrawals file: application ID, the date the student withdrew, and what the university said. */
+type WithdrawRow = { app: string; date: string; reason: string };
+/** Reads a withdrawals CSV (17 Nov); columns are found by their headings. Dates as YYYY-MM-DD or DD/MM/YYYY. */
+export function readWithdrawals(text: string): { rows: WithdrawRow[]; error?: string } {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return { rows: [], error: 'The file has no rows.' };
+  const head = split(lines[0]).map((h) => h.toLowerCase());
+  const col = (...words: string[]) => head.findIndex((h) => words.some((w) => h.includes(w)));
+  const cApp = col('application', 'gsp id', 'gsp-', 'app id');
+  const cDate = col('withdr', 'date');
+  const cWhy = col('reason', 'said', 'note', 'comment');
+  if (cApp < 0 || cDate < 0) return { rows: [], error: 'The file needs an application ID column and a withdrew-on date column.' };
+  const iso = (d: string) => {
+    const m = d.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : d.slice(0, 10);
+  };
+  return { rows: lines.slice(1).map((l) => split(l)).map((c) => ({ app: (c[cApp] ?? '').toUpperCase(), date: iso(c[cDate] ?? ''), reason: cWhy >= 0 ? c[cWhy] ?? '' : '' })) };
+}
+
+/** What recording a withdrawal on a date does to an application's University → GSP lines. */
+const withdrawEffect = (res: Result, app: string, date: string) => {
+  const mine = res.txs.filter((t) => t.app === app && t.side === 'uni');
+  return {
+    credit: mine.filter((t) => !!t.invoice && CREDITABLE.includes(t.status) && !t.adjusts && !!t.trigger && t.trigger > date && !t.credited),
+    nopay: mine.filter((t) => !t.invoice && !!t.trigger && t.trigger > date && groupOf(t.side, t.status) !== 'paid' && !t.credited),
+  };
+};
+
+/**
+ * Students withdrew, in bulk (Jovial, 17 Nov: "much needed"): universities send a list of students who left. Finance
+ * uploads it as a CSV; each row is checked against the applications, and the matched ones are recorded in one go, each
+ * exactly as Student withdrew on one application does.
+ */
+export function BulkWithdrawSheet({ open, res, by, onClose, onDone, ask }: { open: boolean; res: Result; by: string; onClose: () => void; onDone: (msg: string) => void; ask: AskFn }) {
+  const [rows, setRows] = useState<WithdrawRow[]>([]);
+  const [why, setWhy] = useState('');
+  const [note, setNote] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    setRows([]);
+    setWhy('');
+    setNote('');
+    setTried(false);
+  }, [open]);
+  if (!open) return null;
+  const check = (r: WithdrawRow) =>
+    !res.byApp.has(r.app) ? 'No application with this ID has commission lines.' : !/^\d{4}-\d{2}-\d{2}$/.test(r.date) ? 'The date can’t be read.' : r.date > todayIso() ? 'The date is in the future.' : !(r.reason || why.trim()) ? 'No reason: add one below.' : rows.filter((x) => x.app === r.app).length > 1 ? 'The application is in the file twice.' : null;
+  const good = rows.filter((r) => !check(r));
+  const read = async (f: File | undefined) => {
+    if (!f) return;
+    const { rows: got, error } = readWithdrawals(await f.text());
+    setRows(got);
+    setNote(error ?? `${got.length} ${got.length === 1 ? 'row' : 'rows'} read.`);
+  };
+  const go = () => {
+    setTried(true);
+    if (!good.length) return;
+    const eff = good.map((r) => withdrawEffect(res, r.app, r.date));
+    const nNo = eff.reduce((n, e) => n + e.nopay.length, 0);
+    const nCr = eff.reduce((n, e) => n + e.credit.length, 0);
+    ask(
+      `Record ${good.length} ${good.length === 1 ? 'withdrawal' : 'withdrawals'}?`,
+      'Record withdrawals',
+      <p>
+        {nNo} {nNo === 1 ? 'line becomes' : 'lines become'} Not payable{nCr ? `, and ${nCr} invoiced ${nCr === 1 ? 'line is' : 'lines are'} credited` : ''}. {rows.length - good.length ? `${rows.length - good.length} ${rows.length - good.length === 1 ? 'row is' : 'rows are'} left out. ` : ''}Lines already paid stay; record a clawback if the university takes money back.
+      </p>,
+      () => {
+        good.forEach((r, i) =>
+          studentWithdrew(
+            r.app,
+            r.date,
+            (r.reason || why).trim(),
+            by,
+            eff[i].credit.map((t) => ({ tx: t.id, invoice: t.invoice!, uni: t.uni, also: adjustmentsOf(res, t) })),
+          ),
+        );
+        onDone(`${good.length} ${good.length === 1 ? 'withdrawal' : 'withdrawals'} recorded.`);
+      },
+    );
+  };
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      center
+      className="iform"
+      title="Students withdrew"
+      sub="Upload the university’s list"
+      footer={
+        <div className="asf">
+          <div className="asf__acts">
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={go} disabled={!good.length}>
+              Record {good.length || ''} {good.length === 1 ? 'withdrawal' : 'withdrawals'}
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="iform__grid">
+        <Field id="cbw-file" label="Withdrawals file" required className="iform__wide" hint="A CSV with the GSP application ID, the date the student withdrew and what the university said." error={tried && !rows.length ? 'Choose a file.' : null}>
+          <input id="cbw-file" type="file" accept=".csv,text/csv" onChange={(e) => void read(e.target.files?.[0])} />
+        </Field>
+        {note && (
+          <p className="iform__wide cmuted" role="status">
+            {note}
+          </p>
+        )}
+        <Field id="cbw-why" label="Reason for rows without one" className="iform__wide">
+          <TextInput id="cbw-why" value={why} onChange={(e) => setWhy(e.target.value)} />
+        </Field>
+        {rows.length > 0 && (
+          <table className="iform__wide cbw">
+            <thead>
+              <tr>
+                <th>Application</th>
+                <th>Student</th>
+                <th>Withdrew on</th>
+                <th>Effect</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const bad = check(r);
+                const a = res.byApp.get(r.app);
+                const e = bad ? null : withdrawEffect(res, r.app, r.date);
+                return (
+                  <tr key={i} className={bad ? 'cbw--bad' : undefined}>
+                    <td>{r.app || '—'}</td>
+                    <td>{a ? `${a.student} · ${a.uniName}` : '—'}</td>
+                    <td>{/^\d{4}-\d{2}-\d{2}$/.test(r.date) ? dayText(r.date) : r.date || '—'}</td>
+                    <td>{bad ?? `${e!.nopay.length} Not payable${e!.credit.length ? `, ${e!.credit.length} credited` : ''}`}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </Sheet>
   );

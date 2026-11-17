@@ -225,3 +225,9 @@
 .cadd__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 12px; align-items: end; padding-bottom: 8px; border-bottom: 1px solid var(--line, #e6e8ef); }
 /* Key details beside a line (17 Nov) */
 .ckeys { margin: 0; }
+
+/* Students withdrew, in bulk (17 Nov): the rows read from the university's file */
+.cbw { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cbw th, .cbw td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.cbw th { font-weight: 600; color: var(--text-2); }
+.cbw--bad td { color: var(--bad); }

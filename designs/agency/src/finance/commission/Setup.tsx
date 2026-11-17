@@ -522,6 +522,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
             ['Student types', S.studentTypes.join(', ') || 'None'],
             ['Countries that need the student type', S.studentTypeCountries.join(', ') || 'None'],
             ['Commission is forecast from', STATUS[S.forecastFrom as keyof typeof STATUS]?.text('Australia') ?? S.forecastFrom],
+            ['Commissions live on the portal from', S.liveFrom ? dayText(S.liveFrom) : 'Not set'],
             ['Part payment reasons', S.partReasons.join(', '), 'wide'],
             ['Not payable reasons', (S.notPayableReasons ?? []).join(', ') || 'None', 'wide'],
           ]],

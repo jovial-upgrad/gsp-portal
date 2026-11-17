@@ -114,6 +114,8 @@ const activityAt = (rp: RecruitmentPartner, what: RegExp) => {
  * Each rule's condition (When), as the product reads it from the records. Keyed by rule ID: a rule with no entry
  * here makes no tasks.
  */
+/** Commissions went live on the portal on this day (Settings): no commission task's clock starts before it. */
+const liveOf = (rec: WorkRecords) => (rec.comm.settings.liveFrom ? new Date(`${rec.comm.settings.liveFrom}T09:30`).getTime() : 0);
 function hitsFor(rule: TaskRule, rec: WorkRecords, regionOf: (country: string) => string, now: number): Hit[] {
   const student = (a: Application) => {
     const s = rec.students.find((x) => x.id === a.studentId);
@@ -174,12 +176,12 @@ function hitsFor(rule: TaskRule, rec: WorkRecords, regionOf: (country: string) =
       const accepted = rec.ops.filter((r) => agreementsOf(r).active || agreementsOf(r).next);
       return rpsWithoutRecord(rec.comm, accepted).map((r) => {
         const a = r.agreements.filter((x) => x.status === 'accepted').sort((x, y) => (x.decision?.at ?? 0) - (y.decision?.at ?? 0))[0];
-        return { key: r.id, since: a?.decision?.at ?? at(r.since), region: regionOf(r.country), ref: r.code, about: r.name, vars: { RP: r.name } };
+        return { key: r.id, since: Math.max(a?.decision?.at ?? at(r.since), liveOf(rec)), region: regionOf(r.country), ref: r.code, about: r.name, vars: { RP: r.name } };
       });
     }
     case 'T81':
       // a university with no commission terms: from the day it was added
-      return unisWithoutTerms(rec.comm, rec.unis).map((u) => ({ key: u.id, since: at(u.added), region: 'Global', ref: u.name, about: u.name, vars: { university: u.name } }));
+      return unisWithoutTerms(rec.comm, rec.unis).map((u) => ({ key: u.id, since: Math.max(at(u.added), liveOf(rec)), region: 'Global', ref: u.name, about: u.name, vars: { university: u.name } }));
     case 'T86':
     case 'T87':
     case 'T88':

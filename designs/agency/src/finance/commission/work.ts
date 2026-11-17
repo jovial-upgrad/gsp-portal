@@ -18,7 +18,10 @@ export const commRuleOf = (code: string) => (Object.keys(COMM_RULES) as CommRule
 
 export type CommHit = { key: string; since: number; ref: string; about: string; keep: string; vars: Record<string, string> };
 
-const at = (iso: string) => new Date(`${(iso || '').slice(0, 10) || '2026-01-01'}T09:30`).getTime();
+const at0 = (iso: string) => new Date(`${(iso || '').slice(0, 10) || '2026-01-01'}T09:30`).getTime();
+// no clock starts before commissions went live on the portal (Settings)
+let live = 0;
+const at = (iso: string) => Math.max(at0(iso), live);
 const earliest = (xs: string[]) => xs.filter(Boolean).sort()[0] ?? '';
 const lines = (n: number) => `${n} ${n === 1 ? 'line' : 'lines'}`;
 
@@ -33,6 +36,7 @@ export function commLines(comm: CommState, apps: Application[], students: Pick<S
 export function commHits(code: string, comm: CommState, apps: Application[], students: Pick<Student, 'id' | 'first' | 'last' | 'oneName'>[], today?: string): CommHit[] {
   const k = commRuleOf(code);
   if (!k) return [];
+  live = comm.settings.liveFrom ? at0(comm.settings.liveFrom) : 0;
   const res = commLines(comm, apps, students, today);
   const unis = ctxUnis();
   const ipOfUni = (uni: string) => unis.find((u) => u.id === uni)?.ip || `uni:${uni}`;
