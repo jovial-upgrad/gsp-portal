@@ -420,7 +420,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
   const grRows = s.groups.filter((g) => has(q, g.name, ...g.members.map(uniName)));
   const grTab = (
     <>
-      <p className="cline">Institution partners whose universities count together for a tier and GSP’s bonuses: all of a partner’s universities, or some. With an IP tier, the universities that count don’t have tiers of their own.</p>
+      <p className="cline">Institution partners whose universities count together for a tier and GSP’s bonuses: all of a partner’s universities, or some. Their students earn the IP’s lines on top of each university’s own terms.</p>
       <Card count={`${grRows.length} ${grRows.length === 1 ? "institution partner" : "institution partners"}`} tools={<Search id="cset-gr-q" value={q} onChange={setQ} placeholder="Institution partner or university" />}>
         {grRows.length ? (
           <div className="stab-wrap">

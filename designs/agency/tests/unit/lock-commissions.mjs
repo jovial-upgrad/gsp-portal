@@ -207,12 +207,15 @@ try {
     ok('D15 the terms preview counts the portal’s own enrolments', withPortal.repriced + withPortal.adjusted > seedOnly.repriced + seedOnly.adjusted, `${JSON.stringify(withPortal)} vs ${JSON.stringify(seedOnly)}`);
   }
   {
-    // 16 Nov (Finance): a partner has a group tier or tiers per school, never both. If old data still has both, the
-    // student counts toward the group's tier only, even when the school's own would pay more; no comparison.
+    // 17 Nov (after the Finance demo, reverses R124): a school's own tier prices its line, and its IP's tier adds its own
+    // IP commission line on top; the student counts toward both. The RP never shares an IP line.
     const sG = { ...s0, terms: s0.terms.map((t) => (t.uni === 'greenwich' ? { ...t, bands: [{ from: 1, to: null, pct: 30 }] } : t)) };
     const rG = run(sG);
     const cov = rG.apps.filter((a) => a.uni === 'greenwich');
-    ok('16 Nov a school in a tiered group counts toward the group’s tier only', cov.length > 0 && cov.every((a) => a.tiers.length === 1 && a.tiers[0].who === 'group'), JSON.stringify(cov.slice(0, 2).map((a) => a.tiers)));
+    ok('17 Nov a school counts toward its own tier and its IP’s', cov.length > 0 && cov.every((a) => a.tiers.some((t) => t.who === 'group') && a.tiers.some((t) => t.who === 'university')), JSON.stringify(cov.slice(0, 2).map((a) => a.tiers)));
+    const ipL = rG.txs.filter((t) => t.type === 'IP commission');
+    ok('17 Nov an IP commission line, at the IP band’s % of the fee, on top of the course line', ipL.length > 0 && ipL.every((t) => t.side === 'uni' && /Northgate/.test(t.what)), JSON.stringify(ipL.slice(0, 2).map((t) => [t.id, t.amount, t.what])));
+    ok('17 Nov the RP never shares an IP line', !rG.txs.some((t) => t.side === 'rp' && ipL.some((x) => x.id === t.matches)));
     ok('16 Nov no “the higher wins” step in the working', !rG.txs.some((t) => (t.trace ?? []).some((s) => /higher wins/.test(s.text ?? s.what ?? ''))));
     // 17 Nov (after the Finance demo): Credit and re-invoice. A credit note reverses invoiced lines in full; new lines
     // take their place at the statement's amounts, on one new invoice; the RP lines follow.

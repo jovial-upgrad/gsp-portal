@@ -234,32 +234,32 @@ const add = (c) => C.push(c);
   const at = (u, ids) => ids.map((id) => app(id, { uni: u, rp: 'SC-R80' }));
   const L = [...at('SC-12A', ['ip12-a1', 'ip12-a2', 'ip12-a3']), ...at('SC-12B', ['ip12-b1', 'ip12-b2']), ...at('SC-12C', ['ip12-c1', 'ip12-c2'])];
   add({ id: 'IP12', tab: 'IP', sheetNo: 'Scenario 12', title: 'Institution / Institution Partner Tier', sheet: 'Commission or bonus can be determined according to an institution or Institution partner tier. This may support institution-specific tiers or Institution partner tiers applied across the wider like Navitas group.\nInstitition wise tiers (particular Institution under Navitas)\nInstitution partners wise tier (Navitas as whole)',
-    terms: ['University group “Group partner (sample)” with colleges A, B and C (Finance › University groups). Group tier: 1–5 students 15%, 6+ 18%, retrospective, calendar year.', 'Colleges B and C have no tier of their own (UG 15%). Their students still count toward the group.', 'A partner has a group tier or tiers per school, not both (Finance, 16 Nov): every college counts toward the group’s.'],
+    terms: ['IP terms “Group partner (sample)” with colleges A, B and C (Finance › Institution partners). IP tier: an extra 1.5% for 1–5 students, 2.5% from 6, retrospective, calendar year.', 'Each college keeps its own terms (UG 15%); the IP tier is its own IP commission line on top (Jovial, 17 Nov, after the Finance demo).', 'Every college’s students count toward the IP’s tier.'],
     today: '2026-05-01', focus: 'ip12-b1',
-    cfg: world({ unis: [uni('SC-12A', { name: 'Group College A (sample)' }), uni('SC-12B', { name: 'Group College B (sample)' }), uni('SC-12C', { name: 'Group College C (sample)' })], groups: [{ id: 'SC-GRP', name: 'Group partner (sample)', members: ['SC-12A', 'SC-12B', 'SC-12C'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 15], [6, null, 18]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    cfg: world({ unis: [uni('SC-12A', { name: 'Group College A (sample)' }), uni('SC-12B', { name: 'Group College B (sample)' }), uni('SC-12C', { name: 'Group College C (sample)' })], groups: [{ id: 'SC-GRP', name: 'Group partner (sample)', members: ['SC-12A', 'SC-12B', 'SC-12C'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 1.5], [6, null, 2.5]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
     apps: byId(L),
     checks: [
       { what: 'Group count includes college C (no tier of its own)', calc: '3 + 2 + 2 = 7', exp: 7, got: G.app('ip12-b1', (r) => r.uniTier.total) },
-      { what: 'College B student at the group band', calc: '7 → 18%; 30,000 × 18% = 5,400', exp: 5400, got: G.period('ip12-b1', 'ip1', 'fullEnt') },
-      { what: 'College C student at the group band', calc: '7 → 18% = 5,400', exp: 5400, got: G.period('ip12-c1', 'ip1') },
-      { what: 'College A at the group band too', calc: '7 → 18% = 5,400', exp: 5400, got: G.period('ip12-a1', 'ip1', 'fullEnt') },
-      { what: 'The tier that applies is the group’s', calc: '', exp: 'group', got: G.app('ip12-a1', (r) => r.uniTier.who) },
+      { what: 'College B student: the college’s own line', calc: '30,000 × 15% = 4,500', exp: 4500, got: G.ip('ip12-b1', 'ip1') },
+      { what: 'College B student: the IP commission line on top', calc: '7 → 2.5%; 30,000 × 2.5% = 750', exp: 750, got: G.ip('ip12-b1', 'ipc-ip1') },
+      { what: 'College C student: the IP commission line', calc: '7 → 2.5% = 750', exp: 750, got: G.ip('ip12-c1', 'ipc-ip1') },
+      { what: 'The RP gets no share of the IP line', calc: '', exp: 'no line ip1-IP', got: G.rp('ip12-b1', 'ip1-IP') },
     ] });
 }
 {
   const at = (u, ids, nat) => ids.map((id) => app(id, { uni: u, rp: 'SC-R80', nationality: nat }));
   const L = [...at('SC-12X', ['ip12b-x1', 'ip12b-x2', 'ip12b-x3'], 'Bangladesh'), ...at('SC-12Y', ['ip12b-y1', 'ip12b-y2'], 'Bangladesh'), ...at('SC-12Y', ['ip12b-y3', 'ip12b-y4'], 'India')];
   add({ id: 'IP12B', tab: 'IP', sheetNo: 'Scenario 12b', title: 'Group tier and group bonus per source country', sheet: 'An institution partner (group) whose tier and volume bonus count across its colleges, separately for each source country (Jovial, 10 Nov).',
-    terms: ['Group “Partner group (sample)” with colleges X and Y, both UG 15%, no tier of their own.', 'Group tier per source country: 1–2 students 15%, 3+ 18%, retrospective, calendar year.', 'Group bonus scheme, GSP’s own: per student AUD 500 for 3–4 students and AUD 1,000 from 5, counted per source country across the group.', 'Five Bangladeshi students (three at X, two at Y) and two Indian students at Y, Feb 2026.'],
+    terms: ['Group “Partner group (sample)” with colleges X and Y, both UG 15%, no tier of their own.', 'IP tier per source country: an extra 1.5% for 1–2 students, 3% from 3, retrospective, calendar year, on its own IP commission line (17 Nov).', 'Group bonus scheme, GSP’s own: per student AUD 500 for 3–4 students and AUD 1,000 from 5, counted per source country across the group.', 'Five Bangladeshi students (three at X, two at Y) and two Indian students at Y, Feb 2026.'],
     today: '2026-05-01', focus: 'ip12b-y1',
-    cfg: world({ unis: [uni('SC-12X', { name: 'Partner College X (sample)' }), uni('SC-12Y', { name: 'Partner College Y (sample)' })], groups: [{ id: 'SC-GPB', name: 'Partner group (sample)', members: ['SC-12X', 'SC-12Y'], tier: { retro: true, window: 'CY', scope: 'country', levels: [], bands: [[1, 2, 15], [3, null, 18]] }, bonuses: [{ id: 'GB1', name: 'Group volume bonus', kind: 'fixed', v: 0, per: 'band', window: 'CY', perCountry: true, bands: [[3, 4, 500, 'fixed'], [5, null, 1000, 'fixed']] }] }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    cfg: world({ unis: [uni('SC-12X', { name: 'Partner College X (sample)' }), uni('SC-12Y', { name: 'Partner College Y (sample)' })], groups: [{ id: 'SC-GPB', name: 'Partner group (sample)', members: ['SC-12X', 'SC-12Y'], tier: { retro: true, window: 'CY', scope: 'country', levels: [], bands: [[1, 2, 1.5], [3, null, 3]] }, bonuses: [{ id: 'GB1', name: 'Group volume bonus', kind: 'fixed', v: 0, per: 'band', window: 'CY', perCountry: true, bands: [[3, 4, 500, 'fixed'], [5, null, 1000, 'fixed']] }] }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
     apps: byId(L),
     checks: [
       { what: 'Bangladeshi students count together across the group', calc: '3 at X + 2 at Y = 5', exp: 5, got: G.app('ip12b-y1', (r) => r.uniTier.total) },
       { what: 'Indian students count on their own', calc: '2 at Y', exp: 2, got: G.app('ip12b-y3', (r) => r.uniTier.total) },
       { what: 'Bangladeshi student: standard line at the base rate', calc: '30,000 × 15% = 4,500', exp: 4500, got: G.ip('ip12b-y1', 'ip1') },
-      { what: 'Bangladeshi student: group Tier bonus line', calc: '5 → 18%; 30,000 × 3% = 900', exp: 900, got: G.ip('ip12b-y1', 'tb-ip1') },
-      { what: 'Indian student: no Tier bonus (band 1 is the base rate)', calc: '2 → 15%', exp: 'no line tb-ip1', got: G.ip('ip12b-y3', 'tb-ip1') },
+      { what: 'Bangladeshi student: IP commission line', calc: '5 → 3%; 30,000 × 3% = 900', exp: 900, got: G.ip('ip12b-y1', 'ipc-ip1') },
+      { what: 'Indian student: IP commission at band 1', calc: '2 → 1.5%; 30,000 × 1.5% = 450', exp: 450, got: G.ip('ip12b-y3', 'ipc-ip1') },
       { what: 'Bangladeshi student: group volume bonus at 5+', calc: '5 Bangladeshi students in the group → AUD 1,000', exp: 1000, got: G.ip('ip12b-x1', 'gbo-GB1') },
       { what: 'Indian student: no group volume bonus', calc: '2 Indian students; bonus starts at 3', exp: 0, got: G.ipCount('ip12b-y3', 'bonus') },
     ] });
@@ -537,15 +537,15 @@ const paidU = (a) => paid(a, 'ip1', '2026-04-02', '2026-04-30', 4500);
 }
 {
   const L = [...['c3-a1', 'c3-a2', 'c3-a3'].map((id) => app(id, { uni: 'SC-C3A', rp: 'SC-R80' })), ...['c3-b1', 'c3-b2', 'c3-b3'].map((id) => app(id, { uni: 'SC-C3B', rp: 'SC-R80' }))];
-  add({ id: 'C3', tab: 'Combination', title: 'A college in a tiered group counts toward the group tier', sheet: 'A partner has a group tier or tiers per school, never both (Finance, 16 Nov).',
-    terms: ['Group: colleges A and B; group tier 1–5 students 15%, 6+ 18%, retrospective, calendar year.', 'Neither college has a tier of its own.', 'Three students at each college, Feb 2026.'],
+  add({ id: 'C3', tab: 'Combination', title: 'A college with its own tier also counts toward its IP’s tier', sheet: 'A university’s own terms and its IP’s apply together (Jovial, 17 Nov, after the Finance demo; reverses R124).',
+    terms: ['IP terms: colleges A and B; IP tier an extra 2% for 1–5 students, 2.5% from 6, retrospective, calendar year.', 'College A has its own tier too: 1–2 students 15%, 3+ 18%.', 'Three students at each college, Feb 2026.'],
     today: '2026-05-01', focus: 'c3-a1',
-    cfg: world({ unis: [uni('SC-C3A', { name: 'Group College (sample)' }), uni('SC-C3B', { name: 'Untiered College (sample)' })], groups: [{ id: 'SC-G3', name: 'Two-college group (sample)', members: ['SC-C3A', 'SC-C3B'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 15], [6, null, 18]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
+    cfg: world({ unis: [uni('SC-C3A', { name: 'Group College (sample)', tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 2, 15], [3, null, 18]] } }), uni('SC-C3B', { name: 'Untiered College (sample)' })], groups: [{ id: 'SC-G3', name: 'Two-college group (sample)', members: ['SC-C3A', 'SC-C3B'], tier: { retro: true, window: 'CY', scope: 'all', levels: [], bands: [[1, 5, 2], [6, null, 2.5]] } }], rps: [rp('SC-R80', { name: 'Harbour Education (sample)' })] }),
     apps: byId(L),
     checks: [
-      { what: 'College A at the group band', calc: '6 → 18%; 30,000 × 18% = 5,400', exp: 5400, got: G.period('c3-a1', 'ip1', 'fullEnt') },
-      { what: 'The tier that applies is the group’s', calc: '', exp: 'group', got: G.app('c3-a1', (r) => r.uniTier.who) },
-      { what: 'College B at the group band', calc: '6 → 18% = 5,400', exp: 5400, got: G.period('c3-b1', 'ip1', 'fullEnt') },
+      { what: 'College A at its own band', calc: '3 at A → 18%; 30,000 × 18% = 5,400', exp: 5400, got: G.period('c3-a1', 'ip1', 'fullEnt') },
+      { what: 'College A: the IP line on top', calc: '6 across A and B → 2.5%; 30,000 × 2.5% = 750', exp: 750, got: G.ip('c3-a1', 'ipc-ip1') },
+      { what: 'College B: its own line and the IP line', calc: '30,000 × 15% = 4,500; IP 750', exp: 5250, got: (R) => (G.ip('c3-b1', 'ip1')(R) || 0) + (G.ip('c3-b1', 'ipc-ip1')(R) || 0) },
     ] });
 }
 {

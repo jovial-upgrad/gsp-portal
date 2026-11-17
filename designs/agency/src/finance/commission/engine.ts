@@ -610,11 +610,12 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     let rpNote: string | undefined;
     const uniDone = new Set<string>();
     const T = p.T;
-    // A partner has a group tier or tiers per school, never both (Finance, Suman Verma, 16 Nov): the student counts
-    // toward whichever applies. Setup doesn't let both exist; if old data has both, the group's applies.
+    // A university's own tier prices its line; an IP's tier is its own line on top (Jovial, 17 Nov, after the Finance
+    // demo: reverses R124). The student counts toward both.
     const tiersAll = tiersOf.get(e.app) ?? [];
-    const tier = tiersAll.find((t) => t.spec.who === 'group') ?? tiersAll[0];
-    const tiers = tier ? [tier] : [];
+    const tier = tiersAll.find((t) => t.spec.who !== 'group');
+    const ipTier = tiersAll.find((t) => t.spec.who === 'group');
+    const tiers = tiersAll;
     const progress: Progress[] = [];
     const summary: AppSummary = { currency: cur };
     const version = T && tr ? (tr.earlier.length && T !== (tr as TermsBody) ? `Terms before ${dayText([...tr.earlier].sort((a, b) => a.until.localeCompare(b.until)).find((x) => startOf(e) < x.until)!.until)}` : `Terms ${tr.earlier.length ? `from ${dayText([...tr.earlier].sort((a, b) => b.until.localeCompare(a.until))[0].until)}` : `saved ${dayText(new Date(tr.updated.at).toISOString().slice(0, 10))}`}`) : undefined;
@@ -638,7 +639,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         step('Fee basis', `${T.feeBasis === 'Tuition before scholarship' ? 'The tuition fee before the scholarship' : 'The tuition fee less the scholarship'}: ${money(f.tuition ?? 0, cur)}${f.scholarship ? ` (scholarship ${money(f.scholarship, cur)} a year)` : ''}, as Admissions entered it${f.feeBy ? ` (${f.feeBy.by}, ${dayText(new Date(f.feeBy.at).toISOString().slice(0, 10))})` : ''}.`),
         step('Paid and chargeable', `Paid ${T.payUnit.toLowerCase()}${PAY_UNITS.find((x) => x.label === T.payUnit)?.per ? '' : ''}; chargeable for ${T.charge?.unit === 'Whole course' ? 'the whole course' : `${T.charge?.n ?? 1} ${(T.charge?.unit ?? 'Years').toLowerCase()}`}.${p.dropped ? ` ${p.dropped} later period${p.dropped === 1 ? ' is' : 's are'} outside the chargeable time, so no line.` : ''}`),
       ];
-      const tierSteps: Step[] = tiers.map((t) =>
+      const tierSteps: Step[] = (tier ? [tier] : []).map((t) =>
         step(`${t.spec.who === 'group' ? 'IP tier' : 'University tier'}: ${t.spec.name}`, `${t.spec.retro ? 'Retrospective' : 'Prospective'}, counted per ${windowWords(t.spec.countedPer, t.spec.yearStart)}${t.spec.perCountry ? ' and per source country' : ''}${t.spec.levels.length ? `, levels ${t.spec.levels.join(', ')}` : ''}. ${t.key}: ${t.total} student${t.total === 1 ? '' : 's'} counted; this student is number ${t.rank}. ${t.spec.retro ? `The total (${t.total})` : `This student’s own place (${t.rank})`} sets the band: band ${t.bi + 1}, ${pct(t.pct)}.`),
       );
       const promoStates = (T.promos ?? []).map((pr) => ({ pr, why: condTest(pr.cond, p.who, S) }));
@@ -646,10 +647,9 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const credit = tier?.end && tier.end > today ? tier.end : undefined;
       for (const q of p.periods) {
         const rt = pickRate(T, p.who, q.k, S);
-        if (rt.tie) addExc('Rate rows overlap', `${u.name}: two rate rows match ${e.student} equally (${rowLabel(rt.ok[0], cur)} and ${rowLabel(rt.ok[1], cur)}). The first listed is used; make one more specific.`);
         const row = rt.best;
         const steps: Step[] = [...head, step('Period', `${q.label}: ${q.chargeWhy}. Due on ${q.dateWhy}.`)];
-        steps.push(step('Rate', row ? `Uses ${rowLabel(row, cur)}${row.src === 'row' ? ' (the most specific row that matches)' : ''}.${rt.no.length ? ` Not matching: ${rt.no.map((n) => `${rowLabel(n.x, cur)} (${n.why.join('; ')})`).join(' | ')}.` : ''}` : 'No rate matches this student: the line can’t be priced until a rate is added.'));
+        steps.push(step('Rate', row ? `Uses ${rowLabel(row, cur)}${row.src === 'row' ? (rt.tie ? ' (rows match equally: the highest rate wins)' : ' (the most specific row that matches)') : ''}.${rt.no.length ? ` Not matching: ${rt.no.map((n) => `${rowLabel(n.x, cur)} (${n.why.join('; ')})`).join(' | ')}.` : ''}` : 'No rate matches this student: the line can’t be priced until a rate is added.'));
         if (!row) continue;
         // a fixed amount without a study period is paid once, with the first period
         if (row.amt != null && !row.period && q.k > 1) continue;
@@ -693,6 +693,13 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         }
         steps.push(step('Amount', fixed != null ? `Fixed ${money(fixed, cur)}${row.period ? ` for study period ${row.period}` : ', once per student, with the first period'}.` : `${q.feeWhy}${q.frac < 1 ? `, × ${Math.round(q.frac * 1000) / 10}% chargeable` : ''} = ${money(baseFee, cur)}. ${money(baseFee, cur)} × ${pct(rate ?? 0)} = ${money(round2(amount, cur), cur)}${q.estimateFee ? ' (an estimate: no fee for this year on the application yet)' : ''}.`));
         drafts.push({ slot: q.slot, type: 'Course commission', what: fixed != null ? `${q.label}: fixed ${money(fixed, cur)}` : `${q.label}: ${pct(rate ?? 0)} of ${money(baseFee, cur)}`, rpWhat: `${q.label} commission`, amount, trigger: q.date, estimated: q.estimated, period: q.k, year: q.y, trace: steps, credit });
+        // the IP's tier (17 Nov): an extra % of the same fee, on its own line, GSP's alone (the RP never shares it)
+        if (ipTier && ipTier.pct > 0 && q.fee > 0) {
+          const v = (baseFee * ipTier.pct) / 100;
+          const date = ipTier.spec.retro && ipTier.setDate && ipTier.setDate > q.date ? ipTier.setDate : q.date;
+          drafts.push({ slot: `ip:${q.slot}`, type: 'IP commission', what: `${q.label}: ${ipTier.spec.name}, band ${ipTier.bi + 1}, ${pct(ipTier.pct)} of ${money(baseFee, cur)}`, rpWhat: `${q.label} IP commission`, amount: v, trigger: date, period: q.k, year: q.y, credit: ipTier.end && ipTier.end > today ? ipTier.end : undefined, trace: [...head, step('Period', `${q.label}: ${q.chargeWhy}. Due on ${q.dateWhy}.`), step(`IP tier: ${ipTier.spec.name}`, `${ipTier.spec.retro ? 'Retrospective' : 'Prospective'}, counted per ${windowWords(ipTier.spec.countedPer, ipTier.spec.yearStart)} across ${ipTier.spec.members.length} universities${ipTier.spec.levels.length ? `, levels ${ipTier.spec.levels.join(', ')}` : ''}. ${ipTier.key}: ${ipTier.total} counted; this student is number ${ipTier.rank}: band ${ipTier.bi + 1}, ${pct(ipTier.pct)} on top of ${u.name}’s own commission.`), step('Amount', `${money(baseFee, cur)} × ${pct(ipTier.pct)} = ${money(round2(v, cur), cur)}. Invoiced to ${ipTier.spec.name}; GSP’s alone, the RP doesn’t share it.`)] });
+          if (q.k === 1) summary.uniRateWhy = `${summary.uniRateWhy ?? ''}${summary.uniRateWhy ? '; ' : ''}plus ${pct(ipTier.pct)} from ${ipTier.spec.name}`;
+        }
         if (tierUp > 0) {
           const v = (baseFee * tierUp) / 100;
           const date = tier!.spec.retro && tier!.setDate && tier!.setDate > q.date ? tier!.setDate : q.date;

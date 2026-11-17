@@ -347,7 +347,7 @@ export type Side = 'uni' | 'rp';
 export const SIDES: Record<Side, string> = { uni: 'University → GSP', rp: 'GSP → RP' };
 export const SIDE_KEYS = Object.keys(SIDES) as Side[];
 /** Adjustment: the difference when a line's worked-out amount changes after it was invoiced, requested or paid (Jovial, 9 Nov). */
-export const TX_TYPES = ['Course commission', 'Tier bonus', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment', 'Clawback', 'Recovery'] as const;
+export const TX_TYPES = ['Course commission', 'Tier bonus', 'IP commission', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment', 'Clawback', 'Recovery'] as const;
 export type TxType = (typeof TX_TYPES)[number];
 
 /** Part paid (Jovial, 10 Nov, Q44): the university paid less than the line, with a reason, until the rest comes or is written off. */
@@ -443,7 +443,6 @@ export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' 
 // Q148 (Jovial, 16 Nov): six left, all gaps in a contract or in Setup; Key details are required at the right stage instead
 export const EXCEPTIONS = [
   { type: 'Rate missing', hold: true, fix: 'terms' },
-  { type: 'Rate rows overlap', hold: false, fix: 'terms' },
   { type: 'No terms', hold: true, fix: 'terms' },
   { type: 'Contract ended', hold: true, fix: null },
   { type: 'Agreement not yet in force', hold: true, fix: null },

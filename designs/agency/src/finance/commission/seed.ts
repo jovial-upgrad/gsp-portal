@@ -378,7 +378,7 @@ export const sampleGroups = (): UniGroup[] => [
     ip: 'ip-northgate',
     name: 'Northgate University Group',
     members: ['abertay', 'greenwich', 'ulster'],
-    bands: [band(1, 2, 15), band(3, null, 16)],
+    bands: [band(1, 9, 1.5), band(10, null, 2.5)],
     countedPer: 'Calendar year',
     yearStart: 1,
     tierRetro: true,

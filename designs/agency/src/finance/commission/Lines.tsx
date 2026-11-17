@@ -13,7 +13,7 @@ import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } f
 import { addDays, setOff, sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
-import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
 import { CreditSheet, WithdrawSheet, canCredit } from './credit';
@@ -71,14 +71,17 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const filtered = v.who.length + v.regions.length + v.types.length + v.statuses.length > 0 || !!v.from || !!v.to || !!v.q || !!v.lapsed;
   const clear = () => setV((x) => ({ ...blankView(x.side), tab: x.tab }));
   const onlyOne = (k: 'uni' | 'rp') => new Set(sel.map((t) => t[k])).size === 1;
+  // GSP invoices the IP in all cases (Jovial, 17 Nov): one invoice per IP and currency can cover several of its universities
+  const payerOf = (uni: string) => ctxUnis().find((u) => u.id === uni)?.ip || uni;
+  const onePayer = () => new Set(sel.map((t) => `${payerOf(t.uni)}|${t.currency}`)).size === 1;
   const all = (st: readonly string[]) => sel.length > 0 && sel.every((t) => st.includes(t.status));
 
   // what the ticked lines allow, and why not
   // Jovial, 13 Nov: a credit (a negative line) is never invoiced on its own: it goes on GSP's next invoice to that
   // university as a minus line, so an invoice needs at least one line that isn't a credit
-  const raise = all(ACTION_FROM.raise) && onlyOne('uni') && sel.some((t) => t.amount > 0);
-  const creditsOf = (uni: string) => res.txs.filter((t) => t.side === 'uni' && t.uni === uni && t.status === READY_UNI && t.amount < 0);
-  const record = all(ACTION_FROM.record) && onlyOne('uni');
+  const raise = all(ACTION_FROM.raise) && onePayer() && sel.some((t) => t.amount > 0);
+  const creditsOf = (uni: string) => res.txs.filter((t) => t.side === 'uni' && payerOf(t.uni) === payerOf(uni) && t.currency === sel[0]?.currency && t.status === READY_UNI && t.amount < 0);
+  const record = all(ACTION_FROM.record) && onePayer();
   const pay = all(ACTION_FROM.pay) && onlyOne('rp');
   // R112: lines of a kind the RP isn't shown ("What the RP sees") can't be asked for
   const hiddenSel = sel.filter((t) => t.side === 'rp' && t.rpKind === false);
@@ -102,7 +105,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     // D7: who entered each fee, and when, as the line's working says it
     const fees = lines.map((t) => [t.id, t.trace?.find((x) => x.h === 'Fee basis')?.t ?? ''] as const).filter(([, f]) => f);
     ask(
-      `Raise an invoice to ${uniName(uni)} for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}?`,
+      `Raise an invoice to ${ipName(payerOf(uni)) || uniName(uni)} for ${ids.length} ${ids.length === 1 ? 'line' : 'lines'}${new Set(lines.map((t) => t.uni)).size > 1 ? ` at ${new Set(lines.map((t) => t.uni)).size} universities` : ''}?`,
       contact ? 'Raise and send' : 'Raise',
       <>
         <p>{totalsText(sumBy(lines))}{lines.some((t) => t.gst) ? ', plus GST' : ''}{credits.length ? `, after ${credits.length} ${credits.length === 1 ? 'credit' : 'credits'} (${totalsText(sumBy(credits))}) that ${credits.length === 1 ? 'goes' : 'go'} on this invoice` : ''}. {contact ? `It goes from ${s.settings.invoiceFrom} to ${contact.email} (${contact.first} ${contact.last}, Finance and invoices), through Mail.` : 'The university has no Finance and invoices contact: download the invoice and send it yourself.'}</p>
@@ -487,7 +490,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                 </Button>
                 {!raise && !record && (
                   <span className="cmuted">
-                    {sel.length && sel.every((t) => t.amount < 0) ? 'A credit goes on GSP’s next invoice to the university, not on its own: tick a line to invoice and it’s added.' : `Tick ${ACTION_FROM.raise.join(' or ')} lines of one university to raise an invoice, or its ${ACTION_FROM.record.join(' or ')} lines to record a payment.`}
+                    {sel.length && sel.every((t) => t.amount < 0) ? 'A credit goes on GSP’s next invoice to the university, not on its own: tick a line to invoice and it’s added.' : `Tick ${ACTION_FROM.raise.join(' or ')} lines of one institution partner (one currency) to raise an invoice, or its ${ACTION_FROM.record.join(' or ')} lines to record a payment.`}
                   </span>
                 )}
               </>
