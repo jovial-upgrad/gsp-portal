@@ -276,6 +276,25 @@ try {
   ok('Q65 … and enrolments after it don’t get it', unpaid.every((t) => !lose.txs.some((x) => x.key === t.key && x.type !== 'Adjustment' && !x.frozen)));
   ok('Q67 agreement bonuses have no currency of their own', s0.agreements.every((a) => a.bonuses.every((b) => !('currency' in b))));
 
+  // 17 Nov (Jovial, the Finance demo): show the working, and Mark not payable
+  const applied = await vite.ssrLoadModule('/src/finance/commission/applied.ts');
+  const opts = applied.appliedOptions(s0);
+  const rpL = r0.txs.filter((t) => t.side === 'rp' && t.type !== 'Recovery');
+  const names = rpL.map((t) => applied.termsApplied(t, s0, r0));
+  ok('17 Nov every RP line names the terms that priced it, one the filter offers', rpL.length > 0 && names.every((n) => opts.includes(n)), [...new Set(names.filter((n) => !opts.includes(n)))].join());
+  ok('17 Nov a notice line names its notice', rpL.filter((t) => t.notice).every((t) => applied.termsApplied(t, s0, r0) === s0.notices.find((n) => n.id === t.notice).name));
+  const fees = applied.lineFees(r0, s0, appsMod.sampleApplications());
+  const cc = r0.txs.filter((t) => t.side === 'uni' && t.type === 'Course commission' && t.period);
+  ok('17 Nov most study-period lines know the fee they were worked out on', cc.filter((t) => fees.get(t.id) > 0).length >= cc.length * 0.8, `${cc.filter((t) => fees.get(t.id) > 0).length} of ${cc.length}`);
+  ok('17 Nov an RP line takes its university line’s fee', r0.txs.filter((t) => t.side === 'rp' && t.matches && fees.has(t.matches)).every((t) => fees.get(t.id) === fees.get(t.matches)));
+  const inv = applied.feeInvoiced(r0, fees);
+  ok('17 Nov fee invoiced so far adds up the invoiced study periods', [...inv.entries()].every(([app, n]) => Math.abs(n - r0.txs.filter((t) => t.app === app && t.side === 'uni' && t.invoice && fees.has(t.id)).reduce((m, t) => m + fees.get(t.id), 0)) < 0.02) && inv.size > 0);
+  ok('17 Nov Not payable reasons are a setting, ending with Other', (s0.settings.notPayableReasons ?? []).length > 1 && s0.settings.notPayableReasons.at(-1) === 'Other');
+  const one = r0.txs.find((t) => t.side === 'uni' && !t.invoice);
+  const np = { notPayable: [{ id: 'np1', tx: one.id, reason: 'Duplicate line', by: 'Nandini Sharma', at: 1 }] };
+  ok('17 Nov a line marked not payable is listed with its reason', store.manualNotPayable(np).get(one.id)?.reason === 'Duplicate line');
+  ok('17 Nov … and lifting it takes it off', !store.manualNotPayable({ notPayable: [{ ...np.notPayable[0], lifted: { by: 'x', at: 2 } }] }).has(one.id));
+
   // Q55: a university's tier counts per the year in its contract
   ok('Q55 the counting years', model.UNI_COUNTED_PER.join() === 'Calendar year,Academic year,Financial year,Intake');
   ok('Q55 every university’s terms say how they count', s0.terms.every((t) => model.UNI_COUNTED_PER.includes(t.countedPer)));

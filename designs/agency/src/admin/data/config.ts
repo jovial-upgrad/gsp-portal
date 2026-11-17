@@ -178,6 +178,8 @@ const P: [string, string][] = [
   ['Courses, intakes and entry rules', 'V V V M E V V V M VX V V V V'],
   ['Held changes', 'V V V M E N V V M V N N N N'],
   ['Commission terms', 'N N N N V N V M M V N N N N'],
+  // 17 Nov (Jovial, the Finance demo): an application's commission Key details; Finance edits them after Student enrolled
+  ['Commission Key details', 'E E N N N N N E M V N N N N'],
   ['Commission lines', 'N N N N N N N M M VX V N N V'],
   ['Invoices and receipts', 'N N N N N N V M M V N N N N'],
   ['Payout runs and statements', 'N N N N N N V M M V V N N V'],

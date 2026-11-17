@@ -12,7 +12,16 @@
  * is kept (D7). GSP's roles only: the RP never sees any of this.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { EditOnly } from '../../proto/viewOnly';
+import { useShows, useViewOnly } from '../../proto/viewOnly';
+/**
+ * Key details' pencils (17 Nov): where changes are allowed, and for a role whose permissions let it change commission Key
+ * details inside a view-only application (GSP · Finance).
+ */
+const EditOnly = ({ children }: { children: ReactNode }) => {
+  const viewOnly = useViewOnly();
+  const keys = useShows('app.keydetails.edit');
+  return viewOnly && !keys ? null : <>{children}</>;
+};
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { money } from '../../data/courses';

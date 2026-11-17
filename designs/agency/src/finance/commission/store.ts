@@ -453,6 +453,22 @@ export function recordRepayment(rp: string, tx: string, amount: number, date: st
 export function overrideLine(tx: string, o: { amount: number | null; due: string | null; hold: boolean; reason: string }, old: string, now: string, by: string) {
   setComm((s) => withLog({ ...s, overrides: [...s.overrides, { id: id('ov'), tx, ...o, by, at: Date.now() }] }, lineLog(by, `${by} overrode ${tx}: ${old} → ${now}. ${o.reason}`, [tx])));
 }
+/**
+ * 17 Nov (Jovial, the Finance demo): Finance marks a line Not payable by hand, with a reason from Settings (or its own
+ * words for Other), logged; and can lift it again.
+ */
+export function markNotPayable(txs: string[], reason: string, by: string) {
+  setComm((s) => withLog({ ...s, notPayable: [...(s.notPayable ?? []), ...txs.map((tx) => ({ id: id('np'), tx, reason, by, at: Date.now() }))] }, lineLog(by, `${by} marked ${txs.join(', ')} Not payable: ${reason}`, txs)));
+}
+export function liftNotPayable(tx: string, by: string) {
+  setComm((s) => withLog({ ...s, notPayable: (s.notPayable ?? []).map((n) => (n.tx === tx && !n.lifted ? { ...n, lifted: { by, at: Date.now() } } : n)) }, lineLog(by, `${by} lifted Not payable on ${tx}`, [tx])));
+}
+/** The lines marked Not payable by hand and not lifted, with the latest reason: for the engine to read (17 Nov). */
+export function manualNotPayable(s: Pick<CommState, 'notPayable'>): Map<string, { reason: string; by: string; at: number }> {
+  const m = new Map<string, { reason: string; by: string; at: number }>();
+  [...(s.notPayable ?? [])].sort((a, b) => a.at - b.at).forEach((n) => (n.lifted ? m.delete(n.tx) : m.set(n.tx, { reason: n.reason, by: n.by, at: n.at })));
+  return m;
+}
 /** An export, for Admin › Logs. */
 export function logDownload(d: { who: string; email: string; role: string; region: string; filters: string; records: number }) {
   setComm((s) => ({ ...s, downloads: [{ id: id('dl'), at: Date.now(), area: 'Commission lines', text: 'commission-lines.csv', format: 'CSV', ...d }, ...s.downloads] }));

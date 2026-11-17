@@ -10,6 +10,9 @@ import type { SignupState } from '../../screens/signup/model';
 import { EDIT, HIDE, NAV, SHOW, TABS, type NavItem, type Section } from './model';
 import { MyWork } from '../work/MyWork';
 import { COMM_RULES, commHits, commRuleOf } from '../commission/work';
+import { samplePerms } from '../../admin/data/config';
+/** 17 Nov: Finance edits commission Key details when GSP · Admin's permissions give Commissions & Finance View and Edit on them. */
+const KEYS_EDIT = samplePerms()['Commission Key details']?.['Commissions & Finance'] === 'E';
 import { AccessProvider, ViewOnlyNote, ViewOnlyProvider } from '../../proto/viewOnly';
 // GSP · Institution's own pages, as GSP · Admin uses them: a change there shows here too
 import { FindCourses } from '../../institution/courses/FindCourses';
@@ -419,7 +422,7 @@ export function Portal({
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
           transition={{ duration: 0.22, ease }}
         >
-          <AccessProvider hide={HIDE} show={SHOW}>
+          <AccessProvider hide={HIDE} show={KEYS_EDIT ? [...SHOW, 'app.keydetails.edit'] : SHOW}>
             <CommNavProvider nav={commNav}>
             <ViewOnlyProvider on={!EDIT.includes(section)}>
               {!EDIT.includes(section) && (

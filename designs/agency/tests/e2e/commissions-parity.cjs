@@ -68,7 +68,7 @@ const openApp = async (p, nav, id) => {
     await wait(1000);
     const tabs = (await p.locator('main [role=tab]').allInnerTexts()).map((x) => x.trim().split('\n')[0].replace(/\s*\d+$/, ''));
     ok(tabs.includes('Institution partners') && tabs.includes('Settings'), `Setup tabs: ${tabs.join(', ')}`);
-    await p.locator('main [role=tab]', { hasText: /^Groups/ }).click();
+    await p.locator('main [role=tab]', { hasText: /^Institution partners/ }).click();
     await wait(600);
     ok((await main()).includes('Northgate University Group') && (await main()).includes('Northgate volume bonus'), 'Setup › Institution partners: Northgate with its volume bonus');
     await p.locator('main [role=tab]', { hasText: /^Settings/ }).click();
@@ -102,8 +102,11 @@ const openApp = async (p, nav, id) => {
     if (await openApp(p, nav, 'GSP-23318')) {
       await p.locator('main [role=tab]', { hasText: /^Commission/ }).first().click().catch(() => {});
       await wait(800);
+      // Q139 (16 Nov): the terms fold to one row; Show all opens them
+      await p.locator('main .capp-terms button', { hasText: /^Show all/ }).first().click().catch(() => {});
+      await wait(400);
       const c = await main();
-      ok(c.includes('This application’s terms') && c.includes('University pays GSP') && c.includes('GSP pays the RP') && !c.includes('Student type missing'), 'Finance › application Commission: the terms, both sides, and no Key details exception (Q148)');
+      ok(c.includes('Terms') && c.includes('University pays GSP') && c.includes('GSP pays the RP') && !c.includes('Student type missing'), 'Finance › application Commission: the terms, both sides, and no Key details exception (Q148)');
       ok((await p.locator('main details.chow').count()) > 0, 'Finance › application Commission: How it’s worked out on the lines');
       ok(c.includes('GST'), 'Finance › application Commission: GST on the Australian university’s lines (C6)');
     } else ok(false, 'Finance: opens GSP-23318');
@@ -117,7 +120,7 @@ const openApp = async (p, nav, id) => {
     const opened = await openApp(p, nav, 'GSP-23318');
     ok(opened, 'Admissions: opens GSP-23318 (Deakin, enrolled)');
     const t = await main();
-    ok(t.includes('Student type') && t.includes('Leave of absence from') && t.includes('Tuition fee, year 2'), 'Admissions › Key details: student type (Australia), leave of absence, year 2 fee');
+    ok(t.includes('Student type') && t.includes('Leave of absence from'), 'Admissions › Key details: student type (Australia), leave of absence (Q136–Q137: only the earning years’ fees)');
     ok(t.includes('Entered by'), 'Key details: who entered the fee, and when (D7)');
     ok((await p.locator('main [role=tab]', { hasText: /^Commission/ }).count()) === 0, 'Admissions: no Commission tab (as the access sheet has it)');
     ok(errs.length === 0, `Admissions: no page errors ${errs.join(' | ')}`);
@@ -144,9 +147,11 @@ const openApp = async (p, nav, id) => {
     if (opened) {
       await p.locator('main [role=tab]', { hasText: /^Commission/ }).first().click().catch(() => {});
       await wait(800);
+      await p.locator('main .capp-terms button', { hasText: /^Show all/ }).first().click().catch(() => {});
+      await wait(400);
       const c = await main();
       ok(!c.includes('Tiers and exceptions') && !c.includes('University → GSP') && (await p.locator('main details.chow').count()) === 0, 'RP Admin › application Commission: GSP → RP only, no working, no tiers or exceptions');
-      ok(c.includes('This application’s terms') && c.includes('Your terms') && !c.includes('University pays GSP') && !c.includes('GSP’s base'), 'RP Admin › application Commission: the fee and its own terms at the top, never GSP’s rate');
+      ok(c.includes('Your terms') && !c.includes('University pays GSP') && !c.includes('GSP’s base'), 'RP Admin › application Commission: the fee and its own terms at the top, never GSP’s rate');
       for (const f of ['Student type', 'Credit points', 'Fee payments', 'Leave of absence', 'Campus', 'Units (']) ok(!c.includes(f), `RP Admin › application: no Admissions field “${f}”`);
     } else ok(false, 'RP Admin: opens GSP-23318');
     ok(errs.length === 0, `RP Admin: no page errors ${errs.join(' | ')}`);

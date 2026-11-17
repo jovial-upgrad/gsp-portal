@@ -38,6 +38,7 @@ export const sampleSettings = (): Settings => ({
   studentTypes: ['New', 'Progression', 'Transfer'],
   // Jovial, 10 Nov (Q44): why a university paid less than a line
   partReasons: ['Part payment', 'Rate dispute', 'Student not recognised', 'Bank charges', 'Exchange difference'],
+  notPayableReasons: ['University: student did not pay', 'University: not commissionable', 'Duplicate line', 'Other'],
   // Jovial, 10 Nov (Q47): days after an invoice request (RP) and after a line's due date (university); no escalation
   reminders: { rpInvoice: [3, 7, 14], uniPayment: [0, 7, 14], rpPayment: [0, 7, 14] },
 });
@@ -521,6 +522,7 @@ export const sampleComm = (): CommState => {
   writeOffs: [],
   clawbacks: [],
   overrides,
+  notPayable: [],
   confirms: sampleConfirms(),
   seen: {},
   history: [],

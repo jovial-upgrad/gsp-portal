@@ -520,6 +520,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
             ['Notice document types', S.docTypes.join(', ')],
             ['Student types (Australia)', S.studentTypes.join(', ') || 'None'],
             ['Part payment reasons', S.partReasons.join(', '), 'wide'],
+            ['Not payable reasons', (S.notPayableReasons ?? []).join(', ') || 'None', 'wide'],
           ]],
         ] as [string, string, string, ([string, ReactNode] | [string, ReactNode, 'wide'])[]][]
       ).map(([id, title, note, items]) => (
