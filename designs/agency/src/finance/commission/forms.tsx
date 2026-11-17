@@ -1,3 +1,4 @@
+import { STATUS, STATUS_ORDER } from '../../data/applications';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -700,6 +701,7 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
   const rateVals = levels.map((l) => v.rates[l]).filter((x) => x !== undefined) as number[];
   const o = condOpts(v.uni ? [v.uni] : null, levels.length ? levels : COMM_LEVELS, s.settings.regionGroups, todayIso());
   const needWeeks = v.trigger === 'Withdrawal deadline';
+  // 17 Nov: an IP's tier is its own line on top; this university keeps its own tier too
   const groupTier = s.groups.find((g) => g.members.includes(v.uni) && g.bands.length);
   const err = {
     uni: !v.uni ? 'Choose the university.' : null,
@@ -710,7 +712,7 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
     weeks: needWeeks && v.triggerWeeks !== null && !wholeIn(v.triggerWeeks, 0, 52) ? 'A whole number of weeks, 0 to 52.' : null,
     charge: chargeNeedsN(v.charge.unit) && !(v.charge.n !== null && v.charge.n > 0) ? 'How many (or how much).' : null,
     payDays: !wholeIn(v.payDays, 1, 180) ? 'A whole number from 1 to 180.' : null,
-    bands: v.bands.length ? (groupTier ? `${groupTier.name} has an IP tier, and this university’s students count toward it. It can’t have its own tier too.` : bandsError(v.bands)) : null,
+    bands: v.bands.length ? bandsError(v.bands) : null,
     bandBonuses: v.bandBonuses.map((b) => bandBonusBad(b, v.bands.length)).find(Boolean) ?? null,
     promos: v.promos.map(promoBad).find(Boolean) ?? null,
     addl: v.addl.map(addlBad).find(Boolean) ?? null,
@@ -865,7 +867,7 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
           <TextInput id="cut-cap" inputMode="decimal" value={numText(v.cap)} onChange={(e) => set({ cap: numOf(e.target.value) })} />
         </Field>
 
-        <FormSec title="Tier" note={`A higher rate once GSP enrols more students with this university. The part above the student’s rate is its own Tier bonus line, GSP’s alone: RPs are paid on the base rate.${groupTier ? ` ${groupTier.name} has an IP tier, and this university counts toward that instead.` : ''}`} />
+        <FormSec title="Tier" note={`A higher rate once GSP enrols more students with this university. The part above the student’s rate is its own Tier bonus line, GSP’s alone: RPs are paid on the base rate.${groupTier ? ` ${groupTier.name}’s IP tier also counts this university’s students, on its own line.` : ''}`} />
         <Field id="cut-bands" label="Tier bands" optional error={show('bands')} className="iform__wide">
           <BandsEditor id="cut-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
         </Field>
@@ -930,16 +932,13 @@ export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean;
     const cs = [...new Set(v.members.map((m) => s.terms.find((t) => t.uni === m)?.currency || CURRENCY[unis.find((u) => u.id === m)?.country as keyof typeof CURRENCY]).filter(Boolean))];
     return cs.length === 1 ? cs[0]! : '';
   })();
-  const own = v.members.filter((m) => s.terms.find((x) => x.uni === m)?.bands.length);
   const err = {
     ip: !v.ip ? 'Choose the institution partner.' : null,
     members: !v.ip
       ? null
       : v.members.length < 2
         ? 'Choose at least two of its universities.'
-        : v.bands.length && own.length
-          ? `${own.map((m) => unis.find((u) => u.id === m)?.name ?? m).join(', ')} ${own.length === 1 ? 'has its' : 'have their'} own tier. An IP with a tier can’t count universities with their own: remove theirs, or leave the IP’s bands empty.`
-          : null,
+        : null,
     bands: v.bands.length ? bandsError(v.bands) : !v.bonus.length ? 'Add tier bands or a bonus scheme.' : null,
     bandBonuses: v.bandBonuses.map((b) => bandBonusBad(b, v.bands.length)).find(Boolean) ?? null,
     schemes: v.bonus.map(schemeBad).find(Boolean) ?? null,
@@ -966,7 +965,7 @@ export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean;
         </SelectInput>
       </Field>
       {v.ip && (
-        <Field id="cgr-members" label="Universities that count" required error={show('members')} className="iform__wide" hint="All of the partner’s universities, or some. With an IP tier, their students count toward it, and they can’t have their own tier.">
+        <Field id="cgr-members" label="Universities that count" required error={show('members')} className="iform__wide" hint="All of the partner’s universities, or some. Their students count toward the IP’s tier and bonuses; each university keeps its own terms.">
           <MultiPick id="cgr-members" label="Universities that count" value={v.members.map(label)} options={ipUnis.map((u) => u.name)} onChange={(x) => set({ members: x.map((n) => unis.find((u) => u.name === n)?.id ?? n) })} empty="Choose the universities" />
           {v.members.length < ipUnis.length && (
             <button type="button" className="btn btn--link cgr-all" onClick={() => set({ members: ipUnis.map((u) => u.id) })}>
@@ -975,7 +974,7 @@ export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean;
           )}
         </Field>
       )}
-      <FormSec title="IP tier" note="Enrolments across the universities that count, per the IP’s year. A partner has an IP tier or tiers per university, not both. IP terms need a tier or a bonus scheme." />
+      <FormSec title="IP tier" note="An extra % of the student’s fee, on top of each university’s own commission, by how many enrol across the universities that count, per the IP’s year. Its own IP commission line, invoiced to the IP and GSP’s alone. IP terms need a tier or a bonus scheme." />
       <Field id="cgr-bands" label="IP tier bands" optional error={show('bands')} className="iform__wide">
         <BandsEditor id="cgr-bands" bands={v.bands} unit="Rate (%)" invalid={!!show('bands')} onChange={(bands: Band[]) => set({ bands })} />
       </Field>
@@ -1010,7 +1009,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const [v, setV] = useState<Settings>(s.settings);
   const [gstRows, setGstRows] = useState<{ dest: string; pct: number | null }[]>([]);
   const [grpRows, setGrpRows] = useState<{ name: string; countries: string[] }[]>([]);
-  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
+  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -1022,6 +1021,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       docTypes: x.docTypes.join('\n'),
       studentTypes: x.studentTypes.join('\n'),
       partReasons: x.partReasons.join('\n'),
+      notPayable: (x.notPayableReasons ?? []).join('\n'),
       rpInvoice: daysText(x.reminders.rpInvoice),
       uniPayment: daysText(x.reminders.uniPayment),
       rpPayment: daysText(x.reminders.rpPayment),
@@ -1038,7 +1038,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
     groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
     annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
-    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length ? 'Keep at least one in each list.' : null,
+    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length || !linesOf(t.notPayable).length ? 'Keep at least one in each list.' : null,
     days: ![t.rpInvoice, t.uniPayment, t.rpPayment].every(days) ? 'Days, like 0, 7, 14.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
@@ -1054,6 +1054,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
         docTypes: linesOf(t.docTypes),
         studentTypes: linesOf(t.studentTypes),
         partReasons: linesOf(t.partReasons),
+        notPayableReasons: linesOf(t.notPayable),
         reminders: { rpInvoice: daysOf(t.rpInvoice), uniPayment: daysOf(t.uniPayment), rpPayment: daysOf(t.rpPayment) },
       },
       me,
@@ -1138,11 +1139,26 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <Field id="cst-doc" label="Notice document types" required error={show('lists')} hint="One a line.">
         {area('cst-doc', 'docTypes')}
       </Field>
-      <Field id="cst-stype" label="Student types (Australia)" optional hint="One a line. An Australian enrolment without one is an exception.">
+      <Field id="cst-stype" label="Student types" optional hint="One a line. Admissions picks one from pre-screening, for a university in the countries below.">
         {area('cst-stype', 'studentTypes')}
+      </Field>
+      <Field id="cst-stype-c" label="Countries that need the student type" optional hint="A university in one of these can’t have a student enrolled without it.">
+        <MultiPick id="cst-stype-c" label="Countries that need the student type" value={v.studentTypeCountries} options={[...new Set(ctxUnis().map((u) => u.country))].sort()} onChange={(x) => set({ studentTypeCountries: x })} empty="None" />
+      </Field>
+      <Field id="cst-fc" label="Commission is forecast from" required hint="From this application status, lines show as Expected and Admissions must enter the fee, scholarship and course start.">
+        <SelectInput id="cst-fc" value={v.forecastFrom} onChange={(e) => set({ forecastFrom: e.target.value })}>
+          {STATUS_ORDER.filter((k) => k !== 'enrolled').map((k) => (
+            <option key={k} value={k}>
+              {STATUS[k].text('Australia')}
+            </option>
+          ))}
+        </SelectInput>
       </Field>
       <Field id="cst-part" label="Part payment reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Record payment offers when a university pays less.">
         {area('cst-part', 'partReasons')}
+      </Field>
+      <Field id="cst-np" label="Not payable reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Mark not payable offers. The last one asks for a few words.">
+        {area('cst-np', 'notPayable')}
       </Field>
       <FormSec title="Reminders" note="Days, separated by commas. Bell and email; no escalation." />
       <Field id="cst-r1" label="Remind the RP to invoice (days)" required error={show('days')} hint="After its invoice is asked for.">

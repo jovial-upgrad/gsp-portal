@@ -157,6 +157,8 @@ function sandboxKey(t, T, side) {
     if ((m = /^u(\d+)$/.exec(s))) return { ip: `un${m[1]}`, rp: `U${m[1]}` };
     if ((m = /^f(\d+)$/.exec(s))) return { ip: `fp${m[1]}`, rp: `F${m[1]}` };
     if ((m = /^tb:(.+)$/.exec(s))) { const b = periodKey(m[1]); return b && { ip: `tb-${b.ip}`, rp: `${b.rp}-T` }; }
+    // the IP's own line (17 Nov): an extra % on top of the university's
+    if ((m = /^ip:(.+)$/.exec(s))) { const b = periodKey(m[1]); return b && { ip: `ipc-${b.ip}`, rp: `${b.rp}-IP` }; }
     if ((m = /^pr:(.+):(\d+)$/.exec(s))) return { ip: `ad-${m[1]}-${m[2]}`, rp: `A${m[2]}-${m[1]}` };
     if ((m = /^bn:(.+)$/.exec(s))) return { ip: `bo-${m[1]}` };
     if ((m = /^gb:(.+)$/.exec(s))) return { ip: `gbo-${m[1]}` };
@@ -172,7 +174,7 @@ function sandboxKey(t, T, side) {
   if ((m = /^ms:(.+):(\d+)$/.exec(slot))) return `ms-${m[1]}-${m[2]}`;
   return slot;
 }
-const TYPE = { 'Course commission': 'standard', 'Tier bonus': 'tier', Promotion: 'additional', 'Additional commission': 'additional', Bonus: 'bonus', 'Tier top-up': 'topup', Adjustment: 'topup' };
+const TYPE = { 'Course commission': 'standard', 'Tier bonus': 'tier', 'IP commission': 'ipline', Promotion: 'additional', 'Additional commission': 'additional', Bonus: 'bonus', 'Tier top-up': 'topup', Adjustment: 'topup' };
 const EXC = { 'Rate missing': 'Rate missing', 'Contract ended': 'Contract ended', 'Agreement not yet in force': 'Agreement not yet in force', 'Rate rows overlap': 'Rate rows overlap' };
 
 function view(res, state) {

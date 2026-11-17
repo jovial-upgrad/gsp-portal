@@ -36,8 +36,11 @@ export const sampleSettings = (): Settings => ({
   rpView: { kinds: ['Course commission', 'Tier top-up', 'Additional commission', 'Bonus'], periods: 'First study period only' },
   docTypes: ['Notice', 'Addendum', 'Flyer', 'Email'],
   studentTypes: ['New', 'Progression', 'Transfer'],
+  studentTypeCountries: ['Australia'],
+  forecastFrom: 'acceptrec',
   // Jovial, 10 Nov (Q44): why a university paid less than a line
   partReasons: ['Part payment', 'Rate dispute', 'Student not recognised', 'Bank charges', 'Exchange difference'],
+  notPayableReasons: ['University: student did not pay', 'University: not commissionable', 'Duplicate line', 'Other'],
   // Jovial, 10 Nov (Q47): days after an invoice request (RP) and after a line's due date (university); no escalation
   reminders: { rpInvoice: [3, 7, 14], uniPayment: [0, 7, 14], rpPayment: [0, 7, 14] },
 });
@@ -378,7 +381,7 @@ export const sampleGroups = (): UniGroup[] => [
     ip: 'ip-northgate',
     name: 'Northgate University Group',
     members: ['abertay', 'greenwich', 'ulster'],
-    bands: [band(1, 2, 15), band(3, null, 16)],
+    bands: [band(1, 9, 1.5), band(10, null, 2.5)],
     countedPer: 'Calendar year',
     yearStart: 1,
     tierRetro: true,
@@ -521,6 +524,7 @@ export const sampleComm = (): CommState => {
   writeOffs: [],
   clawbacks: [],
   overrides,
+  notPayable: [],
   confirms: sampleConfirms(),
   seen: {},
   history: [],

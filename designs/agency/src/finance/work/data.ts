@@ -7,11 +7,18 @@
 import { queueWork } from '../../admin/data/mywork';
 export type IwTask = { id: string; title: string; rule: string; rp: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean; note?: string };
 
-/** The queue as GSP · Admin seeds it (9 Nov), and the tasks its task rules make from the seeded records. */
-const WORK = queueWork('Finance');
+/**
+ * The queues as GSP · Admin seeds them (9 Nov), and the tasks their task rules make from the seeded records. 17 Nov
+ * (Jovial): commission work has two queues of its own, Commissions: IP lines and Commissions: RP lines, beside Finance.
+ */
+const WORKS = ['Finance', 'Commissions: IP lines', 'Commissions: RP lines'].map(queueWork);
+const WORK = WORKS[0];
 export const QUEUE = WORK.queue;
+export const QUEUES = WORKS.map((w) => w.queue);
 export const LEADER = WORK.leader;
-export const TEAM = WORK.team;
+export const TEAM = [...new Set(WORKS.flatMap((w) => w.team))];
+/** Each queue's people, for assigning a task within its own queue. */
+export const TEAM_OF: Record<string, { leader: string; team: string[] }> = Object.fromEntries(WORKS.map((w) => [w.queue, { leader: w.leader, team: w.team }]));
 
 export type Standing = 'track' | 'soon' | 'late' | 'done';
 export const STANDING: Record<Standing, string> = { track: 'On track', soon: 'Due soon', late: 'Breached', done: 'Completed' };
@@ -38,5 +45,5 @@ export const dueDate = (left: number) => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
-export const sampleIwTasks = (): IwTask[] => 
-  WORK.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, rp: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete }));
+export const sampleIwTasks = (): IwTask[] =>
+  WORKS.flatMap((w) => w.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, rp: t.about, region: t.region, queue: w.queue, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete })));

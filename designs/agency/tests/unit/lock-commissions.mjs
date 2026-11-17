@@ -121,7 +121,7 @@ try {
     ok('R105 with a 1-month window, older unclaimed RP lines are flagged', lapsedRp.length > 0 && lapsedRp.every((t) => ['Ready to request', 'Invoice requested', 'Sent back'].includes(t.status)));
     ok('R105 a flagged line keeps its status and amount (nothing closes)', lapsedRp.every((t) => r0.byId.get(t.id)?.status === t.status && r0.byId.get(t.id)?.amount === t.amount));
     ok('R105 the RP hears nothing about it', !engine.commNotes(s1m, r1m, (x) => x, TODAY).some((n) => n.to === 'rp' && /claim/i.test(n.title + n.text)));
-    const u = r0.txs.find((t) => t.side === 'uni' && t.status === 'Ready to invoice');
+    const u = r0.txs.filter((t) => t.side === 'uni' && t.status === 'Ready to invoice').sort((a, b) => a.trigger.localeCompare(b.trigger))[0];
     const sU = { ...s0, terms: s0.terms.map((t) => (t.uni === u.uni ? { ...t, claimMonths: 1 } : t)) };
     const lapsedU = run(sU).txs.filter((t) => t.side === 'uni' && t.uni === u.uni && t.claimLapsed);
     ok('R105 a university’s own window flags GSP’s uninvoiced lines', lapsedU.length > 0 && lapsedU.every((t) => !t.invoice));
@@ -207,13 +207,53 @@ try {
     ok('D15 the terms preview counts the portal’s own enrolments', withPortal.repriced + withPortal.adjusted > seedOnly.repriced + seedOnly.adjusted, `${JSON.stringify(withPortal)} vs ${JSON.stringify(seedOnly)}`);
   }
   {
-    // 16 Nov (Finance): a partner has a group tier or tiers per school, never both. If old data still has both, the
-    // student counts toward the group's tier only, even when the school's own would pay more; no comparison.
+    // 17 Nov (after the Finance demo, reverses R124): a school's own tier prices its line, and its IP's tier adds its own
+    // IP commission line on top; the student counts toward both. The RP never shares an IP line.
     const sG = { ...s0, terms: s0.terms.map((t) => (t.uni === 'greenwich' ? { ...t, bands: [{ from: 1, to: null, pct: 30 }] } : t)) };
     const rG = run(sG);
     const cov = rG.apps.filter((a) => a.uni === 'greenwich');
-    ok('16 Nov a school in a tiered group counts toward the group’s tier only', cov.length > 0 && cov.every((a) => a.tiers.length === 1 && a.tiers[0].who === 'group'), JSON.stringify(cov.slice(0, 2).map((a) => a.tiers)));
+    ok('17 Nov a school counts toward its own tier and its IP’s', cov.length > 0 && cov.every((a) => a.tiers.some((t) => t.who === 'group') && a.tiers.some((t) => t.who === 'university')), JSON.stringify(cov.slice(0, 2).map((a) => a.tiers)));
+    const ipL = rG.txs.filter((t) => t.type === 'IP commission');
+    ok('17 Nov an IP commission line, at the IP band’s % of the fee, on top of the course line', ipL.length > 0 && ipL.every((t) => t.side === 'uni' && /Northgate/.test(t.what)), JSON.stringify(ipL.slice(0, 2).map((t) => [t.id, t.amount, t.what])));
+    ok('17 Nov the RP never shares an IP line', !rG.txs.some((t) => t.side === 'rp' && ipL.some((x) => x.id === t.matches)));
     ok('16 Nov no “the higher wins” step in the working', !rG.txs.some((t) => (t.trace ?? []).some((s) => /higher wins/.test(s.text ?? s.what ?? ''))));
+    // 17 Nov (after the Finance demo): Credit and re-invoice. A credit note reverses invoiced lines in full; new lines
+    // take their place at the statement's amounts, on one new invoice; the RP lines follow.
+    {
+      const s1 = start();
+      const r1 = engine.compute(s1, ctx, extra);
+      const h = r1.txs.find((t) => t.side === 'uni' && ['Invoiced', 'Overdue'].includes(t.status) && !t.adjusts && t.amount > 100 && r1.txs.some((x) => x.side === 'rp' && x.matches === t.id));
+      const newAmt = Math.round((h.amount - 100) * 100) / 100;
+      const sCn = { ...s1, credits: [{ number: `CN-${h.invoice}`, invoice: h.invoice, uni: h.uni, date: TODAY, txs: [h.id], revised: { [h.id]: newAmt }, fees: {}, reason: 'Statement', reissue: 'NEW-1', by: 'Test', at: 1 }] };
+      const settled = engine.settleAll(sCn, ctx, extra);
+      const r2 = engine.compute(settled, ctx, extra);
+      const old = r2.byId.get(h.id);
+      const nk = engine.nextKey(h.key);
+      const repl = r2.txs.find((t) => t.key === nk);
+      ok('17 Nov credit note: the credited line stays, Credited, at its amount', old?.status === 'Credited' && old.amount === h.amount && old.credited === `CN-${h.invoice}`, JSON.stringify(old && { s: old.status, a: old.amount }));
+      ok('17 Nov credit note: a new line takes its place at the statement’s amount, on the new invoice', !!repl && repl.amount === newAmt && repl.invoice === 'NEW-1' && ['Invoiced', 'Overdue'].includes(repl.status), JSON.stringify(repl && { a: repl.amount, i: repl.invoice, s: repl.status }));
+      ok('17 Nov credit note: the new invoice is written down with the new line', settled.invoices.some((i) => i.number === 'NEW-1' && repl && i.txs.includes(repl.id)));
+      const rpOld = r1.txs.find((x) => x.side === 'rp' && x.matches === h.id);
+      const rpNew = r2.txs.find((x) => x.side === 'rp' && repl && x.matches === repl.id);
+      ok('17 Nov credit note: the RP line follows the new amount', !!rpNew && Math.abs(rpNew.amount - (rpOld.amount * newAmt) / h.amount) < 0.02, JSON.stringify({ old: rpOld?.amount, now: rpNew?.amount }));
+      ok('17 Nov credit note: no Adjustment line is made for the difference', !r2.txs.some((t) => t.adjusts === h.id || (repl && t.adjusts === repl.id)), JSON.stringify(r2.txs.filter((t) => t.adjusts === h.id || (repl && t.adjusts === repl.id)).map((t) => [t.id, t.side, t.amount, t.what])));
+      // lines added by hand (17 Nov): a University → GSP line gives the RP its usual share; marked Not payable by hand says why
+      const app0 = h.app;
+      const sM = { ...s1, manual: [{ id: 'ml1', app: app0, side: 'uni', type: 'Course commission', amount: 1000, date: TODAY, reason: 'Missed by the rules', by: 'Test', at: 1 }] };
+      const rM = run(sM);
+      const ml = rM.txs.find((t) => t.key.endsWith('|man:ml1') && t.side === 'uni');
+      ok('17 Nov a line added by hand is worked like any other, with why', !!ml && ml.amount === 1000 && /Missed by the rules/.test(ml.what), JSON.stringify(ml && [ml.amount, ml.what, ml.status]));
+      ok('17 Nov the RP gets its share of a university line added by hand', rM.txs.some((t) => t.side === 'rp' && ml && t.matches === ml.id && t.amount > 0));
+      const np = r1.txs.find((t) => t.side === 'uni' && t.status === 'Ready to invoice');
+      const rNP = run({ ...s1, notPayable: [{ id: 'np1', tx: np.id, reason: 'University: not commissionable', by: 'Test', at: 1 }] });
+      ok('17 Nov a line marked Not payable by hand says why', rNP.byId.get(np.id)?.status === 'Not payable' && /not commissionable/.test(rNP.byId.get(np.id)?.nopayWhy ?? ''));
+      // Student withdrew: lines after the date aren't payable; nothing still waits for a continuity check
+      const later = r1.txs.find((t) => t.side === 'uni' && t.status === 'Expected' && (t.period ?? 1) > 1 && t.trigger > TODAY);
+      const sW = { ...s1, withdrawals: [{ id: 'wd1', app: later.app, date: TODAY, reason: 'University said so', by: 'Test', at: 1 }] };
+      const r3 = run(sW);
+      ok('17 Nov Student withdrew: a later line becomes Not payable with the reason', r3.byId.get(later.id)?.status === 'Not payable' && /withdrew/.test(r3.byId.get(later.id)?.nopayWhy ?? ''));
+      ok('17 Nov no continuity check: no line waits for Finance to confirm the student continues', !r1.txs.some((t) => 'toConfirm' in t));
+    }
     // 16 Nov (Jovial): a Not payable line says why, from the withdrawal date and the trigger
     const r0 = run(seed.sampleComm());
     const np = r0.txs.filter((t) => t.status === 'Not payable');
@@ -275,6 +315,25 @@ try {
   const unpaid = withNt.filter((t) => t.rp === rpOff && !t.frozen);
   ok('Q65 … and enrolments after it don’t get it', unpaid.every((t) => !lose.txs.some((x) => x.key === t.key && x.type !== 'Adjustment' && !x.frozen)));
   ok('Q67 agreement bonuses have no currency of their own', s0.agreements.every((a) => a.bonuses.every((b) => !('currency' in b))));
+
+  // 17 Nov (Jovial, the Finance demo): show the working, and Mark not payable
+  const applied = await vite.ssrLoadModule('/src/finance/commission/applied.ts');
+  const opts = applied.appliedOptions(s0);
+  const rpL = r0.txs.filter((t) => t.side === 'rp' && t.type !== 'Recovery');
+  const names = rpL.map((t) => applied.termsApplied(t, s0, r0));
+  ok('17 Nov every RP line names the terms that priced it, one the filter offers', rpL.length > 0 && names.every((n) => opts.includes(n)), [...new Set(names.filter((n) => !opts.includes(n)))].join());
+  ok('17 Nov a notice line names its notice', rpL.filter((t) => t.notice).every((t) => applied.termsApplied(t, s0, r0) === s0.notices.find((n) => n.id === t.notice).name));
+  const fees = applied.lineFees(r0, s0, appsMod.sampleApplications());
+  const cc = r0.txs.filter((t) => t.side === 'uni' && t.type === 'Course commission' && t.period);
+  ok('17 Nov most study-period lines know the fee they were worked out on', cc.filter((t) => fees.get(t.id) > 0).length >= cc.length * 0.8, `${cc.filter((t) => fees.get(t.id) > 0).length} of ${cc.length}`);
+  ok('17 Nov an RP line takes its university line’s fee', r0.txs.filter((t) => t.side === 'rp' && t.matches && fees.has(t.matches)).every((t) => fees.get(t.id) === fees.get(t.matches)));
+  const inv = applied.feeInvoiced(r0, fees);
+  ok('17 Nov fee invoiced so far adds up the invoiced study periods', [...inv.entries()].every(([app, n]) => Math.abs(n - r0.txs.filter((t) => t.app === app && t.side === 'uni' && t.invoice && fees.has(t.id)).reduce((m, t) => m + fees.get(t.id), 0)) < 0.02) && inv.size > 0);
+  ok('17 Nov Not payable reasons are a setting, ending with Other', (s0.settings.notPayableReasons ?? []).length > 1 && s0.settings.notPayableReasons.at(-1) === 'Other');
+  const one = r0.txs.find((t) => t.side === 'uni' && !t.invoice);
+  const np = { notPayable: [{ id: 'np1', tx: one.id, reason: 'Duplicate line', by: 'Nandini Sharma', at: 1 }] };
+  ok('17 Nov a line marked not payable is listed with its reason', store.manualNotPayable(np).get(one.id)?.reason === 'Duplicate line');
+  ok('17 Nov … and lifting it takes it off', !store.manualNotPayable({ notPayable: [{ ...np.notPayable[0], lifted: { by: 'x', at: 2 } }] }).has(one.id));
 
   // Q55: a university's tier counts per the year in its contract
   ok('Q55 the counting years', model.UNI_COUNTED_PER.join() === 'Calendar year,Academic year,Financial year,Intake');

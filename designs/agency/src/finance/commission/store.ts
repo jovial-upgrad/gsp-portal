@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { COURSES } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
-import type { AppFees, Application } from '../../data/applications';
+import { STATUS_ORDER, type AppFees, type Application } from '../../data/applications';
 import { sampleCourseRecs, sampleUniRecs } from '../../institution/data/catalogue';
 import { samplePartners, subscribeClock, todayIso } from '../../institution/data/records';
 import { HOME_RP } from '../../gsp/rps';
@@ -15,7 +15,7 @@ import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/recor
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
 import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
-import { COMM_LEVELS, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
+import { COMM_LEVELS, TX_TYPES, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 import { periodsOf } from './pricing';
 
@@ -164,15 +164,18 @@ export const rpName = (id: string) => ctxRps().find((r) => r.id === id)?.name ??
 export const uniName = (id: string) => ctxUnis().find((u) => u.id === id)?.name ?? id;
 
 /** The portal's own applications at Student enrolled, as the engine reads them (their RP: the one on it, else the prototype's agency). */
+/** At or after Acceptance letter received in the journey, and not closed (17 Nov): commission is forecast from here. */
+export const pastAcceptance = (status: string) => status !== 'closed' && STATUS_ORDER.indexOf(status as never) >= STATUS_ORDER.indexOf(state.settings.forecastFrom as never);
 export function enrolmentsOf(apps: Application[], students: Pick<Student, 'id' | 'first' | 'last' | 'oneName'>[]): Enrolment[] {
   // a scenario's world has only its own enrolments
   if (world) return [];
+  // 17 Nov (after the Finance demo): lines from Acceptance letter received, as a forecast, until Student enrolled
   return apps
-    .filter((a) => a.status === 'enrolled')
+    .filter((a) => a.status === 'enrolled' || (pastAcceptance(a.status) && a.fees?.tuition != null))
     .map((a) => {
       const s = students.find((x) => x.id === a.studentId);
       const rp = ctxRps().find((r) => r.name === (a.rp ?? HOME_RP));
-      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, nationality: (s as Student | undefined)?.nationality, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10), fees: a.fees };
+      return { app: a.id, student: s ? fullName(s as Student) : a.studentId, nationality: (s as Student | undefined)?.nationality, rp: rp?.id ?? '', course: a.courseId, intake: a.intake, enrolled: new Date(a.since).toISOString().slice(0, 10), fees: a.fees, ...(a.status === 'enrolled' ? {} : { estimate: true }) };
     });
 }
 
@@ -349,38 +352,25 @@ export function saveSettings(next: Settings, by: string, what: string) {
   setComm((s) => withLog({ ...s, settings: next }, log('settings', by, `${by} changed ${what}`)));
 }
 /**
- * Finance's commission work, as the task rules read it (Jovial, 10 Nov): T82 one task per exception; T84 one per later study period whose date has come and that waits for
- * Finance to confirm the student continues (D19). All worked out by the engine from the records, on the seeded enrolments.
+ * Finance's commission work (Jovial, 10 Nov): the exceptions, and notices to issue. No continuity check (17 Nov): a later
+ * study period is invoiced on its date. All worked out by the engine from the records, on the seeded enrolments.
  */
 export function commWork(s: CommState = state, today = todayIso()) {
   const ctx = ctxOf(today);
   const res = compute(settleAll(s, ctx), ctx);
   const enrolledOn = new Map(res.apps.map((a) => [a.app, a.enrolled]));
   const exceptions = res.exceptions.map((x) => ({ ...x, since: enrolledOn.get(x.app) ?? today, uni: res.byApp.get(x.app)?.uniName ?? '' }));
-  const confirm: { app: string; period: number; student: string; uni: string; since: string; tx: string }[] = [];
-  for (const t of res.txs)
-    if (t.side === 'uni' && t.toConfirm && t.period && t.trigger && t.trigger <= today && t.status !== 'Not payable' && !confirm.some((c) => c.app === t.app && c.period === t.period))
-      confirm.push({ app: t.app, period: t.period, student: t.student, uni: t.uniName, since: t.trigger, tx: t.id });
   // notices Finance created that RP Ops hasn't issued yet (R103; shown on RP Ops › Notices, no task)
   const issue = s.notices.filter((n) => !n.issued).map((n) => ({ id: n.id, name: n.name, since: new Date(n.created.at).toISOString().slice(0, 10) }));
-  return { exceptions, confirm, issue };
+  return { exceptions, issue };
 }
-/** Finance confirmed students continue, so their later study periods can be invoiced (D19). */
-export function confirmContinuing(items: { app: string; period: number }[], by: string) {
-  setComm((s) =>
-    withLog(
-      { ...s, confirms: [...(s.confirms ?? []), ...items.filter((x) => !(s.confirms ?? []).some((c) => c.app === x.app && c.period === x.period)).map((x) => ({ ...x, by, at: Date.now() }))] },
-      lineLog(by, `${by} confirmed ${items.length === 1 ? `${items[0].app} continues into study period ${items[0].period}` : `${items.length} students continue into their next study period`}`, []),
-    ),
-  );
-}
-
 /* the lines */
 const lineLog = (by: string, text: string, txs: string[], more: Partial<Log> = {}) => log('lines', by, text, { txs, ...more });
 
-export function raiseInvoice(uni: string, txs: string[], by: string) {
+/** Raise invoice: Xero gives the number (Jovial, 17 Nov); without one (a test), the Settings format numbers it. */
+export function raiseInvoice(uni: string, txs: string[], by: string, xero?: string) {
   const day = todayIso();
-  const number = nextInvoiceNumber(state, uni, day);
+  const number = xero?.trim() || nextInvoiceNumber(state, uni, day);
   setComm((s) => withLog({ ...s, invoices: [...s.invoices, { number, uni, date: day, txs, by, at: Date.now() }] }, lineLog(by, `${by} raised invoice ${number}`, txs, { uni })));
   return number;
 }
@@ -412,6 +402,54 @@ export function recordPayment(uni: string, txs: string[], amount: number, cur: s
 /** A university's clawback on a line it paid (R106): the RP's share becomes a recovery line, set against its next payment. */
 export function recordClawback(tx: string, amount: number, cur: string, reason: string, date: string, by: string) {
   setComm((s) => withLog({ ...s, clawbacks: [...(s.clawbacks ?? []), { id: id('cb'), tx, amount, reason, date, by, at: Date.now() }] }, lineLog(by, `${by} recorded a clawback of ${money(amount, cur)} on ${tx}: ${reason}`, [tx])));
+}
+/**
+ * Credit and re-invoice (Jovial, 17 Nov, after the Finance demo): one credit note per original invoice, CN-{invoice},
+ * reversing the ticked lines in full (and any kept Adjustments to them). Each takes a new line at the statement's amount
+ * (`amount`, with the fee it used) or as worked out; with `reissue`, all of them go on one new invoice dated today.
+ */
+export function creditAndReinvoice(items: { tx: string; invoice: string; uni: string; amount?: number; fee?: number; also?: string[] }[], reason: string, by: string, reissue = true, xero?: string) {
+  if (!items.length) return [];
+  const day = todayIso();
+  const made: string[] = [];
+  setComm((s) => {
+    let next = s;
+    const byUni = new Map<string, typeof items>();
+    items.forEach((x) => byUni.set(x.uni, [...(byUni.get(x.uni) ?? []), x]));
+    byUni.forEach((xs, uni) => {
+      const newInv = reissue ? xero?.trim() || nextInvoiceNumber(next, uni, day) : undefined;
+      const byInv = new Map<string, typeof items>();
+      xs.forEach((x) => byInv.set(x.invoice, [...(byInv.get(x.invoice) ?? []), x]));
+      byInv.forEach((ys, inv) => {
+        const n = (next.credits ?? []).filter((c) => c.invoice === inv).length;
+        const number = `CN-${inv}${n ? `-${n + 1}` : ''}`;
+        const revised: Record<string, number> = {};
+        const fees: Record<string, number> = {};
+        ys.forEach((y) => {
+          if (y.amount != null) revised[y.tx] = y.amount;
+          if (y.fee != null) fees[y.tx] = y.fee;
+        });
+        const txs = ys.flatMap((y) => [y.tx, ...(y.also ?? [])]);
+        next = withLog({ ...next, credits: [...(next.credits ?? []), { number, invoice: inv, uni, date: day, txs, revised, fees, reason, reissue: newInv, by, at: Date.now() }] }, lineLog(by, `${by} issued credit note ${number} reversing ${txs.join(', ')} on ${inv}${newInv ? ` and invoiced the new amounts on ${newInv}` : ''}: ${reason}`, txs, { uni }));
+        made.push(number);
+      });
+    });
+    return next;
+  });
+  return made;
+}
+/**
+ * Finance records that a student withdrew (17 Nov): the university said so. The application's stage stays. Lines
+ * triggered after the date become Not payable; the invoiced ones not yet paid are credited (no new invoice).
+ */
+export function studentWithdrew(app: string, date: string, reason: string, by: string, invoiced: { tx: string; invoice: string; uni: string; also?: string[] }[]) {
+  setComm((s) => withLog({ ...s, withdrawals: [...(s.withdrawals ?? []).filter((w) => w.app !== app), { id: id('wd'), app, date, reason, by, at: Date.now() }] }, lineLog(by, `${by} recorded that the student on ${app} withdrew on ${date}: ${reason}`, invoiced.map((x) => x.tx))));
+  if (invoiced.length) creditAndReinvoice(invoiced, `Student withdrew ${date}: ${reason}`, by, false);
+}
+/** Finance adds lines to an application by hand (17 Nov), one or several at once, with why. */
+export function addLines(app: string, lines: { side: 'uni' | 'rp'; type: (typeof TX_TYPES)[number]; amount: number; period?: number; date: string }[], reason: string, by: string) {
+  const made = lines.map((l) => ({ ...l, id: id('ml'), app, reason, by, at: Date.now() }));
+  setComm((s) => withLog({ ...s, manual: [...(s.manual ?? []), ...made] }, lineLog(by, `${by} added ${made.length} ${made.length === 1 ? 'line' : 'lines'} to ${app} by hand: ${reason}`, [])));
 }
 export function writeOff(tx: string, amount: number, cur: string, reason: string, by: string) {
   setComm((s) => withLog({ ...s, writeOffs: [...(s.writeOffs ?? []), { id: id('wo'), tx, amount, reason, by, at: Date.now() }] }, lineLog(by, `${by} wrote off ${money(amount, cur)} on ${tx}: ${reason}`, [tx])));
@@ -452,6 +490,22 @@ export function recordRepayment(rp: string, tx: string, amount: number, date: st
 }
 export function overrideLine(tx: string, o: { amount: number | null; due: string | null; hold: boolean; reason: string }, old: string, now: string, by: string) {
   setComm((s) => withLog({ ...s, overrides: [...s.overrides, { id: id('ov'), tx, ...o, by, at: Date.now() }] }, lineLog(by, `${by} overrode ${tx}: ${old} → ${now}. ${o.reason}`, [tx])));
+}
+/**
+ * 17 Nov (Jovial, the Finance demo): Finance marks a line Not payable by hand, with a reason from Settings (or its own
+ * words for Other), logged; and can lift it again.
+ */
+export function markNotPayable(txs: string[], reason: string, by: string) {
+  setComm((s) => withLog({ ...s, notPayable: [...(s.notPayable ?? []), ...txs.map((tx) => ({ id: id('np'), tx, reason, by, at: Date.now() }))] }, lineLog(by, `${by} marked ${txs.join(', ')} Not payable: ${reason}`, txs)));
+}
+export function liftNotPayable(tx: string, by: string) {
+  setComm((s) => withLog({ ...s, notPayable: (s.notPayable ?? []).map((n) => (n.tx === tx && !n.lifted ? { ...n, lifted: { by, at: Date.now() } } : n)) }, lineLog(by, `${by} lifted Not payable on ${tx}`, [tx])));
+}
+/** The lines marked Not payable by hand and not lifted, with the latest reason: for the engine to read (17 Nov). */
+export function manualNotPayable(s: Pick<CommState, 'notPayable'>): Map<string, { reason: string; by: string; at: number }> {
+  const m = new Map<string, { reason: string; by: string; at: number }>();
+  [...(s.notPayable ?? [])].sort((a, b) => a.at - b.at).forEach((n) => (n.lifted ? m.delete(n.tx) : m.set(n.tx, { reason: n.reason, by: n.by, at: n.at })));
+  return m;
 }
 /** An export, for Admin › Logs. */
 export function logDownload(d: { who: string; email: string; role: string; region: string; filters: string; records: number }) {

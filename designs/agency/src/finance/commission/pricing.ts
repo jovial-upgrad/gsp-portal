@@ -117,7 +117,7 @@ function rowTest(x: Row, w: Who, k: number, S: Pick<Settings, 'regionGroups'>) {
   if (x.period && !periodCovers(x.period, k)) why.push(`study period ${x.period}, this is period ${k}`);
   return why;
 }
-/** The rate for a study period: the most specific matching row (the rates by level are the fallback); equal rows: the first listed, flagged. */
+/** The rate for a study period: the most specific matching row (the rates by level are the fallback); equal rows: the highest rate wins (Jovial, 17 Nov). */
 export function pickRate(t: Pick<TermsBody, 'rates' | 'fixed' | 'rateRows'>, w: Who, k: number, S: Pick<Settings, 'regionGroups'>) {
   const ok: Row[] = [], no: { x: Row; why: string[] }[] = [];
   rateRows(t).forEach((x) => {
@@ -126,7 +126,7 @@ export function pickRate(t: Pick<TermsBody, 'rates' | 'fixed' | 'rateRows'>, w: 
     else ok.push(x);
   });
   const weight = (x: Row) => rowKeys(x).length + (x.src === 'row' ? 0.5 : 0);
-  ok.sort((p, q) => weight(q) - weight(p) || p.idx - q.idx);
+  ok.sort((p, q) => weight(q) - weight(p) || (q.pct ?? q.amt ?? 0) - (p.pct ?? p.amt ?? 0) || p.idx - q.idx);
   const best = ok[0] ?? null;
   const tie = !!(best && ok[1] && best.src === 'row' && ok[1].src === 'row' && rowKeys(ok[1]).length === rowKeys(best).length);
   return { best, ok, no, tie };

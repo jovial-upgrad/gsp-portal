@@ -12,7 +12,16 @@
  * is kept (D7). GSP's roles only: the RP never sees any of this.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { EditOnly } from '../../proto/viewOnly';
+import { useShows, useViewOnly } from '../../proto/viewOnly';
+/**
+ * Key details' pencils (17 Nov): where changes are allowed, and for a role whose permissions let it change commission Key
+ * details inside a view-only application (GSP · Finance).
+ */
+const EditOnly = ({ children }: { children: ReactNode }) => {
+  const viewOnly = useViewOnly();
+  const keys = useShows('app.keydetails.edit');
+  return viewOnly && !keys ? null : <>{children}</>;
+};
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { money } from '../../data/courses';
@@ -21,12 +30,12 @@ import { feesMissing } from './engine';
 import { PAY_UNITS, TRIGGERS, dayText } from './model';
 import { SelectInput } from '../../components/forms';
 import { plusDays } from './pricing';
-import { commState, earningPeriods, intakeCensus, termsForCourse, useComm } from './store';
+import { commState, earningPeriods, intakeCensus, pastAcceptance, termsForCourse, useComm } from './store';
 
 /** Why the application can't be Student enrolled yet (empty: it can). */
 export function enrolBlock(a: Pick<Application, 'courseId' | 'fees'>): string {
   const { terms } = termsForCourse(a.courseId);
-  const miss = feesMissing({ fees: a.fees }, terms, { country: courseOf(a)?.uni.country, studentTypes: commState().settings.studentTypes });
+  const miss = feesMissing({ fees: a.fees }, terms, { country: courseOf(a)?.uni.country, studentTypes: commState().settings.studentTypes, typeCountries: commState().settings.studentTypeCountries });
   if (!miss.length) return '';
   const list = miss.length === 1 ? miss[0] : `${miss.slice(0, -1).join(', ')} and ${miss[miss.length - 1]}`;
   return `Add the ${list} in Key details first: commission is worked out from them.`;
@@ -36,7 +45,15 @@ export function enrolBlock(a: Pick<Application, 'courseId' | 'fees'>): string {
  * D27 (Jovial, 10 Nov): moving an application back from Student enrolled is blocked once any of its commission lines is
  * kept (invoiced, requested or paid); before that its lines simply stop (the enrolment is undone).
  */
-export function leaveBlock(a: Pick<Application, 'id' | 'status'>, to: string): string {
+export function leaveBlock(a: Pick<Application, 'id' | 'status'> & Partial<Pick<Application, 'courseId' | 'fees'>>, to: string): string {
+  // 17 Nov (Jovial): from Acceptance letter received (Settings), commission is forecast, so the fee, the scholarship and
+  // the course start are needed before the move; the rest (census dates, units, student type) by Student enrolled
+  if (to && to !== 'enrolled' && a.courseId && !pastAcceptance(a.status) && pastAcceptance(to)) {
+    const { terms } = termsForCourse(a.courseId);
+    const early = ['tuition fee', 'scholarship', 'course start date'];
+    const miss = feesMissing({ fees: a.fees }, terms).filter((m) => early.includes(m));
+    if (miss.length) return `Add the ${miss.length === 1 ? miss[0] : `${miss.slice(0, -1).join(', ')} and ${miss[miss.length - 1]}`} in Key details first: commission is forecast from this status.`;
+  }
   if (a.status !== 'enrolled' || to === 'enrolled' || !to) return '';
   const kept = Object.values(commState().frozen).filter((f) => f.app === a.id);
   return kept.length ? `${kept.length} commission ${kept.length === 1 ? 'line is' : 'lines are'} already invoiced or paid, so the application stays at Student enrolled. Ask Finance to adjust the lines instead.` : '';
@@ -101,7 +118,7 @@ export function FeeRows({ a, me, currency, update, log, say }: { a: Application;
   const years = Math.min(earn.years, Math.max(1, Math.ceil((course.months ?? 12) / 12)));
   // Q137: per unit and per fee payment, the fee comes from the units or the payments, so no tuition fee a year
   const byYear = unit !== 'Per unit' && unit !== 'Each fee payment';
-  const isAU = course.uni.country === 'Australia';
+  const isAU = st.settings.studentTypeCountries.includes(course.uni.country);
   const campuses = course.uni.campuses.map((c) => c.name);
   const setDate = (k: number, v: string) => {
     const list = [...f[trig.field]];

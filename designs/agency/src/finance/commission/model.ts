@@ -64,8 +64,14 @@ export type Settings = {
   docTypes: string[];
   /** Student types an Australian enrolment needs (new, progression, transfer). */
   studentTypes: string[];
+  /** The countries whose universities need the student type (Jovial, 17 Nov: a setting, not written in the code). */
+  studentTypeCountries: string[];
+  /** The application status from which commission is forecast and the fee, scholarship and course start are required (17 Nov). */
+  forecastFrom: string;
   /** Why a university paid less than a line's amount (Jovial, 10 Nov, Q44): the reasons Record payment offers. */
   partReasons: string[];
+  /** 17 Nov (Jovial, Finance demo): what Mark not payable offers; 'Other' asks for a few words. */
+  notPayableReasons?: string[];
   /**
    * Reminders, email and bell (Jovial, 10 Nov, Q47), in days: to the RP after its invoice is asked for and not sent;
    * to Finance (and the university's contact) from a University → GSP line's due date while it isn't paid. No escalation.
@@ -339,7 +345,8 @@ export type UniGroup = {
  * An enrolled application, as the engine reads it: from the portal's applications (status Student enrolled) or the
  * seeded records of other RPs' enrolments. `withdrawn`: the day the student withdrew, if they did.
  */
-export type Enrolment = { app: string; student: string; rp: string; course: string; intake: string; enrolled: string; withdrawn?: string; fees?: AppFees; nationality?: string };
+/** `estimate` (Jovial, 17 Nov): the application is past Acceptance letter received but not enrolled yet: its lines are Expected, for the forecast, and it counts toward no tier or band. */
+export type Enrolment = { app: string; student: string; rp: string; course: string; intake: string; enrolled: string; withdrawn?: string; fees?: AppFees; nationality?: string; estimate?: boolean };
 
 /* ---------- transactions ---------- */
 
@@ -347,11 +354,11 @@ export type Side = 'uni' | 'rp';
 export const SIDES: Record<Side, string> = { uni: 'University → GSP', rp: 'GSP → RP' };
 export const SIDE_KEYS = Object.keys(SIDES) as Side[];
 /** Adjustment: the difference when a line's worked-out amount changes after it was invoiced, requested or paid (Jovial, 9 Nov). */
-export const TX_TYPES = ['Course commission', 'Tier bonus', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment', 'Clawback', 'Recovery'] as const;
+export const TX_TYPES = ['Course commission', 'Tier bonus', 'IP commission', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment', 'Clawback', 'Recovery'] as const;
 export type TxType = (typeof TX_TYPES)[number];
 
 /** Part paid (Jovial, 10 Nov, Q44): the university paid less than the line, with a reason, until the rest comes or is written off. */
-export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held', 'Paid', 'Not payable'] as const;
+export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held', 'Paid', 'Not payable', 'Credited'] as const;
 /**
  * The RP's statuses (Jovial, 10 Nov, Q50, the Commissions flow's #21): Expected, Waiting for university (GSP's line is
  * due but not paid yet), Ready to request (GSP is paid; Finance hasn't asked for the RP's invoice yet), Invoice requested
@@ -369,7 +376,7 @@ export const GROUPS = [
   { key: 'estimate', label: 'Not yet ready', uni: ['Expected'], rp: ['Expected'], tab: true },
   { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held'], rp: ['Waiting for university', 'Ready to request', 'Invoice requested', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover'], tab: true },
   { key: 'paid', label: 'Paid', uni: ['Paid'], rp: ['Paid', 'Recovered'], tab: true },
-  { key: 'none', label: 'Not counted', uni: ['Not payable'], rp: ['Not payable'], tab: false },
+  { key: 'none', label: 'Not counted', uni: ['Not payable', 'Credited'], rp: ['Not payable'], tab: false },
 ] as const satisfies readonly { key: string; label: string; uni: readonly UniStatus[]; rp: readonly RpStatus[]; tab: boolean }[];
 export type GroupKey = (typeof GROUPS)[number]['key'];
 export const groupOf = (side: Side, s: TxStatus): GroupKey | undefined => GROUPS.find((g) => (g[side] as readonly string[]).includes(s))?.key;
@@ -383,6 +390,8 @@ export const ACTION_FROM = {
   request: ['Ready to request'],
   pay: ['Approved', 'Overdue to pay'],
 } as const satisfies Record<string, readonly TxStatus[]>;
+/** University lines to chase (17 Nov: Finance's IP queue): past due, or paid short. */
+export const CHASE: readonly UniStatus[] = ['Overdue', 'Part paid'];
 /** The RP's lines it can invoice (Earnings' Invoices to send: those GSP has asked for). */
 export const TO_INVOICE: readonly RpStatus[] = ['Invoice requested', 'Sent back'];
 /** GSP's line is due but the university hasn't paid it: the RP waits (Q50). */
@@ -415,6 +424,7 @@ export const HELD: readonly TxStatus[] = ['Held', 'On hold'];
 /** Each status's colour (as Pill tones). */
 export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' | 'grey'> = {
   Expected: 'grey',
+  Credited: 'grey',
   'Ready to invoice': 'you',
   'Ready to request': 'you',
   'Invoice requested': 'uni',
@@ -442,7 +452,6 @@ export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' 
 // Q148 (Jovial, 16 Nov): six left, all gaps in a contract or in Setup; Key details are required at the right stage instead
 export const EXCEPTIONS = [
   { type: 'Rate missing', hold: true, fix: 'terms' },
-  { type: 'Rate rows overlap', hold: false, fix: 'terms' },
   { type: 'No terms', hold: true, fix: 'terms' },
   { type: 'Contract ended', hold: true, fix: null },
   { type: 'Agreement not yet in force', hold: true, fix: null },
@@ -468,6 +477,21 @@ export type WriteOff = { id: string; tx: string; amount: number; reason: string;
  * RP's share of it (what was shared with the RP), set against the RP's next payments. No time limit.
  */
 export type Clawback = { id: string; tx: string; amount: number; reason: string; date: string; by: string; at: number };
+/**
+ * A credit note (Jovial, 17 Nov, after the Finance demo): GSP reverses invoiced lines in full, never editing the invoice
+ * (the month is closed in Xero). Numbered CN-{invoice}. Each credited line's place is taken by a new line: at the
+ * `revised` amount when the university's statement gives one (with the fee it used, `fees`), else as worked out; with
+ * `reissue`, the new lines go on that new invoice at once. A withdrawal's credit note has no reissue: the new lines are
+ * Not payable.
+ */
+export type CreditNote = { number: string; invoice: string; uni: string; date: string; txs: string[]; revised: Record<string, number>; fees: Record<string, number>; reason: string; reissue?: string; by: string; at: number };
+/**
+ * Finance records that a student withdrew (17 Nov): the university said so, usually in reply to an invoice. The
+ * application's stage doesn't change. Lines triggered after the date are Not payable; invoiced ones are credited.
+ */
+export type Withdrawal = { id: string; app: string; date: string; reason: string; by: string; at: number };
+/** A line Finance adds to an application by hand (17 Nov): what the rules don't make. A University → GSP line gives the RP its usual share. */
+export type ManualLine = { id: string; app: string; side: Side; type: TxType; amount: number; period?: number; date: string; reason: string; by: string; at: number };
 /** Commissions asked an RP for its invoice. */
 export type InvoiceRequest = { id: string; rp: string; txs: string[]; date: string; by: string; at: number };
 export const RP_INVOICE_STATES = ['To check', 'Accepted', 'Sent back'] as const;
@@ -484,6 +508,8 @@ export type RpPayment = { id: string; rp: string; txs: string[]; date: string; b
 /** GSP's debit note to an RP (Jovial, 13 Nov, Q118/Q125): asks it to pay back recoveries GSP had nothing to set against. */
 export type DebitNote = { id: string; number: string; rp: string; txs: string[]; date: string; by: string; at: number };
 /** An override on one line: its amount, due date and hold, and why. The latest for a line counts. */
+/** A line Finance marked Not payable by hand (17 Nov, the Finance demo): the university said so, say. Lifted by `lifted`. */
+export type NotPayable = { id: string; tx: string; reason: string; by: string; at: number; lifted?: { by: string; at: number } };
 export type Override = { id: string; tx: string; amount: number | null; due: string | null; hold: boolean; reason: string; by: string; at: number };
 /** Finance confirmed the student is still studying, so a study period after the first can be invoiced (Jovial, 10 Nov, D19). */
 export type Confirm = { app: string; period: number; by: string; at: number };
@@ -525,7 +551,12 @@ export type CommState = {
   rpPayments: RpPayment[];
   writeOffs: WriteOff[];
   clawbacks?: Clawback[];
+  credits?: CreditNote[];
+  withdrawals?: Withdrawal[];
+  manual?: ManualLine[];
   overrides: Override[];
+  /** 17 Nov: lines Finance marked Not payable by hand, with its reason. */
+  notPayable?: NotPayable[];
   confirms: Confirm[];
   /** Each line's last worked-out amount, and its changes (D21). */
   seen: Record<string, number>;
