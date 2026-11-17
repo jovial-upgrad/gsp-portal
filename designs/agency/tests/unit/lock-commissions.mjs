@@ -335,6 +335,19 @@ try {
   ok('17 Nov a line marked not payable is listed with its reason', store.manualNotPayable(np).get(one.id)?.reason === 'Duplicate line');
   ok('17 Nov … and lifting it takes it off', !store.manualNotPayable({ notPayable: [{ ...np.notPayable[0], lifted: { by: 'x', at: 2 } }] }).has(one.id));
 
+  // 17 Nov (Jovial): commissions live on the portal from a date (Settings); no task's clock starts before it
+  const work = await vite.ssrLoadModule('/src/finance/commission/work.ts');
+  const liveAt = new Date(`${s0.settings.liveFrom}T09:30`).getTime();
+  const hits = Object.values(model.COMM_RULES ?? work.COMM_RULES).flatMap((code) => work.commHits(code, s0, appsMod.sampleApplications(), studentsMod.sampleStudents(''), TODAY));
+  ok('17 Nov liveFrom is a setting', /^\d{4}-\d{2}-\d{2}$/.test(s0.settings.liveFrom ?? ''));
+  ok('17 Nov no commission task starts before commissions went live', hits.length > 0 && hits.every((h) => h.since >= liveAt), `${hits.length} hits`);
+
+  // 17 Nov (Jovial): Students withdrew in bulk reads the university's file by its headings
+  const credit = await vite.ssrLoadModule('/src/finance/commission/credit.tsx');
+  const wd = credit.readWithdrawals('GSP application ID,Withdrew on,Reason\ngsp-1,03/11/2026,"Left, family reasons"\nGSP-2,2026-11-05,\n');
+  ok('17 Nov bulk withdrawals: rows, dates and quoted reasons', wd.rows.length === 2 && wd.rows[0].app === 'GSP-1' && wd.rows[0].date === '2026-11-03' && wd.rows[0].reason === 'Left, family reasons' && wd.rows[1].date === '2026-11-05');
+  ok('17 Nov bulk withdrawals: a file without the columns is refused', !!credit.readWithdrawals('Name,Notes\na,b').error);
+
   // Q55: a university's tier counts per the year in its contract
   ok('Q55 the counting years', model.UNI_COUNTED_PER.join() === 'Calendar year,Academic year,Financial year,Intake');
   ok('Q55 every university’s terms say how they count', s0.terms.every((t) => model.UNI_COUNTED_PER.includes(t.countedPer)));

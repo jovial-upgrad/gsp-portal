@@ -1145,6 +1145,9 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <Field id="cst-stype-c" label="Countries that need the student type" optional hint="A university in one of these can’t have a student enrolled without it.">
         <MultiPick id="cst-stype-c" label="Countries that need the student type" value={v.studentTypeCountries} options={[...new Set(ctxUnis().map((u) => u.country))].sort()} onChange={(x) => set({ studentTypeCountries: x })} empty="None" />
       </Field>
+      <Field id="cst-live" label="Commissions live on the portal from" optional hint="Commissions before it stay in the old portal; no task’s clock starts before this day.">
+        <TextInput id="cst-live" type="date" value={v.liveFrom ?? ''} onChange={(e) => set({ liveFrom: e.target.value })} />
+      </Field>
       <Field id="cst-fc" label="Commission is forecast from" required hint="From this application status, lines show as Expected and Admissions must enter the fee, scholarship and course start.">
         <SelectInput id="cst-fc" value={v.forecastFrom} onChange={(e) => set({ forecastFrom: e.target.value })}>
           {STATUS_ORDER.filter((k) => k !== 'enrolled').map((k) => (

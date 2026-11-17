@@ -38,6 +38,7 @@ export const sampleSettings = (): Settings => ({
   studentTypes: ['New', 'Progression', 'Transfer'],
   studentTypeCountries: ['Australia'],
   forecastFrom: 'acceptrec',
+  liveFrom: '2026-11-02',
   // Jovial, 10 Nov (Q44): why a university paid less than a line
   partReasons: ['Part payment', 'Rate dispute', 'Student not recognised', 'Bank charges', 'Exchange difference'],
   notPayableReasons: ['University: student did not pay', 'University: not commissionable', 'Duplicate line', 'Other'],

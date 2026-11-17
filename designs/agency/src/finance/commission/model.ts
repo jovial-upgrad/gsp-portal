@@ -68,6 +68,8 @@ export type Settings = {
   studentTypeCountries: string[];
   /** The application status from which commission is forecast and the fee, scholarship and course start are required (17 Nov). */
   forecastFrom: string;
+  /** The day commissions went live on the portal (17 Nov: old commissions stay in the old portal): no task's clock starts before it. */
+  liveFrom: string;
   /** Why a university paid less than a line's amount (Jovial, 10 Nov, Q44): the reasons Record payment offers. */
   partReasons: string[];
   /** 17 Nov (Jovial, Finance demo): what Mark not payable offers; 'Other' asks for a few words. */
