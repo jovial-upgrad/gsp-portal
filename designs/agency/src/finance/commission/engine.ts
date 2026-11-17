@@ -1210,11 +1210,13 @@ export function settle(state: CommState, res: Result, at = Date.now()): CommStat
   const requests = state.requests;
   // a credit note's new invoice (17 Nov) is written down once its new lines have IDs
   let invoices = state.invoices;
-  for (const c of state.credits ?? []) {
-    if (!c.reissue || invoices.some((i) => i.number === c.reissue)) continue;
-    const txs = c.txs.map((t) => state.frozen[t]).filter((f) => f && !f.adjusts).map((f) => ids[nextKey(f!.key)]);
+  // one new invoice can take the lines of several credit notes (an IP's universities, 17 Nov)
+  for (const no of [...new Set((state.credits ?? []).map((c) => c.reissue).filter((x): x is string => !!x))]) {
+    if (invoices.some((i) => i.number === no)) continue;
+    const cs = (state.credits ?? []).filter((c) => c.reissue === no);
+    const txs = cs.flatMap((c) => c.txs).map((t) => state.frozen[t]).filter((f) => f && !f.adjusts).map((f) => ids[nextKey(f!.key)]);
     if (!txs.length || txs.some((t) => !t)) continue;
-    invoices = [...invoices, { number: c.reissue, uni: c.uni, date: c.date, txs: txs as string[], by: c.by, at: c.at }];
+    invoices = [...invoices, { number: no, uni: cs[0].uni, date: cs[0].date, txs: txs as string[], by: cs[0].by, at: cs[0].at }];
   }
   const same = ids === state.ids && frozen === state.frozen && seenAmt === (state.seen ?? {}) && history === (state.history ?? []) && requests === state.requests && invoices === state.invoices;
   return same && state.seen ? state : { ...state, ids, idSeq: seq, frozen, seen: seenAmt, history, requests, invoices };
