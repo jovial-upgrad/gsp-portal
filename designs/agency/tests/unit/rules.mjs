@@ -78,6 +78,16 @@ try {
   // 10 Nov (Q33): every sales region that takes work has an Admissions queue
   const noQ = cfg.regions.filter((r) => r.countries.length && !r.queue);
   ok('every sales region with countries has an Admissions queue', noQ.length === 0, noQ.map((r) => r.name).join());
+
+  // 17 Nov (Jovial): each sales region names its Recruitment queue too; RP tasks (T37) follow it, not the queue's name
+  const noR = cfg.regions.filter((r) => r.countries.length && !r.recruitment);
+  ok('every sales region with countries has a Recruitment queue', noR.length === 0, noR.map((r) => r.name).join());
+  const viet = cfg.regions.find((r) => r.name === 'Vietnam');
+  const renamed = cfg.queues.map((q) => (q.id === viet.recruitment ? { ...q, name: 'Vietnam BD team' } : q));
+  ok('a renamed Recruitment queue still gets its region’s RP tasks', mw.queueFor('region:Recruitment', 'Vietnam', renamed, cfg.regions)?.id === viet.recruitment);
+  const other = cfg.queues.find((q) => q.name === 'India Recruitment').id;
+  ok('RP tasks go to the queue the region names', mw.queueFor('region:Recruitment', 'Vietnam', cfg.queues, cfg.regions.map((r) => (r.name === 'Vietnam' ? { ...r, recruitment: other } : r)))?.id === other);
+  ok('a region with no Recruitment queue set uses Rest of world Recruitment', mw.queueFor('region:Recruitment', 'Vietnam', cfg.queues, cfg.regions.map((r) => (r.name === 'Vietnam' ? { ...r, recruitment: '' } : r)))?.name === 'Rest of world Recruitment');
 } finally {
   await vite.close();
 }

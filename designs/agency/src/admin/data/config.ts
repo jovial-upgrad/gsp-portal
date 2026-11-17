@@ -18,7 +18,9 @@ export type LogEntry = { id: string; at: number; who: string; email?: string; ar
 
 /* ---------- sales regions (PM: Settings › Sales regions and Admissions contacts; Nesil, 3 Nov: countries, BDM
    contact and admission queues, all needed; 4 Nov: one admission queue) ---------- */
-export type Region = { name: string; contact: string; countries: string[]; bdm: string; queue: string };
+/** A sales region: its countries, contacts, and the queues its work goes to: `queue` for Admissions, `recruitment` for
+ *  RP tasks such as T37 (Jovial, 17 Nov: on the region, like the Admissions queue, not found by the queue's name). */
+export type Region = { name: string; contact: string; countries: string[]; bdm: string; queue: string; recruitment: string };
 /** The regions GSP keeps itself: they can't be edited or deleted here. */
 export const FIXED_REGIONS = ['Rest of world', 'Direct', 'Global'];
 /** Countries that make up a region, where it isn't the country itself (PM: salesRegionOf). */
@@ -51,6 +53,8 @@ export const sampleRegions = (queues: Queue[]): Region[] =>
     bdm: REGION_BDM[name] ?? '',
     // a region without its own Admissions queue sends its applications to Global Admissions
     queue: FIXED_REGIONS.includes(name) ? '' : ((queues.find((q) => q.name === `${name} Admissions`) ?? queues.find((q) => q.name === 'Global Admissions'))?.id ?? ''),
+    // 17 Nov (Jovial): and its Recruitment queue; a region without its own uses Rest of world Recruitment
+    recruitment: ['Direct', 'Global'].includes(name) ? '' : ((queues.find((q) => q.name === `${name} Recruitment`) ?? queues.find((q) => q.name === 'Rest of world Recruitment'))?.id ?? ''),
   }));
 /** The regions a queue or a routing can point to (not Global, which only GSP people cover). */
 export const workRegions = (rs: Region[]) => rs.filter((r) => r.name !== 'Global' && r.name !== 'Direct');
