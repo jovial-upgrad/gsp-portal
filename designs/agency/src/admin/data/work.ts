@@ -200,10 +200,10 @@ export const sampleRules = (): TaskRule[] => [
   r('T42', 'Institution partners, universities, courses', 'Course', 'No next intake', 'The last intake’s deadline passed and there’s no next intake', 'Add the next intake for {course}', 'q-ip-ops', d(5), 'queue', 'An intake is added'),
   r('T27', 'Email', 'Email', 'Mail not linked', 'A mail to gsp.admissions@ can’t be linked to an application and isn’t forwarded (a student with no application yet, say)', 'Link this mail to an application', 'q-global-admissions', h(1), 'fewest', 'Linked, forwarded or marked Not needed'),
   // 9 Nov (Jovial, the PRD's Commissions tab): Commissions enters an RP's commission record and a university's terms
-  r('T80', 'Commission', 'RP', 'Commission record', 'RP Ops accepts an RP’s first signed agreement', 'Enter commission details for {RP}', 'q-finance', d(2), 'fewest', 'The RP’s commission record is saved'),
+  r('T80', 'Commission', 'RP', 'Commission record', 'RP Ops accepts an RP’s first signed agreement', 'Enter commission details for {RP}', 'q-comm-rp', d(2), 'fewest', 'The RP’s commission record is saved'),
   // 11 Nov (Jovial): T80 and T81 are the only commission task rules; exceptions, tier periods, continuing students and
   // notices to issue are worked from Commission lines and RP Ops › Notices, with no task
-  r('T81', 'Commission', 'University', 'Commission terms', 'A university is added', 'Enter commission terms for {university}', 'q-finance', d(5), 'fewest', 'The university’s terms are saved'),
+  r('T81', 'Commission', 'University', 'Commission terms', 'A university is added', 'Enter commission terms for {university}', 'q-comm-ip', d(5), 'fewest', 'The university’s terms are saved'),
   // 17 Nov (Jovial, after the Finance demo): commission work in two queues, Fewest open, and the same person keeps an
   // IP or an RP. Replaces 11 Nov's "no commission tasks but T80 and T81" (R134)
   r('T86', 'Commission', 'Institution partner', 'Ready to invoice', 'Lines for the IP’s universities are Ready to invoice', 'Raise invoices for {IP} ({lines})', 'q-comm-ip', d(2), 'keeper', 'No line for the IP is Ready to invoice'),

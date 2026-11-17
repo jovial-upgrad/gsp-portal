@@ -54,6 +54,6 @@ export function lineFees(res: Result, s: CommState, apps: Pick<Application, 'id'
 /** Per student: the tuition fee of the study periods GSP has invoiced the university for so far. */
 export function feeInvoiced(res: Result, fees: Map<string, number>): Map<string, number> {
   const out = new Map<string, number>();
-  res.txs.filter((t) => t.side === 'uni' && t.invoice && fees.has(t.id)).forEach((t) => out.set(t.app, roundMoney((out.get(t.app) ?? 0) + fees.get(t.id)!)));
+  res.txs.filter((t) => t.side === 'uni' && t.invoice && !t.credited && fees.has(t.id)).forEach((t) => out.set(t.app, roundMoney((out.get(t.app) ?? 0) + fees.get(t.id)!)));
   return out;
 }

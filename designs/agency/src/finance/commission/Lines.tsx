@@ -505,7 +505,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                 <Button size="sm" variant="secondary" disabled={!record} onClick={() => setPaying(sel)}>
                   Record payment
                 </Button>
-                <Button size="sm" variant="secondary" disabled={!canCredit(sel)} onClick={() => setCrediting(sel)}>
+                <Button size="sm" variant="secondary" disabled={!canCredit(sel, payerOf)} onClick={() => setCrediting(sel)}>
                   Credit and re-invoice
                 </Button>
                 {!raise && !record && (

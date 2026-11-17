@@ -416,8 +416,10 @@ export function creditAndReinvoice(items: { tx: string; invoice: string; uni: st
     let next = s;
     const byUni = new Map<string, typeof items>();
     items.forEach((x) => byUni.set(x.uni, [...(byUni.get(x.uni) ?? []), x]));
+    // one new invoice for all of them (GSP invoices the IP, 17 Nov), numbered by Xero
+    const oneInv = reissue ? xero?.trim() || nextInvoiceNumber(next, items[0].uni, day) : undefined;
     byUni.forEach((xs, uni) => {
-      const newInv = reissue ? xero?.trim() || nextInvoiceNumber(next, uni, day) : undefined;
+      const newInv = oneInv;
       const byInv = new Map<string, typeof items>();
       xs.forEach((x) => byInv.set(x.invoice, [...(byInv.get(x.invoice) ?? []), x]));
       byInv.forEach((ys, inv) => {

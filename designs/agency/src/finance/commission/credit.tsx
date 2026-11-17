@@ -15,8 +15,8 @@ type AskFn = ReturnType<typeof useAsk>['ask'];
 
 /** The lines a credit note can reverse (17 Nov): invoiced and not paid yet. Paid lines take a clawback instead. */
 export const CREDITABLE: readonly string[] = ACTION_FROM.record.filter((s) => s !== 'Part paid');
-/** Ticked lines a credit note can take: University → GSP, invoiced, one university, the line itself (not an Adjustment). */
-export const canCredit = (sel: Tx[]) => sel.length > 0 && sel.every((t) => t.side === 'uni' && !!t.invoice && CREDITABLE.includes(t.status) && !t.adjusts && t.amount > 0) && new Set(sel.map((t) => t.uni)).size === 1;
+/** Ticked lines a credit note can take: University → GSP, invoiced, one institution partner and currency, the line itself (not an Adjustment). */
+export const canCredit = (sel: Tx[], payerOf: (uni: string) => string = (u) => u) => sel.length > 0 && sel.every((t) => t.side === 'uni' && !!t.invoice && CREDITABLE.includes(t.status) && !t.adjusts && t.amount > 0) && new Set(sel.map((t) => `${payerOf(t.uni)}|${t.currency}`)).size === 1;
 /** A line's kept Adjustments on invoices: the credit note reverses them with it. */
 const adjustmentsOf = (res: Result, t: Tx) => res.txs.filter((x) => x.adjusts === t.id && !!x.invoice && !x.credited).map((x) => x.id);
 
