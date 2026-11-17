@@ -321,7 +321,7 @@ export function Portal({
       // a T80 or T81 task closes once its record is saved in Setup
       <MyWork stillOpen={(t) => (commRuleOf(t.rule) ? commOpen.has(t.id) : t.rule === 'T80' ? !comm.records.some((r) => t.id === `T80-${r.rp}`) : t.rule === 'T81' ? !comm.terms.some((x) => t.id === `T81-${x.uni}`) : t.rule === 'T84' ? !comm.confirms.some((c) => t.id === `T84-${c.app}-${c.period}`) : t.rule === 'T82' ? openExc.some((x) => t.id === `T82-${x.app}-${x.type.replace(/\W+/g, '-').toLowerCase()}`) : true)} />
     ) : section === 'lines' ? (
-      <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
+      <Lines apps={apps} students={students} setApps={setApps} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : section === 'setup' ? (
       <Setup me={GSP_USER.name} say={say} start={setupStart} apps={apps} students={students} openRp={(id) => openRecord({ section: 'rps', id, tab: 'commission' })} />
     ) : section === 'inbox' ? (

@@ -19,7 +19,7 @@ import { liftNotPayable, manualNotPayable, markNotPayable } from './store';
 import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
-import { CreditSheet, WithdrawSheet, XeroSheet, canCredit } from './credit';
+import { AddLinesSheet, CreditSheet, KeyDetailsSheet, WithdrawSheet, XeroSheet, canCredit } from './credit';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -39,7 +39,7 @@ type Who = { name: string; email: string; role: string; region: string };
  * **Students to confirm** (D19; no button to close a tier period, Jovial 16 Nov); (no lump sums: Jovial, 13 Nov, a university's one-off payment is a Record payment on its lines or goes in Xero);
  * and GSP's invoice sent to the university's finance contact through Mail (D17).
  */
-export function Lines({ apps, students, who, say, onOpenApp }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void }) {
+export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void; setApps?: (fn: (l: Application[]) => Application[]) => void }) {
   const s = useComm();
   const res = useLines(apps, students);
   const [v, setV] = useState<LineView>(() => blankView('uni'));
@@ -54,6 +54,9 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   // 17 Nov (after the Finance demo): Credit and re-invoice, and Student withdrew
   const [crediting, setCrediting] = useState<Tx[] | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);
+  // 17 Nov: Key details and Add lines from a line, without leaving the page
+  const [keysOf, setKeysOf] = useState<string | null>(null);
+  const [addTo, setAddTo] = useState<string | null>(null);
   const [raising, setRaising] = useState<{ title: string; sub: string; body: ReactNode; go: (xero: string) => void } | null>(null);
   const takenNos = [...s.invoices.map((i) => i.number), ...(s.credits ?? []).flatMap((c) => [c.number, c.reissue ?? ''])].filter(Boolean);
   const [history, setHistory] = useState<Tx | null>(null);
@@ -639,6 +642,8 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                             ...(t.side === 'uni' && t.type !== 'Clawback' && (groupOf(t.side, t.status) === 'paid' || t.status === PART_PAID) ? [{ id: 'clawback', label: 'Record clawback', icon: 'minus' as const, onPick: () => setClawing(t) }] : []),
                             ...(t.side === 'uni' && !(s.withdrawals ?? []).some((w) => w.app === t.app) ? [{ id: 'withdrew', label: 'Student withdrew', icon: 'minus' as const, onPick: () => setLeaving(t.app) }] : []),
                             ...(manual.has(t.id) ? [{ id: 'lift-np', label: 'Lift Not payable', icon: 'refresh' as const, onPick: () => (liftNotPayable(t.id, who.name), say(`${t.id}: Not payable lifted.`)) }] : groupOf(t.side, t.status) === 'paid' || !canTick(t) ? [] : [{ id: 'not-payable', label: 'Mark not payable', icon: 'minus' as const, onPick: () => setNoPay(t) }]),
+                            { id: 'keys', label: 'Key details', icon: 'eye', onPick: () => setKeysOf(t.app) },
+                            { id: 'add-lines', label: 'Add lines', icon: 'plus', onPick: () => setAddTo(t.app) },
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
                           ]}
@@ -695,6 +700,18 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
           say(msg);
           setCrediting(null);
           setTicked([]);
+        }}
+      />
+      <KeyDetailsSheet app={keysOf} res={res} apps={apps} setApps={setApps} by={who.name} say={say} onClose={() => setKeysOf(null)} />
+      <AddLinesSheet
+        app={addTo}
+        res={res}
+        by={who.name}
+        ask={ask}
+        onClose={() => setAddTo(null)}
+        onDone={(msg) => {
+          say(msg);
+          setAddTo(null);
         }}
       />
       <WithdrawSheet

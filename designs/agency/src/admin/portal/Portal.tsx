@@ -349,7 +349,7 @@ export function Portal({
     ) : section === 'announcements' ? (
       <Announcements {...page} />
     ) : section === 'commlines' ? (
-      <Lines apps={apps} students={students} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
+      <Lines apps={apps} students={students} setApps={setApps} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : CONFIG.includes(section as ConfigSection) ? (
       <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={GSP_USER.name} say={say} courses={db.courses} />
     ) : (
