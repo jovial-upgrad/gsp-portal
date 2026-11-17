@@ -121,7 +121,7 @@ try {
     ok('R105 with a 1-month window, older unclaimed RP lines are flagged', lapsedRp.length > 0 && lapsedRp.every((t) => ['Ready to request', 'Invoice requested', 'Sent back'].includes(t.status)));
     ok('R105 a flagged line keeps its status and amount (nothing closes)', lapsedRp.every((t) => r0.byId.get(t.id)?.status === t.status && r0.byId.get(t.id)?.amount === t.amount));
     ok('R105 the RP hears nothing about it', !engine.commNotes(s1m, r1m, (x) => x, TODAY).some((n) => n.to === 'rp' && /claim/i.test(n.title + n.text)));
-    const u = r0.txs.find((t) => t.side === 'uni' && t.status === 'Ready to invoice');
+    const u = r0.txs.filter((t) => t.side === 'uni' && t.status === 'Ready to invoice').sort((a, b) => a.trigger.localeCompare(b.trigger))[0];
     const sU = { ...s0, terms: s0.terms.map((t) => (t.uni === u.uni ? { ...t, claimMonths: 1 } : t)) };
     const lapsedU = run(sU).txs.filter((t) => t.side === 'uni' && t.uni === u.uni && t.claimLapsed);
     ok('R105 a university’s own window flags GSP’s uninvoiced lines', lapsedU.length > 0 && lapsedU.every((t) => !t.invoice));
@@ -214,6 +214,33 @@ try {
     const cov = rG.apps.filter((a) => a.uni === 'greenwich');
     ok('16 Nov a school in a tiered group counts toward the group’s tier only', cov.length > 0 && cov.every((a) => a.tiers.length === 1 && a.tiers[0].who === 'group'), JSON.stringify(cov.slice(0, 2).map((a) => a.tiers)));
     ok('16 Nov no “the higher wins” step in the working', !rG.txs.some((t) => (t.trace ?? []).some((s) => /higher wins/.test(s.text ?? s.what ?? ''))));
+    // 17 Nov (after the Finance demo): Credit and re-invoice. A credit note reverses invoiced lines in full; new lines
+    // take their place at the statement's amounts, on one new invoice; the RP lines follow.
+    {
+      const s1 = start();
+      const r1 = engine.compute(s1, ctx, extra);
+      const h = r1.txs.find((t) => t.side === 'uni' && ['Invoiced', 'Overdue'].includes(t.status) && !t.adjusts && t.amount > 100 && r1.txs.some((x) => x.side === 'rp' && x.matches === t.id));
+      const newAmt = Math.round((h.amount - 100) * 100) / 100;
+      const sCn = { ...s1, credits: [{ number: `CN-${h.invoice}`, invoice: h.invoice, uni: h.uni, date: TODAY, txs: [h.id], revised: { [h.id]: newAmt }, fees: {}, reason: 'Statement', reissue: 'NEW-1', by: 'Test', at: 1 }] };
+      const settled = engine.settleAll(sCn, ctx, extra);
+      const r2 = engine.compute(settled, ctx, extra);
+      const old = r2.byId.get(h.id);
+      const nk = engine.nextKey(h.key);
+      const repl = r2.txs.find((t) => t.key === nk);
+      ok('17 Nov credit note: the credited line stays, Credited, at its amount', old?.status === 'Credited' && old.amount === h.amount && old.credited === `CN-${h.invoice}`, JSON.stringify(old && { s: old.status, a: old.amount }));
+      ok('17 Nov credit note: a new line takes its place at the statement’s amount, on the new invoice', !!repl && repl.amount === newAmt && repl.invoice === 'NEW-1' && ['Invoiced', 'Overdue'].includes(repl.status), JSON.stringify(repl && { a: repl.amount, i: repl.invoice, s: repl.status }));
+      ok('17 Nov credit note: the new invoice is written down with the new line', settled.invoices.some((i) => i.number === 'NEW-1' && repl && i.txs.includes(repl.id)));
+      const rpOld = r1.txs.find((x) => x.side === 'rp' && x.matches === h.id);
+      const rpNew = r2.txs.find((x) => x.side === 'rp' && repl && x.matches === repl.id);
+      ok('17 Nov credit note: the RP line follows the new amount', !!rpNew && Math.abs(rpNew.amount - (rpOld.amount * newAmt) / h.amount) < 0.02, JSON.stringify({ old: rpOld?.amount, now: rpNew?.amount }));
+      ok('17 Nov credit note: no Adjustment line is made for the difference', !r2.txs.some((t) => t.adjusts === h.id || (repl && t.adjusts === repl.id)), JSON.stringify(r2.txs.filter((t) => t.adjusts === h.id || (repl && t.adjusts === repl.id)).map((t) => [t.id, t.side, t.amount, t.what])));
+      // Student withdrew: lines after the date aren't payable; nothing still waits for a continuity check
+      const later = r1.txs.find((t) => t.side === 'uni' && t.status === 'Expected' && (t.period ?? 1) > 1 && t.trigger > TODAY);
+      const sW = { ...s1, withdrawals: [{ id: 'wd1', app: later.app, date: TODAY, reason: 'University said so', by: 'Test', at: 1 }] };
+      const r3 = run(sW);
+      ok('17 Nov Student withdrew: a later line becomes Not payable with the reason', r3.byId.get(later.id)?.status === 'Not payable' && /withdrew/.test(r3.byId.get(later.id)?.nopayWhy ?? ''));
+      ok('17 Nov no continuity check: no line waits for Finance to confirm the student continues', !r1.txs.some((t) => 'toConfirm' in t));
+    }
     // 16 Nov (Jovial): a Not payable line says why, from the withdrawal date and the trigger
     const r0 = run(seed.sampleComm());
     const np = r0.txs.filter((t) => t.status === 'Not payable');

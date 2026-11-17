@@ -13,7 +13,7 @@
  *
  * Lines that were invoiced, requested or paid never change (9 Nov): later differences become Adjustment lines.
  */
-import type { Agreement, AgreementTerms, Band, CommState, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
+import type { Agreement, AgreementTerms, Band, CommState, CreditNote, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
 import { ADDS, EXCEPTIONS, HIGHER, PAY_UNITS, SEPARATE, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
 import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
@@ -109,8 +109,8 @@ export type Tx = {
   heldWhy?: string;
   /** Why a Not payable line isn't (16 Nov): from the withdrawal date and the trigger it came before. */
   nopayWhy?: string;
-  /** A study period after the first waits for Finance to confirm the student continues (D19). */
-  toConfirm?: boolean;
+  /** The credit note that reversed it (17 Nov): the line stays as a record, a new line takes its place. */
+  credited?: string;
   /** Its trigger date is estimated (no census date on the application: start + fallback weeks). */
   estimated?: boolean;
   /** GSP → RP: the University → GSP transaction it matches (none for a bonus). */
@@ -291,11 +291,21 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   const today = ctx.today;
   const S = state.settings;
   const seen = new Set<string>();
-  const all = [...extra, ...state.enrolments].filter((e) => (seen.has(e.app) ? false : (seen.add(e.app), true))).sort((a, b) => a.enrolled.localeCompare(b.enrolled) || a.app.localeCompare(b.app));
+  // Finance's record that a student withdrew (17 Nov) stands even though the application's stage doesn't change
+  const wdOf = new Map((state.withdrawals ?? []).map((w) => [w.app, w.date]));
+  const all = [...extra, ...state.enrolments]
+    .filter((e) => (seen.has(e.app) ? false : (seen.add(e.app), true)))
+    .map((e) => (wdOf.has(e.app) && (!e.withdrawn || wdOf.get(e.app)! < e.withdrawn) ? { ...e, withdrawn: wdOf.get(e.app) } : e))
+    .sort((a, b) => a.enrolled.localeCompare(b.enrolled) || a.app.localeCompare(b.app));
   const uniOf = new Map(ctx.unis.map((u) => [u.id, u]));
   const rpOf = new Map(ctx.rps.map((r) => [r.id, r]));
   const invoiceOf = new Map<string, { number: string; date: string }>();
   state.invoices.forEach((i) => i.txs.forEach((t) => invoiceOf.set(t, i)));
+  // credit notes (17 Nov): the head line each one reverses, and the new invoice its new lines go on
+  const creditOf = new Map<string, CreditNote>();
+  (state.credits ?? []).forEach((c) => c.txs.forEach((t) => creditOf.set(t, c)));
+  const reissueOf = (key: string) => reissueIn(state, key);
+  const uniName0 = (id: string) => uniOf.get(id)?.name ?? id;
   // what came in for each line over all receipts (an older receipt with no per-line amounts paid its lines in full), and write-offs (Q44)
   const received = new Map<string, number>();
   const shortWhy = new Map<string, string>();
@@ -331,7 +341,6 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
   state.requests.forEach((r) => r.txs.forEach((t) => requestedOn.set(t, r.date)));
   const over = new Map<string, Override>();
   [...state.overrides].sort((a, b) => a.at - b.at).forEach((o) => over.set(o.tx, o));
-  const confirmed = new Set((state.confirms ?? []).map((c) => `${c.app}|${c.period}`));
   const frozenByApp = new Map<string, Frozen[]>();
   Object.entries(state.frozen).forEach(([, f]) => frozenByApp.set(f.app, [...(frozenByApp.get(f.app) ?? []), f]));
   const needIds: string[] = [];
@@ -517,10 +526,12 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
      * An override's amount on a frozen line is a difference too (D16): it becomes an Adjustment, the line stays.
      * A credit (a negative Adjustment from a tier recount) counts from the end of the counting period (Q68).
      */
-    const chain = (side: Side, slot: string, d: Draft | undefined): (Tx & { _base: number })[] => {
+    const chain = (side: Side, slot: string, d: Draft | undefined, revised?: { amount: number; cn: CreditNote; was: string }): (Tx & { _base: number })[] => {
       const key = lineKey(e.app, side, slot);
       const id = idOf(key);
       const fr = state.frozen[id];
+      // a line in place of one a credit note reversed: at the statement's amount when it gave one (17 Nov)
+      if (revised && d) d = { ...d, amount: revised.amount, trace: [...(d.trace ?? []), step('Credit note', `${revised.was} was reversed by ${revised.cn.number} (${dayText(revised.cn.date)}: ${revised.cn.reason}).${revised.cn.revised[revised.was] != null ? ` ${uniName0(revised.cn.uni)}’s statement gives ${money(revised.amount, d.currency ?? cur)}${revised.cn.fees[revised.was] != null ? ` on a fee of ${money(revised.cn.fees[revised.was], d.currency ?? cur)}` : ''}.` : ''}${revised.cn.reissue ? ` Invoiced again on ${revised.cn.reissue}.` : ''}`)] };
       const mk = (k: string, tid: string, x: Omit<Draft, 'slot'>, f?: Frozen): Tx & { _base: number } => ({
         id: tid,
         key: k,
@@ -561,6 +572,15 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         sum += fa.base;
         n++;
       }
+      // reversed by a credit note (17 Nov): these lines stay as they were, credited; a new line takes their place
+      const cn = side === 'uni' ? creditOf.get(id) : undefined;
+      if (cn) {
+        lines.forEach((l) => (l.credited = cn.number));
+        const m = slot.match(/#r(\d+)$/);
+        const next = m ? slot.replace(/#r\d+$/, `#r${Number(m[1]) + 1}`) : `${slot}#r1`;
+        const amt = cn.revised[id] ?? (d ? d.amount : undefined);
+        return [...lines, ...(amt == null ? [] : chain(side, next, d ?? { slot: next, type: fr.type, what: fr.what, rpWhat: fr.rpWhat, amount: amt, trigger: fr.trigger, period: fr.period, matches: fr.matches, notice: fr.notice, currency: fr.currency }, { amount: amt, cn, was: id }))];
+      }
       // compare like with like: the line as it would be rounded now against what was kept (no 0.01 ghosts)
       const o = over.get(id);
       const target = o?.amount != null && !fr.final ? round2(o.amount, fr.currency) : d ? round2(d.amount, d.currency ?? cur) : 0;
@@ -579,7 +599,8 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     /** The frozen slots of a side that weren't worked out this time: their lines, with an Adjustment taking them back. */
     const leftovers = (side: Side, done: Set<string>) =>
       frozenHere
-        .filter((f) => f.side === side && !f.adjusts && !done.has(f.key))
+        // a line in place of a credited one is reached through the line it replaced (17 Nov)
+        .filter((f) => f.side === side && !f.adjusts && !done.has(f.key) && !(side === 'uni' && /#r\d+$/.test(f.key)))
         .flatMap((f) => chain(side, f.key.slice(`${e.app}|${side}|`.length), undefined));
 
     const uniTxs: (Tx & { _base: number })[] = [];
@@ -759,7 +780,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     const gstPct = S.gst?.[u.country] ?? 0;
     uniTxs.forEach((t) => {
       const fr = state.frozen[t.id];
-      const inv = invoiceOf.get(t.id);
+      const inv = invoiceOf.get(t.id) ?? reissueOf(t.key);
       if (!fr?.final) t.due = inv ? addDays(inv.date, payDays) : addDays(t.trigger, payDays);
       t.base.due = t.due;
       t.invoice = inv?.number;
@@ -772,12 +793,10 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       t.received = round2(got, t.currency);
       if (off) t.writtenOff = off.amount;
       if (shortWhy.has(t.id)) t.short = shortWhy.get(t.id);
-      // a study period after the first waits for Finance to confirm the student continues (D19)
-      const needs = (t.period ?? 1) > 1 && !t.adjusts && !fr && !t.invoice && !confirmed.has(`${e.app}|${t.period}`);
-      if (needs) t.toConfirm = true;
+      // no continuity check (17 Nov): a later study period is invoiced on its date; the university says if the student left
       const held = !!holdWhy;
       if (held) t.heldWhy = holdWhy;
-      t.status = uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today, toConfirm: needs });
+      t.status = t.credited ? 'Credited' : uniStatus(t, { withdrawn: e.withdrawn, paid: fullyPaid.has(t.id) || !!off || (got > 0 && got >= t.amount - 0.005), part: got > 0, invoiced: !!t.invoice, hold: !!o?.hold || held, today });
       if (t.type === 'Clawback') t.status = 'Paid';
       if (t.status === 'Not payable' && e.withdrawn)
         t.nopayWhy = `Student withdrew ${dayText(e.withdrawn)}, before ${t.period ? `study period ${t.period}’s ` : 'its '}${(T?.trigger ?? 'trigger date').toLowerCase()}${t.trigger ? ` (${dayText(t.trigger)})` : ''}`;
@@ -867,6 +886,8 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const tuitionBox = covering.some((nt) => nt.benefit === '% of tuition' && nt.combine === SEPARATE);
       const drafts: Draft[] = [];
       uniTxs.forEach((t0) => {
+        // a credited line isn't owed (17 Nov): the line that took its place carries the RP's share
+        if (t0.credited) return;
         // a university line paid short (Q44): the RP's line is its share of what came in, until the rest comes or is written off
         const t = (t0.status === 'Part paid' || t0.writtenOff) && t0.amount > 0 ? { ...t0, amount: t0.received ?? 0 } : t0;
         const slot = t.key.slice(`${e.app}|uni|`.length);
@@ -1084,9 +1105,22 @@ export function bandStanding(state: CommState, ctx: Ctx, rp: string, extra: Enro
   };
 }
 
+/** The line key that takes the place of one a credit note reverses: `…#r1`, then `…#r2`. */
+export const nextKey = (k: string) => (/#r\d+$/.test(k) ? k.replace(/#r(\d+)$/, (_, n) => `#r${Number(n) + 1}`) : `${k}#r1`);
+/** The new invoice a credit note put a line on at once (17 Nov), found by the line's key. */
+export function reissueIn(state: CommState, key: string): { number: string; date: string } | undefined {
+  for (const c of state.credits ?? []) {
+    if (!c.reissue) continue;
+    for (const t of c.txs) {
+      const f = state.frozen[t];
+      if (f && !f.adjusts && nextKey(f.key) === key) return { number: c.reissue, date: c.date };
+    }
+  }
+  return undefined;
+}
 /** Acted on: invoiced (University → GSP), its invoice requested (GSP → RP), or paid. From then on it's kept as it was. */
-export const actedOn = (state: CommState, t: Pick<Tx, 'id' | 'side'>) =>
-  t.side === 'uni' ? state.invoices.some((i) => i.txs.includes(t.id)) || state.receipts.some((r) => r.txs.includes(t.id)) : state.requests.some((r) => r.txs.includes(t.id)) || state.rpPayments.some((p) => p.txs.includes(t.id));
+export const actedOn = (state: CommState, t: Pick<Tx, 'id' | 'side'> & { key?: string }) =>
+  t.side === 'uni' ? state.invoices.some((i) => i.txs.includes(t.id)) || state.receipts.some((r) => r.txs.includes(t.id)) || (!!t.key && !!reissueIn(state, t.key)) : state.requests.some((r) => r.txs.includes(t.id)) || state.rpPayments.some((p) => p.txs.includes(t.id));
 const paidOf = (state: CommState, t: Pick<Tx, 'id' | 'side'>) => (t.side === 'uni' ? state.receipts : state.rpPayments).some((r) => r.txs.includes(t.id));
 
 /**
@@ -1126,8 +1160,16 @@ export function settle(state: CommState, res: Result, at = Date.now()): CommStat
   // R112 (Jovial, 13 Nov): nothing asks for the RP's invoice by itself any more (R111 is reversed): Finance does, with
   // Request invoice on Commission lines, and only then does the RP see the line.
   const requests = state.requests;
-  const same = ids === state.ids && frozen === state.frozen && seenAmt === (state.seen ?? {}) && history === (state.history ?? []) && requests === state.requests;
-  return same && state.seen ? state : { ...state, ids, idSeq: seq, frozen, seen: seenAmt, history, requests };
+  // a credit note's new invoice (17 Nov) is written down once its new lines have IDs
+  let invoices = state.invoices;
+  for (const c of state.credits ?? []) {
+    if (!c.reissue || invoices.some((i) => i.number === c.reissue)) continue;
+    const txs = c.txs.map((t) => state.frozen[t]).filter((f) => f && !f.adjusts).map((f) => ids[nextKey(f!.key)]);
+    if (!txs.length || txs.some((t) => !t)) continue;
+    invoices = [...invoices, { number: c.reissue, uni: c.uni, date: c.date, txs: txs as string[], by: c.by, at: c.at }];
+  }
+  const same = ids === state.ids && frozen === state.frozen && seenAmt === (state.seen ?? {}) && history === (state.history ?? []) && requests === state.requests && invoices === state.invoices;
+  return same && state.seen ? state : { ...state, ids, idSeq: seq, frozen, seen: seenAmt, history, requests, invoices };
 }
 /** Work out and keep until nothing more is to be kept (a new ID can make a line that then needs keeping). */
 export function settleAll(state: CommState, ctx: Ctx, extra: Enrolment[] = []): CommState {
@@ -1141,14 +1183,12 @@ export function settleAll(state: CommState, ctx: Ctx, extra: Enrolment[] = []): 
 }
 
 /** A University → GSP line's status, from what's happened to it and today. A line with no trigger date yet is Expected. */
-export function uniStatus(t: Pick<Tx, 'trigger' | 'due'>, o: { withdrawn?: string; paid: boolean; part?: boolean; invoiced: boolean; hold: boolean; today: string; toConfirm?: boolean }): UniStatus {
+export function uniStatus(t: Pick<Tx, 'trigger' | 'due'>, o: { withdrawn?: string; paid: boolean; part?: boolean; invoiced: boolean; hold: boolean; today: string }): UniStatus {
   if (o.paid) return 'Paid';
   if (o.withdrawn && (!t.trigger || o.withdrawn < t.trigger)) return 'Not payable';
   if (o.hold) return 'Held';
   if (o.part) return 'Part paid';
   if (o.invoiced) return t.due && o.today > t.due ? 'Overdue' : 'Invoiced';
-  // a later study period waits for Finance to confirm the student continues (D19)
-  if (o.toConfirm) return 'Expected';
   return t.trigger && t.trigger <= o.today ? 'Ready to invoice' : 'Expected';
 }
 /**
@@ -1208,7 +1248,9 @@ export const sumBy = (txs: Pick<Tx, 'amount' | 'currency'>[]) => txs.reduce<Reco
 export function nextInvoiceNumber(state: CommState, uni: string, day: string) {
   const code = uni.replace(/[^a-z]/gi, '').slice(0, 4).toUpperCase();
   const year = day.slice(0, 4);
-  const seq = state.invoices.filter((i) => i.uni === uni && i.date.slice(0, 4) === year).length + 1;
+  // a credit note's new invoice counts as soon as it's numbered, before its lines are (17 Nov)
+  const pending = (state.credits ?? []).filter((c) => c.reissue && c.uni === uni && c.date.slice(0, 4) === year && !state.invoices.some((i) => i.number === c.reissue)).length;
+  const seq = state.invoices.filter((i) => i.uni === uni && i.date.slice(0, 4) === year).length + pending + 1;
   return state.settings.invoiceFormat.replace('{code}', code).replace('{year}', year).replace('{seq}', String(seq).padStart(3, '0'));
 }
 

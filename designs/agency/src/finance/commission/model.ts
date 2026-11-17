@@ -351,7 +351,7 @@ export const TX_TYPES = ['Course commission', 'Tier bonus', 'Promotion', 'Additi
 export type TxType = (typeof TX_TYPES)[number];
 
 /** Part paid (Jovial, 10 Nov, Q44): the university paid less than the line, with a reason, until the rest comes or is written off. */
-export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held', 'Paid', 'Not payable'] as const;
+export const UNI_STATUSES = ['Expected', 'Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held', 'Paid', 'Not payable', 'Credited'] as const;
 /**
  * The RP's statuses (Jovial, 10 Nov, Q50, the Commissions flow's #21): Expected, Waiting for university (GSP's line is
  * due but not paid yet), Ready to request (GSP is paid; Finance hasn't asked for the RP's invoice yet), Invoice requested
@@ -369,7 +369,7 @@ export const GROUPS = [
   { key: 'estimate', label: 'Not yet ready', uni: ['Expected'], rp: ['Expected'], tab: true },
   { key: 'progress', label: 'In progress', uni: ['Ready to invoice', 'Invoiced', 'Overdue', 'Part paid', 'Held'], rp: ['Waiting for university', 'Ready to request', 'Invoice requested', 'Invoice in review', 'Approved', 'Overdue to pay', 'On hold', 'Sent back', 'To recover'], tab: true },
   { key: 'paid', label: 'Paid', uni: ['Paid'], rp: ['Paid', 'Recovered'], tab: true },
-  { key: 'none', label: 'Not counted', uni: ['Not payable'], rp: ['Not payable'], tab: false },
+  { key: 'none', label: 'Not counted', uni: ['Not payable', 'Credited'], rp: ['Not payable'], tab: false },
 ] as const satisfies readonly { key: string; label: string; uni: readonly UniStatus[]; rp: readonly RpStatus[]; tab: boolean }[];
 export type GroupKey = (typeof GROUPS)[number]['key'];
 export const groupOf = (side: Side, s: TxStatus): GroupKey | undefined => GROUPS.find((g) => (g[side] as readonly string[]).includes(s))?.key;
@@ -415,6 +415,7 @@ export const HELD: readonly TxStatus[] = ['Held', 'On hold'];
 /** Each status's colour (as Pill tones). */
 export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' | 'grey'> = {
   Expected: 'grey',
+  Credited: 'grey',
   'Ready to invoice': 'you',
   'Ready to request': 'you',
   'Invoice requested': 'uni',
@@ -468,6 +469,19 @@ export type WriteOff = { id: string; tx: string; amount: number; reason: string;
  * RP's share of it (what was shared with the RP), set against the RP's next payments. No time limit.
  */
 export type Clawback = { id: string; tx: string; amount: number; reason: string; date: string; by: string; at: number };
+/**
+ * A credit note (Jovial, 17 Nov, after the Finance demo): GSP reverses invoiced lines in full, never editing the invoice
+ * (the month is closed in Xero). Numbered CN-{invoice}. Each credited line's place is taken by a new line: at the
+ * `revised` amount when the university's statement gives one (with the fee it used, `fees`), else as worked out; with
+ * `reissue`, the new lines go on that new invoice at once. A withdrawal's credit note has no reissue: the new lines are
+ * Not payable.
+ */
+export type CreditNote = { number: string; invoice: string; uni: string; date: string; txs: string[]; revised: Record<string, number>; fees: Record<string, number>; reason: string; reissue?: string; by: string; at: number };
+/**
+ * Finance records that a student withdrew (17 Nov): the university said so, usually in reply to an invoice. The
+ * application's stage doesn't change. Lines triggered after the date are Not payable; invoiced ones are credited.
+ */
+export type Withdrawal = { id: string; app: string; date: string; reason: string; by: string; at: number };
 /** Commissions asked an RP for its invoice. */
 export type InvoiceRequest = { id: string; rp: string; txs: string[]; date: string; by: string; at: number };
 export const RP_INVOICE_STATES = ['To check', 'Accepted', 'Sent back'] as const;
@@ -525,6 +539,8 @@ export type CommState = {
   rpPayments: RpPayment[];
   writeOffs: WriteOff[];
   clawbacks?: Clawback[];
+  credits?: CreditNote[];
+  withdrawals?: Withdrawal[];
   overrides: Override[];
   confirms: Confirm[];
   /** Each line's last worked-out amount, and its changes (D21). */

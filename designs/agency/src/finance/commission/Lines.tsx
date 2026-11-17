@@ -13,9 +13,10 @@ import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } f
 import { addDays, setOff, sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
-import { recordClawback, acceptRpInvoice, commWork, confirmContinuing, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
+import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, sendUniInvoice, uniFinanceContact, uniName, useComm, useLines, writeOff } from './store';
 import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
 import { Unlocks } from './Unlocks';
+import { CreditSheet, WithdrawSheet, canCredit } from './credit';
 import '../../institution/work/work.css';
 
 type Who = { name: string; email: string; role: string; region: string };
@@ -47,6 +48,9 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   const [over, setOver] = useState<Tx | null>(null);
   const [writing, setWriting] = useState<Tx | null>(null);
   const [clawing, setClawing] = useState<Tx | null>(null);
+  // 17 Nov (after the Finance demo): Credit and re-invoice, and Student withdrew
+  const [crediting, setCrediting] = useState<Tx[] | null>(null);
+  const [leaving, setLeaving] = useState<string | null>(null);
   const [history, setHistory] = useState<Tx | null>(null);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
@@ -54,7 +58,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   // Jovial, 12 Nov: two tabs, To do (the tiles and worklists) and All lines (the table)
   const [page, setPage] = useState<'todo' | 'lines' | 'unlocks'>('todo');
   const nav = useCommNav();
-  const work = useMemo(() => commWork(s), [s]);
   const { ask, dialog } = useAsk();
   const set = (p: Partial<LineView>) => setV((x) => ({ ...x, ...p }));
   const side = v.side;
@@ -161,7 +164,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     request: { side: 'rp', statuses: [READY_RP], label: 'Invoices to request', n: res.txs.filter((t) => t.side === 'rp' && t.status === READY_RP).length, tone: 'you' },
     check: { side: 'rp', statuses: [IN_REVIEW], label: 'Invoices to check', n: toCheck.length, tone: 'you' },
     approved: { side: 'rp', statuses: [...TO_PAY], label: 'Approved to pay', n: res.txs.filter((t) => t.side === 'rp' && (TO_PAY as readonly string[]).includes(t.status)).length, tone: 'gsp' },
-    confirm: { side: 'uni', statuses: [], label: 'To confirm', n: work.confirm.length, tone: 'you' },
     chase: { side: 'rp', statuses: [], label: 'Recoveries to chase', n: toChase.length, tone: 'bad' },
     recover: { side: 'rp', statuses: [TO_RECOVER], label: TO_RECOVER, n: res.txs.filter((t) => t.side === 'rp' && t.status === TO_RECOVER).length, tone: 'you' },
     lapsed: { side: lapsed('rp') || !lapsed('uni') ? 'rp' : 'uni', statuses: [], label: 'Past the claim window', n: lapsed('rp') + lapsed('uni'), tone: 'bad', lapsed: true },
@@ -170,7 +172,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
     setTile(k);
     if (!k) return setV((x) => blankView(x.side));
     // a worklist on To do: go to it; anything else opens All lines, filtered
-    if (k === 'confirm' || k === 'check' || k === 'chase') return void document.getElementById(k === 'confirm' ? 'clines-confirm' : k === 'check' ? 'clines-check' : 'clines-chase')?.scrollIntoView({ block: 'start' });
+    if (k === 'check' || k === 'chase') return void document.getElementById(k === 'check' ? 'clines-check' : 'clines-chase')?.scrollIntoView({ block: 'start' });
     setV({ ...blankView(TILE[k].side), statuses: TILE[k].statuses, lapsed: TILE[k].lapsed });
     setPage('lines');
   };
@@ -235,57 +237,6 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
         <>
       <Tiles label="To do" value={tile} onPick={pickTile} items={(Object.keys(TILE) as TileKey[]).map((k) => ({ key: k, n: TILE[k].n, label: TILE[k].label, tone: TILE[k].n ? TILE[k].tone : 'grey' }))} />
 
-      {work.confirm.length > 0 && (
-        <section className="card irsec" aria-labelledby="clines-confirm">
-          <div className="irsec__head">
-            <div className="irsec__t">
-              <h2 className="irsec__title" id="clines-confirm">
-                Students to confirm <span className="num cmuted">({work.confirm.length})</span>
-              </h2>
-              <p className="irsec__note">A study period after the first is invoiced only once Finance confirms the student continues (D19).</p>
-            </div>
-            {work.confirm.length > 1 && (
-              <Button size="sm" onClick={() => ask(`Confirm ${work.confirm.length} students continue?`, 'Confirm', <p>Their study periods become ready to invoice.</p>, () => (confirmContinuing(work.confirm, who.name), say(`${work.confirm.length} students confirmed.`)))}>
-                Confirm all
-              </Button>
-            )}
-          </div>
-          {work.confirm.length ? (
-            <ul className="clines__inv">
-              {work.confirm.map((c) => (
-                <li key={`${c.app}-${c.period}`}>
-                  <Icon name="user" size={18} />
-                  <span className="cinv__t">
-                    <span className="iw-strong">
-                      {c.student} · study period {c.period}
-                    </span>
-                    <span className="iw-sub">
-                      <span className="num">{c.app}</span> · {c.uni} · from {dayText(c.since)} · <span className="num">{c.tx}</span>
-                    </span>
-                  </span>
-                  <span className="cinv__acts">
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        ask(
-                          `Confirm ${c.student} continues into study period ${c.period}?`,
-                          'Confirm',
-                          <p>Its University → GSP line ({c.tx}) becomes ready to invoice on its trigger date. Lines already invoiced don’t change.</p>,
-                          () => (confirmContinuing([c], who.name), say(`${c.student} confirmed for study period ${c.period}.`)),
-                        )
-                      }
-                    >
-                      Confirm continuing<span className="vh"> {c.student}</span>
-                    </Button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="iempty">No students to confirm.</p>
-          )}
-        </section>
-      )}
 
       {res.exceptions.length > 0 && (
         <section className="card irsec" aria-labelledby="clines-exc">
@@ -531,6 +482,9 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                 <Button size="sm" variant="secondary" disabled={!record} onClick={() => setPaying(sel)}>
                   Record payment
                 </Button>
+                <Button size="sm" variant="secondary" disabled={!canCredit(sel)} onClick={() => setCrediting(sel)}>
+                  Credit and re-invoice
+                </Button>
                 {!raise && !record && (
                   <span className="cmuted">
                     {sel.length && sel.every((t) => t.amount < 0) ? 'A credit goes on GSP’s next invoice to the university, not on its own: tick a line to invoice and it’s added.' : `Tick ${ACTION_FROM.raise.join(' or ')} lines of one university to raise an invoice, or its ${ACTION_FROM.record.join(' or ')} lines to record a payment.`}
@@ -637,7 +591,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                         <StatusPill s={t.status} />
                         {t.heldWhy && <span className="iw-sub">{t.heldWhy}</span>}
                         {t.nopayWhy && <span className="iw-sub">{t.nopayWhy}</span>}
-                        {t.toConfirm && <span className="iw-sub">Waiting for Finance to confirm the student continues</span>}
+                        {t.credited && <span className="iw-sub">Reversed by {t.credited}; a new line takes its place</span>}
                         {t.override && (
                           <span className="iw-sub">
                             Overridden by {t.override.by}, {dayText(new Date(t.override.at).toISOString())}: {t.override.reason}
@@ -657,6 +611,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
                             ...(t.side === 'uni' && t.invoice ? [{ id: 'view-inv', label: 'View invoice', icon: 'eye' as const, onPick: () => viewInvoice(t.invoice!) }] : []),
                             ...(t.side === 'uni' && t.invoice && (ACTION_FROM.record as readonly string[]).includes(t.status) ? [{ id: 'resend', label: 'Send again', icon: 'send' as const, onPick: () => resend(t.invoice!) }] : []),
                             ...(t.side === 'uni' && t.type !== 'Clawback' && (groupOf(t.side, t.status) === 'paid' || t.status === PART_PAID) ? [{ id: 'clawback', label: 'Record clawback', icon: 'minus' as const, onPick: () => setClawing(t) }] : []),
+                            ...(t.side === 'uni' && !(s.withdrawals ?? []).some((w) => w.app === t.app) ? [{ id: 'withdrew', label: 'Student withdrew', icon: 'minus' as const, onPick: () => setLeaving(t.app) }] : []),
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
                           ]}
@@ -698,6 +653,29 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
           say(`${money(amount, t.currency)} from ${t.uniName} recorded: ${paying!.length - nShort} Paid${nShort ? `, ${nShort} Part paid` : ''}.`);
           setPaying(null);
           setTicked([]);
+        }}
+      />
+      <CreditSheet
+        txs={crediting}
+        res={res}
+        by={who.name}
+        ask={ask}
+        onClose={() => setCrediting(null)}
+        onDone={(msg) => {
+          say(msg);
+          setCrediting(null);
+          setTicked([]);
+        }}
+      />
+      <WithdrawSheet
+        app={leaving}
+        res={res}
+        by={who.name}
+        ask={ask}
+        onClose={() => setLeaving(null)}
+        onDone={(msg) => {
+          say(msg);
+          setLeaving(null);
         }}
       />
       <WriteOffSheet
@@ -760,7 +738,7 @@ export function Lines({ apps, students, who, say, onOpenApp }: { apps: Applicati
   );
 }
 
-type TileKey = 'ready' | 'overdue' | 'part' | 'request' | 'check' | 'chase' | 'approved' | 'confirm' | 'recover' | 'lapsed';
+type TileKey = 'ready' | 'overdue' | 'part' | 'request' | 'check' | 'chase' | 'approved' | 'recover' | 'lapsed';
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
 function Foot({ onClose, label, onGo }: { onClose: () => void; label: string; onGo: () => void }) {

@@ -226,7 +226,7 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
                 {!rpView && t.side === 'rp' && t.rpSees === false && <span className="iw-sub">Not shown to the RP</span>}
                 {!rpView && t.side === 'uni' && t.amount < 0 && t.status === READY_UNI && <span className="iw-sub">A credit: it goes on GSP’s next invoice to {t.uniName}</span>}
                 {!rpView && t.claimLapsed && t.claimEnds && <span className="iw-sub">Claim window ended {dayText(t.claimEnds)}, not claimed: adjust it in the books</span>}
-                {t.toConfirm && <span className="iw-sub">{rpView ? 'Waiting for the student to continue' : 'Waiting for Finance to confirm the student continues'}</span>}
+                {!rpView && t.credited && <span className="iw-sub">Reversed by {t.credited}; a new line takes its place</span>}
                 {!rpView && <HowWorked steps={t.trace} id={`chow-${t.id}`} />}
               </td>
               <td className="num iw-nowrap">
