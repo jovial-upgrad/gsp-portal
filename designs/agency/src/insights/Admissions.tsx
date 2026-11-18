@@ -9,7 +9,7 @@ import { applyFilters, between, convRow, courseOf, daysSince, groupBy, isLive, l
 import type { CloseReasons } from '../admin/data/config';
 import type { Unlock } from '../finance/commission/engine';
 import { targetFor, type TargetVersion } from './targets';
-import { Card, CsvButton, Drill, FilterBar, Num, Seg, Stat, Table, Tabs, statusOf, useDrill, type Col } from './parts';
+import { AppLink, Card, CsvButton, Drill, FilterBar, Num, Seg, Stat, Table, Tabs, statusOf, useDrill, type Col } from './parts';
 
 type Tab = 'tracker' | 'pipeline' | 'pre' | 'post' | 'offers' | 'docs' | 'visa' | 'interview' | 'reports';
 const TABS: [Tab, string][] = [
@@ -119,10 +119,10 @@ function Pipeline({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSett
   const rp = new Map(d.rps.map((x) => [x.id, x.name]));
   const chase = [...aged].sort((a, b2) => ageOf(b2) - ageOf(a)).slice(0, 50);
   const ccols: Col<RepApp>[] = [
-    { h: 'Application', v: (a) => a.id },
+    { h: 'Application', v: (a) => <AppLink a={a} d={d} now={now} />, csv: (a) => a.id },
     { h: 'University', v: (a) => uniOf(a.uni) },
     { h: 'Destination', v: (a) => a.dest },
-    { h: 'BDM', v: (a) => a.bdm },
+    { h: 'Application BDM', v: (a) => a.bdm },
     { h: 'RP', v: (a) => rp.get(a.rp) ?? '' },
     { h: 'RP counsellor', v: (a) => a.counsellor },
     { h: 'Stage', v: (a) => STAGES[stageNow(a)] },
@@ -251,7 +251,7 @@ function PostSub({ apps, s, now, n, open }: { apps: RepApp[]; s: InsightSettings
 
 /* Offers: conditional and unconditional, by a dimension */
 type Dim = 'dest' | 'uni' | 'region' | 'bdm';
-const DIMS: [Dim, string][] = [['dest', 'By destination'], ['uni', 'By university'], ['region', 'By sales region'], ['bdm', 'By BDM']];
+const DIMS: [Dim, string][] = [['dest', 'By destination'], ['uni', 'By university'], ['region', 'By sales region'], ['bdm', 'By application BDM']];
 const dimOf = (k: Dim) => (a: RepApp) => (k === 'uni' ? uniOf(a.uni) : a[k]);
 function Offers({ apps, s, n, open }: { apps: RepApp[]; s: InsightSettings; n: N; open: (t: string, a: RepApp[]) => void }) {
   const [dim, setDim] = useState<Dim>('dest');
@@ -365,10 +365,10 @@ function Visa({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSettings
   const rp = new Map(d.rps.map((x) => [x.id, x.name]));
   const chase = dep.filter((a) => isLive(a) && !at(a, 'visa')).sort((x, y) => (reachedAt(x, M('deposit').status) ?? 0) - (reachedAt(y, M('deposit').status) ?? 0));
   const ccols: Col<RepApp>[] = [
-    { h: 'Application', v: (a) => a.id },
+    { h: 'Application', v: (a) => <AppLink a={a} d={d} now={now} />, csv: (a) => a.id },
     { h: 'University', v: (a) => uniOf(a.uni) },
     { h: 'Destination', v: (a) => a.dest },
-    { h: 'BDM', v: (a) => a.bdm },
+    { h: 'Application BDM', v: (a) => a.bdm },
     { h: 'RP', v: (a) => rp.get(a.rp) ?? '' },
     { h: 'RP counsellor', v: (a) => a.counsellor },
     { h: 'Stage', v: (a) => STAGES[stageNow(a)] },
@@ -407,11 +407,11 @@ function Interviews({ apps, s, now, d, rejects }: { apps: RepApp[]; s: InsightSe
   const rp = new Map(d.rps.map((x) => [x.id, x.name]));
   const since = (a: RepApp) => daysSince(a.moves.find((m) => m.s === s.interviewStatus)!.at, now);
   const cols: Col<RepApp>[] = [
-    { h: 'Application', v: (a) => a.id },
+    { h: 'Application', v: (a) => <AppLink a={a} d={d} now={now} />, csv: (a) => a.id },
     { h: 'University', v: (a) => uniOf(a.uni) },
     { h: 'Course', v: (a) => courseOf(a.course) },
     { h: 'Destination', v: (a) => a.dest },
-    { h: 'BDM', v: (a) => a.bdm },
+    { h: 'Application BDM', v: (a) => a.bdm },
     { h: 'RP', v: (a) => rp.get(a.rp) ?? '' },
     { h: 'Officer', v: (a) => a.officer },
     { h: 'Days in interview', n: true, v: (a) => since(a) },

@@ -35,3 +35,16 @@
   .greq.greqs .greqs__what,
   .greq.greqs .greqs__due { grid-column: 1; }
 }
+
+/* Jovial, 18 Nov: more columns for Commissions */
+.apps__cols { min-width: 220px; }
+.atab td.arow__extra { white-space: nowrap; color: var(--text-2); }
+/* with more columns the list is an ordinary wide table that scrolls sideways */
+.atab.atab--wide { display: table; width: max-content; min-width: 100%; border-collapse: collapse; }
+.atab.atab--wide thead { display: table-header-group; }
+.atab.atab--wide tbody { display: table-row-group; }
+.atab.atab--wide tr { display: table-row; padding: 0; }
+.atab.atab--wide th, .atab.atab--wide td { display: table-cell; grid-column: auto; padding: 12px 16px; vertical-align: middle; max-width: 260px; }
+.atab.atab--wide th { white-space: nowrap; }
+.atab.atab--wide tr::before { content: none; }
+.atab.atab--wide tr.arow--you td:first-child { box-shadow: inset 3px 0 0 var(--you-dot); }

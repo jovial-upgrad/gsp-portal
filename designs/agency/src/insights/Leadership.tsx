@@ -96,11 +96,11 @@ function Pack({ d, apps, s, now, target, res, n, aud }: { d: Reporting; apps: Re
       const e = enrolled(l);
       return { text: l.length ? pct(rate(students(e), students(l))) : '—', apps: e };
     }, n),
-    matrix('BDM performance', 'Unique student applications · enrolments', 'BDM', [...new Set(apps.map((a) => a.bdm))].sort(), Q, (b, p) => {
+    matrix('BDM performance', 'Unique student applications · enrolments', 'Application BDM', [...new Set(apps.map((a) => a.bdm))].sort(), Q, (b, p) => {
       const l = inP(apps.filter((a) => a.bdm === b), p);
       return { text: `${students(l)} · ${students(enrolled(l))}`, apps: l };
     }, n),
-    matrix('BDM target vs actual', `Enrolments against the ${target?.name ?? 'current'} targets`, 'BDM', [...new Set(apps.map((a) => a.bdm))].sort(), Q, (b, p) => {
+    matrix('BDM target vs actual', `Enrolments against the ${target?.name ?? 'current'} targets`, 'Application BDM', [...new Set(apps.map((a) => a.bdm))].sort(), Q, (b, p) => {
       const e = enrolled(inP(apps.filter((a) => a.bdm === b), p));
       const t = targetFor(target, 'BDM', b, 'enrolled', p.months);
       return { text: `${e.length}${t !== null ? ` / ${t}` : ''}`, apps: e };
@@ -161,7 +161,8 @@ function activeRps(d: Reporting, apps: RepApp[], s: InsightSettings, fy: number)
   const regions = [...new Set(d.rps.map((r) => r.region))].sort();
   const enr = msOf(s, 'enrolled');
   const rows = regions.map((g) => {
-    const all = d.rps.filter((r) => r.region === g);
+    // Jovial, 18 Nov: registered = RPs working with GSP: not suspended, terminated or deactivated (the RP record's status)
+    const all = d.rps.filter((r) => r.region === g && s.registeredStatuses.includes(r.status));
     const act = all.filter((r) => apps.some((a) => a.rp === r.id && a.created >= start && a.created <= end));
     const gave = act.filter((r) => apps.some((a) => a.rp === r.id && reachedAt(a, enr.status) !== undefined));
     return [g, all.length, act.length, pct(rate(act.length, all.length), 0), gave.length, pct(rate(gave.length, all.length), 0)];
@@ -169,7 +170,7 @@ function activeRps(d: Reporting, apps: RepApp[], s: InsightSettings, fy: number)
   const head = ['Sales region', 'Registered RPs', 'Active RPs', 'Active %', 'Active with enrolments', 'With enrolments %'];
   type R = (string | number)[];
   const cols: Col<R>[] = head.map((h, i) => ({ h, n: i > 0, v: (r) => r[i] }));
-  return { title: 'Active RPs', sub: 'Active: at least one application this financial year (a setting) · thresholds 80% and 50%', head, rows, node: <Table rows={rows} cols={cols} rowKey={(r) => String(r[0])} /> };
+  return { title: 'Active RPs', sub: `Registered: RPs whose record is ${s.registeredStatuses.join(' or ')} (Dashboard settings) · Active: at least one application this financial year`, head, rows, node: <Table rows={rows} cols={cols} rowKey={(r) => String(r[0])} /> };
 }
 
 /* A country's report (Lav's Bangladesh FY27): app generation against targets, forecast, payables, P&L lines */
@@ -196,7 +197,7 @@ function Country({ d, apps, s, now, target, versions, res, n, aud }: { d: Report
   const weeks = series(l, (a) => a.created, 'week', now, 12);
   const bdms = [...new Set(l.map((a) => a.bdm))].sort();
   type W = { b: string };
-  const wcols: Col<W>[] = [{ h: 'BDM', v: (r) => r.b }, ...weeks.map((w): Col<W> => ({ h: new Date(w.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), n: true, v: (r) => n(w.apps.filter((a) => a.bdm === r.b), `${r.b}, week of ${new Date(w.at).toLocaleDateString('en-GB')}`) }))];
+  const wcols: Col<W>[] = [{ h: 'Application BDM', v: (r) => r.b }, ...weeks.map((w): Col<W> => ({ h: new Date(w.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), n: true, v: (r) => n(w.apps.filter((a) => a.bdm === r.b), `${r.b}, week of ${new Date(w.at).toLocaleDateString('en-GB')}`) }))];
   // forecast: this quarter and next, by stage
   const curQ = P.filter((p) => p.months.length === 3).find((p) => p.months.includes(new Date(now).toISOString().slice(0, 7))) ?? P[12];
   const nextQ = P.filter((p) => p.months.length === 3)[P.filter((p) => p.months.length === 3).indexOf(curQ) + 1];
@@ -239,7 +240,7 @@ function Country({ d, apps, s, now, target, versions, res, n, aud }: { d: Report
       <Card title="App generation by intake" sub={`Targets: ${target?.name ?? 'none'} (Sales region level)`} flush>
         <Table rows={gen} cols={gcols} rowKey={(r) => r.k} />
       </Card>
-      <Card title="App generation, the last 12 weeks" sub="By BDM, by the week received" flush>
+      <Card title="App generation, the last 12 weeks" sub="By application BDM, by the week received" flush>
         <Table rows={bdms.map((b) => ({ b }))} cols={wcols} rowKey={(r) => r.b} />
       </Card>
       <div className="ins-acts">

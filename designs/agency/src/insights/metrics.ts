@@ -56,6 +56,8 @@ export type InsightSettings = {
   analysisMonths: number;
   marginPerStudent: number;
   bigRpEnrolments: number;
+  /** Active RPs (Jovial, 18 Nov): the RP record statuses that count as registered, working with GSP. */
+  registeredStatuses: string[];
   /** Forecast: conversion from each stage to enrolment over the last N months. */
   forecastMonths: number;
   /** The RP's share of commission used for the reporting estimates (RP COS), in %, until an RP's own terms say otherwise. */
@@ -90,6 +92,7 @@ export const sampleInsightSettings = (): InsightSettings => ({
   marginPerStudent: 1400,
   bigRpEnrolments: 10,
   forecastMonths: 12,
+  registeredStatuses: ['Activated', 'Agreement signed'],
   rpShare: 70,
   arBuckets: [30, 60, 90, 180, 365],
   directTypes: ['Course commission', 'IP commission'],

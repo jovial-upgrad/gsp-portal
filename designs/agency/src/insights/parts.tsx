@@ -2,9 +2,9 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../components/Button';
 import { Sheet } from '../components/Sheet';
 import { Filter, downloadCsv } from '../institution/records/parts';
-import { STATUS } from '../data/applications';
+import { STAGES, STATUS } from '../data/applications';
 import type { Reporting, RepApp } from './data';
-import { courseOf, daysSince, intakeText, lastChange, milestoneOf, options, uniOf, type Filters, type Grain, type InsightSettings, noFilters, filtersOn } from './metrics';
+import { courseOf, daysSince, intakeText, lastChange, options, stageNow, uniOf, type Filters, type Grain, type InsightSettings, noFilters, filtersOn } from './metrics';
 
 /* ---------- the filter bar, the same on every dashboard ---------- */
 export function FilterBar({ d, f, set }: { d: Reporting; f: Filters; set: (f: Filters) => void }) {
@@ -18,7 +18,7 @@ export function FilterBar({ d, f, set }: { d: Reporting; f: Filters; set: (f: Fi
       <Filter id="df-region" label="Sales region" all="All sales regions" value={f.region} options={o.region} onChange={put('region')} />
       <Filter id="df-uni" label="University" all="All universities" value={f.uni} options={o.uni} onChange={put('uni')} />
       <Filter id="df-rm" label="Regional manager" all="All regional managers" value={f.rm} options={o.rm} onChange={put('rm')} />
-      <Filter id="df-bdm" label="BDM" all="All BDMs" value={f.bdm} options={o.bdm} onChange={put('bdm')} />
+      <Filter id="df-bdm" label="Application BDM" all="All application BDMs" value={f.bdm} options={o.bdm} onChange={put('bdm')} />
       <Filter id="df-rp" label="RP" all="All RPs" value={f.rp} options={o.rp} onChange={put('rp')} />
       <span className="ins-filters__dates">
         <label htmlFor="df-from">Received</label>
@@ -147,15 +147,15 @@ export function TimeBars({ points, grain, running, label, open }: { points: { at
 }
 
 /* ---------- the applications behind a number ---------- */
-export function Drill({ open, title, apps, d, s, now, onClose }: { open: boolean; title: string; apps: RepApp[]; d: Reporting; s: InsightSettings; now: number; onClose: () => void }) {
+export function Drill({ open, title, apps, d, now, onClose }: { open: boolean; title: string; apps: RepApp[]; d: Reporting; s: InsightSettings; now: number; onClose: () => void }) {
   const [n, setN] = useState(50);
   const student = useMemo(() => new Map(d.students.map((x) => [x.id, x])), [d]);
   const rp = useMemo(() => new Map(d.rps.map((x) => [x.id, x])), [d]);
   const rows = [...apps].sort((a, b) => lastChange(a) - lastChange(b));
   const csv = () =>
     downloadCsv(`${title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`, [
-      ['Application', 'Student', 'University', 'Course', 'Destination', 'Intake', 'BDM', 'RP', 'Stage', 'Status', 'Days since last change'],
-      ...rows.map((a) => [a.id, student.get(a.student)?.name ?? '', uniOf(a.uni), courseOf(a.course), a.dest, intakeText(a.intake), a.bdm, rp.get(a.rp)?.name ?? '', milestoneOf(a, s.milestones).label, statusOf(a), daysSince(lastChange(a), now)]),
+      ['Application', 'Student', 'University', 'Course', 'Destination', 'Intake', 'Application BDM', 'RP', 'RP counsellor', 'Stage', 'Status', 'Days since last change'],
+      ...rows.map((a) => [a.id, student.get(a.student)?.name ?? '', uniOf(a.uni), courseOf(a.course), a.dest, intakeText(a.intake), a.bdm, rp.get(a.rp)?.name ?? '', a.counsellor, STAGES[stageNow(a)], statusOf(a), daysSince(lastChange(a), now)]),
     ]);
   return (
     <Sheet open={open} onClose={onClose} center wide title={title} sub={`${apps.length.toLocaleString('en-GB')} ${apps.length === 1 ? 'application' : 'applications'}`} className="ins-drill" footer={<div className="asf"><div className="asf__acts"><Button variant="secondary" onClick={csv}>Download CSV</Button><Button onClick={onClose}>Done</Button></div></div>}>
@@ -167,7 +167,7 @@ export function Drill({ open, title, apps, d, s, now, onClose }: { open: boolean
               <th scope="col">Student</th>
               <th scope="col">University</th>
               <th scope="col">Destination</th>
-              <th scope="col">BDM</th>
+              <th scope="col">Application BDM</th>
               <th scope="col">RP</th>
               <th scope="col">Stage</th>
               <th scope="col">Status</th>
@@ -181,13 +181,15 @@ export function Drill({ open, title, apps, d, s, now, onClose }: { open: boolean
               <tr key={a.id}>
                 <td>
                   <span className="cfg__strong">{student.get(a.student)?.name}</span>
-                  <span className="irow__sub">{a.id}</span>
+                  <span className="irow__sub">
+                    <AppLink a={a} d={d} now={now} />
+                  </span>
                 </td>
                 <td>{uniOf(a.uni)}</td>
                 <td>{a.dest}</td>
                 <td>{a.bdm}</td>
                 <td>{rp.get(a.rp)?.name}</td>
-                <td>{milestoneOf(a, s.milestones).label}</td>
+                <td>{STAGES[stageNow(a)]}</td>
                 <td>{statusOf(a)}</td>
                 <td className="n">{daysSince(lastChange(a), now)}</td>
               </tr>
@@ -277,4 +279,71 @@ export function Stat({ title, apps, count, sub, open }: { title: string; apps: R
 export function useDrill() {
   const [drill, setDrill] = useState<{ title: string; apps: RepApp[] } | null>(null);
   return { drill, open: (title: string, apps: RepApp[]) => setDrill({ title, apps }), close: () => setDrill(null) };
+}
+
+/**
+ * An application's ID on a dashboard (Jovial, 18 Nov, 1c): it opens the application's record as the dashboards hold
+ * it, read only: who, where, its RP and counsellor, its application BDM, and every status change with its date. In the
+ * product it opens the application page itself.
+ */
+export function AppLink({ a, d, now }: { a: RepApp; d: Reporting; now: number }) {
+  const [open, setOpen] = useState(false);
+  const st = d.students.find((x) => x.id === a.student);
+  const rp = d.rps.find((x) => x.id === a.rp);
+  const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const facts: [string, ReactNode][] = [
+    ['Student', `${st?.name ?? a.student} · ${st?.nationality ?? ''}`],
+    ['University', `${uniOf(a.uni)} · ${a.dest}`],
+    ['Course', courseOf(a.course)],
+    ['Intake', intakeText(a.intake)],
+    ['RP', rp ? `${rp.name} (${rp.id}) · ${[rp.city, rp.state, rp.country].filter(Boolean).join(', ')}` : a.rp],
+    ['RP counsellor', a.counsellor],
+    ['Application BDM', a.bdm],
+    ['Sales region', a.region],
+    ['Admissions officer', a.officer],
+    ['Stage', `${STAGES[stageNow(a)]}: ${STATUS[a.moves[a.moves.length - 1].s].text(a.dest)}`],
+    ...(a.end ? ([['Closed', `${a.end.kind}: ${a.end.reason}, ${day(a.end.at)}`]] as [string, ReactNode][]) : []),
+  ];
+  return (
+    <>
+      <button type="button" className="btn btn--link num" onClick={() => setOpen(true)}>
+        {a.id}
+      </button>
+      {open && (
+        <Sheet open onClose={() => setOpen(false)} center title={a.id} sub={`${st?.name ?? ''} · read only, from the dashboards' records`}>
+          <dl className="ins-facts">
+            {facts.map(([k, v]) => (
+              <div key={k}>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <table className="itab">
+            <caption className="vh">Status changes</caption>
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Stage</th>
+                <th scope="col">Status</th>
+                <th scope="col" className="n">
+                  Days there
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {a.moves.map((m, i) => (
+                <tr key={`${m.s}-${m.at}`}>
+                  <td>{day(m.at)}</td>
+                  <td>{STATUS[m.s].owner === 'end' ? '' : STAGES[STATUS[m.s].stage]}</td>
+                  <td>{STATUS[m.s].owner === 'end' ? `${STATUS[m.s].text(a.dest)}: ${a.end?.kind ?? ''}` : STATUS[m.s].text(a.dest)}</td>
+                  <td className="n">{daysSince(m.at, a.moves[i + 1]?.at ?? now)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Sheet>
+      )}
+    </>
+  );
 }

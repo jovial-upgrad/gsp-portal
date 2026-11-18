@@ -414,7 +414,7 @@ export function Portal({
     ) : section === 'dadm' ? (
       <DashAdmissions d={rep} s={ins} f={dfil} setF={setDfil} now={now} unlocks={cres.unlocks} courses={db.courses} target={current} closeReasons={cfg.closeReasons} />
     ) : section === 'dsales' ? (
-      <DashSales d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} courses={db.courses} bdmRows={cfg.bdm} />
+      <DashSales d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} bdmRows={cfg.bdm} />
     ) : section === 'dfin' ? (
       <DashFinance res={cres} comm={comm} fx={cfg.fx} s={ins} now={now} me={GSP_USER.name} say={say} />
     ) : section === 'dlead' ? (

@@ -8,12 +8,12 @@
 import { COURSES, UNIVERSITIES, type Destination } from '../data/courses';
 import { CLOSE_AT, STATUS, type EndKind, type StatusKey } from '../data/applications';
 import { OTHER_REASON, peopleOf, sampleCloseReasons, sampleQueues, sampleRegions, sampleUsers, type Queue, type Region, type User } from '../admin/data/config';
-import { todayIso } from '../institution/data/records';
+import { RP_STATUSES, todayIso, type RpStatus } from '../institution/data/records';
 
 /** One status change: the status it moved to, and when (ms). Closing is `closed` with the end's kind. */
 export type Move = { s: StatusKey; at: number };
 /** `counsellors`: the RP's own staff who make its applications (each application names one: the RP contact on it). */
-export type RepRp = { id: string; name: string; country: string; state: string; city: string; region: string; bdm: string; mp?: string; counsellors: string[] };
+export type RepRp = { id: string; name: string; country: string; state: string; city: string; region: string; bdm: string; mp?: string; counsellors: string[]; status: RpStatus };
 export type RepStudent = { id: string; name: string; nationality: string };
 export type RepApp = {
   id: string;
@@ -121,7 +121,9 @@ export function sampleReporting(seed = 18_11_2026): Reporting {
       const id = `RP-${String(11000 + rps.length * 37).slice(0, 5)}`;
       const fl = FIRST[country] ? country : 'other';
       const counsellors = [0, 1].map(() => `${pick(FIRST[fl])} ${pick(LAST[fl])}`);
-      rps.push({ id, name: `${pick(RP_WORDS[0])} ${pick(RP_WORDS[1])}${i % 7 === 3 ? ` ${city}` : ''}`, country, state, city, region, bdm: people[i % people.length] ?? nameOf(q.lead), counsellors });
+      // most RPs are working with GSP; a few are suspended or dormant (sample records, the RP record's statuses)
+      const status = (i % 13 === 5 ? RP_STATUSES.find((x) => x === 'Suspended') : i % 11 === 7 ? RP_STATUSES.find((x) => x === 'Dormant') : i % 2 ? RP_STATUSES.find((x) => x === 'Agreement signed') : RP_STATUSES.find((x) => x === 'Activated'))!;
+      rps.push({ id, name: `${pick(RP_WORDS[0])} ${pick(RP_WORDS[1])}${i % 7 === 3 ? ` ${city}` : ''}`, country, state, city, region, bdm: people[i % people.length] ?? nameOf(q.lead), counsellors, status });
     }
   });
   // a few RPs belong to a Master Partner (sample)
