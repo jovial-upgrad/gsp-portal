@@ -8,6 +8,8 @@ import { CopyButton } from '../students/parts';
 import { RP_STATUSES, dateText, type RecruitmentPartner, type RpDoc, type RpStatus } from '../data/records';
 import { Facts, Filter, NoMatch, PageHead, Pager, Pill, RecordHead, RecordTabs, Section, TabPanel, Tiles, downloadCsv, passes, usePaged, useRecord, type Tone } from './parts';
 import type { PageProps } from '../portal/model';
+import { AppCounts } from '../../components/AppCounts';
+import { HOME_RP } from '../rps';
 
 const TONE: Record<RpStatus, Tone> = { 'Not activated': 'you', Verifying: 'gsp', 'Documents sent back': 'you', Activated: 'uni', 'Agreement signed': 'ok', Rejected: 'bad', Suspended: 'bad', Dormant: 'grey' };
 const RpPill = ({ s }: { s: RpStatus }) => <Pill tone={TONE[s]}>{s}</Pill>;
@@ -169,6 +171,9 @@ function RpPage({ r, tab: start, onBack, say }: { r: RecruitmentPartner; tab?: s
       <TabPanel id="irptab" tab={tab}>
         {tab === 'overview' && (
           <>
+            <Section title="Applications" id="irp-apps" note="Every application from this RP, by where it is. Each number opens them.">
+              <AppCounts id="irp-apps" match={(a) => (a.rp ?? HOME_RP) === r.name} />
+            </Section>
             <Section title="Details" id="irp-details">
               <Facts
                 items={[

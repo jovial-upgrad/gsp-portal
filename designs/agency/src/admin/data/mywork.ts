@@ -251,6 +251,7 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
       const members = peopleOf(q, queues).filter(active).map((id) => userOf(id)!.name);
       let who: string;
       if (way === 'leader') who = userOf(q.lead)?.name ?? '';
+      else if (way === 'pool') who = '';
       else if (way === 'officer') {
         // the application's officer: picked once, by Fewest open, and every later application task goes to them
         who = officers.get(hit.key) ?? fewest(q);

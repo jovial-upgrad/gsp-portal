@@ -525,6 +525,8 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
             ['Commissions live on the portal from', S.liveFrom ? dayText(S.liveFrom) : 'Not set'],
             ['Part payment reasons', S.partReasons.join(', '), 'wide'],
             ['Not payable reasons', (S.notPayableReasons ?? []).join(', ') || 'None', 'wide'],
+            ['Invoice send-back reasons', (S.sendBackReasons ?? []).join(', ') || 'None', 'wide'],
+            ['GST on RP invoices', S.rpGst == null ? 'None' : `${S.rpGst}%`],
           ]],
         ] as [string, string, string, ([string, ReactNode] | [string, ReactNode, 'wide'])[]][]
       ).map(([id, title, note, items]) => (

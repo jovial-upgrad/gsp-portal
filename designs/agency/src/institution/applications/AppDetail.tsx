@@ -128,6 +128,8 @@ export function AppDetail({
   // GSP · Recruitment (6 Nov): commission to look at; the chat can be used inside a view-only application
   const commissionView = useHides('app.commission.view');
   const chatEdit = useShows('app.chat.edit');
+  // GSP · Finance (Jovial, 18 Nov): only the documents GSP or the university added, to look at and download
+  const gspDocsOnly = useShows('app.documents.gsp-only');
   // GSP · Finance (6 Nov): no Chat, Mail, Documents or Submission; a Commission tab it can change
   const hidden: Partial<Record<AppTab, boolean>> = { chat: useHides('app.chat'), mail: useHides('app.mail'), documents: useHides('app.documents'), submission: useHides('app.submission') };
   const tabs: [AppTab, string, IconName][] = [...(useShows('app.commission') ? [['commission', 'Commission', 'wallet'] as [AppTab, string, IconName]] : []), ...TABS.filter(([k]) => !hidden[k])];
@@ -582,7 +584,8 @@ export function AppDetail({
             )}
             {shown === 'chat' && <ViewOnlyProvider on={viewOnly && !chatEdit}><Chat a={a} s={s} agency={agency} update={update} onShare={(f) => addFile(f, 'chat')} ask={ask} say={say} /></ViewOnlyProvider>}
             {shown === 'mail' && <MailTab a={a} desk={desk} setDesk={setDesk} onLog={log} say={say} />}
-            {shown === 'documents' && (
+            {shown === 'documents' && gspDocsOnly && <GspDocs a={a} s={s} />}
+            {shown === 'documents' && !gspDocsOnly && (
               <DocsTab
                 a={a}
                 s={s}
@@ -1039,6 +1042,39 @@ function DocsTab({
             </>
           )}
         </div>
+      </section>
+    </div>
+  );
+}
+
+/** GSP · Finance's Documents (Jovial, 18 Nov): what GSP or the university added (offer letters, CoE / CAS / I-20, visa letters…). */
+function GspDocs({ a, s }: { a: Application; s: Student }) {
+  const byGsp = a.files.filter((f) => f.from !== 'you').sort((x, y) => y.at - x.at);
+  return (
+    <div className="adocs">
+      <section className="card acard adocs__card" aria-labelledby="gspdocs-title">
+        <h2 id="gspdocs-title" className="acard__title">
+          Documents
+        </h2>
+        <p className="adocs__empty">{byGsp.length ? 'The documents GSP or the university added to this application.' : 'GSP hasn’t added any documents to this application yet.'}</p>
+        {byGsp.length > 0 && (
+          <ul className="adocs__list">
+            {byGsp.map((f) => (
+              <li key={f.file + f.at} className="adoc">
+                <span className="adoc__icon adoc__icon--uni" aria-hidden="true">
+                  <Icon name="file" size={18} />
+                </span>
+                <span className="adoc__t">
+                  <span className="adoc__name">{f.name}</span>
+                  <span className="adoc__file">
+                    {f.file} · {f.from === 'uni' ? 'from the university' : f.via === 'chat' ? 'shared in the chat' : 'uploaded by GSP'}
+                  </span>
+                </span>
+                <DocButtons d={{ name: f.name, file: f.file }} s={s} />
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

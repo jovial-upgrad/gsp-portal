@@ -4,9 +4,10 @@ import { Icon } from '../../components/Icon';
 import { MoreMenu } from '../../components/MoreMenu';
 import { Sheet } from '../../components/Sheet';
 import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
-import { PreviewSheet } from '../../components/DocView';
+import { PreviewSheet, downloadDoc } from '../../components/DocView';
 import { Filter, PageHead, Pager, RecordTabs, Tiles, downloadCsv, useAsk, usePaged } from '../../institution/records/parts';
 import { todayIso } from '../../institution/data/records';
+import { sampleFx } from '../../admin/data/config';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
 import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } from './parts';
@@ -15,9 +16,9 @@ import { blankView, csvRows, filterLines, viewText, type LineView } from './line
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
 import { appliedOptions, feeInvoiced, lineFees, termsApplied } from './applied';
 import { NotPayableSheet } from './NotPayableSheet';
-import { liftNotPayable, manualNotPayable, markNotPayable } from './store';
+import { deleteManualLine, liftNotPayable, manualNotPayable, markNotPayable } from './store';
 import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, uniName, useComm, useLines, writeOff } from './store';
-import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP } from './model';
+import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP, type RpPayment } from './model';
 import { Unlocks } from './Unlocks';
 import { AddLinesSheet, BulkWithdrawSheet, CreditSheet, KeyDetailsSheet, WithdrawSheet, XeroSheet, canCredit } from './credit';
 import '../../institution/work/work.css';
@@ -64,6 +65,10 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
   // 17 Nov: Finance marks a line Not payable by hand, with a reason
   const [noPay, setNoPay] = useState<Tx | null>(null);
   const manual = useMemo(() => manualNotPayable(s), [s]);
+  /** The RP's latest invoice that covers a GSP → RP line (Suman, 18 Nov). */
+  const rpInvoiceOf = (t: Tx) => (t.side === 'rp' ? s.rpInvoices.filter((i) => i.txs.includes(t.id)).slice(-1) : []);
+  /** A line Finance added by hand: its key ends in man:{id}. */
+  const manualIdOf = (t: Tx) => (t.key.split('|')[2]?.startsWith('man:') ? t.key.split('|')[2].slice(4) : undefined);
   const [back, setBack] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
   const [tile, setTile] = useState<TileKey | ''>('');
@@ -317,6 +322,18 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                       <Button variant="secondary" size="sm" iconLeft={<Icon name="eye" size={16} />} onClick={() => setPreview({ name: `${rpName(i.rp)}: invoice`, file: i.file.name })}>
                         Preview<span className="vh"> {i.file.name}</span>
                       </Button>
+                      <Button variant="secondary" size="sm" iconLeft={<Icon name="download" size={16} />} onClick={() => downloadDoc({ name: `${rpName(i.rp)}: invoice`, file: i.file.name })}>
+                        Download<span className="vh"> {i.file.name}</span>
+                      </Button>
+                      {/* Suman, 18 Nov: check the student's details on the application before accepting */}
+                      {onOpenApp &&
+                        [...new Set(txs.map((t) => t.app))]
+                          .filter((app) => apps.some((a) => a.id === app))
+                          .map((app) => (
+                            <Button key={app} variant="secondary" size="sm" iconLeft={<Icon name="external" size={16} />} onClick={() => onOpenApp(app)}>
+                              Open {app}
+                            </Button>
+                          ))}
                       <Button variant="secondary" size="sm" onClick={() => setBack(i.id)}>
                         Send back
                       </Button>
@@ -625,6 +642,15 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                             ...(t.side === 'uni' && t.type !== 'Clawback' && (groupOf(t.side, t.status) === 'paid' || t.status === PART_PAID) ? [{ id: 'clawback', label: 'Record clawback', icon: 'minus' as const, onPick: () => setClawing(t) }] : []),
                             ...(t.side === 'uni' && !(s.withdrawals ?? []).some((w) => w.app === t.app) ? [{ id: 'withdrew', label: 'Student withdrew', icon: 'minus' as const, onPick: () => setLeaving(t.app) }] : []),
                             ...(manual.has(t.id) ? [{ id: 'lift-np', label: 'Lift Not payable', icon: 'refresh' as const, onPick: () => (liftNotPayable(t.id, who.name), say(`${t.id}: Not payable lifted.`)) }] : groupOf(t.side, t.status) === 'paid' || !canTick(t) ? [] : [{ id: 'not-payable', label: 'Mark not payable', icon: 'minus' as const, onPick: () => setNoPay(t) }]),
+                            // Suman, 18 Nov: the RP's invoice for this line, to look at again or download
+                            ...rpInvoiceOf(t).flatMap((i) => [
+                              { id: `rpi-v-${i.id}`, label: 'View RP invoice', icon: 'eye' as const, onPick: () => setPreview({ name: `${rpName(i.rp)}: invoice`, file: i.file.name }) },
+                              { id: `rpi-d-${i.id}`, label: 'Download RP invoice', icon: 'download' as const, onPick: () => downloadDoc({ name: `${rpName(i.rp)}: invoice`, file: i.file.name }) },
+                            ]),
+                            // Suman, 18 Nov (Jovial: aligned): only a line added by hand, while it isn't kept
+                            ...(manualIdOf(t) && !t.frozen
+                              ? [{ id: 'delete', label: 'Delete line', icon: 'trash' as const, onPick: () => ask(`Delete ${t.id}?`, 'Delete', <p>It was added by hand and isn’t invoiced or requested yet. Deleting it is logged.</p>, () => (deleteManualLine(manualIdOf(t)!, t.id, who.name), say(`${t.id} deleted.`))) }]
+                              : []),
                             { id: 'keys', label: 'Key details', icon: 'eye', onPick: () => setKeysOf(t.app) },
                             { id: 'add-lines', label: 'Add lines', icon: 'plus', onPick: () => setAddTo(t.app) },
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
@@ -745,8 +771,8 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
         txs={paidOut}
         onClose={() => setPaidOut(null)}
         ask={ask}
-        onDone={(date) => {
-          markPaid(paidOut![0].rp, paidOut!.map((x) => x.id), date, who.name, paidOff);
+        onDone={(date, paid) => {
+          markPaid(paidOut![0].rp, paidOut!.map((x) => x.id), date, who.name, paidOff, paid);
           say(`${paidOut!.length} ${paidOut!.length === 1 ? 'line' : 'lines'} marked paid to ${paidOut![0].rpName}.`);
           setPaidOut(null);
           setTicked([]);
@@ -764,6 +790,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
       <SendBack
         open={!!back}
         file={s.rpInvoices.find((i) => i.id === back)?.file.name ?? ''}
+        reasons={s.settings.sendBackReasons ?? []}
         onClose={() => setBack(null)}
         onSend={(reason) => {
           const i = s.rpInvoices.find((x) => x.id === back)!;
@@ -935,25 +962,83 @@ function ClawbackSheet({ t, already, onClose, onDone, ask }: { t: Tx | null; alr
 }
 
 /** Mark paid: the day GSP paid, then asked. */
-function PaidSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose: () => void; onDone: (date: string) => void; ask: AskFn }) {
+function PaidSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose: () => void; onDone: (date: string, paid?: RpPayment['paid']) => void; ask: AskFn }) {
+  // Lav, 18 Nov: GSP pays in the currency the RP asks for; the rate comes from that week's Currency exchange, editable
+  const fx = useMemo(() => sampleFx()[0]?.rows ?? [], []);
   const [date, setDate] = useState('');
+  const [cur, setCur] = useState('');
+  const [rate, setRate] = useState<number | null>(null);
+  const [amount, setAmount] = useState<number | null>(null);
   const [tried, setTried] = useState(false);
+  const sums = txs ? sumBy(txs) : {};
+  const from = Object.keys(sums).length === 1 ? Object.keys(sums)[0] : '';
+  const rateOf = (to: string) => {
+    const a = fx.find((r) => r.code === from)?.aud;
+    const b = fx.find((r) => r.code === to)?.aud;
+    return a && b ? Math.round((a / b) * 10_000) / 10_000 : null;
+  };
   useEffect(() => {
     setDate(todayIso());
+    setCur(from);
+    setRate(null);
+    setAmount(from ? roundMoney(sums[from], from) : null);
     setTried(false);
-  }, [txs]);
-  const err = !date ? 'Choose the date.' : date > todayIso() ? 'It can’t be in the future.' : null;
+  }, [txs]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (to: string) => {
+    setCur(to);
+    const r = to === from ? null : rateOf(to);
+    setRate(r);
+    setAmount(from ? roundMoney(sums[from] * (r ?? 1), to) : null);
+  };
+  const err = {
+    date: !date ? 'Choose the date.' : date > todayIso() ? 'It can’t be in the future.' : null,
+    amount: from && !(amount !== null && amount > 0) ? 'Enter the amount paid.' : null,
+    rate: from && cur !== from && !(rate !== null && rate > 0) ? 'Enter the rate.' : null,
+  };
   const go = () => {
     setTried(true);
-    if (err || !txs) return;
-    ask(`Mark ${txs.length} ${txs.length === 1 ? 'line' : 'lines'} paid to ${txs[0].rpName}: ${totalsText(sumBy(txs))}?`, 'Mark paid', <p>Paid on {dayText(date)}. {txs[0].rpName} is told.</p>, () => onDone(date));
+    if (Object.values(err).some(Boolean) || !txs) return;
+    const paid = from && cur && amount ? { currency: cur, amount, ...(cur !== from && rate ? { rate } : {}) } : undefined;
+    ask(`Mark ${txs.length} ${txs.length === 1 ? 'line' : 'lines'} paid to ${txs[0].rpName}: ${totalsText(sums)}?`, 'Mark paid', <p>Paid on {dayText(date)}{paid ? `: ${money(paid.amount, paid.currency)}${paid.rate ? ` at ${paid.rate} ${cur} per ${from}` : ''}` : ''}. {txs[0].rpName} is told.</p>, () => onDone(date, paid));
   };
+  const codes = [...new Set([from, ...fx.map((r) => r.code)].filter(Boolean))];
   return (
-    <Sheet open={!!txs} onClose={onClose} center className="iform" title="Mark paid" sub={txs ? `${txs.length} ${txs.length === 1 ? 'line' : 'lines'} to ${txs[0].rpName}: ${totalsText(sumBy(txs))}` : undefined} footer={<Foot onClose={onClose} label="Mark paid" onGo={go} />}>
+    <Sheet open={!!txs} onClose={onClose} center className="iform" title="Mark paid" sub={txs ? `${txs.length} ${txs.length === 1 ? 'line' : 'lines'} to ${txs[0].rpName}: ${totalsText(sums)}` : undefined} footer={<Foot onClose={onClose} label="Mark paid" onGo={go} />}>
       <div className="iform__grid">
-        <Field id="cpaid-date" label="Date paid" required error={tried ? err : null}>
-          <TextInput id="cpaid-date" type="date" value={date} invalid={tried && !!err} onChange={(e) => setDate(e.target.value)} />
+        <Field id="cpaid-date" label="Date paid" required error={tried ? err.date : null}>
+          <TextInput id="cpaid-date" type="date" value={date} invalid={tried && !!err.date} onChange={(e) => setDate(e.target.value)} />
         </Field>
+        {from && (
+          <>
+            <Field id="cpaid-cur" label="Paid in" required hint="The currency the RP asked to be paid in.">
+              <SelectInput id="cpaid-cur" value={cur} onChange={(e) => pick(e.target.value)}>
+                {codes.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            {cur !== from && (
+              <Field id="cpaid-rate" label={`Exchange rate (${cur} per ${from})`} required error={tried ? err.rate : null} hint="From this week’s Currency exchange; change it to the rate the bank used.">
+                <TextInput
+                  id="cpaid-rate"
+                  inputMode="decimal"
+                  value={numText(rate)}
+                  invalid={tried && !!err.rate}
+                  onChange={(e) => {
+                    const r = numOf(e.target.value);
+                    setRate(r);
+                    if (r) setAmount(roundMoney(sums[from] * r, cur));
+                  }}
+                />
+              </Field>
+            )}
+            <Field id="cpaid-amt" label={`Amount paid (${cur})`} required error={tried ? err.amount : null}>
+              <TextInput id="cpaid-amt" inputMode="decimal" value={numText(amount)} invalid={tried && !!err.amount} onChange={(e) => setAmount(numOf(e.target.value))} />
+            </Field>
+          </>
+        )}
       </div>
     </Sheet>
   );
@@ -1009,13 +1094,19 @@ function OverrideSheet({ t, onClose, onSave }: { t: Tx | null; onClose: () => vo
 }
 
 /** Send back an RP's invoice, with why (free text, required): its lines show Sent back and the RP is told (N19). */
-function SendBack({ open, file, onClose, onSend }: { open: boolean; file: string; onClose: () => void; onSend: (reason: string) => void }) {
+function SendBack({ open, file, reasons, onClose, onSend }: { open: boolean; file: string; reasons: string[]; onClose: () => void; onSend: (reason: string) => void }) {
+  // Lav, 18 Nov: a reason from Settings; Other (or no list) asks for a few words
+  const [why, setWhy] = useState('');
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
   useEffect(() => {
+    setWhy('');
     setReason('');
     setTried(false);
   }, [open]);
+  const other = !reasons.length || why === reasons[reasons.length - 1];
+  const text = other ? [why, reason.trim()].filter(Boolean).join(': ') : why;
+  const ok = !!why || !reasons.length ? (other ? !!reason.trim() : true) : false;
   return (
     <Sheet
       open={open}
@@ -1030,16 +1121,29 @@ function SendBack({ open, file, onClose, onSend }: { open: boolean; file: string
           label="Send back"
           onGo={() => {
             setTried(true);
-            if (reason.trim()) onSend(reason.trim());
+            if (ok) onSend(text);
           }}
         />
       }
     >
-      <Field id="cback-reason" label="Reason" required error={tried && !reason.trim() ? 'Say why it’s sent back.' : null}>
-        <div className="control iform__area">
-          <textarea id="cback-reason" className="control__input" rows={3} value={reason} placeholder="Like: the total doesn’t match the lines" onChange={(e) => setReason(e.target.value)} />
-        </div>
-      </Field>
+      {reasons.length > 0 && (
+        <Field id="cback-why" label="Why" required error={tried && !why ? 'Choose why it’s sent back.' : null}>
+          <SelectInput id="cback-why" value={why} placeholder="Choose" onChange={(e) => setWhy(e.target.value)}>
+            {reasons.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+      )}
+      {other && (
+        <Field id="cback-reason" label="In a few words" required error={tried && !reason.trim() ? 'Say why it’s sent back.' : null}>
+          <div className="control iform__area">
+            <textarea id="cback-reason" className="control__input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+        </Field>
+      )}
     </Sheet>
   );
 }

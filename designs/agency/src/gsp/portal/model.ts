@@ -21,8 +21,8 @@ export const NAV: { key: Section; label: string; short: string; icon: IconName; 
   // the signed-in officer's tasks (Nesil, 5 Nov), as GSP · Admin's My Work
   { key: 'work', label: 'My work', short: 'My work', icon: 'check', locked: false },
   { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search', locked: false },
-  { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people', locked: true },
+  { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   // 6 Nov (Nesil's access sheet): no Earnings (commission isn't Admissions') and no agency Profile (the initials open the
   // account); Recruitment partners, Universities and Courses to look at
   { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner', locked: false },

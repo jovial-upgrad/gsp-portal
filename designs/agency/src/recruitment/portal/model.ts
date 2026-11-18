@@ -20,7 +20,7 @@ export const NAV: NavItem[] = [
   { key: 'courses', label: 'Course search', short: 'Search', icon: 'search' },
   { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner' },
   { key: 'mps', label: 'Master Partners', short: 'Masters', icon: 'building' },
-  { key: 'ips', label: 'Institution partners', short: 'Partners', icon: 'briefcase' },
+  // 18 Nov (Jovial): Recruitment doesn't see Institution partners
 ];
 
 /** On phones the tab bar has room for five. */

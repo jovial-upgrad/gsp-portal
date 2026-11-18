@@ -47,6 +47,7 @@ import { GSP_USER } from '../user';
 import { MyWork } from '../work/MyWork';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
+import { usePublishApps } from '../../components/AppCounts';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -128,6 +129,7 @@ export function Portal({
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? (join ? [] : sampleStudents(acc.name)));
   // and applications, for those students; the student list shows each one's applications from here
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : join ? [] : sampleApplications()));
+  usePublishApps(apps);
   // connected to the other role for testing (Role, beside Prototype): see proto/link.ts
   // the bell and the megaphone: this portal's notifications (real ones from the other role while connected), and
   // announcements as the Institution Team's model has them (this role's own copy: nothing that team changes reaches here)

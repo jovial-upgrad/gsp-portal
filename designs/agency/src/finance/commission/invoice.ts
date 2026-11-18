@@ -66,12 +66,24 @@ export function rpInvoice(state: CommState, rp: { id: string; code: string; name
   const txs = all.filter((t) => t.type !== 'Recovery' || off.has(t.id)).map((t) => (t.type === 'Recovery' ? { ...t, amount: -off.get(t.id)! } : t));
   const carried = all.filter((t) => t.type === 'Recovery' && roundMoney(-t.amount - (t.recovered ?? 0) - (off.get(t.id) ?? 0), t.currency) > 0);
   const sums = sumBy(txs);
-  const totals: InvoiceDoc['totals'] = Object.entries(sums).map(([c, n]) => ({ label: `Total (${c})`, value: money(n, c), strong: true }));
+  // R158 (Lav, 18 Nov): a GST-registered Australian RP adds GST at the Settings' rate and shows its ABN
+  const abn = state.records.find((r) => r.rp === rp.id)?.abn;
+  const gstPct = abn ? state.settings.rpGst ?? 0 : 0;
+  const totals: InvoiceDoc['totals'] = Object.entries(sums).flatMap(([c, n]) => {
+    const gst = roundMoney((n * gstPct) / 100, c);
+    return gstPct
+      ? [
+          { label: `Subtotal (${c})`, value: money(n, c) },
+          { label: `GST ${gstPct}% (${c})`, value: money(gst, c) },
+          { label: `Total (${c})`, value: money(n + gst, c), strong: true },
+        ]
+      : [{ label: `Total (${c})`, value: money(n, c), strong: true }];
+  });
   return {
-    title: 'Invoice',
+    title: abn ? 'Tax invoice' : 'Invoice',
     number: `${rp.code}-${date.replace(/-/g, '')}`,
     date,
-    from: { name: rp.name, lines: [[rp.city, rp.state].filter(Boolean).join(', '), rp.country] },
+    from: { name: rp.name, lines: [[rp.city, rp.state].filter(Boolean).join(', '), rp.country, ...(abn ? [`ABN ${abn}`] : [])] },
     to: state.settings.gsp,
     columns: ['Transaction ID', 'GSP ID', 'Student', 'University', 'Course', 'Intake', 'Study period', 'Amount'],
     rows: txs.map((t) => [t.id, t.app, t.student, t.uniName, t.course, t.intake, studyPeriod(t), money(t.amount, t.currency)]),

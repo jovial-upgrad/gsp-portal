@@ -14,7 +14,7 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
 export type ConfigSection = 'mywork' | 'users' | 'regions' | 'permissions' | 'queues' | 'tasks' | 'emails' | 'bdm' | 'currency' | 'living' | 'tags' | 'levels' | 'grades' | 'english' | 'routing' | 'documents' | 'logs';
 /** 9 Nov (Jovial): Commission lines, where Admin can override a line and export (the PRD's Commissions tab). */
 /** 18 Nov (Jovial): Dashboards, round 1: the Overview and Targets. */
-export type Section = InstitutionSection | ConfigSection | 'commlines' | 'dash' | 'targets' | 'dadm' | 'dsales' | 'dfin' | 'dlead' | 'dset';
+export type Section = InstitutionSection | ConfigSection | 'commlines' | 'commsetup' | 'dash' | 'targets' | 'dadm' | 'dsales' | 'dfin' | 'dlead' | 'dset';
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
 export type NavGroup = { key: string; label: string; icon: IconName; items: NavItem[] };
@@ -38,7 +38,8 @@ export const GROUPS: NavGroup[] = [
   },
   {
     key: 'institution',
-    label: 'Institution',
+    // 18 Nov (Jovial): Partners
+    label: 'Partners',
     icon: 'building',
     items: [
       { key: 'rps', label: 'Recruitment Partners', short: 'RPs', icon: 'partner' },
@@ -68,7 +69,11 @@ export const GROUPS: NavGroup[] = [
     key: 'commissions',
     label: 'Commissions',
     icon: 'wallet',
-    items: [{ key: 'commlines', label: 'Commission Lines', short: 'Lines', icon: 'wallet' }],
+    // 18 Nov (Jovial): Commission lines and Setup, as in GSP · Finance
+    items: [
+      { key: 'commlines', label: 'Commission Lines', short: 'Lines', icon: 'wallet' },
+      { key: 'commsetup', label: 'Setup', short: 'Setup', icon: 'sliders' },
+    ],
   },
   {
     key: 'roles',

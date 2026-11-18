@@ -46,6 +46,7 @@ import { sampleMailbox, type Mailbox } from '../../data/mailbox';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
 import '../../institution/institution.css';
+import { usePublishApps } from '../../components/AppCounts';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 const lensSpring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
@@ -104,6 +105,7 @@ export function Portal({
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(country, join?.form.state || ''));
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? sampleStudents(acc.name));
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));
+  usePublishApps(apps);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
   const [mailbox, setMailbox] = useState<Mailbox>(() => sampleMailbox('rp-ops', apps, students, GSP_USER));

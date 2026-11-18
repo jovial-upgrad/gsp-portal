@@ -6,7 +6,7 @@
  */
 
 /** How a queue shares a new task (9 Nov: three ways; no "Members pick" or "Leader assigns"). */
-export type Sharing = 'fewest' | 'owner' | 'leader';
+export type Sharing = 'fewest' | 'owner' | 'leader' | 'pool';
 export const SHARING: Record<Sharing, { label: string; hint: string }> = {
   fewest: {
     label: 'Fewest open',
@@ -17,6 +17,8 @@ export const SHARING: Record<Sharing, { label: string; hint: string }> = {
     hint: 'It goes to whoever owns the record: the application’s officer, the RP’s Recruitment contact, the partner’s or university’s relationship manager, when that person is an active member of the queue. Otherwise: Fewest open.',
   },
   leader: { label: 'To the leader', hint: 'It goes to the queue’s leader, who does it or assigns it to a member.' },
+  // 18 Nov (Jovial): Commissions: Mail; the whole team sees each mail and someone takes it
+  pool: { label: 'Left in the queue', hint: 'It stays unassigned in the queue for a member to take; the leader can assign it.' },
 };
 export const SHARINGS = Object.keys(SHARING) as Sharing[];
 
@@ -125,7 +127,7 @@ export const spansText = (xs: Span[]) => xs.map(spanText).join(' and ');
 /** How a rule's task is shared: to the application's officer (application rules only), the queue's own way, or one of the three. */
 export type RuleSharing = 'officer' | 'keeper' | 'queue' | Sharing;
 /** `keeper` (Jovial, 17 Nov): commission rules only. The first task for an IP or RP goes by Fewest open; that person keeps it. */
-export const RULE_SHARING: Record<RuleSharing, string> = { officer: 'The application’s officer', keeper: 'One person per IP or RP (Fewest open, then kept)', queue: 'The queue’s own way', fewest: 'Fewest open', owner: 'Record owner', leader: 'To the leader' };
+export const RULE_SHARING: Record<RuleSharing, string> = { officer: 'The application’s officer', keeper: 'One person per IP or RP (Fewest open, then kept)', queue: 'The queue’s own way', fewest: 'Fewest open', owner: 'Record owner', leader: 'To the leader', pool: 'Left in the queue' };
 export const RULE_SHARINGS = Object.keys(RULE_SHARING) as RuleSharing[];
 
 /** The rule groups, as Task Rules' tabs. */
