@@ -75,7 +75,9 @@ export type Feature =
   | 'app.admissions-facts'
   | 'app.celebrate'
   // GSP · Institution Ops (6 Nov): no Students or Applications, so Course search has no student, shortlist or Apply
-  | 'courses.students';
+  | 'courses.students'
+  // GSP · Global Ops (Jovial, 18 Nov): the only role that can move an application back to an earlier stage
+  | 'app.stage-back';
 type Access = { hide: ReadonlySet<Feature>; show: ReadonlySet<Feature> };
 const AccessCtx = createContext<Access>({ hide: new Set(), show: new Set() });
 export const AccessProvider = ({ hide = [], show = [], children }: { hide?: Feature[]; show?: Feature[]; children: ReactNode }) => (

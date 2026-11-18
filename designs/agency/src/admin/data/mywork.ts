@@ -245,8 +245,11 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
       const held = workingHours(start, now, cal);
       const wait = after && after.unit !== 'calendar' ? spanHours(after) : 0;
       if (held < wait) continue;
-      const q = queueFor(rule.to, hit.region, queues, regions);
-      if (!q) continue;
+      const q0 = queueFor(rule.to, hit.region, queues, regions);
+      if (!q0) continue;
+      // 18 Nov: a queue no one can take work in hands it to its backup queue (Global Ops' by default)
+      const staffed = (x: Queue) => peopleOf(x, queues).some(active);
+      const q = staffed(q0) ? q0 : (queues.find((x) => x.id === q0.backup && staffed(x)) ?? q0);
       const way = rule.sharing === 'queue' ? q.sharing : rule.sharing;
       const members = peopleOf(q, queues).filter(active).map((id) => userOf(id)!.name);
       let who: string;
@@ -254,7 +257,8 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
       else if (way === 'pool') who = '';
       else if (way === 'officer') {
         // the application's officer: picked once, by Fewest open, and every later application task goes to them
-        who = officers.get(hit.key) ?? fewest(q);
+        // 18 Nov (the Admissions heads): to the queue's leader when the queue is shared that way, else Fewest open
+        who = officers.get(hit.key) ?? (q.sharing === 'leader' ? userOf(q.lead)?.name || fewest(q) : fewest(q));
         officers.set(hit.key, who);
       } else if (way === 'keeper') {
         // 17 Nov: one person per IP or RP: the first of its tasks goes by Fewest open, and they keep it

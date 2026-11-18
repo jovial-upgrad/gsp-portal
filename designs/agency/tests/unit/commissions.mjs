@@ -133,6 +133,23 @@ try {
     return hits;
   });
   ok('hard-coded scan: no status lists or options written in the pages', hard.length === 0, hard.join('; '));
+  // Tiers to unlock (Jovial, 18 Nov): a card for every tier with terms, even at 0; upcoming intakes; what each band is worth
+  const tierUnis = new Set(state.terms.filter((t) => t.bands?.length).map((t) => t.uni));
+  const tierCards = res.unlocks.filter((u) => u.kind === 'Tier' && u.who === 'university');
+  ok('Tiers to unlock: every university tier has a card', [...tierUnis].every((id) => tierCards.some((u) => u.unis.includes(id))), [...tierUnis].filter((id) => !tierCards.some((u) => u.unis.includes(id))).join());
+  {
+    // a university with no one counted yet, given a tier: its card still shows, at 0, with what each band is worth
+    const withTier = (t) => ({ ...state, terms: state.terms.map((x) => (x === t ? { ...t, bands: [{ from: 1, to: 9, pct: 15 }, { from: 10, to: null, pct: 20 }], countedPer: 'Calendar year' } : x)) });
+    let zero;
+    for (const t of state.terms.filter((x) => !x.bands?.length)) {
+      const card = engine.compute(withTier(t), store.ctxOf(TODAY), extra).unlocks.find((u) => u.kind === 'Tier' && u.unis.includes(t.uni));
+      if (card && card.count === 0) { zero = card; break; }
+    }
+    ok('Tiers to unlock: a tier with no one counted yet still shows (count 0)', !!zero && /10 more/.test(zero.bands[1].worth ?? ''), zero && JSON.stringify(zero.bands));
+  }
+  ok('Tiers to unlock: bands still to reach say what they are worth', res.unlocks.filter((u) => u.kind === 'Tier').every((u) => u.bands.filter((b) => b.more > 0 && !b.now && u.bands.indexOf(b) > u.bands.findIndex((x) => x.now)).every((b) => /more →/.test(b.worth ?? ''))));
+  const retroCard = res.unlocks.find((u) => u.kind === 'Tier' && u.retro && u.count > 0 && u.bands.some((b) => b.worth));
+  ok('Tiers to unlock: a retrospective tier prices the top-up on the counted students', !retroCard || retroCard.bands.some((b) => /retrospective top-up/.test(b.worth ?? '')), retroCard?.bands.map((b) => b.worth).join(' | '));
   // the statuses seen in the seed, for a look
   const tally = {};
   res.txs.forEach((t) => (tally[`${t.side} ${t.status}`] = (tally[`${t.side} ${t.status}`] ?? 0) + 1));

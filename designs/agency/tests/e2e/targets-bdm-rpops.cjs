@@ -31,7 +31,7 @@ const open = async (b, role) => {
       const csv = fs.readFileSync(await dl.path(), 'utf8').trim().split(/\r?\n/);
       ok(/^Level,Name,Period,Applications/.test(csv[0]), 'template header: ' + csv[0]);
       const levels = new Set(csv.slice(1).map((l) => cells(l)[0]));
-      ok(['Company', 'Sales region', 'BDM', 'Destination', 'University', 'IP'].every((l) => levels.has(l)), 'template has every level: ' + [...levels].join(', '));
+      ok(['Company', 'Sales region', 'BDM', 'Destination', 'University'].every((l) => levels.has(l)) && !levels.has('IP'), 'template has every level: ' + [...levels].join(', '));
       ok(/^Company,Global Study Partners,/.test(csv[1]), 'Company row first, named from Commission settings: ' + csv[1]);
       const qs = [...new Set(csv.slice(1).map((l) => cells(l)[2]))];
       ok(qs.join('|') === 'AMJ 26|JAS 26|OND 26|JFM 27', 'the FY’s four quarters per name: ' + qs.join(', '));

@@ -1,4 +1,3 @@
-import { STATUS, STATUS_ORDER } from '../../data/applications';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -8,6 +7,9 @@ import { MultiPick } from '../../components/MultiPick';
 import { SearchPick } from '../../institution/records/SearchPick';
 import { ErrorText, Facts, useAsk } from '../../institution/records/parts';
 import { CURRENCY } from '../../data/courses';
+import { sampleFx } from '../../admin/data/config';
+/** The currencies a bonus can be in: Admin › Currency exchange's (18 Nov). */
+const fxCodes = () => (sampleFx()[0]?.rows ?? []).map((r) => r.code);
 import { todayIso } from '../../institution/data/records';
 import { BandsEditor, FilePick, bandsError, numOf, numText } from './parts';
 import { COUNTRIES } from '../../data/partners';
@@ -15,7 +17,7 @@ import { AddlEditor, RuleCard, RuleList, BandBonusEditor, COMM_LEVELS, FormSec, 
 import { acceptedOn, acceptedRps, saveRpView, ctxRps, ctxUnis, levelsOf, newAgreementId, newGroupId, newNoticeId, ipName, saveAgreement, saveGroup, saveNotice, saveRecord, saveSettings, saveTerms, termsEffect, uniName, useComm } from './store';
 import {
   AB_WHEN,
-  ANNUITY_RULES,
+  EARN_KINDS,
   RP_VIEW_KINDS,
   RP_VIEW_PERIODS,
   type RpView,
@@ -138,7 +140,7 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
     const name = v.name.trim();
-    saveAgreement({ ...v, name, id: v.id || newAgreementId(), share: flat ? v.share : null, bands: flat ? [] : v.bands, status: edit?.status ?? 'Active' }, me, from);
+    saveAgreement({ ...v, name, id: v.id || newAgreementId(), share: flat ? v.share : null, bands: flat ? [] : v.bands, retro: flat ? false : v.retro, retroTop: flat ? false : v.retroTop, status: edit?.status ?? 'Active' }, me, from);
     onSaved(name);
   };
   return (
@@ -167,7 +169,8 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
           <TextInput id="cag-share" inputMode="decimal" value={numText(v.share)} invalid={!!show('share')} onChange={(e) => set({ share: numOf(e.target.value) })} />
         </Field>
       )}
-      {(
+      {/* Jovial, 18 Nov: a flat share counts nothing, so no Retrospective; Counted per only for a bonus at an enrolment number */}
+      {(!flat || v.bonuses.some((b) => b.when !== AB_WHEN[0])) && (
         <Field id="cag-counted" label="Counted per" required hint={v.countedPer === 'Financial year' ? `GSP’s financial year: 1 ${MONTH_NAMES[s.settings.fyStart - 1]} to the end of ${MONTH_NAMES[(s.settings.fyStart + 10) % 12]}.` : undefined}>
           <SelectInput id="cag-counted" value={v.countedPer} onChange={(e) => set({ countedPer: e.target.value as AgDraft['countedPer'] })}>
             {options(COUNTED_PER)}
@@ -190,11 +193,13 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
           <BandsEditor id="cag-bands" bands={v.bands} invalid={!!show('bands')} onChange={(bands) => set({ bands })} />
         </Field>
       )}
-      <Field id="cag-retro" label="Retrospective" optional hint="Yes: reaching a higher band raises the share of every earlier enrolment in the same period.">
-        <SelectInput id="cag-retro" value={v.retro ? 'Yes' : 'No'} onChange={(e) => set({ retro: e.target.value === 'Yes' })}>
-          {options(YES_NO)}
-        </SelectInput>
-      </Field>
+      {!flat && (
+        <Field id="cag-retro" label="Retrospective" optional hint="Yes: reaching a higher band raises the share of every earlier enrolment in the same period.">
+          <SelectInput id="cag-retro" value={v.retro ? 'Yes' : 'No'} onChange={(e) => set({ retro: e.target.value === 'Yes' })}>
+            {options(YES_NO)}
+          </SelectInput>
+        </Field>
+      )}
       {v.retro && !flat && (
         <Field id="cag-retrotop" label="Only once the top band is reached" optional hint="Yes: earlier enrolments are raised only when the last band is reached.">
           <SelectInput id="cag-retrotop" value={v.retroTop ? 'Yes' : 'No'} onChange={(e) => set({ retroTop: e.target.value === 'Yes' })}>
@@ -212,12 +217,19 @@ export function AgreementForm({ open, edit, me, onClose, onSaved }: { open: bool
       <Field id="cag-addl" label="Additional commission passed on (%)" optional error={show('addl')} hint="Share of any additional commission the university pays. Empty: the same as the share above.">
         <TextInput id="cag-addl" inputMode="decimal" value={numText(v.addl)} invalid={!!show('addl')} onChange={(e) => set({ addl: numOf(e.target.value) })} />
       </Field>
-      <FormSec title="Bonus" note="The RP’s own bonus, paid whether or not GSP meets a university’s bonus tier. No RP gets a share of a bonus a university pays GSP. The amount is in each enrolment’s university currency." />
+      <FormSec title="Bonus" note="The RP’s own bonus, paid whether or not GSP meets a university’s bonus tier. No RP gets a share of a bonus a university pays GSP. Each bonus is paid in its currency; none: each enrolment’s university currency." />
       <div className="cform__list">
         {v.bonuses.map((b, i) => (
           <div key={b.id} className="cform__row cform__row--agbonus">
             <TextInput id={`cag-bn-d-${i}`} aria-label={`Bonus ${i + 1}: description`} placeholder="Like: Milestone bonus" value={b.desc} onChange={(e) => upBonus(i, { desc: e.target.value })} />
-            <TextInput id={`cag-bn-a-${i}`} aria-label={`Bonus ${i + 1}: amount, in the university’s currency`} placeholder="Amount" inputMode="decimal" value={numText(b.amount)} onChange={(e) => upBonus(i, { amount: numOf(e.target.value) ?? NaN })} />
+            <SelectInput id={`cag-bn-c-${i}`} aria-label={`Bonus ${i + 1}: currency`} value={b.currency ?? ''} placeholder="University’s" allowEmpty onChange={(e) => upBonus(i, { currency: e.target.value || undefined })}>
+              {fxCodes().map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </SelectInput>
+            <TextInput id={`cag-bn-a-${i}`} aria-label={`Bonus ${i + 1}: amount`} placeholder="Amount" inputMode="decimal" value={numText(b.amount)} onChange={(e) => upBonus(i, { amount: numOf(e.target.value) ?? NaN })} />
             <SelectInput id={`cag-bn-w-${i}`} aria-label={`Bonus ${i + 1}: when`} value={b.when} onChange={(e) => upBonus(i, { when: e.target.value as AgreementBonus['when'], nth: e.target.value === AB_WHEN[0] ? null : b.nth })}>
               {options(AB_WHEN)}
             </SelectInput>
@@ -577,8 +589,19 @@ export function NoticeForm({ open, edit, me, onClose, onSaved }: { open: boolean
         <span aria-hidden="true" />
       )}
       {use.amount && (
-        <Field id="cnt-amount" label="Amount per enrolment" required error={show('amount')} hint="In each enrolment’s university currency. Bonuses from two notices add up.">
+        <Field id="cnt-amount" label="Amount per enrolment" required error={show('amount')} hint="In the currency below. Bonuses from two notices add up.">
           <TextInput id="cnt-amount" inputMode="decimal" value={numText(v.amount)} invalid={!!show('amount')} onChange={(e) => set({ amount: numOf(e.target.value) })} />
+        </Field>
+      )}
+      {(use.amount || use.milestones) && (
+        <Field id="cnt-cur" label="Currency" optional hint="From Currency exchange. Empty: each enrolment’s university currency.">
+          <SelectInput id="cnt-cur" value={v.currency ?? ''} placeholder="University’s currency" allowEmpty onChange={(e) => set({ currency: e.target.value || undefined })}>
+            {fxCodes().map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
       )}
       {use.share && (
@@ -673,7 +696,7 @@ function TierOptions({ idp, v, set, yearField = true }: { idp: string; v: Pick<T
           {options(YES_NO)}
         </SelectInput>
       </Field>
-      <Field id={`${idp}-country`} label="Counted per source country" optional hint="Yes: students from each country are counted on their own.">
+      <Field id={`${idp}-country`} label="Counted per student nationality" optional hint="Yes: students of each nationality are counted on their own (Jovial, 18 Nov: by the student’s nationality only).">
         <SelectInput id={`${idp}-country`} value={v.tierPerCountry ? 'Yes' : 'No'} onChange={(e) => set({ tierPerCountry: e.target.value === 'Yes' })}>
           {options(YES_NO)}
         </SelectInput>
@@ -742,6 +765,7 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
     from: was && (!/^\d{4}-\d{2}-\d{2}$/.test(from) || from <= lastFrom) ? (lastFrom ? `A date after ${lastFrom}, the last edit’s.` : 'Pick the date the new terms start.') : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
+  const [earnKind, setEarnKind] = useState<Partial<Record<Level, (typeof EARN_KINDS)[number]>>>({});
   const setLevel = (k: 'rates' | 'fixed', l: Level, n: number | null) => {
     const next = { ...v[k] };
     if (n === null || Number.isNaN(n)) delete next[l];
@@ -820,22 +844,42 @@ export function TermsForm({ open, uni: editUni, preset, me, extra, onClose, onSa
           <FilePick id="cut-contract" value={v.contract} accept=".pdf,application/pdf" maxMb={s.settings.maxFileMb} invalid={!!show('contract')} onTooBig={setBig} onChange={(contract) => set({ contract })} />
         </Field>
 
-        <FormSec title="What GSP earns" note={`A rate (%) for each program level, or a fixed amount${cur ? ` in ${cur}` : ''} instead. A level with neither is held as Rate missing.`} />
+        <FormSec title="What GSP earns" note={`For each program level, a rate (%) or a fixed amount${cur ? ` in ${cur}` : ''}, one of them. A level with neither is held as Rate missing.`} />
         {show('rates') && <ErrorText id="cut-rates-error">{show('rates')}</ErrorText>}
         {levels.length ? (
           <div className="clevels" role="group" aria-label="Rates by program level">
             <div className="clevels__head" aria-hidden="true">
               <span>Program level</span>
-              <span>Rate (%)</span>
-              <span>Or a fixed amount{cur ? ` (${cur})` : ''}</span>
+              <span>Paid as</span>
+              <span>Rate (%) or amount{cur ? ` (${cur})` : ''}</span>
             </div>
-            {levels.map((l) => (
-              <div key={l} className="clevels__row">
-                <span className="clevels__name">{l}</span>
-                <TextInput id={`cut-rate-${COMM_LEVELS.indexOf(l)}`} aria-label={`${l}: rate (%)`} inputMode="decimal" value={numText(v.rates[l])} invalid={!!show('rates')} onChange={(e) => setLevel('rates', l, numOf(e.target.value))} />
-                <TextInput id={`cut-fixed-${COMM_LEVELS.indexOf(l)}`} aria-label={`${l}: fixed amount`} inputMode="decimal" value={numText(v.fixed[l])} onChange={(e) => setLevel('fixed', l, numOf(e.target.value))} />
-              </div>
-            ))}
+            {levels.map((l) => {
+              // Jovial, 18 Nov: a rate or a fixed amount, one of them
+              const isFixed = (earnKind[l] ?? (v.fixed[l] != null ? EARN_KINDS[1] : EARN_KINDS[0])) === EARN_KINDS[1];
+              const n = COMM_LEVELS.indexOf(l);
+              return (
+                <div key={l} className="clevels__row">
+                  <span className="clevels__name">{l}</span>
+                  <SelectInput
+                    id={`cut-kind-${n}`}
+                    aria-label={`${l}: paid as`}
+                    value={isFixed ? EARN_KINDS[1] : EARN_KINDS[0]}
+                    onChange={(e) => {
+                      const k = e.target.value as (typeof EARN_KINDS)[number];
+                      setEarnKind((m) => ({ ...m, [l]: k }));
+                      setLevel(k === EARN_KINDS[1] ? 'rates' : 'fixed', l, null);
+                    }}
+                  >
+                    {options(EARN_KINDS)}
+                  </SelectInput>
+                  {isFixed ? (
+                    <TextInput id={`cut-fixed-${n}`} aria-label={`${l}: fixed amount`} inputMode="decimal" value={numText(v.fixed[l])} invalid={!!show('rates')} onChange={(e) => setLevel('fixed', l, numOf(e.target.value))} />
+                  ) : (
+                    <TextInput id={`cut-rate-${n}`} aria-label={`${l}: rate (%)`} inputMode="decimal" value={numText(v.rates[l])} invalid={!!show('rates')} onChange={(e) => setLevel('rates', l, numOf(e.target.value))} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="cmuted cform__wide">Choose the university to see the program levels it offers.</p>
@@ -1022,7 +1066,6 @@ export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean;
 
 const daysText = (d: number[]) => d.join(', ');
 const daysOf = (t: string) => t.split(/[\s,]+/).filter(Boolean).map(Number);
-const linesOf = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean);
 
 /** Edit Commission settings (Finance › Setup › Settings): the rules every line uses. */
 export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me: string; onClose: () => void; onSaved: () => void }) {
@@ -1030,7 +1073,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const [v, setV] = useState<Settings>(s.settings);
   const [gstRows, setGstRows] = useState<{ dest: string; pct: number | null }[]>([]);
   const [grpRows, setGrpRows] = useState<{ name: string; countries: string[] }[]>([]);
-  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', sendBack: '', rpGst: '', invPrefix: '', billPrefix: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
+  const [t, setT] = useState({ rpGst: '', invPrefix: '', billPrefix: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -1039,11 +1082,6 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     setGstRows(Object.entries(x.gst).map(([dest, pct]) => ({ dest, pct: pct ?? null })));
     setGrpRows(Object.entries(x.regionGroups).map(([name, countries]) => ({ name, countries })));
     setT({
-      docTypes: x.docTypes.join('\n'),
-      studentTypes: x.studentTypes.join('\n'),
-      partReasons: x.partReasons.join('\n'),
-      notPayable: (x.notPayableReasons ?? []).join('\n'),
-      sendBack: (x.sendBackReasons ?? []).join('\n'),
       rpGst: x.rpGst == null ? '' : String(x.rpGst),
       invPrefix: x.invPrefix ?? '',
       billPrefix: x.billPrefix ?? '',
@@ -1062,8 +1100,6 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     chase: !wholeIn(v.recoveryChaseDays ?? 90, 1, 730) ? 'A whole number of days, 1 to 730.' : null,
     gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
     groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
-    annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
-    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length || !linesOf(t.notPayable).length || !linesOf(t.sendBack).length ? 'Keep at least one in each list.' : null,
     rpGst: t.rpGst.trim() !== '' && !(Number(t.rpGst) >= 0 && Number(t.rpGst) <= 100) ? 'A % from 0 to 100.' : null,
     days: ![t.rpInvoice, t.uniPayment, t.rpPayment].every(days) ? 'Days, like 0, 7, 14.' : null,
   };
@@ -1074,14 +1110,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     saveSettings(
       {
         ...v,
-        annuity: { rule: v.annuity.rule, pct: v.annuity.rule === 'Flat %' ? v.annuity.pct : null },
         gst: Object.fromEntries(gstRows.map((g) => [g.dest, g.pct!])),
         regionGroups: Object.fromEntries(grpRows.map((g) => [g.name.trim(), g.countries])),
-        docTypes: linesOf(t.docTypes),
-        studentTypes: linesOf(t.studentTypes),
-        partReasons: linesOf(t.partReasons),
-        notPayableReasons: linesOf(t.notPayable),
-        sendBackReasons: linesOf(t.sendBack),
         rpGst: t.rpGst.trim() === '' ? undefined : Number(t.rpGst),
         invPrefix: t.invPrefix.trim() || undefined,
         billPrefix: t.billPrefix.trim() || undefined,
@@ -1092,11 +1122,6 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     );
     onSaved();
   };
-  const area = (id: string, k: keyof typeof t) => (
-    <div className="control iform__area">
-      <textarea id={id} className="control__input" rows={3} value={t[k]} onChange={up(k)} />
-    </div>
-  );
   return (
     <FormSheet open={open} title="Edit Commission settings" sub="Lines not yet invoiced follow the new settings; kept lines don’t change." onClose={onClose} onSave={save}>
       <FormSec title="Counting and dates" />
@@ -1119,17 +1144,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <Field id="cst-chase" label="Chase a recovery after (days)" required error={show('chase')} hint="A recovery with no payment to set it against this long goes to To do › Recoveries to chase, for a debit note to the RP.">
         <TextInput id="cst-chase" inputMode="numeric" value={numText(v.recoveryChaseDays ?? 90)} invalid={!!show('chase')} onChange={(e) => set({ recoveryChaseDays: numOf(e.target.value) ?? NaN })} />
       </Field>
-      <Field id="cst-ann" label="RP share after year 1" required hint="Unless the RP’s record has its own.">
-        <SelectInput id="cst-ann" value={v.annuity.rule} onChange={(e) => set({ annuity: { ...v.annuity, rule: e.target.value as Settings['annuity']['rule'] } })}>
-          {options(ANNUITY_RULES)}
-        </SelectInput>
-      </Field>
-      {v.annuity.rule === 'Flat %' && (
-        <Field id="cst-annpct" label="Share after year 1 (%)" required error={show('annuity')}>
-          <TextInput id="cst-annpct" inputMode="decimal" value={numText(v.annuity.pct)} invalid={!!show('annuity')} onChange={(e) => set({ annuity: { ...v.annuity, pct: numOf(e.target.value) } })} />
-        </Field>
-      )}
-      <RpViewFields idp="cst" v={v.rpView} set={(rpView) => set({ rpView })} hint="For a new RP’s record; each RP’s record can change it." />
+      {/* Jovial, 18 Nov: RP share after year 1 and What the RP sees are fixed in the product, not set here */}
       <FormSec title="Invoices and regions" />
       <div className="cform__wide">
         <p className="cform__label">GST on GSP’s invoices to universities</p>
@@ -1165,37 +1180,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
           ))}
         </RuleList>
       </div>
-      <FormSec title="Lists" note="The choices the commission forms offer." />
-      <Field id="cst-doc" label="Notice document types" required error={show('lists')} hint="One a line.">
-        {area('cst-doc', 'docTypes')}
-      </Field>
-      <Field id="cst-stype" label="Student types" optional hint="One a line. Admissions picks one from pre-screening, for a university in the countries below.">
-        {area('cst-stype', 'studentTypes')}
-      </Field>
-      <Field id="cst-stype-c" label="Countries that need the student type" optional hint="A university in one of these can’t have a student enrolled without it.">
-        <MultiPick id="cst-stype-c" label="Countries that need the student type" value={v.studentTypeCountries} options={[...new Set(ctxUnis().map((u) => u.country))].sort()} onChange={(x) => set({ studentTypeCountries: x })} empty="None" />
-      </Field>
-      <Field id="cst-live" label="Commissions live on the portal from" optional hint="Commissions before it stay in the old portal; no task’s clock starts before this day.">
-        <TextInput id="cst-live" type="date" value={v.liveFrom ?? ''} onChange={(e) => set({ liveFrom: e.target.value })} />
-      </Field>
-      <Field id="cst-fc" label="Commission is forecast from" required hint="From this application status, lines show as Expected and Admissions must enter the fee, scholarship and course start.">
-        <SelectInput id="cst-fc" value={v.forecastFrom} onChange={(e) => set({ forecastFrom: e.target.value })}>
-          {STATUS_ORDER.filter((k) => k !== 'enrolled').map((k) => (
-            <option key={k} value={k}>
-              {STATUS[k].text('Australia')}
-            </option>
-          ))}
-        </SelectInput>
-      </Field>
-      <Field id="cst-part" label="Part payment reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Record payment offers when a university pays less.">
-        {area('cst-part', 'partReasons')}
-      </Field>
-      <Field id="cst-np" label="Not payable reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Mark not payable offers. The last one asks for a few words.">
-        {area('cst-np', 'notPayable')}
-      </Field>
-      <Field id="cst-sb" label="Invoice send-back reasons" required error={show('lists')} className="iform__wide" hint="One a line: why Finance sends an RP's invoice back (Lav, 18 Nov). The last one asks for a few words.">
-        {area('cst-sb', 'sendBack')}
-      </Field>
+      {/* Jovial, 18 Nov: notice document types, student types and their countries, live-from and forecast-from dates and the part payment, not payable and send-back reasons are fixed in the product: no settings */}
+      <FormSec title="Invoice numbers" />
       <Field id="cst-rpgst" label="GST on RP invoices (%)" error={show('rpGst')} hint="Added to a GST-registered Australian RP's filled-in invoice (R158).">
         <TextInput id="cst-rpgst" inputMode="decimal" value={t.rpGst} invalid={!!show('rpGst')} onChange={up('rpGst')} />
       </Field>

@@ -7,7 +7,7 @@ import { MoreMenu } from '../../components/MoreMenu';
 import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { NoMatch, PageHead, RecordTabs, TabPanel } from '../../institution/records/parts';
-import { QUEUE_TYPES, queueTree, type Queue, type QueueType, type User } from '../data/config';
+import { BACKUP_QUEUE, QUEUE_TYPES, queueTree, type Queue, type QueueType, type User } from '../data/config';
 import {
   AFTER_UNITS,
   DEFAULT_TZ,
@@ -273,7 +273,10 @@ function QueuesTab({ cfg, change, say, onEdit }: ConfigProps & { onEdit: (q: Que
   );
 }
 
-/** Create or edit a queue: its name, leader, how a new task is shared and its members, listed under the form. */
+/**
+ * Create or edit a queue (cleaned up 18 Nov): what it is (name, type, sales region, part of), who's in it (leader,
+ * members), how work reaches them (shared by) and its backup queue, then everyone in it, listed under the form.
+ */
 function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { open: boolean; queue: Queue | null; queues: Queue[]; regions: string[]; users: User[]; onClose: () => void; onSave: (q: Queue) => void }) {
   const [name, setName] = useState('');
   // Jovial, 18 Nov: every queue names its sales region and its type, both required
@@ -283,10 +286,12 @@ function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { 
   const [sharing, setSharing] = useState<Sharing>('fewest');
   const [members, setMembers] = useState<string[]>([]);
   const [parent, setParent] = useState('');
+  const [backup, setBackup] = useState(BACKUP_QUEUE);
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
     setParent(queue?.parent ?? '');
+    setBackup(queue?.backup ?? (queue?.id === BACKUP_QUEUE ? '' : BACKUP_QUEUE));
     setRegion(queue?.region ?? '');
     setType(queue?.type ?? '');
     setName(queue?.name ?? '');
@@ -302,6 +307,7 @@ function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { 
     lead: !lead ? 'Choose a leader.' : null,
     region: !region ? 'Choose its sales region.' : null,
     type: !type ? 'Choose its type.' : null,
+    backup: !backup ? 'Choose its backup queue.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const picked = members.filter((n) => n !== leadName);
@@ -309,7 +315,7 @@ function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { 
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
     const ids = members.filter((n) => n !== leadName).map((n) => users.find((u) => u.name === n)?.id).filter((x): x is string => !!x);
-    onSave({ id: queue?.id ?? `q-${Date.now()}`, name: v, lead, sharing, members: ids, region, type: type as QueueType, ...(parent ? { parent } : {}) });
+    onSave({ id: queue?.id ?? `q-${Date.now()}`, name: v, lead, sharing, members: ids, region, type: type as QueueType, backup, ...(parent ? { parent } : {}) });
   };
   const active = users.filter((u) => u.status !== 'Deactivated');
   return (
@@ -337,17 +343,9 @@ function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { 
         Required
       </p>
       <div className="wk-form">
-        <Field id="wq-name" label="Queue name" required error={show('name')}>
+        <h3 className="wk-form__h">The queue</h3>
+        <Field id="wq-name" label="Queue name" required error={show('name')} className="wk-wide">
           <TextInput id="wq-name" value={name} maxLength={60} invalid={!!show('name')} placeholder="Like: India Admissions" onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <Field id="wq-region" label="Sales region" required error={show('region')} hint="The region whose work it takes; Global for a team that covers every region.">
-          <SelectInput id="wq-region" value={region} placeholder="Choose one region" invalid={!!show('region')} aria-describedby="wq-region-hint" onChange={(e) => setRegion(e.target.value)}>
-            {regions.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </SelectInput>
         </Field>
         <Field id="wq-type" label="Type" required error={show('type')} hint="Sales regions offer Admissions queues as their admission queue and Recruitment queues as their recruitment queue.">
           <SelectInput id="wq-type" value={type} placeholder="Choose one type" invalid={!!show('type')} aria-describedby="wq-type-hint" onChange={(e) => setType(e.target.value as QueueType)}>
@@ -358,11 +356,11 @@ function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { 
             ))}
           </SelectInput>
         </Field>
-        <Field id="wq-lead" label="Leader" required error={show('lead')} hint="Sees the queue’s tasks and can assign them.">
-          <SelectInput id="wq-lead" value={lead} placeholder="Choose one person" invalid={!!show('lead')} aria-describedby="wq-lead-hint" onChange={(e) => setLead(e.target.value)}>
-            {active.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
+        <Field id="wq-region" label="Sales region" required error={show('region')} hint="The region whose work it takes; Global for a team that covers every region.">
+          <SelectInput id="wq-region" value={region} placeholder="Choose one region" invalid={!!show('region')} aria-describedby="wq-region-hint" onChange={(e) => setRegion(e.target.value)}>
+            {regions.map((r) => (
+              <option key={r} value={r}>
+                {r}
               </option>
             ))}
           </SelectInput>
@@ -379,6 +377,20 @@ function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { 
               ))}
           </SelectInput>
         </Field>
+        <h3 className="wk-form__h">Who’s in it</h3>
+        <Field id="wq-lead" label="Leader" required error={show('lead')} hint="Sees the queue’s tasks and can assign them.">
+          <SelectInput id="wq-lead" value={lead} placeholder="Choose one person" invalid={!!show('lead')} aria-describedby="wq-lead-hint" onChange={(e) => setLead(e.target.value)}>
+            {active.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="wq-members" label="Members" className="wk-wide" hint="The leader is always in it.">
+          <MultiPick id="wq-members" label="Members" value={members} options={active.filter((u) => u.id !== lead).map((u) => u.name)} onChange={setMembers} empty="Just the leader" search />
+        </Field>
+        <h3 className="wk-form__h">How work reaches them</h3>
         <Field id="wq-share" label="Shared by" required hint={SHARING[sharing].hint}>
           <SelectInput id="wq-share" value={sharing} aria-describedby="wq-share-hint" onChange={(e) => setSharing(e.target.value as Sharing)}>
             {SHARINGS.map((k) => (
@@ -388,8 +400,16 @@ function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { 
             ))}
           </SelectInput>
         </Field>
-        <Field id="wq-members" label="Members" hint="The leader is always in it.">
-          <MultiPick id="wq-members" label="Members" value={members} options={active.filter((u) => u.id !== lead).map((u) => u.name)} onChange={setMembers} empty="Just the leader" search />
+        <Field id="wq-backup" label="Backup queue" required error={show('backup')} hint="Its tasks go here when no one in it can take them (no active leader or member).">
+          <SelectInput id="wq-backup" value={backup} placeholder="Choose one queue" invalid={!!show('backup')} aria-describedby="wq-backup-hint" onChange={(e) => setBackup(e.target.value)}>
+            {queues
+              .filter((x) => x.id !== queue?.id)
+              .map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
+          </SelectInput>
         </Field>
       </div>
       <section className="wk-picked" aria-labelledby="wq-picked">

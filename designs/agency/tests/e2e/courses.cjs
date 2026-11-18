@@ -12,7 +12,7 @@ const URL = process.env.GSP_URL || require('url').pathToFileURL(require('path').
   await p.goto(URL); await p.evaluate(() => localStorage.clear());
   await p.goto(URL + '#portal-verifying'); await p.reload(); await p.waitForTimeout(1600);
   await p.locator('.shell__side').getByRole('button', { name: /^Find courses/ }).click(); await p.waitForTimeout(600);
-  ok('landing: popular searches', (await p.$$('.fpop button')).length === 6);
+  ok('landing: no popular searches (18 Nov)', (await p.$$('.fpop button')).length === 0);
   ok('country and state start as the agency’s', (await p.inputValue('#fc-country')) === 'India' && (await p.inputValue('#fc-state')) === 'Karnataka');
   await p.fill('#fc-q', 'mba uk under 22k jan'); await p.press('#fc-q', 'Enter'); await p.waitForTimeout(600);
   ok('Enter searches; the box fills the fields', (await p.inputValue('#fc-dest')) === 'UK' && (await p.inputValue('#fc-level')) === 'Master’s degree' && (await p.inputValue('#fc-area')) === 'Business and management');

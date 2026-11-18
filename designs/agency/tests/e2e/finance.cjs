@@ -42,7 +42,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   const docEdits = (await labels()).filter((l) => /^(Upload|Remove|Replace)/.test(l));
   ok(docEdits.length === 0, 'Student record › Documents: view only' + (docEdits.length ? ' (found ' + docEdits.join(', ') + ')' : ''));
   await nav('Course search').click(); await wait(800);
-  await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click(); await wait(1200);
+  await (await p.fill('#fc-q', 'mba uk'), await p.press('#fc-q', 'Enter')); await wait(1200);
   ok((await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) > 0, 'Course search: results with Apply');
   ok(!(await p.locator('main').innerText()).includes('Base commission'), 'Course search: no commission');
   ok((await p.locator('#fc-view').count()) === 0, 'Course search: no Student view switch (no commission to hide)');

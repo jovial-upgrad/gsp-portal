@@ -521,3 +521,6 @@
 .cfg__when { min-width: 220px; }
 .cfg__whenpick + .cfg__whenpick { margin-top: 6px; }
 .wk-sub { display: block; font-size: 12px; margin-top: 2px; }
+.wk-form__h { grid-column: 1 / -1; margin: var(--sp-8) 0 -4px; font-size: var(--t-label); font-weight: var(--fw-semi); color: var(--text-2); }
+.wk-form__h:first-child { margin-top: 0; }
+.wk-form .wk-wide { grid-column: 1 / -1; }

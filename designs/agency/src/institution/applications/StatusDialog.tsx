@@ -7,6 +7,7 @@ import { Icon } from '../../components/Icon';
 import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
 import { OTHER_REASON, sampleCloseReasons } from '../../admin/data/config';
 import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
+import { useShows } from '../../proto/viewOnly';
 import { CLOSE_AT, STAGES, STATUS, STATUS_NEEDS, STATUS_ORDER, courseOf, destOf, letterFor, letterOnFile, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
 import './applications.css';
 
@@ -73,7 +74,9 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
     setBad('');
     setVisaBy(a.visaBy ?? '');
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  const stages: MenuOption[] = STAGES.map((st, i) => ({ value: String(i), label: `${i + 1}. ${st}`, note: i === stageOf(a) ? 'Now' : undefined }));
+  // Jovial, 18 Nov: stages go one way; only GSP · Global Ops can move an application back to an earlier stage
+  const back = useShows('app.stage-back');
+  const stages: MenuOption[] = STAGES.map((st, i) => ({ value: String(i), label: `${i + 1}. ${st}`, note: i === stageOf(a) ? 'Now' : i < stageOf(a) && !back ? 'Only Global Ops can move back' : undefined, disabled: i < stageOf(a) && !back }));
   const statuses: MenuOption[] = [
     ...STATUS_ORDER.filter((x) => STATUS[x].stage === stage).map((x) => ({ value: x, label: STATUS[x].text(d), note: x === a.status ? 'Now' : undefined })),
     ...CLOSE_AT[stage].map((kind) => ({ value: `end:${stage}:${kind}`, label: kind, group: 'Close the application', tone: 'end' as const })),

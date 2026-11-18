@@ -278,7 +278,6 @@ export function StudentRecord({
   // the documents the profile needs are counted in Documents, not in the part they belong to
   const docMissing = ['passport copy', eduDocName(s.highest).toLowerCase()];
   const missingIn = (k: Editable) => r.sections.find((x) => x.key === k)?.missing.filter((m) => !docMissing.includes(m)) ?? [];
-  const needDocs = [!s.docs.passport, !s.docs[eduDocKey(s.highest)]].filter(Boolean).length;
   const shortlist = (s.shortlist ?? []).map((id) => COURSES.find((c) => c.id === id)).filter((c): c is (typeof COURSES)[number] => !!c);
   /** A part of Personal details: unsaved, incomplete, done, or optional. */
   const tabStatus = (k: Editable) => {
@@ -289,7 +288,8 @@ export function StudentRecord({
   };
   const status = (g: Group) => {
     if (g === 'apps') return { text: String(s.apps.length), cls: 'is-count' };
-    if (g === 'documents') return needDocs ? { text: `${needDocs} missing`, cls: 'is-todo' } : { text: String(Object.keys(s.docs).length), cls: 'is-count' };
+    // Jovial, 18 Nov: the count of documents, not what's missing
+    if (g === 'documents') return { text: String(Object.keys(s.docs).length), cls: 'is-count' };
     if (DETAIL_TABS.some(([k]) => drafts[k])) return { text: 'Unsaved', cls: 'is-unsaved' };
     return missingIn('personal').length || missingIn('education').length || missingIn('tests').length ? { text: 'Incomplete', cls: 'is-todo' } : { text: 'Completed', cls: 'is-done' };
   };

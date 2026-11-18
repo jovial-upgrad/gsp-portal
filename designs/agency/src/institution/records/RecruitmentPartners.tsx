@@ -171,9 +171,7 @@ function RpPage({ r, tab: start, onBack, say }: { r: RecruitmentPartner; tab?: s
       <TabPanel id="irptab" tab={tab}>
         {tab === 'overview' && (
           <>
-            <Section title="Applications" id="irp-apps" note="Every application from this RP, by where it is. Each number opens them.">
-              <AppCounts id="irp-apps" match={(a) => (a.rp ?? HOME_RP) === r.name} />
-            </Section>
+            <AppCounts id="irp-apps" match={(a) => (a.rp ?? HOME_RP) === r.name} />
             <Section title="Details" id="irp-details">
               <Facts
                 items={[

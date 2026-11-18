@@ -889,8 +889,12 @@ function Unlinked({ m, apps, students, onLink, onForward, onNotNeeded }: { m: Bo
           <h3 id={`${id}-t`} className="mbx__nudge-t">
             Not linked to an application
           </h3>
-          <p className="mbx__nudge-text">GSP couldn’t match this mail to an application. Do one of these: link it to an application, forward it to the inbox it belongs in, or mark it Not needed if it’s spam or junk.</p>
+          <p className="mbx__nudge-text">GSP couldn’t match this mail to an application. Do one of these: link it to an application, or forward it to the inbox it belongs in.</p>
         </div>
+        {/* Jovial, 18 Nov: Not needed is the cross (spam or junk: it goes to Others, with who and when) */}
+        <button type="button" className="icon-btn mbx__nudge-x" aria-label="Not needed: spam or junk (moves it to Others)" title="Not needed: spam or junk" onClick={onNotNeeded}>
+          <Icon name="close" size={18} />
+        </button>
       </div>
       <div className="mbx__nudge-grid">
         <div className="mbx__nudge-col">
@@ -930,12 +934,6 @@ function Unlinked({ m, apps, students, onLink, onForward, onNotNeeded }: { m: Bo
             </p>
           )}
         </div>
-      </div>
-      <div className="mbx__nudge-foot">
-        <Button variant="ghost" iconLeft={<Icon name="close" size={16} />} onClick={onNotNeeded}>
-          Not needed
-        </Button>
-        <span className="mbx__nudge-text">Spam or junk: it goes to Others, with who marked it and when.</span>
       </div>
     </section>
   );

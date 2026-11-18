@@ -257,6 +257,20 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
   );
 }
 
+/** A contract's Preview contract button (Jovial, 18 Nov: at the top right of a Commission card). */
+export function ContractButton({ file, label }: { file: FileRef | null; label: string }) {
+  const [open, setOpen] = useState(false);
+  if (!file) return null;
+  return (
+    <>
+      <Button variant="secondary" size="sm" iconLeft={<Icon name="eye" size={16} />} onClick={() => setOpen(true)}>
+        Preview contract
+      </Button>
+      <PreviewSheet d={{ name: label, file: file.name }} open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
 /** Commissions' way into Setup from a Commission tab: shown only where the portal gives it. */
 export function SetupButton({ tab, open, children = 'Edit in Setup' }: { tab: SetupTab; open?: string; children?: ReactNode }) {
   const nav = useCommNav();

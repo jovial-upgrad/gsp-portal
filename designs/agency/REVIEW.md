@@ -462,7 +462,7 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 - [x] Ali, 18 Nov call: **no RP bank details on the portal** (they come on the RP's invoice; the permission row is gone). REGRESSION R151. (18 Nov, branch ali-18nov)
 - [x] (18 Nov, 488a598: application BDM rule, R186) Ali, 18 Nov call: **enrolment BDM** = the RP's BDM, the branch's BDM for a branch's applications, the onshore region's BDM for a head office's onshore students. REGRESSION R152 (dashboards round 3).
-- [ ] Ali, 18 Nov call: **Admissions assignment by shares** the manager sets per destination and stage (offer, GS, visa lodgement), the incentive being per team. Talk to Sabrina, Nahar, Jess, Manikandan, Supriya first. REGRESSION R153.
+- [x] (18 Nov, c00ab73: decided with the Admissions heads: to the leader, else Fewest open; no shares, R193) Ali, 18 Nov call: **Admissions assignment by shares** the manager sets per destination and stage (offer, GS, visa lodgement), the incentive being per team. Talk to Sabrina, Nahar, Jess, Manikandan, Supriya first. REGRESSION R153.
 
 ## RP Ops
 

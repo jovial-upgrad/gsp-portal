@@ -331,7 +331,7 @@ export function SchemesEditor({ id, items, onChange, o, cur, tried, countedLabel
               {opts(YES_NO)}
             </SelectInput>
           </Field>
-          <Field id={`${id}-pc-${i}`} label="Counted per source country" required>
+          <Field id={`${id}-pc-${i}`} label="Counted per student nationality" required>
             <SelectInput id={`${id}-pc-${i}`} value={b.perCountry ? 'Yes' : 'No'} onChange={(e) => up(i, { perCountry: e.target.value === 'Yes' })}>
               {opts(YES_NO)}
             </SelectInput>

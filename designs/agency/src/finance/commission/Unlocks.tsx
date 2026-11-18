@@ -8,7 +8,7 @@ import { dayText } from './model';
  * What the next enrolments unlock (Jovial, 13 Nov): Commission lines' third page, for Finance. Every university and
  * group tier and bonus scheme in its counting windows still open, from the engine (the pool the lines are priced on):
  * how many are counted, how many more reach each band, and who the counted students are by course level, sales region,
- * source country and course. A university filter narrows it (an IP's terms show for each university that counts). RPs' own
+ * student nationality and course. A university filter narrows it (an IP's terms show for each university that counts). RPs' own
  * bands aren't here (Jovial, 16 Nov): GSP plans what it earns, not what reaching an RP's next band costs.
  */
 export function Unlocks({ res }: { res: Result }) {
@@ -54,7 +54,7 @@ function UnlockCard({ u }: { u: Unlock }) {
   const splits: [string, Record<string, number>][] = [
     ['Course level', u.by.level],
     ['Sales region (RP)', u.by.region],
-    ['Source country', u.by.country],
+    ['Student nationality', u.by.country],
     ['Course', u.by.course],
   ];
   return (
@@ -69,7 +69,7 @@ function UnlockCard({ u }: { u: Unlock }) {
           </h3>
           <p className="irsec__note">
             {u.count} counted in {u.window}
-            {u.country ? `, students from ${u.country}` : ''}
+            {u.country ? `, students of ${u.country} nationality` : ''}
             {u.levels.length ? `, ${u.levels.join(', ')} only` : ''}
             {u.ends ? `; the window ends ${dayText(u.ends)}` : ''}. {u.retro ? 'Retrospective: reaching a band sets it for every student counted.' : 'Prospective: each student gets the band of their own place.'}
           </p>
@@ -87,10 +87,12 @@ function UnlockCard({ u }: { u: Unlock }) {
               {b.to == null ? '+' : `–${b.to}`} students
             </span>
             <span className="cunlock__state">{b.now ? 'Here now' : b.more === 0 ? 'Reached' : `${b.more} more`}</span>
+            {b.worth && <span className="cunlock__worth">{b.worth}</span>}
           </li>
         ))}
       </ol>
-      <div className="cunlock__splits">
+      {u.count === 0 && <p className="cmuted">No students counted in this window yet.</p>}
+      <div className="cunlock__splits" hidden={u.count === 0}>
         {splits.map(([h, m]) => (
           <div key={h}>
             <p className="cunlock__kicker">{h}</p>

@@ -10,7 +10,8 @@ import { peopleOf } from '../admin/data/config';
 
 /** Who a target is for. */
 /** Jovial, 18 Nov: Company is the business's own target; BDM is the application BDM. */
-export const TARGET_LEVELS = ['Company', 'Sales region', 'BDM', 'Destination', 'University', 'IP'] as const;
+/** Jovial, 18 Nov: no IP level (no dashboard compares against it). */
+export const TARGET_LEVELS = ['Company', 'Sales region', 'BDM', 'Destination', 'University'] as const;
 export type TargetLevel = (typeof TARGET_LEVELS)[number];
 /** What a target counts: a milestone of the dashboards (by its key), or revenue in AUD. */
 export const TARGET_METRICS: { col: string; key: string }[] = [
@@ -58,7 +59,7 @@ export function readPeriod(raw: string): { label: string; months: string[] } | n
 const split = (l: string) => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.map((c) => c.replace(/,$/, '').replace(/^"|"$/g, '').replace(/""/g, '"').trim()).slice(0, -1);
 
 /** The names each level accepts, from the records. */
-export function namesFor(d: Reporting, ips: string[], company: string): Record<TargetLevel, string[]> {
+export function namesFor(d: Reporting, company: string): Record<TargetLevel, string[]> {
   return {
     Company: [company],
     // the people in the sales regions' Recruitment queues (and the queues under them)
@@ -69,7 +70,6 @@ export function namesFor(d: Reporting, ips: string[], company: string): Record<T
     'Sales region': d.regions.map((r) => r.name),
     Destination: [...DESTINATIONS],
     University: UNIVERSITIES.map((u) => u.name),
-    IP: ips,
   };
 }
 
@@ -163,8 +163,8 @@ Destination,UK,OND 26,1100,700,480,150,130,95,360000
 University,Flinders University,OND 26,120,80,60,20,18,14,62000`;
 const REVISED = AOP.replace('BDM,Harsh,OND 26,420,260,180,60,52,40,160000', 'BDM,Harsh,OND 26,380,240,160,50,45,34,136000').replace('Sales region,India,OND 26,1800,1100,760,240,210,160,640000', 'Sales region,India,OND 26,1500,950,650,200,175,135,540000');
 
-export function sampleTargets(d: Reporting, ips: string[], company: string): TargetVersion[] {
-  const names = namesFor(d, ips, company);
+export function sampleTargets(d: Reporting, company: string): TargetVersion[] {
+  const names = namesFor(d, company);
   const ver = (id: string, name: string, current: boolean, at: string, csv: string): TargetVersion => ({ id, name, current, by: 'Jovial Lejo', at, rows: readTargets(csv.split('{company}').join(company), names).rows.flatMap((r) => (r.row ? [r.row] : [])) });
   return [ver('tv-aop', 'AOP FY27', false, '2026-04-02', AOP), ver('tv-30oct', 'Revised 30 Oct', true, '2026-10-30', REVISED)];
 }

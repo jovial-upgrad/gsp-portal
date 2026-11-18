@@ -188,6 +188,8 @@
 /* the nudge on a mail GSP couldn't place: link it to an application, or forward it */
 .mbx__nudge { display: grid; gap: var(--sp-16); padding: var(--sp-16) var(--sp-20) var(--sp-20); border: 1px solid var(--you-line); border-radius: 14px; background: color-mix(in srgb, var(--you-bg) 55%, var(--surface)); }
 .mbx__nudge-head { display: flex; align-items: flex-start; gap: var(--sp-12); }
+.mbx__nudge-head > div { flex: 1; }
+.mbx__nudge-x { margin: -4px -4px 0 0; flex: none; }
 .mbx__nudge-ic { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--you-bg); color: var(--you); }
 .mbx__nudge-t { font-size: var(--t-label); line-height: var(--lh-label); font-weight: var(--fw-semi); color: var(--text); }
 .mbx__nudge-text { margin-top: 2px; font-size: var(--t-label); line-height: var(--lh-label); color: var(--text-2); }

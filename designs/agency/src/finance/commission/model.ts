@@ -143,13 +143,16 @@ export type AgreementTerms = {
   doc: FileRef | null;
 };
 /** When an agreement's bonus is paid: on every enrolment, or on the enrolment that reaches a number in the agreement's counting window. */
+/** How a program level's commission is set on University terms (Jovial, 18 Nov): a rate or a fixed amount, one of them. */
+export const EARN_KINDS = ['Rate (%)', 'Fixed amount'] as const;
 export const AB_WHEN = ['Every enrolment', 'At an enrolment number'] as const;
 export type AbWhen = (typeof AB_WHEN)[number];
 /**
  * An agreement's bonus: its description and amount, and when (`nth`: the enrolment number, for At an enrolment number).
- * The amount is in the university's currency, like every line (Jovial, 10 Nov, Q67).
+ * The amount is in `currency` (Jovial, 18 Nov: a currency from Currency exchange); none: the enrolment's university
+ * currency, as before (Q67). The line is made in that currency.
  */
-export type AgreementBonus = { id: string; desc: string; amount: number; when: AbWhen; nth: number | null };
+export type AgreementBonus = { id: string; desc: string; amount: number; when: AbWhen; nth: number | null; currency?: string };
 /**
  * An agreement variant. `earlier`: its terms before each edit, with the day they stopped: an edit has an Effective
  * from date (Jovial, 10 Nov, Q41), and an enrolment takes the terms in force on its intake start date.
@@ -197,8 +200,9 @@ export type Notice = {
   unis: string[];
   levels: Level[];
   benefit: Benefit;
-  /** A bonus's amount, in the university's currency of each enrolment it covers (Jovial, 10 Nov, Q67). */
+  /** A bonus's amount (and milestones' amounts), in `currency` (Jovial, 18 Nov); none: each enrolment's university currency (Q67). */
   amount: number | null;
+  currency?: string;
   share: number | null;
   bands: Band[];
   /** A tiered share counted retrospectively: the band reached raises the earlier enrolments it covers (Q57). */
@@ -619,17 +623,17 @@ export const pct = (n: number) => `${n.toLocaleString('en-GB', { maximumFraction
 export const bandsText = (b: Band[], unit = '%') => b.map((x) => `${x.from}${x.to === null ? '+' : `–${x.to}`}: ${x.pct}${unit}`).join(', ');
 export const shareText = (t: Pick<AgreementTerms, 'shareType' | 'share' | 'bands'>) =>
   t.shareType === 'Flat' ? `${pct(t.share ?? 0)} flat` : t.bands.length ? `${pct(Math.min(...t.bands.map((b) => b.pct)))} to ${pct(Math.max(...t.bands.map((b) => b.pct)))}, by enrolments` : 'No bands yet';
-export const benefitText = (n: Pick<Notice, 'benefit' | 'amount' | 'share' | 'bands' | 'milestones' | 'tuitionPct' | 'combine'>) =>
+export const benefitText = (n: Pick<Notice, 'benefit' | 'amount' | 'share' | 'bands' | 'milestones' | 'tuitionPct' | 'combine' | 'currency'>) =>
   (n.benefit === 'Bonus per enrolment'
-    ? `${(n.amount ?? 0).toLocaleString('en-GB')} bonus per enrolment, in each university’s currency`
+    ? `${n.currency ? `${n.currency} ` : ''}${(n.amount ?? 0).toLocaleString('en-GB')} bonus per enrolment${n.currency ? '' : ', in each university’s currency'}`
     : n.benefit === 'Tiered share'
       ? `Share ${bandsText(n.bands)}`
       : n.benefit === 'Milestone'
-        ? `Milestones: ${(n.milestones ?? []).map((m) => `${m.count} enrolments → ${m.amount.toLocaleString('en-GB')}`).join(', ')}`
+        ? `Milestones: ${(n.milestones ?? []).map((m) => `${m.count} enrolments → ${n.currency ? `${n.currency} ` : ''}${m.amount.toLocaleString('en-GB')}`).join(', ')}`
         : n.benefit === '% of tuition'
           ? `${pct(n.tuitionPct ?? 0)} of the tuition fee`
           : n.benefit === 'Share plus amount per enrolment'
-            ? `Share ${pct(n.share ?? 0)} plus ${(n.amount ?? 0).toLocaleString('en-GB')} per enrolment`
+            ? `Share ${pct(n.share ?? 0)} plus ${n.currency ? `${n.currency} ` : ''}${(n.amount ?? 0).toLocaleString('en-GB')} per enrolment`
             : `Share ${pct(n.share ?? 0)}`) + (n.combine && n.combine !== HIGHER && ['Share', 'Tiered share', 'Share plus amount per enrolment', '% of tuition'].includes(n.benefit) ? ` (${n.combine.toLowerCase()})` : '');
 /** "3 Nov 2026". */
 export const dayText = (iso: string) => {

@@ -49,4 +49,4 @@ export const HIDE: Feature[] = [
   'uni.add',
   'uni.territory.view',
 ];
-export const SHOW: Feature[] = ['course.academic', 'course.english'];
+export const SHOW: Feature[] = ['course.academic', 'course.english', 'app.stage-back'];

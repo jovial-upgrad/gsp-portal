@@ -514,16 +514,16 @@ export function Permissions({ cfg, change, say }: ConfigProps) {
   const [role, setRole] = useState<string>(ROLES[0]);
   const [draft, setDraft] = useState<Perms | null>(null);
   const [shut, setShut] = useState<Record<string, boolean>>({});
-  const fixed = role === 'Super Admin';
+  const fixed = role === ROLES[0];
   const perms = draft ?? cfg.perms;
   const diff = draft ? OBJECTS.filter((o) => draft[o][role] !== cfg.perms[o][role]) : [];
   return (
     <>
-      <PageHead title="Permission Roles" lead="What each role can see and change. Super Admin can do everything." />
+      <PageHead title="Permission Roles" lead={`What each role can see and change. ${ROLES[0]} can do everything.`} />
       <Panel
         flush
         title={role}
-        note={fixed ? 'Super Admin manages everything; it can’t be changed.' : draft ? 'Change the levels, then save. Scope (sales region, recruitment partner, branch) still limits which records they see.' : 'Edit to change what this role can do. It applies to everyone with the role, on their next page load.'}
+        note={fixed ? `${ROLES[0]} manages everything; it can’t be changed.` : draft ? 'Change the levels, then save. Scope (sales region, recruitment partner, branch) still limits which records they see.' : 'Edit to change what this role can do. It applies to everyone with the role, on their next page load.'}
         action={
           <div className="cfg__permbar">
             <div className="cfg__rolepick">

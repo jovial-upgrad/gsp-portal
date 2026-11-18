@@ -21,7 +21,7 @@ const ok = (c, m) => (c ? (pass++, console.log('PASS ', m)) : (fails.push(m), co
     const menu = (await p.locator('.shell__side nav button').allInnerTexts()).map((x) => x.trim());
     ok(menu.join('|') === 'Home|Find courses|Applications|Students|Earnings|Profile', R('menu: no My work, Inbox or GSP pages (' + menu.join(', ') + ')'));
     await nav('Find courses').click(); await wait(800);
-    await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click().catch(() => {}); await wait(1200);
+    await (p.fill('#fc-q', 'mba uk').then(() => p.press('#fc-q', 'Enter')).catch(() => {})); await wait(1200);
     ok((await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) > 0, R('Find courses: E'));
     ok(/You earn\s*≈ [A-Z]{3} [\d,]+ \([\d.]+% of the (net|gross) fee\)/.test(await p.locator('main').innerText()), R('Find courses › Commissions: V (shown: about how much, and the % of the fee, R104)'));
     await nav('Students').click(); await wait(800);

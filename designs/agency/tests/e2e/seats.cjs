@@ -23,7 +23,7 @@ const ok = (c, m) => (c ? (pass++, console.log('PASS ', m)) : (fails.push(m), co
     const foot = await p.locator('.shell__sidefoot').innerText();
     ok(foot.includes(who) && foot.includes(title), R(`signed in as ${who}, ${title}`));
     await nav('Find courses').click(); await wait(800);
-    await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click().catch(() => {}); await wait(1200);
+    await (p.fill('#fc-q', 'mba uk').then(() => p.press('#fc-q', 'Enter')).catch(() => {})); await wait(1200);
     ok((await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) > 0, R('Find courses: E'));
     ok(!(await p.locator('main').innerText()).includes('Base commission'), R('Find courses › Commissions: not shown'));
     await nav('Students').click(); await wait(800);

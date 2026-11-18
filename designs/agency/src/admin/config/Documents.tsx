@@ -6,7 +6,7 @@ import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { COUNTRIES } from '../../data/partners';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { PageHead } from '../../institution/records/parts';
-import { DOC_UNI_COUNTRIES, STAGES, whenText, type DocRule, type RpDocRule } from '../data/config';
+import { DOC_UNI_COUNTRIES, STAGES, publishDocRules, whenText, type DocRule, type RpDocRule } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { EditActions, History, Panel, useAsk, type Ask } from './parts';
 
@@ -48,6 +48,7 @@ export function Documents({ cfg, change, say }: ConfigProps) {
     cfg.reasons.filter((r) => !x.reasons.includes(r)).forEach((r) => what.push(`removed send-back reason “${r}”`));
     x.categories.filter((r) => !cfg.categories.includes(r)).forEach((r) => what.push(`added request category “${r}”`));
     cfg.categories.filter((r) => !x.categories.includes(r)).forEach((r) => what.push(`removed request category “${r}”`));
+    publishDocRules(x.docRules);
     change('Document configuration', what.join('; '), (c) => ({ ...c, docRules: x.docRules, rpDocs: x.rpDocs, reasons: x.reasons, categories: x.categories }));
     say('Saved. Applies to stages an open application hasn’t reached yet.');
     setDraft(null);

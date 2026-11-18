@@ -153,9 +153,8 @@ export function Portal({
   const base = useMemo(() => sampleReporting(), []);
   const rep = useMemo(() => ({ ...base, users: cfg.users, queues: cfg.queues, regions: cfg.regions }), [base, cfg.users, cfg.queues, cfg.regions]);
   const [ins, setIns] = useState(sampleInsightSettings);
-  const ipNames = useMemo(() => db.ips.map((x) => x.name), [db.ips]);
-  const tnames = useMemo(() => namesFor(rep, ipNames, commState().settings.gsp.name), [rep, ipNames]);
-  const [targets, setTargets] = useState<TargetVersion[]>(() => sampleTargets(base, sampleDb().ips.map((x) => x.name), commState().settings.gsp.name));
+  const tnames = useMemo(() => namesFor(rep, commState().settings.gsp.name), [rep]);
+  const [targets, setTargets] = useState<TargetVersion[]>(() => sampleTargets(base, commState().settings.gsp.name));
   const [dfil, setDfil] = useState<Filters>(noFilters);
   const current = targets.find((t) => t.current);
   const comm = useComm();
