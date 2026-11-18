@@ -459,6 +459,10 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 - [x] Jovial, 18 Nov: queues can sit under a queue (India's regional managers under India Recruitment); Dashboards round 1 (Overview, Targets) for review before the PRD. REGRESSION R149–R150. (18 Nov, branch dashboards-r1)
 
+- [x] Ali, 18 Nov call: **no RP bank details on the portal** (they come on the RP's invoice; the permission row is gone). REGRESSION R151. (18 Nov, branch ali-18nov)
+- [ ] Ali, 18 Nov call: **enrolment BDM** = the RP's BDM, the branch's BDM for a branch's applications, the onshore region's BDM for a head office's onshore students. REGRESSION R152 (dashboards round 3).
+- [ ] Ali, 18 Nov call: **Admissions assignment by shares** the manager sets per destination and stage (offer, GS, visa lodgement), the incentive being per team. Talk to Sabrina, Nahar, Jess, Manikandan, Supriya first. REGRESSION R153.
+
 ## RP Ops
 
 - [x] Nesil, 4 Nov: **a new role, RP Ops**, with GSP · Institution's **Applications**, **Students**, **Course search** and **Recruitment partners**. (4 Nov, commit “RP Ops: a fifth role, with GSP · Institution’s Applications, Students, Course search and Recruitment partners”)
