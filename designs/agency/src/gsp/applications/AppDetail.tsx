@@ -45,6 +45,7 @@ import { CondCard, CondDialog, condViews } from '../../screens/applications/Cond
 import { NameDialog, nameFromFile } from './NameDialog';
 import { OWNER_TAG } from './owners';
 import { GSP_USER } from '../user';
+import { AppBdmRow } from '../../institution/applications/AppDetail';
 
 export type AppTab = 'chat' | 'mail' | 'documents' | 'submission' | 'activity';
 const TABS: [AppTab, string, IconName][] = [
@@ -636,6 +637,8 @@ export function AppDetail({
                 </>
               )}
               <Row k="Counsellor" v={counsellor?.name} />
+              {/* Jovial, 18 Nov: every Admissions user can change the application BDM (logged) */}
+              <AppBdmRow a={a} canEdit update={update} log={log} say={say} />
               {!noBaseCommission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
               <Row k="Started" v={shortDate(new Date(a.created))} />
             </dl>

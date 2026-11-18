@@ -12,13 +12,16 @@ import { TARGET_LEVELS, TARGET_METRICS, readTargets, templateRows, versionRows, 
  * named version. One version is current: the dashboards compare with it. Versions stay, so a plan and its revisions
  * can be compared.
  */
-export function Targets({ names, versions, setVersions, me, say }: { names: Record<TargetLevel, string[]>; versions: TargetVersion[]; setVersions: (f: (v: TargetVersion[]) => TargetVersion[]) => void; me: string; say: (t: string) => void }) {
+export function Targets({ names, versions, setVersions, me, say, fyStart = 4 }: { fyStart?: number; names: Record<TargetLevel, string[]>; versions: TargetVersion[]; setVersions: (f: (v: TargetVersion[]) => TargetVersion[]) => void; me: string; say: (t: string) => void }) {
   const [pick, setPick] = useState(versions.find((v) => v.current)?.id ?? versions[0]?.id ?? '');
   const [up, setUp] = useState(false);
   const [levels, setLevels] = useState<string[]>([]);
   const [periods, setPeriods] = useState<string[]>([]);
   const { ask, dialog } = useAsk();
   const v = versions.find((x) => x.id === pick);
+  // this financial year (it starts in the Dashboard settings' month): the template's quarters
+  const now = new Date();
+  const fy = now.getMonth() + 1 >= fyStart ? now.getFullYear() + 1 : now.getFullYear();
   const rows = (v?.rows ?? []).filter((r) => (!levels.length || levels.includes(r.level)) && (!periods.length || periods.includes(r.period)));
   const makeCurrent = (id: string) => {
     setVersions((l) => l.map((x) => ({ ...x, current: x.id === id })));
@@ -34,13 +37,35 @@ export function Targets({ names, versions, setVersions, me, say }: { names: Reco
   return (
     <div className="ins">
       <PageHead title="Targets" lead="What the business aims for, by BDM, sales region, destination, university or IP, per month or quarter of the course start. The dashboards compare with the current version.">
-        <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={() => downloadCsv('targets-template.csv', templateRows())}>
-          Template
+        <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={() => downloadCsv(`targets-template-fy${String(fy).slice(2)}.csv`, templateRows(names, fy, fyStart))}>
+          Download template
         </Button>
         <Button iconLeft={<Icon name="upload" size={18} />} onClick={() => setUp(true)}>
           Upload targets
         </Button>
       </PageHead>
+      <section className="ins-card">
+        <h2 className="ins-card__t">How targets get in, and where they show</h2>
+        <ol className="ins-steps">
+          <li>
+            <strong>Download template</strong>: every {TARGET_LEVELS.join(', ').toLowerCase()} the portal knows, one row per quarter of FY{String(fy).slice(2)} (by course start). Fill only what the business sets; empty rows are skipped. A quarter (OND 26) or a month (2027-02) goes in Period.
+          </li>
+          <li>
+            <strong>Upload targets</strong> as a named version (AOP, a revision, a country manager's projection). Lines that can't be read are listed with the reason before saving. Make one version <strong>current</strong>.
+          </li>
+          <li>
+            The dashboards compare each target with the applications whose course starts in that period and that reached that stage:
+            <ul>
+              <li>Company: Overview tiles</li>
+              <li>BDM (the application BDM): Sales tracker, Potential to earn, Leadership pack (BDM target vs actual)</li>
+              <li>Sales region: Country report (applications and enrolments); a country manager's projection is a version too</li>
+              <li>Destination: Leadership pack (Destination targets)</li>
+              <li>University: Admissions › University tracker (Enrolment target)</li>
+            </ul>
+          </li>
+        </ol>
+        <p className="ins-card__sub">Columns: {TARGET_METRICS.map((m) => m.col).join(', ')}.</p>
+      </section>
       <div className="ins-ver" role="group" aria-label="Versions">
         {versions.map((x) => (
           <button key={x.id} type="button" className="ins-ver__chip" aria-pressed={x.id === pick} onClick={() => setPick(x.id)}>

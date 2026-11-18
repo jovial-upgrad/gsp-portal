@@ -4,12 +4,16 @@ import { Button } from '../components/Button';
 import type { Reporting, RepApp } from './data';
 import { ageing, applyFilters, byUniversity, daysSince, funnel, isLive, lastChange, pct, reached, reachedAt, series, studentStates, type Filters, type Grain, type InsightSettings } from './metrics';
 import { Card, Drill, FilterBar, Num, Seg, TimeBars } from './parts';
+import { targetFor, type TargetVersion } from './targets';
 
 /**
  * Overview (dashboards round 1, 18 Nov): where every application is, for the filters picked. Every number opens
  * the applications behind it. Built on the India team's portal (Overview) and Ramish's Admissions overview.
  */
-export function Overview({ d, s, f, setF, now }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number }) {
+export function Overview({ d, s, f, setF, now, target, company }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; target?: TargetVersion; company: string }) {
+  // Jovial, 18 Nov: the Company target (current version), for the intake months filtered (none: every period in it)
+  const tgt = (k: string) => targetFor(target, 'Company', company, k, f.intake.length ? f.intake : undefined);
+  const vs = (k: string, got: number) => { const t = tgt(k); return t === null ? '' : ` · target ${t.toLocaleString('en-GB')} (${pct(got / t)})`; };
   const apps = useMemo(() => applyFilters(d, f), [d, f]);
   const [drill, setDrill] = useState<{ title: string; apps: RepApp[] } | null>(null);
   const open = (title: string, l: RepApp[]) => setDrill({ title, apps: l });
@@ -54,12 +58,12 @@ export function Overview({ d, s, f, setF, now }: { d: Reporting; s: InsightSetti
       <PageHead title="Overview" lead="Where every application is, for the filters you pick. Every number opens the students behind it." />
       <FilterBar d={d} f={f} set={setF} />
       <div className="ins-stats">
-        <Stat k="apps" title="Applications" l={apps} sub={`${live.length.toLocaleString('en-GB')} live`} />
-        <Stat k="sub" title={n('submitted').label} l={reached(apps, M('submitted'))} sub={`${share(n('submitted').n, apps.length)} of applications`} />
-        <Stat k="off" title={n('offer').label} l={reached(apps, M('offer'))} sub={`${n('uncond').n.toLocaleString('en-GB')} ${n('uncond').label}`} />
-        <Stat k="dep" title={n('deposit').label} l={reached(apps, dep)} sub={`${share(n('deposit').n, n('offer').n)} of offers`} />
-        <Stat k="doc" title={n('enroldoc').label} l={reached(apps, M('enroldoc'))} sub={`${n('visalodged').n.toLocaleString('en-GB')} ${n('visalodged').label}`} />
-        <Stat k="enr" title={n('enrolled').label} l={reached(apps, M('enrolled'))} sub={`${share(n('enrolled').n, apps.length)} of applications`} />
+        <Stat k="apps" title="Applications" l={apps} sub={`${live.length.toLocaleString('en-GB')} live${vs('received', apps.length)}`} />
+        <Stat k="sub" title={n('submitted').label} l={reached(apps, M('submitted'))} sub={`${share(n('submitted').n, apps.length)} of applications${vs('submitted', n('submitted').n)}`} />
+        <Stat k="off" title={n('offer').label} l={reached(apps, M('offer'))} sub={`${n('uncond').n.toLocaleString('en-GB')} ${n('uncond').label}${vs('offer', n('offer').n)}`} />
+        <Stat k="dep" title={n('deposit').label} l={reached(apps, dep)} sub={`${share(n('deposit').n, n('offer').n)} of offers${vs('deposit', n('deposit').n)}`} />
+        <Stat k="doc" title={n('enroldoc').label} l={reached(apps, M('enroldoc'))} sub={`${n('visalodged').n.toLocaleString('en-GB')} ${n('visalodged').label}${vs('enroldoc', n('enroldoc').n)}`} />
+        <Stat k="enr" title={n('enrolled').label} l={reached(apps, M('enrolled'))} sub={`${share(n('enrolled').n, apps.length)} of applications${vs('enrolled', n('enrolled').n)}`} />
         <Stat k="idle" title={`Idle ${s.idleDays}+ days`} l={idle} sub={`${share(idle.length, live.length)} of live applications`} />
       </div>
 

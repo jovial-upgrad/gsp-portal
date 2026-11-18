@@ -11,7 +11,7 @@ import { DocLine, LogsFold, type SetupTab } from './parts';
 import { AgreementForm, GroupForm, NoticeForm, RecordForm, RpPicker, SettingsForm, TermsForm } from './forms';
 import { appliesText } from './tabs';
 import { noticeStatus, rpsWithoutRecord, unisWithoutTerms } from './engine';
-import { acceptedRps, addNoticeRps, ctxRps, ctxUnis, deleteGroup, endNotice, enrolmentsOf, ipName, removeNoticeRp, retireAgreement, rpName, uniName, useComm } from './store';
+import { issueNotice, acceptedRps, addNoticeRps, ctxRps, ctxUnis, deleteGroup, endNotice, enrolmentsOf, ipName, removeNoticeRp, retireAgreement, rpName, uniName, useComm } from './store';
 import { benefitText, bonusText, dayText, pct, ratesText, shareText, bandsText, type Notice } from './model';
 import { Facts } from '../../institution/records/parts';
 import type { Application } from '../../data/applications';
@@ -58,10 +58,10 @@ const has = (q: string, ...xs: (string | undefined)[]) => !q.trim() || xs.some((
  * Commissions keeps every record the commission engine reads here. `start` opens a tab (and a record's form) from a
  * Commission tab's Edit in Setup.
  */
-export function Setup({ me, say, start, openRp, apps, students }: { me: string; say: (m: string) => void; start?: SetupStart; openRp?: (id: string) => void; apps?: Application[]; students?: Student[] }) {
+export function Setup({ me, say, start, openRp, apps, students, only }: { me: string; say: (m: string) => void; start?: SetupStart; openRp?: (id: string) => void; apps?: Application[]; only?: SetupTab[]; students?: Student[] }) {
   const extra = useMemo(() => (apps && students ? enrolmentsOf(apps, students) : []), [apps, students]);
   const s = useComm();
-  const [tab, setTab] = useState<SetupTab>(start?.tab ?? 'rps');
+  const [tab, setTab] = useState<SetupTab>(start?.tab ?? only?.[0] ?? 'rps');
   const [q, setQ] = useState('');
   const [tile, setTile] = useState<'missing' | ''>('');
   const [recForm, setRecForm] = useState<{ rp: string | null; preset?: string } | null>(null);
@@ -326,6 +326,21 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
                           items={[
                             { id: 'edit', label: 'Edit', icon: 'edit', onPick: () => setNtForm({ id: n.id }) },
                             { id: 'rps', label: 'RPs', icon: 'partner', onPick: () => setNtRps(n.id) },
+                            // Jovial, 18 Nov: RP Ops issues notices; Finance can issue one too
+                            ...(!n.issued
+                              ? [
+                                  {
+                                    id: 'issue',
+                                    label: 'Issue',
+                                    icon: 'send' as const,
+                                    onPick: () =>
+                                      ask(`Issue ${n.name}?`, 'Issue', <p>The RPs it's for see it on their portal and are told.</p>, () => {
+                                        issueNotice(n.id, me);
+                                        say(`${n.name} issued.`);
+                                      }),
+                                  },
+                                ]
+                              : []),
                             ...(st !== 'Ended'
                               ? [
                                   {
@@ -563,7 +578,8 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
           {add[tab][0]}
         </Button>
       </PageHead>
-      <RecordTabs id="csetup" label="Setup" tab={tab} setTab={pick} tabs={TABS.map((t) => ({ ...t, n: counts[t.key] }))} />
+      {/* Jovial, 18 Nov: RP Ops sets up RP records and agreements (a part of what Finance edits) */}
+      <RecordTabs id="csetup" label="Setup" tab={tab} setTab={pick} tabs={TABS.filter((t) => !only || only.includes(t.key)).map((t) => ({ ...t, n: counts[t.key] }))} />
       <TabPanel id="csetup" tab={tab}>
         {{ rps: rpsTab, agreements: agTab, notices: ntTab, terms: tmTab, groups: grTab, settings: stTab }[tab]}
       </TabPanel>

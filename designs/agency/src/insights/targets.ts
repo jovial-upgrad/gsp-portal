@@ -9,7 +9,8 @@ import type { Reporting } from './data';
 import { peopleOf } from '../admin/data/config';
 
 /** Who a target is for. */
-export const TARGET_LEVELS = ['BDM', 'Sales region', 'Destination', 'University', 'IP'] as const;
+/** Jovial, 18 Nov: Company is the business's own target; BDM is the application BDM. */
+export const TARGET_LEVELS = ['Company', 'Sales region', 'BDM', 'Destination', 'University', 'IP'] as const;
 export type TargetLevel = (typeof TARGET_LEVELS)[number];
 /** What a target counts: a milestone of the dashboards (by its key), or revenue in AUD. */
 export const TARGET_METRICS: { col: string; key: string }[] = [
@@ -57,8 +58,9 @@ export function readPeriod(raw: string): { label: string; months: string[] } | n
 const split = (l: string) => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.map((c) => c.replace(/,$/, '').replace(/^"|"$/g, '').replace(/""/g, '"').trim()).slice(0, -1);
 
 /** The names each level accepts, from the records. */
-export function namesFor(d: Reporting, ips: string[]): Record<TargetLevel, string[]> {
+export function namesFor(d: Reporting, ips: string[], company: string): Record<TargetLevel, string[]> {
   return {
+    Company: [company],
     // the people in the sales regions' Recruitment queues (and the queues under them)
     BDM: [...new Set(d.regions.flatMap((r) => {
       const q = d.queues.find((x) => x.id === r.recruitment);
@@ -103,7 +105,7 @@ export function readTargets(text: string, names: Record<TargetLevel, string[]>):
         if (!/^\d+(\.\d+)?$/.test(v)) return { line, error: `${m.col} “${c[idx]}” isn’t a number.` };
         values[m.key] = +v;
       }
-      if (!Object.keys(values).length) return { line, error: 'No target on this line.' };
+      if (!Object.keys(values).length) return { line };
       const k = `${level}|${name}|${p.label}`;
       if (seen.has(k)) return { line, error: `${name} has ${p.label} twice in the file.` };
       seen.add(k);
@@ -112,11 +114,20 @@ export function readTargets(text: string, names: Record<TargetLevel, string[]>):
   };
 }
 
-/** The file Admin can download to fill in: the headings only. */
-export const templateRows = () => [['Level', 'Name', 'Period', ...TARGET_METRICS.map((m) => m.col)]];
+const HEAD = () => ['Level', 'Name', 'Period', ...TARGET_METRICS.map((m) => m.col)];
+/**
+ * The file Admin downloads to fill in (Jovial, 18 Nov): every level and every name the portal knows, one row per quarter
+ * of the financial year (by course start), the target columns empty. Rows left empty are skipped on upload; a month
+ * (2027-02) can replace a quarter on any row.
+ */
+export function templateRows(names?: Record<TargetLevel, string[]>, fy?: number, fyStart = 4) {
+  if (!names || !fy) return [HEAD()];
+  const quarters = QUARTERS.map(([q, mm]) => `${q} ${String(mm[0] >= fyStart ? fy - 1 : fy).slice(2)}`);
+  return [HEAD(), ...TARGET_LEVELS.flatMap((lv) => names[lv].map((n) => [lv, n] as const)).flatMap(([lv, n]) => quarters.map((p) => [lv, n, p, ...TARGET_METRICS.map(() => '')]))];
+}
 /** A version as a CSV, to download or send round. */
 export const versionRows = (v: TargetVersion) => [
-  ...templateRows(),
+  HEAD(),
   ...v.rows.map((r) => [r.level, r.name, r.period, ...TARGET_METRICS.map((m) => r.values[m.key] ?? '')]),
 ];
 
@@ -129,6 +140,8 @@ export function targetFor(v: TargetVersion | undefined, level: TargetLevel, name
 
 /** The seeded versions (sample records, as the business might share them). */
 const AOP = `Level,Name,Period,Applications,Submitted,Offers,Deposits,CoE/CAS,Enrolments,Revenue (AUD)
+Company,{company},OND 26,4200,2700,1850,600,520,400,1600000
+Company,{company},JFM 27,5600,3600,2450,800,700,530,2120000
 Sales region,India,OND 26,1800,1100,760,240,210,160,640000
 Sales region,India,JFM 27,2400,1500,1050,330,290,220,880000
 Sales region,Bangladesh,OND 26,700,450,320,110,95,70,290000
@@ -150,8 +163,8 @@ Destination,UK,OND 26,1100,700,480,150,130,95,360000
 University,Flinders University,OND 26,120,80,60,20,18,14,62000`;
 const REVISED = AOP.replace('BDM,Harsh,OND 26,420,260,180,60,52,40,160000', 'BDM,Harsh,OND 26,380,240,160,50,45,34,136000').replace('Sales region,India,OND 26,1800,1100,760,240,210,160,640000', 'Sales region,India,OND 26,1500,950,650,200,175,135,540000');
 
-export function sampleTargets(d: Reporting, ips: string[]): TargetVersion[] {
-  const names = namesFor(d, ips);
-  const ver = (id: string, name: string, current: boolean, at: string, csv: string): TargetVersion => ({ id, name, current, by: 'Jovial Lejo', at, rows: readTargets(csv, names).rows.flatMap((r) => (r.row ? [r.row] : [])) });
+export function sampleTargets(d: Reporting, ips: string[], company: string): TargetVersion[] {
+  const names = namesFor(d, ips, company);
+  const ver = (id: string, name: string, current: boolean, at: string, csv: string): TargetVersion => ({ id, name, current, by: 'Jovial Lejo', at, rows: readTargets(csv.split('{company}').join(company), names).rows.flatMap((r) => (r.row ? [r.row] : [])) });
   return [ver('tv-aop', 'AOP FY27', false, '2026-04-02', AOP), ver('tv-30oct', 'Revised 30 Oct', true, '2026-10-30', REVISED)];
 }

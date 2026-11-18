@@ -24,7 +24,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   const text = async () => p.locator('main').innerText();
 
   const menu = (await p.locator('.shell__side nav button').allInnerTexts()).map((x) => x.trim());
-  ok(menu.join('|') === 'Home|Inbox|My work|Find courses|Applications|Students|Recruitment partners|Universities|Courses', 'menu: ' + menu.join(', '));
+  ok(menu.join('|') === 'Home|Inbox|My work|Find courses|Students|Applications|Recruitment partners|Universities|Courses', 'menu: ' + menu.join(', '));
   ok(!menu.includes('Earnings') && !menu.includes('Profile') && !menu.includes('Master Partners') && !menu.includes('Institution partners') && !menu.includes('Announcements'), 'not shown: Earnings, Profile, Master Partners, Institution partners, Announcements');
 
   await nav('Inbox').click(); await wait(700);

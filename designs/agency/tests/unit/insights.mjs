@@ -41,14 +41,14 @@ try {
   const wk = m.series(d.apps, (a) => a.created, 'week', now);
   ok('the weekly series counts every application once', wk.reduce((n, p) => n + p.apps.length, 0) === d.apps.length);
   // targets: the file is read by its headings, and bad lines say why
-  const names = t.namesFor(d, ['Navitas']);
+  const names = t.namesFor(d, ['Navitas'], 'upGrad GSP');
   const r = t.readTargets('Name,Level,Period,Enrolments,Deposits\nHarsh,BDM,OND 26,40,60\nNobody,BDM,OND 26,1,1\nIndia,Sales region,2027-13,5,5\nIndia,Sales region,Feb 2027,12,\nHarsh,BDM,OND 26,1,1\nUK,Destination,JFM\'27,x,1', names);
   const good = r.rows.filter((x) => x.row);
   ok('targets: good lines are read, in any column order', good.length === 2 && good[0].row.values.enrolled === 40 && good[0].row.values.deposit === 60 && good[0].row.months.join() === '2026-10,2026-11,2026-12');
   ok('targets: a month in words is read', good[1].row.period === '2027-02' && good[1].row.values.deposit === undefined);
   ok('targets: unknown names, bad periods, twice in the file and non-numbers are left out with a reason', r.rows.filter((x) => x.error).length === 4 && r.rows.every((x) => x.row || /No BDM|can’t be read|twice|isn’t a number/.test(x.error)));
   ok('targets: a file without Level, Name and Period is refused', !!t.readTargets('A,B\n1,2', names).error);
-  const vs = t.sampleTargets(d, ['Navitas']);
+  const vs = t.sampleTargets(d, ['Navitas'], 'upGrad GSP');
   ok('one target version is current', vs.filter((v) => v.current).length === 1 && vs.every((v) => v.rows.length > 0));
   ok('a quarter target is found for its months', t.targetFor(vs.find((v) => v.current), 'BDM', 'Harsh', 'enrolled', ['2026-10', '2026-11', '2026-12']) === 34);
   // rounds 2–5: durations, forecast rates, financial year

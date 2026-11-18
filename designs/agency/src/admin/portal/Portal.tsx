@@ -58,7 +58,7 @@ import { Sales as DashSales } from '../../insights/Sales';
 import { Finance as DashFinance } from '../../insights/Finance';
 import { Leadership as DashLeadership } from '../../insights/Leadership';
 import { DashSettings } from '../../insights/Settings';
-import { useComm, useLines } from '../../finance/commission/store';
+import { commState, useComm, useLines } from '../../finance/commission/store';
 import '../../insights/insights.css';
 import { Flyout } from './Flyout';
 import '../../screens/signup/signup.css';
@@ -154,8 +154,8 @@ export function Portal({
   const rep = useMemo(() => ({ ...base, users: cfg.users, queues: cfg.queues, regions: cfg.regions }), [base, cfg.users, cfg.queues, cfg.regions]);
   const [ins, setIns] = useState(sampleInsightSettings);
   const ipNames = useMemo(() => db.ips.map((x) => x.name), [db.ips]);
-  const tnames = useMemo(() => namesFor(rep, ipNames), [rep, ipNames]);
-  const [targets, setTargets] = useState<TargetVersion[]>(() => sampleTargets(base, sampleDb().ips.map((x) => x.name)));
+  const tnames = useMemo(() => namesFor(rep, ipNames, commState().settings.gsp.name), [rep, ipNames]);
+  const [targets, setTargets] = useState<TargetVersion[]>(() => sampleTargets(base, sampleDb().ips.map((x) => x.name), commState().settings.gsp.name));
   const [dfil, setDfil] = useState<Filters>(noFilters);
   const current = targets.find((t) => t.current);
   const comm = useComm();
@@ -410,7 +410,7 @@ export function Portal({
     ) : section === 'announcements' ? (
       <Announcements {...page} />
     ) : section === 'dash' ? (
-      <Overview d={rep} s={ins} f={dfil} setF={setDfil} now={now} />
+      <Overview d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} company={commState().settings.gsp.name} />
     ) : section === 'dadm' ? (
       <DashAdmissions d={rep} s={ins} f={dfil} setF={setDfil} now={now} unlocks={cres.unlocks} courses={db.courses} target={current} closeReasons={cfg.closeReasons} />
     ) : section === 'dsales' ? (
@@ -422,7 +422,7 @@ export function Portal({
     ) : section === 'dset' ? (
       <DashSettings s={ins} set={setIns} me={GSP_USER.name} say={say} currencies={["AUD", ...(cfg.fx[0]?.rows.map((r) => r.code) ?? [])]} />
     ) : section === 'targets' ? (
-      <Targets names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
+      <Targets fyStart={ins.fyStartMonth} names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
     ) : section === 'commlines' ? (
       <Lines apps={apps} students={students} setApps={setApps} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : section === 'commsetup' ? (
