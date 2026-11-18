@@ -7,7 +7,7 @@ import { MoreMenu } from '../../components/MoreMenu';
 import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { NoMatch, PageHead, RecordTabs, TabPanel } from '../../institution/records/parts';
-import type { Queue, User } from '../data/config';
+import { queueTree, type Queue, type User } from '../data/config';
 import {
   AFTER_UNITS,
   DEFAULT_TZ,
@@ -60,7 +60,9 @@ const usersOf = (q: Queue, cfg: ConfigProps['cfg']) => {
   const regions = cfg.regions
     .filter((r) => (r.queue === q.id && used(REGION_ADMISSIONS)) || (r.recruitment === q.id && used(REGION_RECRUITMENT)))
     .map((r) => r.name);
-  return [...rules, ...regions];
+  // 18 Nov: a queue with queues under it can't go until they're moved
+  const kids = cfg.queues.filter((x) => x.parent === q.id).map((x) => x.name);
+  return [...rules, ...regions, ...kids];
 };
 
 type Tab = 'queues' | 'days';
@@ -204,6 +206,7 @@ function QueuesTab({ cfg, change, say, onEdit }: ConfigProps & { onEdit: (q: Que
                     <tr key={x.id}>
                       <td>
                         <span className="cfg__strong">{x.name}</span>
+                        {x.parent && <span className="cfg__muted wk-sub">Part of {cfg.queues.find((y) => y.id === x.parent)?.name ?? 'a deleted queue'}</span>}
                       </td>
                       <td>{lead ? <span className="cfg__strong">{lead.name}</span> : <span className="cfg__warn">No leader</span>}</td>
                       <td>
@@ -269,9 +272,11 @@ function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boo
   const [lead, setLead] = useState('');
   const [sharing, setSharing] = useState<Sharing>('fewest');
   const [members, setMembers] = useState<string[]>([]);
+  const [parent, setParent] = useState('');
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
+    setParent(queue?.parent ?? '');
     setName(queue?.name ?? '');
     setLead(queue?.lead ?? '');
     setSharing(queue?.sharing ?? 'fewest');
@@ -290,7 +295,7 @@ function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boo
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
     const ids = members.filter((n) => n !== leadName).map((n) => users.find((u) => u.name === n)?.id).filter((x): x is string => !!x);
-    onSave({ id: queue?.id ?? `q-${Date.now()}`, name: v, lead, sharing, members: ids });
+    onSave({ id: queue?.id ?? `q-${Date.now()}`, name: v, lead, sharing, members: ids, ...(parent ? { parent } : {}) });
   };
   const active = users.filter((u) => u.status !== 'Deactivated');
   return (
@@ -328,6 +333,18 @@ function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boo
                 {u.name}
               </option>
             ))}
+          </SelectInput>
+        </Field>
+        <Field id="wq-parent" label="Part of" hint="Its leader sees this queue’s work too, as a country manager sees each regional manager’s.">
+          <SelectInput id="wq-parent" value={parent} aria-describedby="wq-parent-hint" onChange={(e) => setParent(e.target.value)}>
+            <option value="">No queue: it stands on its own</option>
+            {queues
+              .filter((x) => !queue || !queueTree(queue, queues).some((y) => y.id === x.id))
+              .map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
           </SelectInput>
         </Field>
         <Field id="wq-share" label="Shared by" required hint={SHARING[sharing].hint}>

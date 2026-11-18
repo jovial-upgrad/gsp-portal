@@ -12,6 +12,7 @@ const ok = (name, cond, more = '') => { cond ? pass++ : fail++; console.log(`${c
 try {
   const { sampleCfg } = await vite.ssrLoadModule('/src/admin/config/ConfigPage.tsx');
   const mw = await vite.ssrLoadModule('/src/admin/data/mywork.ts');
+  const config = await vite.ssrLoadModule('/src/admin/data/config.ts');
   // 17 Nov (Jovial, after the Finance demo): commission work in two queues, T86–T92 (R134)
   const COMM = ['T86', 'T87', 'T88', 'T89', 'T90', 'T91', 'T92'];
   const KEPT = ['T5', 'T54', 'T16', 'T57', 'T20', 'T32', 'T69', 'T37', 'T38', 'T40', 'T41', 'T42', 'T27', 'T80', 'T81', ...COMM];
@@ -31,9 +32,9 @@ try {
   ok('every task is in the queue its rule sends it to', wrongQ.length === 0, wrongQ.map((t) => t.id).join());
   const outside = cfg.tasks.filter((t) => {
     const q = cfg.queues.find((x) => x.id === t.queue);
-    return ![q.lead, ...q.members].map((id) => cfg.users.find((u) => u.id === id)?.name).includes(t.assignee);
+    return !config.peopleOf(q, cfg.queues).map((id) => cfg.users.find((u) => u.id === id)?.name).includes(t.assignee);
   });
-  ok('every assignee is in the task’s queue', outside.length === 0, outside.map((t) => `${t.id} ${t.assignee}`).join());
+  ok('every assignee is in the task’s queue (or a queue under it, 18 Nov)', outside.length === 0, outside.map((t) => `${t.id} ${t.assignee}`).join());
   const titles = cfg.tasks.filter((t) => /\{\w+\}/.test(t.title));
   ok('every title is its rule’s task, filled in', titles.length === 0, titles.map((t) => t.title).join('; '));
   for (const role of ['gsp', 'globalops', 'institution', 'instops', 'recruitment', 'rpops', 'finance']) {
@@ -88,6 +89,14 @@ try {
   const other = cfg.queues.find((q) => q.name === 'India Recruitment').id;
   ok('RP tasks go to the queue the region names', mw.queueFor('region:Recruitment', 'Vietnam', cfg.queues, cfg.regions.map((r) => (r.name === 'Vietnam' ? { ...r, recruitment: other } : r)))?.id === other);
   ok('a region with no Recruitment queue set uses Rest of world Recruitment', mw.queueFor('region:Recruitment', 'Vietnam', cfg.queues, cfg.regions.map((r) => (r.name === 'Vietnam' ? { ...r, recruitment: '' } : r)))?.name === 'Rest of world Recruitment');
+
+  // 18 Nov (Jovial): India's regional queues sit under India Recruitment; its leader's queue holds their people
+  const indiaRec = cfg.queues.find((q) => q.id === 'q-rec-india');
+  const kids = cfg.queues.filter((q) => q.parent === 'q-rec-india');
+  ok('India Recruitment has regional queues under it', kids.length >= 3);
+  const inIndia = config.peopleOf(indiaRec, cfg.queues);
+  ok('a parent queue holds its regional managers and their BDMs', kids.every((k) => inIndia.includes(k.lead) && k.members.every((m) => inIndia.includes(m))));
+  ok('queueTree never loops on a cycle', config.queueTree({ ...indiaRec, parent: kids[0].id }, cfg.queues.map((q) => (q.id === indiaRec.id ? { ...q, parent: kids[0].id } : q))).length === kids.length + 1);
 } finally {
   await vite.close();
 }
