@@ -8,6 +8,7 @@ import { Icon } from '../../components/Icon';
 import type { Account } from '../../screens/signin/model';
 import type { SignupState } from '../../screens/signup/model';
 import { Notices } from '../../finance/commission/Notices';
+import { Setup } from '../../finance/commission/Setup';
 import { FIRST, NAV, TABS, VIEW, type NavItem, type Section } from './model';
 import { AccessProvider, ViewOnlyNote, ViewOnlyProvider, type Feature } from '../../proto/viewOnly';
 import { InstitutionPartners } from '../../institution/records/InstitutionPartners';
@@ -345,6 +346,8 @@ export function Portal({
       <InstitutionPartners {...instPage} appsByUni={appsByUni} />
     ) : section === 'notices' ? (
       <Notices me={GSP_USER.name} />
+    ) : section === 'commsetup' ? (
+      <Setup me={GSP_USER.name} say={say} only={['rps', 'agreements']} />
     ) : section === 'mps' ? (
       <MasterPartners mps={mps} setMps={setMps} rps={rps} link={link} {...records} />
     ) : (

@@ -2,9 +2,12 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { EditOnly, ViewOnlyProvider, useHides, useShows, useViewOnly } from '../../proto/viewOnly';
 import { AppCommissionTab } from '../../finance/commission/tabs';
 import { useCommFiles } from '../../finance/commission/store';
-import { OTHER_REASON, sampleCloseReasons } from '../../admin/data/config';
+import { OTHER_REASON, sampleCloseReasons, sampleUsers } from '../../admin/data/config';
+import { appBdmOf } from './columns';
 import { FeeRows } from '../../finance/commission/AppFees';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Sheet } from '../../components/Sheet';
+import { Field, SelectInput, TextInput } from '../../components/forms';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
 import { AppRank } from '../../components/RankTag';
@@ -672,6 +675,8 @@ export function AppDetail({
                 </>
               )}
               {!noAdmFacts && <Row k="Counsellor" v={counsellor?.name} />}
+              {/* Jovial, 18 Nov: the application BDM, kept when it's made; any Admissions user can change it (logged) */}
+              <AppBdmRow a={a} canEdit={!viewOnly} update={update} log={log} say={say} />
               {!noBaseCommission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
               <Row k="Started" v={shortDate(new Date(a.created))} />
             </dl>
@@ -1144,5 +1149,79 @@ function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boo
         ))}
       </fieldset>
     </ConfirmDialog>
+  );
+}
+
+/** Key details' Application BDM (R152): set when the application is made; an Admissions user can change it, with why. */
+export function AppBdmRow({ a, canEdit, update, log, say }: { a: Application; canEdit: boolean; update: (fn: (x: Application) => Application) => void; log: (text: string) => void; say: (m: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState('');
+  const [why, setWhy] = useState('');
+  const [tried, setTried] = useState(false);
+  const now = appBdmOf(a);
+  const bdms = [...new Set(sampleUsers().filter((u) => u.role === 'Recruitment').map((u) => u.name))].sort();
+  const err = { to: !to ? 'Choose the BDM.' : to === now ? 'It already counts for this BDM.' : null, why: why.trim() ? null : 'Say why.' };
+  return (
+    <>
+      <Row
+        k="Application BDM"
+        v={
+          <span>
+            {now || '—'}
+            {canEdit && (
+              <button type="button" className="icon-btn" aria-label="Change the application BDM" onClick={() => (setTo(now), setWhy(''), setTried(false), setOpen(true))}>
+                <Icon name="edit" size={14} />
+              </button>
+            )}
+          </span>
+        }
+      />
+      {open && (
+        <Sheet
+          open
+          onClose={() => setOpen(false)}
+          center
+          className="iform"
+          title="Application BDM"
+          sub={`${a.id}: the BDM this application counts for on the dashboards and targets`}
+          footer={
+            <div className="asf">
+              <div className="asf__acts">
+                <Button variant="secondary" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    setTried(true);
+                    if (err.to || err.why) return;
+                    update((x) => ({ ...x, bdm: to }));
+                    log(`Application BDM changed from ${now || 'none'} to ${to}: ${why.trim()}`);
+                    say(`${a.id} now counts for ${to}.`);
+                    setOpen(false);
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div className="iform__grid">
+            <Field id="abdm-to" label="BDM" required error={tried ? err.to : null}>
+              <SelectInput id="abdm-to" value={to} placeholder="Choose the BDM" invalid={tried && !!err.to} onChange={(e) => setTo(e.target.value)}>
+                {bdms.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field id="abdm-why" label="Why" required className="iform__wide" error={tried ? err.why : null}>
+              <TextInput id="abdm-why" value={why} invalid={tried && !!err.why} onChange={(e) => setWhy(e.target.value)} />
+            </Field>
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }

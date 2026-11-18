@@ -8,7 +8,7 @@ import type { IconName } from '../../components/Icon';
  * Partners** is RP Ops' own page. 4 Nov (later): **Home**, RP Ops' own queue, comes first and the portal opens on it.
  * `profile` is the account page, opened from the initials.
  */
-export type Section = 'home' | 'inbox' | 'work' | 'applications' | 'students' | 'courses' | 'rps' | 'mps' | 'ips' | 'notices' | 'profile';
+export type Section = 'home' | 'inbox' | 'work' | 'applications' | 'students' | 'courses' | 'rps' | 'mps' | 'ips' | 'notices' | 'commsetup' | 'profile';
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
 
@@ -28,6 +28,8 @@ export const NAV: NavItem[] = [
   { key: 'ips', label: 'Institution partners', short: 'Partners', icon: 'briefcase' },
   // 11 Nov (Jovial, Q107): Finance creates a notice; RP Ops (BAP) issues it to the RPs
   { key: 'notices', label: 'Notices', short: 'Notices', icon: 'send' },
+  // Jovial, 18 Nov: RP Ops sets up RP records and agreements (a part of what Finance edits in Commissions › Setup)
+  { key: 'commsetup', label: 'Commission setup', short: 'Setup', icon: 'sliders' },
 ];
 
 /** 6 Nov access sheet: the pages RP Ops only looks at (Mail V, Students V, Applications V). */

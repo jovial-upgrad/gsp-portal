@@ -23,7 +23,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   const tabNames = async () => (await p.locator('main [role=tab]').allInnerTexts()).map((x) => x.trim().split('\n')[0].replace(/\s*\d+$/, ''));
 
   const menu = (await p.locator('.shell__side nav button').allInnerTexts()).map((x) => x.trim());
-  ok(menu.join('|') === 'Home|Inbox|My work|Students|Applications|Course search|Recruitment partners|Master Partners|Institution partners|Universities|Courses', 'menu: ' + menu.join(', '));
+  ok(menu.join('|') === 'Home|Inbox|My work|Students|Applications|Course search|Recruitment partners|Master Partners|Institution partners|Universities|Courses|Commission lines|Setup', 'menu (Commission lines and Setup): ' + menu.join(', '));
   ok((await p.locator('.shell__brand').innerText()).replace(/\s+/g, ' ').includes('GSP Finance'), 'GSP Finance beside the logo');
   ok((await p.locator('.shell__sidefoot').innerText()).includes('Rhythm Jain'), 'signed in as Rhythm Jain, GSP · Finance');
 
@@ -51,7 +51,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   await nav('Applications').click(); await wait(800);
   ok((await edits()).length === 0, 'Applications: view only ' + (await edits()).join(', '));
   await p.locator('main .arow, main tbody tr').first().click(); await wait(900);
-  ok((await tabNames()).join('|') === 'Commission|Logs', 'Application: Commission and Logs only (' + (await tabNames()).join(', ') + ')');
+  ok((await tabNames()).join('|') === 'Commission|Documents|Logs', 'Application: Commission, Documents (view and download, 18 Nov) and Logs (' + (await tabNames()).join(', ') + ')');
   const appEdits = (await edits()).filter((l) => !/^Edit the commission$/.test(l) && !/^Edit$/.test(l));
   ok(appEdits.length === 0, 'Application: nothing else to change' + (appEdits.length ? ' (found ' + appEdits.join(', ') + ')' : ''));
   await p.getByRole('button', { name: /Edit the commission/ }).click(); await wait(300);

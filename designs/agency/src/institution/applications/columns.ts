@@ -25,6 +25,9 @@ const plusMonths = (iso: string, m: number) => {
   return d.toISOString().slice(0, 10);
 };
 
+/** The application BDM (R152): the one kept on the application, else the RP's BDM when it was made. */
+export const appBdmOf = (a: Application) => a.bdm ?? opsOf(a)?.recruitment ?? '';
+
 export const APP_COLUMNS: AppColumn[] = [
   { key: 'gsp', label: 'GSP student ID', get: (a) => a.studentId },
   { key: 'name', label: 'Full name', get: (a, x) => (x.student(a) ? fullName(x.student(a)!) : '') },
@@ -42,7 +45,8 @@ export const APP_COLUMNS: AppColumn[] = [
   { key: 'status', label: 'Status', get: (a) => statusText(a) },
   { key: 'intake', label: 'Intake', get: (a) => a.intake },
   { key: 'done', label: 'Completion date', get: (a) => day(plusMonths(a.fees?.start || new Date(intakeStart(a.intake)).toISOString().slice(0, 10), courseOf(a).months)) },
-  { key: 'sector', label: 'Sector', get: (a) => courseOf(a).uni.kind ?? '' },
+  { key: 'sector', label: 'Sector (study area)', get: (a) => courseOf(a).area },
+  { key: 'level', label: 'Programme level', get: (a) => courseOf(a).level },
   { key: 'stype', label: 'Student type', get: (a) => a.fees?.studentType ?? '' },
   { key: 'fee', label: 'Course fee (a year)', get: (a) => (a.fees?.tuition ?? courseOf(a).tuition).toLocaleString('en-GB') },
   { key: 'cur', label: 'Currency', get: (a) => courseOf(a).currency },
@@ -50,5 +54,5 @@ export const APP_COLUMNS: AppColumn[] = [
   { key: 'rpid', label: 'RP ID', get: (a) => rpOf(a)?.code ?? '' },
   { key: 'rpbdm', label: 'RP BDM', get: (a) => opsOf(a)?.recruitment ?? '' },
   { key: 'counsellor', label: 'RP counsellor', get: (a, x) => x.counsellor(a) },
-  { key: 'appbdm', label: 'Application BDM', get: (a) => a.bdm ?? opsOf(a)?.recruitment ?? '' },
+  { key: 'appbdm', label: 'Application BDM', get: (a) => appBdmOf(a) },
 ];

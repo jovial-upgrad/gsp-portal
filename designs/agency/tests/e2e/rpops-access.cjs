@@ -25,7 +25,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
 
   const panelEdits = async () => (await p.locator('main [role=tabpanel] button:visible, main [role=tabpanel] label.btn:visible').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ')))).filter((l) => EDIT.test(l));
   const menu = (await p.locator('.shell__side nav button').allInnerTexts()).map((x) => x.trim());
-  ok(menu.join('|') === 'Home|Inbox|My work|Applications|Students|Course search|Recruitment partners|Master Partners|Institution partners|Notices', 'menu (Notices: 11 Nov, R103): ' + menu.join(', '));
+  ok(menu.join('|') === 'Home|Inbox|My work|Students|Applications|Course search|Recruitment partners|Master Partners|Institution partners|Notices|Commission setup', 'menu (Notices: 11 Nov, R103; Students first, Commission setup: 18 Nov): ' + menu.join(', '));
 
   await nav('My work').click(); await wait(700);
   ok(await has(/Mark as completed|Assign/), 'My work: E');
@@ -58,11 +58,9 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   await nav('Recruitment partners').click(); await wait(700);
   await p.locator('main tbody tr, main .irow__open').first().click(); await wait(800);
   ok(await has(/^Edit the details$/) && (await has(/^Add branch$/)) && (await has(/^Add team member$/)), 'Recruitment partner record, Branches, Team: E');
-  ok((await tabNames()).includes('Commission'), 'Recruitment partner: a Commission tab');
+  ok(!(await tabNames()).includes('Commission'), 'Recruitment partner: no Commission tab (R113; the RP’s commission set-up is under Commission setup, 18 Nov)');
   await tab('Documents').click(); await wait(300);
   ok(await has(/^(Verify|Send agreement|Send new agreement|Send back)/), 'Recruitment partner › Documents and Agreement: E');
-  await tab('Commission').click(); await wait(300);
-  ok(await has(/Edit the commission terms/), 'Recruitment partner › Commission: E');
 
   await nav('Master Partners').click(); await wait(700);
   ok(await has(/^New Master Partner$/), 'Master Partners list: E');
@@ -70,8 +68,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   ok(await has(/^Edit the details$/), 'Master Partner record: E');
   await tab('Documents').click(); await wait(300);
   ok(await has(/^Upload a document$/), 'Master Partner › Documents: E');
-  await tab('Commission').click(); await wait(300);
-  ok(await has(/Edit the commission terms/), 'Master Partner › Commission: E');
+  ok(!(await tabNames()).includes('Commission'), 'Master Partner: no Commission tab (R113)');
 
   await nav('Institution partners').click(); await wait(700);
   ok(await has(/^Add a partner$/), 'Institution partners list: E');
@@ -79,8 +76,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   ok(await has(/^Edit details$/), 'Institution partner record: E');
   await tab('Documents').click(); await wait(300);
   ok(await has(/^Add /), 'Institution partner › Documents: E');
-  await tab('Commission').click(); await wait(300);
-  ok((await edits()).length > 0, 'Institution partner › Commission: E ' + (await edits()).join(', '));
+  ok(!(await tabNames()).includes('Commission'), 'Institution partner: no Commission tab (R113)');
   ok(errs.length === 0, 'no page errors ' + errs.join(' | '));
   await b.close();
   console.log(`${pass} passed, ${fails.length} failed`);
