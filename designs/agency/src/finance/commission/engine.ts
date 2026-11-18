@@ -986,7 +986,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       // the RP's own bonuses: its agreement's and its notices', whether or not GSP meets a university's tier
       covering
         .filter((nt) => nt.benefit === 'Bonus per enrolment' || (nt.benefit === 'Share plus amount per enrolment' && nt === nt0))
-        .forEach((nt) => drafts.push({ slot: `nt:${nt.id}`, type: 'Bonus', what: `Notice: ${nt.name}`, rpWhat: `Notice: ${nt.name}`, amount: nt.amount ?? 0, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, trace: [step('Notice', `${nt.name}: ${money(nt.amount ?? 0, cur)} per enrolment, in the university’s currency (Q67).`)] }));
+        .forEach((nt) => drafts.push({ slot: `nt:${nt.id}`, type: 'Bonus', what: `Notice: ${nt.name}`, rpWhat: `Notice: ${nt.name}`, amount: nt.amount ?? 0, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, currency: nt.currency || undefined, trace: [step('Notice', `${nt.name}: ${money(nt.amount ?? 0, nt.currency || cur)} per enrolment, ${nt.currency ? 'in the notice’s currency' : 'in the university’s currency (Q67)'}.`)] }));
       // % of tuition (the sandbox's RP7): its own line; in a separate box it replaces the RP's share
       covering
         .filter((nt) => nt.benefit === '% of tuition')
@@ -996,7 +996,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
           drafts.push({ slot: `tp:${nt.id}`, type: 'Bonus', what: `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the tuition fee`, rpWhat: `Notice: ${nt.name}`, amount: v, trigger: firstT?.trigger ?? e.enrolled, notice: nt.id, trace: [step('Promotion on tuition', `${nt.name}: ${pct(nt.tuitionPct ?? 0)} of the student’s final tuition fee. ${nt.combine === SEPARATE ? 'A separate box: it replaces the RP’s share of GSP’s commission.' : 'Paid on top of the RP’s share.'}`)] });
         });
       (A.bonuses ?? []).forEach((b) => {
-        if (b.when === 'Every enrolment' || n === b.nth) drafts.push({ slot: `ab:${b.id}`, type: 'Bonus', what: `${b.desc} (${ag.name})${b.when === 'Every enrolment' ? '' : `: enrolment ${b.nth}`}`, rpWhat: `Bonus: ${b.desc}`, amount: b.amount, trigger: firstT?.trigger ?? e.enrolled, trace: [step('Agreement bonus', `${b.desc}: ${money(b.amount, cur)}${b.when === 'Every enrolment' ? ' on every enrolment' : `, on the ${b.nth}th enrolment GSP is paid for in the window`}.`)] });
+        if (b.when === 'Every enrolment' || n === b.nth) drafts.push({ slot: `ab:${b.id}`, type: 'Bonus', what: `${b.desc} (${ag.name})${b.when === 'Every enrolment' ? '' : `: enrolment ${b.nth}`}`, rpWhat: `Bonus: ${b.desc}`, amount: b.amount, trigger: firstT?.trigger ?? e.enrolled, currency: b.currency || undefined, trace: [step('Agreement bonus', `${b.desc}: ${money(b.amount, b.currency || cur)}${b.when === 'Every enrolment' ? ' on every enrolment' : `, on the ${b.nth}th enrolment GSP is paid for in the window`}.`)] });
       });
       drafts.forEach((d) => {
         rpDone.add(lineKey(e.app, 'rp', d.slot));
@@ -1018,7 +1018,7 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
           if (paidFor[m.count - 1].app !== e.app) return;
           const slot = `ms:${nt.id}:${m.count}`;
           rpDone.add(lineKey(e.app, 'rp', slot));
-          rpTxs.push(...chain('rp', slot, { slot, type: 'Bonus', what: `${nt.name}: milestone of ${m.count} paid enrolments`, rpWhat: `Milestone: ${nt.name}`, amount: m.amount, trigger: firstPaidOn(e.app), notice: nt.id, trace: [step('Milestone', `${nt.name}: ${m.count} enrolments GSP has been paid for → ${money(m.amount, cur)}. This student was number ${m.count} (paid ${dayText(firstPaidOn(e.app))}). Due once GSP is paid, even after the notice ends.`)] }));
+          rpTxs.push(...chain('rp', slot, { slot, type: 'Bonus', what: `${nt.name}: milestone of ${m.count} paid enrolments`, rpWhat: `Milestone: ${nt.name}`, amount: m.amount, trigger: firstPaidOn(e.app), notice: nt.id, currency: nt.currency || undefined, trace: [step('Milestone', `${nt.name}: ${m.count} enrolments GSP has been paid for → ${money(m.amount, nt.currency || cur)}. This student was number ${m.count} (paid ${dayText(firstPaidOn(e.app))}). Due once GSP is paid, even after the notice ends.`)] }));
         });
       });
     (state.manual ?? []).filter((m) => m.app === e.app && m.side === 'rp').forEach((m) => {

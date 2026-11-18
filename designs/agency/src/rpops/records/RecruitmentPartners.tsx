@@ -292,9 +292,7 @@ function RpPage({
       <TabPanel id="orptab" tab={tab}>
         {tab === 'overview' && (
           <>
-            <Section title="Applications" id="orp-apps" note="Every application from this RP, by where it is. Each number opens them.">
-              <AppCounts id="orp-apps" match={(a) => (a.rp ?? HOME_RP) === r.name} />
-            </Section>
+            <AppCounts id="orp-apps" match={(a) => (a.rp ?? HOME_RP) === r.name} />
             <Section
               title="Details"
               id="orp-details"

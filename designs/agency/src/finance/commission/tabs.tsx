@@ -6,13 +6,13 @@ import { Icon } from '../../components/Icon';
 import { EditOnly, useShows, useViewOnly } from '../../proto/viewOnly';
 import { Lines } from './Lines';
 import { RpViewForm } from './forms';
-import { Facts, Section } from '../../institution/records/parts';
+import { Facts, Pill, Section } from '../../institution/records/parts';
 import { DocButtons } from '../../components/DocView';
 import { rpName } from './store';
 import { CURRENCY } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
-import { DocLine, SetupButton, StatusPill, TxTable } from './parts';
+import { ContractButton, DocLine, SetupButton, StatusPill, TxTable } from './parts';
 import { compute, settleAll, noticeStatus, sumBy, totalsText, type AppLines, type Item } from './engine';
 import { ctxOf, ctxRps, ctxUnis, enrolmentsOf, useComm } from './store';
 import { COMM_LEVELS, groupOf, addlText, bandsText, benefitText, bonusText, condText, dayText, money, pct, type CommState, type Notice } from './model';
@@ -163,12 +163,23 @@ export function UniCommissionTab({ uni }: { uni: { id: string; name: string; cou
       </Section>
     );
   return (
-    <Section title="Commission terms" id="cuni" note={`What ${uni.name} pays GSP, in ${cur}. Last saved by ${t.updated.by} on ${dayText(new Date(t.updated.at).toISOString())}.`} action={<SetupButton tab="terms" open={uni.id} />}>
+    <Section
+      title="Commission"
+      id="cuni"
+      note={`Set by GSP · Finance in Commission Setup. Changes are made there. Last saved by ${t.updated.by} on ${dayText(new Date(t.updated.at).toISOString())}.`}
+      action={
+        <span className="cuni__acts">
+          <ContractButton file={t.contract} label={`${uni.name}: contract`} />
+          <SetupButton tab="terms" open={uni.id} />
+        </span>
+      }
+    >
       <Facts
         items={[
+          ['Currency', cur],
+          ['Status', <Pill key="st" tone="ok">Entered</Pill>],
           ...termsFacts(t, cur),
           ['Institution partner terms', group ? `${group.name}${group.bands.length ? `: tier ${bandsText(group.bands)}` : ''}${group.bonus.length ? `; ${group.bonus.map((b) => `${b.name}: ${bonusText(b, cur)}`).join('; ')}` : ''}` : 'None', 'wide'],
-          ['Contract', <DocLine key="c" file={t.contract} label={`${uni.name}: contract`} />, 'wide'],
         ]}
       />
     </Section>

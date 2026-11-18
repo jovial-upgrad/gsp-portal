@@ -34,7 +34,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   await nav('Inbox').click(); await wait(700);
   ok(await has(/^New mail$/), 'Mail: E');
   await nav('Course search').click(); await wait(700);
-  await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click(); await wait(1200);
+  await (await p.fill('#fc-q', 'mba uk'), await p.press('#fc-q', 'Enter')); await wait(1200);
   ok((await p.locator('main .course').count()) > 0 && !(await text()).includes('Base commission'), 'Find courses: E, commission not shown');
   ok((await p.locator('#fc-student').count()) === 0 && (await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) === 0 && (await p.locator('main .star').count()) === 0, 'Find courses: no student picker, shortlist or Apply (Students and Applications –)');
 

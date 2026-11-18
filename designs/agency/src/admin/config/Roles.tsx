@@ -514,7 +514,7 @@ export function Permissions({ cfg, change, say }: ConfigProps) {
   const [role, setRole] = useState<string>(ROLES[0]);
   const [draft, setDraft] = useState<Perms | null>(null);
   const [shut, setShut] = useState<Record<string, boolean>>({});
-  const fixed = role === 'Super Admin';
+  const fixed = role === ROLES[0];
   const perms = draft ?? cfg.perms;
   const diff = draft ? OBJECTS.filter((o) => draft[o][role] !== cfg.perms[o][role]) : [];
   return (

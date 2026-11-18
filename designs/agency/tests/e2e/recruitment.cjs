@@ -32,7 +32,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   await nav('My work').click(); await wait(700);
   ok((await p.locator('.iw-tab tbody tr').count()) === 3 && (await has(/Mark as completed/)), 'My work: E');
   await nav('Course search').click(); await wait(700);
-  await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click(); await wait(1200);
+  await (await p.fill('#fc-q', 'mba uk'), await p.press('#fc-q', 'Enter')); await wait(1200);
   ok((await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) > 0, 'Find courses: E');
   ok(!(await text()).includes('Base commission'), 'Find courses › Commissions: not shown');
 

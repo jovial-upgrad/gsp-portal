@@ -4,7 +4,7 @@ import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { SelectInput, TextInput } from '../../components/forms';
 import { NoMatch, PageHead, downloadCsv } from '../../institution/records/parts';
-import type { LogEntry } from '../data/config';
+import { ROLES, type LogEntry } from '../data/config';
 import { GSP_USER } from '../user';
 import type { ConfigProps } from './ConfigPage';
 import { Pager, usePaged } from './parts';
@@ -62,7 +62,7 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
             const filters = [source, role, region, from && `from ${from}`, to && `to ${to}`].filter(Boolean).join(' · ') || 'Everything';
             const u = userOf(me);
             // logged as a download only: change() adds no change of its own when the text is empty
-            change('Logs', '', (c) => ({ ...c, log: [{ id: `x${Date.now()}`, at: Date.now(), who: me, email: u?.email ?? GSP_USER.email, role: 'Super Admin', region: u?.region || 'Global', area: 'Logs', text: 'Log', kind: 'download', filters, records: rows.length, format: 'CSV' }, ...c.log] }));
+            change('Logs', '', (c) => ({ ...c, log: [{ id: `x${Date.now()}`, at: Date.now(), who: me, email: u?.email ?? GSP_USER.email, role: ROLES[0], region: u?.region || 'Global', area: 'Logs', text: 'Log', kind: 'download', filters, records: rows.length, format: 'CSV' }, ...c.log] }));
             say(`${rows.length} log entries exported. The export is logged too.`);
           }}
         >

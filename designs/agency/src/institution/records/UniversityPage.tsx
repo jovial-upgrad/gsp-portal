@@ -81,6 +81,8 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
     (fn, what) =>
       upd((x) => ({ ...fn(x), stamps: { ...x.stamps, [k]: stampBy(me) }, log: [logLine(me, k, what ?? `Changed the ${PARTS[k]?.toLowerCase() ?? k}`), ...x.log] }));
 
+  // 18 Nov (Jovial): no university goes live, or resumes, without its terms in Finance's Commission Setup
+  const hasTerms = comm.terms.some((t) => t.uni === u.id);
   // what going live needs
   const needs: [string, boolean][] = [
     [p ? `Its partner’s agreement is executed and in date (${p.status})` : 'Under an institution partner whose agreement is executed', canGoLive(p)],
@@ -89,7 +91,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
     // 4 Nov: Own portal and StudyLink need at least one portal login
     onPortal(u.channel) && !u.logins.length ? [`A portal login for ${u.channel}`, false] : ['How applications are sent', !!u.channel],
     // 9 Nov (Jovial, the PRD's Commissions tab): Commissions enters the university's terms before it goes live
-    ['Commission terms entered', comm.terms.some((t) => t.uni === u.id)],
+    ['Commission terms entered by GSP · Finance in Commission Setup', hasTerms],
   ];
   const ready = needs.every(([, ok]) => ok);
   const setStatus = (status: UniRec['status'], what: string) => {
@@ -144,9 +146,9 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
           </div>
         ) : u.status === 'Paused' ? (
           <div className="istatus">
-            <p className="istatus__note">{canGoLive(p) ? 'Paused: out of Course search until it’s resumed. Applications already made carry on.' : 'Paused: its partner’s agreement isn’t in date. Renew it on the partner to resume.'}</p>
+            <p className="istatus__note">{!canGoLive(p) ? 'Paused: its partner’s agreement isn’t in date. Renew it on the partner to resume.' : !hasTerms ? 'Paused: GSP · Finance hasn’t entered its commission terms in Commission Setup. It resumes once they’re in.' : 'Paused: out of Course search until it’s resumed. Applications already made carry on.'}</p>
             <EditOnly>
-              <Button size="sm" disabled={!canGoLive(p)} onClick={() => setStatus('Live', 'Resumed')}>
+              <Button size="sm" disabled={!canGoLive(p) || !hasTerms} onClick={() => setStatus('Live', 'Resumed')}>
                 Resume
               </Button>
             </EditOnly>
@@ -181,9 +183,7 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
       <TabPanel id="iutab" tab={tab}>
         {tab === 'overview' && (
           <>
-            <Section title="Applications" id="iu-apps" note="Every application to this university, by where it is. Each number opens them.">
-              <AppCounts id="iu-apps" match={(a) => courseOf(a).uni.id === u.id} />
-            </Section>
+            <AppCounts id="iu-apps" match={(a) => courseOf(a).uni.id === u.id} />
             <Section title="Institution partner" id="iu-ip" updated={u.stamps.partner}>
               {moving ? (
                 <div className="ipartner">

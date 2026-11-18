@@ -27,8 +27,11 @@ export function groupOf(a: Application, groups: AppCountGroup[]): string | undef
   return hit;
 }
 
-/** Four counts, each opening the applications behind it. `match`: the applications this page is about. */
-export function AppCounts({ id, match }: { id: string; match: (a: Application) => boolean }) {
+/**
+ * Four counts, each opening the applications behind it, on one slim line (Jovial, 18 Nov: the record's details show
+ * without scrolling). `match`: the applications this page is about; `facts`: other counts shown first on the line.
+ */
+export function AppCounts({ id, match, facts = [] }: { id: string; match: (a: Application) => boolean; facts?: (readonly [string, number])[] }) {
   const apps = useAppList();
   const groups = useMemo(sampleAppCountGroups, []);
   const mine = useMemo(() => apps.filter(match), [apps, match]);
@@ -44,11 +47,16 @@ export function AppCounts({ id, match }: { id: string; match: (a: Application) =
   const shown = open ? by.get(open) ?? [] : [];
   return (
     <>
-      <div className="istats" role="group" aria-label="Applications">
+      <div className="card appstrip" role="group" aria-label="Applications" id={id}>
+        {facts.map(([k, n]) => (
+          <p key={k} className="appstrip__i">
+            <span className="appstrip__n num">{n.toLocaleString('en-GB')}</span> {k}
+          </p>
+        ))}
+        <span className="appstrip__t">Applications by where they are</span>
         {groups.map((g) => (
-          <button key={g.label} type="button" id={`${id}-${g.label.replace(/\W+/g, '-').toLowerCase()}`} className="card istat istat--btn" onClick={() => setOpen(g.label)} disabled={!by.get(g.label)?.length}>
-            <span className="istat__n num">{(by.get(g.label)?.length ?? 0).toLocaleString('en-GB')}</span>
-            <span className="istat__k">{g.label}</span>
+          <button key={g.label} type="button" id={`${id}-${g.label.replace(/\W+/g, '-').toLowerCase()}`} className="appstrip__i appstrip__btn" onClick={() => setOpen(g.label)} disabled={!by.get(g.label)?.length} title={`Open the ${g.label.toLowerCase()} applications`}>
+            <span className="appstrip__n num">{(by.get(g.label)?.length ?? 0).toLocaleString('en-GB')}</span> {g.label}
           </button>
         ))}
       </div>

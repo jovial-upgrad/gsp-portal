@@ -16,7 +16,6 @@ import {
   LEVELS,
   NEED_LABEL,
   NO_FILTERS,
-  POPULAR,
   SORTS,
   currencyOf,
   intakeMonths,
@@ -257,7 +256,9 @@ export function FindCourses({
         </fieldset>
       </Form>
 
+      {/* Jovial, 18 Nov: no popular searches; until the search is ready, only what's still needed */}
       {!ready ? (
+        tried ? (
         <motion.section
           className="card flanding"
           aria-labelledby="fl-title"
@@ -265,7 +266,6 @@ export function FindCourses({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease }}
         >
-          {tried ? (
             <div className="flanding__need" role="status">
               <Icon name="info" size={18} />
               <div>
@@ -277,21 +277,8 @@ export function FindCourses({
                 </p>
               </div>
             </div>
-          ) : (
-            <h2 id="fl-title" className="flanding__title">
-              Start with a popular search
-            </h2>
-          )}
-          <ul className="fpop" aria-label="Popular searches">
-            {POPULAR.map(([label, text]) => (
-              <li key={label}>
-                <button type="button" className="chip-btn" onClick={() => set((p) => runSearch({ ...p, text, filters: { ...NO_FILTERS }, need: { ...p.need, dest: '', level: '', area: '' } }))}>
-                  {label}
-                </button>
-              </li>
-            ))}
-          </ul>
         </motion.section>
+        ) : null
       ) : (
         <div className="fres">
           <aside className="card ffilters" aria-label="Filters">

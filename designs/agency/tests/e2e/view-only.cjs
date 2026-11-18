@@ -66,7 +66,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New announcement|New mail|Import|Upl
   }
   // Course search works
   await nav(p, 'Course search').click(); await wait(900);
-  await p.locator('main').getByRole('button', { name: 'MBA in the UK' }).click(); await wait(1200);
+  await (await p.fill('#fc-q', 'mba uk'), await p.press('#fc-q', 'Enter')); await wait(1200);
   ok((await p.locator('main').getByRole('button', { name: /^Apply/ }).count()) > 0, 'Course search: courses with Apply');
   ok(errs.length === 0, 'no page errors ' + errs.join(' | '));
   await ctx.close();

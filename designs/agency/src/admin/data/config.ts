@@ -161,8 +161,29 @@ export const LEVELS = [
 export type Level = (typeof LEVELS)[number][0];
 /** The PM's six levels folded into the three (4 Nov): export goes with View or Edit, and Manage is View and Edit. */
 const FOLD: Record<string, Level> = { N: 'N', V: 'V', VX: 'V', E: 'E', EX: 'E', M: 'E' };
-export const ROLES = ['Admissions', 'Admissions Head', 'BAP', 'Data team', 'IP team', 'Recruitment (BDM)', 'Recruitment Head', 'Commissions & Finance', 'Super Admin', 'Leadership', 'RP admin', 'RP branch manager', 'RP counsellor', 'Master Partner admin'] as const;
-/** Each object's level for each role, in ROLES' order (the PM's defaults, in its six levels). */
+/** The PM's roles the defaults below were written for, in their column order. */
+const PM_ROLES = ['Admissions', 'Admissions Head', 'BAP', 'Data team', 'IP team', 'Recruitment (BDM)', 'Recruitment Head', 'Commissions & Finance', 'Super Admin', 'Leadership', 'RP admin', 'RP branch manager', 'RP counsellor', 'Master Partner admin'] as const;
+/**
+ * Jovial, 18 Nov: Permission Roles lists the portal's 9 GSP and 3 RP roles (the prototype's roles, in this order), each
+ * starting from the PM column closest to it; View Only can only look.
+ */
+const PERM_FROM: [string, (typeof PM_ROLES)[number]][] = [
+  ['gsp-admin', 'Super Admin'],
+  ['gsp-view', 'Leadership'],
+  ['gsp-finance', 'Commissions & Finance'],
+  ['gsp-team', 'Admissions'],
+  ['gsp-globalops', 'Admissions Head'],
+  ['institution-partner', 'IP team'],
+  ['gsp-instops', 'Data team'],
+  ['gsp-recruitment', 'Recruitment (BDM)'],
+  ['rp-ops', 'BAP'],
+  ['rp-admin', 'RP admin'],
+  ['rp-branch', 'RP branch manager'],
+  ['rp-counsellor', 'RP counsellor'],
+];
+const labelOf = (k: string) => PROTO_ROLES.find((r) => r.key === k)?.label ?? k;
+export const ROLES = PERM_FROM.map(([k]) => labelOf(k));
+/** Each object's level for each PM role, in PM_ROLES' order (the PM's defaults, in its six levels). */
 const P: [string, string][] = [
   ['Students', 'E EX VX VX VX V VX VX M VX EX E E V'],
   ['Student documents', 'E E VX VX VX V VX VX M V E E E V'],
@@ -200,7 +221,12 @@ const P: [string, string][] = [
 export const OBJECTS = P.map(([o]) => o);
 export type Perms = Record<string, Record<string, Level>>;
 export const samplePerms = (): Perms =>
-  Object.fromEntries(P.map(([o, ls]) => [o, Object.fromEntries(ls.split(' ').map((l, i) => [ROLES[i], FOLD[l]]))]));
+  Object.fromEntries(
+    P.map(([o, ls]) => {
+      const pm = Object.fromEntries(ls.split(' ').map((l, i) => [PM_ROLES[i], FOLD[l]]));
+      return [o, Object.fromEntries(PERM_FROM.map(([k, from]) => [labelOf(k), k === 'gsp-view' && pm[from] === 'E' ? 'V' : pm[from]]))];
+    }),
+  );
 
 /* ---------- queues (Nesil, 30 Oct: a name, a leader and members, from the PM's queues) ---------- */
 /** A queue (9 Nov: Queues and Working Days): one leader, members (the leader is always in it) and how a new task is

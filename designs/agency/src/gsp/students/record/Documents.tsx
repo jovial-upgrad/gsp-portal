@@ -123,9 +123,7 @@ export function Documents({ s, update }: { s: Student; update: Update }) {
             setNote({ ok: true, text: `${f.name} added as ${nameOf(k)}, under ${placesOf(k).map((x) => PLACE_NAME[x]).join(' and ')}.` });
           }}
         />
-        <Button variant="secondary" size="sm" iconLeft={<Icon name="upload" size={16} />} onClick={() => input.current?.click()}>
-          Upload a document
-        </Button>
+        {/* Jovial, 18 Nov: no Upload a document here; documents come from Personal details and applications */}
       </div>
       {note && (
         <p className={`dnote ${note.ok ? 'is-ok' : 'is-bad'}`} role="status">
@@ -184,7 +182,7 @@ export function Documents({ s, update }: { s: Student; update: Update }) {
       {!groups.length && (
         <div className="rempty">
           <p className="rempty__title">No documents yet</p>
-          <p className="rempty__text">Upload them one at a time here, or fill in a part of Personal details from its document: it’s kept here.</p>
+          <p className="rempty__text">Fill in a part of Personal details from its document, or add one on an application: it’s kept here.</p>
         </div>
       )}
       {dialog}

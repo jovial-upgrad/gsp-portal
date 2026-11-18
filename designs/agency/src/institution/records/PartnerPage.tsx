@@ -123,23 +123,7 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
       <TabPanel id="iptab" tab={tab}>
         {tab === 'overview' && (
           <>
-            <Section title="Applications" id="ip-apps" note="Every application to its universities, by where it is. Each number opens them.">
-              <AppCounts id="ip-apps" match={(a) => unis.some((u) => u.id === courseOf(a).uni.id)} />
-            </Section>
-            <div className="istats" role="group" aria-label="With GSP so far">
-              {(
-                [
-                  ['Universities', unis.length],
-                  ['Live courses', live],
-                  ['Applications', apps],
-                ] as const
-              ).map(([k, n]) => (
-                <p key={k} className="card istat">
-                  <span className="istat__n num">{n.toLocaleString('en-GB')}</span>
-                  <span className="istat__k">{k}</span>
-                </p>
-              ))}
-            </div>
+            <AppCounts id="ip-apps" facts={[['Universities', unis.length], ['Live courses', live], ['Applications', apps]]} match={(a) => unis.some((u) => u.id === courseOf(a).uni.id)} />
             <Section
               title="Details"
               id="ip-details"
