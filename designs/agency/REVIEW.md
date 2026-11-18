@@ -458,7 +458,7 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 - [x] Jovial, 18 Nov: GSP · Admin shows **Master Partners** (and RP Ops' Recruitment Partners page, which links them), as in Nesil's build 37. REGRESSION R148. (18 Nov, branch admin-mps)
 
 - [x] Jovial, 18 Nov: queues can sit under a queue (India's regional managers under India Recruitment); Dashboards round 1 (Overview, Targets) for review before the PRD. REGRESSION R149–R150. (18 Nov, branch dashboards-r1)
-- [x] Jovial, 18 Nov: Dashboards rounds 2–5 in Admin only (Admissions, Sales, Finance, Leadership with Download the pack, Dashboard settings); a daily job feeds the reporting tables. REGRESSION R154–R156. (18 Nov, branch dashboards-r2-5)
+- [x] Jovial, 18 Nov: Dashboards rounds 2–5 in Admin only (Admissions, Sales, Finance, Leadership with Download the pack, Dashboard settings); a daily job feeds the reporting tables. REGRESSION R154–R156. (18 Nov, a4262bd, branch dashboards-r2-5)
 
 - [x] Ali, 18 Nov call: **no RP bank details on the portal** (they come on the RP's invoice; the permission row is gone). REGRESSION R151. (18 Nov, branch ali-18nov)
 - [ ] Ali, 18 Nov call: **enrolment BDM** = the RP's BDM, the branch's BDM for a branch's applications, the onshore region's BDM for a head office's onshore students. REGRESSION R152 (dashboards round 3).
