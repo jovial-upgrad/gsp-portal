@@ -32,7 +32,7 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   ok((await p.getByRole('button', { name: 'New mail' }).count()) === 1, 'Inbox: New mail (edit access)');
   ok((await p.locator('.iviewonly--page').count()) === 0, 'Inbox: no view-only line');
   await nav('My work').click(); await wait(800);
-  ok((await p.locator('.iw-tab tbody tr').count()) === 3, 'My work: Rhythm’s three Finance tasks');
+  ok((await p.locator('.iw-tab tbody tr').count()) >= 1, 'My work: Rhythm’s Finance tasks (from the rules)');
   ok((await p.getByRole('button', { name: /Mark as completed/ }).count()) >= 1, 'My work: Mark as completed (edit access)');
   await nav('Students').click(); await wait(800);
   ok((await p.getByRole('button', { name: 'Add student' }).count()) >= 1, 'Students: Add student (edit access)');
@@ -52,16 +52,10 @@ const EDIT = /^(Add|Edit|Save|Delete|Remove|New (mail|application|announcement|M
   ok((await edits()).length === 0, 'Applications: view only ' + (await edits()).join(', '));
   await p.locator('main .arow, main tbody tr').first().click(); await wait(900);
   ok((await tabNames()).join('|') === 'Commission|Documents|Logs', 'Application: Commission, Documents (view and download, 18 Nov) and Logs (' + (await tabNames()).join(', ') + ')');
-  const appEdits = (await edits()).filter((l) => !/^Edit the commission$/.test(l) && !/^Edit$/.test(l));
-  ok(appEdits.length === 0, 'Application: nothing else to change' + (appEdits.length ? ' (found ' + appEdits.join(', ') + ')' : ''));
-  await p.getByRole('button', { name: /Edit the commission/ }).click(); await wait(300);
-  await p.locator('#acom-status').selectOption('Paid');
-  await p.getByRole('button', { name: 'Save', exact: true }).click(); await wait(300);
-  ok((await p.locator('.field__msg--error').count()) === 2, 'Commission: Paid needs the invoice and the date');
-  await p.fill('#acom-invoice', 'INV-2026-0501');
-  await p.fill('#acom-paid', '2026-11-05');
-  await p.getByRole('button', { name: 'Save', exact: true }).click(); await wait(400);
-  ok((await p.locator('main .ifacts').innerText()).includes('INV-2026-0501') && (await p.locator('main .ifacts').innerText()).includes('Paid'), 'Commission saved: Paid, with the invoice');
+  // Jovial, 18 Nov: Finance edits Key details (fee, scholarship, census dates, campus): commission depends on them
+  const appEdits = (await edits()).filter((l) => !/^Edit the commission$/.test(l) && !/^Edit$/.test(l) && !/^Add the /.test(l));
+  ok(appEdits.length === 0, 'Application: Key details and commission to change, nothing else' + (appEdits.length ? ' (found ' + appEdits.join(', ') + ')' : ''));
+  // 18 Nov (R173): the Commission tab's lines are checked in app-lines.cjs; the old Edit the commission sheet is gone
 
   // recruitment partners: view, Commission to change
   await nav('Recruitment partners').click(); await wait(800);

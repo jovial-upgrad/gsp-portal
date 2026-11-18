@@ -12,7 +12,7 @@ import { TARGET_LEVELS, TARGET_METRICS, readTargets, templateRows, versionRows, 
  * named version. One version is current: the dashboards compare with it. Versions stay, so a plan and its revisions
  * can be compared.
  */
-export function Targets({ names, versions, setVersions, me, say, fyStart = 4 }: { fyStart?: number; names: Record<TargetLevel, string[]>; versions: TargetVersion[]; setVersions: (f: (v: TargetVersion[]) => TargetVersion[]) => void; me: string; say: (t: string) => void }) {
+export function Targets({ names, versions, setVersions, me, say, fyStart = 4, nextFrom = 2 }: { fyStart?: number; nextFrom?: number; names: Record<TargetLevel, string[]>; versions: TargetVersion[]; setVersions: (f: (v: TargetVersion[]) => TargetVersion[]) => void; me: string; say: (t: string) => void }) {
   const [pick, setPick] = useState(versions.find((v) => v.current)?.id ?? versions[0]?.id ?? '');
   const [up, setUp] = useState(false);
   const [levels, setLevels] = useState<string[]>([]);
@@ -21,7 +21,12 @@ export function Targets({ names, versions, setVersions, me, say, fyStart = 4 }: 
   const v = versions.find((x) => x.id === pick);
   // this financial year (it starts in the Dashboard settings' month): the template's quarters
   const now = new Date();
-  const fy = now.getMonth() + 1 >= fyStart ? now.getFullYear() + 1 : now.getFullYear();
+  const thisFy = now.getMonth() + 1 >= fyStart ? now.getFullYear() + 1 : now.getFullYear();
+  // next year's template too, from the Dashboard setting's month until the year starts (18 Nov)
+  const m = now.getMonth() + 1;
+  const fys = (m - nextFrom + 12) % 12 < (fyStart - nextFrom + 12) % 12 ? [thisFy, thisFy + 1] : [thisFy];
+  const [tfy, setTfy] = useState(thisFy);
+  const fy = fys.includes(tfy) ? tfy : thisFy;
   const rows = (v?.rows ?? []).filter((r) => (!levels.length || levels.includes(r.level)) && (!periods.length || periods.includes(r.period)));
   const makeCurrent = (id: string) => {
     setVersions((l) => l.map((x) => ({ ...x, current: x.id === id })));
@@ -37,6 +42,15 @@ export function Targets({ names, versions, setVersions, me, say, fyStart = 4 }: 
   return (
     <div className="ins">
       <PageHead title="Targets" lead="What the business aims for, by BDM, sales region, destination, university or IP, per month or quarter of the course start. The dashboards compare with the current version.">
+        {fys.length > 1 && (
+          <SelectInput id="tg-fy" aria-label="Template year" value={String(fy)} onChange={(e) => setTfy(+e.target.value)}>
+            {fys.map((y) => (
+              <option key={y} value={y}>
+                {`FY${String(y).slice(2)}`}
+              </option>
+            ))}
+          </SelectInput>
+        )}
         <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={() => downloadCsv(`targets-template-fy${String(fy).slice(2)}.csv`, templateRows(names, fy, fyStart))}>
           Download template
         </Button>

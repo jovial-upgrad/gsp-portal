@@ -42,6 +42,8 @@ export type InsightSettings = {
   idleSteps: number[];
   /** The financial year starts in this month (April), its quarters named AMJ, JAS, OND, JFM. */
   fyStartMonth: number;
+  /** Next financial year's targets template is offered from this month (Jovial, 18 Nov: February, for AOP planning). */
+  nextFyTemplateFrom: number;
   /** Ali's deadline report: intake deadlines in the next N days. */
   deadlineWindows: number[];
   /** How a refused visa closes an application (Deposit → visa). */
@@ -83,6 +85,7 @@ export const sampleInsightSettings = (): InsightSettings => ({
     checkpoint('enrolled', 'enrolled'),
   ],
   fyStartMonth: 4,
+  nextFyTemplateFrom: 2,
   deadlineWindows: [7, 15, 30],
   interviewStatus: 'interview',
   visaRefused: 'Visa refused',
@@ -145,7 +148,8 @@ export const intakeText = (k: string) => new Date(`${k}-01T12:00:00`).toLocaleDa
  */
 export function regionalManagers(queues: Queue[], users: User[], regions: Region[]) {
   const name = (id: string) => users.find((u) => u.id === id)?.name ?? '';
-  const recruitment = new Set(regions.map((r) => r.recruitment).filter(Boolean));
+  // a region's recruitment queue, and (18 Nov) every top-level queue of type Recruitment
+  const recruitment = new Set([...regions.map((r) => r.recruitment).filter(Boolean), ...queues.filter((q) => q.type === 'Recruitment' && !q.parent).map((q) => q.id)]);
   const underRecruitment = (q: Queue): boolean => {
     let p = queues.find((x) => x.id === q.parent);
     for (let i = 0; p && i < 10; i++, p = queues.find((x) => x.id === p!.parent)) if (recruitment.has(p.id)) return true;

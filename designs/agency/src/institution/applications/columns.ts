@@ -10,6 +10,8 @@ import { courseOf } from '../../data/applications';
 import { ctxRps, ctxUnis, ipName } from '../../finance/commission/store';
 import { sampleOps } from '../../rpops/records/data';
 import { HOME_RP } from '../rps';
+import { isOnshore, onshoreBdm } from '../../admin/data/config';
+import { destOf } from '../../data/applications';
 
 export type ColCtx = { apps: Application[]; student: (a: Application) => Student | undefined; counsellor: (a: Application) => string };
 export type AppColumn = { key: string; label: string; get: (a: Application, x: ColCtx) => string };
@@ -25,8 +27,19 @@ const plusMonths = (iso: string, m: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-/** The application BDM (R152): the one kept on the application, else the RP's BDM when it was made. */
-export const appBdmOf = (a: Application) => a.bdm ?? opsOf(a)?.recruitment ?? '';
+/**
+ * The application BDM (R152; Ali's rule, 18 Nov): the one kept on the application (set when it's made, or changed by
+ * Admissions); else, for an onshore student (routed to the Australia onshore sales region), that region's BDM; else
+ * the BDM of the RP branch the application comes from (the counsellor's branch on the RP record; the head office's is
+ * the RP's BDM).
+ */
+export const appBdmOf = (a: Application, who?: { counsellor?: string; country?: string }) => {
+  if (a.bdm) return a.bdm;
+  if (who?.country && isOnshore(who.country, destOf(a))) return onshoreBdm();
+  const rp = opsOf(a);
+  const member = rp?.team.find((m) => m.name === who?.counsellor);
+  return rp?.branches.find((b) => b.id === member?.branch)?.contact || rp?.recruitment || '';
+};
 
 export const APP_COLUMNS: AppColumn[] = [
   { key: 'gsp', label: 'GSP student ID', get: (a) => a.studentId },
@@ -54,5 +67,5 @@ export const APP_COLUMNS: AppColumn[] = [
   { key: 'rpid', label: 'RP ID', get: (a) => rpOf(a)?.code ?? '' },
   { key: 'rpbdm', label: 'RP BDM', get: (a) => opsOf(a)?.recruitment ?? '' },
   { key: 'counsellor', label: 'RP counsellor', get: (a, x) => x.counsellor(a) },
-  { key: 'appbdm', label: 'Application BDM', get: (a) => appBdmOf(a) },
+  { key: 'appbdm', label: 'Application BDM', get: (a, x) => appBdmOf(a, { counsellor: x.counsellor(a), country: x.student(a)?.country }) },
 ];

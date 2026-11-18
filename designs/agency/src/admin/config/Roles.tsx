@@ -8,7 +8,8 @@ import { Field, SelectInput, TextInput } from '../../components/forms';
 import { MultiPick } from '../../institution/records/MultiPick';
 import { SearchPick } from '../../institution/records/SearchPick';
 import { NoMatch, PageHead, RecordTabs, TabPanel } from '../../institution/records/parts';
-import { FIXED_REGIONS, LEVELS, OBJECTS, REGION_COUNTRIES, ROLES, workRegions, type Level, type Perms, type Queue, type Region, type User } from '../data/config';
+import { FIXED_REGIONS, LEVELS, OBJECTS, REGION_COUNTRIES, ROLES, workRegions, type Level, type Perms, type Queue, type QueueType, type Region, type User } from '../data/config';
+import { REGIONAL, REGION_ADMISSIONS, REGION_RECRUITMENT } from '../data/work';
 import { nationalityOf, type NationalityRow } from '../data/nationalities';
 import { COUNTRIES } from '../../data/partners';
 import { SelectMenu } from '../../components/SelectMenu';
@@ -408,15 +409,15 @@ function RegionDialog({ open, region, regions, users, queues, onClose, onSave }:
   const countryOptions = COUNTRIES.map((c) => c.name).filter((c) => !elsewhere.has(c));
   const admissions = users.filter((u) => u.role === 'GSP · Admissions' && u.status !== 'Deactivated');
   const bdms = users.filter((u) => u.role === 'GSP · Recruitment' && u.status !== 'Deactivated');
-  const admissionQueues = queues.filter((q) => /admission/i.test(q.name));
-  const recruitmentQueues = queues.filter((q) => /recruitment/i.test(q.name));
+  // by the queue's type (18 Nov), the region's own first
+  const ofType = (t: QueueType) => queues.filter((q) => q.type === t).sort((a, b) => Number(b.region === name.trim()) - Number(a.region === name.trim()));
+  const admissionQueues = ofType('Admissions');
+  const recruitmentQueues = ofType('Recruitment');
   const err = {
     name: v.length < 2 ? 'Name the region, like Middle East.' : regions.some((r) => r.name !== region?.name && r.name.toLowerCase() === v.toLowerCase()) ? 'There’s already a region with this name.' : null,
     countries: !countries.length ? 'Pick its countries.' : null,
     contact: !contact ? 'Pick its Admission contact.' : null,
     bdm: !bdm ? 'Pick its BDM contact.' : null,
-    queue: !queue ? 'Pick its admission queue.' : null,
-    rec: !rec ? 'Pick its recruitment queue.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const save = () => {
@@ -469,8 +470,9 @@ function RegionDialog({ open, region, regions, users, queues, onClose, onSave }:
             ))}
           </SelectInput>
         </Field>
-        <Field id="rg-queue" label="Admission queue" required error={show('queue')}>
-          <SelectInput id="rg-queue" value={queue} placeholder="Choose one queue" invalid={!!show('queue')} onChange={(e) => setQueue(e.target.value)}>
+        <Field id="rg-queue" label="Admission queue" hint={`Optional (18 Nov): none sends its applications to ${REGIONAL[REGION_ADMISSIONS].fallback}.`}>
+          <SelectInput id="rg-queue" value={queue} placeholder="None" aria-describedby="rg-queue-hint" onChange={(e) => setQueue(e.target.value)}>
+            <option value="">None</option>
             {admissionQueues.map((q) => (
               <option key={q.id} value={q.id}>
                 {q.name}
@@ -478,8 +480,9 @@ function RegionDialog({ open, region, regions, users, queues, onClose, onSave }:
             ))}
           </SelectInput>
         </Field>
-        <Field id="rg-rec" label="Recruitment queue" required error={show('rec')} hint="Its RPs’ tasks go here, to each RP’s BDM.">
-          <SelectInput id="rg-rec" value={rec} placeholder="Choose one queue" invalid={!!show('rec')} onChange={(e) => setRec(e.target.value)}>
+        <Field id="rg-rec" label="Recruitment queue" hint={`Its RPs’ tasks go here, to each RP’s BDM. Optional: none sends them to ${REGIONAL[REGION_RECRUITMENT].fallback}.`}>
+          <SelectInput id="rg-rec" value={rec} placeholder="None" aria-describedby="rg-rec-hint" onChange={(e) => setRec(e.target.value)}>
+            <option value="">None</option>
             {recruitmentQueues.map((q) => (
               <option key={q.id} value={q.id}>
                 {q.name}

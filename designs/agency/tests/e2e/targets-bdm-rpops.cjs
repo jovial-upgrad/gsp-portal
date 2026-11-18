@@ -39,6 +39,29 @@ const open = async (b, role) => {
     await p.locator('.pnav__group', { hasText: 'Dashboards' }).first().click(); await wait(300);
     await p.locator('.pfly__item', { hasText: /^\s*Overview\s*$/ }).first().click(); await wait(1200);
     ok(/target [\d,]+ \(/.test(await p.locator('main').innerText()), 'Overview tiles show the Company target');
+    // Queues: Sales region and Type required; Sales regions: the two queues optional, offered by type (18 Nov)
+    await p.locator('.pnav__group', { hasText: 'Work' }).first().click(); await wait(300);
+    await p.locator('.pfly__item').filter({ hasText: /Queues/ }).first().click(); await wait(1000);
+    const qhead = (await p.locator('.wk-queues thead th').allInnerTexts()).map((x) => x.trim());
+    ok(qhead.includes('Sales region') && qhead.includes('Type'), 'queues table: Sales region and Type columns: ' + qhead.join(', '));
+    await p.getByRole('button', { name: 'Create Queue' }).first().click(); await wait(600);
+    const sh = p.getByRole('dialog');
+    await sh.getByRole('button', { name: 'Create Queue' }).click(); await wait(300);
+    const qerr = await sh.locator('.field__msg--error').allInnerTexts();
+    ok(qerr.includes('Choose its sales region.') && qerr.includes('Choose its type.'), 'Create Queue: sales region and type required: ' + qerr.join(' | '));
+    await p.fill('#wq-name', 'Middle East Admissions'); await p.selectOption('#wq-region', 'Global'); await p.selectOption('#wq-type', 'Admissions'); await p.selectOption('#wq-lead', { index: 1 });
+    await sh.getByRole('button', { name: 'Create Queue' }).click(); await wait(700);
+    const row = await p.locator('.wk-queues tr', { hasText: 'Middle East Admissions' }).innerText();
+    ok(/Global/.test(row) && /Admissions/.test(row), 'a new queue shows its region and type: ' + row.replace(/\s+/g, ' '));
+    await p.locator('.pnav__group', { hasText: 'User Roles' }).first().click(); await wait(300);
+    await p.locator('.pfly__item', { hasText: /^\s*Sales Regions\s*$/ }).first().click(); await wait(900);
+    await p.getByRole('button', { name: 'Add Sales Region' }).first().click(); await wait(600);
+    const rg = p.getByRole('dialog');
+    await rg.getByRole('button', { name: 'Add Sales Region' }).click(); await wait(300);
+    const rerr = await rg.locator('.field__msg--error').allInnerTexts();
+    ok(!rerr.some((e) => /queue/i.test(e)) && rerr.length >= 3, 'Add Sales Region: admission and recruitment queues optional: ' + rerr.join(' | '));
+    const opts = await p.locator('#rg-queue option').allInnerTexts();
+    ok(opts.includes('Middle East Admissions') && !opts.some((o) => /Recruitment/.test(o)), 'Admission queue offers Admissions-type queues only');
     ok(errs.length === 0, 'Admin: no page errors ' + errs.join(' | '));
   }
 

@@ -746,7 +746,8 @@ GSP · Admin › **Dashboards**. Built from a seeded reporting set (`src/insight
 
 - **Overview**: the filter bar every dashboard shares (intake, destination, source country = the RP's country, sales region, university, regional manager, BDM, RP, received dates, all / live / closed); stage tiles; students (each once: Safe, Drop, WIP); applications and deposits over time (per period or running total, never two axes); funnel; top universities; where applications are stuck. Every number opens its students, with a CSV download.
 - **Targets**: Admin uploads the business's targets as a CSV (Level, Name, Period, then Applications, Submitted, Offers, Deposits, CoE/CAS, Enrolments, Revenue (AUD)) into a named version; one is current. Bad lines are left out with the reason. **Download template** (18 Nov) gives every Company, Sales region, BDM, Destination, University and IP, one row per quarter of this FY, to fill in; empty rows are skipped. The Company target shows on Overview's tiles.
-- **Application BDM** (18 Nov): in an application's Key details; every Admissions user can change it (the BDM and why, logged).
+- **Application BDM** (18 Nov): in an application's Key details; every Admissions user can change it (the BDM and why, logged). It starts as the BDM of the RP branch the application comes from, or, for an onshore student, the Australia onshore region's BDM (Ali).
+- **Queues** (18 Nov): each has a Sales region and a Type (Admissions, Recruitment, Other), both required; a sales region's Admission and Recruitment queues are optional.
 - **RP Ops › Commission setup** (18 Nov): RP records and Agreements; RP Ops issues notices, Finance creates them and can issue them too.
 - Regional managers come from queues that sit under another queue (Queues › Part of): India Recruitment holds the five India regional queues.
 

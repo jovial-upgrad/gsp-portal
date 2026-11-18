@@ -676,7 +676,7 @@ export function AppDetail({
               )}
               {!noAdmFacts && <Row k="Counsellor" v={counsellor?.name} />}
               {/* Jovial, 18 Nov: the application BDM, kept when it's made; any Admissions user can change it (logged) */}
-              <AppBdmRow a={a} canEdit={!viewOnly} update={update} log={log} say={say} />
+              <AppBdmRow a={a} who={{ counsellor: counsellor?.name, country: s.country }} canEdit={!viewOnly} update={update} log={log} say={say} />
               {!noBaseCommission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
               <Row k="Started" v={shortDate(new Date(a.created))} />
             </dl>
@@ -1153,12 +1153,12 @@ function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boo
 }
 
 /** Key details' Application BDM (R152): set when the application is made; an Admissions user can change it, with why. */
-export function AppBdmRow({ a, canEdit, update, log, say }: { a: Application; canEdit: boolean; update: (fn: (x: Application) => Application) => void; log: (text: string) => void; say: (m: string) => void }) {
+export function AppBdmRow({ a, who, canEdit, update, log, say }: { a: Application; who?: { counsellor?: string; country?: string }; canEdit: boolean; update: (fn: (x: Application) => Application) => void; log: (text: string) => void; say: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const [to, setTo] = useState('');
   const [why, setWhy] = useState('');
   const [tried, setTried] = useState(false);
-  const now = appBdmOf(a);
+  const now = appBdmOf(a, who);
   const bdms = [...new Set(sampleUsers().filter((u) => u.role === 'Recruitment').map((u) => u.name))].sort();
   const err = { to: !to ? 'Choose the BDM.' : to === now ? 'It already counts for this BDM.' : null, why: why.trim() ? null : 'Say why.' };
   return (

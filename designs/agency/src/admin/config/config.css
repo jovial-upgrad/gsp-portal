@@ -339,9 +339,11 @@
    ========================================================================== */
 .wk-tools { margin-bottom: var(--sp-16); }
 .wk-tools .stools { border-bottom: 0; }
-.wk-queues .wk-c-name { width: 21%; }
+.wk-queues .wk-c-name { width: 19%; }
+.wk-queues .wk-c-region { width: 12%; }
+.wk-queues .wk-c-type { width: 10%; }
 .wk-queues .wk-c-lead { width: 15%; }
-.wk-queues .wk-c-members { width: 30%; }
+.wk-queues .wk-c-members { width: 22%; }
 .wk-queues .wk-c-share { width: 12%; }
 .wk-queues td { vertical-align: top; }
 .wk-people { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
