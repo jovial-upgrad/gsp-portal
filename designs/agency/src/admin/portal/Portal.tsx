@@ -422,7 +422,7 @@ export function Portal({
     ) : section === 'dset' ? (
       <DashSettings s={ins} set={setIns} me={GSP_USER.name} say={say} currencies={["AUD", ...(cfg.fx[0]?.rows.map((r) => r.code) ?? [])]} />
     ) : section === 'targets' ? (
-      <Targets fyStart={ins.fyStartMonth} names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
+      <Targets fyStart={ins.fyStartMonth} nextFrom={ins.nextFyTemplateFrom} names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
     ) : section === 'commlines' ? (
       <Lines apps={apps} students={students} setApps={setApps} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : section === 'commsetup' ? (

@@ -7,7 +7,7 @@ import { MoreMenu } from '../../components/MoreMenu';
 import { Field, SelectInput, Switch, TextInput } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { NoMatch, PageHead, RecordTabs, TabPanel } from '../../institution/records/parts';
-import { queueTree, type Queue, type User } from '../data/config';
+import { QUEUE_TYPES, queueTree, type Queue, type QueueType, type User } from '../data/config';
 import {
   AFTER_UNITS,
   DEFAULT_TZ,
@@ -124,6 +124,7 @@ export function QueuesSla(props: ConfigProps) {
         open={!!edit}
         queue={edit === 'new' ? null : edit}
         queues={cfg.queues}
+        regions={cfg.regions.map((r) => r.name)}
         users={cfg.users}
         onClose={() => setEdit(null)}
         onSave={(q) => {
@@ -145,7 +146,7 @@ function QueuesTab({ cfg, change, say, onEdit }: ConfigProps & { onEdit: (q: Que
   const [removing, setRemoving] = useState<Queue | null>(null);
   const who = (id: string) => cfg.users.find((u) => u.id === id);
   const s = q.trim().toLowerCase();
-  const match = (x: Queue) => !s || [x.name, who(x.lead)?.name ?? '', ...x.members.map((m) => who(m)?.name ?? '')].some((t) => t.toLowerCase().includes(s));
+  const match = (x: Queue) => !s || [x.name, x.region, x.type, who(x.lead)?.name ?? '', ...x.members.map((m) => who(m)?.name ?? '')].some((t) => t.toLowerCase().includes(s));
   const shown = cfg.queues.filter(match);
   const admin = cfg.queues.find((x) => x.id === 'q-admin');
   const moving = removing ? cfg.tasks.filter((t) => t.queue === removing.id && !t.done).length : 0;
@@ -182,6 +183,8 @@ function QueuesTab({ cfg, change, say, onEdit }: ConfigProps & { onEdit: (q: Que
             <table className="itab cfg__tab wk-queues">
               <colgroup>
                 <col className="wk-c-name" />
+                <col className="wk-c-region" />
+                <col className="wk-c-type" />
                 <col className="wk-c-lead" />
                 <col className="wk-c-members" />
                 <col className="wk-c-share" />
@@ -190,6 +193,8 @@ function QueuesTab({ cfg, change, say, onEdit }: ConfigProps & { onEdit: (q: Que
               <thead>
                 <tr>
                   <th scope="col">Queue</th>
+                  <th scope="col">Sales region</th>
+                  <th scope="col">Type</th>
                   <th scope="col">Leader</th>
                   <th scope="col">Members</th>
                   <th scope="col">Shared by</th>
@@ -208,6 +213,8 @@ function QueuesTab({ cfg, change, say, onEdit }: ConfigProps & { onEdit: (q: Que
                         <span className="cfg__strong">{x.name}</span>
                         {x.parent && <span className="cfg__muted wk-sub">Part of {cfg.queues.find((y) => y.id === x.parent)?.name ?? 'a deleted queue'}</span>}
                       </td>
+                      <td>{x.region}</td>
+                      <td>{x.type}</td>
                       <td>{lead ? <span className="cfg__strong">{lead.name}</span> : <span className="cfg__warn">No leader</span>}</td>
                       <td>
                         {members.length ? (
@@ -267,8 +274,11 @@ function QueuesTab({ cfg, change, say, onEdit }: ConfigProps & { onEdit: (q: Que
 }
 
 /** Create or edit a queue: its name, leader, how a new task is shared and its members, listed under the form. */
-function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boolean; queue: Queue | null; queues: Queue[]; users: User[]; onClose: () => void; onSave: (q: Queue) => void }) {
+function QueueSheet({ open, queue, queues, regions, users, onClose, onSave }: { open: boolean; queue: Queue | null; queues: Queue[]; regions: string[]; users: User[]; onClose: () => void; onSave: (q: Queue) => void }) {
   const [name, setName] = useState('');
+  // Jovial, 18 Nov: every queue names its sales region and its type, both required
+  const [region, setRegion] = useState('');
+  const [type, setType] = useState<QueueType | ''>('');
   const [lead, setLead] = useState('');
   const [sharing, setSharing] = useState<Sharing>('fewest');
   const [members, setMembers] = useState<string[]>([]);
@@ -277,6 +287,8 @@ function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boo
   useEffect(() => {
     if (!open) return;
     setParent(queue?.parent ?? '');
+    setRegion(queue?.region ?? '');
+    setType(queue?.type ?? '');
     setName(queue?.name ?? '');
     setLead(queue?.lead ?? '');
     setSharing(queue?.sharing ?? 'fewest');
@@ -288,6 +300,8 @@ function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boo
   const err = {
     name: !v ? 'Name the queue.' : v.length > 60 ? 'Keep it to 60 characters.' : queues.some((x) => x.id !== queue?.id && x.name.toLowerCase() === v.toLowerCase()) ? 'There’s already a queue with this name.' : null,
     lead: !lead ? 'Choose a leader.' : null,
+    region: !region ? 'Choose its sales region.' : null,
+    type: !type ? 'Choose its type.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const picked = members.filter((n) => n !== leadName);
@@ -295,7 +309,7 @@ function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boo
     setTried(true);
     if (Object.values(err).some(Boolean)) return;
     const ids = members.filter((n) => n !== leadName).map((n) => users.find((u) => u.name === n)?.id).filter((x): x is string => !!x);
-    onSave({ id: queue?.id ?? `q-${Date.now()}`, name: v, lead, sharing, members: ids, ...(parent ? { parent } : {}) });
+    onSave({ id: queue?.id ?? `q-${Date.now()}`, name: v, lead, sharing, members: ids, region, type: type as QueueType, ...(parent ? { parent } : {}) });
   };
   const active = users.filter((u) => u.status !== 'Deactivated');
   return (
@@ -325,6 +339,24 @@ function QueueSheet({ open, queue, queues, users, onClose, onSave }: { open: boo
       <div className="wk-form">
         <Field id="wq-name" label="Queue name" required error={show('name')}>
           <TextInput id="wq-name" value={name} maxLength={60} invalid={!!show('name')} placeholder="Like: India Admissions" onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field id="wq-region" label="Sales region" required error={show('region')} hint="The region whose work it takes; Global for a team that covers every region.">
+          <SelectInput id="wq-region" value={region} placeholder="Choose one region" invalid={!!show('region')} aria-describedby="wq-region-hint" onChange={(e) => setRegion(e.target.value)}>
+            {regions.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="wq-type" label="Type" required error={show('type')} hint="Sales regions offer Admissions queues as their admission queue and Recruitment queues as their recruitment queue.">
+          <SelectInput id="wq-type" value={type} placeholder="Choose one type" invalid={!!show('type')} aria-describedby="wq-type-hint" onChange={(e) => setType(e.target.value as QueueType)}>
+            {QUEUE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
         <Field id="wq-lead" label="Leader" required error={show('lead')} hint="Sees the queue’s tasks and can assign them.">
           <SelectInput id="wq-lead" value={lead} placeholder="Choose one person" invalid={!!show('lead')} aria-describedby="wq-lead-hint" onChange={(e) => setLead(e.target.value)}>

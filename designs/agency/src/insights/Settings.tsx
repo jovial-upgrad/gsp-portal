@@ -43,6 +43,7 @@ export function DashSettings({ s, set, me, say, currencies }: { s: InsightSettin
       arBuckets: nums(v.arBuckets),
       deadlineWindows: nums(v.deadlineWindows),
       fyStartMonth: +v.fyStartMonth,
+      nextFyTemplateFrom: +v.nextFyTemplateFrom,
       incentive: { ...s.incentive, amount: +v.amount, currency: v.currency.trim() || s.incentive.currency, milestone: v.milestone },
       priorityTarget: +v.priorityTarget,
       analysisMonths: +v.analysisMonths,
@@ -82,6 +83,15 @@ export function DashSettings({ s, set, me, say, currencies }: { s: InsightSettin
         <div className="iform__grid">
           <Field id="ds-fy" label="Financial year starts in">
             <SelectInput id="ds-fy" value={v.fyStartMonth} onChange={(e) => put('fyStartMonth')(e.target.value)}>
+              {months.map(([k, t]) => (
+                <option key={k} value={k}>
+                  {t}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field id="ds-nextfy" label="Next year’s targets template from" hint="Targets offers next financial year’s template from this month until the year starts.">
+            <SelectInput id="ds-nextfy" value={v.nextFyTemplateFrom} aria-describedby="ds-nextfy-hint" onChange={(e) => put('nextFyTemplateFrom')(e.target.value)}>
               {months.map(([k, t]) => (
                 <option key={k} value={k}>
                   {t}
@@ -141,6 +151,7 @@ function draft(s: InsightSettings) {
     arBuckets: s.arBuckets.join(', '),
     deadlineWindows: s.deadlineWindows.join(', '),
     fyStartMonth: String(s.fyStartMonth),
+    nextFyTemplateFrom: String(s.nextFyTemplateFrom),
     amount: String(s.incentive.amount),
     currency: s.incentive.currency,
     milestone: s.incentive.milestone,

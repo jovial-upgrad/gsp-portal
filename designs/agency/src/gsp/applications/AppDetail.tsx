@@ -638,7 +638,7 @@ export function AppDetail({
               )}
               <Row k="Counsellor" v={counsellor?.name} />
               {/* Jovial, 18 Nov: every Admissions user can change the application BDM (logged) */}
-              <AppBdmRow a={a} canEdit update={update} log={log} say={say} />
+              <AppBdmRow a={a} who={{ counsellor: counsellor?.name, country: s.country }} canEdit update={update} log={log} say={say} />
               {!noBaseCommission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
               <Row k="Started" v={shortDate(new Date(a.created))} />
             </dl>

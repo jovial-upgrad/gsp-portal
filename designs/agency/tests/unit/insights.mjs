@@ -76,6 +76,24 @@ try {
     return hits;
   });
   ok('hard-coded scan: the dashboard pages take their lists and statuses from settings and records', hard.length === 0, hard.join('; '));
+
+  // 18 Nov: queues carry a sales region and a type; the application BDM follows Ali's rule
+  const cfgm = await vite.ssrLoadModule('/src/admin/data/config.ts');
+  const qs = cfgm.sampleQueues(cfgm.sampleUsers());
+  ok('every queue has a sales region and a type from the queue types', qs.every((q) => q.region && cfgm.QUEUE_TYPES.includes(q.type)));
+  ok('Admissions and Recruitment queues are typed (no name matching)', qs.filter((q) => q.type === 'Admissions').length > 5 && qs.filter((q) => q.type === 'Recruitment').length > 5 && qs.find((q) => q.id === 'q-finance').type === 'Other');
+  const col = await vite.ssrLoadModule('/src/institution/applications/columns.ts');
+  const ops = (await vite.ssrLoadModule('/src/rpops/records/data.ts')).sampleOps();
+  const hz = ops.find((r) => r.id === 'rp-horizon');
+  const apps = (await vite.ssrLoadModule('/src/data/applications.ts'));
+  const a0 = { ...apps.sampleApplications?.()[0] ?? {}, rp: hz.name, bdm: undefined };
+  const branchMember = hz.team.find((m) => m.branch && m.branch !== hz.branches[0].id);
+  const branchBdm = hz.branches.find((b) => b.id === branchMember.branch).contact;
+  ok('application BDM: kept on the application wins', col.appBdmOf({ ...a0, bdm: 'Someone' }, { counsellor: branchMember.name }) === 'Someone');
+  ok('application BDM: a branch counsellor\'s application counts for the branch\'s BDM', col.appBdmOf(a0, { counsellor: branchMember.name, country: 'India' }) === branchBdm, branchBdm);
+  ok('application BDM: the head office counts for the RP\'s BDM', col.appBdmOf(a0, { counsellor: hz.team[0].name, country: 'India' }) === hz.recruitment);
+  const au = (await vite.ssrLoadModule('/src/data/courses.ts')).COURSES.find((c) => c.uni.country === 'Australia');
+  if (au) ok('application BDM: an onshore student counts for the onshore region\'s BDM', col.appBdmOf({ ...a0, courseId: au.id }, { counsellor: branchMember.name, country: cfgm.ONSHORE.now }) === cfgm.onshoreBdm() && !!cfgm.onshoreBdm());
 } finally {
   await vite.close();
 }

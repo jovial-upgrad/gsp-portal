@@ -46,10 +46,10 @@ const wait = (p, ms = 400) => p.waitForTimeout(ms);
   // Create Queue
   await p.getByRole('button', { name: 'Create Queue' }).click(); await wait(p, 600);
   const st = await sheet().innerText();
-  ok('Create Queue: four fields, short hints, no “What lands here”', ['Queue name', 'Leader', 'Shared by', 'Members', 'Gets escalations and covers leave.', 'The leader is always in it.'].every((x) => st.includes(x)) && !st.includes('What lands here'));
+  ok('Create Queue: four fields, short hints, no “What lands here”', ['Queue name', 'Sales region', 'Type', 'Leader', 'Shared by', 'Members', 'Gets escalations and covers leave.', 'The leader is always in it.'].every((x) => st.includes(x)) && !st.includes('What lands here'));
   await sheet().getByRole('button', { name: 'Create Queue' }).click(); await wait(p, 300);
-  ok('…name and leader are required', (await sheet().locator('.field__msg--error').count()) === 2);
-  await p.fill('#wq-name', 'Compliance'); await p.selectOption('#wq-lead', { label: 'Ishaan Verma' }); await p.selectOption('#wq-share', 'pick'); await wait(p, 200);
+  ok('…name, sales region, type and leader are required (18 Nov)', (await sheet().locator('.field__msg--error').count()) === 4);
+  await p.fill('#wq-name', 'Compliance'); await p.selectOption('#wq-region', 'Global'); await p.selectOption('#wq-type', 'Other'); await p.selectOption('#wq-lead', { label: 'Ishaan Verma' }); await p.selectOption('#wq-share', 'pick'); await wait(p, 200);
   ok('…the hint follows how work is shared', (await sheet().innerText()).includes('Tasks wait in the queue until a member takes one.'));
   await p.locator('#wq-members').first().click(); await wait(p, 300);
   await p.locator('.imp__opt', { hasText: 'Jovial Lejo' }).first().click(); await wait(p, 200);

@@ -207,7 +207,12 @@ export const samplePerms = (): Perms =>
  *  shared. Queues have no type: anyone can be in any queue. What lands in it comes from the task rules. */
 /** A work queue. `parent` (18 Nov, Jovial): the queue it sits under, so a country manager's queue holds its regional
  *  managers' queues (India Recruitment → India North Recruitment …); the parent's leader sees them all. */
-export type Queue = { id: string; name: string; lead: string; members: string[]; sharing: Sharing; parent?: string };
+/** What a queue's work is (Jovial, 18 Nov): the Sales regions page offers Admissions queues as a region's admission
+ *  queue and Recruitment queues as its recruitment queue; the dashboards' regional managers sit under Recruitment ones. */
+export const QUEUE_TYPES = ['Admissions', 'Recruitment', 'Other'] as const;
+export type QueueType = (typeof QUEUE_TYPES)[number];
+/** `region`: the sales region whose work it takes (Global for a team that covers every region), required (18 Nov). */
+export type Queue = { id: string; name: string; lead: string; members: string[]; sharing: Sharing; parent?: string; region: string; type: QueueType };
 /** A queue and every queue under it, at any depth. */
 export const queueTree = (q: Queue, queues: Queue[]): Queue[] => {
   const out: Queue[] = [q];
@@ -262,14 +267,14 @@ const INDIA_RMS: [string, string, string, string[]][] = [
   ['q-rec-india-kerala', 'India Kerala Recruitment', 'Nadia', ['Rehan A']],
 ];
 export const sampleQueues = (users: User[]): Queue[] => {
-  const q = (id: string, name: string, lead: string, members: string[], sharing: Sharing): Queue => ({ id, name, sharing, lead: byName(users, [lead])[0] ?? '', members: byName(users, members) });
+  const q = (id: string, name: string, lead: string, members: string[], sharing: Sharing, region = 'Global', type: QueueType = 'Other'): Queue => ({ id, name, sharing, lead: byName(users, [lead])[0] ?? '', members: byName(users, members), region, type });
   return [
-    ...QUEUE_REGIONS.filter((r) => ADMISSIONS[r]).map((r) => q(`q-adm-${slug(r)}`, `${r} Admissions`, ADMISSIONS[r][0], ADMISSIONS[r][1], 'fewest')),
+    ...QUEUE_REGIONS.filter((r) => ADMISSIONS[r]).map((r) => q(`q-adm-${slug(r)}`, `${r} Admissions`, ADMISSIONS[r][0], ADMISSIONS[r][1], 'fewest', r, 'Admissions')),
     // the Global Ops team (9 Nov): regions with no Admissions queue, and gsp.admissions@ mail
-    q('q-global-admissions', 'Global Admissions', 'Karan Malhotra', ['Neha Kulkarni', 'Ishita Rao', 'Vikram Shetty'], 'fewest'),
-    ...QUEUE_REGIONS.filter((r) => RECRUITMENT[r]).map((r) => q(`q-rec-${slug(r)}`, `${r} Recruitment`, RECRUITMENT[r][0], RECRUITMENT[r][1], 'owner')),
+    q('q-global-admissions', 'Global Admissions', 'Karan Malhotra', ['Neha Kulkarni', 'Ishita Rao', 'Vikram Shetty'], 'fewest', 'Global', 'Admissions'),
+    ...QUEUE_REGIONS.filter((r) => RECRUITMENT[r]).map((r) => q(`q-rec-${slug(r)}`, `${r} Recruitment`, RECRUITMENT[r][0], RECRUITMENT[r][1], 'owner', r, 'Recruitment')),
     // 18 Nov (Jovial): India has regional managers between the country manager and the BDMs: a queue each, under India Recruitment
-    ...INDIA_RMS.map(([id, name, lead, members]) => ({ ...q(id, name, lead, members, 'owner'), parent: 'q-rec-india' })),
+    ...INDIA_RMS.map(([id, name, lead, members]) => ({ ...q(id, name, lead, members, 'owner', 'India', 'Recruitment'), parent: 'q-rec-india' })),
     q('q-rp-ops', 'RP Ops', 'Leena Thomas', ['Garima Bhardwaj', 'Rohan Desai', 'Nisha Kapoor'], 'fewest'),
     q('q-institution', 'Institution', 'Lalaine Dizon', ['Namita Nath', 'Raj Shamani', 'Kavya Menon'], 'owner'),
     q('q-ip-ops', 'IP Ops', 'Gauri Bhardwaj', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi', 'Riya Sen', 'Arjun Mehta'], 'fewest'),
@@ -500,15 +505,20 @@ export const TEST_NATIONALITIES = ['India', 'Nepal', 'Bangladesh', 'Sri Lanka', 
 export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United States', 'New Zealand', 'Ireland'];
 
 /** Runs the rules from the top: the first that matches sets the region and BDM (PM: routing with its trace). */
+/** The onshore route (Application routing's Onshore rule): a student living in Australia applying to Australia goes
+ *  to the Australia (onshore) sales region, and counts for that region's BDM (Ali, 18 Nov). */
+export const ONSHORE = { now: 'Australia', dest: 'Australia', region: 'Australia' } as const;
+export const isOnshore = (now: string, dest: string) => now === ONSHORE.now && dest === ONSHORE.dest;
+export const onshoreBdm = () => REGION_BDM[ONSHORE.region] ?? '';
 export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string }, nationalities: Record<string, string>) {
   const rp = ROUTING_RPS.find((r) => r.name === a.rp);
   const listRegion = rp && Object.entries(lists).find(([, l]) => l.includes(rp.name))?.[0];
-  const onshore = a.now === 'Australia' && a.dest === 'Australia';
+  const onshore = isOnshore(a.now, a.dest);
   const test: Record<RouteRule['id'], () => { region: string; bdm: string; why: string } | null> = {
     direct: () => (!rp ? { region: 'Direct', bdm: REGION_BDM.Direct ?? 'Not set', why: 'No RP: the student applied to GSP directly' } : null),
     list: () => (listRegion ? { region: listRegion, bdm: rp!.bdm, why: `${rp!.name} is on the ${listRegion} list` } : null),
     keep: () => (rp && onshore && ['Vietnam', 'Latin America and Europe'].includes(rp.region) && !rp.auBranch ? { region: rp.region, bdm: rp.bdm, why: `Onshore, and ${rp.name} (${rp.region}) has no Australian branch` } : null),
-    onshore: () => (onshore ? { region: 'Australia', bdm: REGION_BDM.Australia, why: 'The student is in Australia and applying to Australia' } : null),
+    onshore: () => (onshore ? { region: ONSHORE.region, bdm: onshoreBdm(), why: `The student is in ${ONSHORE.now} and applying to ${ONSHORE.dest}` } : null),
     nat: () => (nationalities[a.nationality] ? { region: nationalities[a.nationality], bdm: REGION_BDM[nationalities[a.nationality]] ?? 'Not set', why: `${a.nationality} maps to ${nationalities[a.nationality]} on the Nationality Map` } : null),
     fb: () => ({ region: 'Direct', bdm: 'Not set', why: nationalities[a.nationality] ? 'Nothing above matched' : `Nothing above matched (${a.nationality} isn’t on the Nationality Map)` }),
   };
