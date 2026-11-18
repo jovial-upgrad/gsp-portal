@@ -696,7 +696,7 @@ function TierOptions({ idp, v, set, yearField = true }: { idp: string; v: Pick<T
           {options(YES_NO)}
         </SelectInput>
       </Field>
-      <Field id={`${idp}-country`} label="Counted per source country" optional hint="Yes: students from each country are counted on their own.">
+      <Field id={`${idp}-country`} label="Counted per student nationality" optional hint="Yes: students of each nationality are counted on their own (Jovial, 18 Nov: by the student’s nationality only).">
         <SelectInput id={`${idp}-country`} value={v.tierPerCountry ? 'Yes' : 'No'} onChange={(e) => set({ tierPerCountry: e.target.value === 'Yes' })}>
           {options(YES_NO)}
         </SelectInput>

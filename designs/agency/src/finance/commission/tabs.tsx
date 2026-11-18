@@ -138,7 +138,7 @@ export function termsFacts(t: CommState['terms'][number], cur: string): ([string
     ['Pay within', `${t.payDays} days of GSP’s invoice`],
     ['GSP can invoice for', t.claimMonths ? `${t.claimMonths} months after the study period ends` : 'No limit'],
     ['First-year cap per student', t.cap === null ? 'None' : money(t.cap, cur)],
-    ['Tier bands', t.bands.length ? `${bandsText(t.bands)}, counted per ${t.countedPer.toLowerCase()}${t.tierRetro ? ', retrospective' : ''}${t.tierPerCountry ? ', per source country' : ''}${t.tierLevels.length ? `, ${t.tierLevels.join(', ')} only` : ''}` : 'None', 'wide'],
+    ['Tier bands', t.bands.length ? `${bandsText(t.bands)}, counted per ${t.countedPer.toLowerCase()}${t.tierRetro ? ', retrospective' : ''}${t.tierPerCountry ? ', per student nationality' : ''}${t.tierLevels.length ? `, ${t.tierLevels.join(', ')} only` : ''}` : 'None', 'wide'],
     ['Band bonuses', t.bandBonuses.length ? t.bandBonuses.map((b) => `Band ${b.band}: ${b.kind === '%' ? `${pct(b.value)} of the first-year fee` : money(b.value, cur)}`).join(', ') : 'None'],
     ['Promotions', t.promos.length ? t.promos.map((p) => `${p.name}: ${p.pct != null ? pct(p.pct) : money(p.amt ?? 0, cur)}, ${p.combine.toLowerCase()}${condText(p.cond) ? ` (${condText(p.cond)})` : ''}`).join('; ') : 'None', 'wide'],
     ['Additional commission', t.addl.length ? t.addl.map((a) => `${addlText(a, cur)}${condText(a.cond) ? ` (${condText(a.cond)})` : ''}`).join('; ') : 'None', 'wide'],

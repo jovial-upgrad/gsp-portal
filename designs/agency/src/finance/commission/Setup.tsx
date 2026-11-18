@@ -468,7 +468,7 @@ export function Setup({ me, say, start, openRp, apps, students, only }: { me: st
                       <td>{g.bands.length ? bandsText(g.bands) : <span className="cmuted">—</span>}</td>
                       <td>
                         {g.countedPer}
-                        {g.tierPerCountry && <span className="iw-sub">Per source country</span>}
+                        {g.tierPerCountry && <span className="iw-sub">Per student nationality</span>}
                       </td>
                       <td>{g.bonus.length ? g.bonus.map((b) => `${b.name}: ${bonusText(b, cur)}`).join('; ') : <span className="cmuted">—</span>}</td>
                       <td className="iw-acts">
