@@ -12,7 +12,7 @@
  * They answer only from the application's own data, and they never change it.
  */
 import { COURSES, blockedFor, daysTo, earnOf, earnText, intakeState, money, type Course, type Destination } from './courses';
-import { LEVELS as EDU_LEVELS, TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
+import { eduDocKey, fullName, pctOf, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
 import { STAGES as STAGES_CFG, currentDocRules, docRuleApplies, whenText } from '../admin/data/config';
 
@@ -459,14 +459,6 @@ const MARKS: Record<EduLevel, [string, string]> = {
   pg: ['PG marksheet', 'Postgraduate marksheets, every semester, and the degree certificate'],
 };
 const markDoc = (l: EduLevel, need: AppDoc['need']): AppDoc => ({ key: eduDocKey(l), name: MARKS[l][0], what: MARKS[l][1], need, level: l });
-/** The course's own documents, as an application names and explains them. */
-const OWN: [RegExp, string, string][] = [
-  [/^Statement of purpose/, 'Statement of purpose', 'Why this course and this university, written for this application'],
-  [/^CV/, 'CV', 'Education, work and achievements, up to date'],
-  [/^Work experience/, 'Work experience letters', 'Two years or more: a letter from each employer, with dates and role'],
-  [/^Portfolio/, 'Portfolio', 'Recent work, as one PDF'],
-  [/^Research proposal/, 'Research proposal', 'The question, the approach, and why this university'],
-];
 
 /** How a document rule's document reads on an application, where it's kept on the student too (the same key). */
 const RULE_DOC: [RegExp, (need: AppDoc['need']) => AppDoc][] = [

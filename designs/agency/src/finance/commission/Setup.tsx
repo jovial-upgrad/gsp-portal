@@ -1,4 +1,3 @@
-import { STATUS } from '../../data/applications';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -513,10 +512,9 @@ export function Setup({ me, say, start, openRp, apps, students, only }: { me: st
       <p className="cline">The rules every commission line follows, for every university and RP. Finance changes them with Edit settings; each change is logged below.</p>
       {(
         [
-          ['cset-st-dates', 'Dates and shares', 'How periods are counted, and what to use when a date or a later year’s share is missing.', [
+          ['cset-st-dates', 'Dates and claims', 'How periods are counted, and what to use when a date is missing.', [
             ['Financial year starts', new Date(Date.UTC(2000, S.fyStart - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' })],
             ['Census fallback', `${S.fallbackWeeks} weeks after the study period starts (an estimated date)`],
-            ['RP share after year 1', S.annuity.rule === 'Flat %' && S.annuity.pct != null ? `Flat ${pct(S.annuity.pct)}` : S.annuity.rule],
             ['RPs can claim for', `${S.rpClaimMonths} months after the study period ends`],
             ['Chase a recovery after', `${S.recoveryChaseDays ?? 90} days with nothing to set it against`],
           ]],
@@ -531,16 +529,8 @@ export function Setup({ me, say, start, openRp, apps, students, only }: { me: st
             ['Remind Finance of a university payment', days(S.reminders.uniPayment)],
             ['Remind Finance to pay an RP', days(S.reminders.rpPayment)],
           ]],
-          ['cset-st-lists', 'Lists in the forms', 'The choices offered when Finance sets up terms and notices or records a payment.', [
+          ['cset-st-lists', 'Regions, RP invoices and numbers', 'Region groups the forms offer, GST on RP invoices and the invoice and bill number prefixes.', [
             ['Region groups', Object.entries(S.regionGroups).map(([k, c]) => `${k} (${c.join(', ')})`).join('; ') || 'None', 'wide'],
-            ['Notice document types', S.docTypes.join(', ')],
-            ['Student types', S.studentTypes.join(', ') || 'None'],
-            ['Countries that need the student type', S.studentTypeCountries.join(', ') || 'None'],
-            ['Commission is forecast from', STATUS[S.forecastFrom as keyof typeof STATUS]?.text('Australia') ?? S.forecastFrom],
-            ['Commissions live on the portal from', S.liveFrom ? dayText(S.liveFrom) : 'Not set'],
-            ['Part payment reasons', S.partReasons.join(', '), 'wide'],
-            ['Not payable reasons', (S.notPayableReasons ?? []).join(', ') || 'None', 'wide'],
-            ['Invoice send-back reasons', (S.sendBackReasons ?? []).join(', ') || 'None', 'wide'],
             ['GST on RP invoices', S.rpGst == null ? 'None' : `${S.rpGst}%`],
             ['Invoice and bill number prefixes', `${S.invPrefix || 'None'} · ${S.billPrefix || 'None'}`],
           ]],

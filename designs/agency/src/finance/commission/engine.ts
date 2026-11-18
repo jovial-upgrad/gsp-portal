@@ -15,6 +15,7 @@
  */
 import type { Agreement, AgreementTerms, Band, CommState, CreditNote, Destination, Enrolment, Exc, ExceptionType, Frozen, Level, Notice, Override, RpInvoice, RpStatus, RpView, Side, Step, TermsBody, TxStatus, TxType, UniCountedPer, UniGroup, UniStatus, UniTerms } from './model';
 import { ADDS, EXCEPTIONS, HIGHER, groupOf as groupOf0, PAY_UNITS, SEPARATE, RECOVERED, RP_ESTIMATE, SIDES, TO_INVOICE, TRIGGERS, dayText, money, pct, roundMoney } from './model';
+import { CURRENCY } from '../../data/courses';
 import { bandIndex, bonusAmount, keepMonth, bonusWindow, condTest, periodsOf, pickRate, regionCovers, rowLabel, step, tierOfGroup, tierOfTerms, windowEnd, windowKey, windowWords, type TierSpec, type Who } from './pricing';
 
 /* ---------- context: what the engine reads from other modules ---------- */
@@ -212,9 +213,9 @@ export type Result = {
 };
 /**
  * What the next enrolments unlock with a university (Jovial, 13 Nov, for Finance): one tier (a university's own or its
- * group's) or one bonus scheme, in one counting window (and source country, when it counts per country). Its count, its
- * bands with how many more reach each, and who the counted students are, by course level, sales region, source country
- * and course. Worked out from the same pool the lines are priced on.
+ * group's) or one bonus scheme, in one counting window (and student nationality, when it counts per nationality). Its
+ * count, its bands with how many more reach each and what that's worth, and who the counted students are, by course
+ * level, sales region, student nationality and course. Worked out from the same pool the lines are priced on.
  */
 export type Unlock = {
   id: string;
@@ -229,7 +230,8 @@ export type Unlock = {
   levels: Level[];
   currency: string;
   count: number;
-  bands: { from: number; to: number | null; label: string; more: number; now: boolean }[];
+  /** `worth` (18 Nov): what reaching the band is worth, from the counted students' fees and the rates. */
+  bands: { from: number; to: number | null; label: string; more: number; now: boolean; worth?: string }[];
   by: { level: Record<string, number>; region: Record<string, number>; country: Record<string, number>; course: Record<string, number> };
 };
 
@@ -465,26 +467,60 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       });
       return by;
     };
-    /** Windows still counting: one that ends today or later; for an intake, the two latest. */
-    const open = (groups: Map<string, Enrolment[]>, per: UniCountedPer, yearStart: number) => {
+    /**
+     * Windows still counting (Jovial, 18 Nov): today's window and any that end today or later, even with no one counted
+     * yet; for an intake, the two latest with students counted and the next two coming up (from GSP's applications to
+     * those universities, enrolled or not).
+     */
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const intakeMonth = (it: string) => {
+      const [m, y] = it.split(' ');
+      const i = MONTHS.indexOf(m);
+      return i < 0 || !y ? '' : `${y}-${String(i + 1).padStart(2, '0')}`;
+    };
+    const open = (groups: Map<string, Enrolment[]>, per: UniCountedPer, yearStart: number, members: string[], perCountry: boolean) => {
       const ent = [...groups.entries()].map(([k, xs]) => ({ k, xs, end: windowEnd(per, startOf(xs[0]), yearStart, S.fyStart), last: xs.reduce((m, x) => (startOf(x) > m ? startOf(x) : m), '') }));
+      const blank = (k: string, end: string) => (ent.some((x) => x.k.split(' · ')[0] === k) ? [] : [{ k: perCountry ? `${k} · ` : k, xs: [] as Enrolment[], end, last: '' }]);
       if (per === 'Intake') {
-        const latest = [...new Set(ent.sort((a, b) => b.last.localeCompare(a.last)).map((x) => x.k.split(' · ')[0]))].slice(0, 2);
-        return ent.filter((x) => latest.includes(x.k.split(' · ')[0]));
+        const latest = [...new Set(ent.sort((x, y) => y.last.localeCompare(x.last)).map((x) => x.k.split(' · ')[0]))].slice(0, 2);
+        const mine = all.filter((x) => {
+          const px = pre.get(x.app);
+          return !!px && members.includes(px.uni.id);
+        });
+        const coming = [...new Set(mine.map((x) => x.intake).filter((it) => intakeMonth(it) >= today.slice(0, 7)))].sort((x, y) => intakeMonth(x).localeCompare(intakeMonth(y))).slice(0, 2).map((it) => `Intake ${it}`);
+        return [...ent.filter((x) => latest.includes(x.k.split(' · ')[0]) || coming.includes(x.k.split(' · ')[0])), ...coming.flatMap((k) => blank(k, ''))];
       }
-      return ent.filter((x) => x.end >= today);
+      const nowKey = windowKey(per, today, yearStart, S.fyStart);
+      return [...ent.filter((x) => x.end >= today), ...blank(nowKey, windowEnd(per, today, yearStart, S.fyStart))];
+    };
+    /** The fee a student's lines are priced on (first year, the terms' fee basis). */
+    const feeOf = (x: Enrolment) => {
+      const px = pre.get(x.app);
+      const f = x.fees;
+      if (!px?.T || !f) return 0;
+      return (f.tuition ?? 0) - (px.T.feeBasis === 'Tuition before scholarship' ? 0 : f.scholarship ?? 0);
     };
     const specs = new Map<string, { spec: TierSpec; cur: string; bonus: { B: TermsBody['bonus'][number]; per: UniCountedPer; T: TermsBody; uni: string }[] }>();
-    for (const e of all) {
-      const p = pre.get(e.app);
-      if (!p?.T) continue;
-      const own = tierOfTerms(p.T, p.uni.id, p.uni.name);
-      const g = groupOf(p.uni.id);
-      const gt = g ? tierOfGroup(g) : null;
-      const k1 = `u:${p.uni.id}`, k2 = g ? `g:${g.id}` : '';
-      if (!specs.has(k1)) specs.set(k1, { spec: own ?? { who: 'university', name: p.uni.name, members: [p.uni.id], bands: [], countedPer: p.T.countedPer ?? 'Calendar year', yearStart: p.T.yearStart ?? 1, retro: false, perCountry: false, levels: [], bandBonuses: [] }, cur: p.cur, bonus: (p.T.bonus ?? []).filter((B) => B.per !== 'Per student').map((B) => ({ B, per: bonusWindow(B, p.T!), T: p.T!, uni: p.uni.id })) });
-      if (g && k2 && !specs.has(k2)) specs.set(k2, { spec: gt ?? { who: 'group', name: g.name, members: g.members, bands: [], countedPer: g.countedPer ?? 'Calendar year', yearStart: g.yearStart ?? 1, retro: false, perCountry: false, levels: [], bandBonuses: [] }, cur: p.cur, bonus: (g.bonus ?? []).filter((B) => B.per !== 'Per student').map((B) => ({ B, per: bonusWindow(B, p.T!), T: p.T!, uni: p.uni.id })) });
+    // every university with terms and every institution partner's terms, whether or not anyone is counted yet
+    const curOf = (T: TermsBody, uni: CtxUni | undefined) => T.currency || (uni ? CURRENCY[uni.country] : '') || '';
+    for (const tr of state.terms) {
+      const u = uniOf.get(tr.uni);
+      if (!u) continue;
+      const T = termsAt<TermsBody>(tr as UniTerms, today);
+      const own = tierOfTerms(T, u.id, u.name);
+      specs.set(`u:${u.id}`, { spec: own ?? { who: 'university', name: u.name, members: [u.id], bands: [], countedPer: T.countedPer ?? 'Calendar year', yearStart: T.yearStart ?? 1, retro: false, perCountry: false, levels: [], bandBonuses: [] }, cur: curOf(T, u), bonus: (T.bonus ?? []).filter((B) => B.per !== 'Per student').map((B) => ({ B, per: bonusWindow(B, T), T, uni: u.id })) });
     }
+    for (const g of groups) {
+      const tr = state.terms.find((t) => g.members.includes(t.uni));
+      if (!tr) continue;
+      const T = termsAt<TermsBody>(tr as UniTerms, today);
+      const gt = tierOfGroup(g);
+      specs.set(`g:${g.id}`, { spec: gt ?? { who: 'group', name: g.name, members: g.members, bands: [], countedPer: g.countedPer ?? 'Calendar year', yearStart: g.yearStart ?? 1, retro: false, perCountry: false, levels: [], bandBonuses: [] }, cur: curOf(T, uniOf.get(tr.uni)), bonus: (g.bonus ?? []).filter((B) => B.per !== 'Per student').map((B) => ({ B, per: bonusWindow(B, T), T, uni: tr.uni })) });
+    }
+    const countryOf = (k: string) => {
+      const c = k.split(' · ')[1];
+      return c === undefined ? undefined : c || undefined;
+    };
     specs.forEach(({ spec, cur, bonus }, sk) => {
       const inSpec = (x: Enrolment) => {
         const px = pre.get(x.app);
@@ -494,14 +530,20 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         const keyOf = (x: Enrolment) => windowKey(spec.countedPer, startOf(x), spec.yearStart, S.fyStart, x.intake) + (spec.perCountry ? ` · ${x.nationality ?? '—'}` : '');
         const groups = new Map<string, Enrolment[]>();
         all.filter((x) => inSpec(x) && (!spec.levels.length || spec.levels.includes(pre.get(x.app)!.level))).forEach((x) => groups.set(keyOf(x), [...(groups.get(keyOf(x)) ?? []), x]));
-        open(groups, spec.countedPer, spec.yearStart).forEach(({ k, xs, end }) => {
+        open(groups, spec.countedPer, spec.yearStart, spec.members, spec.perCountry).forEach(({ k, xs, end }) => {
           const n = xs.length;
           const bi = bandIndex(spec.bands, Math.max(1, n));
+          const nowPct = n ? spec.bands[bi].pct : 0;
+          const fees = xs.reduce((t, x) => t + feeOf(x), 0);
           unlocks.push({
-            id: `${sk}:tier:${k}`, kind: 'Tier', who: spec.who, name: spec.name, unis: spec.members, window: k.split(' · ')[0], country: spec.perCountry ? k.split(' · ')[1] : undefined, ends: end, retro: spec.retro, levels: spec.levels, currency: cur, count: n,
+            id: `${sk}:tier:${k}`, kind: 'Tier', who: spec.who, name: spec.name, unis: spec.members, window: k.split(' · ')[0], country: spec.perCountry ? countryOf(k) : undefined, ends: end, retro: spec.retro, levels: spec.levels, currency: cur, count: n,
             bands: spec.bands.map((b, i) => {
               const bb = spec.bandBonuses.find((x) => x.band === i + 1);
-              return { from: b.from, to: b.to, label: `${pct(b.pct)}${bb?.value ? ` + ${bb.kind === '%' ? `${pct(bb.value)} bonus` : `${money(bb.value, cur)} bonus`} per student` : ''}`, more: Math.max(0, b.from - n), now: i === bi };
+              const more = Math.max(0, b.from - n);
+              // what reaching it is worth (18 Nov): retrospective, the rate difference on everyone counted; and the rate on each new student
+              const top = spec.retro && n && b.pct > nowPct ? roundMoney((fees * (b.pct - nowPct)) / 100) : 0;
+              const worth = more > 0 && i > bi ? `${more} more → ${top ? `about ${money(top, cur)} on the ${n} counted (retrospective top-up), plus ` : ''}${pct(b.pct)} on each new student${bb?.value ? `, and the band bonus` : ''}` : undefined;
+              return { from: b.from, to: b.to, label: `${pct(b.pct)}${bb?.value ? ` + ${bb.kind === '%' ? `${pct(bb.value)} bonus` : `${money(bb.value, cur)} bonus`} per student` : ''}`, more, now: n > 0 && i === bi, worth };
             }),
             by: splitOf(xs),
           });
@@ -511,14 +553,22 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
         const keyOf = (x: Enrolment) => windowKey(per, startOf(x), T.yearStart ?? 1, S.fyStart, x.intake) + (B.perCountry ? ` · ${x.nationality ?? '—'}` : '');
         const groups = new Map<string, Enrolment[]>();
         all.filter((x) => inSpec(x) && !condTest(B.cond, pre.get(x.app)!.who, S).length).forEach((x) => groups.set(keyOf(x), [...(groups.get(keyOf(x)) ?? []), x]));
-        open(groups, per, T.yearStart ?? 1).forEach(({ k, xs, end }) => {
+        open(groups, per, T.yearStart ?? 1, spec.members, B.perCountry).forEach(({ k, xs, end }) => {
           const n = xs.length;
+          const fees = xs.reduce((t, x) => t + feeOf(x), 0);
           const val = (kind: typeof B.kind, v: number) => (kind === '%' ? `${pct(v)} of the first-year fee` : money(v, cur));
+          // what reaching it is worth (18 Nov): once at a number; per student, and for everyone counted when retrospective
+          const worthOf = (kind: typeof B.kind, v: number, more: number, once: boolean) => {
+            if (more <= 0) return undefined;
+            if (once) return `${more} more → ${kind === '%' ? `about ${money(roundMoney((fees * v) / 100), cur)} (${pct(v)} of the counted students’ fees)` : money(v, cur)}, once`;
+            const onCounted = B.retro && n ? (kind === '%' ? roundMoney((fees * v) / 100) : v * n) : 0;
+            return `${more} more → ${onCounted ? `about ${money(onCounted, cur)} on the ${n} counted, plus ` : ''}${val(kind, v)} on each new student`;
+          };
           const bands =
             B.per === 'At a number'
-              ? [{ from: B.threshold ?? 0, to: null, label: `${val(B.kind, B.value)}, once`, more: Math.max(0, (B.threshold ?? 0) - n), now: n >= (B.threshold ?? 0) }]
-              : B.bands.map((b) => ({ from: b.from, to: b.to, label: `${val(b.kind, b.value)} per student`, more: Math.max(0, b.from - n), now: n >= b.from && (b.to === null || n <= b.to) }));
-          unlocks.push({ id: `${sk}:bonus:${B.id}:${k}`, kind: 'Bonus scheme', who: spec.who, name: `${spec.who === 'group' ? `${spec.name}: ` : ''}${B.name}`, unis: spec.members, window: k.split(' · ')[0], country: B.perCountry ? k.split(' · ')[1] : undefined, ends: end, retro: B.retro, levels: [], currency: cur, count: n, bands, by: splitOf(xs) });
+              ? [{ from: B.threshold ?? 0, to: null, label: `${val(B.kind, B.value)}, once`, more: Math.max(0, (B.threshold ?? 0) - n), now: n >= (B.threshold ?? 0), worth: worthOf(B.kind, B.value, Math.max(0, (B.threshold ?? 0) - n), true) }]
+              : B.bands.map((b) => ({ from: b.from, to: b.to, label: `${val(b.kind, b.value)} per student`, more: Math.max(0, b.from - n), now: n > 0 && n >= b.from && (b.to === null || n <= b.to), worth: worthOf(b.kind, b.value, Math.max(0, b.from - n), false) }));
+          unlocks.push({ id: `${sk}:bonus:${B.id}:${k}`, kind: 'Bonus scheme', who: spec.who, name: `${spec.who === 'group' ? `${spec.name}: ` : ''}${B.name}`, unis: spec.members, window: k.split(' · ')[0], country: B.perCountry ? countryOf(k) : undefined, ends: end, retro: B.retro, levels: [], currency: cur, count: n, bands, by: splitOf(xs) });
         });
       });
     });

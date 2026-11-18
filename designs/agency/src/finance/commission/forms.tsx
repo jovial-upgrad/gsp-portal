@@ -1,4 +1,3 @@
-import { STATUS, STATUS_ORDER } from '../../data/applications';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
@@ -19,7 +18,6 @@ import { acceptedOn, acceptedRps, saveRpView, ctxRps, ctxUnis, levelsOf, newAgre
 import {
   AB_WHEN,
   EARN_KINDS,
-  ANNUITY_RULES,
   RP_VIEW_KINDS,
   RP_VIEW_PERIODS,
   type RpView,
@@ -1068,7 +1066,6 @@ export function GroupForm({ open, edit, me, onClose, onSaved }: { open: boolean;
 
 const daysText = (d: number[]) => d.join(', ');
 const daysOf = (t: string) => t.split(/[\s,]+/).filter(Boolean).map(Number);
-const linesOf = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean);
 
 /** Edit Commission settings (Finance › Setup › Settings): the rules every line uses. */
 export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me: string; onClose: () => void; onSaved: () => void }) {
@@ -1076,7 +1073,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const [v, setV] = useState<Settings>(s.settings);
   const [gstRows, setGstRows] = useState<{ dest: string; pct: number | null }[]>([]);
   const [grpRows, setGrpRows] = useState<{ name: string; countries: string[] }[]>([]);
-  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', sendBack: '', rpGst: '', invPrefix: '', billPrefix: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
+  const [t, setT] = useState({ rpGst: '', invPrefix: '', billPrefix: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -1085,11 +1082,6 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     setGstRows(Object.entries(x.gst).map(([dest, pct]) => ({ dest, pct: pct ?? null })));
     setGrpRows(Object.entries(x.regionGroups).map(([name, countries]) => ({ name, countries })));
     setT({
-      docTypes: x.docTypes.join('\n'),
-      studentTypes: x.studentTypes.join('\n'),
-      partReasons: x.partReasons.join('\n'),
-      notPayable: (x.notPayableReasons ?? []).join('\n'),
-      sendBack: (x.sendBackReasons ?? []).join('\n'),
       rpGst: x.rpGst == null ? '' : String(x.rpGst),
       invPrefix: x.invPrefix ?? '',
       billPrefix: x.billPrefix ?? '',
@@ -1108,8 +1100,6 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     chase: !wholeIn(v.recoveryChaseDays ?? 90, 1, 730) ? 'A whole number of days, 1 to 730.' : null,
     gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
     groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
-    annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
-    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length || !linesOf(t.notPayable).length || !linesOf(t.sendBack).length ? 'Keep at least one in each list.' : null,
     rpGst: t.rpGst.trim() !== '' && !(Number(t.rpGst) >= 0 && Number(t.rpGst) <= 100) ? 'A % from 0 to 100.' : null,
     days: ![t.rpInvoice, t.uniPayment, t.rpPayment].every(days) ? 'Days, like 0, 7, 14.' : null,
   };
@@ -1120,14 +1110,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     saveSettings(
       {
         ...v,
-        annuity: { rule: v.annuity.rule, pct: v.annuity.rule === 'Flat %' ? v.annuity.pct : null },
         gst: Object.fromEntries(gstRows.map((g) => [g.dest, g.pct!])),
         regionGroups: Object.fromEntries(grpRows.map((g) => [g.name.trim(), g.countries])),
-        docTypes: linesOf(t.docTypes),
-        studentTypes: linesOf(t.studentTypes),
-        partReasons: linesOf(t.partReasons),
-        notPayableReasons: linesOf(t.notPayable),
-        sendBackReasons: linesOf(t.sendBack),
         rpGst: t.rpGst.trim() === '' ? undefined : Number(t.rpGst),
         invPrefix: t.invPrefix.trim() || undefined,
         billPrefix: t.billPrefix.trim() || undefined,
@@ -1138,11 +1122,6 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     );
     onSaved();
   };
-  const area = (id: string, k: keyof typeof t) => (
-    <div className="control iform__area">
-      <textarea id={id} className="control__input" rows={3} value={t[k]} onChange={up(k)} />
-    </div>
-  );
   return (
     <FormSheet open={open} title="Edit Commission settings" sub="Lines not yet invoiced follow the new settings; kept lines don’t change." onClose={onClose} onSave={save}>
       <FormSec title="Counting and dates" />
@@ -1165,17 +1144,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       <Field id="cst-chase" label="Chase a recovery after (days)" required error={show('chase')} hint="A recovery with no payment to set it against this long goes to To do › Recoveries to chase, for a debit note to the RP.">
         <TextInput id="cst-chase" inputMode="numeric" value={numText(v.recoveryChaseDays ?? 90)} invalid={!!show('chase')} onChange={(e) => set({ recoveryChaseDays: numOf(e.target.value) ?? NaN })} />
       </Field>
-      <Field id="cst-ann" label="RP share after year 1" required hint="Unless the RP’s record has its own.">
-        <SelectInput id="cst-ann" value={v.annuity.rule} onChange={(e) => set({ annuity: { ...v.annuity, rule: e.target.value as Settings['annuity']['rule'] } })}>
-          {options(ANNUITY_RULES)}
-        </SelectInput>
-      </Field>
-      {v.annuity.rule === 'Flat %' && (
-        <Field id="cst-annpct" label="Share after year 1 (%)" required error={show('annuity')}>
-          <TextInput id="cst-annpct" inputMode="decimal" value={numText(v.annuity.pct)} invalid={!!show('annuity')} onChange={(e) => set({ annuity: { ...v.annuity, pct: numOf(e.target.value) } })} />
-        </Field>
-      )}
-      <RpViewFields idp="cst" v={v.rpView} set={(rpView) => set({ rpView })} hint="For a new RP’s record; each RP’s record can change it." />
+      {/* Jovial, 18 Nov: RP share after year 1 and What the RP sees are fixed in the product, not set here */}
       <FormSec title="Invoices and regions" />
       <div className="cform__wide">
         <p className="cform__label">GST on GSP’s invoices to universities</p>
@@ -1211,37 +1180,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
           ))}
         </RuleList>
       </div>
-      <FormSec title="Lists" note="The choices the commission forms offer." />
-      <Field id="cst-doc" label="Notice document types" required error={show('lists')} hint="One a line.">
-        {area('cst-doc', 'docTypes')}
-      </Field>
-      <Field id="cst-stype" label="Student types" optional hint="One a line. Admissions picks one from pre-screening, for a university in the countries below.">
-        {area('cst-stype', 'studentTypes')}
-      </Field>
-      <Field id="cst-stype-c" label="Countries that need the student type" optional hint="A university in one of these can’t have a student enrolled without it.">
-        <MultiPick id="cst-stype-c" label="Countries that need the student type" value={v.studentTypeCountries} options={[...new Set(ctxUnis().map((u) => u.country))].sort()} onChange={(x) => set({ studentTypeCountries: x })} empty="None" />
-      </Field>
-      <Field id="cst-live" label="Commissions live on the portal from" optional hint="Commissions before it stay in the old portal; no task’s clock starts before this day.">
-        <TextInput id="cst-live" type="date" value={v.liveFrom ?? ''} onChange={(e) => set({ liveFrom: e.target.value })} />
-      </Field>
-      <Field id="cst-fc" label="Commission is forecast from" required hint="From this application status, lines show as Expected and Admissions must enter the fee, scholarship and course start.">
-        <SelectInput id="cst-fc" value={v.forecastFrom} onChange={(e) => set({ forecastFrom: e.target.value })}>
-          {STATUS_ORDER.filter((k) => k !== 'enrolled').map((k) => (
-            <option key={k} value={k}>
-              {STATUS[k].text('Australia')}
-            </option>
-          ))}
-        </SelectInput>
-      </Field>
-      <Field id="cst-part" label="Part payment reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Record payment offers when a university pays less.">
-        {area('cst-part', 'partReasons')}
-      </Field>
-      <Field id="cst-np" label="Not payable reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Mark not payable offers. The last one asks for a few words.">
-        {area('cst-np', 'notPayable')}
-      </Field>
-      <Field id="cst-sb" label="Invoice send-back reasons" required error={show('lists')} className="iform__wide" hint="One a line: why Finance sends an RP's invoice back (Lav, 18 Nov). The last one asks for a few words.">
-        {area('cst-sb', 'sendBack')}
-      </Field>
+      {/* Jovial, 18 Nov: notice document types, student types and their countries, live-from and forecast-from dates and the part payment, not payable and send-back reasons are fixed in the product: no settings */}
+      <FormSec title="Invoice numbers" />
       <Field id="cst-rpgst" label="GST on RP invoices (%)" error={show('rpGst')} hint="Added to a GST-registered Australian RP's filled-in invoice (R158).">
         <TextInput id="cst-rpgst" inputMode="decimal" value={t.rpGst} invalid={!!show('rpGst')} onChange={up('rpGst')} />
       </Field>
