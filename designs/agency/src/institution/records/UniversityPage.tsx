@@ -23,6 +23,8 @@ import { Submission, onPortal } from './uni/Submission';
 import { Scholarships } from './uni/Scholarships';
 import { IMAGE_TYPES, Images, MAX_MB, readImage } from './uni/Images';
 import type { PageProps } from '../portal/model';
+import { AppCounts } from '../../components/AppCounts';
+import { courseOf } from '../../data/applications';
 
 type Tab = 'overview' | 'campuses' | 'images' | 'courses' | 'scholarships' | 'territory' | 'submission' | 'commission' | 'logs';
 const TABS: Tab[] = ['overview', 'campuses', 'images', 'courses', 'scholarships', 'territory', 'submission', 'commission', 'logs'];
@@ -179,6 +181,9 @@ export function UniversityPage(props: PageProps & { u: UniRec; tab?: string; bac
       <TabPanel id="iutab" tab={tab}>
         {tab === 'overview' && (
           <>
+            <Section title="Applications" id="iu-apps" note="Every application to this university, by where it is. Each number opens them.">
+              <AppCounts id="iu-apps" match={(a) => courseOf(a).uni.id === u.id} />
+            </Section>
             <Section title="Institution partner" id="iu-ip" updated={u.stamps.partner}>
               {moving ? (
                 <div className="ipartner">

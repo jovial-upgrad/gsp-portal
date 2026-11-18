@@ -638,3 +638,10 @@ input[type='date'].icell { min-width: 150px; }
 .acom__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: var(--sp-16) var(--sp-20); align-items: start; }
 .acom__wide { grid-column: 1 / -1; }
 .acom__acts { display: flex; justify-content: flex-end; gap: var(--sp-12); padding-top: var(--sp-16); border-top: 1px solid var(--line); }
+
+/* Application counts on a partner's page (18 Nov): each opens its applications */
+.istat--btn { text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.istat--btn:disabled { cursor: default; opacity: 0.7; }
+.istat--btn:not(:disabled):hover { border-color: var(--line-strong, #c9ced8); }
+.appcounts__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.appcounts__list li { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line, #e4e7ec); }

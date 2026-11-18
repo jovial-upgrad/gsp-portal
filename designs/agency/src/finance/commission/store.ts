@@ -15,7 +15,7 @@ import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/recor
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
 import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
-import { COMM_LEVELS, TX_TYPES, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type FollowUp, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
+import { COMM_LEVELS, TX_TYPES, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type FollowUp, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type RpPayment, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 import { periodsOf } from './pricing';
 
@@ -227,7 +227,7 @@ export function retireAgreement(agId: string, by: string) {
 export function saveRpView(rp: string, view: RpView, by: string) {
   setComm((s) => withLog({ ...s, records: s.records.map((x) => (x.rp === rp ? { ...x, view, updated: stamp(by) } : x)) }, log('rps', by, `${by} set what ${rpName(rp)} sees: ${rpViewText(view)}`, { rp })));
 }
-export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'to'>, by: string) {
+export function saveRecord(r: Pick<RpRecord, 'rp' | 'agreement' | 'from' | 'to' | 'abn'>, by: string) {
   setComm((s) => {
     const was = s.records.find((x) => x.rp === r.rp);
     const ag = s.agreements.find((a) => a.id === r.agreement)!;
@@ -453,6 +453,17 @@ export function addLines(app: string, lines: { side: 'uni' | 'rp'; type: (typeof
   const made = lines.map((l) => ({ ...l, id: id('ml'), app, reason, by, at: Date.now() }));
   setComm((s) => withLog({ ...s, manual: [...(s.manual ?? []), ...made] }, lineLog(by, `${by} added ${made.length} ${made.length === 1 ? 'line' : 'lines'} to ${app} by hand: ${reason}`, [])));
 }
+/**
+ * Suman, 18 Nov (Jovial: aligned): delete a line Finance added by hand, while it isn't kept (not invoiced, requested or
+ * paid). Lines the system works out come back on the next working-out, so those are marked Not payable instead.
+ */
+export function deleteManualLine(manualId: string, tx: string, by: string) {
+  setComm((s) => {
+    const m = (s.manual ?? []).find((x) => x.id === manualId);
+    if (!m) return s;
+    return withLog({ ...s, manual: (s.manual ?? []).filter((x) => x.id !== manualId) }, lineLog(by, `${by} deleted ${tx}, added by hand to ${m.app} (${m.reason})`, [tx]));
+  });
+}
 /** 18 Nov: a follow-up on an unpaid invoice (expected payment date, comment, escalate), logged on its lines. */
 export function saveFollowUp(f: Omit<FollowUp, 'by' | 'at'>, txs: string[], by: string) {
   setComm((s) => withLog({ ...s, followUps: [...(s.followUps ?? []), { ...f, by, at: Date.now() }] }, lineLog(by, `${by} followed up invoice ${f.invoice}${f.expected ? `: expected ${f.expected}` : ''}${f.escalate ? ', escalated' : ''}${f.comment ? `. ${f.comment}` : ''}`, txs)));
@@ -478,8 +489,9 @@ export function sendBackRpInvoice(invId: string, reason: string, by: string) {
     return withLog({ ...s, rpInvoices: s.rpInvoices.map((x) => (x.id === invId ? { ...x, state: 'Sent back', reason, decided: stamp(by) } : x)) }, lineLog(by, `${by} sent back ${rpName(i.rp)}’s invoice ${i.file.name}: ${reason}`, i.txs, { rp: i.rp }));
   });
 }
-export function markPaid(rp: string, txs: string[], date: string, by: string, recovered?: Record<string, number>) {
-  setComm((s) => withLog({ ...s, rpPayments: [...s.rpPayments, { id: id('rpp'), rp, txs, date, by, at: Date.now(), ...(recovered && Object.keys(recovered).length ? { recovered } : {}) }] }, lineLog(by, `${by} marked paid to ${rpName(rp)} on ${date}`, txs, { rp })));
+export function markPaid(rp: string, txs: string[], date: string, by: string, recovered?: Record<string, number>, paid?: RpPayment['paid']) {
+  const how = paid ? `: ${money(paid.amount, paid.currency)}${paid.rate ? ` at ${paid.rate}` : ''}` : '';
+  setComm((s) => withLog({ ...s, rpPayments: [...s.rpPayments, { id: id('rpp'), rp, txs, date, by, at: Date.now(), ...(recovered && Object.keys(recovered).length ? { recovered } : {}), ...(paid ? { paid } : {}) }] }, lineLog(by, `${by} marked paid to ${rpName(rp)} on ${date}${how}`, txs, { rp })));
 }
 /** Q118/Q125 (Jovial, 13 Nov): GSP's debit note asks the RP to pay back recoveries with nothing to set them against. */
 export function sendDebitNote(rp: string, txs: string[], by: string) {

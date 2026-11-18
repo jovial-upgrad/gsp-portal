@@ -146,7 +146,7 @@ export const sampleUsers = (): User[] => [
   ...team('Institution Ops', 'IP Ops Lead', 'Global', '+91', ['Gauri Bhardwaj']),
   ...team('Institution Ops', 'IP Ops Executive', 'Global', '+91', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi']),
   ...team('Finance', 'Finance Lead', 'Global', '+91', ['Suman Verma']),
-  ...team('Finance', 'Commissions Executive', 'Global', '+91', ['Rhythm Jain', 'Pallavi Thakur', 'Nandini Sharma', 'Monika Shukla']),
+  ...team('Finance', 'Commissions Executive', 'Global', '+91', ['Rhythm Jain', 'Pallavi Thakur', 'Nandini Sharma', 'Monika Shukla', 'Anna']),
   ...team('Finance', 'Commissions Executive', 'Global', '+63', ['Joana Cabrera', 'Arcelin Landayan']),
   ...team('Admin', 'Product Manager', 'Global', '+91', ['Jovial Lejo']),
 ];
@@ -273,10 +273,11 @@ export const sampleQueues = (users: User[]): Queue[] => {
     q('q-institution', 'Institution', 'Lalaine Dizon', ['Namita Nath', 'Raj Shamani', 'Kavya Menon'], 'owner'),
     q('q-ip-ops', 'IP Ops', 'Gauri Bhardwaj', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi', 'Riya Sen', 'Arjun Mehta'], 'fewest'),
     q('q-finance', 'Finance', 'Suman Verma', ['Rhythm Jain', 'Joana Cabrera', 'Arcelin Landayan', 'Lav Likhi', 'Pallavi Thakur', 'Nandini Sharma'], 'fewest'),
-    // 17 Nov (Jovial, after the Finance demo): commission work in two queues, Fewest open
-    // two people each (Jovial, 17 Nov): one keeps each IP, one keeps each RP
-    q('q-comm-ip', 'Commissions: IP lines', 'Nandini Sharma', ['Monika Shukla'], 'fewest'),
-    q('q-comm-rp', 'Commissions: RP lines', 'Rhythm Jain', ['Pallavi Thakur'], 'fewest'),
+    // 17 Nov (Jovial, after the Finance demo): commission work in queues, Fewest open, one person keeping each IP or RP
+    // 18 Nov (Lav's answers, R159): Suman leads all three; Commissions: Mail (R157) leaves each mail for a member to take
+    q('q-comm-ip', 'Commissions: IP lines', 'Suman Verma', ['Nandini Sharma', 'Pallavi Thakur', 'Anna'], 'fewest'),
+    q('q-comm-rp', 'Commissions: RP lines', 'Suman Verma', ['Monika Shukla', 'Rhythm Jain'], 'fewest'),
+    q('q-comm-mail', 'Commissions: Mail', 'Suman Verma', ['Nandini Sharma', 'Pallavi Thakur', 'Anna', 'Monika Shukla', 'Rhythm Jain'], 'pool'),
     q('q-admin', 'Admin', 'Jovial Lejo', [], 'fewest'),
   ];
 };
@@ -325,6 +326,17 @@ export const sampleBdm = (): BdmRow[] => [
   row('Bhutan', '', '', 'Nilar'),
   row('China', '', '', 'Judy'),
   row('All other countries', '', '', 'Ali', true),
+];
+/**
+ * Application counts on an RP's, an institution partner's and a university's page (Suman and Jovial, 18 Nov): each group
+ * runs from a status to the one before the next group's, in journey order; `closed` counts closed applications.
+ */
+export type AppCountGroup = { label: string; from?: string; closed?: boolean };
+export const sampleAppCountGroups = (): AppCountGroup[] => [
+  { label: 'In process' },
+  { label: 'Accepted', from: 'acceptrec' },
+  { label: 'Commenced', from: 'enrolled' },
+  { label: 'Not proceeding', closed: true },
 ];
 export const REGION_ROWS = ['Latin America and Europe', 'Africa'];
 

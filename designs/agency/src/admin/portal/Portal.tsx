@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lines } from '../../finance/commission/Lines';
+import { Setup } from '../../finance/commission/Setup';
 import { whoIs } from '../../finance/commission/store';
 import { AccessProvider } from '../../proto/viewOnly';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -65,6 +66,7 @@ import '../../screens/portal/portal.css';
 // GSP · Institution's styles, shared; GSP Admin's own (its menu) are in ../admin.css
 import '../../institution/institution.css';
 import '../admin.css';
+import { usePublishApps } from '../../components/AppCounts';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -129,6 +131,7 @@ export function Portal({
   const [search, setSearch] = useState<CourseSearch>(() => start?.search ?? newSearch(country, join?.form.state || ''));
   const [students, setStudents] = useState<Student[]>(() => start?.students ?? sampleStudents(acc.name));
   const [apps, setApps] = useState<Application[]>(() => start?.apps ?? (start?.students ? (start.students.length ? sampleApplications() : []) : sampleApplications()));
+  usePublishApps(apps);
   const [desks, setDesks] = useState<Record<string, Desk>>({});
   const studentsView = useMemo(() => students.map((s) => ({ ...s, apps: studentApps(apps, s.id) })), [students, apps]);
   // the Inbox: every shared inbox is connected for an admin to start with
@@ -422,6 +425,8 @@ export function Portal({
       <Targets names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
     ) : section === 'commlines' ? (
       <Lines apps={apps} students={students} setApps={setApps} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
+    ) : section === 'commsetup' ? (
+      <Setup me={GSP_USER.name} say={say} apps={apps} students={students} openRp={(id) => openRecord({ section: 'rps', id, tab: 'commission' })} />
     ) : CONFIG.includes(section as ConfigSection) ? (
       <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={GSP_USER.name} say={say} courses={db.courses} />
     ) : (

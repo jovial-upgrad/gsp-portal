@@ -69,6 +69,8 @@ export type Feature =
   | 'rp.view.edit'
   // 17 Nov (Jovial, the Finance demo): an application's commission Key details to change inside a view-only page
   | 'app.keydetails.edit'
+  // GSP · Finance (Jovial, 18 Nov, after Suman): an application's documents GSP added (offer letters, CoE, visa…), to look at and download
+  | 'app.documents.gsp-only'
   // GSP · Finance (Deepesh, 10 Nov): an application without what's only Admissions' (offer facts, counsellor) and without the enrolled banner
   | 'app.admissions-facts'
   | 'app.celebrate'

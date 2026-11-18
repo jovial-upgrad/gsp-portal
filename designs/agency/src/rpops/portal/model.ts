@@ -18,8 +18,8 @@ export const NAV: NavItem[] = [
   { key: 'inbox', label: 'Inbox', short: 'Inbox', icon: 'inbox' },
   // the signed-in person's tasks (Nesil, 5 Nov), as GSP · Admin's and GSP · Admissions'
   { key: 'work', label: 'My work', short: 'My work', icon: 'check' },
-  { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
+  { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
   { key: 'courses', label: 'Course search', short: 'Search', icon: 'search' },
   { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner' },
   // RP Ops' own (4 Nov): aggregators that bring several RPs under them

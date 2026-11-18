@@ -15,6 +15,8 @@ import { AddButton, ErrorText, Facts, Pager, RecordHead, RecordTabs, Section, Sy
 import { useContacts } from './Contacts';
 import { PartnerPill, UniPill, statusGroup } from './pills';
 import type { PageProps } from '../portal/model';
+import { AppCounts } from '../../components/AppCounts';
+import { courseOf } from '../../data/applications';
 
 type Tab = 'overview' | 'universities' | 'documents' | 'commission' | 'contacts';
 const TABS: Tab[] = ['overview', 'universities', 'documents', 'commission', 'contacts'];
@@ -121,6 +123,9 @@ export function PartnerPage({ p, tab: start, backLabel, onBack, db, set, open, s
       <TabPanel id="iptab" tab={tab}>
         {tab === 'overview' && (
           <>
+            <Section title="Applications" id="ip-apps" note="Every application to its universities, by where it is. Each number opens them.">
+              <AppCounts id="ip-apps" match={(a) => unis.some((u) => u.id === courseOf(a).uni.id)} />
+            </Section>
             <div className="istats" role="group" aria-label="With GSP so far">
               {(
                 [

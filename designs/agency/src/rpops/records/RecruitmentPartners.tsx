@@ -20,6 +20,8 @@ import type { MasterPartner } from './masters';
 import { Confirm } from './Confirm';
 import { TeamSections } from './Team';
 import { FileDrop, Foot, OpsHead, useOpsRecord, type OpsFocus, type OpsTarget } from './parts';
+import { AppCounts } from '../../components/AppCounts';
+import { HOME_RP } from '../../institution/rps';
 
 const TONE: Record<RpStatus, Tone> = { 'Not activated': 'you', Verifying: 'gsp', 'Documents sent back': 'you', Activated: 'uni', 'Agreement signed': 'ok', Rejected: 'bad', Suspended: 'bad', Dormant: 'grey' };
 const RpPill = ({ s }: { s: RpStatus }) => <Pill tone={TONE[s]}>{s}</Pill>;
@@ -290,6 +292,9 @@ function RpPage({
       <TabPanel id="orptab" tab={tab}>
         {tab === 'overview' && (
           <>
+            <Section title="Applications" id="orp-apps" note="Every application from this RP, by where it is. Each number opens them.">
+              <AppCounts id="orp-apps" match={(a) => (a.rp ?? HOME_RP) === r.name} />
+            </Section>
             <Section
               title="Details"
               id="orp-details"

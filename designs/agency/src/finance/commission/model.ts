@@ -74,6 +74,10 @@ export type Settings = {
   partReasons: string[];
   /** 17 Nov (Jovial, Finance demo): what Mark not payable offers; 'Other' asks for a few words. */
   notPayableReasons?: string[];
+  /** Lav, 18 Nov: why Finance sends an RP's invoice back; 'Other' asks for a few words. */
+  sendBackReasons?: string[];
+  /** Lav, 18 Nov (R158): GST an Australian-registered RP adds to its filled-in invoice, in %. */
+  rpGst?: number;
   /**
    * Reminders, email and bell (Jovial, 10 Nov, Q47), in days: to the RP after its invoice is asked for and not sent;
    * to Finance (and the university's contact) from a University → GSP line's due date while it isn't paid. No escalation.
@@ -156,7 +160,7 @@ export type Agreement = AgreementTerms & { id: string; name: string; status: Agr
  * flat share instead of the agreement's (the sandbox's "own flat %"); `annuityPct`: its own share after the first year.
  * No tax line (Jovial, 10 Nov, D8: Phase 2) and no payment details (Q45).
  */
-export type RpRecord = { rp: string; agreement: string; from: string; /** Jovial, 13 Nov: the last day the agreement applies (empty: open-ended). */ to?: string; ownFlat?: number | null; annuityPct?: number | null; view?: RpView | null; moves: { agreement: string; from: string }[]; created: Stamp; updated: Stamp };
+export type RpRecord = { rp: string; agreement: string; from: string; /** Jovial, 13 Nov: the last day the agreement applies (empty: open-ended). */ to?: string; /** R158 (Lav, 18 Nov): an Australian-registered RP's ABN, when it's registered for GST (its filled-in invoice adds GST). */ abn?: string; ownFlat?: number | null; annuityPct?: number | null; view?: RpView | null; moves: { agreement: string; from: string }[]; created: Stamp; updated: Stamp };
 
 /* ---------- notices ---------- */
 
@@ -508,7 +512,7 @@ export type RpInvoice = { id: string; rp: string; file: FileRef; txs: string[]; 
  * couldn't take all of it (the rest stays To recover); a recovery listed without it was set off in full. `repaid`: the RP
  * paid a recovery back itself, after GSP's debit note (Q118).
  */
-export type RpPayment = { id: string; rp: string; txs: string[]; date: string; by: string; at: number; recovered?: Record<string, number>; repaid?: boolean };
+export type RpPayment = { id: string; rp: string; txs: string[]; date: string; by: string; at: number; recovered?: Record<string, number>; repaid?: boolean; /** Lav, 18 Nov: what GSP actually paid, in the currency the RP asked for, and the rate used (from the lines' currency). */ paid?: { currency: string; amount: number; rate?: number } };
 /** GSP's debit note to an RP (Jovial, 13 Nov, Q118/Q125): asks it to pay back recoveries GSP had nothing to set against. */
 export type DebitNote = { id: string; number: string; rp: string; txs: string[]; date: string; by: string; at: number };
 /** An override on one line: its amount, due date and hold, and why. The latest for a line counts. */

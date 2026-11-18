@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { Field, SelectInput, TextInput } from '../../components/forms';
+import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { SearchPick } from '../../institution/records/SearchPick';
 import { ErrorText, Facts, useAsk } from '../../institution/records/parts';
@@ -254,10 +254,15 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
   const [agreement, setAgreement] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  // R158 (Lav, 18 Nov): GST registered (ABN), for an RP registered in Australia
+  const [gst, setGst] = useState(false);
+  const [abn, setAbn] = useState('');
   const [tried, setTried] = useState(false);
   const { ask, dialog } = useAsk();
   useEffect(() => {
     if (!open) return;
+    setGst(!!was?.abn);
+    setAbn(was?.abn ?? '');
     const r = was?.rp ?? preset ?? '';
     setRp(r);
     setAgreement(was?.agreement ?? '');
@@ -268,11 +273,13 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
   const pool = acceptedRps().filter((r) => !s.records.some((x) => x.rp === r.id));
   const info = ctxRps().find((r) => r.id === rp);
   const active = s.agreements.filter((a) => a.status === 'Active' || a.id === was?.agreement);
-  const err = { rp: !rp ? 'Choose the RP.' : null, agreement: !agreement ? 'Choose the agreement.' : null, from: !from ? 'Choose the date.' : null, to: to && from && to < from ? 'On or after the From date.' : null };
+  const err = { rp: !rp ? 'Choose the RP.' : null, agreement: !agreement ? 'Choose the agreement.' : null, from: !from ? 'Choose the date.' : null, to: to && from && to < from ? 'On or after the From date.' : null, abn: gst && !/^\d{11}$/.test(abn.replace(/\s/g, '')) ? 'Enter the ABN: 11 digits.' : null };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const name = info?.name ?? '';
+  // the countries GST applies in come from Settings' GST by destination (Australia)
+  const gstCountry = !!info && info.country in s.settings.gst;
   const commit = () => {
-    saveRecord({ rp, agreement, from, to: to || undefined }, me);
+    saveRecord({ rp, agreement, from, to: to || undefined, abn: gstCountry && gst ? abn.replace(/\s/g, '') : undefined }, me);
     onSaved(rp);
   };
   const save = () => {
@@ -335,6 +342,20 @@ export function RecordForm({ open, rp: editRp, preset, me, onClose, onSaved, onA
         <Field id="crec-to" label="To" optional error={show('to')} hint="The last day this agreement applies. Empty: until it’s changed.">
           <TextInput id="crec-to" type="date" value={to} invalid={!!show('to')} onChange={(e) => setTo(e.target.value)} />
         </Field>
+        {gstCountry && (
+          <>
+            <Field id="crec-gst" label="GST" optional className="iform__wide" hint={`Ticked: GSP’s filled-in invoice adds ${s.settings.rpGst ?? 0}% GST and shows the ABN; an invoice without the ABN is sent back.`}>
+              <Checkbox id="crec-gst" checked={gst} onChange={setGst}>
+                GST registered (ABN)
+              </Checkbox>
+            </Field>
+            {gst && (
+              <Field id="crec-abn" label="ABN" required error={show('abn')}>
+                <TextInput id="crec-abn" inputMode="numeric" value={abn} invalid={!!show('abn')} onChange={(e) => setAbn(e.target.value)} />
+              </Field>
+            )}
+          </>
+        )}
         {info && (
           <div className="cform__ro">
             <Facts
@@ -1009,7 +1030,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const [v, setV] = useState<Settings>(s.settings);
   const [gstRows, setGstRows] = useState<{ dest: string; pct: number | null }[]>([]);
   const [grpRows, setGrpRows] = useState<{ name: string; countries: string[] }[]>([]);
-  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
+  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', sendBack: '', rpGst: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -1022,6 +1043,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       studentTypes: x.studentTypes.join('\n'),
       partReasons: x.partReasons.join('\n'),
       notPayable: (x.notPayableReasons ?? []).join('\n'),
+      sendBack: (x.sendBackReasons ?? []).join('\n'),
+      rpGst: x.rpGst == null ? '' : String(x.rpGst),
       rpInvoice: daysText(x.reminders.rpInvoice),
       uniPayment: daysText(x.reminders.uniPayment),
       rpPayment: daysText(x.reminders.rpPayment),
@@ -1038,7 +1061,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
     gst: gstRows.some((g) => !g.dest || pctBad(g.pct, true)) ? 'Choose the destination and a % from 0 to 100.' : new Set(gstRows.map((g) => g.dest)).size < gstRows.length ? 'Each destination once.' : null,
     groups: grpRows.some((g) => !g.name.trim() || !g.countries.length) ? 'Name each group and choose its countries.' : new Set(grpRows.map((g) => g.name.trim().toLowerCase())).size < grpRows.length ? 'Each group name once.' : null,
     annuity: v.annuity.rule === 'Flat %' && pctBad(v.annuity.pct, true) ? 'A number from 0 to 100.' : null,
-    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length || !linesOf(t.notPayable).length ? 'Keep at least one in each list.' : null,
+    lists: !linesOf(t.docTypes).length || !linesOf(t.partReasons).length || !linesOf(t.notPayable).length || !linesOf(t.sendBack).length ? 'Keep at least one in each list.' : null,
+    rpGst: t.rpGst.trim() !== '' && !(Number(t.rpGst) >= 0 && Number(t.rpGst) <= 100) ? 'A % from 0 to 100.' : null,
     days: ![t.rpInvoice, t.uniPayment, t.rpPayment].every(days) ? 'Days, like 0, 7, 14.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
@@ -1055,6 +1079,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
         studentTypes: linesOf(t.studentTypes),
         partReasons: linesOf(t.partReasons),
         notPayableReasons: linesOf(t.notPayable),
+        sendBackReasons: linesOf(t.sendBack),
+        rpGst: t.rpGst.trim() === '' ? undefined : Number(t.rpGst),
         reminders: { rpInvoice: daysOf(t.rpInvoice), uniPayment: daysOf(t.uniPayment), rpPayment: daysOf(t.rpPayment) },
       },
       me,
@@ -1162,6 +1188,12 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       </Field>
       <Field id="cst-np" label="Not payable reasons" required error={show('lists')} className="iform__wide" hint="One a line: what Mark not payable offers. The last one asks for a few words.">
         {area('cst-np', 'notPayable')}
+      </Field>
+      <Field id="cst-sb" label="Invoice send-back reasons" required error={show('lists')} className="iform__wide" hint="One a line: why Finance sends an RP's invoice back (Lav, 18 Nov). The last one asks for a few words.">
+        {area('cst-sb', 'sendBack')}
+      </Field>
+      <Field id="cst-rpgst" label="GST on RP invoices (%)" error={show('rpGst')} hint="Added to a GST-registered Australian RP's filled-in invoice (R158).">
+        <TextInput id="cst-rpgst" inputMode="decimal" value={t.rpGst} invalid={!!show('rpGst')} onChange={up('rpGst')} />
       </Field>
       <FormSec title="Reminders" note="Days, separated by commas. Bell and email; no escalation." />
       <Field id="cst-r1" label="Remind the RP to invoice (days)" required error={show('days')} hint="After its invoice is asked for.">

@@ -6,6 +6,8 @@ import { Icon } from '../../components/Icon';
 import { EditOnly, useShows } from '../../proto/viewOnly';
 import { RpViewForm } from './forms';
 import { Facts, Section } from '../../institution/records/parts';
+import { DocButtons } from '../../components/DocView';
+import { rpName } from './store';
 import { CURRENCY } from '../../data/courses';
 import { fullName, type Student } from '../../data/students';
 import type { Application } from '../../data/applications';
@@ -57,6 +59,7 @@ export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; 
                   ['Counted per', ag.countedPer],
                 ] as [string, string][])),
             ['Retrospective', ag.retro ? (ag.retroTop ? 'Yes, once the top band is reached' : 'Yes') : 'No'],
+            ...(rec.abn ? ([['GST', `Registered, ABN ${rec.abn}`]] as [string, string][]) : []),
             ...(rec.ownFlat != null ? ([['Own flat share', `${pct(rec.ownFlat)} of GSP’s commission, instead of the agreement’s`]] as [string, string][]) : []),
             ['Share after year 1', rec.annuityPct != null ? `${pct(rec.annuityPct)} (its own)` : s.settings.annuity.rule === 'Flat %' && s.settings.annuity.pct != null ? `${pct(s.settings.annuity.pct)} (Settings)` : `${s.settings.annuity.rule} (Settings)`],
             ['Additional commission passed on', ag.addl === null ? 'The same as the share' : pct(ag.addl)],
@@ -335,7 +338,32 @@ export function AppCommissionTab({ a, s, rpOnly, apps, students }: { a: Applicat
       {!rpOnly && <Standing lines={lines} />}
       {!rpOnly && <ItemCard item={lines.uniItem} />}
       <ItemCard item={rpOnly ? shownToRp(lines.rpItem) : lines.rpItem} rp rpView={rpOnly} />
+      {!rpOnly && <RpInvoices ids={lines.rpItem.txs.map((t) => t.id)} invoices={st.rpInvoices} />}
     </>
+  );
+}
+
+/** Suman, 18 Nov: the RP's invoices for this application's lines, to look at again or download. */
+function RpInvoices({ ids, invoices }: { ids: string[]; invoices: CommState['rpInvoices'] }) {
+  const mine = invoices.filter((i) => i.txs.some((t) => ids.includes(t)));
+  if (!mine.length) return null;
+  return (
+    <Section title="The RP's invoices" id="capp-rpinv" note="Invoices the RP uploaded for these lines.">
+      <ul className="clines__inv">
+        {mine.map((i) => (
+          <li key={i.id}>
+            <span className="cinv__t">
+              <span className="iw-strong">{i.file.name}</span>
+              <span className="iw-sub">
+                {rpName(i.rp)} · {i.txs.filter((t) => ids.includes(t)).join(', ')} · {i.state}
+                {i.reason ? `: ${i.reason}` : ''} · sent {dayText(new Date(i.at).toISOString())}
+              </span>
+            </span>
+            <DocButtons d={{ name: `${rpName(i.rp)}: invoice`, file: i.file.name }} />
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }
 

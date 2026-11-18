@@ -17,8 +17,8 @@ export type Access = 'setup' | 'verifying' | 'all';
 export const NAV: { key: Section; label: string; short: string; icon: IconName; locked: boolean }[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home', locked: false },
   { key: 'courses', label: 'Find courses', short: 'Courses', icon: 'search', locked: false },
-  { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   { key: 'students', label: 'Students', short: 'Students', icon: 'people', locked: true },
+  { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc', locked: true },
   { key: 'earnings', label: 'Earnings', short: 'Earnings', icon: 'wallet', locked: true },
   { key: 'profile', label: 'Profile', short: 'Profile', icon: 'building', locked: false },
 ];
