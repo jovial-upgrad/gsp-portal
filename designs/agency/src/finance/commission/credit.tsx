@@ -9,7 +9,7 @@ import { FeeRows } from './AppFees';
 import type { Application } from '../../data/applications';
 import type { Result, Tx } from './engine';
 import { addLines, commState, creditAndReinvoice, studentWithdrew } from './store';
-import { ACTION_FROM, SIDES, SIDE_KEYS, TX_TYPES, dayText, groupOf, money, roundMoney } from './model';
+import { ACTION_FROM, ADDABLE_TYPES, MINUS_TYPES, SIDES, SIDE_KEYS, TX_TYPES, dayText, groupOf, money, roundMoney } from './model';
 
 type AskFn = ReturnType<typeof useAsk>['ask'];
 
@@ -55,7 +55,7 @@ export function readStatement(text: string): { rows: StatementRow[]; error?: str
  * lines GSP has invoiced, and the month is closed in Xero. GSP never edits the invoice: a credit note reverses the lines
  * in full, and a new invoice carries the revised amounts. Finance uploads the statement or types the amounts.
  */
-export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask }: { txs: Tx[] | null; res: Result; by: string; taken: string[]; onClose: () => void; onDone: (msg: string) => void; ask: AskFn }) {
+export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask, initial, why }: { txs: Tx[] | null; res: Result; by: string; taken: string[]; onClose: () => void; onDone: (msg: string) => void; ask: AskFn; initial?: Record<string, number>; why?: string }) {
   const [amt, setAmt] = useState<Record<string, number | null>>({});
   const [fee, setFee] = useState<Record<string, number | null>>({});
   const [reason, setReason] = useState('');
@@ -63,9 +63,9 @@ export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask }: { txs
   const [note, setNote] = useState('');
   const [tried, setTried] = useState(false);
   useEffect(() => {
-    setAmt(Object.fromEntries((txs ?? []).map((t) => [t.id, t.amount])));
+    setAmt(Object.fromEntries((txs ?? []).map((t) => [t.id, initial?.[t.id] ?? t.amount])));
     setFee({});
-    setReason('');
+    setReason(why ?? '');
     setXero('');
     setNote('');
     setTried(false);
@@ -92,7 +92,7 @@ export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask }: { txs
     setNote(`${f.name}: ${hit} of ${rows.length} ${rows.length === 1 ? 'row matches' : 'rows match'} the ticked lines${rows.length - hit ? `; ${rows.length - hit} didn’t (another student or study period)` : ''}.`);
   };
   const lineErr = (t: Tx) => (amt[t.id] == null || Number.isNaN(amt[t.id]!) || amt[t.id]! < 0 ? 'Enter the new amount (0 or more).' : null);
-  const err = { lines: txs.some(lineErr) ? 'Check each line.' : null, reason: reason.trim() ? null : 'Say why (for example, the university’s statement of 12 Nov).', xero: !xero.trim() ? 'Enter the new invoice’s number from Xero.' : taken.includes(xero.trim()) ? 'That number is already used.' : null };
+  const err = { lines: txs.some(lineErr) ? 'Check each line.' : null, reason: reason.trim() ? null : 'Say why (for example, the university’s statement of 12 Nov).', xero: !xero.trim() ? 'Enter the new invoice’s number from Xero.' : taken.includes(withPrefix(xero, commState().settings.invPrefix)) ? 'That number is already used.' : null };
   const was = roundMoney(txs.reduce((n, t) => n + t.amount, 0), cur);
   const now = roundMoney(txs.reduce((n, t) => n + (amt[t.id] ?? 0), 0), cur);
   const go = () => {
@@ -110,7 +110,7 @@ export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask }: { txs
           reason.trim(),
           by,
           true,
-          xero.trim(),
+          withPrefix(xero, commState().settings.invPrefix),
         );
         onDone(`${made.length ? made.join(', ') : 'Credit note'} issued; the new amounts are invoiced.`);
       },
@@ -173,10 +173,12 @@ export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask }: { txs
 export function WithdrawSheet({ app, res, by, onClose, onDone, ask }: { app: string | null; res: Result; by: string; onClose: () => void; onDone: (msg: string) => void; ask: AskFn }) {
   const [date, setDate] = useState('');
   const [reason, setReason] = useState('');
+  const [proof, setProof] = useState<{ name: string; size: number } | null>(null);
   const [tried, setTried] = useState(false);
   useEffect(() => {
     setDate(todayIso());
     setReason('');
+    setProof(null);
     setTried(false);
   }, [app]);
   if (!app) return null;
@@ -201,8 +203,9 @@ export function WithdrawSheet({ app, res, by, onClose, onDone, ask }: { app: str
           reason.trim(),
           by,
           credit.map((t) => ({ tx: t.id, invoice: t.invoice!, uni: t.uni, also: adjustmentsOf(res, t) })),
+          proof ?? undefined,
         );
-        onDone(`Withdrawal recorded for ${a?.student ?? app}.`);
+        onDone(`Withdrawal recorded for ${a?.student ?? app}${proof ? `; ${proof.name} is in the application’s Documents` : ''}.`);
       },
     );
   };
@@ -231,6 +234,12 @@ export function WithdrawSheet({ app, res, by, onClose, onDone, ask }: { app: str
         </Field>
         <Field id="cwd-why" label="What the university said" required className="iform__wide" error={tried ? err.reason : null}>
           <TextInput id="cwd-why" value={reason} invalid={tried && !!err.reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+        <Field id="cwd-file" label="Proof from the university" optional className="iform__wide" hint="Its email or statement. It goes in the application’s Documents (Suman, 18 Nov).">
+          <input id="cwd-file" type="file" onChange={(e) => {
+            const f = e.target.files?.[0];
+            setProof(f ? { name: f.name, size: f.size } : null);
+          }} />
         </Field>
       </div>
     </Sheet>
@@ -394,10 +403,12 @@ export function XeroSheet({ open, title, sub, body, taken, go, onClose }: { open
     setTried(false);
   }, [open]);
   if (!open) return null;
-  const err = !n.trim() ? 'Enter the invoice number from Xero.' : taken.includes(n.trim()) ? 'That number is already used.' : null;
+  // Suman, 18 Nov: the invoice prefix (a Commission setting) goes before the number from Xero
+  const full = withPrefix(n, commState().settings.invPrefix);
+  const err = !n.trim() ? 'Enter the invoice number from Xero.' : taken.includes(full) ? 'That number is already used.' : null;
   const submit = () => {
     setTried(true);
-    if (!err) go(n.trim());
+    if (!err) go(full);
   };
   return (
     <Sheet
@@ -420,7 +431,7 @@ export function XeroSheet({ open, title, sub, body, taken, go, onClose }: { open
     >
       <div className="iform__grid">
         <div className="iform__wide">{body}</div>
-        <Field id="cxero-no" label="Invoice number (from Xero)" required error={tried ? err : null} hint="Raise the invoice in Xero, then enter its number here.">
+        <Field id="cxero-no" label="Invoice number (from Xero)" required error={tried ? err : null} hint={`Raise the invoice in Xero, then enter its number here.${commState().settings.invPrefix ? ` It’s saved as ${full || `${commState().settings.invPrefix}…`}.` : ''}`}>
           <TextInput id="cxero-no" value={n} invalid={tried && !!err} onChange={(e) => setN(e.target.value)} />
         </Field>
       </div>
@@ -452,7 +463,7 @@ export function AddLinesSheet({ app, res, by, onClose, onDone, ask }: { app: str
   const go = () => {
     setTried(true);
     if (err.rows || err.reason) return;
-    ask(`Add ${rows.length} ${rows.length === 1 ? 'line' : 'lines'} to ${a?.student ?? app}?`, 'Add', <p>{rows.map((r) => `${SIDES[r.side]}: ${r.type}, ${money(r.amount!, cur)}`).join('; ')}. They’re worked like any other line, and logged with why.</p>, () => {
+    ask(`Add ${rows.length} ${rows.length === 1 ? 'line' : 'lines'} to ${a?.student ?? app}?`, 'Add', <p>{rows.map((r) => `${SIDES[r.side]}: ${r.type === 'Clawback' && r.side === 'rp' ? 'Clawback (a recovery)' : r.type}, ${money(MINUS_TYPES.includes(r.type) ? -Math.abs(r.amount!) : r.amount!, cur)}`).join('; ')}. They’re worked like any other line, and logged with why.{rows.some((r) => r.type === 'Clawback' && r.side === 'rp') ? ' A clawback from the RP is taken off its next invoice request.' : ''}</p>, () => {
       addLines(app, rows.map((r) => ({ side: r.side, type: r.type, amount: r.amount!, period: r.period ?? undefined, date: r.date })), reason.trim(), by);
       onDone(`${rows.length} ${rows.length === 1 ? 'line' : 'lines'} added to ${app}.`);
     });
@@ -491,14 +502,14 @@ export function AddLinesSheet({ app, res, by, onClose, onDone, ask }: { app: str
             </Field>
             <Field id={`cadd-type-${i}`} label="Type" required>
               <SelectInput id={`cadd-type-${i}`} value={r.type} onChange={(e) => set(i, { type: e.target.value as Draft['type'] })}>
-                {TX_TYPES.map((k) => (
+                {ADDABLE_TYPES.map((k) => (
                   <option key={k} value={k}>
                     {k}
                   </option>
                 ))}
               </SelectInput>
             </Field>
-            <Field id={`cadd-amt-${i}`} label={`Amount (${cur})`} required error={tried ? rowErr(r) : null}>
+            <Field id={`cadd-amt-${i}`} label={`Amount (${cur})`} required error={tried ? rowErr(r) : null} hint={MINUS_TYPES.includes(r.type) ? (r.side === 'rp' ? 'Always a minus: taken off the RP’s next invoice.' : 'Always a minus.') : undefined}>
               <TextInput id={`cadd-amt-${i}`} inputMode="decimal" value={numText(r.amount)} invalid={tried && !!rowErr(r)} onChange={(e) => set(i, { amount: numOf(e.target.value) })} />
             </Field>
             <Field id={`cadd-per-${i}`} label="Study period" optional>
@@ -592,3 +603,9 @@ export function KeyDetailsSheet({ app, res, apps, setApps, by, onClose, say }: {
     </Sheet>
   );
 }
+
+/** Suman, 18 Nov: an invoice number with the invoice prefix in front, unless it was typed with it. */
+export const withPrefix = (n: string, prefix?: string) => {
+  const x = n.trim();
+  return !x || !prefix || x.toUpperCase().startsWith(prefix.toUpperCase()) ? x : `${prefix}${x}`;
+};

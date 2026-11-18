@@ -45,6 +45,8 @@ export const sampleSettings = (): Settings => ({
   // Lav, 18 Nov: why an RP's invoice goes back; R158: GST on a GST-registered Australian RP's invoice
   sendBackReasons: ['Student details', 'Bank details', 'ABN', 'Letterhead', 'Other'],
   rpGst: 10,
+  invPrefix: 'INV-',
+  billPrefix: 'BIL-',
   // Jovial, 10 Nov (Q47): days after an invoice request (RP) and after a line's due date (university); no escalation
   reminders: { rpInvoice: [3, 7, 14], uniPayment: [0, 7, 14], rpPayment: [0, 7, 14] },
 });

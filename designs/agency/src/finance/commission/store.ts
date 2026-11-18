@@ -37,6 +37,13 @@ export function setComm(fn: (s: CommState) => CommState) {
 /** Back to the seeded records (the Prototype panel's reset, and tests). */
 export const resetComm = () => setComm(() => sampleComm());
 export const useComm = () => useSyncExternalStore(subscribe, commState, commState);
+/** Suman, 18 Nov: the withdrawal proof Finance attached to an application, as one of its GSP documents. */
+export function useCommFiles(app: string) {
+  const s = useComm();
+  return (s.withdrawals ?? [])
+    .filter((w) => w.app === app && w.file)
+    .map((w) => ({ name: `Withdrawal proof (${w.date})`, file: w.file!.name, from: 'uni' as const, at: w.at, status: 'verified' as const }));
+}
 // the Prototype panel's clock moved: every line's status is worked out again for the new date
 subscribeClock(() => setComm((s) => ({ ...s })));
 
@@ -444,8 +451,8 @@ export function creditAndReinvoice(items: { tx: string; invoice: string; uni: st
  * Finance records that a student withdrew (17 Nov): the university said so. The application's stage stays. Lines
  * triggered after the date become Not payable; the invoiced ones not yet paid are credited (no new invoice).
  */
-export function studentWithdrew(app: string, date: string, reason: string, by: string, invoiced: { tx: string; invoice: string; uni: string; also?: string[] }[]) {
-  setComm((s) => withLog({ ...s, withdrawals: [...(s.withdrawals ?? []).filter((w) => w.app !== app), { id: id('wd'), app, date, reason, by, at: Date.now() }] }, lineLog(by, `${by} recorded that the student on ${app} withdrew on ${date}: ${reason}`, invoiced.map((x) => x.tx))));
+export function studentWithdrew(app: string, date: string, reason: string, by: string, invoiced: { tx: string; invoice: string; uni: string; also?: string[] }[], file?: FileRef) {
+  setComm((s) => withLog({ ...s, withdrawals: [...(s.withdrawals ?? []).filter((w) => w.app !== app), { id: id('wd'), app, date, reason, by, at: Date.now(), ...(file ? { file } : {}) }] }, lineLog(by, `${by} recorded that the student on ${app} withdrew on ${date}: ${reason}`, invoiced.map((x) => x.tx))));
   if (invoiced.length) creditAndReinvoice(invoiced, `Student withdrew ${date}: ${reason}`, by, false);
 }
 /** Finance adds lines to an application by hand (17 Nov), one or several at once, with why. */
@@ -463,6 +470,10 @@ export function deleteManualLine(manualId: string, tx: string, by: string) {
     if (!m) return s;
     return withLog({ ...s, manual: (s.manual ?? []).filter((x) => x.id !== manualId) }, lineLog(by, `${by} deleted ${tx}, added by hand to ${m.app} (${m.reason})`, [tx]));
   });
+}
+/** Suman, 18 Nov: an RP line moved to follow another university line of its application, logged with why. */
+export function followUniLine(tx: string, uni: string, reason: string, by: string) {
+  setComm((s) => withLog({ ...s, follows: [...(s.follows ?? []), { tx, uni, reason, by, at: Date.now() }] }, lineLog(by, `${by} moved ${tx} to follow ${uni}: ${reason}`, [tx, uni])));
 }
 /** 18 Nov: a follow-up on an unpaid invoice (expected payment date, comment, escalate), logged on its lines. */
 export function saveFollowUp(f: Omit<FollowUp, 'by' | 'at'>, txs: string[], by: string) {
