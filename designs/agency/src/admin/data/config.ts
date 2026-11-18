@@ -37,10 +37,12 @@ export const REGION_COUNTRIES: Record<string, string[]> = {
 const CONTACT: Record<string, string> = {
   India: 'Ramish', Nepal: 'Supriya', 'Sri Lanka': 'Subbhodya', Bangladesh: 'Kamrun', Pakistan: 'Kamrun', Africa: 'Kamrun',
   'Latin America and Europe': 'Valentina', Vietnam: 'Truc', 'Indonesia, Malaysia and Thailand': 'Truc', 'Myanmar and Bhutan': 'Truc', Philippines: 'Truc',
-  Australia: 'Jo', China: 'Jo',
+  'Australia Onshore': 'Jo', China: 'Jo',
 };
 /** Each region's countries, as the country list names them. */
 const COUNTRIES_OF: Record<string, string[]> = {
+  // Jovial, 18 Nov: the onshore region is Australia Onshore; its country is Australia
+  'Australia Onshore': ['Australia'],
   'Indonesia, Malaysia and Thailand': ['Indonesia', 'Malaysia', 'Thailand'],
   'Myanmar and Bhutan': ['Myanmar', 'Bhutan'],
   Africa: REGIONS_OF.Africa,
@@ -100,7 +102,7 @@ export const sampleUsers = (): User[] => [
   u('Valentina', 'Admission', 'Admissions Officer', 'Latin America and Europe', '+44', '7700 900 412'),
   u('Truc', 'Admission', 'Admissions Officer', 'Vietnam', '+84', '90 812 3341'),
   u('Thi Tuyet Hoa Nguyen', 'Admission', 'Admissions Officer', 'Vietnam', '+84', '90 812 7710', 'Link sent'),
-  u('Jo', 'Admission', 'Admissions Officer', 'Australia', '+61', '412 300 118'),
+  u('Jo', 'Admission', 'Admissions Officer', 'Australia Onshore', '+61', '412 300 118'),
   u('Meera Pillai', 'Admission Ops', 'Admission Ops Lead', 'Global', '+91', '98450 30021'),
   u('Freddy Forrest', 'Admission', 'Admissions Officer', 'India', '+91', '98450 11930'),
   ...team('Admission Ops', 'Global Ops', 'Global', '+91', ['Karan Malhotra', 'Neha Kulkarni', 'Ishita Rao', 'Vikram Shetty']),
@@ -118,7 +120,7 @@ export const sampleUsers = (): User[] => [
   u('Camilo', 'Recruitment', 'BDM', 'Latin America and Europe', '+44', '7700 900 177'),
   u('Kanchani', 'Recruitment', 'BDM', 'Sri Lanka', '+94', '77 410 9921', 'Not sent'),
   u('Anil Shrestha', 'Recruitment', 'BDM', 'Nepal', '+977', '980 114 2271'),
-  u('Judy', 'Recruitment', 'BDM', 'Australia', '+61', '412 300 771'),
+  u('Judy', 'Recruitment', 'BDM', 'Australia Onshore', '+61', '412 300 771'),
   u('Leena Thomas', 'Recruitment Ops', 'Partner Verification Lead', 'Global', '+91', '98450 66120'),
   u('Lalaine Dizon', 'Institution', 'Relationship Manager', 'Global', '+63', '917 300 4410'),
   u('Namita Nath', 'Institution', 'Relationship Manager', 'Global', '+91', '98110 55093'),
@@ -136,8 +138,8 @@ export const sampleUsers = (): User[] => [
   ...team('Admission', 'Admissions Officer', 'Vietnam', '+84', ['Le Minh Ngoc Nguyen', 'Nhung Thi Tuyet Dinh', 'Chi Dao', 'Hieu Ngan Do', 'Ngoc Mai']),
   ...team('Admission', 'Admissions Lead', 'Pakistan', '+92', ['Sabrina Hyder']),
   ...team('Admission', 'Admissions Officer', 'Pakistan', '+92', ['Dur E Kashaf Awan']),
-  ...team('Admission', 'Admissions Lead', 'Australia', '+61', ['Caixia Qiu']),
-  ...team('Admission', 'Admissions Officer', 'Australia', '+61', ['Afroza Khatun Moni', 'Meenu Mishra Dubey', 'Meetu Malhotra', 'Jihan Khansa Pradila']),
+  ...team('Admission', 'Admissions Lead', 'Australia Onshore', '+61', ['Caixia Qiu']),
+  ...team('Admission', 'Admissions Officer', 'Australia Onshore', '+61', ['Afroza Khatun Moni', 'Meenu Mishra Dubey', 'Meetu Malhotra', 'Jihan Khansa Pradila']),
   ...team('Admission', 'Admissions Lead', 'Philippines', '+63', ['Kimberly Olaes']),
   ...team('Admission', 'Admissions Officer', 'Philippines', '+63', ['Leigh Penullar', 'Lyka Gutierrez', 'Ryn Enor']),
   ...team('Recruitment', 'BDM', 'Latin America and Europe', '+44', ['Maria Boscan']),
@@ -238,7 +240,9 @@ export const samplePerms = (): Perms =>
 export const QUEUE_TYPES = ['Admissions', 'Recruitment', 'Other'] as const;
 export type QueueType = (typeof QUEUE_TYPES)[number];
 /** `region`: the sales region whose work it takes (Global for a team that covers every region), required (18 Nov). */
-export type Queue = { id: string; name: string; lead: string; members: string[]; sharing: Sharing; parent?: string; region: string; type: QueueType };
+/** `backup` (18 Nov): where its tasks go when no one in it can take them (no active leader or member); Global Ops' queue by default. */
+export const BACKUP_QUEUE = 'q-global-admissions';
+export type Queue = { id: string; name: string; lead: string; members: string[]; sharing: Sharing; parent?: string; region: string; type: QueueType; backup: string };
 /** A queue and every queue under it, at any depth. */
 export const queueTree = (q: Queue, queues: Queue[]): Queue[] => {
   const out: Queue[] = [q];
@@ -261,7 +265,7 @@ const ADMISSIONS: Record<string, [string, string[]]> = {
   Pakistan: ['Sabrina Hyder', ['Dur E Kashaf Awan']],
   'Indonesia, Malaysia and Thailand': ['Truc', []],
   'Myanmar and Bhutan': ['Truc', []],
-  Australia: ['Caixia Qiu', ['Jo', 'Afroza Khatun Moni', 'Meenu Mishra Dubey', 'Meetu Malhotra', 'Jihan Khansa Pradila']],
+  'Australia Onshore': ['Caixia Qiu', ['Jo', 'Afroza Khatun Moni', 'Meenu Mishra Dubey', 'Meetu Malhotra', 'Jihan Khansa Pradila']],
   Philippines: ['Kimberly Olaes', ['Leigh Penullar', 'Lyka Gutierrez', 'Ryn Enor']],
   Africa: ['Kamrun', []],
   'Latin America and Europe': ['Valentina', []],
@@ -277,7 +281,7 @@ const RECRUITMENT: Record<string, [string, string[]]> = {
   Pakistan: ['Ali Butt', []],
   'Indonesia, Malaysia and Thailand': ['Tina', []],
   'Myanmar and Bhutan': ['Tina', []],
-  Australia: ['Judy', []],
+  'Australia Onshore': ['Judy', []],
   Philippines: ['Arielle', []],
   Africa: ['Faisal', []],
   'Latin America and Europe': ['Camilo', ['Maria Boscan']],
@@ -293,9 +297,9 @@ const INDIA_RMS: [string, string, string, string[]][] = [
   ['q-rec-india-kerala', 'India Kerala Recruitment', 'Nadia', ['Rehan A']],
 ];
 export const sampleQueues = (users: User[]): Queue[] => {
-  const q = (id: string, name: string, lead: string, members: string[], sharing: Sharing, region = 'Global', type: QueueType = 'Other'): Queue => ({ id, name, sharing, lead: byName(users, [lead])[0] ?? '', members: byName(users, members), region, type });
+  const q = (id: string, name: string, lead: string, members: string[], sharing: Sharing, region = 'Global', type: QueueType = 'Other'): Queue => ({ id, name, sharing, lead: byName(users, [lead])[0] ?? '', members: byName(users, members), region, type, backup: id === BACKUP_QUEUE ? 'q-admin' : BACKUP_QUEUE });
   return [
-    ...QUEUE_REGIONS.filter((r) => ADMISSIONS[r]).map((r) => q(`q-adm-${slug(r)}`, `${r} Admissions`, ADMISSIONS[r][0], ADMISSIONS[r][1], 'fewest', r, 'Admissions')),
+    ...QUEUE_REGIONS.filter((r) => ADMISSIONS[r]).map((r) => q(`q-adm-${slug(r)}`, `${r} Admissions`, ADMISSIONS[r][0], ADMISSIONS[r][1], 'leader', r, 'Admissions')),
     // the Global Ops team (9 Nov): regions with no Admissions queue, and gsp.admissions@ mail
     q('q-global-admissions', 'Global Admissions', 'Karan Malhotra', ['Neha Kulkarni', 'Ishita Rao', 'Vikram Shetty'], 'fewest', 'Global', 'Admissions'),
     ...QUEUE_REGIONS.filter((r) => RECRUITMENT[r]).map((r) => q(`q-rec-${slug(r)}`, `${r} Recruitment`, RECRUITMENT[r][0], RECRUITMENT[r][1], 'owner', r, 'Recruitment')),
@@ -503,13 +507,13 @@ export const sampleRules = (): RouteRule[] => [
   { id: 'direct', title: 'Direct application', when: 'The application has no RP (the student applied to GSP directly).', region: 'Direct', bdm: 'Direct region default BDM', on: true },
   { id: 'list', title: 'RP is on a regional list', when: 'The RP is on one of the regional RP lists. Every application from that RP goes to the list’s region, onshore included. Nationality is not used.', region: 'The list’s region', bdm: 'The RP’s BDM', on: true },
   { id: 'keep', title: 'Onshore, RP has no Australian branch', when: 'Onshore application, the RP’s sales region is Vietnam or Latin America and Europe, and the RP has no branch in Australia.', region: 'The RP’s own region', bdm: 'The RP’s BDM', on: true },
-  { id: 'onshore', title: 'Onshore application', when: 'The student’s current country is Australia and the destination is Australia.', region: 'Australia', bdm: 'Judy (region default)', on: true },
+  { id: 'onshore', title: 'Onshore application', when: 'The student’s current country is Australia and the destination is Australia.', region: 'Australia Onshore', bdm: 'Judy (region default)', on: true },
   { id: 'nat', title: 'Student’s nationality', when: 'The student’s nationality is mapped to a region (Sales Regions › Nationality Map).', region: 'The nationality’s region', bdm: 'That region’s default BDM', on: true },
   { id: 'fb', title: 'Fallback', when: 'Nothing above matched, for example a nationality that is not in the map.', region: 'Direct', bdm: 'That region’s default BDM', on: true },
 ];
 export const REGION_BDM: Record<string, string> = {
   India: 'Nadia', Bangladesh: 'Sania', Nepal: 'Anil Shrestha', 'Sri Lanka': 'Kanchani', Vietnam: 'Tina', Pakistan: 'Ali', 'Indonesia, Malaysia and Thailand': 'Rifaldo',
-  'Myanmar and Bhutan': 'Nilar', Australia: 'Judy', Philippines: 'Arielle', Africa: 'Faisal', 'Latin America and Europe': 'Camilo', China: 'Judy',
+  'Myanmar and Bhutan': 'Nilar', 'Australia Onshore': 'Judy', Philippines: 'Arielle', Africa: 'Faisal', 'Latin America and Europe': 'Camilo', China: 'Judy',
 };
 /** The PM's sample RPs, for the regional lists and the test. */
 export type RoutingRp = { name: string; region: string; auBranch: boolean; bdm: string };
@@ -533,7 +537,7 @@ export const DESTINATIONS = ['Australia', 'United Kingdom', 'Canada', 'United St
 /** Runs the rules from the top: the first that matches sets the region and BDM (PM: routing with its trace). */
 /** The onshore route (Application routing's Onshore rule): a student living in Australia applying to Australia goes
  *  to the Australia (onshore) sales region, and counts for that region's BDM (Ali, 18 Nov). */
-export const ONSHORE = { now: 'Australia', dest: 'Australia', region: 'Australia' } as const;
+export const ONSHORE = { now: 'Australia', dest: 'Australia', region: 'Australia Onshore' } as const;
 export const isOnshore = (now: string, dest: string) => now === ONSHORE.now && dest === ONSHORE.dest;
 export const onshoreBdm = () => REGION_BDM[ONSHORE.region] ?? '';
 export function route(rules: RouteRule[], lists: Record<string, string[]>, a: { rp: string; nationality: string; now: string; dest: string }, nationalities: Record<string, string>) {
@@ -576,6 +580,7 @@ type When = Partial<Pick<DocRule, 'levels' | 'areas' | 'uni' | 'now' | 'note'>>;
 let d = 0;
 const dr = (doc: string, stage: DocRule['stage'], when: When, setting: DocRule['setting'], by: DocRule['by']): DocRule => ({ id: `d${++d}`, doc, stage, levels: [], areas: [], uni: [], now: [], ...when, setting, by, on: true });
 const PG_UP = ['Postgraduate diploma', 'Master’s degree', 'PhD or research'];
+/** Jovial, 18 Nov: Application configuration starts with these nine; they decide what a new application asks for. */
 export const sampleDocRules = (): DocRule[] => [
   dr('Passport', 'New', {}, 'Mandatory', 'RP'),
   dr('Class 10 marksheet', 'New', {}, 'Mandatory', 'RP'),
@@ -584,20 +589,15 @@ export const sampleDocRules = (): DocRule[] => [
   dr('PG degree and transcripts', 'New', { levels: ['PhD or research'] }, 'Mandatory', 'RP'),
   dr('SOP', 'New', { uni: ['UK'] }, 'Mandatory', 'RP'),
   dr('LORs', 'New', { uni: ['UK'] }, 'Mandatory', 'RP'),
-  dr('University application form, filled', 'New', { note: 'The university has its own form' }, 'Mandatory', 'RP'),
   dr('IP transfer proof', 'New', { uni: ['Australia'], now: ['Australia'] }, 'Optional', 'RP'),
   dr('RPL proof', 'New', { uni: ['Australia'], now: ['Australia'] }, 'Optional', 'RP'),
-  dr('Conditional offer letter', 'Offer', {}, 'Mandatory', 'GSP'),
-  dr('Financial documents', 'Verification', {}, 'Optional', 'RP'),
-  dr('GS outcome', 'Verification', { uni: ['Australia'] }, 'Mandatory', 'GSP'),
-  dr('Unconditional offer letter', 'Offer', {}, 'Mandatory', 'GSP'),
-  dr('Pre-visa approval (AIP / EMGS)', 'Acceptance', { uni: ['New Zealand', 'Malaysia'] }, 'Mandatory', 'RP'),
-  dr('Deposit receipt', 'Acceptance', {}, 'Mandatory', 'RP'),
-  dr('Acceptance letter (CoE, CAS, I-20, LOA and PAL)', 'Acceptance', {}, 'Mandatory', 'GSP'),
-  dr('Visa lodgement proof', 'Visa', {}, 'Mandatory', 'RP'),
-  dr('Visa outcome', 'Visa', {}, 'Mandatory', 'RP'),
-  dr('Proof of enrolment', 'Enrolled', {}, 'Mandatory', 'GSP'),
 ];
+/** The rules as Admin last saved them (the same store Add application reads, 18 Nov). */
+let liveDocRules: DocRule[] | null = null;
+export const currentDocRules = () => (liveDocRules ??= sampleDocRules());
+export const publishDocRules = (r: DocRule[]) => {
+  liveDocRules = r;
+};
 const the = (c: string) => (c === 'UK' || c === 'USA' ? `the ${c}` : c);
 const or = (l: string[]) => (l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} or ${l[l.length - 1]}`);
 /** When a rule applies, as the table reads it: "Program level: Master’s degree; University in the UK", or Always. */
@@ -636,7 +636,7 @@ const at = (daysAgo: number, h: number, m: number) => {
   x.setHours(h, m, 0, 0);
   return x.getTime();
 };
-const JOVIAL = { who: 'Jovial Lejo', email: 'jovial.lejo@gsp.upgrad.com', role: 'Super Admin', region: 'Global' };
+const JOVIAL = { who: 'Jovial Lejo', email: 'jovial.lejo@gsp.upgrad.com', role: labelOf('gsp-admin'), region: 'Global' };
 const MEGHA = { who: 'Megha Malhotra', email: 'megha.malhotra@gsp.upgrad.com', role: 'Admissions Head', region: 'India' };
 const RAMISH = { who: 'Ramish', email: 'ramish@gsp.upgrad.com', role: 'Admissions', region: 'India' };
 const KAMRUN = { who: 'Kamrun', email: 'kamrun@gsp.upgrad.com', role: 'Admissions', region: 'Bangladesh' };
@@ -660,7 +660,7 @@ export const sampleLog = (): LogEntry[] => [
   dl('l7', at(1, 9, 48), TINA, 'Recruitment partners', 'Recruitment partners', 37, 'CSV', 'Vietnam'),
   dl('l8', at(2, 18, 20), LAV, 'Commissions', 'Confirmed commissions', 1204, 'XLSX', 'Oct 2026'),
   { id: 'l9', at: at(2, 15, 5), ...JOVIAL, area: 'Application routing', text: 'Moved “Onshore, RP has no Australian branch” above “Onshore application”', kind: 'change' },
-  dl('l10', at(2, 10, 15), LALAINE, 'Universities', 'Universities', 86, 'CSV', 'Australia'),
+  dl('l10', at(2, 10, 15), LALAINE, 'Universities', 'Universities', 86, 'CSV', 'Australia Onshore'),
   dl('l11', at(2, 9, 2), KAMRUN, 'Applications', 'Applications list', 58, 'CSV', 'Bangladesh · Offer'),
   dl('l12', at(3, 17, 22), RIYA, 'Courses', 'Courses', 2410, 'CSV', 'Live courses'),
   { id: 'l13', at: at(3, 16, 40), ...JOVIAL, area: 'Permission roles', text: 'Recruitment Head: RP branches and team → View and Edit', kind: 'change' },

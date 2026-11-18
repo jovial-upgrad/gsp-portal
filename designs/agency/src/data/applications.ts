@@ -14,6 +14,7 @@
 import { COURSES, blockedFor, daysTo, earnOf, earnText, intakeState, money, type Course, type Destination } from './courses';
 import { LEVELS as EDU_LEVELS, TESTS, eduDocKey, fullName, pctOf, testDocKey, testDocName, testSummary, type DocStatus, type Level as EduLevel, type Owner, type Student, type StudentApp } from './students';
 import { shortDate } from './dates';
+import { STAGES as STAGES_CFG, currentDocRules, docRuleApplies, whenText } from '../admin/data/config';
 
 export const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -467,44 +468,32 @@ const OWN: [RegExp, string, string][] = [
   [/^Research proposal/, 'Research proposal', 'The question, the approach, and why this university'],
 ];
 
+/** How a document rule's document reads on an application, where it's kept on the student too (the same key). */
+const RULE_DOC: [RegExp, (need: AppDoc['need']) => AppDoc][] = [
+  [/^Passport/i, (need) => ({ key: 'passport', name: 'Passport', what: 'The photo page and the address page', need })],
+  [/class 10|10th/i, (need) => markDoc('g10', need)],
+  [/class 12|12th/i, (need) => markDoc('g12', need)],
+  [/^UG /i, (need) => markDoc('ug', need)],
+  [/^PG /i, (need) => markDoc('pg', need)],
+  [/^SOP|^Statement of purpose/i, (need) => ({ key: 'sop', name: 'Statement of purpose', what: 'Why this course and this university, written for this application', need })],
+  [/^LOR|^Letters of recommendation/i, (need) => ({ key: 'lor', name: 'Letters of recommendation', what: 'From teachers or employers, signed and dated', need })],
+];
+
 /**
- * The documents an application asks for, decided when it's added: the course's own list (Find courses shows it
- * under Documents to collect), read for this student. The marksheets follow the course's level and the student's
- * education; the English score report is the test on the student's profile. What the course needs only later
- * (financial documents after the offer, references if the university wants them, a gap explanation) isn't
- * collected here: GSP asks for it in the chat when it's needed.
+ * The documents an application asks for, decided when it's added (Jovial, 18 Nov): Admin › Application configuration's
+ * document rules at the New stage, uploaded by the RP, whose program levels, study areas, university countries and
+ * student's current countries all match this application. Mandatory ones are required; Optional ones optional.
+ * Nobody sets documents on a course; what's needed later GSP asks for when it's needed.
  */
 export function docsFor(s: Student, c: Course): AppDoc[] {
-  const pg = isPgCourse(c);
-  // the student has studied to this level: their highest education is at or above it, or its marksheet is on the profile
-  const holds = (l: EduLevel) => EDU_LEVELS.indexOf(s.highest) <= EDU_LEVELS.indexOf(l) || !!s.docs[eduDocKey(l)];
-  const out: AppDoc[] = [];
-  for (const [name, need, when] of c.docs) {
-    if (/^Passport/.test(name)) out.push({ key: 'passport', name: 'Passport', what: 'The photo page and the address page', need: 'required' });
-    else if (/transcripts|mark sheets/.test(name)) {
-      out.push(markDoc('g10', 'required'));
-      if (c.level !== 'Foundation') out.push(markDoc('g12', 'required'));
-      else if (holds('g12')) out.push(markDoc('g12', 'optional'));
-      if (pg) out.push(markDoc('ug', 'required'));
-      else if (holds('ug')) out.push(markDoc('ug', 'optional'));
-      if (c.level === 'PhD or research') out.push(markDoc('pg', 'required'));
-      else if (pg && holds('pg')) out.push(markDoc('pg', 'optional'));
-    } else if (/^English test/.test(name)) {
-      const t = s.tests.find((x) => TESTS[x.type].kind === 'English' && x.overall);
-      if (t) out.push({ key: testDocKey(t), name: testDocName(t), what: `${testSummary(t)}, from ${s.first}’s profile`, need: 'required' });
-      else
-        out.push({
-          key: 'english',
-          name: 'English test score report',
-          what: c.englishFlex ? `${c.uni.name} can take it later; GSP asks for it before the offer is final` : `${c.name} needs one before GSP can submit`,
-          need: c.englishFlex ? 'optional' : 'required',
-        });
-    } else if (when === 'With the application') {
-      const own = OWN.find(([re]) => re.test(name));
-      out.push({ key: profileKeyFor(name) ?? name.toLowerCase().replace(/[^a-z]+/g, '-'), name: own?.[1] ?? name, what: own?.[2] ?? `${c.uni.name} asks for it with the application`, need: need === 'Required' ? 'required' : 'optional' });
-    }
-  }
-  return out;
+  const at = { level: c.level, area: c.area, uni: c.uni.country, now: s.country };
+  return currentDocRules()
+    .filter((r) => r.stage === STAGES_CFG[0] && r.by === 'RP' && docRuleApplies(r, at))
+    .map((r) => {
+      const need: AppDoc['need'] = r.setting === 'Mandatory' ? 'required' : 'optional';
+      const known = RULE_DOC.find(([re]) => re.test(r.doc));
+      return known ? known[1](need) : { key: profileKeyFor(r.doc) ?? r.doc.toLowerCase().replace(/[^a-z]+/g, '-'), name: r.doc, what: whenText(r) === 'Always' ? 'Asked for on every application' : `Asked for when: ${whenText(r)}`, need };
+    });
 }
 
 

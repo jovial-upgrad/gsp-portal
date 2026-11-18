@@ -41,7 +41,7 @@ export function Targets({ names, versions, setVersions, me, say, fyStart = 4, ne
   };
   return (
     <div className="ins">
-      <PageHead title="Targets" lead="What the business aims for, by BDM, sales region, destination, university or IP, per month or quarter of the course start. The dashboards compare with the current version.">
+      <PageHead title="Targets" lead="What the business aims for, for the company, by sales region, BDM, destination or university, per month or quarter of the course start. The dashboards compare with the current version.">
         {fys.length > 1 && (
           <SelectInput id="tg-fy" aria-label="Template year" value={String(fy)} onChange={(e) => setTfy(+e.target.value)}>
             {fys.map((y) => (
