@@ -208,6 +208,8 @@ export function validateRegister(s: SignupState): Errors {
   const e: Errors = {};
   if (!f.first.trim()) e.first = 'Enter your first name.';
   if (!f.last.trim()) e.last = 'Enter your last name.';
+  if (!f.phone.trim()) e.phone = 'Enter a mobile number.';
+  else if (digits(f.phone) < 7 || digits(f.phone) > 13) e.phone = 'Enter a mobile number with 7 to 13 digits.';
   if (!f.biz.trim()) e.biz = 'Enter your business name as it appears on your registration certificate.';
   if (!countryByName(f.country)) e.country = 'Choose your country from the list.';
   if (!f.email.trim()) e.email = 'Enter your business email.';
@@ -245,7 +247,7 @@ export function validateDetails(s: SignupState): Errors {
 }
 
 /** Field order for the error count and focus. */
-export const REGISTER_ORDER: (keyof SignupForm)[] = ['first', 'last', 'biz', 'country', 'email', 'pw', 'pw2'];
+export const REGISTER_ORDER: (keyof SignupForm)[] = ['first', 'last', 'phone', 'biz', 'country', 'email', 'pw', 'pw2'];
 export const DETAILS_ORDER: (keyof SignupForm)[] = [
   'first', 'last', 'biz', 'country', 'state', 'city', 'phone',
   'ownerName', 'ownerEmail', 'ownerPhone', 'cemail',

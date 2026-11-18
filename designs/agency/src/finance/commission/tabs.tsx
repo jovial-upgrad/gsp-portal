@@ -1,11 +1,9 @@
 import { AppActions } from './credit';
 import { FIN_USER } from '../user';
 import { useMemo, useState } from 'react';
-import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { EditOnly, useShows, useViewOnly } from '../../proto/viewOnly';
+import { EditOnly, useViewOnly } from '../../proto/viewOnly';
 import { Lines } from './Lines';
-import { RpViewForm } from './forms';
 import { Facts, Pill, Section } from '../../institution/records/parts';
 import { DocButtons } from '../../components/DocView';
 import { rpName } from './store';
@@ -31,15 +29,13 @@ export const appliesText = (n: Notice) => {
  * the tab. Read only: its agreement (with its details as fields and the document to preview), its own terms, and the
  * notices it's on. Commissions changes it in Setup. No payment details: they're exchanged off the portal (Q45).
  */
-export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; me: string }) {
+export function RpCommissionTab({ rp }: { rp: { id: string; name: string }; me?: string }) {
   const s = useComm();
   const rec = s.records.find((r) => r.rp === rp.id);
   const ag = rec && s.agreements.find((a) => a.id === rec.agreement);
   const region = ctxRps().find((r) => r.id === rp.id)?.region;
   const notices = s.notices.filter((n) => n.rps.includes(rp.id) || (!n.rps.length && region && (n.regions ?? []).includes(region)));
   const today = todayIso();
-  const canView = useShows('rp.view.edit');
-  const [viewing, setViewing] = useState(false);
   if (!rec || !ag)
     return (
       <Section title="Commission" id="crp-none" action={<SetupButton tab="rps" open={`new:${rp.id}`}>Add RP record</SetupButton>}>
@@ -62,38 +58,15 @@ export function RpCommissionTab({ rp, me }: { rp: { id: string; name: string }; 
             ['Retrospective', ag.retro ? (ag.retroTop ? 'Yes, once the top band is reached' : 'Yes') : 'No'],
             ...(rec.abn ? ([['GST', `Registered, ABN ${rec.abn}`]] as [string, string][]) : []),
             ...(rec.ownFlat != null ? ([['Own flat share', `${pct(rec.ownFlat)} of GSP’s commission, instead of the agreement’s`]] as [string, string][]) : []),
-            ['Share after year 1', rec.annuityPct != null ? `${pct(rec.annuityPct)} (its own)` : s.settings.annuity.rule === 'Flat %' && s.settings.annuity.pct != null ? `${pct(s.settings.annuity.pct)} (Settings)` : `${s.settings.annuity.rule} (Settings)`],
             ['Additional commission passed on', ag.addl === null ? 'The same as the share' : pct(ag.addl)],
-            ['Bonus', ag.bonuses.length ? ag.bonuses.map((b) => `${b.desc}: ${b.amount.toLocaleString('en-GB')} in the university’s currency, ${b.when === 'Every enrolment' ? 'on every enrolment' : `on enrolment ${b.nth}, counted per ${ag.countedPer.toLowerCase()}`}`).join('; ') : 'None', 'wide'],
+            ['Bonus', ag.bonuses.length ? ag.bonuses.map((b) => `${b.desc}: ${b.currency ? `${b.currency} ` : ''}${b.amount.toLocaleString('en-GB')}${b.currency ? '' : ' in the university’s currency'}, ${b.when === 'Every enrolment' ? 'on every enrolment' : `on enrolment ${b.nth}, counted per ${ag.countedPer.toLowerCase()}`}`).join('; ') : 'None', 'wide'],
             ['Pay within', `${ag.payDays} days of GSP receiving the accepted invoice`],
             ['Can claim for', `${ag.claimMonths ?? s.settings.rpClaimMonths} months after the study period ends${ag.claimMonths == null ? ' (Settings)' : ''}`],
             ['Agreement document', <DocLine key="d" file={ag.doc} label={ag.name} />, 'wide'],
           ]}
         />
       </Section>
-      <Section
-        title="What the RP sees"
-        id="crp-view"
-        note="Of its commission, on Earnings and its applications. GSP sees every line; asking for the invoice of a line the RP can’t see sends it nothing."
-        action={
-          canView ? (
-            <EditOnly>
-              <Button variant="secondary" size="sm" iconLeft={<Icon name="edit" size={16} />} onClick={() => setViewing(true)}>
-                Edit
-              </Button>
-            </EditOnly>
-          ) : undefined
-        }
-      >
-        <Facts
-          items={[
-            ['Kinds of commission', (rec.view ?? s.settings.rpView).kinds.join(', ') || 'Nothing'],
-            ['Before its invoice is asked for', (rec.view ?? s.settings.rpView).periods === 'Nothing' ? 'Nothing' : 'Its first payment, as an estimate'],
-            ['Set by', rec.view ? 'This RP’s record' : 'Settings’ default'],
-          ]}
-        />
-        <RpViewForm open={viewing} rp={rp} me={me} onClose={() => setViewing(false)} onSaved={() => setViewing(false)} />
-      </Section>
+      {/* Jovial, 18 Nov: no per-RP What the RP sees or share after year 1; fixed in the product */}
       <Section title="Notices" id="crp-notices">
         {notices.length ? (
           <ul className="cnotes">
