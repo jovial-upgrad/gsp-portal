@@ -13,7 +13,8 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  */
 export type ConfigSection = 'mywork' | 'users' | 'regions' | 'permissions' | 'queues' | 'tasks' | 'emails' | 'bdm' | 'currency' | 'living' | 'tags' | 'levels' | 'grades' | 'english' | 'routing' | 'documents' | 'logs';
 /** 9 Nov (Jovial): Commission lines, where Admin can override a line and export (the PRD's Commissions tab). */
-export type Section = InstitutionSection | ConfigSection | 'commlines';
+/** 18 Nov (Jovial): Dashboards, round 1: the Overview and Targets. */
+export type Section = InstitutionSection | ConfigSection | 'commlines' | 'dash' | 'targets';
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
 export type NavGroup = { key: string; label: string; icon: IconName; items: NavItem[] };
@@ -47,6 +48,15 @@ export const GROUPS: NavGroup[] = [
       { key: 'universities', label: 'Universities', short: 'Universities', icon: 'building' },
       { key: 'catalogue', label: 'Courses', short: 'Courses', icon: 'cap' },
       { key: 'announcements', label: 'Announcements', short: 'News', icon: 'megaphone' },
+    ],
+  },
+  {
+    key: 'dashboards',
+    label: 'Dashboards',
+    icon: 'chart',
+    items: [
+      { key: 'dash', label: 'Overview', short: 'Overview', icon: 'chart' },
+      { key: 'targets', label: 'Targets', short: 'Targets', icon: 'award' },
     ],
   },
   {

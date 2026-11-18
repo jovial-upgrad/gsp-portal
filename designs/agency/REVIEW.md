@@ -457,6 +457,8 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 - [x] Jovial, 18 Nov: GSP · Admin shows **Master Partners** (and RP Ops' Recruitment Partners page, which links them), as in Nesil's build 37. REGRESSION R148. (18 Nov, branch admin-mps)
 
+- [x] Jovial, 18 Nov: queues can sit under a queue (India's regional managers under India Recruitment); Dashboards round 1 (Overview, Targets) for review before the PRD. REGRESSION R149–R150. (18 Nov, branch dashboards-r1)
+
 ## RP Ops
 
 - [x] Nesil, 4 Nov: **a new role, RP Ops**, with GSP · Institution's **Applications**, **Students**, **Course search** and **Recruitment partners**. (4 Nov, commit “RP Ops: a fifth role, with GSP · Institution’s Applications, Students, Course search and Recruitment partners”)
