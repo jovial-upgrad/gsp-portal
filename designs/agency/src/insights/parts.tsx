@@ -210,3 +210,71 @@ export function Drill({ open, title, apps, d, s, now, onClose }: { open: boolean
 }
 /** The status in words: the portal's own status text, or the closing reason. */
 export const statusOf = (a: RepApp) => (a.end ? `Closed: ${a.end.kind}` : STATUS[a.moves[a.moves.length - 1].s].text(a.dest));
+
+/* ---------- a table: columns say how to show and how to export each cell ---------- */
+export type Col<R> = { h: string; n?: boolean; v: (r: R) => ReactNode; csv?: (r: R) => string | number };
+export function Table<R>({ rows, cols, rowKey, empty, foot }: { rows: R[]; cols: Col<R>[]; rowKey: (r: R) => string; empty?: string; foot?: ReactNode }) {
+  if (!rows.length) return <p className="ins-empty">{empty ?? 'Nothing for these filters.'}</p>;
+  return (
+    <div className="ins-scroll">
+      <table className="itab ins-tab">
+        <thead>
+          <tr>
+            {cols.map((c) => (
+              <th key={c.h} scope="col" className={c.n ? 'n' : undefined}>
+                {c.h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={rowKey(r)}>
+              {cols.map((c) => (
+                <td key={c.h} className={c.n ? 'n' : undefined}>
+                  {c.v(r)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+        {foot}
+      </table>
+    </div>
+  );
+}
+/** A table's rows for a CSV: its headings, then each row's export value (or its text). */
+export const tableCsv = <R,>(rows: R[], cols: Col<R>[]) => [cols.map((c) => c.h), ...rows.map((r) => cols.map((c) => (c.csv ? c.csv(r) : String(c.v(r) ?? ''))))];
+/** A "Download CSV" for one table. */
+export const CsvButton = <R,>({ name, rows, cols }: { name: string; rows: R[]; cols: Col<R>[] }) => (
+  <Button variant="secondary" size="sm" onClick={() => downloadCsv(`${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`, tableCsv(rows, cols))}>
+    Download CSV
+  </Button>
+);
+/** A page's own tabs. */
+export function Tabs<K extends string>({ value, items, onPick, label }: { value: K; items: [K, string][]; onPick: (k: K) => void; label: string }) {
+  return (
+    <div className="ins-tabs" role="tablist" aria-label={label}>
+      {items.map(([k, t]) => (
+        <button key={k} type="button" role="tab" aria-selected={value === k} className="ins-tabs__t" onClick={() => onPick(k)}>
+          {t}
+        </button>
+      ))}
+    </div>
+  );
+}
+/** A stat tile that opens its applications. */
+export function Stat({ title, apps, count, sub, open }: { title: string; apps: RepApp[]; count?: number | string; sub?: string; open: (t: string, a: RepApp[]) => void }) {
+  return (
+    <button type="button" className="ins-stat" onClick={() => apps.length && open(title, apps)} aria-label={`${title}: ${count ?? apps.length}, open the list`}>
+      <span className="ins-stat__k">{title}</span>
+      <span className="ins-stat__n">{typeof count === 'string' ? count : (count ?? apps.length).toLocaleString('en-GB')}</span>
+      {sub && <span className="ins-stat__sub">{sub}</span>}
+    </button>
+  );
+}
+/** The drill-down, held by a page. */
+export function useDrill() {
+  const [drill, setDrill] = useState<{ title: string; apps: RepApp[] } | null>(null);
+  return { drill, open: (title: string, apps: RepApp[]) => setDrill({ title, apps }), close: () => setDrill(null) };
+}

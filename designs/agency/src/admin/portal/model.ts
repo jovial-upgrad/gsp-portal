@@ -14,7 +14,7 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
 export type ConfigSection = 'mywork' | 'users' | 'regions' | 'permissions' | 'queues' | 'tasks' | 'emails' | 'bdm' | 'currency' | 'living' | 'tags' | 'levels' | 'grades' | 'english' | 'routing' | 'documents' | 'logs';
 /** 9 Nov (Jovial): Commission lines, where Admin can override a line and export (the PRD's Commissions tab). */
 /** 18 Nov (Jovial): Dashboards, round 1: the Overview and Targets. */
-export type Section = InstitutionSection | ConfigSection | 'commlines' | 'dash' | 'targets';
+export type Section = InstitutionSection | ConfigSection | 'commlines' | 'dash' | 'targets' | 'dadm' | 'dsales' | 'dfin' | 'dlead' | 'dset';
 
 export type NavItem = { key: Section; label: string; short: string; icon: IconName };
 export type NavGroup = { key: string; label: string; icon: IconName; items: NavItem[] };
@@ -56,7 +56,12 @@ export const GROUPS: NavGroup[] = [
     icon: 'chart',
     items: [
       { key: 'dash', label: 'Overview', short: 'Overview', icon: 'chart' },
+      { key: 'dadm', label: 'Admissions', short: 'Admissions', icon: 'doc' },
+      { key: 'dsales', label: 'Sales', short: 'Sales', icon: 'partner' },
+      { key: 'dfin', label: 'Finance', short: 'Finance', icon: 'wallet' },
+      { key: 'dlead', label: 'Leadership', short: 'Leadership', icon: 'briefcase' },
       { key: 'targets', label: 'Targets', short: 'Targets', icon: 'award' },
+      { key: 'dset', label: 'Dashboard settings', short: 'Settings', icon: 'sliders' },
     ],
   },
   {

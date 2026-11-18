@@ -473,6 +473,8 @@ export type UniInvoice = { number: string; uni: string; date: string; txs: strin
  */
 export type Receipt = { id: string; uni: string; txs: string[]; amount: number | null; paid: Record<string, number>; short: Record<string, string>; date: string; by: string; at: number };
 /** The rest of a line paid short, written off by Finance (the same person may do it): the line counts as Paid. */
+/** A note on an unpaid university invoice (18 Nov): the latest per invoice counts. */
+export type FollowUp = { invoice: string; expected: string; comment: string; escalate: boolean; by: string; at: number };
 export type WriteOff = { id: string; tx: string; amount: number; reason: string; by: string; at: number };
 /**
  * A university takes back commission it paid GSP on a line (the commissions team, 11 Nov, R106): GSP recovers the
@@ -552,6 +554,8 @@ export type CommState = {
   debitNotes?: DebitNote[];
   rpPayments: RpPayment[];
   writeOffs: WriteOff[];
+  /** 18 Nov (Jovial, AR ageing): the team's notes while chasing an unpaid invoice: when the university says it'll pay, a comment, and whether to escalate. */
+  followUps?: FollowUp[];
   clawbacks?: Clawback[];
   credits?: CreditNote[];
   withdrawals?: Withdrawal[];

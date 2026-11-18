@@ -15,7 +15,7 @@ import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/recor
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
 import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
-import { COMM_LEVELS, TX_TYPES, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
+import { COMM_LEVELS, TX_TYPES, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type FollowUp, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 import { periodsOf } from './pricing';
 
@@ -452,6 +452,10 @@ export function studentWithdrew(app: string, date: string, reason: string, by: s
 export function addLines(app: string, lines: { side: 'uni' | 'rp'; type: (typeof TX_TYPES)[number]; amount: number; period?: number; date: string }[], reason: string, by: string) {
   const made = lines.map((l) => ({ ...l, id: id('ml'), app, reason, by, at: Date.now() }));
   setComm((s) => withLog({ ...s, manual: [...(s.manual ?? []), ...made] }, lineLog(by, `${by} added ${made.length} ${made.length === 1 ? 'line' : 'lines'} to ${app} by hand: ${reason}`, [])));
+}
+/** 18 Nov: a follow-up on an unpaid invoice (expected payment date, comment, escalate), logged on its lines. */
+export function saveFollowUp(f: Omit<FollowUp, 'by' | 'at'>, txs: string[], by: string) {
+  setComm((s) => withLog({ ...s, followUps: [...(s.followUps ?? []), { ...f, by, at: Date.now() }] }, lineLog(by, `${by} followed up invoice ${f.invoice}${f.expected ? `: expected ${f.expected}` : ''}${f.escalate ? ', escalated' : ''}${f.comment ? `. ${f.comment}` : ''}`, txs)));
 }
 export function writeOff(tx: string, amount: number, cur: string, reason: string, by: string) {
   setComm((s) => withLog({ ...s, writeOffs: [...(s.writeOffs ?? []), { id: id('wo'), tx, amount, reason, by, at: Date.now() }] }, lineLog(by, `${by} wrote off ${money(amount, cur)} on ${tx}: ${reason}`, [tx])));
