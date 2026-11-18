@@ -190,7 +190,7 @@ const P: [string, string][] = [
   ['Commission lines', 'N N N N N N N M M VX V N N V'],
   ['Invoices and receipts', 'N N N N N N V M M V N N N N'],
   ['Payout runs and statements', 'N N N N N N V M M V V N N V'],
-  ['RP bank details', 'N N N N N N V M M V E N N E'],
+  // 18 Nov (Ali): GSP doesn't keep RPs' bank details; each RP puts them on its invoice, so they can change per payment
   ['Overview dashboard', 'N V N N N N V V M V N N N N'],
   ['GSP users and roles', 'N N N N N N N N M V N N N N'],
   ['Settings', 'N N N N N N N N M V N N N N'],
