@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { PageHead } from '../institution/records/parts';
-import { ENROL_DOC } from '../data/applications';
+import { ENROL_DOC, STAGES, STATUS } from '../data/applications';
 import { COURSE_STATUSES, type CourseRec } from '../institution/data/catalogue';
 /** A course students can apply to: the catalogue's first status. */
 const LIVE = COURSE_STATUSES[0];
-import type { UniGroup, UniTerms } from '../finance/commission/model';
 import type { Reporting, RepApp } from './data';
-import { applyFilters, between, convRow, courseOf, daysSince, groupBy, isLive, lastChange, milestoneOf, msOf, pct, rate, reachedAt, uniOf, type Filters, type InsightSettings } from './metrics';
+import { applyFilters, between, convRow, courseOf, daysSince, groupBy, isLive, lastChange, msOf, pct, rate, reachedAt, rejectionKinds, stageNow, stageSince, uniOf, type Filters, type InsightSettings } from './metrics';
+import type { CloseReasons } from '../admin/data/config';
+import type { Unlock } from '../finance/commission/engine';
 import { targetFor, type TargetVersion } from './targets';
 import { Card, CsvButton, Drill, FilterBar, Num, Seg, Stat, Table, Tabs, statusOf, useDrill, type Col } from './parts';
 
@@ -27,7 +28,8 @@ const TABS: [Tab, string][] = [
  * Admissions dashboards (round 2, 18 Nov): Ramish's university tracker, the India team's pipeline, submission, offer,
  * CoE and visa views, the Interview tracker and Ali's four reports. Every number opens its students.
  */
-export function Admissions({ d, s, f, setF, now, terms, groups, courses, target }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; terms: UniTerms[]; groups: UniGroup[]; courses: CourseRec[]; target?: TargetVersion }) {
+export function Admissions({ d, s, f, setF, now, unlocks, courses, target, closeReasons }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; unlocks: Unlock[]; courses: CourseRec[]; target?: TargetVersion; closeReasons: CloseReasons[] }) {
+  const rejects = useMemo(() => rejectionKinds(closeReasons), [closeReasons]);
   const [tab, setTab] = useState<Tab>('tracker');
   const apps = useMemo(() => applyFilters(d, f), [d, f]);
   const { drill, open, close } = useDrill();
@@ -37,15 +39,15 @@ export function Admissions({ d, s, f, setF, now, terms, groups, courses, target 
       <PageHead title="Admissions" lead="Applications by university and stage, how long they wait, and what to chase. Every number opens the students behind it." />
       <FilterBar d={d} f={f} set={setF} />
       <Tabs label="Admissions dashboards" value={tab} items={TABS} onPick={setTab} />
-      {tab === 'tracker' && <Tracker apps={apps} s={s} n={n} terms={terms} groups={groups} target={target} now={now} />}
+      {tab === 'tracker' && <Tracker apps={apps} s={s} n={n} unlocks={unlocks} target={target} />}
       {tab === 'pipeline' && <Pipeline apps={apps} s={s} now={now} n={n} open={open} d={d} />}
       {tab === 'pre' && <PreSub apps={apps} s={s} now={now} n={n} open={open} d={d} />}
       {tab === 'post' && <PostSub apps={apps} s={s} now={now} n={n} open={open} />}
       {tab === 'offers' && <Offers apps={apps} s={s} n={n} open={open} />}
       {tab === 'docs' && <EnrolDocs apps={apps} s={s} now={now} n={n} open={open} />}
       {tab === 'visa' && <Visa apps={apps} s={s} now={now} n={n} open={open} d={d} />}
-      {tab === 'interview' && <Interviews apps={apps} s={s} now={now} d={d} />}
-      {tab === 'reports' && <Reports apps={apps} s={s} now={now} n={n} courses={courses} />}
+      {tab === 'interview' && <Interviews apps={apps} s={s} now={now} d={d} rejects={rejects} />}
+      {tab === 'reports' && <Reports apps={apps} s={s} now={now} n={n} courses={courses} rejects={rejects} />}
       <Drill open={!!drill} title={drill?.title ?? ''} apps={drill?.apps ?? []} d={d} s={s} now={now} onClose={close} />
     </div>
   );
@@ -53,20 +55,17 @@ export function Admissions({ d, s, f, setF, now, terms, groups, courses, target 
 type N = (l: RepApp[], t: string) => JSX.Element;
 
 /* Ramish's university-wise tracker, with what's needed for the top commission slab */
-function Tracker({ apps, s, n, terms, groups, target, now }: { apps: RepApp[]; s: InsightSettings; n: N; terms: UniTerms[]; groups: UniGroup[]; target?: TargetVersion; now: number }) {
-  const year = new Date(now).getFullYear();
+function Tracker({ apps, s, n, unlocks, target }: { apps: RepApp[]; s: InsightSettings; n: N; unlocks: Unlock[]; target?: TargetVersion }) {
+  // Jovial, 18 Nov: the top slab and how many more it needs, from the commission rules (the same count as Finance's
+  // Bonus tracking): the university's own tier, else its IP group's, in the tier's own counting window
+  const tierOf = (uni: string) => unlocks.find((u) => u.kind === 'Tier' && u.who === 'university' && u.unis.includes(uni)) ?? unlocks.find((u) => u.kind === 'Tier' && u.unis.includes(uni));
   const rows = [...groupBy(apps, (a) => a.uni).entries()]
     .map(([uni, l]) => {
       const c = convRow(l, s);
-      // the top band of its own terms, or its IP group's
-      const own = terms.find((t) => t.uni === uni)?.bands ?? [];
-      const g = groups.find((x) => x.members.includes(uni) && x.bands?.length);
-      const bands = own.length ? own : g?.bands ?? [];
-      const top = bands.length ? Math.max(...bands.map((b) => b.from)) : null;
-      // counted this calendar year of course start, across the IP group's universities when the tier is the group's
-      const counted = c.enrolled.filter((a) => a.intake.startsWith(String(year))).length;
+      const t = tierOf(uni);
+      const top = t?.bands[t.bands.length - 1];
       const tgt = targetFor(target, 'University', uniOf(uni), 'enrolled');
-      return { uni, name: uniOf(uni), dest: l[0].dest, c, top, need: top === null ? null : Math.max(0, top - counted), tier: own.length ? 'its own' : g ? g.name : '', tgt };
+      return { uni, name: uniOf(uni), dest: l[0].dest, c, top: top?.from ?? null, need: top ? top.more : null, tier: t ? `${t.name}, ${t.window}, ${t.count} counted` : '', tgt };
     })
     .sort((a, b) => b.c.apps.length - a.c.apps.length);
   type R = (typeof rows)[number];
@@ -78,13 +77,13 @@ function Tracker({ apps, s, n, terms, groups, target, now }: { apps: RepApp[]; s
     { h: 'App → offer', n: true, v: (r) => pct(rate(r.c.offers.length, r.c.apps.length)) },
     { h: 'Deposits', n: true, v: (r) => n(r.c.deposits, `${r.name}: deposits`), csv: (r) => r.c.deposits.length },
     { h: 'App → deposit', n: true, v: (r) => pct(rate(r.c.deposits.length, r.c.apps.length)) },
-    { h: 'CAS / LOE / LOA', n: true, v: (r) => n(r.c.enroldoc, `${r.name}: ${ENROL_DOC[r.dest]} issued`), csv: (r) => r.c.enroldoc.length },
+    { h: msOf(s, 'enroldoc').label, n: true, v: (r) => n(r.c.enroldoc, `${r.name}: ${ENROL_DOC[r.dest]} issued`), csv: (r) => r.c.enroldoc.length },
     { h: 'Enrolments', n: true, v: (r) => n(r.c.enrolled, `${r.name}: enrolled`), csv: (r) => r.c.enrolled.length },
     { h: 'Enrolment target', n: true, v: (r) => (r.tgt === null ? '—' : r.tgt.toLocaleString('en-GB')), csv: (r) => r.tgt ?? '' },
-    { h: 'Needed for top slab', n: true, v: (r) => (r.need === null ? <span className="ins-note">No tiers</span> : <span title={`Top slab from ${r.top} (${r.tier} tiers), this year`}>{r.need}</span>), csv: (r) => r.need ?? '' },
+    { h: 'Needed for top slab', n: true, v: (r) => (r.need === null ? <span className="ins-note">No tiers</span> : <span title={`Top slab from ${r.top} enrolments · ${r.tier}`}>{r.need}</span>), csv: (r) => r.need ?? '' },
   ];
   return (
-    <Card title="University performance tracker" sub="Per application, by university · the top slab from each university's commission tiers (or its IP group's), counted this year" flush action={<CsvButton name="university-tracker" rows={rows} cols={cols} />}>
+    <Card title="University performance tracker" sub="Per application, by university · Needed for top slab: from the commission rules (the university's tier, else its IP group's), counted in the tier's own window" flush action={<CsvButton name="university-tracker" rows={rows} cols={cols} />}>
       <Table rows={rows} cols={cols} rowKey={(r) => r.uni} />
     </Card>
   );
@@ -96,14 +95,14 @@ function Pipeline({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSett
   const [step, setStep] = useState(s.idleDays);
   const live = apps.filter(isLive);
   // days in the current stage: since the milestone it's at was reached
-  const ageOf = (a: RepApp) => daysSince(basis === 'change' ? lastChange(a) : reachedAt(a, milestoneOf(a, s.milestones).status) ?? a.created, now);
+  const ageOf = (a: RepApp) => daysSince(basis === 'change' ? lastChange(a) : stageSince(a), now);
   const aged = live.filter((a) => ageOf(a) >= step);
   const b = s.ageBuckets;
   const bucket = (x: number) => b.reduce((k, lo, i) => (x >= lo ? i : k), 0);
-  const stages = s.milestones.filter((m) => m.key !== 'enrolled');
-  const rows = stages
+  // Jovial, 18 Nov: rows are the lifecycle's stages, by each live application's current status
+  const rows = STAGES.map((label, i) => ({ key: String(i), label, i }))
     .map((m) => {
-      const here = live.filter((a) => milestoneOf(a, s.milestones).key === m.key);
+      const here = live.filter((a) => stageNow(a) === m.i);
       const cells = b.map(() => [] as RepApp[]);
       here.forEach((a) => cells[bucket(ageOf(a))].push(a));
       return { m, here, cells, avg: here.length ? here.reduce((t, a) => t + ageOf(a), 0) / here.length : 0 };
@@ -125,7 +124,9 @@ function Pipeline({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSett
     { h: 'Destination', v: (a) => a.dest },
     { h: 'BDM', v: (a) => a.bdm },
     { h: 'RP', v: (a) => rp.get(a.rp) ?? '' },
-    { h: 'Stage', v: (a) => milestoneOf(a, s.milestones).label },
+    { h: 'RP counsellor', v: (a) => a.counsellor },
+    { h: 'Stage', v: (a) => STAGES[stageNow(a)] },
+    { h: 'Status', v: (a) => STATUS[a.moves[a.moves.length - 1].s].text(a.dest) },
     { h: 'Days', n: true, v: (a) => ageOf(a) },
   ];
   return (
@@ -140,7 +141,7 @@ function Pipeline({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSett
         <Stat title="Live applications" apps={live} sub="Not closed, not enrolled" open={open} />
         <Stat title={`Aged ${step}+ days`} apps={aged} sub={`${pct(rate(aged.length, live.length))} of live`} open={open} />
         {rows.slice(0, 4).map((r) => (
-          <Stat key={r.m.key} title={`${r.m.label} · aged`} apps={r.here.filter((a) => ageOf(a) >= step)} sub={`avg ${r.avg.toFixed(1)} d at this stage`} open={open} />
+          <Stat key={r.m.key} title={`${r.m.label} · aged ${step}+ d`} apps={r.here.filter((a) => ageOf(a) >= step)} sub={`avg ${r.avg.toFixed(1)} d`} open={open} />
         ))}
       </div>
       <Card title="Ageing matrix" sub={basis === 'change' ? 'Live applications · days since last status change' : 'Live applications · days in the current stage'} flush action={<CsvButton name="ageing" rows={rows} cols={cols} />}>
@@ -340,17 +341,26 @@ function Visa({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSettings
     granted: l.filter((a) => at(a, 'visa')),
   });
   const b = buckets(dep);
+  // Jovial, 18 Nov: each column named by the application's own statuses (Deposit → visa columns)
+  const L = {
+    awaitDoc: `Before ${M('enroldoc').label}`,
+    docNoVisa: `${M('enroldoc').label}, before ${M('visalodged').label}`,
+    lodged: M('visalodged').label,
+    refused: `Closed: ${s.visaRefused}`,
+    gone: 'Closed after deposit',
+    granted: `${M('visa').label} or later`,
+  };
   const rows = [...groupBy(dep, (a) => a.dest).entries()].map(([k, l]) => ({ k, l, b: buckets(l) })).sort((x, y) => y.l.length - x.l.length);
   type R = (typeof rows)[number];
   const cols: Col<R>[] = [
     { h: 'Destination', v: (r) => r.k },
     { h: 'Deposits', n: true, v: (r) => n(r.l, `${r.k}: deposits`), csv: (r) => r.l.length },
-    { h: 'Awaiting CoE / CAS', n: true, v: (r) => n(r.b.awaitDoc, `${r.k}: awaiting document`), csv: (r) => r.b.awaitDoc.length },
-    { h: 'Issued, visa not lodged', n: true, v: (r) => n(r.b.docNoVisa, `${r.k}: visa not lodged`), csv: (r) => r.b.docNoVisa.length },
-    { h: 'Visa lodged, awaiting outcome', n: true, v: (r) => n(r.b.lodged, `${r.k}: awaiting outcome`), csv: (r) => r.b.lodged.length },
-    { h: 'Visa refused', n: true, v: (r) => n(r.b.refused, `${r.k}: visa refused`), csv: (r) => r.b.refused.length },
-    { h: 'Withdrawn / deferred after deposit', n: true, v: (r) => n(r.b.gone, `${r.k}: withdrawn or deferred`), csv: (r) => r.b.gone.length },
-    { h: 'Visa granted / enrolled', n: true, v: (r) => n(r.b.granted, `${r.k}: visa granted`), csv: (r) => r.b.granted.length },
+    { h: L.awaitDoc, n: true, v: (r) => n(r.b.awaitDoc, `${r.k}: ${L.awaitDoc}`), csv: (r) => r.b.awaitDoc.length },
+    { h: L.docNoVisa, n: true, v: (r) => n(r.b.docNoVisa, `${r.k}: ${L.docNoVisa}`), csv: (r) => r.b.docNoVisa.length },
+    { h: L.lodged, n: true, v: (r) => n(r.b.lodged, `${r.k}: ${L.lodged}`), csv: (r) => r.b.lodged.length },
+    { h: L.refused, n: true, v: (r) => n(r.b.refused, `${r.k}: ${L.refused}`), csv: (r) => r.b.refused.length },
+    { h: L.gone, n: true, v: (r) => n(r.b.gone, `${r.k}: ${L.gone}`), csv: (r) => r.b.gone.length },
+    { h: L.granted, n: true, v: (r) => n(r.b.granted, `${r.k}: ${L.granted}`), csv: (r) => r.b.granted.length },
   ];
   const rp = new Map(d.rps.map((x) => [x.id, x.name]));
   const chase = dep.filter((a) => isLive(a) && !at(a, 'visa')).sort((x, y) => (reachedAt(x, M('deposit').status) ?? 0) - (reachedAt(y, M('deposit').status) ?? 0));
@@ -360,7 +370,9 @@ function Visa({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSettings
     { h: 'Destination', v: (a) => a.dest },
     { h: 'BDM', v: (a) => a.bdm },
     { h: 'RP', v: (a) => rp.get(a.rp) ?? '' },
-    { h: 'Stage', v: (a) => milestoneOf(a, s.milestones).label },
+    { h: 'RP counsellor', v: (a) => a.counsellor },
+    { h: 'Stage', v: (a) => STAGES[stageNow(a)] },
+    { h: 'Status', v: (a) => STATUS[a.moves[a.moves.length - 1].s].text(a.dest) },
     { h: 'Deposit', v: (a) => new Date(reachedAt(a, M('deposit').status)!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) },
     { h: 'Days since', n: true, v: (a) => daysSince(reachedAt(a, M('deposit').status)!, now) },
   ];
@@ -368,13 +380,13 @@ function Visa({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSettings
   return (
     <>
       <div className="ins-stats">
-        <Stat title="Deposited" apps={dep} sub="Deposit paid or later" open={open} />
-        <Stat title="Awaiting CoE / CAS" apps={b.awaitDoc} sub={share(b.awaitDoc)} open={open} />
-        <Stat title="Issued, visa not lodged" apps={b.docNoVisa} sub={share(b.docNoVisa)} open={open} />
-        <Stat title="Visa lodged" apps={b.lodged} sub={share(b.lodged)} open={open} />
-        <Stat title="Visa refused" apps={b.refused} sub={share(b.refused)} open={open} />
-        <Stat title="Withdrawn / deferred" apps={b.gone} sub={share(b.gone)} open={open} />
-        <Stat title="Visa granted / enrolled" apps={b.granted} sub={share(b.granted)} open={open} />
+        <Stat title={`${M('deposit').label} or later`} apps={dep} open={open} />
+        <Stat title={L.awaitDoc} apps={b.awaitDoc} sub={share(b.awaitDoc)} open={open} />
+        <Stat title={L.docNoVisa} apps={b.docNoVisa} sub={share(b.docNoVisa)} open={open} />
+        <Stat title={L.lodged} apps={b.lodged} sub={share(b.lodged)} open={open} />
+        <Stat title={L.refused} apps={b.refused} sub={share(b.refused)} open={open} />
+        <Stat title={L.gone} apps={b.gone} sub={share(b.gone)} open={open} />
+        <Stat title={L.granted} apps={b.granted} sub={share(b.granted)} open={open} />
       </div>
       <Card title="Deposit → visa by destination" flush action={<CsvButton name="deposit-to-visa" rows={rows} cols={cols} />}>
         <Table rows={rows} cols={cols} rowKey={(r) => r.k} />
@@ -387,11 +399,11 @@ function Visa({ apps, s, now, n, open, d }: { apps: RepApp[]; s: InsightSettings
 }
 
 /* Interview tracker: applications in University assessment or interview */
-function Interviews({ apps, s, now, d }: { apps: RepApp[]; s: InsightSettings; now: number; d: Reporting }) {
+function Interviews({ apps, s, now, d, rejects }: { apps: RepApp[]; s: InsightSettings; now: number; d: Reporting; rejects: string[] }) {
   const here = apps.filter((a) => isLive(a) && a.moves[a.moves.length - 1].s === s.interviewStatus);
   const past = apps.filter((a) => a.moves.some((m) => m.s === s.interviewStatus));
   const passed = past.filter((a) => reachedAt(a, msOf(s, 'uncond').status) !== undefined);
-  const failed = past.filter((a) => a.end && s.rejectKinds.includes(a.end.kind));
+  const failed = past.filter((a) => a.end && rejects.includes(a.end.kind));
   const rp = new Map(d.rps.map((x) => [x.id, x.name]));
   const since = (a: RepApp) => daysSince(a.moves.find((m) => m.s === s.interviewStatus)!.at, now);
   const cols: Col<RepApp>[] = [
@@ -422,21 +434,21 @@ function Interviews({ apps, s, now, d }: { apps: RepApp[]; s: InsightSettings; n
 }
 
 /* Ali's reports: rejections, deadlines, course availability, application fee waivers */
-function Reports({ apps, s, now, n, courses }: { apps: RepApp[]; s: InsightSettings; now: number; n: N; courses: CourseRec[] }) {
+function Reports({ apps, s, now, n, courses, rejects }: { apps: RepApp[]; s: InsightSettings; now: number; n: N; courses: CourseRec[]; rejects: string[] }) {
   const [rep, setRep] = useState<'rej' | 'dead' | 'avail' | 'fee'>('rej');
   return (
     <>
       <Seg label="Report" value={rep} items={[['rej', 'Rejections'], ['dead', 'Upcoming deadlines'], ['avail', 'Course availability'], ['fee', 'Application fee waivers']]} onPick={setRep} />
-      {rep === 'rej' && <Rejections apps={apps} s={s} n={n} />}
+      {rep === 'rej' && <Rejections apps={apps} n={n} rejects={rejects} />}
       {rep === 'dead' && <Deadlines s={s} now={now} courses={courses} />}
       {rep === 'avail' && <Availability courses={courses} now={now} />}
       {rep === 'fee' && <FeeWaivers courses={courses} />}
     </>
   );
 }
-function Rejections({ apps, s, n }: { apps: RepApp[]; s: InsightSettings; n: N }) {
+function Rejections({ apps, n, rejects }: { apps: RepApp[]; n: N; rejects: string[] }) {
   const [by, setBy] = useState<'uni' | 'course'>('uni');
-  const rej = apps.filter((a) => a.end && s.rejectKinds.includes(a.end.kind));
+  const rej = apps.filter((a) => a.end && rejects.includes(a.end.kind));
   const reasons = [...new Set(rej.map((a) => a.end!.reason))].sort();
   const rows = [...groupBy(rej, (a) => (by === 'uni' ? uniOf(a.uni) : `${courseOf(a.course)} · ${uniOf(a.uni)}`)).entries()].map(([k, l]) => ({ k, l, all: apps.filter((a) => (by === 'uni' ? uniOf(a.uni) : `${courseOf(a.course)} · ${uniOf(a.uni)}`) === k) })).sort((a, b) => b.l.length - a.l.length);
   type R = (typeof rows)[number];
@@ -447,7 +459,7 @@ function Rejections({ apps, s, n }: { apps: RepApp[]; s: InsightSettings; n: N }
     ...reasons.map((re): Col<R> => ({ h: re, n: true, v: (r) => n(r.l.filter((a) => a.end!.reason === re), `${r.k}: ${re}`), csv: (r) => r.l.filter((a) => a.end!.reason === re).length })),
   ];
   return (
-    <Card title="Rejection analysis" sub={`Closed as ${s.rejectKinds.join(', ')}, by the reason Admissions gave`} flush action={<span className="ins-acts"><Seg label="Group by" value={by} items={[['uni', 'By university'], ['course', 'By course']]} onPick={setBy} /><CsvButton name="rejections" rows={rows} cols={cols} /></span>}>
+    <Card title="Rejection analysis" sub={`Closed as ${rejects.join(', ')} (marked as a rejection in Admin › Closing reasons), by the reason picked when closing`} flush action={<span className="ins-acts"><Seg label="Group by" value={by} items={[['uni', 'By university'], ['course', 'By course']]} onPick={setBy} /><CsvButton name="rejections" rows={rows} cols={cols} /></span>}>
       <Table rows={by === 'course' ? rows.slice(0, 100) : rows} cols={cols} rowKey={(r) => r.k} />
     </Card>
   );

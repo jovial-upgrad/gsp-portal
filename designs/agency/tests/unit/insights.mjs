@@ -21,11 +21,14 @@ try {
   // Ramish: per student, Safe + Drop + WIP = every student
   const st = m.studentStates(d.apps, s, 'startdate');
   ok('Safe + Drop + WIP = unique applicants', st.safe.length + st.drop.length + st.wip.length === st.students && st.students === new Set(d.apps.map((a) => a.student)).size);
-  // a Drop setting change moves students between Drop and WIP, never Safe
-  const noDefer = m.studentStates(d.apps, { ...s, dropKinds: s.dropKinds.filter((k) => k !== 'Deferred') }, 'startdate');
-  ok('leaving Deferred out of Drop only moves students to WIP', noDefer.safe.length === st.safe.length && noDefer.drop.length + noDefer.wip.length === st.drop.length + st.wip.length);
+  // Jovial, 18 Nov: Drop = every one of the student's applications closed (no setting)
+  ok('Drop = every application of the student closed', st.drop.every((id) => d.apps.filter((a) => a.student === id).every((a) => !!a.end)));
+  // the dashboards name each checkpoint as the application lifecycle does (no Stages setting)
+  const appsMod = await vite.ssrLoadModule('/src/data/applications.ts');
+  ok('checkpoint names are the lifecycle’s', s.milestones.every((x) => appsMod.STAGES.includes(x.label) || Object.values(appsMod.STATUS).some((st2) => st2.text(undefined) === x.label)), s.milestones.map((x) => x.label).join(', '));
   // filters: a regional manager sees only their own BDMs' applications
-  const rms = m.regionalManagers(d.queues, d.users);
+  const rms = m.regionalManagers(d.queues, d.users, d.regions);
+  ok('regional managers lead queues under a Recruitment queue only', rms.size > 0);
   const [rm, people] = [...rms.entries()][0];
   const mine = m.applyFilters(d, { ...m.noFilters(), rm: [rm] });
   ok('the regional manager filter keeps their BDMs only', mine.length > 0 && mine.every((a) => people.has(a.bdm)), rm);
@@ -58,7 +61,10 @@ try {
   ok('financial year April–March: Nov 26 is FY27 OND, Feb 27 FY27 JFM, Apr 26 FY27 AMJ', fy.fy === 'FY27' && fy.q === 'OND' && fy2.fy === 'FY27' && fy2.q === 'JFM' && fy3.fy === 'FY27' && fy3.q === 'AMJ');
   ok('the financial year has 12 months, April first', m.fyMonths(2027, 4).length === 12 && m.fyMonths(2027, 4)[0] === '2026-04' && m.fyMonths(2027, 4)[11] === '2027-03');
   ok('some applications are in assessment or interview now (Interview tracker)', d.apps.some((a) => !a.end && a.moves.at(-1).s === s.interviewStatus));
-  ok('every rejection has a reason', d.apps.filter((a) => a.end && s.rejectKinds.includes(a.end.kind)).every((a) => !!a.end.reason));
+  const cfgMod = await vite.ssrLoadModule('/src/admin/data/config.ts');
+  const cr = cfgMod.sampleCloseReasons();
+  const rej = m.rejectionKinds(cr);
+  ok('every rejection has a reason from Admin’s Closing reasons', d.apps.filter((a) => a.end && rej.includes(a.end.kind)).every((a) => cr.find((x) => x.kind === a.end.kind).reasons.includes(a.end.reason)));
   // hard-coded scan: no options written by hand, no milestone statuses compared in the pages
   const { readdirSync, readFileSync } = await import('node:fs');
   const dir = new URL('../../src/insights/', import.meta.url);

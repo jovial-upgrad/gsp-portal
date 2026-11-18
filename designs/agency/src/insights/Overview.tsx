@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PageHead } from '../institution/records/parts';
+import { Button } from '../components/Button';
 import type { Reporting, RepApp } from './data';
 import { ageing, applyFilters, byUniversity, daysSince, funnel, isLive, lastChange, pct, reached, reachedAt, series, studentStates, type Filters, type Grain, type InsightSettings } from './metrics';
 import { Card, Drill, FilterBar, Num, Seg, TimeBars } from './parts';
@@ -26,7 +27,13 @@ export function Overview({ d, s, f, setF, now }: { d: Reporting; s: InsightSetti
     return apps.filter((a) => set.has(a.student));
   };
   const age = useMemo(() => ageing(apps, s, now), [apps, s, now]);
-  const unis = useMemo(() => byUniversity(apps, s).slice(0, 10), [apps, s]);
+  // Jovial, 18 Nov: the top 10, and Show all with 25 a page
+  const allUnis = useMemo(() => byUniversity(apps, s), [apps, s]);
+  const [uniAll, setUniAll] = useState(false);
+  const [uniPage, setUniPage] = useState(0);
+  const UNI_PAGE = 25;
+  const uniPages = Math.max(1, Math.ceil(allUnis.length / UNI_PAGE));
+  const unis = uniAll ? allUnis.slice(uniPage * UNI_PAGE, uniPage * UNI_PAGE + UNI_PAGE) : allUnis.slice(0, 10);
   const lim = grain === 'day' ? 60 : grain === 'week' ? 52 : undefined;
   const pts = useMemo(() => series(apps, (a) => a.created, grain, now, lim), [apps, grain, now, lim]);
   const dep = M('deposit');
@@ -49,19 +56,19 @@ export function Overview({ d, s, f, setF, now }: { d: Reporting; s: InsightSetti
       <div className="ins-stats">
         <Stat k="apps" title="Applications" l={apps} sub={`${live.length.toLocaleString('en-GB')} live`} />
         <Stat k="sub" title={n('submitted').label} l={reached(apps, M('submitted'))} sub={`${share(n('submitted').n, apps.length)} of applications`} />
-        <Stat k="off" title="Offers" l={reached(apps, M('offer'))} sub={`${n('uncond').n.toLocaleString('en-GB')} unconditional`} />
-        <Stat k="dep" title="Deposits" l={reached(apps, dep)} sub={`${share(n('deposit').n, n('offer').n)} of offers`} />
-        <Stat k="doc" title={n('enroldoc').label} l={reached(apps, M('enroldoc'))} sub={`${n('visalodged').n.toLocaleString('en-GB')} visa lodged`} />
-        <Stat k="enr" title="Enrolled" l={reached(apps, M('enrolled'))} sub={`${share(n('enrolled').n, apps.length)} of applications`} />
+        <Stat k="off" title={n('offer').label} l={reached(apps, M('offer'))} sub={`${n('uncond').n.toLocaleString('en-GB')} ${n('uncond').label}`} />
+        <Stat k="dep" title={n('deposit').label} l={reached(apps, dep)} sub={`${share(n('deposit').n, n('offer').n)} of offers`} />
+        <Stat k="doc" title={n('enroldoc').label} l={reached(apps, M('enroldoc'))} sub={`${n('visalodged').n.toLocaleString('en-GB')} ${n('visalodged').label}`} />
+        <Stat k="enr" title={n('enrolled').label} l={reached(apps, M('enrolled'))} sub={`${share(n('enrolled').n, apps.length)} of applications`} />
         <Stat k="idle" title={`Idle ${s.idleDays}+ days`} l={idle} sub={`${share(idle.length, live.length)} of live applications`} />
       </div>
 
       <Card title="Students" sub="Each student counts once, however many applications they have (Ramish's overview). Safe: a visa granted on any of them. Drop: every application closed. WIP: the rest.">
         <div className="ins-stats">
           <Stat k="u" title="Unique applicants" l={apps} count={st.students} sub={`${apps.length.toLocaleString('en-GB')} applications`} />
-          <Stat k="ud" count={st.deposit.length} title="Deposits" l={studentsOf(st.deposit)} sub={`${share(st.deposit.length, st.students)} of applicants`} />
-          <Stat k="us" count={st.safe.length} title="Safe" l={studentsOf(st.safe)} sub={`${share(st.safe.length, st.students)} · visa received`} />
-          <Stat k="ux" count={st.drop.length} title="Drop" l={studentsOf(st.drop)} sub={`${share(st.drop.length, st.students)} · closed`} />
+          <Stat k="ud" count={st.deposit.length} title={`Reached ${M('deposit').label}`} l={studentsOf(st.deposit)} sub={`${share(st.deposit.length, st.students)} of applicants`} />
+          <Stat k="us" count={st.safe.length} title="Safe" l={studentsOf(st.safe)} sub={`${share(st.safe.length, st.students)} · reached ${M('visa').label}`} />
+          <Stat k="ux" count={st.drop.length} title="Drop" l={studentsOf(st.drop)} sub={`${share(st.drop.length, st.students)} · every application closed`} />
           <Stat k="uw" count={st.wip.length} title="WIP" l={studentsOf(st.wip)} sub={`${share(st.wip.length, st.students)} · in progress`} />
         </div>
       </Card>
@@ -118,7 +125,30 @@ export function Overview({ d, s, f, setF, now }: { d: Reporting; s: InsightSetti
             ))}
           </div>
         </Card>
-        <Card title="Top universities" sub="By applications · offers and deposits" flush>
+        <Card
+          title={uniAll ? 'Universities' : 'Top universities'}
+          sub={uniAll ? `All ${allUnis.length}, most applications first · page ${uniPage + 1} of ${uniPages}` : `The 10 with the most applications, of ${allUnis.length}`}
+          flush
+          action={
+            <span className="ins-acts">
+              {uniAll && uniPages > 1 && (
+                <>
+                  <Button variant="secondary" size="sm" disabled={uniPage === 0} onClick={() => setUniPage(uniPage - 1)}>
+                    Previous
+                  </Button>
+                  <Button variant="secondary" size="sm" disabled={uniPage >= uniPages - 1} onClick={() => setUniPage(uniPage + 1)}>
+                    Next
+                  </Button>
+                </>
+              )}
+              {allUnis.length > 10 && (
+                <Button variant="secondary" size="sm" onClick={() => (setUniAll(!uniAll), setUniPage(0))}>
+                  {uniAll ? 'Top 10' : 'Show all'}
+                </Button>
+              )}
+            </span>
+          }
+        >
           <div className="ins-scroll">
             <table className="itab ins-tab">
               <thead>

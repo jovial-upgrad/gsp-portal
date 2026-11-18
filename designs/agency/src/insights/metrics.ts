@@ -2,15 +2,35 @@
  * Everything the dashboards show, worked out from the reporting records (`data.ts`) and the dashboard settings: no
  * count, rate or list is stored anywhere.
  */
-import { STATUS_ORDER, type EndKind, type StatusKey } from '../data/applications';
+import { STAGES, STATUS, STATUS_ORDER, type EndKind, type StatusKey } from '../data/applications';
+import type { CloseReasons } from '../admin/data/config';
 import { ENROL_DOC } from '../data/applications';
 import { COURSES, UNIVERSITIES, type Destination } from '../data/courses';
-import { queueTree, type Queue, type User } from '../admin/data/config';
+import { queueTree, type Queue, type Region, type User } from '../admin/data/config';
 import type { RepApp, Reporting } from './data';
 
 /* ---------- settings (seeded; Admin changes them) ---------- */
-/** A milestone the dashboards count: the status that marks it, and its name. */
+/**
+ * A checkpoint the dashboards count: the status that marks it, and its name. Jovial, 18 Nov: the name is the
+ * lifecycle's own: its stage's name where the checkpoint is a stage's first status (New, Offer), otherwise the status
+ * exactly as the application shows it (Submitted to university, Payment proof under review …).
+ */
 export type Milestone = { key: string; label: string; status: StatusKey };
+const stageFirst = (k: StatusKey) => STATUS_ORDER.find((x) => STATUS[x].stage === STATUS[k].stage) === k;
+/** The lifecycle's name for a checkpoint's status: the stage's name when it opens its stage, else the status. */
+export const lifecycleName = (k: StatusKey) => (stageFirst(k) && STATUS[k].stage !== STATUS.enrolled.stage ? STAGES[STATUS[k].stage] : STATUS[k].text(undefined as never));
+const checkpoint = (key: string, status: StatusKey): Milestone => ({ key, status, label: lifecycleName(status) });
+/** The lifecycle stage an application is in now (its current status's stage). */
+export const stageNow = (a: RepApp) => STATUS[a.moves[a.moves.length - 1].s].stage;
+/** When it entered its current lifecycle stage. */
+export const stageSince = (a: RepApp) => {
+  const st = stageNow(a);
+  let at = a.moves[a.moves.length - 1].at;
+  for (let i = a.moves.length - 1; i >= 0 && a.moves[i].s !== 'closed' && STATUS[a.moves[i].s].stage === st; i--) at = a.moves[i].at;
+  return at;
+};
+/** The ways of closing that count as a rejection (Admin › Closing reasons). */
+export const rejectionKinds = (cr: CloseReasons[]) => cr.filter((x) => x.rejection).map((x) => x.kind);
 export type InsightSettings = {
   /** An application with no status change for this many days is idle. */
   idleDays: number;
@@ -18,16 +38,12 @@ export type InsightSettings = {
   ageBuckets: number[];
   /** The milestones, in order: an application has reached one once its status is that one or any later. */
   milestones: Milestone[];
-  /** The closed outcomes that count as Drop (Ramish's Safe / Drop / WIP; Deferred to confirm with him). */
-  dropKinds: EndKind[];
   /** The idle filter's steps ("3+ days" …). */
   idleSteps: number[];
   /** The financial year starts in this month (April), its quarters named AMJ, JAS, OND, JFM. */
   fyStartMonth: number;
   /** Ali's deadline report: intake deadlines in the next N days. */
   deadlineWindows: number[];
-  /** Ali's rejection report: the closed outcomes that are a rejection. */
-  rejectKinds: EndKind[];
   /** How a refused visa closes an application (Deposit → visa). */
   visaRefused: EndKind;
   /** The Interview tracker: applications in this status. */
@@ -48,28 +64,24 @@ export type InsightSettings = {
   directTypes: string[];
   /** Receivables ageing buckets: days past due, upper bounds (<30, 30–60 … >365). */
   arBuckets: number[];
-  /** Deposit deadlines per course-start month (Sales tracker: days left). */
-  depositDeadlines: { intake: string; date: string }[];
 };
 export const sampleInsightSettings = (): InsightSettings => ({
   idleDays: 5,
   ageBuckets: [0, 3, 6, 11, 21, 31],
   idleSteps: [3, 5, 7, 10, 15, 30],
   milestones: [
-    { key: 'received', label: 'Received', status: 'docs' },
-    { key: 'submitted', label: 'Submitted', status: 'lodged' },
-    { key: 'offer', label: 'Offer', status: 'conditions' },
-    { key: 'uncond', label: 'Unconditional offer', status: 'uol' },
-    { key: 'deposit', label: 'Deposit', status: 'payreview' },
-    { key: 'enroldoc', label: 'CoE / CAS / I-20', status: 'acceptrec' },
-    { key: 'visalodged', label: 'Visa lodged', status: 'visasub' },
-    { key: 'visa', label: 'Visa granted', status: 'startdate' },
-    { key: 'enrolled', label: 'Enrolled', status: 'enrolled' },
+    checkpoint('received', 'docs'),
+    checkpoint('submitted', 'lodged'),
+    checkpoint('offer', 'conditions'),
+    checkpoint('uncond', 'uol'),
+    checkpoint('deposit', 'payreview'),
+    checkpoint('enroldoc', 'acceptrec'),
+    checkpoint('visalodged', 'visasub'),
+    checkpoint('visa', 'startdate'),
+    checkpoint('enrolled', 'enrolled'),
   ],
-  dropKinds: ['Not eligible', 'Student withdrawn', 'University rejected', 'Offer declined', 'Refused after assessment', 'Rejected by university', 'Visa refused', 'Deferred'],
   fyStartMonth: 4,
   deadlineWindows: [7, 15, 30],
-  rejectKinds: ['Not eligible', 'University rejected', 'Refused after assessment', 'Rejected by university'],
   interviewStatus: 'interview',
   visaRefused: 'Visa refused',
   incentive: { amount: 5000, currency: 'INR', milestone: 'enrolled' },
@@ -81,12 +93,6 @@ export const sampleInsightSettings = (): InsightSettings => ({
   rpShare: 70,
   arBuckets: [30, 60, 90, 180, 365],
   directTypes: ['Course commission', 'IP commission'],
-  depositDeadlines: [
-    { intake: '2027-01', date: '2026-11-30' },
-    { intake: '2027-02', date: '2026-12-07' },
-    { intake: '2027-03', date: '2027-01-15' },
-    { intake: '2027-07', date: '2027-05-15' },
-  ],
 });
 
 /* ---------- one application ---------- */
@@ -129,12 +135,22 @@ export const courseOf = (id: string) => courseName.get(id) ?? id;
 /** "2027-02" → "Feb 2027". */
 export const intakeText = (k: string) => new Date(`${k}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
-/** The regional managers: the leaders of queues that sit under another queue, with the people under each. */
-export function regionalManagers(queues: Queue[], users: User[]) {
+/**
+ * The regional managers: the leaders of queues that sit under a sales region's Recruitment queue (Admin › Sales regions
+ * names each region's Recruitment queue; Jovial, 18 Nov: Recruitment only, no other team's sub-queues), with the people
+ * under each.
+ */
+export function regionalManagers(queues: Queue[], users: User[], regions: Region[]) {
   const name = (id: string) => users.find((u) => u.id === id)?.name ?? '';
+  const recruitment = new Set(regions.map((r) => r.recruitment).filter(Boolean));
+  const underRecruitment = (q: Queue): boolean => {
+    let p = queues.find((x) => x.id === q.parent);
+    for (let i = 0; p && i < 10; i++, p = queues.find((x) => x.id === p!.parent)) if (recruitment.has(p.id)) return true;
+    return false;
+  };
   const out = new Map<string, Set<string>>();
   queues
-    .filter((q) => q.parent)
+    .filter((q) => q.parent && underRecruitment(q))
     .forEach((q) => {
       const people = queueTree(q, queues).flatMap((x) => [x.lead, ...x.members]).map(name).filter(Boolean);
       out.set(name(q.lead), new Set([...(out.get(name(q.lead)) ?? []), ...people]));
@@ -151,7 +167,7 @@ export function options(d: Reporting) {
     country: uniq(d.apps.map((a) => a.country)),
     region: uniq(d.apps.map((a) => a.region)),
     uni: uniq(d.apps.map((a) => uniOf(a.uni))),
-    rm: [...regionalManagers(d.queues, d.users).keys()].sort(),
+    rm: [...regionalManagers(d.queues, d.users, d.regions).keys()].sort(),
     bdm: uniq(d.apps.map((a) => a.bdm)),
     rp: uniq(d.rps.map((x) => x.name)),
   };
@@ -159,7 +175,7 @@ export function options(d: Reporting) {
 
 /** The applications the filters let through. */
 export function applyFilters(d: Reporting, f: Filters) {
-  const rms = regionalManagers(d.queues, d.users);
+  const rms = regionalManagers(d.queues, d.users, d.regions);
   const underRm = f.rm.length ? new Set(f.rm.flatMap((m) => [...(rms.get(m) ?? [])])) : null;
   const rpName = new Map(d.rps.map((x) => [x.id, x.name]));
   const from = f.from ? new Date(`${f.from}T00:00:00`).getTime() : -Infinity;
@@ -202,7 +218,8 @@ export function studentStates(apps: RepApp[], s: InsightSettings, visa: StatusKe
   by.forEach((l, id) => {
     if (dep && l.some((a) => reachedAt(a, dep) !== undefined)) out.deposit.push(id);
     if (l.some((a) => reachedAt(a, visa) !== undefined)) out.safe.push(id);
-    else if (l.every((a) => a.end && s.dropKinds.includes(a.end.kind))) out.drop.push(id);
+    // Jovial, 18 Nov: Drop = every one of the student's applications closed (any way)
+    else if (l.every((a) => !!a.end)) out.drop.push(id);
     else out.wip.push(id);
   });
   return { students: by.size, ...out };
@@ -213,10 +230,10 @@ export function ageing(apps: RepApp[], s: InsightSettings, now: number) {
   const live = apps.filter(isLive);
   const b = s.ageBuckets;
   const bucket = (d: number) => b.reduce((k, lo, i) => (d >= lo ? i : k), 0);
-  const rows = s.milestones
-    .filter((m) => m.key !== 'enrolled')
+  // Jovial, 18 Nov: rows are the lifecycle's stages, by each live application's current status
+  const rows = STAGES.map((label, i) => ({ key: String(i), label, i }))
     .map((m) => {
-      const here = live.filter((a) => milestoneOf(a, s.milestones).key === m.key);
+      const here = live.filter((a) => stageNow(a) === m.i);
       const cells = b.map(() => [] as RepApp[]);
       here.forEach((a) => cells[bucket(daysSince(lastChange(a), now))].push(a));
       const avg = here.length ? here.reduce((t, a) => t + daysSince(lastChange(a), now), 0) / here.length : 0;

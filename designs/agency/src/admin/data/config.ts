@@ -11,6 +11,7 @@ import { AREAS, CURRENCY, LEVELS as PROGRAM_LEVELS, type Destination } from '../
 import { INR_PER } from '../../screens/courses/search';
 import { REGIONS_OF } from '../../institution/records/CountryPicker';
 import type { Sharing } from './work';
+import type { EndKind } from '../../data/applications';
 
 /** `area` is the source: the page a change was made on, or where a download came from. `records`: how many rows a
  *  download had. */
@@ -339,6 +340,25 @@ export const sampleAppCountGroups = (): AppCountGroup[] => [
   { label: 'Not proceeding', closed: true },
 ];
 export const REGION_ROWS = ['Latin America and Europe', 'Africa'];
+
+/* ---------- closing reasons (Jovial, 18 Nov): every way an application closes asks why, from Admin's list ---------- */
+/**
+ * Each way of closing an application has the reasons GSP picks from when it closes one that way (and Other, with
+ * words), and whether it counts as a rejection (the Rejections report). Admin › Application configuration › Closing reasons.
+ */
+export type CloseReasons = { kind: EndKind; rejection: boolean; reasons: string[] };
+export const sampleCloseReasons = (): CloseReasons[] => [
+  { kind: 'Not eligible', rejection: true, reasons: ['Academic requirements not met', 'English requirement not met', 'Age or gap in studies'] },
+  { kind: 'University rejected', rejection: true, reasons: ['Academic requirements not met', 'English requirement not met', 'Course full', 'Gap in studies', 'Previous visa refusal'] },
+  { kind: 'Refused after assessment', rejection: true, reasons: ['Genuine student concerns', 'Interview not passed'] },
+  { kind: 'Rejected by university', rejection: true, reasons: ['Genuine student concerns', 'Financial capacity not shown', 'Interview not passed'] },
+  { kind: 'Offer declined', rejection: false, reasons: ['Chose another offer', 'Scholarship too low', 'Fees too high'] },
+  { kind: 'Visa refused', rejection: false, reasons: ['Genuine student', 'Financial capacity', 'Ties to home country', 'Document authenticity'] },
+  { kind: 'Student withdrawn', rejection: false, reasons: ['Chose another university', 'Personal reasons', 'Financial reasons', 'No response from student'] },
+  { kind: 'Deferred', rejection: false, reasons: ['Next intake', 'Visa timing'] },
+];
+/** The reason GSP picks when nothing on the list fits; it asks for words. */
+export const OTHER_REASON = 'Other';
 
 /* ---------- currency exchange (Nesil, 3 Nov): a week's rates, each currency in AUD, Finance's base ---------- */
 export type FxRow = { code: string; name: string; aud: number; usedFor: string; updated: number; by: string };

@@ -11,7 +11,7 @@ import type { Section as InstitutionSection } from '../../institution/portal/mod
  * configuration** (Application routing, Document configuration) and **Other configurations** (Filters, Logs).
  * Home (the queue) stays first; `profile` is the account page, opened from the initials on phones.
  */
-export type ConfigSection = 'mywork' | 'users' | 'regions' | 'permissions' | 'queues' | 'tasks' | 'emails' | 'bdm' | 'currency' | 'living' | 'tags' | 'levels' | 'grades' | 'english' | 'routing' | 'documents' | 'logs';
+export type ConfigSection = 'mywork' | 'users' | 'regions' | 'permissions' | 'queues' | 'tasks' | 'emails' | 'bdm' | 'currency' | 'living' | 'tags' | 'levels' | 'grades' | 'english' | 'routing' | 'documents' | 'closing' | 'logs';
 /** 9 Nov (Jovial): Commission lines, where Admin can override a line and export (the PRD's Commissions tab). */
 /** 18 Nov (Jovial): Dashboards, round 1: the Overview and Targets. */
 export type Section = InstitutionSection | ConfigSection | 'commlines' | 'commsetup' | 'dash' | 'targets' | 'dadm' | 'dsales' | 'dfin' | 'dlead' | 'dset';
@@ -122,6 +122,7 @@ export const GROUPS: NavGroup[] = [
     items: [
       { key: 'routing', label: 'Application Routing', short: 'Routing', icon: 'share' },
       { key: 'documents', label: 'Document Configuration', short: 'Documents', icon: 'folder' },
+      { key: 'closing', label: 'Closing Reasons', short: 'Closing', icon: 'close' },
     ],
   },
   {

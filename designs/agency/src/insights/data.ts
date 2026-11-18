@@ -7,12 +7,13 @@
  */
 import { COURSES, UNIVERSITIES, type Destination } from '../data/courses';
 import { CLOSE_AT, STATUS, type EndKind, type StatusKey } from '../data/applications';
-import { peopleOf, sampleQueues, sampleRegions, sampleUsers, type Queue, type Region, type User } from '../admin/data/config';
+import { OTHER_REASON, peopleOf, sampleCloseReasons, sampleQueues, sampleRegions, sampleUsers, type Queue, type Region, type User } from '../admin/data/config';
 import { todayIso } from '../institution/data/records';
 
 /** One status change: the status it moved to, and when (ms). Closing is `closed` with the end's kind. */
 export type Move = { s: StatusKey; at: number };
-export type RepRp = { id: string; name: string; country: string; state: string; city: string; region: string; bdm: string; mp?: string };
+/** `counsellors`: the RP's own staff who make its applications (each application names one: the RP contact on it). */
+export type RepRp = { id: string; name: string; country: string; state: string; city: string; region: string; bdm: string; mp?: string; counsellors: string[] };
 export type RepStudent = { id: string; name: string; nationality: string };
 export type RepApp = {
   id: string;
@@ -26,6 +27,8 @@ export type RepApp = {
   priority: boolean;
   /** The Admissions officer who worked it. */
   officer: string;
+  /** The RP's counsellor on it (the application's RP contact). */
+  counsellor: string;
   course: string;
   uni: string;
   dest: Destination;
@@ -116,7 +119,9 @@ export function sampleReporting(seed = 18_11_2026): Reporting {
       const lq = queues.find((x) => x.id === local);
       const people = (lq ? peopleOf(lq, queues) : peopleOf(q, queues)).map(nameOf).filter(Boolean);
       const id = `RP-${String(11000 + rps.length * 37).slice(0, 5)}`;
-      rps.push({ id, name: `${pick(RP_WORDS[0])} ${pick(RP_WORDS[1])}${i % 7 === 3 ? ` ${city}` : ''}`, country, state, city, region, bdm: people[i % people.length] ?? nameOf(q.lead) });
+      const fl = FIRST[country] ? country : 'other';
+      const counsellors = [0, 1].map(() => `${pick(FIRST[fl])} ${pick(LAST[fl])}`);
+      rps.push({ id, name: `${pick(RP_WORDS[0])} ${pick(RP_WORDS[1])}${i % 7 === 3 ? ` ${city}` : ''}`, country, state, city, region, bdm: people[i % people.length] ?? nameOf(q.lead), counsellors });
     }
   });
   // a few RPs belong to a Master Partner (sample)
@@ -171,6 +176,7 @@ export function sampleReporting(seed = 18_11_2026): Reporting {
         bdm: rp.bdm,
         priority: priorityUni.has(c.uni.id),
         officer: officers.length ? officers[Math.floor(r() * officers.length)] : '',
+        counsellor: rp.counsellors[Math.floor(r() * rp.counsellors.length)],
         course: c.id,
         uni: c.uni.id,
         dest: c.uni.country as Destination,
@@ -185,17 +191,8 @@ export function sampleReporting(seed = 18_11_2026): Reporting {
   return { rps, students, apps: apps.sort((a, b) => b.created - a.created), users, queues, regions };
 }
 
-/** Why applications close, by how they close (sample records, as Admissions writes them). */
-const CLOSE_REASONS: Partial<Record<EndKind, string[]>> = {
-  'University rejected': ['Academic requirements not met', 'English requirement not met', 'Course full', 'Gap in studies', 'Previous visa refusal'],
-  'Rejected by university': ['Genuine student concerns', 'Financial capacity not shown', 'Interview not passed'],
-  'Refused after assessment': ['Genuine student concerns', 'Interview not passed'],
-  'Not eligible': ['Academic requirements not met', 'English requirement not met', 'Age or gap in studies'],
-  'Visa refused': ['Genuine student', 'Financial capacity', 'Ties to home country', 'Document authenticity'],
-  'Student withdrawn': ['Chose another university', 'Personal reasons', 'Financial reasons', 'No response from student'],
-  'Offer declined': ['Chose another offer', 'Scholarship too low', 'Fees too high'],
-  'Deferred': ['Next intake', 'Visa timing'],
-};
+/** Why applications close: Admin's Closing reasons for each way of closing (Jovial, 18 Nov). */
+const CLOSE_REASONS = Object.fromEntries(sampleCloseReasons().map((x) => [x.kind, x.reasons])) as Partial<Record<EndKind, string[]>>;
 
 /** The main path an application takes, each step with the chance it happens and the days it takes (sample). */
 const PATH: [StatusKey, number, number, number][] = [
@@ -226,7 +223,7 @@ function journey(r: () => number, created: number, start: string, today: number,
         const kinds = s === 'startdate' ? (['Visa refused'] as EndKind[]) : CLOSE_AT[stage];
         const endAt = Math.min(today, next);
         const kind = kinds[Math.floor(r() * kinds.length)];
-        const why = CLOSE_REASONS[kind] ?? ['Other'];
+        const why = CLOSE_REASONS[kind] ?? [OTHER_REASON];
         moves.push({ s: 'closed', at: endAt });
         return { moves, end: { kind, at: endAt, reason: why[Math.floor(r() * why.length)] } };
       }
