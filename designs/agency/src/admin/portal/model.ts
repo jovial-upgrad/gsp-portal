@@ -41,6 +41,8 @@ export const GROUPS: NavGroup[] = [
     icon: 'building',
     items: [
       { key: 'rps', label: 'Recruitment Partners', short: 'RPs', icon: 'partner' },
+      // 18 Nov (Jovial): Master Partners, as in Nesil's GSP · Admin (11 Nov)
+      { key: 'mps', label: 'Master Partners', short: 'Masters', icon: 'building' },
       { key: 'ips', label: 'Institution Partners', short: 'Partners', icon: 'briefcase' },
       { key: 'universities', label: 'Universities', short: 'Universities', icon: 'building' },
       { key: 'catalogue', label: 'Courses', short: 'Courses', icon: 'cap' },
