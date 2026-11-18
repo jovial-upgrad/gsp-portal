@@ -7,6 +7,7 @@ import { PageHead } from '../../institution/records/parts';
 import { SearchPick } from '../../institution/records/SearchPick';
 import { MultiPick } from '../../components/MultiPick';
 import { STANDING, standing, taskStanding, whShort, whText, type Standing, type WorkTask } from '../data/mywork';
+import { peopleOf } from '../data/config';
 import type { ConfigProps } from './ConfigPage';
 import { Pager, usePaged } from './parts';
 
@@ -307,7 +308,7 @@ function AssignSheet({ task, cfg, onClose, onSave }: { task: WorkTask | null; cf
   const q = cfg.queues.find((x) => x.id === task?.queue);
   const name = (id: string) => cfg.users.find((u) => u.id === id)?.name ?? '';
   const lead = q ? name(q.lead) : '';
-  const people = q ? [lead, ...q.members.map(name)].filter(Boolean) : [];
+  const people = q ? [...new Set([lead, ...peopleOf(q, cfg.queues).map(name)])].filter(Boolean) : [];
   // Q35 (Jovial, 10 Nov): a task's assignee is someone in its queue, so only members are offered
   return (
     <Sheet
@@ -353,7 +354,7 @@ function BulkSheet({ open, tasks, cfg, onClose, onSave }: { open: boolean; tasks
   const qs = cfg.queues.filter((q) => ids.includes(q.id));
   const name = (id: string) => cfg.users.find((u) => u.id === id)?.name ?? '';
   const leads = new Set(qs.map((q) => name(q.lead)));
-  const people = [...new Set(qs.flatMap((q) => [name(q.lead), ...q.members.map(name)]).filter(Boolean))];
+  const people = [...new Set(qs.flatMap((q) => peopleOf(q, cfg.queues).map(name)).filter(Boolean))];
   const n = tasks.length;
   return (
     <Sheet

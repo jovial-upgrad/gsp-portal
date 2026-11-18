@@ -5,7 +5,7 @@
  * lands in the queue the rule names, goes to whoever the rule's sharing picks, and is timed on the record's working
  * calendar. Times are working hours.
  */
-import { sampleQueues, sampleRegions, sampleUsers, type Queue, type Region, type User } from './config';
+import { peopleOf, sampleQueues, sampleRegions, sampleUsers, type Queue, type Region, type User } from './config';
 import { DAY_HOURS, REGIONAL, REGION_ADMISSIONS, sampleCalendars, sampleRules, spanHours, type Calendar, type RecordType, type TaskRule } from './work';
 import { STATUS, courseOf, intakeStart, sampleApplications, statusText, type Application } from '../../data/applications';
 import { fullName, sampleStudents, type Student } from '../../data/students';
@@ -231,7 +231,7 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
   const officers = new Map<string, string>();
   const out: WorkTask[] = [];
   const fewest = (q: Queue) => {
-    const people = [q.lead, ...q.members].filter(active).map((id) => userOf(id)!.name);
+    const people = peopleOf(q, queues).filter(active).map((id) => userOf(id)!.name);
     if (!people.length) return userOf(q.lead)?.name ?? '';
     return people.sort((a, b) => (open.get(`${q.id}|${a}`) ?? 0) - (open.get(`${q.id}|${b}`) ?? 0) || a.localeCompare(b))[0];
   };
@@ -248,7 +248,7 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
       const q = queueFor(rule.to, hit.region, queues, regions);
       if (!q) continue;
       const way = rule.sharing === 'queue' ? q.sharing : rule.sharing;
-      const members = [q.lead, ...q.members].filter(active).map((id) => userOf(id)!.name);
+      const members = peopleOf(q, queues).filter(active).map((id) => userOf(id)!.name);
       let who: string;
       if (way === 'leader') who = userOf(q.lead)?.name ?? '';
       else if (way === 'officer') {
@@ -293,7 +293,7 @@ export function queueWork(name: string) {
   const q = queues.find((x) => x.name === name);
   const nameOf = (id: string) => users.find((u) => u.id === id)?.name ?? '';
   const tasks = q ? runRules(sampleRules(), sampleRecords(), queues, regions, users, sampleCalendars(regions.map((r) => r.name))).filter((t) => t.queue === q.id) : [];
-  return { queue: name, leader: q ? nameOf(q.lead) : '', team: q ? [q.lead, ...q.members].map(nameOf).filter(Boolean) : [], tasks };
+  return { queue: name, leader: q ? nameOf(q.lead) : '', team: q ? peopleOf(q, queues).map(nameOf).filter(Boolean) : [], tasks };
 }
 
 /**

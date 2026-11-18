@@ -107,6 +107,9 @@ export const sampleUsers = (): User[] => [
   u('Nadia', 'Recruitment', 'BDM', 'India', '+91', '98950 22018'),
   u('Harsh', 'Recruitment', 'BDM', 'India', '+91', '98110 41870'),
   u('Aditya Rao', 'Recruitment', 'BDM', 'India', '+91', '98110 40217'),
+  // 18 Nov (Jovial): India's regional managers and their BDMs (the India sales tracker's RM / BDM split)
+  ...team('Recruitment', 'Regional Manager', 'India', '+91', ['Ramandeep Kaur', 'Moufiz Parmar']),
+  ...team('Recruitment', 'BDM', 'India', '+91', ['Riya Shah', 'Balkaran Singh', 'Gaurav Hans', 'Anish Sharma', 'Mohd Sohail', 'Khushal Doriya', 'Rehan A', 'Saikat Bhowmik', 'Mayank Kansal']),
   u('Sania', 'Recruitment', 'BDM', 'Bangladesh', '+880', '1711 409 552'),
   u('Faisal', 'Recruitment', 'BDM', 'Africa', '+880', '1711 420 019'),
   u('Tina', 'Recruitment', 'BDM', 'Vietnam', '+84', '90 812 0042'),
@@ -201,7 +204,17 @@ export const samplePerms = (): Perms =>
 /* ---------- queues (Nesil, 30 Oct: a name, a leader and members, from the PM's queues) ---------- */
 /** A queue (9 Nov: Queues and Working Days): one leader, members (the leader is always in it) and how a new task is
  *  shared. Queues have no type: anyone can be in any queue. What lands in it comes from the task rules. */
-export type Queue = { id: string; name: string; lead: string; members: string[]; sharing: Sharing };
+/** A work queue. `parent` (18 Nov, Jovial): the queue it sits under, so a country manager's queue holds its regional
+ *  managers' queues (India Recruitment → India North Recruitment …); the parent's leader sees them all. */
+export type Queue = { id: string; name: string; lead: string; members: string[]; sharing: Sharing; parent?: string };
+/** A queue and every queue under it, at any depth. */
+export const queueTree = (q: Queue, queues: Queue[]): Queue[] => {
+  const out: Queue[] = [q];
+  for (let i = 0; i < out.length; i++) queues.filter((x) => x.parent === out[i].id && !out.some((y) => y.id === x.id)).forEach((x) => out.push(x));
+  return out;
+};
+/** Everyone in a queue: its leader and members, and the leaders and members of the queues under it. */
+export const peopleOf = (q: Queue, queues: Queue[]): string[] => [...new Set(queueTree(q, queues).flatMap((x) => [x.lead, ...x.members]).filter(Boolean))];
 const byName = (users: User[], names: string[]) => names.map((n) => users.find((x) => x.name === n)?.id).filter((x): x is string => !!x);
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, '-');
 /** The regions with their own Admissions and Recruitment queues: every sales region but Direct and Global. */
@@ -224,7 +237,7 @@ const ADMISSIONS: Record<string, [string, string[]]> = {
 };
 /** Each region's Recruitment queue: its leader (the region's BDM) and members. */
 const RECRUITMENT: Record<string, [string, string[]]> = {
-  India: ['Saurabh', ['Nadia', 'Harsh', 'Aditya Rao']],
+  India: ['Saurabh', []],
   Bangladesh: ['Sania', []],
   Nepal: ['Anil Shrestha', []],
   'Sri Lanka': ['Kanchani', []],
@@ -239,6 +252,14 @@ const RECRUITMENT: Record<string, [string, string[]]> = {
   China: ['Annie Gu', []],
   'Rest of world': ['Ali Butt', []],
 };
+/** India's regional queues (sample): id, name, regional manager, BDMs. */
+const INDIA_RMS: [string, string, string, string[]][] = [
+  ['q-rec-india-north', 'India North Recruitment', 'Harsh', ['Gaurav Hans', 'Anish Sharma', 'Khushal Doriya']],
+  ['q-rec-india-punjab', 'India Punjab Recruitment', 'Ramandeep Kaur', ['Balkaran Singh', 'Mayank Kansal']],
+  ['q-rec-india-west', 'India West Recruitment', 'Moufiz Parmar', ['Riya Shah', 'Saikat Bhowmik']],
+  ['q-rec-india-south', 'India South Recruitment', 'Aditya Rao', ['Mohd Sohail']],
+  ['q-rec-india-kerala', 'India Kerala Recruitment', 'Nadia', ['Rehan A']],
+];
 export const sampleQueues = (users: User[]): Queue[] => {
   const q = (id: string, name: string, lead: string, members: string[], sharing: Sharing): Queue => ({ id, name, sharing, lead: byName(users, [lead])[0] ?? '', members: byName(users, members) });
   return [
@@ -246,6 +267,8 @@ export const sampleQueues = (users: User[]): Queue[] => {
     // the Global Ops team (9 Nov): regions with no Admissions queue, and gsp.admissions@ mail
     q('q-global-admissions', 'Global Admissions', 'Karan Malhotra', ['Neha Kulkarni', 'Ishita Rao', 'Vikram Shetty'], 'fewest'),
     ...QUEUE_REGIONS.filter((r) => RECRUITMENT[r]).map((r) => q(`q-rec-${slug(r)}`, `${r} Recruitment`, RECRUITMENT[r][0], RECRUITMENT[r][1], 'owner')),
+    // 18 Nov (Jovial): India has regional managers between the country manager and the BDMs: a queue each, under India Recruitment
+    ...INDIA_RMS.map(([id, name, lead, members]) => ({ ...q(id, name, lead, members, 'owner'), parent: 'q-rec-india' })),
     q('q-rp-ops', 'RP Ops', 'Leena Thomas', ['Garima Bhardwaj', 'Rohan Desai', 'Nisha Kapoor'], 'fewest'),
     q('q-institution', 'Institution', 'Lalaine Dizon', ['Namita Nath', 'Raj Shamani', 'Kavya Menon'], 'owner'),
     q('q-ip-ops', 'IP Ops', 'Gauri Bhardwaj', ['Vishakha Prabhakar', 'Neelam Sharma', 'Munmun Kapil', 'Kabir Sethi', 'Riya Sen', 'Arjun Mehta'], 'fewest'),

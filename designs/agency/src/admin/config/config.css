@@ -518,3 +518,4 @@
 /* 9 Nov (Jovial): Applies when, editable in the table: the four pickers stacked */
 .cfg__when { min-width: 220px; }
 .cfg__whenpick + .cfg__whenpick { margin-top: 6px; }
+.wk-sub { display: block; font-size: 12px; margin-top: 2px; }

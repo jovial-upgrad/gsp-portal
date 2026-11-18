@@ -737,3 +737,12 @@ What the docs say, and what this design does with it:
 - **Sample data:** campus addresses, websites, founding years, scholarships, other costs and CRICOS codes are illustrative. Visa and health-cover figures are approximate and marked so.
 - **Not yet:** checking eligibility against a student (Eligible, With conditions, Not eligible, Add details), and sending the PDF on WhatsApp.
 
+
+
+## Dashboards (18 Nov, round 1)
+
+GSP · Admin › **Dashboards**. Built from a seeded reporting set (`src/insights/data.ts`: about 3,000 applications from 180 RPs, each with its dated status changes, the RP's country, sales region and BDM kept as they were when it was made); every number is worked out in `src/insights/metrics.ts`, with its settings (idle days, age buckets, milestones, which closed outcomes count as Drop).
+
+- **Overview**: the filter bar every dashboard shares (intake, destination, source country = the RP's country, sales region, university, regional manager, BDM, RP, received dates, all / live / closed); stage tiles; students (each once: Safe, Drop, WIP); applications and deposits over time (per period or running total, never two axes); funnel; top universities; where applications are stuck. Every number opens its students, with a CSV download.
+- **Targets**: Admin uploads the business's targets as a CSV (Level, Name, Period, then Applications, Submitted, Offers, Deposits, CoE/CAS, Enrolments, Revenue (AUD)) into a named version; one is current. Bad lines are left out with the reason.
+- Regional managers come from queues that sit under another queue (Queues › Part of): India Recruitment holds the five India regional queues.

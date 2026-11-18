@@ -46,6 +46,13 @@ import { Toast } from '../../institution/records/parts';
 import { MailInbox } from '../../mailbox/MailInbox';
 import { sampleMailbox, type Mailbox } from '../../data/mailbox';
 import { ConfigPage, useCfg } from '../config/ConfigPage';
+// 18 Nov (Jovial): the dashboards, round 1
+import { sampleReporting } from '../../insights/data';
+import { noFilters, sampleInsightSettings, type Filters } from '../../insights/metrics';
+import { namesFor, sampleTargets, type TargetVersion } from '../../insights/targets';
+import { Overview } from '../../insights/Overview';
+import { Targets } from '../../insights/Targets';
+import '../../insights/insights.css';
 import { Flyout } from './Flyout';
 import '../../screens/signup/signup.css';
 import '../../screens/portal/portal.css';
@@ -132,6 +139,16 @@ export function Portal({
   const say = (text: string) => setMsg({ text, key: Date.now() });
   // what GSP Admin configures, with its log
   const [cfg, setCfg] = useCfg();
+  // the dashboards: the reporting records, read with Admin's own queues, people and regions (so a regional queue
+  // added or moved here changes who rolls up to whom), their settings, the targets and the filters picked
+  const base = useMemo(() => sampleReporting(), []);
+  const rep = useMemo(() => ({ ...base, users: cfg.users, queues: cfg.queues, regions: cfg.regions }), [base, cfg.users, cfg.queues, cfg.regions]);
+  const [ins] = useState(sampleInsightSettings);
+  const ipNames = useMemo(() => db.ips.map((x) => x.name), [db.ips]);
+  const tnames = useMemo(() => namesFor(rep, ipNames), [rep, ipNames]);
+  const [targets, setTargets] = useState<TargetVersion[]>(() => sampleTargets(base, sampleDb().ips.map((x) => x.name)));
+  const [dfil, setDfil] = useState<Filters>(noFilters);
+  const now = useMemo(() => new Date(`${todayIso()}T12:00:00`).getTime(), []);
 
   // the bell and the megaphone (30 Oct): GSP's notifications, real ones from the RP while connected, and the live
   // announcements this team publishes (they stay in this role, by Nesil's 29 Oct rule)
@@ -380,6 +397,10 @@ export function Portal({
       <MasterPartners mps={mps} setMps={setMps} rps={rps} link={link} {...records} />
     ) : section === 'announcements' ? (
       <Announcements {...page} />
+    ) : section === 'dash' ? (
+      <Overview d={rep} s={ins} f={dfil} setF={setDfil} now={now} />
+    ) : section === 'targets' ? (
+      <Targets names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
     ) : section === 'commlines' ? (
       <Lines apps={apps} students={students} setApps={setApps} who={whoIs(GSP_USER.name, GSP_USER.email)} say={say} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id, tab: 'commission' } })} />
     ) : CONFIG.includes(section as ConfigSection) ? (
