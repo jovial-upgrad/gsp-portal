@@ -452,7 +452,7 @@ export const STATUS_TONE: Record<TxStatus, 'ok' | 'gsp' | 'you' | 'bad' | 'uni' 
   'On hold': 'bad',
   'Sent back': 'bad',
   Paid: 'ok',
-  'Not payable': 'grey',
+  'Not payable': 'bad',
   'Waiting for university': 'uni',
   'Invoice in review': 'gsp',
   Approved: 'gsp',
