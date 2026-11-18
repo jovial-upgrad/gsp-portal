@@ -22,6 +22,34 @@ export type InsightSettings = {
   dropKinds: EndKind[];
   /** The idle filter's steps ("3+ days" …). */
   idleSteps: number[];
+  /** The financial year starts in this month (April), its quarters named AMJ, JAS, OND, JFM. */
+  fyStartMonth: number;
+  /** Ali's deadline report: intake deadlines in the next N days. */
+  deadlineWindows: number[];
+  /** Ali's rejection report: the closed outcomes that are a rejection. */
+  rejectKinds: EndKind[];
+  /** How a refused visa closes an application (Deposit → visa). */
+  visaRefused: EndKind;
+  /** The Interview tracker: applications in this status. */
+  interviewStatus: StatusKey;
+  /** Potential to earn: the incentive per admission (changed live on the page to try other amounts), and what an admission is. */
+  incentive: { amount: number; currency: string; milestone: string };
+  /** Priority IP share target (Leadership pack: 60% baseline). */
+  priorityTarget: number;
+  /** IP / RP analysis: the window in months, the margin per student that counts as good, and how many enrolments a year make a big RP. */
+  analysisMonths: number;
+  marginPerStudent: number;
+  bigRpEnrolments: number;
+  /** Forecast: conversion from each stage to enrolment over the last N months. */
+  forecastMonths: number;
+  /** The RP's share of commission used for the reporting estimates (RP COS), in %, until an RP's own terms say otherwise. */
+  rpShare: number;
+  /** Commission line types that are direct commission; the rest are bonus and additional (IP / RP analysis, P&L). */
+  directTypes: string[];
+  /** Receivables ageing buckets: days past due, upper bounds (<30, 30–60 … >365). */
+  arBuckets: number[];
+  /** Deposit deadlines per course-start month (Sales tracker: days left). */
+  depositDeadlines: { intake: string; date: string }[];
 };
 export const sampleInsightSettings = (): InsightSettings => ({
   idleDays: 5,
@@ -39,6 +67,26 @@ export const sampleInsightSettings = (): InsightSettings => ({
     { key: 'enrolled', label: 'Enrolled', status: 'enrolled' },
   ],
   dropKinds: ['Not eligible', 'Student withdrawn', 'University rejected', 'Offer declined', 'Refused after assessment', 'Rejected by university', 'Visa refused', 'Deferred'],
+  fyStartMonth: 4,
+  deadlineWindows: [7, 15, 30],
+  rejectKinds: ['Not eligible', 'University rejected', 'Refused after assessment', 'Rejected by university'],
+  interviewStatus: 'interview',
+  visaRefused: 'Visa refused',
+  incentive: { amount: 5000, currency: 'INR', milestone: 'enrolled' },
+  priorityTarget: 60,
+  analysisMonths: 12,
+  marginPerStudent: 1400,
+  bigRpEnrolments: 10,
+  forecastMonths: 12,
+  rpShare: 70,
+  arBuckets: [30, 60, 90, 180, 365],
+  directTypes: ['Course commission', 'IP commission'],
+  depositDeadlines: [
+    { intake: '2027-01', date: '2026-11-30' },
+    { intake: '2027-02', date: '2026-12-07' },
+    { intake: '2027-03', date: '2027-01-15' },
+    { intake: '2027-07', date: '2027-05-15' },
+  ],
 });
 
 /* ---------- one application ---------- */
@@ -227,3 +275,65 @@ export function byUniversity(apps: RepApp[], s: InsightSettings) {
 }
 
 export const pct = (x: number | null, dp = 1) => (x === null || !isFinite(x) ? '—' : `${(x * 100).toFixed(dp)}%`);
+
+
+/* ---------- more ways to count (dashboards rounds 2–5) ---------- */
+export const msOf = (s: InsightSettings, k: string) => s.milestones.find((m) => m.key === k)!;
+export function groupBy<K>(apps: RepApp[], key: (a: RepApp) => K) {
+  const m = new Map<K, RepApp[]>();
+  apps.forEach((a) => m.set(key(a), [...(m.get(key(a)) ?? []), a]));
+  return m;
+}
+/** One row of a conversion table: the applications and those that reached each milestone. */
+export function convRow(apps: RepApp[], s: InsightSettings) {
+  const r = (k: string) => reached(apps, msOf(s, k));
+  const live = apps.filter(isLive);
+  const offers = r('offer');
+  return { apps, live, submitted: r('submitted'), offers, uncond: r('uncond'), deposits: r('deposit'), enroldoc: r('enroldoc'), visalodged: r('visalodged'), visa: r('visa'), enrolled: r('enrolled'), liveNoOffer: live.filter((a) => !offers.includes(a)) };
+}
+export const rate = (a: number, b: number) => (b ? a / b : null);
+/** The financial year and quarter a course-start month falls in: "FY27", "OND". */
+export function fyOf(month: string, startMonth: number) {
+  const [y, m] = month.split('-').map(Number);
+  const fy = m >= startMonth ? y + 1 : y;
+  const names = ['JFM', 'AMJ', 'JAS', 'OND'];
+  return { fy: `FY${String(fy).slice(2)}`, q: names[Math.floor((m - 1) / 3)] };
+}
+/** The months of a financial year, in order. */
+export function fyMonths(fy: number, startMonth: number) {
+  return Array.from({ length: 12 }, (_, i) => {
+    const m = ((startMonth - 1 + i) % 12) + 1;
+    const y = m >= startMonth ? fy - 1 : fy;
+    return `${y}-${String(m).padStart(2, '0')}`;
+  });
+}
+export const monthText = (k: string) => new Date(`${k}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }).toUpperCase().replace(' ', '-');
+/** Days between two milestones for every application that reached both: median, average, 90th percentile. */
+export function between(apps: RepApp[], from: StatusKey, to: StatusKey) {
+  const d = apps
+    .map((a) => {
+      const x = reachedAt(a, from), y = reachedAt(a, to);
+      return x !== undefined && y !== undefined && y >= x ? (y - x) / 86_400_000 : null;
+    })
+    .filter((x): x is number => x !== null)
+    .sort((a, b) => a - b);
+  const q = (p: number) => (d.length ? d[Math.min(d.length - 1, Math.floor(p * d.length))] : null);
+  return { n: d.length, median: q(0.5), avg: d.length ? d.reduce((a, b) => a + b, 0) / d.length : null, p90: q(0.9) };
+}
+/**
+ * Conversion to enrolment from each milestone, over applications made in the last N months whose story is over
+ * (enrolled or closed): what share of those that reached the milestone enrolled.
+ */
+export function stageRates(apps: RepApp[], s: InsightSettings, now: number) {
+  const since = now - s.forecastMonths * 30.4 * 86_400_000;
+  const done = apps.filter((a) => a.created >= since && (isEnrolled(a) || isClosed(a)));
+  const enr = msOf(s, 'enrolled').status;
+  const out = new Map<string, number>();
+  s.milestones.forEach((m) => {
+    const got = done.filter((a) => reachedAt(a, m.status) !== undefined);
+    out.set(m.key, got.length ? got.filter((a) => reachedAt(a, enr) !== undefined).length / got.length : 0);
+  });
+  return out;
+}
+/** Expected enrolments from live applications: each counts its stage's conversion. */
+export const expected = (live: RepApp[], s: InsightSettings, rates: Map<string, number>) => live.reduce((t, a) => t + (rates.get(milestoneOf(a, s.milestones).key) ?? 0), 0);

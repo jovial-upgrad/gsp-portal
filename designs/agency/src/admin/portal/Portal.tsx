@@ -52,6 +52,12 @@ import { noFilters, sampleInsightSettings, type Filters } from '../../insights/m
 import { namesFor, sampleTargets, type TargetVersion } from '../../insights/targets';
 import { Overview } from '../../insights/Overview';
 import { Targets } from '../../insights/Targets';
+import { Admissions as DashAdmissions } from '../../insights/Admissions';
+import { Sales as DashSales } from '../../insights/Sales';
+import { Finance as DashFinance } from '../../insights/Finance';
+import { Leadership as DashLeadership } from '../../insights/Leadership';
+import { DashSettings } from '../../insights/Settings';
+import { useComm, useLines } from '../../finance/commission/store';
 import '../../insights/insights.css';
 import { Flyout } from './Flyout';
 import '../../screens/signup/signup.css';
@@ -143,11 +149,14 @@ export function Portal({
   // added or moved here changes who rolls up to whom), their settings, the targets and the filters picked
   const base = useMemo(() => sampleReporting(), []);
   const rep = useMemo(() => ({ ...base, users: cfg.users, queues: cfg.queues, regions: cfg.regions }), [base, cfg.users, cfg.queues, cfg.regions]);
-  const [ins] = useState(sampleInsightSettings);
+  const [ins, setIns] = useState(sampleInsightSettings);
   const ipNames = useMemo(() => db.ips.map((x) => x.name), [db.ips]);
   const tnames = useMemo(() => namesFor(rep, ipNames), [rep, ipNames]);
   const [targets, setTargets] = useState<TargetVersion[]>(() => sampleTargets(base, sampleDb().ips.map((x) => x.name)));
   const [dfil, setDfil] = useState<Filters>(noFilters);
+  const current = targets.find((t) => t.current);
+  const comm = useComm();
+  const cres = useLines(apps, students);
   const now = useMemo(() => new Date(`${todayIso()}T12:00:00`).getTime(), []);
 
   // the bell and the megaphone (30 Oct): GSP's notifications, real ones from the RP while connected, and the live
@@ -399,6 +408,16 @@ export function Portal({
       <Announcements {...page} />
     ) : section === 'dash' ? (
       <Overview d={rep} s={ins} f={dfil} setF={setDfil} now={now} />
+    ) : section === 'dadm' ? (
+      <DashAdmissions d={rep} s={ins} f={dfil} setF={setDfil} now={now} terms={comm.terms} groups={comm.groups} courses={db.courses} target={current} />
+    ) : section === 'dsales' ? (
+      <DashSales d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} />
+    ) : section === 'dfin' ? (
+      <DashFinance res={cres} comm={comm} fx={cfg.fx} s={ins} now={now} me={GSP_USER.name} say={say} />
+    ) : section === 'dlead' ? (
+      <DashLeadership d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} versions={targets} res={cres} ips={db.ips} />
+    ) : section === 'dset' ? (
+      <DashSettings s={ins} set={setIns} me={GSP_USER.name} say={say} />
     ) : section === 'targets' ? (
       <Targets names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
     ) : section === 'commlines' ? (

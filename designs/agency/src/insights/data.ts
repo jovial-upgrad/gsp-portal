@@ -33,7 +33,7 @@ export type RepApp = {
   intake: string;
   created: number;
   moves: Move[];
-  end?: { kind: EndKind; at: number };
+  end?: { kind: EndKind; at: number; reason: string };
   /** Documents on the application. */
   docs: number;
 };
@@ -185,6 +185,18 @@ export function sampleReporting(seed = 18_11_2026): Reporting {
   return { rps, students, apps: apps.sort((a, b) => b.created - a.created), users, queues, regions };
 }
 
+/** Why applications close, by how they close (sample records, as Admissions writes them). */
+const CLOSE_REASONS: Partial<Record<EndKind, string[]>> = {
+  'University rejected': ['Academic requirements not met', 'English requirement not met', 'Course full', 'Gap in studies', 'Previous visa refusal'],
+  'Rejected by university': ['Genuine student concerns', 'Financial capacity not shown', 'Interview not passed'],
+  'Refused after assessment': ['Genuine student concerns', 'Interview not passed'],
+  'Not eligible': ['Academic requirements not met', 'English requirement not met', 'Age or gap in studies'],
+  'Visa refused': ['Genuine student', 'Financial capacity', 'Ties to home country', 'Document authenticity'],
+  'Student withdrawn': ['Chose another university', 'Personal reasons', 'Financial reasons', 'No response from student'],
+  'Offer declined': ['Chose another offer', 'Scholarship too low', 'Fees too high'],
+  'Deferred': ['Next intake', 'Visa timing'],
+};
+
 /** The main path an application takes, each step with the chance it happens and the days it takes (sample). */
 const PATH: [StatusKey, number, number, number][] = [
   ['checking', 0.86, 1, 6],
@@ -214,17 +226,20 @@ function journey(r: () => number, created: number, start: string, today: number,
         const kinds = s === 'startdate' ? (['Visa refused'] as EndKind[]) : CLOSE_AT[stage];
         const endAt = Math.min(today, next);
         const kind = kinds[Math.floor(r() * kinds.length)];
+        const why = CLOSE_REASONS[kind] ?? ['Other'];
         moves.push({ s: 'closed', at: endAt });
-        return { moves, end: { kind, at: endAt } };
+        return { moves, end: { kind, at: endAt, reason: why[Math.floor(r() * why.length)] } };
       }
       return { moves };
     }
     // some offers go through an assessment or interview first (the Interview tracker's)
-    if (s === 'uol' && r() < 0.12) {
+    if (s === 'uol' && r() < 0.18) {
       const iv = at + (2 + r() * 10) * DAY;
       if (iv > today) return { moves };
       moves.push({ s: 'interview', at: iv });
       at = iv;
+      // a recent interview is often still waiting for its outcome
+      if (today - iv < 25 * DAY && r() < 0.6) return { moves };
       next = Math.max(next, iv + 3 * DAY);
       if (next > today) return { moves };
     }

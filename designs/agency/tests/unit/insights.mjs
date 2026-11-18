@@ -48,6 +48,17 @@ try {
   const vs = t.sampleTargets(d, ['Navitas']);
   ok('one target version is current', vs.filter((v) => v.current).length === 1 && vs.every((v) => v.rows.length > 0));
   ok('a quarter target is found for its months', t.targetFor(vs.find((v) => v.current), 'BDM', 'Harsh', 'enrolled', ['2026-10', '2026-11', '2026-12']) === 34);
+  // rounds 2–5: durations, forecast rates, financial year
+  const lo = m.between(d.apps, 'lodged', 'conditions');
+  ok('time between steps: median ≤ 90th percentile, from applications with both dates', lo.n > 0 && lo.median <= lo.p90);
+  const rates = m.stageRates(d.apps, s, now);
+  ok('conversion to enrolment never falls as an application moves on', s.milestones.every((x, i) => !i || rates.get(x.key) >= rates.get(s.milestones[i - 1].key) - 1e-9), [...rates.values()].map((x) => x.toFixed(2)).join());
+  ok('an enrolled application converts at 100%', rates.get('enrolled') === 1);
+  const fy = m.fyOf('2026-11', 4), fy2 = m.fyOf('2027-02', 4), fy3 = m.fyOf('2026-04', 4);
+  ok('financial year April–March: Nov 26 is FY27 OND, Feb 27 FY27 JFM, Apr 26 FY27 AMJ', fy.fy === 'FY27' && fy.q === 'OND' && fy2.fy === 'FY27' && fy2.q === 'JFM' && fy3.fy === 'FY27' && fy3.q === 'AMJ');
+  ok('the financial year has 12 months, April first', m.fyMonths(2027, 4).length === 12 && m.fyMonths(2027, 4)[0] === '2026-04' && m.fyMonths(2027, 4)[11] === '2027-03');
+  ok('some applications are in assessment or interview now (Interview tracker)', d.apps.some((a) => !a.end && a.moves.at(-1).s === s.interviewStatus));
+  ok('every rejection has a reason', d.apps.filter((a) => a.end && s.rejectKinds.includes(a.end.kind)).every((a) => !!a.end.reason));
   // hard-coded scan: no options written by hand, no milestone statuses compared in the pages
   const { readdirSync, readFileSync } = await import('node:fs');
   const dir = new URL('../../src/insights/', import.meta.url);
