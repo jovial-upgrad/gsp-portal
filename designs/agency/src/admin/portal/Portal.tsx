@@ -32,7 +32,14 @@ import { TeamHome } from '../../institution/records/Home';
 import { Universities } from '../../institution/records/Universities';
 import { Catalogue } from '../../institution/records/Catalogue';
 import { InstitutionPartners } from '../../institution/records/InstitutionPartners';
-import { RecruitmentPartners } from '../../institution/records/RecruitmentPartners';
+// 18 Nov (Jovial): RP Ops' Recruitment partners and Master Partners, as GSP · Finance and Nesil's GSP · Admin have them
+import { RecruitmentPartners } from '../../rpops/records/RecruitmentPartners';
+import { MasterPartners } from '../../rpops/records/MasterPartners';
+import { sampleOps, type OpsRp } from '../../rpops/records/data';
+import { sampleMps, type MasterPartner } from '../../rpops/records/masters';
+import type { OpsFocus, OpsTarget } from '../../rpops/records/parts';
+import { nowIso, todayIso } from '../../institution/data/records';
+import '../../rpops/records/rpops.css';
 import { Announcements } from '../../institution/records/Announcements';
 import { AccountPage } from '../../institution/records/Account';
 import { Toast } from '../../institution/records/parts';
@@ -118,6 +125,9 @@ export function Portal({
   // the records the team keeps; its changes stay in this portal
   const [db, setDb] = useState(sampleDb);
   const [focus, setFocus] = useState<Focus | null>(null);
+  const [rps, setRps] = useState<OpsRp[]>(sampleOps);
+  const [mps, setMps] = useState<MasterPartner[]>(sampleMps);
+  const [opsFocus, setOpsFocus] = useState<OpsFocus | null>(null);
   const [msg, setMsg] = useState<{ text: string; key: number } | null>(null);
   const say = (text: string) => setMsg({ text, key: Date.now() });
   // what GSP Admin configures, with its log
@@ -195,9 +205,28 @@ export function Portal({
     else go(t.page === 'profile' ? 'profile' : 'home');
   };
   const openRecord = (t: Target) => {
+    // an RP opened from Home or another record opens RP Ops' page for it (18 Nov)
+    if (t.section === 'rps') return openOps({ section: 'rps', id: t.id, tab: t.tab });
     setSection(t.section);
     setFocus({ ...t, key: Date.now() });
     scrollTop();
+  };
+  // a recruitment partner's page opens its Master Partner, and a Master Partner's its RPs
+  const openOps = (t: OpsTarget) => {
+    setSection(t.section);
+    setOpsFocus({ ...t, key: Date.now() });
+    scrollTop();
+  };
+  /** Link an RP to a Master Partner, or unlink it (null): the RP's Logs and both Master Partners' Logs say so. */
+  const link = (rpId: string, mpId: string | null) => {
+    const r = rps.find((x) => x.id === rpId);
+    if (!r || (r.mp ?? null) === mpId) return;
+    const was = mps.find((m) => m.id === r.mp);
+    const to = mps.find((m) => m.id === mpId);
+    const me = GSP_USER.name;
+    const at = nowIso();
+    setRps((l) => l.map((x) => (x.id === rpId ? { ...x, mp: mpId ?? undefined, mpSince: mpId ? todayIso() : undefined, log: [...x.log, { at: Date.now(), what: to ? `Linked to ${to.name} (Master Partner) by ${me}` : `Unlinked from ${was?.name ?? 'its Master Partner'} by ${me}` }] } : x)));
+    setMps((l) => l.map((m) => (m.id === mpId || m.id === was?.id ? { ...m, last: { by: me, at }, log: [...m.log, { id: `mpl-${Date.now()}-${m.id}`, at, by: me, part: 'rps', what: `${m.id === mpId ? 'Linked' : 'Unlinked'} ${r.name} (${r.code})` }] } : m)));
   };
   const initials = GSP_USER.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
   const org = `${GSP_USER.org} · ${GSP_USER.role}`;
@@ -282,6 +311,7 @@ export function Portal({
     </nav>
   );
 
+  const records = { focus: opsFocus?.section === section ? opsFocus : null, navKey, open: openOps, say, scrollTop, me: GSP_USER.name };
   const page: PageProps = { db, set: setDb, focus: focus?.section === section ? focus : null, navKey, open: openRecord, say, scrollTop, me: GSP_USER.name };
   const content =
     section === 'home' ? (
@@ -346,6 +376,8 @@ export function Portal({
       <Catalogue {...page} />
     ) : section === 'ips' ? (
       <InstitutionPartners {...page} appsByUni={appsByUni} />
+    ) : section === 'mps' ? (
+      <MasterPartners mps={mps} setMps={setMps} rps={rps} link={link} {...records} />
     ) : section === 'announcements' ? (
       <Announcements {...page} />
     ) : section === 'commlines' ? (
@@ -353,7 +385,7 @@ export function Portal({
     ) : CONFIG.includes(section as ConfigSection) ? (
       <ConfigPage section={section as ConfigSection} cfg={cfg} setCfg={setCfg} me={GSP_USER.name} say={say} courses={db.courses} />
     ) : (
-      <RecruitmentPartners {...page} />
+      <RecruitmentPartners rps={rps} setRps={setRps} mps={mps} link={link} {...records} />
     );
 
   return (

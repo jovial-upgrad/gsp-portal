@@ -455,6 +455,8 @@ GSP Team members a GSP admin gives access to act for the institutions: they coll
 
 - [x] Jovial, 17 Nov (engineering asked what the second variable on the BDM follow-up task is): each **Sales Region** names its **Recruitment queue**, like its Admission queue. RP tasks (T37) go to that queue, then to the RP's BDM; a region with none set uses Rest of world Recruitment; a renamed queue keeps its regions. REGRESSION R147. (17 Nov, branch region-recruitment-queue)
 
+- [x] Jovial, 18 Nov: GSP · Admin shows **Master Partners** (and RP Ops' Recruitment Partners page, which links them), as in Nesil's build 37. REGRESSION R148. (18 Nov, branch admin-mps)
+
 ## RP Ops
 
 - [x] Nesil, 4 Nov: **a new role, RP Ops**, with GSP · Institution's **Applications**, **Students**, **Course search** and **Recruitment partners**. (4 Nov, commit “RP Ops: a fifth role, with GSP · Institution’s Applications, Students, Course search and Recruitment partners”)
