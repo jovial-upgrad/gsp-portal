@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { PageHead } from '../institution/records/parts';
 import type { Reporting, RepApp } from './data';
-import { applyFilters, convRow, daysSince, expected, fyOf, groupBy, intakeText, isLive, lastChange, milestoneOf, msOf, pct, rate, regionalManagers, series, stageRates, uniOf, type Filters, type Grain, type InsightSettings } from './metrics';
+import { reachedAt, applyFilters, convRow, daysSince, expected, fyOf, groupBy, intakeText, isLive, lastChange, milestoneOf, msOf, pct, rate, regionalManagers, series, stageRates, uniOf, type Filters, type Grain, type InsightSettings } from './metrics';
 import { targetFor, type TargetVersion } from './targets';
+import type { CourseRec } from '../institution/data/catalogue';
+import type { BdmRow } from '../admin/data/config';
 import { Card, CsvButton, Drill, FilterBar, Num, Seg, Stat, Table, Tabs, TimeBars, useDrill, type Col } from './parts';
 
 type Tab = 'tracker' | 'rps' | 'earn' | 'conv' | 'gen' | 'rpview';
@@ -16,7 +18,7 @@ const TABS: [Tab, string][] = [
 ];
 
 /** Sales dashboards (round 3, 18 Nov): targets by regional manager and BDM, RP activity, incentives, conversions and app generation. */
-export function Sales({ d, s, f, setF, now, target }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; target?: TargetVersion }) {
+export function Sales({ d, s, f, setF, now, target, courses, bdmRows }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; target?: TargetVersion; courses: CourseRec[]; bdmRows: BdmRow[] }) {
   const [tab, setTab] = useState<Tab>('tracker');
   const apps = useMemo(() => applyFilters(d, f), [d, f]);
   const { drill, open, close } = useDrill();
@@ -26,7 +28,7 @@ export function Sales({ d, s, f, setF, now, target }: { d: Reporting; s: Insight
       <PageHead title="Sales" lead="How each regional manager, BDM and RP is doing against target, and what's still to come. Every number opens the students behind it." />
       <FilterBar d={d} f={f} set={setF} />
       <Tabs label="Sales dashboards" value={tab} items={TABS} onPick={setTab} />
-      {tab === 'tracker' && <Tracker d={d} apps={apps} s={s} f={f} now={now} n={n} open={open} target={target} />}
+      {tab === 'tracker' && <Tracker d={d} apps={apps} s={s} f={f} now={now} n={n} open={open} target={target} courses={courses} bdmRows={bdmRows} />}
       {tab === 'rps' && <RpTracker d={d} apps={apps} s={s} now={now} n={n} open={open} />}
       {tab === 'earn' && <Earn d={d} apps={apps} all={d.apps} s={s} now={now} n={n} open={open} target={target} />}
       {tab === 'conv' && <Conversions d={d} apps={apps} s={s} n={n} open={open} />}
@@ -41,11 +43,26 @@ type O = (t: string, a: RepApp[]) => void;
 const num = (x: number | null) => (x === null ? '—' : x.toLocaleString('en-GB', { maximumFractionDigits: 1 }));
 
 /* Sales tracker: regional manager → BDM, actuals against the current targets */
-function Tracker({ d, apps, s, f, now, n, open, target }: { d: Reporting; apps: RepApp[]; s: InsightSettings; f: Filters; now: number; n: N; open: O; target?: TargetVersion }) {
+function Tracker({ d, apps, s, f, now, n, open, target, courses, bdmRows }: { d: Reporting; apps: RepApp[]; s: InsightSettings; f: Filters; now: number; n: N; open: O; target?: TargetVersion; courses: CourseRec[]; bdmRows: BdmRow[] }) {
   const months = f.intake.length ? f.intake : undefined;
   // days left: to the deposit deadline of the intake picked, else to the end of this financial quarter
   const today = new Date(now).toISOString().slice(0, 10);
-  const dl = months?.length === 1 ? s.depositDeadlines.find((x) => x.intake === months[0])?.date : undefined;
+  // Jovial, 18 Nov: the deposit deadline comes from the course intakes themselves (Course › Intakes: deposit date):
+  // the earliest still ahead among the filtered applications' courses for the intake picked
+  const monthKey = (m: string) => {
+    const x = new Date(`1 ${m}`);
+    return isNaN(x.getTime()) ? m : `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`;
+  };
+  const used = new Set(apps.map((a) => a.course));
+  const dl =
+    months?.length === 1
+      ? courses
+          .filter((c) => used.has(c.id))
+          .flatMap((c) => Object.entries(c.dates ?? {}).filter(([m, x]) => monthKey(m) === months[0] && !!x.deposit && x.deposit >= today).map(([, x]) => x.deposit))
+          .sort()[0]
+      : undefined;
+  // the BDM's own cities (Admin › Recruitment › BDM assignment; a row with no city covers its states, or its country)
+  const citiesOf = (bdm: string) => [...new Set(bdmRows.filter((r) => r.bdm && (bdm === r.bdm || bdm.startsWith(`${r.bdm} `))).map((r) => r.city || r.state || r.country))].join(', ');
   const qEnd = (() => {
     const dd = new Date(now);
     const m = dd.getMonth();
@@ -55,13 +72,13 @@ function Tracker({ d, apps, s, f, now, n, open, target }: { d: Reporting; apps: 
   const until = dl ?? qEnd;
   const days = Math.max(1, Math.ceil((new Date(`${until}T23:59:00`).getTime() - now) / 86_400_000));
   const KEYS = ['submitted', 'offer', 'deposit', 'enroldoc', 'enrolled'] as const;
-  const rms = regionalManagers(d.queues, d.users);
+  const rms = regionalManagers(d.queues, d.users, d.regions);
   const rmOf = (bdm: string) => [...rms.entries()].find(([, p]) => p.has(bdm))?.[0] ?? '';
   const byBdm = [...groupBy(apps, (a) => a.bdm).entries()].map(([bdm, l]) => {
     const c = convRow(l, s);
     const got: Record<string, RepApp[]> = { submitted: c.submitted, offer: c.offers, deposit: c.deposits, enroldoc: c.enroldoc, enrolled: c.enrolled };
     const tg = Object.fromEntries(KEYS.map((k) => [k, targetFor(target, 'BDM', bdm, k, months)]));
-    return { bdm, rm: rmOf(bdm), region: l[0].region, city: d.rps.find((x) => x.id === l[0].rp)?.city ?? '', l, got, tg };
+    return { bdm, rm: rmOf(bdm), region: l[0].region, city: citiesOf(bdm), l, got, tg };
   });
   // a regional manager's row adds up their BDMs
   const gm = new Map<string, typeof byBdm>();
@@ -86,12 +103,12 @@ function Tracker({ d, apps, s, f, now, n, open, target }: { d: Reporting; apps: 
     { h: 'Regional manager / BDM', v: (r) => (r.head ? <strong>{r.label}</strong> : <span style={{ paddingLeft: 16 }}>{r.label}</span>) },
     { h: 'City', v: (r) => (r.head ? '' : r.city) },
     { h: 'Applications', n: true, v: (r) => n(r.l, `${r.label}: applications`), csv: (r) => r.l.length },
-    ...col('submitted', 'Submitted'),
-    ...col('offer', 'Offers'),
-    ...col('deposit', 'Deposits'),
-    { h: 'CoE / CAS', n: true, v: (r) => n(r.got.enroldoc, `${r.label}: CoE/CAS`), csv: (r) => r.got.enroldoc.length },
-    { h: 'Enrolled', n: true, v: (r) => n(r.got.enrolled, `${r.label}: enrolled`), csv: (r) => r.got.enrolled.length },
-    { h: 'Enrolment target', n: true, v: (r) => num(r.tg.enrolled) },
+    ...col('submitted', msOf(s, 'submitted').label),
+    ...col('offer', msOf(s, 'offer').label),
+    ...col('deposit', msOf(s, 'deposit').label),
+    { h: msOf(s, 'enroldoc').label, n: true, v: (r) => n(r.got.enroldoc, `${r.label}: ${msOf(s, 'enroldoc').label}`), csv: (r) => r.got.enroldoc.length },
+    { h: msOf(s, 'enrolled').label, n: true, v: (r) => n(r.got.enrolled, `${r.label}: ${msOf(s, 'enrolled').label}`), csv: (r) => r.got.enrolled.length },
+    { h: `${msOf(s, 'enrolled').label} target`, n: true, v: (r) => num(r.tg.enrolled) },
   ];
   const top = (k: (typeof KEYS)[number]) => {
     const got = byBdm.flatMap((x) => x.got[k]);
@@ -101,19 +118,11 @@ function Tracker({ d, apps, s, f, now, n, open, target }: { d: Reporting; apps: 
   return (
     <>
       <div className="ins-stats">
-        {(
-          [
-            ['submitted', 'Submitted vs target'],
-            ['offer', 'Offers vs target'],
-            ['deposit', 'Deposits vs target'],
-            ['enroldoc', 'CoE / CAS vs target'],
-            ['enrolled', 'Enrolled vs target'],
-          ] as const
-        ).map(([k, t]) => {
+        {KEYS.map((k) => [k, `${msOf(s, k).label} vs target`] as const).map(([k, t]) => {
           const x = top(k);
           return <Stat key={k} title={t} apps={x.got} count={`${x.got.length.toLocaleString('en-GB')}${x.tg !== null ? ` / ${x.tg.toLocaleString('en-GB')}` : ''}`} sub={x.tg ? `${pct(rate(x.got.length, x.tg))} · need ${num(Math.max(0, x.tg - x.got.length) / days)}/day` : 'No BDM targets for this view'} open={open} />;
         })}
-        <Stat title="Days left" apps={[]} count={String(days)} sub={dl ? `to the deposit deadline, ${intakeText(months![0])} intake` : 'to the end of this quarter'} open={open} />
+        <Stat title="Days left" apps={[]} count={String(days)} sub={dl ? `to the earliest deposit deadline of the ${intakeText(months![0])} intake (its courses' intake dates)` : 'to the end of this quarter'} open={open} />
       </div>
       <Card title="By regional manager and BDM" sub={`Targets: ${target ? `${target.name} (current version)` : 'no current version'}${months ? `, for ${months.map(intakeText).join(', ')}` : ''} · today ${today}`} flush action={<CsvButton name="sales-tracker" rows={rows} cols={cols} />}>
         <Table rows={rows} cols={cols} rowKey={(r) => `${r.head ? 'h' : 'b'}|${r.label}`} />
@@ -184,9 +193,10 @@ function Earn({ d, apps, all, s, now, n, open, target }: { d: Reporting; apps: R
   const money = (x: number) => `${s.incentive.currency} ${Math.round(x).toLocaleString('en-IN')}`;
   const rows = [...groupBy(apps, (a) => (who === 'bdm' ? a.bdm : a.rp)).entries()].map(([k, l]) => {
     const c = convRow(l, s);
-    const got = c.enrolled;
-    const tg = who === 'bdm' ? targetFor(target, 'BDM', k, 'enrolled') : null;
-    const dep = c.deposits.filter((a) => isLive(a));
+    // Jovial, 18 Nov: an admission is the setting's checkpoint; the in-hand pipeline is a live deposit not yet admitted
+    const got = l.filter((a) => reachedAt(a, adm.status) !== undefined);
+    const tg = who === 'bdm' ? targetFor(target, 'BDM', k, s.incentive.milestone) : null;
+    const dep = c.deposits.filter((a) => isLive(a) && reachedAt(a, adm.status) === undefined);
     const trend = expected(l.filter(isLive), s, rates);
     return { k, label: who === 'bdm' ? k : rpName.get(k) ?? k, l, got, tg, dep, trend };
   }).sort((a, b) => (b.tg ?? 0) - (a.tg ?? 0) || b.l.length - a.l.length);
@@ -203,7 +213,7 @@ function Earn({ d, apps, all, s, now, n, open, target }: { d: Reporting; apps: R
           { h: 'Potential (gap)', n: true, v: (r) => (r.tg === null ? '—' : money(Math.max(0, r.tg - r.got.length) * amt)) },
         ] as Col<R>[])
       : []),
-    { h: 'Deposited, not enrolled', n: true, v: (r) => n(r.dep, `${r.label}: deposited, not enrolled`), csv: (r) => r.dep.length },
+    { h: `${msOf(s, 'deposit').label}, not yet ${adm.label}`, n: true, v: (r) => n(r.dep, `${r.label}: deposited, not yet admitted`), csv: (r) => r.dep.length },
     { h: 'Pipeline', n: true, v: (r) => money(r.dep.length * amt) },
     { h: 'Trend admissions', n: true, v: (r) => num(r.trend) },
     { h: 'At trend', n: true, v: (r) => money(r.trend * amt) },
@@ -218,7 +228,7 @@ function Earn({ d, apps, all, s, now, n, open, target }: { d: Reporting; apps: R
         <div className="ins-stats">
           <Stat title="Earned" apps={rows.flatMap((r) => r.got)} count={money(earned * amt)} sub={`${earned} admissions`} open={open} />
           {who === 'bdm' && <Stat title="Potential to earn" apps={[]} count={money(gapAll * amt)} sub="Target − earned, summed per BDM" open={open} />}
-          <Stat title="In-hand pipeline" apps={pipe} count={money(pipe.length * amt)} sub={`${pipe.length} deposited, not yet enrolled`} open={open} />
+          <Stat title="In-hand pipeline" apps={pipe} count={money(pipe.length * amt)} sub={`${pipe.length} deposited, not yet ${adm.label}`} open={open} />
           <Stat title="At current trend" apps={[]} count={money(trend * amt)} sub={`≈ ${Math.round(trend)} more admissions expected`} open={open} />
         </div>
       </Card>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { EditOnly, ViewOnlyProvider, useHides, useShows, useViewOnly } from '../../proto/viewOnly';
 import { AppCommissionTab } from '../../finance/commission/tabs';
 import { useCommFiles } from '../../finance/commission/store';
+import { OTHER_REASON, sampleCloseReasons } from '../../admin/data/config';
 import { FeeRows } from '../../finance/commission/AppFees';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -214,7 +215,7 @@ export function AppDetail({
   // (before the visa's needs are worked out), and the letter GSP uploaded, into Documents
   const changeStatus = (pick: StatusPick) => {
     setChanging(false);
-    if ('end' in pick) return close(pick.end, '', pick.stage);
+    if ('end' in pick) return close(pick.end, pick.reason, pick.stage);
     const { k, ref, noRef, letter, visaBy } = pick;
     const now = Date.now();
     const from = statusText(a);
@@ -1123,17 +1124,19 @@ function Activity({ a, agency }: { a: Application; agency: string }) {
 
 /* ---------- withdrawing ---------- */
 
-const REASONS = ['The student chose another offer', 'The student is deferring to a later intake', 'The student isn’t going to study abroad', 'Another reason'];
+// Jovial, 18 Nov: the Student withdrawn reasons from Admin's Closing reasons, then Other
+const withdrawReasons = () => [...(sampleCloseReasons().find((x) => x.kind === 'Student withdrawn')?.reasons ?? []), OTHER_REASON];
 
 function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boolean; a: Application; s: Student; agency: string; onCancel: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState(REASONS[0]);
+  const reasons = withdrawReasons();
+  const [reason, setReason] = useState(reasons[0]);
   const c = courseOf(a);
   return (
     <ConfirmDialog open={open} title={`Withdraw ${s.first}’s application to ${c.uni.name}?`} confirm="Withdraw" cancel="Keep it" onCancel={onCancel} onConfirm={() => onConfirm(reason)}>
       <p>Tell {c.uni.name} by mail; the application closes here and for {agency}, with the reason. {s.first}’s documents stay on the profile for other applications.</p>
       <fieldset className="wreasons">
         <legend className="wreasons__legend">Why?</legend>
-        {REASONS.map((r) => (
+        {reasons.map((r) => (
           <label key={r} className="wreason">
             <input type="radio" name="wreason" value={r} checked={reason === r} onChange={() => setReason(r)} />
             <span>{r}</span>

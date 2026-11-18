@@ -4,7 +4,8 @@ import { Sheet } from '../../components/Sheet';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Icon } from '../../components/Icon';
-import { Checkbox, Field, TextInput } from '../../components/forms';
+import { Checkbox, Field, SelectInput, TextInput } from '../../components/forms';
+import { OTHER_REASON, sampleCloseReasons } from '../../admin/data/config';
 import { SelectMenu, type MenuOption } from '../../components/SelectMenu';
 import { CLOSE_AT, STAGES, STATUS, STATUS_NEEDS, STATUS_ORDER, courseOf, destOf, letterFor, letterOnFile, stageOf, statusText, type Application, type EndKind, type StatusKey } from '../../data/applications';
 import './applications.css';
@@ -16,7 +17,7 @@ import './applications.css';
  */
 export type StatusPick =
   | { k: StatusKey; ref?: string; noRef?: boolean; letter?: { name: string; file: string }; visaBy?: 'you' | 'gsp' }
-  | { end: EndKind; stage: number };
+  | { end: EndKind; stage: number; reason: string };
 
 export { letterFor };
 
@@ -44,6 +45,17 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
   const [k, setK] = useState<string>(a.status);
   const [tried, setTried] = useState(false);
   const [closing, setClosing] = useState<{ end: EndKind; stage: number } | null>(null);
+  // Jovial, 18 Nov: every way of closing asks why, from Admin's Closing reasons (and Other, with words)
+  const [why, setWhy] = useState('');
+  const [whyOther, setWhyOther] = useState('');
+  const [whyTried, setWhyTried] = useState(false);
+  useEffect(() => {
+    setWhy('');
+    setWhyOther('');
+    setWhyTried(false);
+  }, [closing]);
+  const reasonsFor = (k: EndKind) => [...(sampleCloseReasons().find((x) => x.kind === k)?.reasons ?? []), OTHER_REASON];
+  const reason = why === OTHER_REASON ? whyOther.trim() : why;
   const [ref, setRef] = useState('');
   const [noRef, setNoRef] = useState(false);
   const [file, setFile] = useState<{ name: string; size: number } | null>(null);
@@ -222,7 +234,9 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
         confirm="Close application"
         onCancel={() => setClosing(null)}
         onConfirm={() => {
-          if (closing) onConfirm(closing);
+          setWhyTried(true);
+          if (!closing || !reason) return;
+          onConfirm({ ...closing, reason });
           setClosing(null);
         }}
       >
@@ -230,6 +244,24 @@ export function StatusDialog({ open, a, onCancel, onConfirm }: { open: boolean; 
           <p>
             It closes as <strong>{closing.end.toLowerCase()}</strong>, at {STAGES[closing.stage]}. GSP and the RP both see it closed, and what’s still asked for goes.
           </p>
+        )}
+        {closing && (
+          <div className="iform__grid">
+            <Field id="close-why" label="Why" required error={whyTried && !why ? 'Choose why it closed.' : null} className="iform__wide">
+              <SelectInput id="close-why" value={why} placeholder="Choose the reason" invalid={whyTried && !why} onChange={(e) => setWhy(e.target.value)}>
+                {reasonsFor(closing.end).map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            {why === OTHER_REASON && (
+              <Field id="close-why-other" label="In a few words" required error={whyTried && !whyOther.trim() ? 'Say why it closed.' : null} className="iform__wide">
+                <TextInput id="close-why-other" value={whyOther} invalid={whyTried && !whyOther.trim()} onChange={(e) => setWhyOther(e.target.value)} />
+              </Field>
+            )}
+          </div>
         )}
       </ConfirmDialog>
     </>

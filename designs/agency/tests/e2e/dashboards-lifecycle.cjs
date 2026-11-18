@@ -1,0 +1,52 @@
+// Jovial, 18 Nov: the dashboards use the lifecycle's names, Regional managers come from Recruitment queues, Top
+// universities has Show all, the chase lists name the RP counsellor, Dashboard settings has no Stages, Outcomes or
+// deposit deadlines, Admin has Closing reasons, and the Leadership pack downloads; no page errors.
+const { chromium } = require('playwright');
+const URL = process.env.GSP_URL || require('url').pathToFileURL(require('path').resolve(__dirname, '../../dist-artifact/gsp-partner-portal.html')).href;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let pass = 0, fail = 0;
+const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') + m); };
+const SHOTS = process.env.SHOTS;
+(async () => {
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+  await ctx.addInitScript(() => { try { if (!sessionStorage.getItem('init')) { localStorage.clear(); localStorage.setItem('gsp-proto-role', 'gsp-admin'); localStorage.setItem('gsp-theme', 'light'); localStorage.setItem('gsp-proto-link', JSON.stringify({ mode: 'off', app: '' })); sessionStorage.setItem('init', '1'); } } catch {} });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  const go = async (label, g = 'Dashboards') => { await p.locator('.pnav__group', { hasText: g }).first().click(); await wait(300); await p.locator('.pfly__item', { hasText: new RegExp('^\\s*' + label + '\\s*$') }).first().click(); await wait(1200); };
+  const shot = async (n) => SHOTS && p.screenshot({ path: `${SHOTS}/${n}.png`, fullPage: true });
+  await p.goto(URL + '#home'); await wait(1500);
+  await go('Overview');
+  const ov = await p.locator('main').innerText();
+  ok(/Payment proof under review/.test(ov) && /Student enrolled/.test(ov), 'Overview tiles use the application’s status names');
+  ok(/Pre-screening|Application|Acceptance/.test(ov), 'Where applications are stuck uses the lifecycle stages');
+  await p.getByRole('button', { name: 'Show all' }).first().click(); await wait(500);
+  ok(/page 1 of/.test(await p.locator('main').innerText()), 'Top universities: Show all, paged');
+  await shot('overview');
+  await go('Admissions');
+  await p.locator('main [role=tab]', { hasText: /^Pipeline/ }).first().click(); await wait(800);
+  const pl = await p.locator('main').innerText();
+  ok(/RP counsellor/.test(pl), 'who to chase names the RP counsellor');
+  await shot('pipeline');
+  await p.locator('main [role=tab]', { hasText: /Deposit → visa/ }).first().click(); await wait(800);
+  ok(/Closed after deposit/.test(await p.locator('main').innerText()), 'Deposit → visa: Closed after deposit');
+  await shot('visa');
+  await go('Sales'); await shot('sales');
+  ok(!/Deposit deadlines/.test(await p.locator('main').innerText()), 'Sales tracker');
+  await go('Dashboard settings');
+  const st = await p.locator('main').innerText();
+  ok(!/Outcomes|Deposit deadlines|The names the dashboards give each stage/.test(st), 'settings: no Stages, Outcomes or deposit deadlines');
+  ok((await p.locator('select#ds-cur').count()) === 1, 'incentive currency is a dropdown');
+  await go('Closing Reasons', 'Application Configuration');
+  ok(/Student withdrawn/.test(await p.locator('main').innerText()), 'Admin › Closing reasons lists every way of closing');
+  await go('Leadership');
+  const dl = p.waitForEvent('download', { timeout: 10000 }).catch(() => null);
+  await p.getByRole('button', { name: 'Download the pack' }).click();
+  const f = await dl;
+  ok(!!f, 'the Leadership pack downloads');
+  if (f && process.env.PACK) await f.saveAs(process.env.PACK);
+  await shot('leadership');
+  ok(!errs.length, `no page errors ${errs.join(' | ')}`);
+  await b.close();
+  console.log(`${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+})();

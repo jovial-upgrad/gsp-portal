@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../components/Button';
 import { Field, SelectInput, TextInput } from '../components/forms';
-import { MultiPick } from '../components/MultiPick';
 import { PageHead } from '../institution/records/parts';
-import { CLOSE_AT, type EndKind } from '../data/applications';
 import type { InsightSettings } from './metrics';
 import { Card } from './parts';
 
-const ENDS = [...new Set(CLOSE_AT.flat())] as EndKind[];
 const nums = (t: string) => t.split(/[,\s]+/).filter(Boolean).map(Number);
 const okNums = (t: string, min = 0) => nums(t).length > 0 && nums(t).every((x, i, l) => Number.isFinite(x) && x >= min && (!i || x > l[i - 1]));
 
 /**
- * Admin › Dashboards › Settings (Jovial, 18 Nov): what every dashboard counts with: idle days, age buckets, which
- * closed outcomes are Drop or a rejection, the financial year, the incentive, thresholds and deposit deadlines.
+ * Admin › Dashboards › Settings (Jovial, 18 Nov): what every dashboard counts with: idle days, age buckets, the
+ * financial year, the incentive and thresholds. Jovial, 18 Nov (later): no Stages (the lifecycle's names are used), no
+ * Outcomes (Drop = closed; a rejection is marked on Admin's Closing reasons), no deposit deadlines (each course
+ * intake has its own), and the incentive currency is picked from Currency exchange.
  */
-export function DashSettings({ s, set, me, say }: { s: InsightSettings; set: (s: InsightSettings) => void; me: string; say: (t: string) => void }) {
+export function DashSettings({ s, set, me, say, currencies }: { s: InsightSettings; set: (s: InsightSettings) => void; me: string; say: (t: string) => void; currencies: string[] }) {
   const [v, setV] = useState(() => draft(s));
   const [tried, setTried] = useState(false);
   useEffect(() => setV(draft(s)), [s]);
@@ -26,12 +25,9 @@ export function DashSettings({ s, set, me, say }: { s: InsightSettings; set: (s:
     age: !okNums(v.ageBuckets) || nums(v.ageBuckets)[0] !== 0 ? 'Start at 0, then each bucket’s first day, like 0, 3, 6, 11.' : null,
     ar: !okNums(v.arBuckets, 1) ? 'Days, smallest first, like 30, 60, 90.' : null,
     dl: !okNums(v.deadlineWindows, 1) ? 'Days, smallest first, like 7, 15, 30.' : null,
-    drop: !v.dropKinds.length ? 'Pick at least one.' : null,
-    rej: !v.rejectKinds.length ? 'Pick at least one.' : null,
     amt: !(+v.amount >= 0) ? 'A number.' : null,
     prio: !(+v.priorityTarget >= 0 && +v.priorityTarget <= 100) ? '0 to 100.' : null,
     months: !(+v.analysisMonths >= 1) || !(+v.forecastMonths >= 1) ? 'At least 1 month.' : null,
-    deadlines: v.depositDeadlines.some((x) => !/^\d{4}-\d{2}$/.test(x.intake) || !/^\d{4}-\d{2}-\d{2}$/.test(x.date)) ? 'Each needs a month (2027-02) and a date.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const save = () => {
@@ -44,8 +40,6 @@ export function DashSettings({ s, set, me, say }: { s: InsightSettings; set: (s:
       ageBuckets: nums(v.ageBuckets),
       arBuckets: nums(v.arBuckets),
       deadlineWindows: nums(v.deadlineWindows),
-      dropKinds: v.dropKinds as EndKind[],
-      rejectKinds: v.rejectKinds as EndKind[],
       fyStartMonth: +v.fyStartMonth,
       incentive: { ...s.incentive, amount: +v.amount, currency: v.currency.trim() || s.incentive.currency, milestone: v.milestone },
       priorityTarget: +v.priorityTarget,
@@ -53,8 +47,6 @@ export function DashSettings({ s, set, me, say }: { s: InsightSettings; set: (s:
       marginPerStudent: +v.marginPerStudent,
       bigRpEnrolments: +v.bigRpEnrolments,
       forecastMonths: +v.forecastMonths,
-      depositDeadlines: v.depositDeadlines,
-      milestones: s.milestones.map((m) => ({ ...m, label: v.labels[m.key]?.trim() || m.label })),
     });
     say(`Dashboard settings saved by ${me}.`);
   };
@@ -83,25 +75,6 @@ export function DashSettings({ s, set, me, say }: { s: InsightSettings; set: (s:
           </Field>
         </div>
       </Card>
-      <Card title="Outcomes" sub="Ramish's Safe / Drop / WIP and Ali's rejection report">
-        <div className="iform__grid">
-          <Field id="ds-drop" label="Closed outcomes that count as Drop" required error={show('drop')} className="iform__wide">
-            <MultiPick id="ds-drop" label="Drop" value={v.dropKinds} options={ENDS} onChange={put('dropKinds')} empty="None" />
-          </Field>
-          <Field id="ds-rej" label="Closed outcomes that are a rejection" required error={show('rej')} className="iform__wide">
-            <MultiPick id="ds-rej" label="Rejections" value={v.rejectKinds} options={ENDS} onChange={put('rejectKinds')} empty="None" />
-          </Field>
-        </div>
-      </Card>
-      <Card title="Stages" sub="The names the dashboards give each stage">
-        <div className="iform__grid">
-          {s.milestones.map((m) => (
-            <Field key={m.key} id={`ds-m-${m.key}`} label={`Stage ${s.milestones.indexOf(m) + 1}`}>
-              <TextInput id={`ds-m-${m.key}`} value={v.labels[m.key] ?? m.label} onChange={(e) => setV({ ...v, labels: { ...v.labels, [m.key]: e.target.value } })} />
-            </Field>
-          ))}
-        </div>
-      </Card>
       <Card title="Periods, targets and incentives">
         <div className="iform__grid">
           <Field id="ds-fy" label="Financial year starts in">
@@ -120,7 +93,13 @@ export function DashSettings({ s, set, me, say }: { s: InsightSettings; set: (s:
             <TextInput id="ds-amt" inputMode="numeric" value={v.amount} onChange={(e) => put('amount')(e.target.value)} />
           </Field>
           <Field id="ds-cur" label="Incentive currency">
-            <TextInput id="ds-cur" value={v.currency} maxLength={3} onChange={(e) => put('currency')(e.target.value.toUpperCase())} />
+            <SelectInput id="ds-cur" value={v.currency} onChange={(e) => put('currency')(e.target.value)}>
+              {[...new Set([v.currency, ...currencies])].map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </SelectInput>
           </Field>
           <Field id="ds-adm" label="An admission is">
             <SelectInput id="ds-adm" value={v.milestone} onChange={(e) => put('milestone')(e.target.value)}>
@@ -145,24 +124,6 @@ export function DashSettings({ s, set, me, say }: { s: InsightSettings; set: (s:
           </Field>
         </div>
       </Card>
-      <Card title="Deposit deadlines" sub="Per course-start month: the Sales tracker counts the days left to it" action={<Button variant="secondary" size="sm" onClick={() => setV({ ...v, depositDeadlines: [...v.depositDeadlines, { intake: '', date: '' }] })}>Add a deadline</Button>}>
-        <div className="iform__grid">
-          {v.depositDeadlines.map((x, i) => (
-            <div key={i} className="iform__wide" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <Field id={`ds-dd-m-${i}`} label="Course starts (month)">
-                <TextInput id={`ds-dd-m-${i}`} type="month" value={x.intake} onChange={(e) => setV({ ...v, depositDeadlines: v.depositDeadlines.map((y, j) => (j === i ? { ...y, intake: e.target.value } : y)) })} />
-              </Field>
-              <Field id={`ds-dd-d-${i}`} label="Deposit deadline">
-                <TextInput id={`ds-dd-d-${i}`} type="date" value={x.date} onChange={(e) => setV({ ...v, depositDeadlines: v.depositDeadlines.map((y, j) => (j === i ? { ...y, date: e.target.value } : y)) })} />
-              </Field>
-              <Button variant="secondary" size="sm" onClick={() => setV({ ...v, depositDeadlines: v.depositDeadlines.filter((_, j) => j !== i) })}>
-                Remove
-              </Button>
-            </div>
-          ))}
-          {show('deadlines') && <p className="iform__wide ins-gap--bad">{show('deadlines')}</p>}
-        </div>
-      </Card>
     </div>
   );
 }
@@ -173,8 +134,6 @@ function draft(s: InsightSettings) {
     ageBuckets: s.ageBuckets.join(', '),
     arBuckets: s.arBuckets.join(', '),
     deadlineWindows: s.deadlineWindows.join(', '),
-    dropKinds: [...s.dropKinds] as string[],
-    rejectKinds: [...s.rejectKinds] as string[],
     fyStartMonth: String(s.fyStartMonth),
     amount: String(s.incentive.amount),
     currency: s.incentive.currency,
@@ -184,7 +143,5 @@ function draft(s: InsightSettings) {
     marginPerStudent: String(s.marginPerStudent),
     bigRpEnrolments: String(s.bigRpEnrolments),
     forecastMonths: String(s.forecastMonths),
-    depositDeadlines: s.depositDeadlines.map((x) => ({ ...x })),
-    labels: Object.fromEntries(s.milestones.map((m) => [m.key, m.label])) as Record<string, string>,
   };
 }

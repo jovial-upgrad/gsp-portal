@@ -210,7 +210,7 @@ export function Documents({ cfg, change, say }: ConfigProps) {
  * A list of short texts, each changed in place while editing, taken out with × (asked first) or added at the foot:
  * the send-back reasons and the request categories. No icon before each one (Nesil, 4 Nov).
  */
-function TextList({
+export function TextList({
   id,
   title,
   note,

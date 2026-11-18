@@ -1,3 +1,4 @@
+import type { FxWeek } from '../admin/data/config';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../components/Button';
 import { SelectInput } from '../components/forms';
@@ -39,7 +40,9 @@ type Tab = 'pack' | 'country' | 'ip';
  * Leadership (round 5, 18 Nov): Lav's Leadership pack and country report, and Matt's IP views. Periods follow the
  * course start (commencement month), the financial year from the settings. "Download the pack" saves every section.
  */
-export function Leadership({ d, s, f, setF, now, target, versions, res, ips }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; target?: TargetVersion; versions: TargetVersion[]; res: Result; ips: InstitutionPartner[] }) {
+export function Leadership({ d, s, f, setF, now, target, versions, res, ips, fx }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; target?: TargetVersion; versions: TargetVersion[]; res: Result; ips: InstitutionPartner[]; fx: FxWeek[] }) {
+  // Jovial, 18 Nov: every amount in AUD at this week's rates (Admin › Currency exchange), as the Finance tabs
+  const aud = useMemo(() => audOf(fx), [fx]);
   const [tab, setTab] = useState<Tab>('pack');
   const apps = useMemo(() => applyFilters(d, f), [d, f]);
   const { drill, open, close } = useDrill();
@@ -49,8 +52,8 @@ export function Leadership({ d, s, f, setF, now, target, versions, res, ips }: {
       <PageHead title="Leadership" lead="The Leadership pack, a country's report and the IP team's views. Periods follow the course start, in the financial year." />
       <FilterBar d={d} f={f} set={setF} />
       <Tabs label="Leadership dashboards" value={tab} items={[['pack', 'Leadership pack'], ['country', 'Country report'], ['ip', 'IP team']]} onPick={setTab} />
-      {tab === 'pack' && <Pack d={d} apps={apps} s={s} now={now} target={target} res={res} n={n} />}
-      {tab === 'country' && <Country d={d} apps={apps} s={s} now={now} target={target} versions={versions} res={res} n={n} />}
+      {tab === 'pack' && <Pack d={d} apps={apps} s={s} now={now} target={target} res={res} n={n} aud={aud} />}
+      {tab === 'country' && <Country d={d} apps={apps} s={s} now={now} target={target} versions={versions} res={res} n={n} aud={aud} />}
       {tab === 'ip' && <IpTeam apps={apps} s={s} ips={ips} n={n} />}
       <Drill open={!!drill} title={drill?.title ?? ''} apps={drill?.apps ?? []} d={d} s={s} now={now} onClose={close} />
     </div>
@@ -61,7 +64,7 @@ const students = (l: RepApp[]) => new Set(l.map((a) => a.student)).size;
 /** The applications whose course starts in a period. */
 const inP = (l: RepApp[], p: Period) => l.filter((a) => p.months.includes(a.intake));
 
-function Pack({ d, apps, s, now, target, res, n }: { d: Reporting; apps: RepApp[]; s: InsightSettings; now: number; target?: TargetVersion; res: Result; n: N }) {
+function Pack({ d, apps, s, now, target, res, n, aud }: { d: Reporting; apps: RepApp[]; s: InsightSettings; now: number; target?: TargetVersion; res: Result; n: N; aud: Aud }) {
   const thisFy = +fyOf(new Date(now).toISOString().slice(0, 7), s.fyStartMonth).fy.slice(2) + 2000;
   const [fy, setFy] = useState(thisFy);
   const P = periodsOf(fy, s);
@@ -87,7 +90,7 @@ function Pack({ d, apps, s, now, target, res, n }: { d: Reporting; apps: RepApp[
       const t = targetFor(target, 'Destination', k, 'enrolled', p.months);
       return { text: `${l.length}${t !== null ? ` / ${t}` : ''}`, apps: l };
     }, n),
-    rpCos(res, regions, P, s),
+    rpCos(res, regions, P, s, aud),
     matrix('App to enrolment conversion by sales region', 'Unique students: enrolled ÷ applied', 'Sales region', regions, P, (r, p) => {
       const l = inP(by('region', r), p);
       const e = enrolled(l);
@@ -134,13 +137,13 @@ function Pack({ d, apps, s, now, target, res, n }: { d: Reporting; apps: RepApp[
   );
 }
 /** RP COS % by sales region and course start: what RPs earn ÷ what GSP earns, from the commission lines that count. */
-function rpCos(res: Result, regions: string[], P: Period[], s: InsightSettings): Section {
+function rpCos(res: Result, regions: string[], P: Period[], s: InsightSettings, aud: Aud): Section {
   const lines = res.txs.filter((t) => groupOf(t.side, t.status) !== 'none');
   const month = (t: Tx) => intakeMonth(t.intake);
   const cell = (r: string, p: Period) => {
     const l = lines.filter((t) => t.region === r && p.months.includes(month(t)));
-    const uni = l.filter((t) => t.side === 'uni').reduce((a, t) => a + t.amount, 0);
-    const rp = l.filter((t) => t.side === 'rp').reduce((a, t) => a + t.amount, 0);
+    const uni = l.filter((t) => t.side === 'uni').reduce((a, t) => a + aud(t.amount, t.currency), 0);
+    const rp = l.filter((t) => t.side === 'rp').reduce((a, t) => a + aud(t.amount, t.currency), 0);
     return uni ? pct(rp / uni, 0) : '—';
   };
   const head = ['Sales region', ...P.map((p) => p.label)];
@@ -170,7 +173,7 @@ function activeRps(d: Reporting, apps: RepApp[], s: InsightSettings, fy: number)
 }
 
 /* A country's report (Lav's Bangladesh FY27): app generation against targets, forecast, payables, P&L lines */
-function Country({ d, apps, s, now, target, versions, res, n }: { d: Reporting; apps: RepApp[]; s: InsightSettings; now: number; target?: TargetVersion; versions: TargetVersion[]; res: Result; n: N }) {
+function Country({ d, apps, s, now, target, versions, res, n, aud }: { d: Reporting; apps: RepApp[]; s: InsightSettings; now: number; target?: TargetVersion; versions: TargetVersion[]; res: Result; n: N; aud: Aud }) {
   const regions = [...new Set(d.apps.map((a) => a.region))].sort();
   const [region, setRegion] = useState(regions.includes('Bangladesh') ? 'Bangladesh' : regions[0]);
   const [proj, setProj] = useState(versions.find((v) => /projection/i.test(v.name))?.id ?? '');
@@ -226,7 +229,7 @@ function Country({ d, apps, s, now, target, versions, res, n }: { d: Reporting; 
     { k: 'RP commission', f: (t) => t.side === 'rp' },
   ];
   const Q = P.filter((p) => p.months.length === 3);
-  const plCols: Col<L>[] = [{ h: 'Line (currency as booked)', v: (r) => r.k }, ...Q.map((q): Col<L> => ({ h: q.label, n: true, v: (r) => Math.round(lines.filter((t) => r.f(t) && q.months.includes(intakeMonth(t.intake))).reduce((a, t) => a + t.amount, 0)).toLocaleString('en-GB') }))];
+  const plCols: Col<L>[] = [{ h: 'Line (AUD)', v: (r) => r.k }, ...Q.map((q): Col<L> => ({ h: q.label, n: true, v: (r) => Math.round(lines.filter((t) => r.f(t) && q.months.includes(intakeMonth(t.intake))).reduce((a, t) => a + aud(t.amount, t.currency), 0)).toLocaleString('en-GB') }))];
   return (
     <>
       <div className="ins-acts">
@@ -287,4 +290,11 @@ function IpTeam({ apps, s, ips, n }: { apps: RepApp[]; s: InsightSettings; ips: 
       </Card>
     </>
   );
+}
+
+type Aud = (amount: number, currency: string) => number;
+/** An amount in AUD at the week's rates; a currency with no rate counts as nothing and is named, never as 1:1. */
+function audOf(fx: FxWeek[]): Aud {
+  const rows = fx[0]?.rows ?? [];
+  return (amount, cur) => (cur === 'AUD' ? amount : amount * (rows.find((r) => r.code === cur)?.aud ?? 0));
 }

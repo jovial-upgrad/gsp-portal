@@ -27,7 +27,7 @@ export function Finance({ res, comm, fx, s, now, me, say }: { res: Result; comm:
   const [tab, setTab] = useState<Tab>('ar');
   const aud = useMemo(() => {
     const rows = fx[0]?.rows ?? [];
-    return (amount: number, cur: string) => amount * (cur === 'AUD' ? 1 : rows.find((r) => r.code === cur)?.aud ?? 1);
+    return (amount: number, cur: string) => amount * (cur === 'AUD' ? 1 : rows.find((r) => r.code === cur)?.aud ?? 0);
   }, [fx]);
   return (
     <div className="ins">
@@ -251,6 +251,13 @@ function Margins({ res, aud, s, now }: { res: Result; aud: Aud; s: InsightSettin
   const groups = new Map<string, Tx[]>();
   lines.forEach((t) => groups.set(key(t), [...(groups.get(key(t)) ?? []), t]));
   const isBonus = (t: Tx) => !s.directTypes.includes(t.type);
+  const lifeBy = new Map<string, { paid: number; students: number }>();
+  {
+    const paidUni = res.txs.filter((t) => t.side === 'uni' && groupOf(t.side, t.status) === 'paid');
+    const g = new Map<string, Tx[]>();
+    paidUni.forEach((t) => g.set(key(t), [...(g.get(key(t)) ?? []), t]));
+    g.forEach((l, k) => lifeBy.set(k, { paid: l.reduce((a, t) => a + aud(t.amount, t.currency), 0), students: new Set(l.map((t) => t.app)).size }));
+  }
   const rows = [...groups.entries()].map(([k, l]) => {
     const uni = l.filter((t) => t.side === 'uni');
     const rp = l.filter((t) => t.side === 'rp');
@@ -259,7 +266,9 @@ function Margins({ res, aud, s, now }: { res: Result; aud: Aud; s: InsightSettin
     const cos = rp.reduce((a, t) => a + aud(t.amount, t.currency), 0);
     const students = new Set(l.map((t) => t.app)).size;
     const gross = direct + bonus;
-    return { k, direct, bonus, gross, cos, students, margin: gross - cos, ltv: students ? gross / students : 0, perStudent: students ? (gross - cos) / students : 0 };
+    // R161 (Jovial, 18 Nov): lifetime value = commission received (paid University → GSP lines) since the start, per student
+    const life = lifeBy.get(k);
+    return { k, direct, bonus, gross, cos, students, margin: gross - cos, ltv: life && life.students ? life.paid / life.students : 0, perStudent: students ? (gross - cos) / students : 0 };
   }).sort((a, b) => b.gross - a.gross);
   type R = (typeof rows)[number];
   const m = (x: number) => Math.round(x).toLocaleString('en-GB');
@@ -273,7 +282,7 @@ function Margins({ res, aud, s, now }: { res: Result; aud: Aud; s: InsightSettin
     { h: 'RP COS %', n: true, v: (r) => pct(rate(r.cos, r.gross)) },
     { h: 'Margin', n: true, v: (r) => m(r.margin), csv: (r) => Math.round(r.margin) },
     { h: 'Margin %', n: true, v: (r) => pct(rate(r.margin, r.gross)) },
-    { h: 'LTV per student', n: true, v: (r) => m(r.ltv), csv: (r) => Math.round(r.ltv) },
+    { h: 'LTV per student (received, since the start)', n: true, v: (r) => m(r.ltv), csv: (r) => Math.round(r.ltv) },
     { h: 'Margin per student', n: true, v: (r) => <span className={r.perStudent < s.marginPerStudent ? '' : 'cfg__strong'}>{m(r.perStudent)}</span>, csv: (r) => Math.round(r.perStudent) },
   ];
   const good = rows.filter((r) => r.perStudent >= s.marginPerStudent);

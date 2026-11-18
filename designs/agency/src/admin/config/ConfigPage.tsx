@@ -38,6 +38,8 @@ import {
   type RouteRule,
   type RpDocRule,
   type User,
+  sampleCloseReasons,
+  type CloseReasons,
 } from '../data/config';
 import { Regions, Permissions } from './Roles';
 import { QueuesSla, TaskRules } from './Work';
@@ -57,6 +59,7 @@ import { Logs } from './Other';
 import { EnglishEquivalence, GradeConversion } from './Entry';
 import { REJECT_REASONS } from '../../institution/applications/review';
 import { GSP_USER } from '../user';
+import { Closing } from './Closing';
 import './config.css';
 
 /** Everything GSP Admin configures, held by its portal; each change is logged. */
@@ -93,6 +96,8 @@ export type Cfg = {
   grades: GradeSystem[];
   english: EnglishRow[];
   rpDocs: RpDocRule[];
+  /** Why an application closed, per way of closing (Jovial, 18 Nov). */
+  closeReasons: CloseReasons[];
   log: LogEntry[];
 };
 export const sampleCfg = (): Cfg => {
@@ -127,6 +132,7 @@ export const sampleCfg = (): Cfg => {
     grades: sampleGrades(),
     english: sampleEnglish(),
     rpDocs: sampleRpDocs(),
+    closeReasons: sampleCloseReasons(),
     log: sampleLog(),
   };
 };
@@ -174,6 +180,7 @@ export function ConfigPage({ section, cfg, setCfg, me, say, courses }: { section
     english: <EnglishEquivalence {...p} />,
     routing: <Routing {...p} />,
     documents: <Documents {...p} />,
+    closing: <Closing {...p} />,
     logs: <Logs {...p} />,
   };
   return <div className="ipage cfg">{pages[section]}</div>;

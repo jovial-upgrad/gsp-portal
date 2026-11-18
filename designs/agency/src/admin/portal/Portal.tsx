@@ -85,7 +85,7 @@ export type PortalStart = {
   app?: Omit<AppsStart, 'key'>;
 };
 const lensSpring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
-const CONFIG: ConfigSection[] = ['mywork', 'users', 'regions', 'permissions', 'queues', 'tasks', 'emails', 'bdm', 'currency', 'living', 'tags', 'levels', 'grades', 'english', 'routing', 'documents', 'logs'];
+const CONFIG: ConfigSection[] = ['mywork', 'users', 'regions', 'permissions', 'queues', 'tasks', 'emails', 'bdm', 'currency', 'living', 'tags', 'levels', 'grades', 'english', 'routing', 'documents', 'closing', 'logs'];
 const sectionOf = (s?: PortalStart['section']): Section => (!s || s === 'earnings' ? 'home' : s);
 
 export type { Focus };
@@ -412,15 +412,15 @@ export function Portal({
     ) : section === 'dash' ? (
       <Overview d={rep} s={ins} f={dfil} setF={setDfil} now={now} />
     ) : section === 'dadm' ? (
-      <DashAdmissions d={rep} s={ins} f={dfil} setF={setDfil} now={now} terms={comm.terms} groups={comm.groups} courses={db.courses} target={current} />
+      <DashAdmissions d={rep} s={ins} f={dfil} setF={setDfil} now={now} unlocks={cres.unlocks} courses={db.courses} target={current} closeReasons={cfg.closeReasons} />
     ) : section === 'dsales' ? (
-      <DashSales d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} />
+      <DashSales d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} courses={db.courses} bdmRows={cfg.bdm} />
     ) : section === 'dfin' ? (
       <DashFinance res={cres} comm={comm} fx={cfg.fx} s={ins} now={now} me={GSP_USER.name} say={say} />
     ) : section === 'dlead' ? (
-      <DashLeadership d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} versions={targets} res={cres} ips={db.ips} />
+      <DashLeadership d={rep} s={ins} f={dfil} setF={setDfil} now={now} target={current} versions={targets} res={cres} ips={db.ips} fx={cfg.fx} />
     ) : section === 'dset' ? (
-      <DashSettings s={ins} set={setIns} me={GSP_USER.name} say={say} />
+      <DashSettings s={ins} set={setIns} me={GSP_USER.name} say={say} currencies={["AUD", ...(cfg.fx[0]?.rows.map((r) => r.code) ?? [])]} />
     ) : section === 'targets' ? (
       <Targets names={tnames} versions={targets} setVersions={setTargets} me={GSP_USER.name} say={say} />
     ) : section === 'commlines' ? (
