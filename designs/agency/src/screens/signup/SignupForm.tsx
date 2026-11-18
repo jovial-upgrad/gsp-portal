@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Field, Form as SubmitForm, TextInput, describedBy } from '../../components/forms';
 import { CountryCombobox } from '../../components/CountryCombobox';
+import { PhoneInput } from '../../components/PhoneInput';
 import { PasswordInput } from '../../components/PasswordInput';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
@@ -17,8 +18,8 @@ type Props = {
 };
 
 /**
- * Becoming a partner starts small: who you are, the business, its country, the email you'll sign in with and a
- * password. The code to verify the email comes next; the rest of the business details are asked in the portal.
+ * Becoming a partner starts small: who you are (with your mobile number, 14 Nov), the business, its country, the email
+ * you'll sign in with and a password. The code to verify the email comes next; the rest of the business details are asked in the portal.
  */
 export function SignupForm({ s, set, onSubmit, onSignIn }: Props) {
   const reduce = useReducedMotion();
@@ -100,6 +101,19 @@ export function SignupForm({ s, set, onSubmit, onSignIn }: Props) {
               />
             </Field>
           </div>
+          {/* 14 Nov (Nesil): the mobile number is asked here, in the first form; the portal shows it filled in */}
+          <Field id="su-phone" required label="Mobile number" error={show('phone')}>
+            <PhoneInput
+              id="su-phone"
+              dial={f.dial}
+              number={f.phone}
+              invalid={!!show('phone')}
+              describedBy={describedBy('su-phone', show('phone'))}
+              onDial={(dial) => up({ dial })}
+              onNumber={(phone) => up({ phone })}
+              onBlur={() => touch('phone')}
+            />
+          </Field>
         </fieldset>
 
         <fieldset className="fs">
