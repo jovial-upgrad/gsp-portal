@@ -3,9 +3,8 @@ import { PageHead } from '../institution/records/parts';
 import type { Reporting, RepApp } from './data';
 import { reachedAt, applyFilters, convRow, daysSince, expected, fyOf, groupBy, intakeText, isLive, lastChange, milestoneOf, msOf, pct, rate, regionalManagers, series, stageRates, uniOf, type Filters, type Grain, type InsightSettings } from './metrics';
 import { targetFor, type TargetVersion } from './targets';
-import type { CourseRec } from '../institution/data/catalogue';
 import type { BdmRow } from '../admin/data/config';
-import { Card, CsvButton, Drill, FilterBar, Num, Seg, Stat, Table, Tabs, TimeBars, useDrill, type Col } from './parts';
+import { AppLink, Card, CsvButton, Drill, FilterBar, Num, Seg, Stat, Table, Tabs, TimeBars, useDrill, type Col } from './parts';
 
 type Tab = 'tracker' | 'rps' | 'earn' | 'conv' | 'gen' | 'rpview';
 const TABS: [Tab, string][] = [
@@ -18,7 +17,7 @@ const TABS: [Tab, string][] = [
 ];
 
 /** Sales dashboards (round 3, 18 Nov): targets by regional manager and BDM, RP activity, incentives, conversions and app generation. */
-export function Sales({ d, s, f, setF, now, target, courses, bdmRows }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; target?: TargetVersion; courses: CourseRec[]; bdmRows: BdmRow[] }) {
+export function Sales({ d, s, f, setF, now, target, bdmRows }: { d: Reporting; s: InsightSettings; f: Filters; setF: (f: Filters) => void; now: number; target?: TargetVersion; bdmRows: BdmRow[] }) {
   const [tab, setTab] = useState<Tab>('tracker');
   const apps = useMemo(() => applyFilters(d, f), [d, f]);
   const { drill, open, close } = useDrill();
@@ -28,7 +27,7 @@ export function Sales({ d, s, f, setF, now, target, courses, bdmRows }: { d: Rep
       <PageHead title="Sales" lead="How each regional manager, BDM and RP is doing against target, and what's still to come. Every number opens the students behind it." />
       <FilterBar d={d} f={f} set={setF} />
       <Tabs label="Sales dashboards" value={tab} items={TABS} onPick={setTab} />
-      {tab === 'tracker' && <Tracker d={d} apps={apps} s={s} f={f} now={now} n={n} open={open} target={target} courses={courses} bdmRows={bdmRows} />}
+      {tab === 'tracker' && <Tracker d={d} apps={apps} s={s} f={f} now={now} n={n} open={open} target={target} bdmRows={bdmRows} />}
       {tab === 'rps' && <RpTracker d={d} apps={apps} s={s} now={now} n={n} open={open} />}
       {tab === 'earn' && <Earn d={d} apps={apps} all={d.apps} s={s} now={now} n={n} open={open} target={target} />}
       {tab === 'conv' && <Conversions d={d} apps={apps} s={s} n={n} open={open} />}
@@ -43,24 +42,12 @@ type O = (t: string, a: RepApp[]) => void;
 const num = (x: number | null) => (x === null ? '—' : x.toLocaleString('en-GB', { maximumFractionDigits: 1 }));
 
 /* Sales tracker: regional manager → BDM, actuals against the current targets */
-function Tracker({ d, apps, s, f, now, n, open, target, courses, bdmRows }: { d: Reporting; apps: RepApp[]; s: InsightSettings; f: Filters; now: number; n: N; open: O; target?: TargetVersion; courses: CourseRec[]; bdmRows: BdmRow[] }) {
+function Tracker({ d, apps, s, f, now, n, open, target, bdmRows }: { d: Reporting; apps: RepApp[]; s: InsightSettings; f: Filters; now: number; n: N; open: O; target?: TargetVersion; bdmRows: BdmRow[] }) {
   const months = f.intake.length ? f.intake : undefined;
   // days left: to the deposit deadline of the intake picked, else to the end of this financial quarter
   const today = new Date(now).toISOString().slice(0, 10);
-  // Jovial, 18 Nov: the deposit deadline comes from the course intakes themselves (Course › Intakes: deposit date):
-  // the earliest still ahead among the filtered applications' courses for the intake picked
-  const monthKey = (m: string) => {
-    const x = new Date(`1 ${m}`);
-    return isNaN(x.getTime()) ? m : `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`;
-  };
-  const used = new Set(apps.map((a) => a.course));
-  const dl =
-    months?.length === 1
-      ? courses
-          .filter((c) => used.has(c.id))
-          .flatMap((c) => Object.entries(c.dates ?? {}).filter(([m, x]) => monthKey(m) === months[0] && !!x.deposit && x.deposit >= today).map(([, x]) => x.deposit))
-          .sort()[0]
-      : undefined;
+  // Jovial, 18 Nov: deposit deadlines wait for the business (to come); Days left counts to the end of this quarter
+  const dl: string | undefined = undefined;
   // the BDM's own cities (Admin › Recruitment › BDM assignment; a row with no city covers its states, or its country)
   const citiesOf = (bdm: string) => [...new Set(bdmRows.filter((r) => r.bdm && (bdm === r.bdm || bdm.startsWith(`${r.bdm} `))).map((r) => r.city || r.state || r.country))].join(', ');
   const qEnd = (() => {
@@ -100,7 +87,7 @@ function Tracker({ d, apps, s, f, now, n, open, target, courses, bdmRows }: { d:
     { h: 'Need/day', n: true, v: (r) => (gap(r, k) === null ? '—' : num(gap(r, k)! / days)) },
   ];
   const cols: Col<R>[] = [
-    { h: 'Regional manager / BDM', v: (r) => (r.head ? <strong>{r.label}</strong> : <span style={{ paddingLeft: 16 }}>{r.label}</span>) },
+    { h: 'Regional manager / application BDM', v: (r) => (r.head ? <strong>{r.label}</strong> : <span style={{ paddingLeft: 16 }}>{r.label}</span>) },
     { h: 'City', v: (r) => (r.head ? '' : r.city) },
     { h: 'Applications', n: true, v: (r) => n(r.l, `${r.label}: applications`), csv: (r) => r.l.length },
     ...col('submitted', msOf(s, 'submitted').label),
@@ -122,7 +109,7 @@ function Tracker({ d, apps, s, f, now, n, open, target, courses, bdmRows }: { d:
           const x = top(k);
           return <Stat key={k} title={t} apps={x.got} count={`${x.got.length.toLocaleString('en-GB')}${x.tg !== null ? ` / ${x.tg.toLocaleString('en-GB')}` : ''}`} sub={x.tg ? `${pct(rate(x.got.length, x.tg))} · need ${num(Math.max(0, x.tg - x.got.length) / days)}/day` : 'No BDM targets for this view'} open={open} />;
         })}
-        <Stat title="Days left" apps={[]} count={String(days)} sub={dl ? `to the earliest deposit deadline of the ${intakeText(months![0])} intake (its courses' intake dates)` : 'to the end of this quarter'} open={open} />
+        <Stat title="Days left" apps={[]} count={String(days)} sub={dl ? `to the deposit deadline` : 'to the end of this quarter'} open={open} />
       </div>
       <Card title="By regional manager and BDM" sub={`Targets: ${target ? `${target.name} (current version)` : 'no current version'}${months ? `, for ${months.map(intakeText).join(', ')}` : ''} · today ${today}`} flush action={<CsvButton name="sales-tracker" rows={rows} cols={cols} />}>
         <Table rows={rows} cols={cols} rowKey={(r) => `${r.head ? 'h' : 'b'}|${r.label}`} />
@@ -155,7 +142,7 @@ function RpTracker({ d, apps, s, now, n, open }: { d: Reporting; apps: RepApp[];
   const cols: Col<R>[] = [
     { h: 'RP', v: (r) => r.rp.name },
     { h: 'State', v: (r) => r.rp.state || r.rp.country },
-    { h: 'BDM', v: (r) => r.rp.bdm },
+    { h: 'RP BDM', v: (r) => r.rp.bdm },
     { h: 'Applications', n: true, v: (r) => n(r.l, `${r.rp.name}: applications`), csv: (r) => r.l.length },
     { h: 'This month', n: true, v: (r) => n(r.thisMonth, `${r.rp.name}: this month`), csv: (r) => r.thisMonth.length },
     { h: 'Submitted', n: true, v: (r) => n(r.c.submitted, `${r.rp.name}: submitted`), csv: (r) => r.c.submitted.length },
@@ -202,7 +189,7 @@ function Earn({ d, apps, all, s, now, n, open, target }: { d: Reporting; apps: R
   }).sort((a, b) => (b.tg ?? 0) - (a.tg ?? 0) || b.l.length - a.l.length);
   type R = (typeof rows)[number];
   const cols: Col<R>[] = [
-    { h: who === 'bdm' ? 'BDM' : 'RP', v: (r) => r.label },
+    { h: who === 'bdm' ? 'Application BDM' : 'RP', v: (r) => r.label },
     { h: 'Applications', n: true, v: (r) => n(r.l, `${r.label}: applications`), csv: (r) => r.l.length },
     { h: 'Admissions', n: true, v: (r) => n(r.got, `${r.label}: admissions`), csv: (r) => r.got.length },
     { h: 'Earned', n: true, v: (r) => money(r.got.length * amt) },
@@ -241,7 +228,7 @@ function Earn({ d, apps, all, s, now, n, open, target }: { d: Reporting; apps: R
 
 /* Conversions: by any dimension */
 type Dim = 'bdm' | 'rp' | 'country' | 'dest' | 'uni' | 'region';
-const DIMS: [Dim, string][] = [['bdm', 'By BDM'], ['rp', 'By RP'], ['country', 'By source country'], ['dest', 'By destination'], ['uni', 'By university'], ['region', 'By sales region']];
+const DIMS: [Dim, string][] = [['bdm', 'By application BDM'], ['rp', 'By RP'], ['country', 'By source country'], ['dest', 'By destination'], ['uni', 'By university'], ['region', 'By sales region']];
 function Conversions({ d, apps, s, n, open }: { d: Reporting; apps: RepApp[]; s: InsightSettings; n: N; open: O }) {
   const [dim, setDim] = useState<Dim>('bdm');
   const rpName = new Map(d.rps.map((x) => [x.id, x.name]));
@@ -289,7 +276,7 @@ function AppGen({ apps, s, now, n, open }: { apps: RepApp[]; s: InsightSettings;
   type R = { k: string; per: RepApp[][] };
   const rows: R[] = [...names.map((k) => ({ k, per: pts.map((p) => p.apps.filter((a) => key(a) === k)) })), { k: 'Total', per: pts.map((p) => p.apps) }];
   const cols: Col<R>[] = [
-    { h: { region: 'Sales region', bdm: 'BDM', uni: 'University', intake: 'Commencement' }[dim], v: (r) => (r.k === 'Total' ? <strong>Total</strong> : r.k) },
+    { h: { region: 'Sales region', bdm: 'Application BDM', uni: 'University', intake: 'Commencement' }[dim], v: (r) => (r.k === 'Total' ? <strong>Total</strong> : r.k) },
     ...pts.map((p, i): Col<R> => ({ h: label(p.at), n: true, v: (r) => n(r.per[i], `${r.k}, ${label(p.at)}`), csv: (r) => r.per[i].length })),
     { h: 'All', n: true, v: (r) => n(r.per.flat(), `${r.k}: all`), csv: (r) => r.per.flat().length },
   ];
@@ -315,7 +302,7 @@ function RpView({ d, apps, s, now, n, open }: { d: Reporting; apps: RepApp[]; s:
   const c = convRow(l, s);
   const idle = l.filter((a) => isLive(a) && daysSince(lastChange(a), now) >= s.idleDays);
   const cols: Col<RepApp>[] = [
-    { h: 'Application', v: (a) => a.id },
+    { h: 'Application', v: (a) => <AppLink a={a} d={d} now={now} />, csv: (a) => a.id },
     { h: 'University', v: (a) => uniOf(a.uni) },
     { h: 'Destination', v: (a) => a.dest },
     { h: 'Stage', v: (a) => milestoneOf(a, s.milestones).label },

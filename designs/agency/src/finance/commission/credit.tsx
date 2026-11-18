@@ -106,7 +106,7 @@ export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask, initial
       </p>,
       () => {
         const made = creditAndReinvoice(
-          txs.map((t) => ({ tx: t.id, invoice: t.invoice!, uni: t.uni, amount: amt[t.id] === t.amount ? undefined : amt[t.id]!, fee: fee[t.id] ?? undefined, also: adjustmentsOf(res, t) })),
+          txs.map((t) => ({ tx: t.id, invoice: t.invoice!, uni: t.uni, amount: amt[t.id] === t.amount ? undefined : amt[t.id]!, also: adjustmentsOf(res, t) })),
           reason.trim(),
           by,
           true,
@@ -149,9 +149,6 @@ export function CreditSheet({ txs, res, by, taken, onClose, onDone, ask, initial
           <div key={t.id} className="iform__wide cpay__line">
             <Field id={`ccn-${t.id}`} label={`${t.id} · ${t.student}${t.period ? `, study period ${t.period}` : ''}: new amount (${t.currency})`} required error={tried ? lineErr(t) : null} hint={`Invoiced at ${money(t.amount, t.currency)}${feeOf(res, t) ? ` on a fee of ${money(feeOf(res, t)!, t.currency)} a year` : ''}`}>
               <TextInput id={`ccn-${t.id}`} inputMode="decimal" value={numText(amt[t.id] ?? null)} invalid={tried && !!lineErr(t)} onChange={(e) => setAmt((x) => ({ ...x, [t.id]: numOf(e.target.value) }))} />
-            </Field>
-            <Field id={`ccn-fee-${t.id}`} label="Fee the university used (optional)">
-              <TextInput id={`ccn-fee-${t.id}`} inputMode="decimal" value={numText(fee[t.id] ?? null)} onChange={(e) => setFee((x) => ({ ...x, [t.id]: numOf(e.target.value) }))} />
             </Field>
           </div>
         ))}

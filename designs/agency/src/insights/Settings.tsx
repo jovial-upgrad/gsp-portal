@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Button } from '../components/Button';
 import { Field, SelectInput, TextInput } from '../components/forms';
 import { PageHead } from '../institution/records/parts';
+import { MultiPick } from '../components/MultiPick';
+import { RP_STATUSES } from '../institution/data/records';
 import type { InsightSettings } from './metrics';
 import { Card } from './parts';
 
@@ -47,6 +49,7 @@ export function DashSettings({ s, set, me, say, currencies }: { s: InsightSettin
       marginPerStudent: +v.marginPerStudent,
       bigRpEnrolments: +v.bigRpEnrolments,
       forecastMonths: +v.forecastMonths,
+      registeredStatuses: v.registered,
     });
     say(`Dashboard settings saved by ${me}.`);
   };
@@ -119,6 +122,9 @@ export function DashSettings({ s, set, me, say, currencies }: { s: InsightSettin
           <Field id="ds-big" label="A big RP gives at least (enrolments a year)">
             <TextInput id="ds-big" inputMode="numeric" value={v.bigRpEnrolments} onChange={(e) => put('bigRpEnrolments')(e.target.value)} />
           </Field>
+          <Field id="ds-reg" label="Registered RPs: record statuses" className="iform__wide" hint="Active RPs (Leadership pack) counts RPs in these statuses.">
+            <MultiPick id="ds-reg" label="Registered statuses" value={v.registered} options={[...RP_STATUSES]} onChange={put('registered')} empty="None" />
+          </Field>
           <Field id="ds-fc" label="Forecast learns from the last (months)" required error={show('months')}>
             <TextInput id="ds-fc" inputMode="numeric" value={v.forecastMonths} onChange={(e) => put('forecastMonths')(e.target.value)} />
           </Field>
@@ -143,5 +149,6 @@ function draft(s: InsightSettings) {
     marginPerStudent: String(s.marginPerStudent),
     bigRpEnrolments: String(s.bigRpEnrolments),
     forecastMonths: String(s.forecastMonths),
+    registered: [...s.registeredStatuses],
   };
 }

@@ -350,6 +350,8 @@ export type Application = {
   unread?: number;
   /** Who lodges the visa: the agency (the default) or GSP, when the agency asks. */
   visaBy?: 'you' | 'gsp';
+  /** The application BDM (R152, Jovial 18 Nov): the BDM it counts for, kept when it's made; a backend field, not shown on the record. */
+  bdm?: string;
 };
 
 export const courseOf = (a: Pick<Application, 'courseId'>) => COURSES.find((c) => c.id === a.courseId)!;

@@ -12,6 +12,8 @@ import { RankTag } from '../../components/RankTag';
 import { OWNER_WORD, pendingFromGsp } from './owners';
 import { StageMeter } from './parts';
 import { Pager, usePaged } from '../records/parts';
+import { MultiPick } from '../../components/MultiPick';
+import { APP_COLUMNS, type ColCtx } from './columns';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -67,6 +69,26 @@ export function AppList({
   const reduce = useReducedMotion();
   const stu = (a: Application) => students.find((s) => s.id === a.studentId);
   const counsellorOf = (a: Application) => team.find((m) => m.id === stu(a)?.counsellor);
+  // Jovial, 18 Nov (Commissions): more columns, picked by each viewer and remembered in their browser
+  const COLS_KEY = 'gsp-app-columns';
+  const [extra, setExtra0] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(COLS_KEY) ?? '[]');
+      return Array.isArray(v) ? v.filter((k) => APP_COLUMNS.some((c) => c.key === k)) : [];
+    } catch {
+      return [];
+    }
+  });
+  const setExtra = (v: string[]) => {
+    setExtra0(v);
+    try {
+      localStorage.setItem(COLS_KEY, JSON.stringify(v));
+    } catch {
+      /* the choice just isn't remembered */
+    }
+  };
+  const shownCols = APP_COLUMNS.filter((c) => extra.includes(c.key));
+  const cx: ColCtx = { apps, student: stu, counsellor: (a) => counsellorOf(a)?.name ?? '' };
   const owners = { '': apps.length, you: 0, gsp: 0, uni: 0 } as Record<OwnerView, number>;
   for (const a of apps) {
     const o = ownerOf(a);
@@ -104,12 +126,12 @@ export function AppList({
 
   // the table as it stands (its filters and order) as a CSV file, one row per application, the same columns
   const exportCsv = () => {
-    const head = ['Application', 'Started', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Who has it', 'Status'];
+    const head = ['Application', 'Started', 'Student', 'Course', 'University', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Who has it', 'Status', ...shownCols.map((c) => c.label)];
     const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = rows.map((a) => {
       const c = courseOf(a);
       const s = stu(a);
-      return [a.id, isoDay(a.created), s ? fullName(s) : '', c.name, c.uni.name, a.intake, destOf(a), counsellorOf(a)?.name ?? '', STAGES[stageOf(a)], OWNER_WORD[ownerOf(a)], statusText(a)]
+      return [a.id, isoDay(a.created), s ? fullName(s) : '', c.name, c.uni.name, a.intake, destOf(a), counsellorOf(a)?.name ?? '', STAGES[stageOf(a)], OWNER_WORD[ownerOf(a)], statusText(a), ...shownCols.map((x) => x.get(a, cx))]
         .map(cell)
         .join(',');
     });
@@ -143,6 +165,9 @@ export function AppList({
           <p className="stu__lead">Who has each application, and what’s pending on you.</p>
         </div>
         <div className="apps__acts">
+          <div className="apps__cols">
+            <MultiPick id="ap-cols" label="More columns" value={shownCols.map((c) => c.label)} options={APP_COLUMNS.map((c) => c.label)} onChange={(labels) => setExtra(APP_COLUMNS.filter((c) => labels.includes(c.label)).map((c) => c.key))} empty="More columns" />
+          </div>
           <Button variant="secondary" iconLeft={<Icon name="download" size={16} />} onClick={exportCsv} disabled={!rows.length}>
             Download
           </Button>
@@ -296,10 +321,10 @@ export function AppList({
           </div>
         ) : (
           <div className="stab-wrap">
-            <table className="atab" role="table" aria-label="Applications">
+            <table className={shownCols.length ? "atab atab--wide" : "atab"} role="table" aria-label="Applications">
               <thead role="rowgroup">
                 <tr role="row">
-                  {['Application', 'Student', 'Course', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Status'].map((h) => (
+                  {['Application', 'Student', 'Course', 'Intake', 'Destination', 'Counsellor', 'Stage', 'Status', ...shownCols.map((c) => c.label)].map((h) => (
                     <th key={h} role="columnheader" scope="col">
                       {h}
                     </th>
@@ -367,6 +392,11 @@ export function AppList({
                           <span className="astat__text">{statusText(a)}</span>
                         </span>
                       </td>
+                      {shownCols.map((x) => (
+                        <td key={x.key} role="cell" className="arow__extra">
+                          {x.get(a, cx) || <span className="muted">—</span>}
+                        </td>
+                      ))}
                     </motion.tr>
                   );
                 })}
