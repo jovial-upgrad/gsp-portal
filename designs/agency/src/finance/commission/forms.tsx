@@ -1030,7 +1030,7 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
   const [v, setV] = useState<Settings>(s.settings);
   const [gstRows, setGstRows] = useState<{ dest: string; pct: number | null }[]>([]);
   const [grpRows, setGrpRows] = useState<{ name: string; countries: string[] }[]>([]);
-  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', sendBack: '', rpGst: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
+  const [t, setT] = useState({ docTypes: '', studentTypes: '', partReasons: '', notPayable: '', sendBack: '', rpGst: '', invPrefix: '', billPrefix: '', rpInvoice: '', uniPayment: '', rpPayment: '' });
   const [tried, setTried] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -1045,6 +1045,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       notPayable: (x.notPayableReasons ?? []).join('\n'),
       sendBack: (x.sendBackReasons ?? []).join('\n'),
       rpGst: x.rpGst == null ? '' : String(x.rpGst),
+      invPrefix: x.invPrefix ?? '',
+      billPrefix: x.billPrefix ?? '',
       rpInvoice: daysText(x.reminders.rpInvoice),
       uniPayment: daysText(x.reminders.uniPayment),
       rpPayment: daysText(x.reminders.rpPayment),
@@ -1081,6 +1083,8 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
         notPayableReasons: linesOf(t.notPayable),
         sendBackReasons: linesOf(t.sendBack),
         rpGst: t.rpGst.trim() === '' ? undefined : Number(t.rpGst),
+        invPrefix: t.invPrefix.trim() || undefined,
+        billPrefix: t.billPrefix.trim() || undefined,
         reminders: { rpInvoice: daysOf(t.rpInvoice), uniPayment: daysOf(t.uniPayment), rpPayment: daysOf(t.rpPayment) },
       },
       me,
@@ -1194,6 +1198,12 @@ export function SettingsForm({ open, me, onClose, onSaved }: { open: boolean; me
       </Field>
       <Field id="cst-rpgst" label="GST on RP invoices (%)" error={show('rpGst')} hint="Added to a GST-registered Australian RP's filled-in invoice (R158).">
         <TextInput id="cst-rpgst" inputMode="decimal" value={t.rpGst} invalid={!!show('rpGst')} onChange={up('rpGst')} />
+      </Field>
+      <Field id="cst-invpre" label="Invoice number prefix" optional hint="Shown before the number Finance types from Xero (Suman, 18 Nov).">
+        <TextInput id="cst-invpre" value={t.invPrefix} onChange={up('invPrefix')} />
+      </Field>
+      <Field id="cst-billpre" label="Bill number prefix (RP lines)" optional hint="An RP line's bill number: this, then the number of the university invoice it follows. Finance only.">
+        <TextInput id="cst-billpre" value={t.billPrefix} onChange={up('billPrefix')} />
       </Field>
       <FormSec title="Reminders" note="Days, separated by commas. Bell and email; no escalation." />
       <Field id="cst-r1" label="Remind the RP to invoice (days)" required error={show('days')} hint="After its invoice is asked for.">

@@ -231,3 +231,20 @@
 .cbw th, .cbw td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .cbw th { font-weight: 600; color: var(--text-2); }
 .cbw--bad td { color: var(--bad); }
+
+/* Suman, 18 Nov: the application's Commission tab stacks its cards with room between them; Finance works its lines here */
+.capp { display: grid; gap: var(--sp-16, 16px); min-width: 0; }
+.capp > * { margin: 0; }
+.capp-sums { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-16, 16px); }
+.clines--app { display: grid; gap: var(--sp-12, 12px); min-width: 0; }
+/* Not payable: struck through in red; credited lines and credit notes: muted, a record only */
+.clines tbody tr.is-void td:not(.iw-acts):not(.iw-tick) { color: var(--bad-text, #b42318); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--bad-text, #b42318) 60%, transparent); }
+.clines tbody tr.is-void .pill, .clines tbody tr.is-void .iw-sub { text-decoration: none; }
+.clines tbody tr.is-credited td:not(.iw-acts):not(.iw-tick) { color: var(--text-2); }
+.ctab tbody tr.is-void td { color: var(--bad-text, #b42318); text-decoration: line-through; }
+.ctab tbody tr.is-void .iw-sub, .ctab tbody tr.is-void .pill { text-decoration: none; }
+.ctab tbody tr.is-credited td { color: var(--text-2); }
+.clines--app .stab-wrap { overflow-x: auto; }
+.clines--app .iw-acts { width: 1%; padding-right: var(--sp-12, 12px); }
+.clines--app td.num { white-space: nowrap; }
+.clines--app tbody td:nth-child(3) { min-width: 220px; }

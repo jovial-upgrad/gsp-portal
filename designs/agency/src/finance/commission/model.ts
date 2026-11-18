@@ -78,6 +78,9 @@ export type Settings = {
   sendBackReasons?: string[];
   /** Lav, 18 Nov (R158): GST an Australian-registered RP adds to its filled-in invoice, in %. */
   rpGst?: number;
+  /** Suman, 18 Nov: the prefix of GSP's invoice numbers to universities (from Xero) and of the matching bill number on the RP's lines. */
+  invPrefix?: string;
+  billPrefix?: string;
   /**
    * Reminders, email and bell (Jovial, 10 Nov, Q47), in days: to the RP after its invoice is asked for and not sent;
    * to Finance (and the university's contact) from a University → GSP line's due date while it isn't paid. No escalation.
@@ -360,7 +363,11 @@ export type Side = 'uni' | 'rp';
 export const SIDES: Record<Side, string> = { uni: 'University → GSP', rp: 'GSP → RP' };
 export const SIDE_KEYS = Object.keys(SIDES) as Side[];
 /** Adjustment: the difference when a line's worked-out amount changes after it was invoiced, requested or paid (Jovial, 9 Nov). */
-export const TX_TYPES = ['Course commission', 'Tier bonus', 'IP commission', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment', 'Clawback', 'Recovery'] as const;
+export const TX_TYPES = ['Course commission', 'Tier bonus', 'IP commission', 'Promotion', 'Additional commission', 'Bonus', 'Tier top-up', 'Adjustment', 'Clawback', 'Recovery', 'Credit note'] as const;
+/** Suman, 18 Nov: what Add lines offers. A credit note comes only from the credit note form; a recovery from a clawback (an RP-side clawback added by hand becomes one). */
+export const ADDABLE_TYPES = TX_TYPES.filter((t) => t !== 'Credit note' && t !== 'Recovery');
+/** Suman, 18 Nov: types that are always a minus amount. */
+export const MINUS_TYPES: readonly string[] = ['Clawback', 'Recovery', 'Credit note'];
 export type TxType = (typeof TX_TYPES)[number];
 
 /** Part paid (Jovial, 10 Nov, Q44): the university paid less than the line, with a reason, until the rest comes or is written off. */
@@ -409,6 +416,10 @@ export const TO_RECOVER: RpStatus = 'To recover';
 export const RECOVERED: RpStatus = 'Recovered';
 /** A university line paid short (Q44): Write off the rest acts on it. */
 export const PART_PAID: UniStatus = 'Part paid';
+/** Suman, 18 Nov: lines kept only as a record: Not payable (struck through in red) and Credited (muted). */
+export const NOT_PAYABLE: TxStatus = 'Not payable';
+export const CREDITED: UniStatus = 'Credited';
+export const recordClass = (s: TxStatus) => (s === NOT_PAYABLE ? 'is-void' : s === CREDITED ? 'is-credited' : '');
 /** University → GSP lines Finance can invoice, and those past due. */
 export const READY_UNI: UniStatus = 'Ready to invoice';
 export const OVERDUE_UNI: UniStatus = 'Overdue';
@@ -497,7 +508,7 @@ export type CreditNote = { number: string; invoice: string; uni: string; date: s
  * Finance records that a student withdrew (17 Nov): the university said so, usually in reply to an invoice. The
  * application's stage doesn't change. Lines triggered after the date are Not payable; invoiced ones are credited.
  */
-export type Withdrawal = { id: string; app: string; date: string; reason: string; by: string; at: number };
+export type Withdrawal = { id: string; app: string; date: string; reason: string; by: string; at: number; file?: FileRef };
 /** A line Finance adds to an application by hand (17 Nov): what the rules don't make. A University → GSP line gives the RP its usual share. */
 export type ManualLine = { id: string; app: string; side: Side; type: TxType; amount: number; period?: number; date: string; reason: string; by: string; at: number };
 /** Commissions asked an RP for its invoice. */
@@ -564,6 +575,8 @@ export type CommState = {
   credits?: CreditNote[];
   withdrawals?: Withdrawal[];
   manual?: ManualLine[];
+  /** Suman, 18 Nov: an RP line moved to follow another university line (its bill number and when it's payable), with why. */
+  follows?: { tx: string; uni: string; reason: string; by: string; at: number }[];
   overrides: Override[];
   /** 17 Nov: lines Finance marked Not payable by hand, with its reason. */
   notPayable?: NotPayable[];
@@ -599,7 +612,8 @@ export const roundMoney = (n: number, cur = 'AUD') => {
   const f = 10 ** d;
   return (Math.sign(n) * Math.round(Math.abs(n) * f + 1e-9)) / f;
 };
-export const money = (n: number, cur: string) => `${cur} ${n.toLocaleString('en-GB', { maximumFractionDigits: 2, minimumFractionDigits: Number.isInteger(n) ? 0 : 2 })}`;
+/** Suman, 18 Nov: a minus amount (a credit note, clawback or recovery) reads with a clear minus sign: −AUD 500. */
+export const money = (n: number, cur: string) => `${n < 0 ? '−' : ''}${cur} ${Math.abs(n).toLocaleString('en-GB', { maximumFractionDigits: 2, minimumFractionDigits: Number.isInteger(n) ? 0 : 2 })}`;
 export const pct = (n: number) => `${n.toLocaleString('en-GB', { maximumFractionDigits: 2 })}%`;
 /** "75% to 80%, by enrolments", "75% flat". */
 export const bandsText = (b: Band[], unit = '%') => b.map((x) => `${x.from}${x.to === null ? '+' : `–${x.to}`}: ${x.pct}${unit}`).join(', ');

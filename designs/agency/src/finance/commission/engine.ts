@@ -111,6 +111,12 @@ export type Tx = {
   nopayWhy?: string;
   /** The credit note that reversed it (17 Nov): the line stays as a record, a new line takes its place. */
   credited?: string;
+  /** Suman, 18 Nov: a credit note line, minus the line it reverses (that line's ID), dated the day the note was recorded. */
+  reverses?: string;
+  /** Suman, 18 Nov: GSP → RP: the bill number Finance matches cost to revenue by (the prefix and the number of the university invoice it follows). Finance only. */
+  bill?: string;
+  /** Suman, 18 Nov: GSP → RP moved by hand to follow another university line: why. */
+  followsWhy?: string;
   /** A forecast (17 Nov): the student has an acceptance letter but isn't enrolled yet, so the line stays Expected. */
   forecast?: boolean;
   /** Its trigger date is estimated (no census date on the application: start + fallback weeks). */
@@ -589,6 +595,12 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       const cn = side === 'uni' ? creditOf.get(id) : undefined;
       if (cn) {
         lines.forEach((l) => (l.credited = cn.number));
+        // Suman, 18 Nov: the credit note is its own minus line, dated the day it was recorded, so the original nets to 0
+        // in its own month (closed in Xero) and the reversal falls in this one
+        const notes = lines.map((l) =>
+          Object.assign(mk(`${l.key}~cn`, idOf(`${l.key}~cn`), { type: 'Credit note', what: `Credit note ${cn.number} reversing ${l.id}: ${cn.reason}`, rpWhat: 'Credit note', amount: -l.amount, trigger: cn.date, due: cn.date, period: l.period, year: l.year, currency: l.currency, trace: [step('Credit note', `${cn.by} recorded credit note ${cn.number} on ${dayText(cn.date)}, reversing ${l.id} (${money(l.amount, l.currency)}): ${cn.reason}.`)] }), { credited: cn.number, reverses: l.id, adjusts: undefined }),
+        );
+        lines.push(...notes);
         const m = slot.match(/#r(\d+)$/);
         const next = m ? slot.replace(/#r\d+$/, `#r${Number(m[1]) + 1}`) : `${slot}#r1`;
         const amt = cn.revised[id] ?? (d ? d.amount : undefined);
@@ -784,7 +796,14 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       });
     }
     // lines Finance added by hand (17 Nov)
-    const manualDraft = (m: NonNullable<CommState['manual']>[number]): Draft => ({ slot: `man:${m.id}`, type: m.type, what: `${m.type}, added by ${m.by}: ${m.reason}`, rpWhat: m.period ? `Study period ${m.period}: ${m.type.toLowerCase()}` : m.type, amount: m.amount, trigger: m.date, period: m.period, trace: [step('Added by hand', `${m.by} added this line on ${dayText(iso(m.at))}: ${m.reason}.`)] });
+    // Suman, 18 Nov: a clawback added by hand is always a minus; on the RP's side it's a recovery, set against the RP's
+    // next invoice like any other
+    const manualDraft = (m0: NonNullable<CommState['manual']>[number]): Draft => {
+      const minus = m0.type === 'Clawback' || m0.type === 'Recovery';
+      const m = { ...m0, amount: minus ? -Math.abs(m0.amount) : m0.amount, type: minus && m0.side === 'rp' ? ('Recovery' as const) : m0.type };
+      return manualDraft0(m);
+    };
+    const manualDraft0 = (m: NonNullable<CommState['manual']>[number]): Draft => ({ slot: `man:${m.id}`, type: m.type, what: `${m.type}, added by ${m.by}: ${m.reason}`, rpWhat: m.period ? `Study period ${m.period}: ${m.type.toLowerCase()}` : m.type, amount: m.amount, trigger: m.date, period: m.period, trace: [step('Added by hand', `${m.by} added this line on ${dayText(iso(m.at))}: ${m.reason}.`)] });
     (state.manual ?? []).filter((m) => m.app === e.app && m.side === 'uni').forEach((m) => {
       const d = manualDraft(m);
       uniDone.add(lineKey(e.app, 'uni', d.slot));
@@ -811,6 +830,10 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       if (!fr?.final) t.due = inv ? addDays(inv.date, payDays) : addDays(t.trigger, payDays);
       t.base.due = t.due;
       t.invoice = inv?.number;
+      if (t.reverses) {
+        t.invoice = t.credited;
+        t.due = t.trigger;
+      }
       const o = over.get(t.id);
       // an override changes a line not yet kept; a kept line's amount stays, and the difference is an Adjustment (D16)
       if (o && !fr?.final) Object.assign(t, { override: o, amount: !fr && o.amount != null ? o.amount : t.amount, due: o.due ?? t.due });
@@ -832,7 +855,10 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
       }
       if (t.type === 'Clawback') t.status = 'Paid';
       if (t.status === 'Not payable' && e.withdrawn)
-        t.nopayWhy = `Student withdrew ${dayText(e.withdrawn)}, before ${t.period ? `study period ${t.period}’s ` : 'its '}${(T?.trigger ?? 'trigger date').toLowerCase()}${t.trigger ? ` (${dayText(t.trigger)})` : ''}`;
+        t.nopayWhy = `Student withdrew ${dayText(e.withdrawn)}, before ${t.period ? `study period ${t.period}’s ` : 'its '}${(T?.trigger ?? 'trigger date').toLowerCase()}${t.trigger ? ` (${dayText(t.trigger)})` : ''}${(() => {
+          const f = (state.withdrawals ?? []).find((w) => w.app === e.app)?.file;
+          return f ? `; proof: ${f.name}, in the application’s Documents` : '';
+        })()}`;
       // R105: GSP's own claim window with the university, when its terms have one
       if (T?.claimMonths && !t.invoice && !['Paid', 'Part paid', 'Not payable'].includes(t.status)) {
         t.claimEnds = keepMonth(periodEnd(t), T.claimMonths);
@@ -1006,7 +1032,15 @@ export function compute(state: CommState, ctx: Ctx, extra: Enrolment[] = []): Re
     function statusRp(t: Tx, payDaysRp: number) {
       const fr = state.frozen[t.id];
       const inv = rpInv.get(t.id);
+      // Suman, 18 Nov: Finance can move an RP line to follow another university line (its bill number and when it's due)
+      const fol = [...(state.follows ?? [])].reverse().find((f) => f.tx === t.id && uniTxs.some((x) => x.id === f.uni));
+      if (fol) {
+        t.matches = fol.uni;
+        t.followsWhy = `${fol.by}: ${fol.reason}`;
+      }
       const anchor = (t.matches ? uniTxs.find((x) => x.id === t.matches) : undefined) ?? first();
+      // the bill number: the university invoice it follows, under the bill prefix (a notice bonus has none)
+      if (t.matches && anchor?.invoice) t.bill = billOf(anchor.invoice, S);
       if (!fr?.final) t.due = inv?.state === 'Accepted' && inv.decided ? addDays(iso(inv.decided.at), payDaysRp) : anchor?.due ? addDays(anchor.due, payDaysRp) : '';
       t.base.due = t.due;
       if (!fr) t.trigger = anchor?.trigger ?? t.trigger;
@@ -1429,3 +1463,10 @@ const addMonthsIso = (d: string, n: number) => {
   return x.toISOString().slice(0, 10);
 };
 const roundMoneyOf = (t: Pick<Tx, 'amount' | 'received' | 'currency'>) => round2(t.amount - (t.received ?? 0), t.currency);
+
+/** Suman, 18 Nov: an RP line's bill number from the university invoice it follows: the invoice prefix swapped for the bill prefix. */
+export function billOf(invoice: string, S: Pick<CommState['settings'], 'invPrefix' | 'billPrefix'>) {
+  const ip = S.invPrefix ?? '';
+  const bp = S.billPrefix ?? '';
+  return `${bp}${ip && invoice.startsWith(ip) ? invoice.slice(ip.length) : invoice}`;
+}

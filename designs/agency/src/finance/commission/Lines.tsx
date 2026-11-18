@@ -10,15 +10,15 @@ import { todayIso } from '../../institution/data/records';
 import { sampleFx } from '../../admin/data/config';
 import type { Application } from '../../data/applications';
 import type { Student } from '../../data/students';
-import { InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } from './parts';
+import { HowWorked, InvoiceSheet, StatusPill, numOf, numText, useCommNav, type SetupTab } from './parts';
 import { addDays, setOff, sumBy, totalsText, type Tx } from './engine';
 import { blankView, csvRows, filterLines, viewText, type LineView } from './lines';
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
 import { appliedOptions, feeInvoiced, lineFees, termsApplied } from './applied';
 import { NotPayableSheet } from './NotPayableSheet';
 import { deleteManualLine, liftNotPayable, manualNotPayable, markNotPayable } from './store';
-import { recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, uniName, useComm, useLines, writeOff } from './store';
-import { ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP, type RpPayment } from './model';
+import { followUniLine, recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, uniName, useComm, useLines, writeOff } from './store';
+import { recordClass, ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP, type RpPayment } from './model';
 import { Unlocks } from './Unlocks';
 import { AddLinesSheet, BulkWithdrawSheet, CreditSheet, KeyDetailsSheet, WithdrawSheet, XeroSheet, canCredit } from './credit';
 import '../../institution/work/work.css';
@@ -40,9 +40,11 @@ type Who = { name: string; email: string; role: string; region: string };
  * **Students to confirm** (D19; no button to close a tier period, Jovial 16 Nov); (no lump sums: Jovial, 13 Nov, a university's one-off payment is a Record payment on its lines or goes in Xero);
  * and GSP's invoice raised and sent in Xero, its number recorded here (17 Nov; replaces D17).
  */
-export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void; setApps?: (fn: (l: Application[]) => Application[]) => void }) {
+export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }: { apps: Application[]; students: Student[]; who: Who; say: (m: string) => void; onOpenApp?: (id: string) => void; setApps?: (fn: (l: Application[]) => Application[]) => void; onlyApp?: string }) {
   const s = useComm();
-  const res = useLines(apps, students);
+  const res0 = useLines(apps, students);
+  // Suman, 18 Nov: an application's Commission tab works its lines with the same menus (one application's lines)
+  const res = useMemo(() => (onlyApp ? { ...res0, txs: res0.txs.filter((t) => t.app === onlyApp) } : res0), [res0, onlyApp]);
   const [v, setV] = useState<LineView>(() => blankView('uni'));
   const [ticked, setTicked] = useState<string[]>([]);
   const [inv, setInv] = useState<InvoiceDoc | null>(null);
@@ -54,6 +56,9 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
   const [clawing, setClawing] = useState<Tx | null>(null);
   // 17 Nov (after the Finance demo): Credit and re-invoice, and Student withdrew
   const [crediting, setCrediting] = useState<Tx[] | null>(null);
+  const [following, setFollowing] = useState<Tx | null>(null);
+  // Suman, 18 Nov: a line paid less goes to the credit note form, at what came in
+  const [creditFor, setCreditFor] = useState<{ txs: Tx[]; amounts: Record<string, number>; why: string } | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);
   const [bulkOut, setBulkOut] = useState(false);
   // 17 Nov: Key details and Add lines from a line, without leaving the page
@@ -73,7 +78,8 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
   const [preview, setPreview] = useState<{ name: string; file: string } | null>(null);
   const [tile, setTile] = useState<TileKey | ''>('');
   // Jovial, 12 Nov: two tabs, To do (the tiles and worklists) and All lines (the table)
-  const [page, setPage] = useState<'todo' | 'lines' | 'unlocks'>('todo');
+  const [page0, setPage] = useState<'todo' | 'lines' | 'unlocks'>('todo');
+  const page = onlyApp ? 'lines' : page0;
   const nav = useCommNav();
   const { ask, dialog } = useAsk();
   const set = (p: Partial<LineView>) => setV((x) => ({ ...x, ...p }));
@@ -221,7 +227,8 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
   const fixIn = (type: string): SetupTab | null => (EXCEPTIONS.find((x) => x.type === type)?.fix as SetupTab | undefined) ?? null;
 
   return (
-    <div className="ipage clines">
+    <div className={onlyApp ? 'clines clines--app' : 'ipage clines'}>
+      {!onlyApp && (
       <PageHead title="Commission lines" lead="Every transaction GSP gets from universities and pays to RPs: Finance’s to-do.">
         <Button variant="secondary" iconLeft={<Icon name="upload" size={18} />} onClick={() => setBulkOut(true)}>
           Students withdrew
@@ -230,7 +237,9 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
           Export CSV
         </Button>
       </PageHead>
+      )}
 
+      {!onlyApp && (
       <RecordTabs
         id="clines-page"
         label="Commission lines"
@@ -243,6 +252,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
           { key: 'unlocks', label: 'Tiers to unlock', n: res.unlocks.filter((u) => u.bands.some((b) => b.more > 0)).length },
         ]}
       />
+      )}
 
       {page === 'todo' && (
         <>
@@ -456,6 +466,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
         ))}
       </div>
 
+      {!onlyApp && (
       <div className="clines__switch" role="group" aria-label="Status">
         {LINE_TABS.map((t) => (
           <button key={t.key} type="button" className="ichip" aria-pressed={v.tab === t.key} onClick={() => set({ tab: t.key })}>
@@ -463,9 +474,11 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
           </button>
         ))}
       </div>
+      )}
 
       <section className="card stable" aria-labelledby="clines-count">
         <div className="stools">
+          {!onlyApp && (
           <div className="stools__row">
             <label className="ssearch">
               <Icon name="search" size={18} />
@@ -488,6 +501,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
               </button>
             )}
           </div>
+          )}
           <p className="stools__count" id="clines-count" role="status">
             <span className="num">{shown.length}</span> {shown.length === 1 ? 'line' : 'lines'} · {shown.some(canTick) ? totalsText(sumBy(shown.filter(canTick))) : 'nothing payable'}
           </p>
@@ -556,9 +570,9 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                     </Checkbox>
                   </th>
                   <th scope="col">Transaction</th>
-                  <th scope="col">Commission item</th>
-                  <th scope="col">Application</th>
-                  <th scope="col">{side === 'uni' ? 'University' : 'RP'}</th>
+                  <th scope="col">{onlyApp ? 'How it’s worked out' : 'Commission item'}</th>
+                  {!onlyApp && <th scope="col">Application</th>}
+                  <th scope="col">{onlyApp ? (side === 'uni' ? 'Invoice' : 'Bill') : side === 'uni' ? 'University' : 'RP'}</th>
                   <th scope="col">Due</th>
                   <th scope="col" className="ctab__num">
                     Amount
@@ -573,7 +587,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                 {pg.rows.map((t) => {
                   const canOpen = !!onOpenApp && apps.some((a) => a.id === t.app);
                   return (
-                    <tr key={t.id} className={ticked.includes(t.id) ? 'is-ticked' : ''}>
+                    <tr key={t.id} className={[ticked.includes(t.id) ? 'is-ticked' : '', recordClass(t.status)].filter(Boolean).join(' ')}>
                       <td className="iw-tick">
                         {canTick(t) && (
                           <Checkbox id={`clines-t-${t.id}`} checked={ticked.includes(t.id)} onChange={(on) => setTicked((x) => (on ? [...x, t.id] : x.filter((y) => y !== t.id)))}>
@@ -586,13 +600,15 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                         <span className="iw-sub">{t.type}</span>
                       </td>
                       <td>
-                        {SIDES[t.side]}
-                        <span className="iw-sub">{t.what}</span>
+                        {onlyApp ? t.what : SIDES[t.side]}
+                        {!onlyApp && <span className="iw-sub">{t.what}</span>}
                         <span className="iw-sub">
                           Terms applied: {applied.get(t.id)}
                           {fees.has(t.id) ? ` · worked out on a fee of ${money(fees.get(t.id)!, t.currency)}` : ''}
                         </span>
+                        {onlyApp && <HowWorked steps={t.trace} id={`clhow-${t.id}`} />}
                       </td>
+                      {!onlyApp && (
                       <td>
                         {canOpen ? (
                           <button type="button" className="btn btn--link num" onClick={() => onOpenApp!(t.app)}>
@@ -607,20 +623,30 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                         </span>
                         {invoicedFee.has(t.app) && <span className="iw-sub">Fee invoiced so far: {money(invoicedFee.get(t.app)!, t.currency)}</span>}
                       </td>
+                      )}
+                      {onlyApp ? (
+                        <td className="num">{(side === 'uni' ? t.invoice : t.bill) ?? <span className="cmuted">—</span>}</td>
+                      ) : (
                       <td>
                         {side === 'uni' ? t.uniName : t.rpName}
                         <span className="iw-sub">
-                          {side === 'uni' ? t.invoice ?? '' : t.region}
+                          {side === 'uni' ? t.invoice ?? '' : [t.region, t.bill].filter(Boolean).join(' · ')}
                           {side === 'uni' && t.invoice && s.invoices.find((i) => i.number === t.invoice)?.sent ? ` · sent to ${s.invoices.find((i) => i.number === t.invoice)!.sent!.to}` : ''}
                         </span>
                       </td>
+                      )}
                       <td className="num iw-nowrap">{dayText(t.due)}</td>
-                      <td className="num ctab__num">{money(t.amount, t.currency)}</td>
+                      <td className="num ctab__num">
+                        {money(t.amount, t.currency)}
+                        {!!t.gst && <span className="iw-sub">+ GST {money(t.gst, t.currency)}</span>}
+                      </td>
                       <td>
                         <StatusPill s={t.status} />
                         {t.heldWhy && <span className="iw-sub">{t.heldWhy}</span>}
                         {t.nopayWhy && <span className="iw-sub">{t.nopayWhy}</span>}
-                        {t.credited && <span className="iw-sub">Reversed by {t.credited}; a new line takes its place</span>}
+                        {t.credited && !t.reverses && <span className="iw-sub">Reversed by credit note {t.credited}; a new line takes its place</span>}
+                        {t.reverses && <span className="iw-sub">Credit note: reverses {t.reverses}</span>}
+                        {t.followsWhy && <span className="iw-sub">Follows {t.matches} (moved by {t.followsWhy})</span>}
                         {t.forecast && <span className="iw-sub">Forecast: the student isn’t enrolled yet</span>}
                         {t.override && (
                           <span className="iw-sub">
@@ -634,7 +660,11 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
                           label={`More for ${t.id}`}
                           items={[
                             // a Paid line never changes (9 Nov): no override
-                            ...(groupOf(t.side, t.status) === 'paid' || !canTick(t) ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
+                            ...(groupOf(t.side, t.status) === 'paid' || !canTick(t) || t.reverses ? [] : [{ id: 'override', label: 'Override', icon: 'edit' as const, onPick: () => setOver(t) }]),
+                            // Suman, 18 Nov: one line's own actions, here and on the application
+                            ...(t.side === 'uni' && (ACTION_FROM.record as readonly string[]).includes(t.status) ? [{ id: 'pay1', label: 'Record payment', icon: 'check' as const, onPick: () => setPaying([t]) }] : []),
+                            ...(canCredit([t], payerOf) ? [{ id: 'credit1', label: 'Credit note', icon: 'refresh' as const, onPick: () => setCrediting([t]) }] : []),
+                            ...(t.side === 'rp' && groupOf(t.side, t.status) !== 'paid' && t.type !== 'Recovery' && canTick(t) ? [{ id: 'follows', label: 'Follows university line…', icon: 'link' as const, onPick: () => setFollowing(t) }] : []),
                             ...(t.status === PART_PAID ? [{ id: 'writeoff', label: 'Write off the rest', icon: 'minus' as const, onPick: () => setWriting(t) }] : []),
                             // R106: a university takes back commission it paid on this line
                             // Q132 (Jovial, 13 Nov): the invoice a line is on, to look at again or send again (same number, same due date)
@@ -686,31 +716,38 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps }: { apps: 
         txs={paying}
         onClose={() => setPaying(null)}
         ask={ask}
-        reasons={s.settings.partReasons}
-        onDone={(paid, short, date) => {
+        onDone={(paid, less, date) => {
           const t = paying![0];
-          const amount = roundMoney(Object.values(paid).reduce((n, x) => n + x, 0), t.currency);
-          recordPayment(t.uni, paying!.map((x) => x.id), amount, t.currency, date, who.name, paid, short);
-          const nShort = Object.keys(short).length;
-          say(`${money(amount, t.currency)} from ${t.uniName} recorded: ${paying!.length - nShort} Paid${nShort ? `, ${nShort} Part paid` : ''}.`);
+          const ids = Object.keys(paid);
+          if (ids.length) {
+            const amount = roundMoney(Object.values(paid).reduce((n, x) => n + x, 0), t.currency);
+            recordPayment(t.uni, ids, amount, t.currency, date, who.name, paid, {});
+            say(`${money(amount, t.currency)} from ${t.uniName} recorded: ${ids.length} Paid.`);
+          }
+          const lessTx = paying!.filter((x) => less[x.id] != null);
           setPaying(null);
           setTicked([]);
+          if (lessTx.length) setCreditFor({ txs: lessTx, amounts: less, why: `${t.uniName} paid less on ${dayText(date)}` });
         }}
       />
       <XeroSheet open={!!raising} title={raising?.title ?? ''} sub={raising?.sub} body={raising?.body} taken={takenNos} go={(n) => raising?.go(n)} onClose={() => setRaising(null)} />
       <CreditSheet
-        txs={crediting}
+        txs={crediting ?? creditFor?.txs ?? null}
+        initial={creditFor?.amounts}
+        why={creditFor?.why}
         res={res}
         taken={takenNos}
         by={who.name}
         ask={ask}
-        onClose={() => setCrediting(null)}
+        onClose={() => (setCrediting(null), setCreditFor(null))}
         onDone={(msg) => {
           say(msg);
           setCrediting(null);
+          setCreditFor(null);
           setTicked([]);
         }}
       />
+      <FollowsSheet t={following} res={res0} onClose={() => setFollowing(null)} onDone={(uni, reason) => (followUniLine(following!.id, uni, reason, who.name), say(`${following!.id} now follows ${uni}.`), setFollowing(null))} />
       <KeyDetailsSheet app={keysOf} res={res} apps={apps} setApps={setApps} by={who.name} say={say} onClose={() => setKeysOf(null)} />
       <AddLinesSheet
         app={addTo}
@@ -827,36 +864,40 @@ function Foot({ onClose, label, onGo }: { onClose: () => void; label: string; on
  * then asked. A line paid less needs a reason from Settings' list; it becomes Part paid, and its RP line is ready for
  * its share of what came in.
  */
-function PaymentSheet({ txs, reasons, onClose, onDone, ask }: { txs: Tx[] | null; reasons: string[]; onClose: () => void; onDone: (paid: Record<string, number>, short: Record<string, string>, date: string) => void; ask: AskFn }) {
+function PaymentSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose: () => void; onDone: (paid: Record<string, number>, less: Record<string, number>, date: string) => void; ask: AskFn }) {
   const [paid, setPaid] = useState<Record<string, number | null>>({});
-  const [short, setShort] = useState<Record<string, string>>({});
   const [date, setDate] = useState('');
   const [tried, setTried] = useState(false);
   const owed = (t: Tx) => roundMoney(t.amount - (t.received ?? 0), t.currency);
   useEffect(() => {
     setPaid(Object.fromEntries((txs ?? []).map((t) => [t.id, owed(t)])));
-    setShort({});
     setDate(todayIso());
     setTried(false);
   }, [txs]); // eslint-disable-line react-hooks/exhaustive-deps
   const cur = txs?.[0]?.currency ?? '';
   const total = roundMoney((txs ?? []).reduce((n, t) => n + (paid[t.id] ?? 0), 0), cur);
-  const isShort = (t: Tx) => (paid[t.id] ?? 0) < owed(t) - 0.005;
+  // Suman, 18 Nov: Finance doesn't keep part payments; a line paid less is credited in full and invoiced again at what came in
+  const isLess = (t: Tx) => (paid[t.id] ?? 0) < owed(t) - 0.005;
   const lineErr = (t: Tx) => {
     const v = paid[t.id];
     if (v === null || v === undefined || Number.isNaN(v) || v < 0) return 'Enter what came in (0 or more).';
     if (v > owed(t) + 0.005) return `More than the ${money(owed(t), t.currency)} still owed.`;
-    if (isShort(t) && !short[t.id]) return 'Choose why it’s less.';
     return null;
   };
-  const err = { lines: (txs ?? []).some(lineErr) ? 'Check each line.' : total <= 0 ? 'Enter what came in.' : null, date: !date ? 'Choose the date.' : date > todayIso() ? 'It can’t be in the future.' : null };
+  const err = { lines: (txs ?? []).some(lineErr) ? 'Check each line.' : null, date: !date ? 'Choose the date.' : date > todayIso() ? 'It can’t be in the future.' : null };
   const go = () => {
     setTried(true);
     if (err.lines || err.date || !txs) return;
-    const nShort = txs.filter(isShort).length;
-    const body = <p>{txs.length - nShort} {txs.length - nShort === 1 ? 'line becomes' : 'lines become'} Paid{nShort ? `, ${nShort} Part paid` : ''}, and the matching RP lines Ready to request for their share of what came in.</p>;
-    ask(`Record ${money(total, cur)} received from ${txs[0].uniName} on ${dayText(date)}?`, 'Record payment', body, () =>
-      onDone(Object.fromEntries(txs.filter((t) => (paid[t.id] ?? 0) > 0).map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), Object.fromEntries(txs.filter(isShort).map((t) => [t.id, short[t.id]])), date),
+    const less = txs.filter(isLess);
+    const full = txs.filter((t) => !isLess(t));
+    const body = (
+      <p>
+        {full.length ? `${full.length} ${full.length === 1 ? 'line becomes' : 'lines become'} Paid, and the matching RP lines Ready to request.` : ''}
+        {less.length ? ` ${less.length} paid less: the credit note form opens next, to credit ${less.length === 1 ? 'it' : 'them'} in full and invoice what came in; then record the payment on the new invoice.` : ''}
+      </p>
+    );
+    ask(full.length ? `Record ${money(roundMoney(full.reduce((n, t) => n + (paid[t.id] ?? 0), 0), cur), cur)} received from ${txs[0].uniName} on ${dayText(date)}?` : `Credit ${less.length} ${less.length === 1 ? 'line' : 'lines'} paid less?`, full.length ? 'Record payment' : 'Next', body, () =>
+      onDone(Object.fromEntries(full.map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), Object.fromEntries(less.map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), date),
     );
   };
   return (
@@ -864,20 +905,9 @@ function PaymentSheet({ txs, reasons, onClose, onDone, ask }: { txs: Tx[] | null
       <div className="iform__grid">
         {(txs ?? []).map((t) => (
           <div key={t.id} className="iform__wide cpay__line">
-            <Field id={`cpay-${t.id}`} label={`${t.id} · ${t.student}: received (${t.currency})`} required error={tried ? lineErr(t) : null} hint={`Still owed: ${money(owed(t), t.currency)}`}>
+            <Field id={`cpay-${t.id}`} label={`${t.id} · ${t.student}: received (${t.currency})`} required error={tried ? lineErr(t) : null} hint={isLess(t) ? 'Paid less: this line is credited in full and invoiced again at what came in (credit note next).' : `Still owed: ${money(owed(t), t.currency)}`}>
               <TextInput id={`cpay-${t.id}`} inputMode="decimal" value={numText(paid[t.id] ?? null)} invalid={tried && !!lineErr(t)} onChange={(e) => setPaid((x) => ({ ...x, [t.id]: numOf(e.target.value) }))} />
             </Field>
-            {isShort(t) && (
-              <Field id={`cpay-why-${t.id}`} label="Why it’s less" required>
-                <SelectInput id={`cpay-why-${t.id}`} value={short[t.id] ?? ''} placeholder="Choose the reason" invalid={tried && !short[t.id]} onChange={(e) => setShort((x) => ({ ...x, [t.id]: e.target.value }))}>
-                  {reasons.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </SelectInput>
-              </Field>
-            )}
           </div>
         ))}
         <Field id="cpay-date" label="Date received" required error={tried ? err.date : null}>
@@ -1178,3 +1208,39 @@ function HistorySheet({ t, onClose }: { t: Tx | null; onClose: () => void }) {
   );
 }
 
+/** Suman, 18 Nov (Jovial: ok): an RP line moved to follow another of the application's university lines, with why. */
+function FollowsSheet({ t, res, onClose, onDone }: { t: Tx | null; res: { txs: Tx[] }; onClose: () => void; onDone: (uni: string, reason: string) => void }) {
+  const [uni, setUni] = useState('');
+  const [reason, setReason] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    setUni(t?.matches ?? '');
+    setReason('');
+    setTried(false);
+  }, [t]);
+  if (!t) return null;
+  const opts = res.txs.filter((x) => x.app === t.app && x.side === 'uni' && !x.reverses && !x.credited);
+  const err = { uni: !uni ? 'Choose the university line.' : uni === t.matches ? 'It already follows this line.' : null, reason: reason.trim() ? null : 'Say why.' };
+  const go = () => {
+    setTried(true);
+    if (!err.uni && !err.reason) onDone(uni, reason.trim());
+  };
+  return (
+    <Sheet open onClose={onClose} center className="iform" title={`${t.id} follows`} sub={`${t.rpName} · ${t.student}: when it's payable and its bill number come from this line`} footer={<Foot onClose={onClose} label="Save" onGo={go} />}>
+      <div className="iform__grid">
+        <Field id="cfol-uni" label="University line" required error={tried ? err.uni : null} className="iform__wide">
+          <SelectInput id="cfol-uni" value={uni} placeholder="Choose the line" invalid={tried && !!err.uni} onChange={(e) => setUni(e.target.value)}>
+            {opts.map((x) => (
+              <option key={x.id} value={x.id}>
+                {`${x.id} · ${x.type}${x.period ? `, study period ${x.period}` : ''} · ${money(x.amount, x.currency)} · ${x.invoice ?? x.status}`}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field id="cfol-why" label="Why" required error={tried ? err.reason : null} className="iform__wide">
+          <TextInput id="cfol-why" value={reason} invalid={tried && !!err.reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+      </div>
+    </Sheet>
+  );
+}

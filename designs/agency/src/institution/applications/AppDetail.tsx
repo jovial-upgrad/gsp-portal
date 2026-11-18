@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { EditOnly, ViewOnlyProvider, useHides, useShows, useViewOnly } from '../../proto/viewOnly';
 import { AppCommissionTab } from '../../finance/commission/tabs';
+import { useCommFiles } from '../../finance/commission/store';
 import { FeeRows } from '../../finance/commission/AppFees';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '../../components/Button';
@@ -865,7 +866,8 @@ function DocsTab({
   const missing = open ? lines.filter((l) => l.need === 'required' && !reviews.some((r) => r.key === l.key) && !asked(l.key, l.name)) : [];
   const notSent = reviews.filter((r) => !r.back && r.status === 'uploaded' && !toReview(r, a));
   const approved = reviews.filter((r) => !r.back && r.status === 'verified');
-  const byGsp = a.files.filter((f) => f.from !== 'you').sort((x, y) => y.at - x.at);
+  const commFiles = useCommFiles(a.id);
+  const byGsp = [...a.files.filter((f) => f.from !== 'you'), ...commFiles].sort((x, y) => y.at - x.at);
   const views = condViews(a);
   const count: Record<DocTab, number> = {
     review: pending.length,
@@ -1049,7 +1051,8 @@ function DocsTab({
 
 /** GSP · Finance's Documents (Jovial, 18 Nov): what GSP or the university added (offer letters, CoE / CAS / I-20, visa letters…). */
 function GspDocs({ a, s }: { a: Application; s: Student }) {
-  const byGsp = a.files.filter((f) => f.from !== 'you').sort((x, y) => y.at - x.at);
+  const commFiles = useCommFiles(a.id);
+  const byGsp = [...a.files.filter((f) => f.from !== 'you'), ...commFiles].sort((x, y) => y.at - x.at);
   return (
     <div className="adocs">
       <section className="card acard adocs__card" aria-labelledby="gspdocs-title">

@@ -3,7 +3,8 @@ import { FIN_USER } from '../user';
 import { useMemo, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
-import { EditOnly, useShows } from '../../proto/viewOnly';
+import { EditOnly, useShows, useViewOnly } from '../../proto/viewOnly';
+import { Lines } from './Lines';
 import { RpViewForm } from './forms';
 import { Facts, Section } from '../../institution/records/parts';
 import { DocButtons } from '../../components/DocView';
@@ -175,7 +176,7 @@ export function UniCommissionTab({ uni }: { uni: { id: string; name: string; cou
 }
 
 /** One commission item: its totals, then its transactions. */
-function ItemCard({ item, rp, rpView }: { item: Item; rp?: boolean; rpView?: boolean }) {
+function ItemCard({ item, rp, rpView, sumOnly }: { item: Item; rp?: boolean; rpView?: boolean; sumOnly?: boolean }) {
   const s = useComm();
   // the RP never sees GSP's rate, GSP's amount or its share of GSP's commission (9 Nov)
   const hidden = item.side === 'rp' && !rpView ? item.txs.filter((t) => t.rpSees === false).length : 0;
@@ -196,7 +197,7 @@ function ItemCard({ item, rp, rpView }: { item: Item; rp?: boolean; rpView?: boo
               <dd className="num">{totalsText(item.settled)}</dd>
             </div>
           </dl>
-          <TxTable txs={item.txs} rp={rp} rpView={rpView} caption={item.label} amountNote={rp ? `To question an amount, email ${s.settings.disputeEmail} with the transaction ID.` : undefined} />
+          {!sumOnly && <TxTable txs={item.txs} rp={rp} rpView={rpView} caption={item.label} amountNote={rp ? `To question an amount, email ${s.settings.disputeEmail} with the transaction ID.` : undefined} />}
         </>
       )}
     </Section>
@@ -320,6 +321,10 @@ export function AppCommissionTab({ a, s, rpOnly, apps, students }: { a: Applicat
     return compute(settleAll(st, ctxOf(), extra), ctxOf(), extra);
   }, [st, a, s, apps, students]);
   const lines = res.byApp.get(a.id);
+  const viewOnly = useViewOnly();
+  const [msg, setMsg] = useState('');
+  // Suman, 18 Nov (Jovial: ok): Finance works an application's lines here with the same menus as Commission lines
+  const work = !rpOnly && !viewOnly;
   if (!lines)
     return (
       <Section title="Commission" id="capp-none">
@@ -327,7 +332,7 @@ export function AppCommissionTab({ a, s, rpOnly, apps, students }: { a: Applicat
       </Section>
     );
   return (
-    <>
+    <div className="capp">
       {!rpOnly && <Exceptions lines={lines} />}
       {!rpOnly && (
         <EditOnly>
@@ -336,10 +341,27 @@ export function AppCommissionTab({ a, s, rpOnly, apps, students }: { a: Applicat
       )}
       <AppTerms lines={lines} rpOnly={rpOnly} />
       {!rpOnly && <Standing lines={lines} />}
-      {!rpOnly && <ItemCard item={lines.uniItem} />}
-      <ItemCard item={rpOnly ? shownToRp(lines.rpItem) : lines.rpItem} rp rpView={rpOnly} />
+      {work ? (
+        <>
+          <div className="capp-sums">
+            <ItemCard item={lines.uniItem} sumOnly />
+            <ItemCard item={lines.rpItem} rp sumOnly />
+          </div>
+          {msg && (
+            <p className="cmuted" role="status">
+              {msg}
+            </p>
+          )}
+          <Lines apps={apps ?? [a]} students={students ?? [s]} who={{ name: FIN_USER.name, email: FIN_USER.email, role: FIN_USER.role, region: '' }} say={setMsg} onlyApp={a.id} />
+        </>
+      ) : (
+        <>
+          {!rpOnly && <ItemCard item={lines.uniItem} />}
+          <ItemCard item={rpOnly ? shownToRp(lines.rpItem) : lines.rpItem} rp rpView={rpOnly} />
+        </>
+      )}
       {!rpOnly && <RpInvoices ids={lines.rpItem.txs.map((t) => t.id)} invoices={st.rpInvoices} />}
-    </>
+    </div>
   );
 }
 

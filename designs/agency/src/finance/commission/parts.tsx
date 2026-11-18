@@ -7,7 +7,7 @@ import { downloadInvoice, invoiceHtml, type InvoiceDoc } from './invoice';
 import { TextInput } from '../../components/forms';
 import { Fold, Pill } from '../../institution/records/parts';
 import type { Tx } from './engine';
-import { READY_RP, READY_UNI, RP_ESTIMATE, STATUS_TONE, rpLabel, dayText, money, sizeText, type Band, type FileRef, type Log, type Step, type TxStatus } from './model';
+import { recordClass, READY_RP, READY_UNI, RP_ESTIMATE, STATUS_TONE, rpLabel, dayText, money, sizeText, type Band, type FileRef, type Log, type Step, type TxStatus } from './model';
 import { useComm } from './store';
 import './commission.css';
 
@@ -207,7 +207,7 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
         </thead>
         <tbody>
           {txs.map((t) => (
-            <tr key={t.id}>
+            <tr key={t.id} className={recordClass(t.status) || undefined}>
               <td className="ctab__id">
                 <span className="num iw-strong">{t.id}</span>
                 <span className="iw-sub">{t.type}</span>
@@ -226,7 +226,9 @@ export function TxTable({ txs, rp, rpView, amountNote, caption, app }: { txs: Tx
                 {!rpView && t.side === 'rp' && t.rpSees === false && <span className="iw-sub">Not shown to the RP</span>}
                 {!rpView && t.side === 'uni' && t.amount < 0 && t.status === READY_UNI && <span className="iw-sub">A credit: it goes on GSP’s next invoice to {t.uniName}</span>}
                 {!rpView && t.claimLapsed && t.claimEnds && <span className="iw-sub">Claim window ended {dayText(t.claimEnds)}, not claimed: adjust it in the books</span>}
-                {!rpView && t.credited && <span className="iw-sub">Reversed by {t.credited}; a new line takes its place</span>}
+                {!rpView && t.credited && !t.reverses && <span className="iw-sub">Reversed by credit note {t.credited}; a new line takes its place</span>}
+                {!rpView && t.reverses && <span className="iw-sub">Credit note: reverses {t.reverses}</span>}
+                {!rpView && t.nopayWhy && <span className="iw-sub">{t.nopayWhy}</span>}
                 {!rpView && <HowWorked steps={t.trace} id={`chow-${t.id}`} />}
               </td>
               <td className="num iw-nowrap">

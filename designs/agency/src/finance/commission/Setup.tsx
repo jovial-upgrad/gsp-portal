@@ -527,6 +527,7 @@ export function Setup({ me, say, start, openRp, apps, students }: { me: string; 
             ['Not payable reasons', (S.notPayableReasons ?? []).join(', ') || 'None', 'wide'],
             ['Invoice send-back reasons', (S.sendBackReasons ?? []).join(', ') || 'None', 'wide'],
             ['GST on RP invoices', S.rpGst == null ? 'None' : `${S.rpGst}%`],
+            ['Invoice and bill number prefixes', `${S.invPrefix || 'None'} · ${S.billPrefix || 'None'}`],
           ]],
         ] as [string, string, string, ([string, ReactNode] | [string, ReactNode, 'wide'])[]][]
       ).map(([id, title, note, items]) => (

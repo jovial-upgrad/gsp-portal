@@ -30,8 +30,8 @@ export function filterLines(txs: Tx[], v: LineView, invoiceNo: (t: Tx) => string
   return txs
     .filter((t) => t.side === v.side)
     .filter((t) => v.tab === 'all' || groupOf(t.side, t.status) === v.tab)
-    // 16 Nov (Jovial): lines that count toward nothing (Not payable) show only when the Status filter asks for them
-    .filter((t) => v.tab !== 'all' || groupOf(t.side, t.status) !== 'none' || v.statuses.includes(t.status))
+    // Suman, 18 Nov (replaces 16 Nov): lines that count toward nothing (Not payable, Credited, credit notes) show in All,
+    // marked, so the record is complete
     .filter((t) => !v.who.length || v.who.includes(v.side === 'uni' ? t.uni : t.rp))
     .filter((t) => !v.regions.length || v.regions.includes(t.region))
     .filter((t) => !v.types.length || v.types.includes(t.type))
@@ -61,7 +61,7 @@ export const viewText = (v: LineView, names: (id: string) => string) =>
 /** commission-lines.csv: one row per transaction, with its item and application. */
 export function csvRows(txs: Tx[]): (string | number)[][] {
   return [
-    ['Transaction ID', 'Type', 'Commission item', 'What it’s for', 'GSP ID', 'Student', 'University', 'Course', 'Intake', 'RP', 'Sales region', 'Due', 'Amount', 'Currency', 'Status', 'Invoice', 'Matches', 'Overridden'],
-    ...txs.map((t) => [t.id, t.type, SIDES[t.side], t.what, t.app, t.student, t.uniName, t.course, t.intake, t.rpName, t.region, t.due, t.amount, t.currency, t.status, t.invoice ?? '', t.matches ?? '', t.override ? `${t.override.by}: ${t.override.reason}` : '']),
+    ['Transaction ID', 'Type', 'Commission item', 'What it’s for', 'GSP ID', 'Student', 'University', 'Course', 'Intake', 'RP', 'Sales region', 'Due', 'Amount', 'Currency', 'Status', 'Invoice', 'Bill', 'Reverses', 'Matches', 'Overridden'],
+    ...txs.map((t) => [t.id, t.type, SIDES[t.side], t.what, t.app, t.student, t.uniName, t.course, t.intake, t.rpName, t.region, t.due, t.amount, t.currency, t.status, t.invoice ?? '', t.bill ?? '', t.reverses ?? '', t.matches ?? '', t.override ? `${t.override.by}: ${t.override.reason}` : '']),
   ];
 }
