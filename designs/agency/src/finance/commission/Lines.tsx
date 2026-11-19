@@ -16,7 +16,7 @@ import { blankView, csvRows, filterLines, viewText, type LineView } from './line
 import { debitNote, uniInvoice, type InvoiceDoc } from './invoice';
 import { appliedOptions, feeInvoiced, lineFees, termsApplied } from './applied';
 import { NotPayableSheet } from './NotPayableSheet';
-import { deleteManualLine, liftNotPayable, manualNotPayable, markNotPayable } from './store';
+import { correctLine, deleteManualLine, isHandEntered, liftNotPayable, manualNotPayable, markNotPayable } from './store';
 import { followUniLine, recordClawback, acceptRpInvoice, ctxRps, ctxUnis, ipName, logDownload, markPaid, overrideLine, raiseInvoice, recordPayment, recordRepayment, requestInvoice, rpName, sendDebitNote, sendBackRpInvoice, uniName, useComm, useLines, writeOff } from './store';
 import { recordClass, ACTION_FROM, EXCEPTIONS, IN_REVIEW, LINE_TABS, OVERDUE_UNI, PART_PAID, READY_UNI, TO_PAY, SIDES, STATUSES_OF, TX_TYPES, YES_NO, dayText, groupOf, money, roundMoney, type Side, type TxStatus, TO_RECOVER, READY_RP, ASKED_RP, type RpPayment } from './model';
 import { Unlocks } from './Unlocks';
@@ -53,6 +53,8 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
   const [paidOff, setPaidOff] = useState<Record<string, number>>({});
   const [over, setOver] = useState<Tx | null>(null);
   const [writing, setWriting] = useState<Tx | null>(null);
+  const [correcting, setCorrecting] = useState<Tx | null>(null);
+  const [addSide, setAddSide] = useState<'uni' | 'rp' | undefined>(undefined);
   const [clawing, setClawing] = useState<Tx | null>(null);
   // 17 Nov (after the Finance demo): Credit and re-invoice, and Student withdrew
   const [crediting, setCrediting] = useState<Tx[] | null>(null);
@@ -198,12 +200,15 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
     const lines = [...sel];
     // Q124: only a recovery in the currency of a line asked for goes with it; another waits
     const rec = recoveriesOf(rp).filter((t) => !lines.some((x) => x.id === t.id) && lines.some((x) => x.currency === t.currency));
+    // 19 Nov (Suman): recoveries in another currency can't be set off against these lines (Q124): say so
+    const wait = recoveriesOf(rp).filter((t) => !lines.some((x) => x.id === t.id || x.currency === t.currency));
     ask(
       `Ask ${rpName(rp)} for its invoice for ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}?`,
       'Request invoice',
       <p>
         {totalsText(sumBy(lines))}
         {rec.length ? `, less ${rec.length} ${rec.length === 1 ? 'recovery' : 'recoveries'} (${totalsText(sumBy(rec))}) that ${rec.length === 1 ? 'goes' : 'go'} with it` : ''}. {rpName(rp)} sees {lines.length === 1 ? 'it' : 'them'} on Earnings › Invoices to send and is told (N16{rec.length ? ', and N26 for the recovery' : ''}); reminders follow at {(s.settings.reminders?.rpInvoice ?? []).join(', ')} days.
+        {wait.length ? ` ${wait.length} ${wait.length === 1 ? 'recovery waits' : 'recoveries wait'} (${totalsText(sumBy(wait))}): ${wait.length === 1 ? 'it’s' : 'they’re'} in another currency, so ${wait.length === 1 ? 'it goes' : 'they go'} with ${rpName(rp)}’s next request in that currency.` : ''}
       </p>,
       () => {
         requestInvoice(rp, [...lines, ...rec].map((t) => t.id), who.name);
@@ -644,6 +649,8 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
                         <StatusPill s={t.status} />
                         {t.heldWhy && <span className="iw-sub">{t.heldWhy}</span>}
                         {t.nopayWhy && <span className="iw-sub">{t.nopayWhy}</span>}
+                        {/* 19 Nov (Suman): where a recovery is going */}
+                        {t.status === TO_RECOVER && !t.requested && <span className="iw-sub">{`Taken off ${rpName(t.rp)}’s next invoice request with a ${t.currency} line; after ${s.settings.recoveryChaseDays} days with none, Recoveries to chase (debit note).`}</span>}
                         {t.credited && !t.reverses && <span className="iw-sub">Reversed by credit note {t.credited}; a new line takes its place</span>}
                         {t.reverses && <span className="iw-sub">Credit note: reverses {t.reverses}</span>}
                         {t.followsWhy && <span className="iw-sub">Follows {t.matches} (moved by {t.followsWhy})</span>}
@@ -665,6 +672,8 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
                             ...(t.side === 'uni' && (ACTION_FROM.record as readonly string[]).includes(t.status) ? [{ id: 'pay1', label: 'Record payment', icon: 'check' as const, onPick: () => setPaying([t]) }] : []),
                             ...(canCredit([t], payerOf) ? [{ id: 'credit1', label: 'Credit note', icon: 'refresh' as const, onPick: () => setCrediting([t]) }] : []),
                             ...(t.side === 'rp' && groupOf(t.side, t.status) !== 'paid' && t.type !== 'Recovery' && canTick(t) ? [{ id: 'follows', label: 'Follows university line…', icon: 'link' as const, onPick: () => setFollowing(t) }] : []),
+                            // 19 Nov: a line Finance entered by hand, corrected until a payment is recorded on it
+                            ...(isHandEntered(t) && !t.received && groupOf(t.side, t.status) !== 'paid' && t.status !== PART_PAID && !t.reverses ? [{ id: 'correct', label: 'Correct amount', icon: 'edit' as const, onPick: () => setCorrecting(t) }] : []),
                             ...(t.status === PART_PAID ? [{ id: 'writeoff', label: 'Write off the rest', icon: 'minus' as const, onPick: () => setWriting(t) }] : []),
                             // R106: a university takes back commission it paid on this line
                             // Q132 (Jovial, 13 Nov): the invoice a line is on, to look at again or send again (same number, same due date)
@@ -682,7 +691,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
                               ? [{ id: 'delete', label: 'Delete line', icon: 'trash' as const, onPick: () => ask(`Delete ${t.id}?`, 'Delete', <p>It was added by hand and isn’t invoiced or requested yet. Deleting it is logged.</p>, () => (deleteManualLine(manualIdOf(t)!, t.id, who.name), say(`${t.id} deleted.`))) }]
                               : []),
                             { id: 'keys', label: 'Key details', icon: 'eye', onPick: () => setKeysOf(t.app) },
-                            { id: 'add-lines', label: 'Add lines', icon: 'plus', onPick: () => setAddTo(t.app) },
+                            { id: 'add-lines', label: 'Add lines', icon: 'plus', onPick: () => (setAddSide(t.side), setAddTo(t.app)) },
                             { id: 'history', label: 'History', icon: 'clock', onPick: () => setHistory(t) },
                             ...(canOpen ? [{ id: 'app', label: 'Open application', icon: 'external' as const, onPick: () => onOpenApp!(t.app) }] : []),
                           ]}
@@ -716,13 +725,13 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
         txs={paying}
         onClose={() => setPaying(null)}
         ask={ask}
-        onDone={(paid, less, date) => {
+        onDone={(paid, less, date, instal) => {
           const t = paying![0];
           const ids = Object.keys(paid);
           if (ids.length) {
             const amount = roundMoney(Object.values(paid).reduce((n, x) => n + x, 0), t.currency);
-            recordPayment(t.uni, ids, amount, t.currency, date, who.name, paid, {});
-            say(`${money(amount, t.currency)} from ${t.uniName} recorded: ${ids.length} Paid.`);
+            recordPayment(t.uni, ids, amount, t.currency, date, who.name, paid, Object.fromEntries(instal.map((x) => [x, s.settings.partReasons[0] ?? ''])));
+            say(`${money(amount, t.currency)} from ${t.uniName} recorded: ${ids.length - instal.length} Paid${instal.length ? `, ${instal.length} Part paid (the rest is coming later)` : ''}.`);
           }
           const lessTx = paying!.filter((x) => less[x.id] != null);
           setPaying(null);
@@ -750,6 +759,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
       <FollowsSheet t={following} res={res0} onClose={() => setFollowing(null)} onDone={(uni, reason) => (followUniLine(following!.id, uni, reason, who.name), say(`${following!.id} now follows ${uni}.`), setFollowing(null))} />
       <KeyDetailsSheet app={keysOf} res={res} apps={apps} setApps={setApps} by={who.name} say={say} onClose={() => setKeysOf(null)} />
       <AddLinesSheet
+        side={addSide}
         app={addTo}
         res={res}
         by={who.name}
@@ -782,6 +792,7 @@ export function Lines({ apps, students, who, say, onOpenApp, setApps, onlyApp }:
           setBulkOut(false);
         }}
       />
+      <CorrectSheet t={correcting} ask={ask} onClose={() => setCorrecting(null)} onDone={(amount, why) => { const t = correcting!; correctLine(t.id, amount, why, money(t.amount, t.currency), who.name); setCorrecting(null); say(`${t.id} corrected to ${money(amount, t.currency)}.`); }} />
       <WriteOffSheet
         t={writing}
         reasons={s.settings.partReasons}
@@ -864,13 +875,16 @@ function Foot({ onClose, label, onGo }: { onClose: () => void; label: string; on
  * then asked. A line paid less needs a reason from Settings' list; it becomes Part paid, and its RP line is ready for
  * its share of what came in.
  */
-function PaymentSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose: () => void; onDone: (paid: Record<string, number>, less: Record<string, number>, date: string) => void; ask: AskFn }) {
+function PaymentSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose: () => void; onDone: (paid: Record<string, number>, less: Record<string, number>, date: string, instal: string[]) => void; ask: AskFn }) {
   const [paid, setPaid] = useState<Record<string, number | null>>({});
+  // Jovial and Suman, 19 Nov: a line paid less whose rest is coming later (instalments) stays Part paid, open for the rest
+  const [later, setLater] = useState<Record<string, boolean>>({});
   const [date, setDate] = useState('');
   const [tried, setTried] = useState(false);
   const owed = (t: Tx) => roundMoney(t.amount - (t.received ?? 0), t.currency);
   useEffect(() => {
     setPaid(Object.fromEntries((txs ?? []).map((t) => [t.id, owed(t)])));
+    setLater({});
     setDate(todayIso());
     setTried(false);
   }, [txs]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -888,16 +902,18 @@ function PaymentSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose
   const go = () => {
     setTried(true);
     if (err.lines || err.date || !txs) return;
-    const less = txs.filter(isLess);
-    const full = txs.filter((t) => !isLess(t));
+    const instal = txs.filter((t) => isLess(t) && later[t.id]);
+    const less = txs.filter((t) => isLess(t) && !later[t.id]);
+    const full = txs.filter((t) => !isLess(t) || later[t.id]);
     const body = (
       <p>
-        {full.length ? `${full.length} ${full.length === 1 ? 'line becomes' : 'lines become'} Paid, and the matching RP lines Ready to request.` : ''}
+        {full.length - instal.length ? `${full.length - instal.length} ${full.length - instal.length === 1 ? 'line becomes' : 'lines become'} Paid, and the matching RP lines Ready to request.` : ''}
+        {instal.length ? ` ${instal.length} ${instal.length === 1 ? 'line stays' : 'lines stay'} Part paid, open for the rest (chased when overdue).` : ''}
         {less.length ? ` ${less.length} paid less: the credit note form opens next, to credit ${less.length === 1 ? 'it' : 'them'} in full and invoice what came in; then record the payment on the new invoice.` : ''}
       </p>
     );
     ask(full.length ? `Record ${money(roundMoney(full.reduce((n, t) => n + (paid[t.id] ?? 0), 0), cur), cur)} received from ${txs[0].uniName} on ${dayText(date)}?` : `Credit ${less.length} ${less.length === 1 ? 'line' : 'lines'} paid less?`, full.length ? 'Record payment' : 'Next', body, () =>
-      onDone(Object.fromEntries(full.map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), Object.fromEntries(less.map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), date),
+      onDone(Object.fromEntries(full.map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), Object.fromEntries(less.map((t) => [t.id, roundMoney(paid[t.id] ?? 0, cur)])), date, instal.map((t) => t.id)),
     );
   };
   return (
@@ -905,13 +921,49 @@ function PaymentSheet({ txs, onClose, onDone, ask }: { txs: Tx[] | null; onClose
       <div className="iform__grid">
         {(txs ?? []).map((t) => (
           <div key={t.id} className="iform__wide cpay__line">
-            <Field id={`cpay-${t.id}`} label={`${t.id} · ${t.student}: received (${t.currency})`} required error={tried ? lineErr(t) : null} hint={isLess(t) ? 'Paid less: this line is credited in full and invoiced again at what came in (credit note next).' : `Still owed: ${money(owed(t), t.currency)}`}>
+            <Field id={`cpay-${t.id}`} label={`${t.id} · ${t.student}: received (${t.currency})`} required error={tried ? lineErr(t) : null} hint={isLess(t) ? (later[t.id] ? 'The rest is coming later: the line stays Part paid, open for the rest.' : 'Paid less for good: this line is credited in full and invoiced again at what came in (credit note next).') : `Still owed: ${money(owed(t), t.currency)}`}>
               <TextInput id={`cpay-${t.id}`} inputMode="decimal" value={numText(paid[t.id] ?? null)} invalid={tried && !!lineErr(t)} onChange={(e) => setPaid((x) => ({ ...x, [t.id]: numOf(e.target.value) }))} />
             </Field>
+            {isLess(t) && (
+              <Checkbox id={`cpay-later-${t.id}`} checked={!!later[t.id]} onChange={(on) => setLater((x) => ({ ...x, [t.id]: on }))}>
+                The rest is coming later (instalments)
+              </Checkbox>
+            )}
           </div>
         ))}
         <Field id="cpay-date" label="Date received" required error={tried ? err.date : null}>
           <TextInput id="cpay-date" type="date" value={date} invalid={tried && !!err.date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Correct a line entered by hand (19 Nov): the right amount and why; the line itself changes, logged old and new. */
+function CorrectSheet({ t, onClose, onDone, ask }: { t: Tx | null; onClose: () => void; onDone: (amount: number, why: string) => void; ask: AskFn }) {
+  const [amount, setAmount] = useState<number | null>(null);
+  const [why, setWhy] = useState('');
+  const [tried, setTried] = useState(false);
+  useEffect(() => {
+    setAmount(t ? t.amount : null);
+    setWhy('');
+    setTried(false);
+  }, [t]);
+  if (!t) return null;
+  const err = { amount: amount === null || Number.isNaN(amount) ? 'Enter the right amount.' : amount === t.amount ? 'It’s already this amount.' : null, why: why.trim() ? null : 'Say what was wrong.' };
+  const go = () => {
+    setTried(true);
+    if (err.amount || err.why) return;
+    ask(`Correct ${t.id} to ${money(amount!, t.currency)}?`, 'Correct', <p>It was {money(t.amount, t.currency)}. The line itself changes (it was entered by hand and nothing is paid on it); the RP's matching line follows. Logged with who, when and why.</p>, () => onDone(amount!, why.trim()));
+  };
+  return (
+    <Sheet open onClose={onClose} center className="iform" title="Correct amount" sub={`${t.id} · ${t.student}: entered by hand, nothing paid on it yet`} footer={<Foot onClose={onClose} label="Correct" onGo={go} />}>
+      <div className="iform__grid">
+        <Field id="ccor-amt" label={`Right amount (${t.currency})`} required error={tried ? err.amount : null}>
+          <TextInput id="ccor-amt" inputMode="decimal" value={numText(amount)} invalid={tried && !!err.amount} onChange={(e) => setAmount(numOf(e.target.value))} />
+        </Field>
+        <Field id="ccor-why" label="What was wrong" required error={tried ? err.why : null} className="iform__wide">
+          <TextInput id="ccor-why" value={why} invalid={tried && !!err.why} onChange={(e) => setWhy(e.target.value)} />
         </Field>
       </div>
     </Sheet>

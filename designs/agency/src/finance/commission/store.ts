@@ -14,7 +14,7 @@ import { HOME_RP } from '../../gsp/rps';
 import { agreementsOf, regionOf, sampleOps, type OpsRp } from '../../rpops/records/data';
 import { sampleComm } from './seed';
 import { sampleUsers } from '../../admin/data/config';
-import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result } from './engine';
+import { compute, nextInvoiceNumber, periodCount, settleAll, type Ctx, type CtxCourse, type CtxUni, type Result, type Tx } from './engine';
 import { COMM_LEVELS, TX_TYPES, benefitText, money, ratesText, rpViewText, shareText, type RpView, type Agreement, type CommState, type FollowUp, type Enrolment, type FileRef, type Log, type LogArea, type Notice, type RpRecord, type RpPayment, type Settings, type UniGroup, type UniTerms } from './model';
 import { CURRENCY } from '../../data/courses';
 import { periodsOf } from './pricing';
@@ -516,6 +516,25 @@ export function sendDebitNote(rp: string, txs: string[], by: string) {
 /** The RP paid a recovery back itself (after GSP's debit note): Recovered. */
 export function recordRepayment(rp: string, tx: string, amount: number, date: string, by: string) {
   setComm((s) => withLog({ ...s, rpPayments: [...s.rpPayments, { id: id('rpp'), rp, txs: [tx], date, by, at: Date.now(), recovered: { [tx]: amount }, repaid: true }] }, lineLog(by, `${by} recorded ${rpName(rp)} paying back ${tx} on ${date}`, [tx], { rp })));
+}
+/**
+ * Jovial and Suman, 19 Nov: Finance corrects a line it entered by hand (Add lines, or the new line a credit note made)
+ * until a payment is recorded on it: the kept amount itself changes (no Adjustment), with why, logged old and new.
+ */
+export const isHandEntered = (t: Pick<Tx, 'key'>) => t.key.includes('|man:') || /#r\d+$/.test(t.key);
+export function correctLine(tx: string, amount: number, reason: string, old: string, by: string) {
+  setComm((s) => {
+    const fr = s.frozen[tx];
+    const at = Date.now();
+    return withLog(
+      {
+        ...s,
+        frozen: fr ? { ...s.frozen, [tx]: { ...fr, amount, base: amount } } : s.frozen,
+        overrides: [...s.overrides, { id: id('ov'), tx, amount, due: null, hold: false, reason: `Corrected: ${reason}`, by, at }],
+      },
+      lineLog(by, `${by} corrected ${tx}, entered by hand: ${old} → ${money(amount, fr?.currency ?? '')}. ${reason}`, [tx]),
+    );
+  });
 }
 export function overrideLine(tx: string, o: { amount: number | null; due: string | null; hold: boolean; reason: string }, old: string, now: string, by: string) {
   setComm((s) => withLog({ ...s, overrides: [...s.overrides, { id: id('ov'), tx, ...o, by, at: Date.now() }] }, lineLog(by, `${by} overrode ${tx}: ${old} → ${now}. ${o.reason}`, [tx])));
