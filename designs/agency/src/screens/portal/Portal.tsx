@@ -38,8 +38,8 @@ import { AccessProvider, type Feature } from '../../proto/viewOnly';
 import { AccountPage } from '../../institution/records/Account';
 
 /**
- * A seat in the agency (Nesil, 6 Nov, from the access sheet): GSP Branch Manager (the students and applications of
- * one branch) or GSP Counsellor (their own). RP Admin's portal without Earnings, the agency's Profile or commission;
+ * A seat in the agency (Nesil, 6 Nov, from the access sheet): RP Branch Manager (the students and applications of
+ * one branch) or RP Counsellor (their own). RP Admin's portal without Earnings, the agency's Profile or commission;
  * Find courses, Students and Applications (Chat and Documents) to use.
  */
 export type Seat = { kind: 'branch' | 'counsellor'; member: Member; title: string };
@@ -112,7 +112,7 @@ export function Portal({
   seat,
 }: {
   acc: Account;
-  /** GSP Branch Manager or GSP Counsellor (6 Nov): one branch's, or one counsellor's, students and applications. */
+  /** RP Branch Manager or RP Counsellor (6 Nov): one branch's, or one counsellor's, students and applications. */
   seat?: Seat;
   /** The registration this partner came from; none for a partner who signed in to an established account. */
   join: SignupState | null;

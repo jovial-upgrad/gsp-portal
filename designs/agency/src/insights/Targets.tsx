@@ -5,7 +5,7 @@ import { Checkbox, Field, SelectInput, TextInput } from '../components/forms';
 import { Icon } from '../components/Icon';
 import { Filter, PageHead, downloadCsv, useAsk } from '../institution/records/parts';
 import { todayIso } from '../institution/data/records';
-import { TARGET_LEVELS, TARGET_METRICS, readTargets, templateRows, versionRows, type ReadRow, type TargetLevel, type TargetVersion } from './targets';
+import { TARGET_LEVELS, TARGET_METRICS, TEMPLATE_GRAINS, type TemplateGrain, readTargets, templateRows, versionRows, type ReadRow, type TargetLevel, type TargetVersion } from './targets';
 
 /**
  * Admin › Targets (Jovial, 18 Nov): the business shares its targets as a table; Admin uploads it as a CSV into a
@@ -26,6 +26,9 @@ export function Targets({ names, versions, setVersions, me, say, fyStart = 4, ne
   const m = now.getMonth() + 1;
   const fys = (m - nextFrom + 12) % 12 < (fyStart - nextFrom + 12) % 12 ? [thisFy, thisFy + 1] : [thisFy];
   const [tfy, setTfy] = useState(thisFy);
+  // 19 Nov: rows per quarter or per month, for every level or one (monthly BDM targets)
+  const [grain, setGrain] = useState<TemplateGrain>(TEMPLATE_GRAINS[0]);
+  const [tlevel, setTlevel] = useState('');
   const fy = fys.includes(tfy) ? tfy : thisFy;
   const rows = (v?.rows ?? []).filter((r) => (!levels.length || levels.includes(r.level)) && (!periods.length || periods.includes(r.period)));
   const makeCurrent = (id: string) => {
@@ -51,7 +54,21 @@ export function Targets({ names, versions, setVersions, me, say, fyStart = 4, ne
             ))}
           </SelectInput>
         )}
-        <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={() => downloadCsv(`targets-template-fy${String(fy).slice(2)}.csv`, templateRows(names, fy, fyStart))}>
+        <SelectInput id="tg-grain" aria-label="Template rows per" value={grain} onChange={(e) => setGrain(e.target.value as TemplateGrain)}>
+          {TEMPLATE_GRAINS.map((g) => (
+            <option key={g} value={g}>
+              {`Per ${g.toLowerCase()}`}
+            </option>
+          ))}
+        </SelectInput>
+        <SelectInput id="tg-level" aria-label="Template level" value={tlevel} placeholder="Every level" allowEmpty onChange={(e) => setTlevel(e.target.value)}>
+          {TARGET_LEVELS.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </SelectInput>
+        <Button variant="secondary" iconLeft={<Icon name="download" size={18} />} onClick={() => downloadCsv(`targets-template-fy${String(fy).slice(2)}${tlevel ? `-${tlevel.toLowerCase().replace(/\W+/g, '-')}` : ''}-${grain.toLowerCase()}.csv`, templateRows(names, fy, fyStart, grain, tlevel ? [tlevel as TargetLevel] : TARGET_LEVELS))}>
           Download template
         </Button>
         <Button iconLeft={<Icon name="upload" size={18} />} onClick={() => setUp(true)}>
@@ -62,7 +79,7 @@ export function Targets({ names, versions, setVersions, me, say, fyStart = 4, ne
         <h2 className="ins-card__t">How targets get in, and where they show</h2>
         <ol className="ins-steps">
           <li>
-            <strong>Download template</strong>: every {TARGET_LEVELS.join(', ').toLowerCase()} the portal knows, one row per quarter of FY{String(fy).slice(2)} (by course start). Fill only what the business sets; empty rows are skipped. A quarter (OND 26) or a month (2027-02) goes in Period.
+            <strong>Download template</strong>: every {TARGET_LEVELS.join(', ').toLowerCase()} the portal knows, one row per quarter (or per month: pick Per month, and a level such as BDM, for monthly targets) of FY{String(fy).slice(2)} (by course start). Fill only what the business sets; empty rows are skipped. A quarter (OND 26) or a month (2027-02) goes in Period.
           </li>
           <li>
             <strong>Upload targets</strong> as a named version (AOP, a revision, a country manager's projection). Lines that can't be read are listed with the reason before saving. Make one version <strong>current</strong>.

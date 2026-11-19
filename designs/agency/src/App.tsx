@@ -15,7 +15,7 @@ import { Portal as RecruitmentPortal } from './recruitment/portal/Portal';
 import { Portal as InstOpsPortal } from './instops/portal/Portal';
 import type { Seat } from './screens/portal/Portal';
 
-/** GSP Branch Manager and GSP Counsellor (6 Nov): RP Admin's portal, for one branch (Mumbai) or one counsellor (Karthik Nair). */
+/** RP Branch Manager and RP Counsellor (6 Nov): RP Admin's portal, for one branch (Mumbai) or one counsellor (Karthik Nair). */
 const BRANCH_SEAT: Seat = { kind: 'branch', title: 'Branch Manager', member: { id: 'meghna', name: 'Meghna Rao', role: 'Branch Admin', email: 'meghna.rao@brightpathoverseas.in', dial: '+91', phone: '98201 55412', branch: 'mumbai' } };
 const COUNSELLOR_SEAT: Seat = { kind: 'counsellor', title: 'Counsellor', member: { id: 'karthik', name: 'Karthik Nair', role: 'Counsellor', email: 'karthik.nair@brightpathoverseas.in', dial: '+91', phone: '98450 22113', branch: 'hq' } };
 const BranchPortal = (p: Parameters<typeof Portal>[0]) => <Portal {...p} seat={BRANCH_SEAT} />;

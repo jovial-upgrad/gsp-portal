@@ -106,7 +106,7 @@ export function AppDetail({
   onOpenStudent: (id: string, tab?: RecordTab) => void;
   say: (m: string) => void;
 }) {
-  // 6 Nov (access sheet): GSP Branch Manager and GSP Counsellor see no commission
+  // 6 Nov (access sheet): RP Branch Manager and RP Counsellor see no commission
   const noBaseCommission = useHides('app.base-commission');
   const reduce = useReducedMotion();
   const c = courseOf(a);

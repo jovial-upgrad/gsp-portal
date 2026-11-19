@@ -137,8 +137,10 @@ export function AppDetail({
   const gspDocsOnly = useShows('app.documents.gsp-only');
   // GSP · Finance (6 Nov): no Chat, Mail, Documents or Submission; a Commission tab it can change
   const hidden: Partial<Record<AppTab, boolean>> = { chat: useHides('app.chat'), mail: useHides('app.mail'), documents: useHides('app.documents'), submission: useHides('app.submission') };
-  const tabs: [AppTab, string, IconName][] = [...(useShows('app.commission') ? [['commission', 'Commission', 'wallet'] as [AppTab, string, IconName]] : []), ...TABS.filter(([k]) => !hidden[k])];
-  const shown: AppTab = tabs.some(([k]) => k === tab) ? tab : tabs[0][0];
+  // Jovial, 19 Nov: Commission sits between Submission and Logs
+  const withComm = useShows('app.commission');
+  const tabs: [AppTab, string, IconName][] = TABS.filter(([k]) => !hidden[k]).flatMap((t) => (t[0] === 'activity' && withComm ? [['commission', 'Commission', 'wallet'] as [AppTab, string, IconName], t] : [t]));
+  const shown: AppTab = tabs.some(([k]) => k === tab) ? tab : withComm ? 'commission' : tabs[0][0];
   const reduce = useReducedMotion();
   const c = courseOf(a);
   const d = c.uni.country;

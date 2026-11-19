@@ -69,7 +69,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok((await p.locator('.cfg__tab tbody tr').count()) === 20 && (await p.locator('.cfg__pager').count()) === 1, 'Create Roles: 20 a page, with pages');
   // 6 Nov (Nesil): the role filter lists every prototype role but RP Admin's backup; the sales region filter picks several
   const roleOpts = (await p.locator('#usf-role option').allInnerTexts()).map((x) => x.trim()).filter((x) => x && x !== 'All roles');
-  ok(roleOpts.length === 12 && roleOpts.includes('GSP Counsellor') && roleOpts.includes('GSP · View Only') && roleOpts.includes('RP Admin') && !roleOpts.some((x) => x.includes('Backup')), 'role filter: the 12 prototype roles, no backup: ' + roleOpts.join('|'));
+  ok(roleOpts.length === 12 && roleOpts.includes('RP Counsellor') && roleOpts.includes('GSP · View Only') && roleOpts.includes('RP Admin') && !roleOpts.some((x) => x.includes('Backup')), 'role filter: the 12 prototype roles, no backup: ' + roleOpts.join('|'));
   ok((await p.locator('.cfg__tab tbody').innerText()).includes('GSP · Admissions'), 'users carry the prototype roles');
   await p.locator('#usf-region').click(); await wait(300);
   await p.locator('.imp__panel').getByText('Nepal', { exact: true }).click();
