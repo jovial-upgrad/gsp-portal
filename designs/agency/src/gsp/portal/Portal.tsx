@@ -361,7 +361,7 @@ export function Portal({
     ) : isLocked(section) && join ? (
       <LockedSection section={section} join={join} onDocs={openDocs} go={go} />
     ) : section === 'work' ? (
-      <MyWork />
+      <MyWork apps={apps} onReassignApp={(id, who) => setApps((xs) => xs.map((x) => (x.id === id ? { ...x, officer: who } : x)))} />
     ) : section === 'inbox' ? (
       <MailInbox box={mailbox} setBox={setMailbox} me={GSP_USER} apps={apps} students={students} navKey={navKey} onOpenApp={(id) => jumpTo({ section: 'applications', app: { open: id } })} />
     ) : section === 'profile' ? (

@@ -353,6 +353,12 @@ export type Application = {
   visaBy?: 'you' | 'gsp';
   /** The application BDM (R152, Jovial 18 Nov): the BDM it counts for, kept when it's made; a backend field, not shown on the record. */
   bdm?: string;
+  /**
+   * Who it's allocated to at GSP (Jovial, 19 Nov): set only when a queue's leader or member reassigns it. Every task the
+   * rules make for it then goes to this person while they are an active member of the task's queue; unset, the queue's
+   * sharing picks (admin/data/mywork.ts).
+   */
+  officer?: string;
 };
 
 export const courseOf = (a: Pick<Application, 'courseId'>) => COURSES.find((c) => c.id === a.courseId)!;

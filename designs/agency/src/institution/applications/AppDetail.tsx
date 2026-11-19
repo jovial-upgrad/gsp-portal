@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { EditOnly, ViewOnlyProvider, useHides, useShows, useViewOnly } from '../../proto/viewOnly';
 import { AppCommissionTab } from '../../finance/commission/tabs';
 import { useCommFiles } from '../../finance/commission/store';
@@ -51,6 +51,8 @@ import { CondCard, CondDialog, condViews } from '../../screens/applications/Cond
 import { NameDialog, nameFromFile } from './NameDialog';
 import { OWNER_TAG } from './owners';
 import { GSP_USER } from '../user';
+import { useAppList } from '../../components/AppCounts';
+import { allocationOf } from '../../admin/data/mywork';
 
 export type AppTab = 'commission' | 'chat' | 'mail' | 'documents' | 'submission' | 'activity';
 const TABS: [AppTab, string, IconName][] = [
@@ -678,6 +680,7 @@ export function AppDetail({
               )}
               {!noAdmFacts && <Row k="Counsellor" v={counsellor?.name} />}
               {/* Jovial, 18 Nov: the application BDM, kept when it's made; any Admissions user can change it (logged) */}
+              <AppAllocatedRow a={a} me={GSP_USER.name} readOnly={viewOnly} update={update} log={log} say={say} />
               <AppBdmRow a={a} who={{ counsellor: counsellor?.name, country: s.country }} canEdit={!viewOnly} update={update} log={log} say={say} />
               {!noBaseCommission && <Row k="Base commission" v={<span className="num">{earn.text}</span>} />}
               <Row k="Started" v={shortDate(new Date(a.created))} />
@@ -1151,6 +1154,89 @@ function WithdrawDialog({ open, a, s, agency, onCancel, onConfirm }: { open: boo
         ))}
       </fieldset>
     </ConfirmDialog>
+  );
+}
+
+/**
+ * Key details' Allocated to (Jovial, 19 Nov: a major miss): the person at GSP the application's tasks go to, and their
+ * queue. The queue's leader and members can hand it to someone else in the queue, with why; every open task of the
+ * application moves, and so do the ones the rules make for it later (Application.officer). Everyone else only sees it.
+ */
+export function AppAllocatedRow({ a, me, update, log, say, readOnly = false }: { a: Application; me: string; update: (fn: (x: Application) => Application) => void; log: (text: string) => void; say: (m: string) => void; readOnly?: boolean }) {
+  const all = useAppList();
+  const apps = useMemo(() => (all.some((x) => x.id === a.id) ? all.map((x) => (x.id === a.id ? a : x)) : [...all, a]), [all, a]);
+  const al = useMemo(() => allocationOf(a, apps), [a, apps]);
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState('');
+  const [why, setWhy] = useState('');
+  const [tried, setTried] = useState(false);
+  if (!al) return null;
+  const canEdit = !readOnly && al.team.includes(me);
+  const err = { to: !to ? 'Choose who it goes to.' : to === al.to ? 'It’s already with them.' : null, why: why.trim() ? null : 'Say why.' };
+  const label = (p: string) => p + (p === al.leader ? ' (leader)' : '') + (p === me ? ' (you)' : '');
+  return (
+    <>
+      <Row
+        k="Allocated to"
+        v={
+          <span>
+            {al.to || 'Not assigned yet'}
+            <span className="cdl__soft"> · {al.queue}</span>
+            {canEdit && (
+              <button type="button" className="icon-btn" aria-label="Reassign the application" onClick={() => (setTo(''), setWhy(''), setTried(false), setOpen(true))}>
+                <Icon name="edit" size={14} />
+              </button>
+            )}
+          </span>
+        }
+      />
+      {open && (
+        <Sheet
+          open
+          onClose={() => setOpen(false)}
+          center
+          className="iform"
+          title="Reassign the application"
+          sub={`${a.id} is with ${al.to || 'no one yet'} in ${al.queue}. ${al.open === 1 ? 'Its open task moves' : al.open ? `Its ${al.open} open tasks move` : 'Its next tasks go'} to the person you choose, and so do the tasks that come later.`}
+          footer={
+            <div className="asf">
+              <div className="asf__acts">
+                <Button variant="secondary" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    setTried(true);
+                    if (err.to || err.why) return;
+                    update((x) => ({ ...x, officer: to }));
+                    log(`Reassigned from ${al.to || 'no one'} to ${to} (${al.queue}): ${why.trim()}`);
+                    say(`${a.id} is now with ${to}.`);
+                    setOpen(false);
+                  }}
+                >
+                  Reassign
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div className="iform__grid">
+            <Field id="aal-to" label={`Reassign to (${al.queue})`} required error={tried ? err.to : null}>
+              <SelectInput id="aal-to" value={to} placeholder="Choose a person in the queue" invalid={tried && !!err.to} onChange={(e) => setTo(e.target.value)}>
+                {al.team.map((p) => (
+                  <option key={p} value={p} disabled={p === al.to}>
+                    {label(p)}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field id="aal-why" label="Why" required className="iform__wide" error={tried ? err.why : null}>
+              <TextInput id="aal-why" value={why} invalid={tried && !!err.why} onChange={(e) => setWhy(e.target.value)} />
+            </Field>
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 

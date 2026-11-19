@@ -103,7 +103,7 @@ export function sampleRecords(me: { name: string; email: string } = { name: '', 
 }
 
 /** A record a rule's condition holds for: when it started holding, its region, and the words its task fills in. */
-type Hit = { key: string; since: number; region: string; ref: string; about: string; owner?: string; vars: Record<string, string>; keep?: string };
+type Hit = { key: string; since: number; region: string; ref: string; about: string; owner?: string; vars: Record<string, string>; keep?: string; officer?: string };
 const at = (iso: string) => new Date(`${iso}T09:30`).getTime();
 const activityAt = (rp: RecruitmentPartner, what: RegExp) => {
   const a = rp.activity.find((x) => what.test(x.what));
@@ -127,7 +127,7 @@ function hitsFor(rule: TaskRule, rec: WorkRecords, regionOf: (country: string) =
       .filter((a) => a.status === status)
       .map((a): Hit => {
         const uni = courseOf(a).uni.name;
-        return { key: a.id, since: a.since, region: regionOf(rpOf(a)?.country ?? ''), ref: a.id, about: uni, vars: { student: student(a), university: uni } };
+        return { key: a.id, since: a.since, region: regionOf(rpOf(a)?.country ?? ''), ref: a.id, about: uni, vars: { student: student(a), university: uni }, officer: a.officer };
       });
   const rp = (r: RecruitmentPartner, since: number): Hit => ({ key: r.id, since, region: regionOf(r.country), ref: r.code, about: r.name, owner: r.bdm, vars: { RP: r.name } });
   const ipOf = (u: UniRec) => rec.ips.find((p) => p.id === u.ip);
@@ -253,7 +253,11 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
       const way = rule.sharing === 'queue' ? q.sharing : rule.sharing;
       const members = peopleOf(q, queues).filter(active).map((id) => userOf(id)!.name);
       let who: string;
-      if (way === 'leader') who = userOf(q.lead)?.name ?? '';
+      // 19 Nov (Jovial): an application reassigned by its queue's leader or a member goes to that person while they're in the queue
+      if (hit.officer && members.includes(hit.officer)) {
+        who = hit.officer;
+        officers.set(hit.key, who);
+      } else if (way === 'leader') who = userOf(q.lead)?.name ?? '';
       else if (way === 'pool') who = '';
       else if (way === 'officer') {
         // the application's officer: picked once, by Fewest open, and every later application task goes to them
@@ -287,6 +291,55 @@ export function runRules(rules: TaskRule[], rec: WorkRecords, queues: Queue[], r
   return out;
 }
 
+/** The seeded set, built once: the records the rules read (the applications are swapped for the page's own). */
+let BASE: { rec: WorkRecords; users: User[]; queues: Queue[]; regions: Region[]; cals: Calendar[] } | null = null;
+const base = () => {
+  if (!BASE) {
+    const users = sampleUsers();
+    const queues = sampleQueues(users);
+    const regions = sampleRegions(queues);
+    BASE = { rec: sampleRecords(), users, queues, regions, cals: sampleCalendars(regions.map((r) => r.name)) };
+  }
+  return BASE;
+};
+
+/** The task rules run over the page's own applications (so a reassignment or a status change shows at once). */
+const RUNS = new WeakMap<Application[], WorkTask[]>();
+export const tasksFor = (apps: Application[]) => {
+  const hit = RUNS.get(apps);
+  if (hit) return hit;
+  const b = base();
+  const out = runRules(sampleRules(), { ...b.rec, apps }, b.queues, b.regions, b.users, b.cals);
+  RUNS.set(apps, out);
+  return out;
+};
+
+/**
+ * Who an application is allocated to at GSP (Jovial, 19 Nov): the queue its open tasks are in and who has them. With no
+ * open task (it waits on the RP or the university), its region's Admissions queue (its backup if no one can take work
+ * there), and the person it was reassigned to, else whoever that queue's sharing would pick. `team` is the queue's active
+ * people, the leader first: the people it can be reassigned to, and the ones who can do it.
+ */
+export type Allocation = { queue: string; leader: string; team: string[]; to: string; open: number };
+export function allocationOf(a: Application, apps: Application[], tasks: WorkTask[] = tasksFor(apps)): Allocation | null {
+  const b = base();
+  const userOf = (id: string) => b.users.find((u) => u.id === id);
+  const live = (q: Queue) => peopleOf(q, b.queues).filter((id) => !!userOf(id) && userOf(id)!.status !== 'Deactivated');
+  const mine = tasks.filter((t) => t.ref === a.id && !t.done);
+  let q: Queue | undefined = mine.length ? b.queues.find((x) => x.id === mine[0].queue) : undefined;
+  if (!q) {
+    const rp = b.rec.rps.find((r) => r.name === (a.rp ?? HOME_RP));
+    const region = b.regions.find((r) => r.countries.includes(rp?.country ?? ''))?.name ?? (rp?.country ? 'Rest of world' : 'Global');
+    const q0 = queueFor(REGION_ADMISSIONS, region, b.queues, b.regions);
+    q = q0 && !live(q0).length ? (b.queues.find((x) => x.id === q0.backup) ?? q0) : q0;
+  }
+  if (!q) return null;
+  const leader = userOf(q.lead)?.name ?? '';
+  const team = [...new Set([leader, ...live(q).map((id) => userOf(id)!.name)])].filter(Boolean);
+  const to = mine[0]?.assignee || (a.officer && team.includes(a.officer) ? a.officer : q.sharing === 'leader' || q.sharing === 'pool' ? leader : '');
+  return { queue: q.name, leader, team, to, open: mine.length };
+}
+
 /**
  * One queue's work, for a role's own My work (9 Nov): the queue as GSP · Admin seeds it (its leader and people), and
  * the tasks the seeded task rules make in it from the seeded records. A queue no rule sends work to has none.
@@ -298,7 +351,7 @@ export function queueWork(name: string) {
   const q = queues.find((x) => x.name === name);
   const nameOf = (id: string) => users.find((u) => u.id === id)?.name ?? '';
   const tasks = q ? runRules(sampleRules(), sampleRecords(), queues, regions, users, sampleCalendars(regions.map((r) => r.name))).filter((t) => t.queue === q.id) : [];
-  return { queue: name, leader: q ? nameOf(q.lead) : '', team: q ? peopleOf(q, queues).map(nameOf).filter(Boolean) : [], tasks };
+  return { id: q?.id ?? '', queue: name, leader: q ? nameOf(q.lead) : '', team: q ? peopleOf(q, queues).map(nameOf).filter(Boolean) : [], tasks };
 }
 
 /**

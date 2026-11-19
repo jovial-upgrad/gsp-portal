@@ -1,3 +1,4 @@
+import { allocationOf } from '../../admin/data/mywork';
 /**
  * The Applications list's extra columns (Jovial, 18 Nov: what Commissions asked to see), each read from the records
  * the portal keeps: the application, its student, its course and university, the university's institution partner and
@@ -67,5 +68,7 @@ export const APP_COLUMNS: AppColumn[] = [
   { key: 'rpid', label: 'RP ID', get: (a) => rpOf(a)?.code ?? '' },
   { key: 'rpbdm', label: 'RP BDM', get: (a) => opsOf(a)?.recruitment ?? '' },
   { key: 'counsellor', label: 'RP counsellor', get: (a, x) => x.counsellor(a) },
+  // 19 Nov (Jovial): who has it at GSP, and the queue (reassignable on the record by the queue's leader and members)
+  { key: 'alloc', label: 'Allocated to (GSP)', get: (a, x) => { const al = allocationOf(a, x.apps); return al ? `${al.to || 'Not assigned yet'} · ${al.queue}` : ''; } },
   { key: 'appbdm', label: 'Application BDM', get: (a, x) => appBdmOf(a, { counsellor: x.counsellor(a), country: x.student(a)?.country }) },
 ];
