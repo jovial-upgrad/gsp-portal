@@ -4,7 +4,8 @@
  * admin/data/mywork.ts): its title is the rule's task, its ID is shown under it, and a late task is simply Breached.
  * A queue no rule sends work to has no tasks. Times are working hours (9 a working day).
  */
-import { queueWork, waitsFor } from '../../admin/data/mywork';
+import { queueWork, tasksFor, waitsFor, type WorkTask } from '../../admin/data/mywork';
+import type { Application } from '../../data/applications';
 export type GwTask = { id: string; title: string; rule: string; ref: string; uni: string; region: string; queue: string; assignee: string; waited: number; sla: number; canComplete: boolean; done?: boolean; note?: string };
 export type GwWait = { id: string; student: string; ref: string; uni: string; status: string; on: 'RP' | 'University'; what: string; since: number; left: number | null };
 
@@ -42,8 +43,10 @@ export const dueDate = (left: number) => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
-export const sampleGwTasks = (): GwTask[] => 
-  WORK.tasks.map((t) => ({ id: t.id, title: t.title, rule: t.rule, ref: t.ref, uni: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete }));
+const toGw = (t: WorkTask): GwTask => ({ id: t.id, title: t.title, rule: t.rule, ref: t.ref, uni: t.about, region: t.region, queue: QUEUE, assignee: t.assignee, waited: t.waited, sla: t.sla, canComplete: t.canComplete });
+export const sampleGwTasks = (): GwTask[] => WORK.tasks.map(toGw);
+/** 19 Nov: the queue's tasks from the portal's own applications, so a reassigned application shows at once. */
+export const liveGwTasks = (apps: Application[]): GwTask[] => tasksFor(apps).filter((t) => t.queue === WORK.id).map(toGw);
 
 /** Waiting on others (Jovial, 10 Nov, Q38): this queue's applications with the RP or the university, worked out from the records. */
 export const sampleGwWaits = (): GwWait[] => waitsFor(QUEUE);

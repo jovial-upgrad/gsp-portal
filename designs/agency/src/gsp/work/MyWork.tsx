@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { Application } from '../../data/applications';
 import { Button } from '../../components/Button';
 import { Toast, type ToastMsg } from '../../components/Toast';
 import { Sheet } from '../../components/Sheet';
@@ -7,7 +8,7 @@ import { Checkbox, Field } from '../../components/forms';
 import { MultiPick } from '../../components/MultiPick';
 import { SearchPick } from '../../institution/records/SearchPick';
 import { Pager, usePaged } from '../../admin/config/parts';
-import { LEADER, ME, QUEUE, STANDING, TEAM, dueDate, sampleGwTasks, sampleGwWaits, standingOf, whShort, whText, type GwTask, type Standing } from './data';
+import { LEADER, ME, QUEUE, STANDING, TEAM, dueDate, liveGwTasks, sampleGwTasks, sampleGwWaits, standingOf, whShort, whText, type GwTask, type Standing } from './data';
 import './work.css';
 
 type View = 'mine' | 'team' | 'waiting';
@@ -28,10 +29,24 @@ const slaLine = (t: GwTask) => {
  * and **Waiting on others**. A task's record is its application (GSP number, university, region); its SLA pauses
  * while the RP answers a request. Tick tasks to assign them together.
  */
-export function MyWork() {
+export function MyWork({ apps, onReassignApp }: { apps?: Application[]; onReassignApp?: (id: string, who: string) => void } = {}) {
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const say = (title: string) => setToast({ key: Date.now(), title, icon: 'check', tone: 'ok' });
-  const [tasks, setTasks] = useState(sampleGwTasks);
+  // 19 Nov (Jovial): with the portal's applications the tasks follow them (an application reassigned on its record moves
+  // here); what this page changes itself (completed, a task that isn't an application's) is kept over them
+  const [own, setOwn] = useState<Record<string, Partial<GwTask>>>({});
+  const made = useMemo(() => (apps ? liveGwTasks(apps) : sampleGwTasks()), [apps]);
+  const tasks = useMemo(() => made.map((t) => ({ ...t, ...Object.fromEntries(Object.entries(own[t.id] ?? {}).filter(([, v]) => v !== undefined)) })), [made, own]);
+  const setTasks = (fn: (ts: GwTask[]) => GwTask[]) => {
+    const next = fn(tasks);
+    setOwn((o) => {
+      const n = { ...o };
+      next.forEach((t, i) => {
+        if (t !== tasks[i]) n[t.id] = { ...n[t.id], done: t.done, note: t.note, assignee: t.assignee };
+      });
+      return n;
+    });
+  };
   // Q36 (Jovial, 10 Nov): a Done rule's task completes with a click; any other completes early with a note
   const completer = useCompleteTask((id, note) => {
     const t = tasks.find((x) => x.id === id);
@@ -64,7 +79,11 @@ export function MyWork() {
   const soon = mine.filter((t) => standingOf(t) === 'soon').length;
   const filtered = sts.length + whos.length > 0;
   const assign = (ids: string[], who: string) => {
-    setTasks((ts) => ts.map((x) => (ids.includes(x.id) ? { ...x, assignee: who } : x)));
+    // an application's task reassigns the application: every task it has goes with it (and the record shows it)
+    const appIds = apps && onReassignApp ? new Set(tasks.filter((t) => ids.includes(t.id) && apps.some((a) => a.id === t.ref)).map((t) => t.ref)) : new Set<string>();
+    appIds.forEach((id) => onReassignApp!(id, who));
+    if (appIds.size) setOwn((o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, tasks.some((t) => t.id === k && appIds.has(t.ref)) ? { ...v, assignee: undefined } : v])));
+    setTasks((ts) => ts.map((x) => (ids.includes(x.id) && !appIds.has(x.ref) ? { ...x, assignee: who } : x)));
     say(ids.length === 1 ? `Assigned to ${who}.` : `${ids.length} tasks assigned to ${who}.`);
     setTicked([]);
     setAssigning(null);

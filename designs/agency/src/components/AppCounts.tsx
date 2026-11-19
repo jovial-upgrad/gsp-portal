@@ -14,7 +14,8 @@ export const usePublishApps = (apps: Application[]) =>
     list = apps;
     subs.forEach((f) => f());
   }, [apps]);
-const useAppList = () => useSyncExternalStore((cb) => (subs.add(cb), () => subs.delete(cb)), () => list);
+/** The portal's applications as last published (My work and an application's allocation read them too). */
+export const useAppList = () => useSyncExternalStore((cb) => (subs.add(cb), () => subs.delete(cb)), () => list);
 
 /** Which group an application falls in: closed, or the last group whose first status it has reached. */
 export function groupOf(a: Application, groups: AppCountGroup[]): string | undefined {

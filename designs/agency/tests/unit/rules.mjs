@@ -97,6 +97,27 @@ try {
   const inIndia = config.peopleOf(indiaRec, cfg.queues);
   ok('a parent queue holds its regional managers and their BDMs', kids.every((k) => inIndia.includes(k.lead) && k.members.every((m) => inIndia.includes(m))));
   ok('queueTree never loops on a cycle', config.queueTree({ ...indiaRec, parent: kids[0].id }, cfg.queues.map((q) => (q.id === indiaRec.id ? { ...q, parent: kids[0].id } : q))).length === kids.length + 1);
+  // 19 Nov (Jovial): an application reassigned by its queue's leader or a member: all its tasks go to that person
+  {
+    const mw = await vite.ssrLoadModule('/src/admin/data/mywork.ts');
+    const am = await vite.ssrLoadModule('/src/data/applications.ts');
+    const apps = am.sampleApplications();
+    const t0 = mw.tasksFor(apps);
+    const appTask = t0.find((t) => apps.some((a) => a.id === t.ref));
+    const a = apps.find((x) => x.id === appTask.ref);
+    const al = mw.allocationOf(a, apps, t0);
+    ok('an application is allocated to the person its open tasks are with', al && al.to === appTask.assignee && al.team.includes(al.to), JSON.stringify(al));
+    const other = al.team.find((p) => p !== al.to);
+    const apps2 = apps.map((x) => (x.id === a.id ? { ...x, officer: other } : x));
+    const t2 = mw.tasksFor(apps2);
+    ok('reassigned: every open task of the application goes to the new person', t2.filter((t) => t.ref === a.id).every((t) => t.assignee === other) && mw.allocationOf(apps2.find((x) => x.id === a.id), apps2, t2).to === other);
+    ok('reassigning one application moves no other application', t2.filter((t) => t.ref !== a.id).every((t) => t.assignee === t0.find((x) => x.id === t.id)?.assignee));
+    const apps3 = apps.map((x) => (x.id === a.id ? { ...x, officer: 'Someone Not In The Queue' } : x));
+    ok('someone outside the queue is never given its tasks', mw.tasksFor(apps3).filter((t) => t.ref === a.id).every((t) => t.assignee === appTask.assignee));
+    const waiting = apps.find((x) => !t0.some((t) => t.ref === x.id));
+    const alw = waiting && mw.allocationOf(waiting, apps, t0);
+    ok('an application with no open task still has a queue and a team', !waiting || (alw && alw.queue && alw.team.length > 0), JSON.stringify(alw));
+  }
 } finally {
   await vite.close();
 }
