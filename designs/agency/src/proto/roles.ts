@@ -12,7 +12,10 @@
 export type Role = 'rp-admin' | 'rp-admin-backup' | 'rp-branch' | 'rp-counsellor' | 'gsp-team' | 'institution-partner' | 'gsp-admin' | 'rp-ops' | 'gsp-view' | 'gsp-finance' | 'gsp-globalops' | 'gsp-recruitment' | 'gsp-instops';
 
 /** 4 Nov: GSP Team shows as "GSP · Admissions" and RP Ops as "GSP · RP Ops" in the prototype; the keys stay. */
-export const ROLES: { key: Role; label: string; note: string }[] = [
+/** Finance lab (Jovial, 19 Nov): a separate instance with only RP Admin and GSP · Finance; main keeps every role. */
+export const LAB_ROLES: Role[] = ['rp-admin', 'gsp-finance'];
+
+const ALL_ROLES: { key: Role; label: string; note: string }[] = [
   { key: 'rp-admin', label: 'RP Admin', note: 'The recruitment partner’s admin: the agency portal.' },
   // 6 Nov (Nesil): a copy of RP Admin as it stood before the access sheets, kept for reference; engineering builds from RP Admin
   { key: 'rp-admin-backup', label: 'RP Admin (Backup - not for Engineering)', note: 'A copy of RP Admin as it stood on 6 Nov, kept for reference. Engineering builds from RP Admin.' },
@@ -30,8 +33,10 @@ export const ROLES: { key: Role; label: string; note: string }[] = [
   { key: 'gsp-view', label: 'GSP · View Only', note: 'GSP · Institution’s pages to look at: only Course search can be used.' },
 ];
 
-/** The two roles Side by side shows. */
-export const PAIR: Role[] = ['rp-admin', 'gsp-team'];
-export const roleLabel = (r: Role) => ROLES.find((x) => x.key === r)!.label;
+export const ROLES = ALL_ROLES.filter((r) => LAB_ROLES.includes(r.key));
 
-export const roleOf = (v: string | null): Role => (v === 'gsp-team' || v === 'institution-partner' || v === 'gsp-admin' || v === 'rp-ops' || v === 'gsp-view' || v === 'gsp-finance' || v === 'gsp-globalops' || v === 'gsp-recruitment' || v === 'gsp-instops' || v === 'rp-admin-backup' || v === 'rp-branch' || v === 'rp-counsellor' ? v : 'rp-admin');
+/** The two roles Side by side shows. */
+export const PAIR: Role[] = ['rp-admin', 'gsp-finance'];
+export const roleLabel = (r: Role) => ALL_ROLES.find((x) => x.key === r)!.label;
+
+export const roleOf = (v: string | null): Role => (LAB_ROLES.includes(v as Role) ? (v as Role) : 'rp-admin');

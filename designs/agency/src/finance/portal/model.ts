@@ -16,9 +16,6 @@ export type NavItem = { key: Section; label: string; short: string; icon: IconNa
 
 export const NAV: NavItem[] = [
   { key: 'home', label: 'Home', short: 'Home', icon: 'home' },
-  { key: 'inbox', label: 'Inbox', short: 'Inbox', icon: 'inbox' },
-  { key: 'work', label: 'My work', short: 'My work', icon: 'check' },
-  { key: 'students', label: 'Students', short: 'Students', icon: 'people' },
   { key: 'applications', label: 'Applications', short: 'Applications', icon: 'doc' },
   { key: 'courses', label: 'Course search', short: 'Search', icon: 'search' },
   { key: 'rps', label: 'Recruitment partners', short: 'RPs', icon: 'partner' },
@@ -32,7 +29,7 @@ export const NAV: NavItem[] = [
 ];
 
 /** On phones the tab bar has room for five. */
-export const TABS: Section[] = ['home', 'inbox', 'work', 'lines', 'setup'];
+export const TABS: Section[] = ['home', 'applications', 'universities', 'lines', 'setup'];
 
 /** The pages Finance can use; every other page is to look at (with its commission still changeable). */
 export const EDIT: Section[] = ['inbox', 'work', 'students', 'courses', 'lines', 'setup', 'profile'];
