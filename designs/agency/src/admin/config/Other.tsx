@@ -30,7 +30,7 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
   const [to, setTo] = useState('');
   const userOf = (name: string) => cfg.users.find((u) => u.name === name);
   const emailOf = (l: LogEntry) => l.email ?? userOf(l.who)?.email ?? '';
-  const regionOf = (l: LogEntry) => l.region ?? userOf(l.who)?.region ?? '';
+  const regionOf = (l: LogEntry) => l.region ?? userOf(l.who)?.regions.join(', ') ?? '';
   // 9 Nov (Jovial): Commission lines' CSV exports are logged here too (from the commission store)
   const comm = useComm();
   const all = [...cfg.log, ...comm.downloads.map((d): LogEntry => ({ ...d, kind: 'download' }))].sort((a, b) => b.at - a.at);
@@ -62,7 +62,7 @@ export function Logs({ cfg, change, say, me }: ConfigProps) {
             const filters = [source, role, region, from && `from ${from}`, to && `to ${to}`].filter(Boolean).join(' · ') || 'Everything';
             const u = userOf(me);
             // logged as a download only: change() adds no change of its own when the text is empty
-            change('Logs', '', (c) => ({ ...c, log: [{ id: `x${Date.now()}`, at: Date.now(), who: me, email: u?.email ?? GSP_USER.email, role: ROLES[0], region: u?.region || 'Global', area: 'Logs', text: 'Log', kind: 'download', filters, records: rows.length, format: 'CSV' }, ...c.log] }));
+            change('Logs', '', (c) => ({ ...c, log: [{ id: `x${Date.now()}`, at: Date.now(), who: me, email: u?.email ?? GSP_USER.email, role: ROLES[0], region: u?.regions.join(', ') || 'Global', area: 'Logs', text: 'Log', kind: 'download', filters, records: rows.length, format: 'CSV' }, ...c.log] }));
             say(`${rows.length} log entries exported. The export is logged too.`);
           }}
         >

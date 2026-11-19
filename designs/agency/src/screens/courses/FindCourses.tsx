@@ -77,7 +77,7 @@ export function FindCourses({
   /** Who a downloaded PDF is from. */
   from?: Sender;
 }) {
-  // 6 Nov (access sheet): GSP Branch Manager and GSP Counsellor see no commission
+  // 6 Nov (access sheet): RP Branch Manager and RP Counsellor see no commission
   const noCommission = useHides('courses.commission');
   const reduce = useReducedMotion();
   const r = useMemo(() => results(s), [s]);

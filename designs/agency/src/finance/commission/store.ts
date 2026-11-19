@@ -200,7 +200,7 @@ export function useLines(apps: Application[] = [], students: Pick<Student, 'id' 
 /** Who's exporting, for Admin › Logs: their role and sales region as GSP · Admin keeps them (Create Roles). */
 export const whoIs = (name: string, email: string) => {
   const u = sampleUsers().find((x) => x.name === name);
-  return { name, email, role: u ? `${u.role} · ${u.title}` : '', region: u?.region ?? '' };
+  return { name, email, role: u ? `${u.role} · ${u.title}` : '', region: u?.regions.join(', ') ?? '' };
 };
 
 /* ---------- actions: each one changes the records and writes its Logs line ---------- */

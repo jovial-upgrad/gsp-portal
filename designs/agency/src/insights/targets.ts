@@ -120,10 +120,19 @@ const HEAD = () => ['Level', 'Name', 'Period', ...TARGET_METRICS.map((m) => m.co
  * of the financial year (by course start), the target columns empty. Rows left empty are skipped on upload; a month
  * (2027-02) can replace a quarter on any row.
  */
-export function templateRows(names?: Record<TargetLevel, string[]>, fy?: number, fyStart = 4) {
+/** How the template's rows are cut (Jovial, 19 Nov: monthly targets too, e.g. for BDMs). */
+export const TEMPLATE_GRAINS = ['Quarter', 'Month'] as const;
+export type TemplateGrain = (typeof TEMPLATE_GRAINS)[number];
+export function templateRows(names?: Record<TargetLevel, string[]>, fy?: number, fyStart = 4, grain: TemplateGrain = 'Quarter', levels: readonly TargetLevel[] = TARGET_LEVELS) {
   if (!names || !fy) return [HEAD()];
-  const quarters = QUARTERS.map(([q, mm]) => `${q} ${String(mm[0] >= fyStart ? fy - 1 : fy).slice(2)}`);
-  return [HEAD(), ...TARGET_LEVELS.flatMap((lv) => names[lv].map((n) => [lv, n] as const)).flatMap(([lv, n]) => quarters.map((p) => [lv, n, p, ...TARGET_METRICS.map(() => '')]))];
+  const periods =
+    grain === 'Month'
+      ? Array.from({ length: 12 }, (_, i) => {
+          const m = ((fyStart - 1 + i) % 12) + 1;
+          return `${m >= fyStart ? fy - 1 : fy}-${String(m).padStart(2, '0')}`;
+        })
+      : QUARTERS.map(([q, mm]) => `${q} ${String(mm[0] >= fyStart ? fy - 1 : fy).slice(2)}`);
+  return [HEAD(), ...levels.flatMap((lv) => names[lv].map((n) => [lv, n] as const)).flatMap(([lv, n]) => periods.map((p) => [lv, n, p, ...TARGET_METRICS.map(() => '')]))];
 }
 /** A version as a CSV, to download or send round. */
 export const versionRows = (v: TargetVersion) => [
@@ -140,10 +149,16 @@ export function targetFor(v: TargetVersion | undefined, level: TargetLevel, name
 
 /** The seeded versions (sample records, as the business might share them). */
 const AOP = `Level,Name,Period,Applications,Submitted,Offers,Deposits,CoE/CAS,Enrolments,Revenue (AUD)
+Company,{company},AMJ 26,2600,1700,1150,380,330,250,1000000
+Company,{company},JAS 26,3300,2100,1450,480,410,310,1250000
 Company,{company},OND 26,4200,2700,1850,600,520,400,1600000
 Company,{company},JFM 27,5600,3600,2450,800,700,530,2120000
 Sales region,India,OND 26,1800,1100,760,240,210,160,640000
 Sales region,India,JFM 27,2400,1500,1050,330,290,220,880000
+Sales region,Bangladesh,AMJ 26,420,270,190,65,56,42,170000
+Sales region,Bangladesh,JAS 26,560,360,250,85,74,55,225000
+Sales region,India,AMJ 26,1100,700,480,150,130,100,400000
+Sales region,India,JAS 26,1400,900,620,190,165,125,500000
 Sales region,Bangladesh,OND 26,700,450,320,110,95,70,290000
 Sales region,Bangladesh,JFM 27,1100,700,500,170,150,110,450000
 Sales region,Nepal,OND 26,300,190,130,45,40,30,120000
@@ -160,7 +175,10 @@ BDM,Moufiz Parmar,OND 26,180,110,75,26,22,17,68000
 BDM,Sania,OND 26,700,450,320,110,95,70,290000
 Destination,Australia,OND 26,1900,1200,840,270,235,180,760000
 Destination,UK,OND 26,1100,700,480,150,130,95,360000
-University,Flinders University,OND 26,120,80,60,20,18,14,62000`;
+University,Flinders University,OND 26,120,80,60,20,18,14,62000
+BDM,Sania,2027-01,260,170,120,40,35,26,105000
+BDM,Sania,2027-02,300,190,135,45,40,30,120000
+BDM,Sania,2027-03,240,150,105,36,32,24,96000`;
 const REVISED = AOP.replace('BDM,Harsh,OND 26,420,260,180,60,52,40,160000', 'BDM,Harsh,OND 26,380,240,160,50,45,34,136000').replace('Sales region,India,OND 26,1800,1100,760,240,210,160,640000', 'Sales region,India,OND 26,1500,950,650,200,175,135,540000');
 
 export function sampleTargets(d: Reporting, company: string): TargetVersion[] {

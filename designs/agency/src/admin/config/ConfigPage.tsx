@@ -161,7 +161,7 @@ export function ConfigPage({ section, cfg, setCfg, me, say, courses }: { section
       // no text: nothing to log as a change (Export Log logs itself as a download)
       if (!text) return next;
       const u = c.users.find((x) => x.name === me);
-      return { ...next, log: [{ id: `l${Date.now()}`, at: Date.now(), who: me, email: u?.email ?? GSP_USER.email, region: u?.region || 'Global', area, text, kind: 'change', role: ROLES[0] }, ...next.log] };
+      return { ...next, log: [{ id: `l${Date.now()}`, at: Date.now(), who: me, email: u?.email ?? GSP_USER.email, region: u?.regions.join(', ') || 'Global', area, text, kind: 'change', role: ROLES[0] }, ...next.log] };
     });
   const p: ConfigProps = { cfg, change, say, me, courses };
   const pages: Record<ConfigSection, ReactNode> = {

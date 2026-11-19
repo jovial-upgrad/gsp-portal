@@ -8,7 +8,7 @@ import { MultiPick } from '../../components/MultiPick';
 import { PhoneInput } from '../../components/PhoneInput';
 import { Field, SelectInput, TextInput, describedBy } from '../../components/forms';
 import { NoMatch, PageHead, downloadCsv } from '../../institution/records/parts';
-import { GSP_ROLES, type GspRole, type User, type UserStatus } from '../data/config';
+import { GSP_ROLES, regionsText, type GspRole, type User, type UserStatus } from '../data/config';
 import type { Cfg, ConfigProps } from './ConfigPage';
 import { History, Pager, usePaged } from './parts';
 
@@ -28,7 +28,7 @@ const FIELD: [keyof User, string][] = [
   ['phone', 'Phone'],
   ['role', 'Role'],
   ['title', 'Title'],
-  ['region', 'Sales region'],
+  ['regions', 'Sales regions'],
 ];
 
 /**
@@ -49,7 +49,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
   const [draft, setDraft] = useState<User | null>(null);
   const t = q.trim().toLowerCase();
   const rows = cfg.users.filter(
-    (u) => (!t || [u.name, u.email, u.title, u.phone].some((x) => x.toLowerCase().includes(t))) && (!role || u.role === role) && (!region.length || region.includes(u.region)) && (!status || u.status === status),
+    (u) => (!t || [u.name, u.email, u.title, u.phone].some((x) => x.toLowerCase().includes(t))) && (!role || u.role === role) && (!region.length || u.regions.some((r) => region.includes(r))) && (!status || u.status === status),
   );
   const pg = usePaged(rows, [q, role, region, status]);
   const onlyAdmin = (u: User) => u.role === 'GSP · Admin' && cfg.users.filter((x) => x.role === 'GSP · Admin' && x.status !== 'Deactivated').length === 1;
@@ -79,7 +79,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
           variant="secondary"
           iconLeft={<Icon name="download" size={18} />}
           onClick={() => {
-            downloadCsv('gsp-users.csv', [['Name', 'Email', 'Phone', 'Role', 'Title', 'Sales region', 'Login'], ...rows.map((u) => [u.name, u.email, `${u.dial} ${u.phone}`, u.role, u.title, u.region, u.status])]);
+            downloadCsv('gsp-users.csv', [['Name', 'Email', 'Phone', 'Role', 'Title', 'Sales region', 'Login'], ...rows.map((u) => [u.name, u.email, `${u.dial} ${u.phone}`, u.role, u.title, regionsText(u), u.status])]);
             change('Create roles', `Exported ${rows.length} users as CSV`, (c) => c);
             say(`${rows.length} users exported as CSV.`);
           }}
@@ -152,7 +152,7 @@ export function Users({ cfg, change, say }: ConfigProps) {
                     </td>
                     <td>{u.role}</td>
                     <td className="cfg__muted">{u.title || '–'}</td>
-                    <td className="cfg__muted">{u.region || 'Not set'}</td>
+                    <td className="cfg__muted">{regionsText(u) || 'Not set'}</td>
                     <td>
                       <span className={`cfg__login cfg__login--${u.status.replace(' ', '-').toLowerCase()}`}>{u.status}</span>
                       {u.status === 'Link sent' && <span className="cfg__sub">Sent {ago(u.sentAt)}</span>}
@@ -185,11 +185,11 @@ export function Users({ cfg, change, say }: ConfigProps) {
           const was = cfg.users.find((x) => x.id === u.id);
           const next: User = andSend ? { ...u, status: 'Link sent', sentAt: Date.now() } : u;
           if (!was) {
-            change('Create roles', `Created ${u.name}: ${u.role}, ${u.region}${andSend ? ', and sent a login mail' : ''}`, (c) => ({ ...c, users: [next, ...c.users] }));
+            change('Create roles', `Created ${u.name}: ${u.role}, ${regionsText(u)}${andSend ? ', and sent a login mail' : ''}`, (c) => ({ ...c, users: [next, ...c.users] }));
             say(andSend ? `${u.name} added. Login mail sent to ${u.email}; its link works for 7 days.` : `${u.name} added.`);
           } else {
             // an edit is asked first, with what changes (Nesil, 3 Nov)
-            const changes = FIELD.filter(([k]) => String(was[k]) !== String(u[k]) || (k === 'phone' && was.dial !== u.dial)).map(([k, name]) => `${name}: ${k === 'phone' ? `${was.dial} ${was.phone}` : was[k] || 'none'} → ${k === 'phone' ? `${u.dial} ${u.phone}` : u[k] || 'none'}`);
+            const changes = FIELD.filter(([k]) => String(was[k]) !== String(u[k]) || (k === 'phone' && was.dial !== u.dial)).map(([k, name]) => `${name}: ${k === 'phone' ? `${was.dial} ${was.phone}` : (Array.isArray(was[k]) ? (was[k] as string[]).join(', ') : was[k]) || 'none'} → ${k === 'phone' ? `${u.dial} ${u.phone}` : (Array.isArray(u[k]) ? (u[k] as string[]).join(', ') : u[k]) || 'none'}`);
             if (!changes.length && !andSend) say('Nothing changed.');
             else setAsk({ kind: 'edit', user: was, next, changes, andSend });
           }
@@ -272,7 +272,7 @@ const ASK_TEXT: Record<Exclude<Ask['kind'], 'edit'>, (u: User) => string> = {
 
 /** Create or edit a role: name, email, phone with the country code, role, title and sales region. */
 function UserDialog({ open, user, start, users, regions, onClose, onSave }: { open: boolean; user: User | null; start?: User | null; users: User[]; regions: string[]; onClose: () => void; onSave: (u: User, andSend: boolean) => void }) {
-  const blank = (): User => ({ id: `u${Date.now()}`, name: '', email: '', dial: '+91', phone: '', role: 'GSP · Admissions', title: '', region: '', status: 'Not sent' });
+  const blank = (): User => ({ id: `u${Date.now()}`, name: '', email: '', dial: '+91', phone: '', role: 'GSP · Admissions', title: '', regions: [], status: 'Not sent' });
   const [v, setV] = useState<User>(blank);
   const [tried, setTried] = useState(false);
   useEffect(() => {
@@ -286,7 +286,7 @@ function UserDialog({ open, user, start, users, regions, onClose, onSave }: { op
     name: v.name.trim().length < 2 ? 'Enter their full name.' : null,
     email: !isEmail(email) ? 'Enter their email, like name@gsp.upgrad.com.' : users.some((x) => x.id !== v.id && x.email.toLowerCase() === email) ? 'Someone already has this email.' : null,
     phone: v.phone.replace(/\D/g, '').length < 7 ? 'Enter their phone number.' : null,
-    region: !v.region ? 'Pick their sales region.' : null,
+    region: !v.regions.length ? 'Pick their sales regions.' : null,
   };
   const show = (k: keyof typeof err) => (tried ? err[k] : null);
   const save = (andSend: boolean) => {
@@ -341,12 +341,9 @@ function UserDialog({ open, user, start, users, regions, onClose, onSave }: { op
             ))}
           </SelectInput>
         </Field>
-        <Field id="us-region" label="Sales region" required error={show('region')}>
-          <SelectInput id="us-region" value={v.region} placeholder="Choose" invalid={!!show('region')} onChange={(e) => set({ region: e.target.value })}>
-            {regions.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </SelectInput>
+        {/* Jovial, 19 Nov: a person can cover several sales regions */}
+        <Field id="us-region" label="Sales regions" required error={show('region')}>
+          <MultiPick id="us-region" label="Sales regions" value={v.regions} options={regions} onChange={(regions) => set({ regions })} empty="Choose" search />
         </Field>
       </div>
     </Sheet>

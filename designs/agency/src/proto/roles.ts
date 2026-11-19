@@ -17,8 +17,8 @@ export const ROLES: { key: Role; label: string; note: string }[] = [
   // 6 Nov (Nesil): a copy of RP Admin as it stood before the access sheets, kept for reference; engineering builds from RP Admin
   { key: 'rp-admin-backup', label: 'RP Admin (Backup - not for Engineering)', note: 'A copy of RP Admin as it stood on 6 Nov, kept for reference. Engineering builds from RP Admin.' },
   // 6 Nov (access sheet): the agency's own people, on RP Admin's portal without commission
-  { key: 'rp-branch', label: 'GSP Branch Manager', note: 'An agency branch’s manager: that branch’s students and applications; no commission.' },
-  { key: 'rp-counsellor', label: 'GSP Counsellor', note: 'An agency counsellor: their own students and applications; no commission.' },
+  { key: 'rp-branch', label: 'RP Branch Manager', note: 'An agency branch’s manager: that branch’s students and applications; no commission.' },
+  { key: 'rp-counsellor', label: 'RP Counsellor', note: 'An agency counsellor: their own students and applications; no commission.' },
   { key: 'gsp-team', label: 'GSP · Admissions', note: 'GSP’s admissions team: GSP’s side of every application.' },
   { key: 'institution-partner', label: 'GSP · Institution', note: 'GSP’s Institution Team: universities, courses and partners.' },
   { key: 'gsp-admin', label: 'GSP · Admin', note: 'GSP’s admins: configuration, and the Institution Team’s pages.' },

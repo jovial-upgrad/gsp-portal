@@ -71,7 +71,10 @@ const WAS: Record<string, string> = { Admin: 'GSP · Admin', Admission: 'GSP · 
 /** Not sent: added, no link yet; Link sent: waiting for them to set a password; Active: they've signed in;
  *  Deactivated (Nesil, 3 Nov): can't sign in until they're reactivated. */
 export type UserStatus = 'Not sent' | 'Link sent' | 'Active' | 'Deactivated';
-export type User = { id: string; name: string; email: string; dial: string; phone: string; role: GspRole; title: string; region: string; status: UserStatus; sentAt?: number };
+/** `regions` (Jovial, 19 Nov): the sales regions a person covers, several. */
+export type User = { id: string; name: string; email: string; dial: string; phone: string; role: GspRole; title: string; regions: string[]; status: UserStatus; sentAt?: number };
+/** A person's sales regions, as one line. */
+export const regionsText = (u: Pick<User, 'regions'> | undefined) => (u?.regions ?? []).join(', ');
 const DAY = 86_400_000;
 let seq = 0;
 /** Several people with the same role, title and region, each with a phone number of their own (sample). */
@@ -88,7 +91,7 @@ const u = (name: string, was: string, title: string, region: string, dial: strin
   phone,
   role: WAS[was] ?? was,
   title,
-  region,
+  regions: region ? [region] : [],
   status,
   sentAt: status === 'Link sent' ? Date.now() - 2 * DAY : undefined,
 });

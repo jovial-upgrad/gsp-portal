@@ -33,7 +33,7 @@ export function Regions(props: ConfigProps) {
   const [edit, setEdit] = useState<Region | 'new' | null>(null);
   const [removing, setRemoving] = useState<Region | null>(null);
   const [addingNat, setAddingNat] = useState(false);
-  const usersIn = (r: string) => cfg.users.filter((u) => u.region === r).length;
+  const usersIn = (r: string) => cfg.users.filter((u) => u.regions.includes(r)).length;
   const queueName = (id: string) => cfg.queues.find((q) => q.id === id)?.name;
   const natIn = (r: string) => cfg.nationalities.filter((n) => n.region === r).length;
   return (
@@ -149,7 +149,7 @@ export function Regions(props: ConfigProps) {
             change('Sales regions', `${renamed ? `Renamed ${was.name} to ${r.name}; ` : `Edited ${r.name}: `}${facts}`, (c) => ({
               ...c,
               regions: c.regions.map((x) => (x.name === was.name ? r : x)),
-              users: renamed ? c.users.map((u) => (u.region === was.name ? { ...u, region: r.name } : u)) : c.users,
+              users: renamed ? c.users.map((u) => (u.regions.includes(was.name) ? { ...u, regions: u.regions.map((x) => (x === was.name ? r.name : x)) } : u)) : c.users,
               nationalities: renamed ? c.nationalities.map((n) => (n.region === was.name ? { ...n, region: r.name } : n)) : c.nationalities,
               calendars: renamed ? c.calendars.map((k) => ({ ...k, regions: k.regions.map((x) => (x === was.name ? r.name : x)) })) : c.calendars,
             }));
@@ -170,7 +170,7 @@ export function Regions(props: ConfigProps) {
             ...c,
             regions: c.regions.filter((x) => x.name !== r.name),
             calendars: c.calendars.map((k) => ({ ...k, regions: k.regions.filter((x) => x !== r.name) })),
-            users: c.users.map((u) => (u.region === r.name ? { ...u, region: '' } : u)),
+            users: c.users.map((u) => (u.regions.includes(r.name) ? { ...u, regions: u.regions.filter((x) => x !== r.name) } : u)),
             nationalities: c.nationalities.map((n) => (n.region === r.name ? { ...n, region: '' } : n)),
           }));
           say(`${r.name} deleted.`);

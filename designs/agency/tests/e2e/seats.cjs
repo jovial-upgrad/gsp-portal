@@ -1,4 +1,4 @@
-// GSP Branch Manager and GSP Counsellor (Nesil, 6 Nov, from the access sheet): RP Admin's portal for one branch or one
+// RP Branch Manager and RP Counsellor (Nesil, 6 Nov, from the access sheet): RP Admin's portal for one branch or one
 // counsellor; Find courses (no commission), Students and Applications (Chat, Documents) to use; everything else -.
 const { chromium } = require('playwright');
 const URL = process.env.GSP_URL || require('url').pathToFileURL(require('path').resolve(__dirname, '../../dist-artifact/index.html')).href;
