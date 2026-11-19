@@ -60,8 +60,12 @@ export type InsightSettings = {
   bigRpEnrolments: number;
   /** Active RPs (Jovial, 18 Nov): the RP record statuses that count as registered, working with GSP. */
   registeredStatuses: string[];
-  /** Forecast: conversion from each stage to enrolment over the last N months. */
+  /** Forecast: conversion from each stage to enrolment over the last N months (Lav, 19 Nov: 3, as visa rates are dropping). */
   forecastMonths: number;
+  /** RP cost of sales % (Lav, 19 Nov): only these line types, on both sides (standard and additional commission; bonuses out). */
+  cosTypes: string[];
+  /** The one of them the page can switch off (nice to have: with or without additional commission). */
+  cosOptional: string;
   /** The RP's share of commission used for the reporting estimates (RP COS), in %, until an RP's own terms say otherwise. */
   rpShare: number;
   /** Commission line types that are direct commission; the rest are bonus and additional (IP / RP analysis, P&L). */
@@ -94,7 +98,9 @@ export const sampleInsightSettings = (): InsightSettings => ({
   analysisMonths: 12,
   marginPerStudent: 1400,
   bigRpEnrolments: 10,
-  forecastMonths: 12,
+  forecastMonths: 3,
+  cosTypes: ['Course commission', 'Additional commission'],
+  cosOptional: 'Additional commission',
   registeredStatuses: ['Activated', 'Agreement signed'],
   rpShare: 70,
   arBuckets: [30, 60, 90, 180, 365],
