@@ -233,6 +233,9 @@ function Bonus({ res }: { res: Result }) {
 /* IP & RP analysis (Suman, Lav): revenue, RP cost, margin and lifetime value per student */
 function Margins({ res, aud, s, now }: { res: Result; aud: Aud; s: InsightSettings; now: number }) {
   const [basis, setBasis] = useState<'paid' | 'billed' | 'all'>('billed');
+  // Lav, 19 Nov: RP COS % counts standard and additional commission only (bonuses out), with additional switchable
+  const [withAddl, setWithAddl] = useState<'with' | 'without'>('with');
+  const cosType = (t: Tx) => s.cosTypes.includes(t.type) && (withAddl === 'with' || t.type !== s.cosOptional);
   const [by, setBy] = useState<'ip' | 'uni' | 'rp' | 'level'>('ip');
   const since = new Date(now);
   since.setMonth(since.getMonth() - s.analysisMonths);
@@ -264,11 +267,13 @@ function Margins({ res, aud, s, now }: { res: Result; aud: Aud; s: InsightSettin
     const direct = uni.filter((t) => !isBonus(t)).reduce((a, t) => a + aud(t.amount, t.currency), 0);
     const bonus = uni.filter(isBonus).reduce((a, t) => a + aud(t.amount, t.currency), 0);
     const cos = rp.reduce((a, t) => a + aud(t.amount, t.currency), 0);
+    const cosRp = rp.filter(cosType).reduce((a, t) => a + aud(t.amount, t.currency), 0);
+    const cosUni = uni.filter(cosType).reduce((a, t) => a + aud(t.amount, t.currency), 0);
     const students = new Set(l.map((t) => t.app)).size;
     const gross = direct + bonus;
     // R161 (Jovial, 18 Nov): lifetime value = commission received (paid University → GSP lines) since the start, per student
     const life = lifeBy.get(k);
-    return { k, direct, bonus, gross, cos, students, margin: gross - cos, ltv: life && life.students ? life.paid / life.students : 0, perStudent: students ? (gross - cos) / students : 0 };
+    return { k, direct, bonus, gross, cos, cosRp, cosUni, students, margin: gross - cos, ltv: life && life.students ? life.paid / life.students : 0, perStudent: students ? (gross - cos) / students : 0 };
   }).sort((a, b) => b.gross - a.gross);
   type R = (typeof rows)[number];
   const m = (x: number) => Math.round(x).toLocaleString('en-GB');
@@ -279,11 +284,11 @@ function Margins({ res, aud, s, now }: { res: Result; aud: Aud; s: InsightSettin
     { h: 'Bonus / additional', n: true, v: (r) => m(r.bonus), csv: (r) => Math.round(r.bonus) },
     { h: 'Gross revenue', n: true, v: (r) => m(r.gross), csv: (r) => Math.round(r.gross) },
     { h: 'RP COS', n: true, v: (r) => m(r.cos), csv: (r) => Math.round(r.cos) },
-    { h: 'RP COS %', n: true, v: (r) => pct(rate(r.cos, r.gross)) },
-    { h: 'Margin', n: true, v: (r) => m(r.margin), csv: (r) => Math.round(r.margin) },
-    { h: 'Margin %', n: true, v: (r) => pct(rate(r.margin, r.gross)) },
+    { h: `RP COS % (${withAddl === 'with' ? s.cosTypes.join(' + ').toLowerCase() : s.cosTypes.filter((x) => x !== s.cosOptional).join(' + ').toLowerCase()})`, n: true, v: (r) => pct(rate(r.cosRp, r.cosUni)) },
+    { h: 'Gross profit', n: true, v: (r) => m(r.margin), csv: (r) => Math.round(r.margin) },
+    { h: 'Gross margin %', n: true, v: (r) => pct(rate(r.margin, r.gross)) },
     { h: 'LTV per student (received, since the start)', n: true, v: (r) => m(r.ltv), csv: (r) => Math.round(r.ltv) },
-    { h: 'Margin per student', n: true, v: (r) => <span className={r.perStudent < s.marginPerStudent ? '' : 'cfg__strong'}>{m(r.perStudent)}</span>, csv: (r) => Math.round(r.perStudent) },
+    { h: 'Gross profit per student', n: true, v: (r) => <span className={r.perStudent < s.marginPerStudent ? '' : 'cfg__strong'}>{m(r.perStudent)}</span>, csv: (r) => Math.round(r.perStudent) },
   ];
   const good = rows.filter((r) => r.perStudent >= s.marginPerStudent);
   return (
@@ -291,10 +296,10 @@ function Margins({ res, aud, s, now }: { res: Result; aud: Aud; s: InsightSettin
       <div className="ins-stats">
         <div className="ins-stat"><span className="ins-stat__k">Gross revenue</span><span className="ins-stat__n">{money(rows.reduce((a, r) => a + r.gross, 0))}</span><span className="ins-stat__sub">last {s.analysisMonths} months</span></div>
         <div className="ins-stat"><span className="ins-stat__k">RP COS</span><span className="ins-stat__n">{money(rows.reduce((a, r) => a + r.cos, 0))}</span></div>
-        <div className="ins-stat"><span className="ins-stat__k">Margin</span><span className="ins-stat__n">{money(rows.reduce((a, r) => a + r.margin, 0))}</span></div>
-        <div className="ins-stat"><span className="ins-stat__k">{`Margin ≥ AUD ${s.marginPerStudent}/student`}</span><span className="ins-stat__n">{good.length}</span><span className="ins-stat__sub">of {rows.length}</span></div>
+        <div className="ins-stat"><span className="ins-stat__k">Gross profit</span><span className="ins-stat__n">{money(rows.reduce((a, r) => a + r.margin, 0))}</span></div>
+        <div className="ins-stat"><span className="ins-stat__k">{`Gross profit ≥ AUD ${s.marginPerStudent}/student`}</span><span className="ins-stat__n">{good.length}</span><span className="ins-stat__sub">of {rows.length}</span></div>
       </div>
-      <Card title="Revenue, RP cost and margin" sub={`Lines with a payable date in the last ${s.analysisMonths} months (a setting) · ${basis === 'paid' ? 'paid only' : basis === 'billed' ? 'invoiced or paid' : 'everything expected'} (Lav to confirm which)`} flush action={<span className="ins-acts"><Seg label="Count" value={basis} items={[['paid', 'Paid'], ['billed', 'Invoiced or paid'], ['all', 'All expected']]} onPick={setBasis} /><Seg label="By" value={by} items={[['ip', 'IP'], ['uni', 'University'], ['rp', 'RP'], ['level', 'Course level']]} onPick={setBy} /><CsvButton name="ip-rp-analysis" rows={rows} cols={cols} /></span>}>
+      <Card title="Revenue, RP cost and gross profit" sub={`Lines with a payable date in the last ${s.analysisMonths} months (a setting) · ${basis === 'paid' ? 'paid only' : basis === 'billed' ? 'invoiced or paid' : 'everything expected'} · gross profit = revenue minus commission; RP COS % = RP over university, ${s.cosTypes.join(' and ').toLowerCase()} only (bonuses out)`} flush action={<span className="ins-acts"><Seg label="RP COS %" value={withAddl} items={[['with', `With ${s.cosOptional.toLowerCase()}`], ['without', `Without ${s.cosOptional.toLowerCase()}`]]} onPick={setWithAddl} /><Seg label="Count" value={basis} items={[['paid', 'Paid'], ['billed', 'Invoiced or paid'], ['all', 'All expected']]} onPick={setBasis} /><Seg label="By" value={by} items={[['ip', 'IP'], ['uni', 'University'], ['rp', 'RP'], ['level', 'Course level']]} onPick={setBy} /><CsvButton name="ip-rp-analysis" rows={rows} cols={cols} /></span>}>
         <Table rows={rows} cols={cols} rowKey={(r) => r.k} />
       </Card>
     </>

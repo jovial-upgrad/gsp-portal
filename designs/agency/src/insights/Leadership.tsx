@@ -142,16 +142,16 @@ function rpCos(res: Result, regions: string[], P: Period[], s: InsightSettings, 
   const month = (t: Tx) => intakeMonth(t.intake);
   const cell = (r: string, p: Period) => {
     const l = lines.filter((t) => t.region === r && p.months.includes(month(t)));
-    const uni = l.filter((t) => t.side === 'uni').reduce((a, t) => a + aud(t.amount, t.currency), 0);
-    const rp = l.filter((t) => t.side === 'rp').reduce((a, t) => a + aud(t.amount, t.currency), 0);
+    // Lav, 19 Nov: standard and additional commission only, on both sides (bonuses out)
+    const uni = l.filter((t) => t.side === 'uni' && s.cosTypes.includes(t.type)).reduce((a, t) => a + aud(t.amount, t.currency), 0);
+    const rp = l.filter((t) => t.side === 'rp' && s.cosTypes.includes(t.type)).reduce((a, t) => a + aud(t.amount, t.currency), 0);
     return uni ? pct(rp / uni, 0) : '—';
   };
   const head = ['Sales region', ...P.map((p) => p.label)];
   const rows = regions.map((r) => [r, ...P.map((p) => cell(r, p))]);
   type R = { r: string };
   const cols: Col<R>[] = [{ h: 'Sales region', v: (x) => x.r }, ...P.map((p): Col<R> => ({ h: p.label, n: true, v: (x) => cell(x.r, p) }))];
-  void s;
-  return { title: 'RP COS % by sales region', sub: 'Lifetime RP commission ÷ GSP commission on the enrolments starting in the period (commission lines)', head, rows, node: <Table rows={regions.map((r) => ({ r }))} cols={cols} rowKey={(x) => x.r} /> };
+  return { title: 'RP COS % by sales region', sub: `RP ÷ GSP commission on the enrolments starting in the period: ${s.cosTypes.join(' and ').toLowerCase()} only (bonuses out)`, head, rows, node: <Table rows={regions.map((r) => ({ r }))} cols={cols} rowKey={(x) => x.r} /> };
 }
 /** Active RPs: registered RPs that sent at least one application in the financial year, and those that gave an enrolment. */
 function activeRps(d: Reporting, apps: RepApp[], s: InsightSettings, fy: number): Section {
@@ -223,14 +223,16 @@ function Country({ d, apps, s, now, target, versions, res, n, aud }: { d: Report
   // payables and P&L lines from the commission lines
   const lines = res.txs.filter((t) => t.region === region && groupOf(t.side, t.status) !== 'none');
   const toPay = res.txs.filter((t) => t.region === region && t.side === 'rp' && (ACTION_FROM.pay as readonly string[]).includes(t.status));
-  type L = { k: string; f: (t: Tx) => boolean };
+  type L = { k: string; f: (t: Tx) => boolean; sign?: (t: Tx) => number };
   const pl: L[] = [
     { k: 'Direct commission revenue', f: (t) => t.side === 'uni' && s.directTypes.includes(t.type) },
     { k: 'Bonus and additional', f: (t) => t.side === 'uni' && !s.directTypes.includes(t.type) },
     { k: 'RP commission', f: (t) => t.side === 'rp' },
+    // Lav, 19 Nov: revenue minus commission is gross profit; the P&L's other items are outside the portal
+    { k: 'Gross profit', f: (t) => t.side === 'uni' || t.side === 'rp', sign: (t) => (t.side === 'rp' ? -1 : 1) },
   ];
   const Q = P.filter((p) => p.months.length === 3);
-  const plCols: Col<L>[] = [{ h: 'Line (AUD)', v: (r) => r.k }, ...Q.map((q): Col<L> => ({ h: q.label, n: true, v: (r) => Math.round(lines.filter((t) => r.f(t) && q.months.includes(intakeMonth(t.intake))).reduce((a, t) => a + aud(t.amount, t.currency), 0)).toLocaleString('en-GB') }))];
+  const plCols: Col<L>[] = [{ h: 'Line (AUD)', v: (r) => r.k }, ...Q.map((q): Col<L> => ({ h: q.label, n: true, v: (r) => Math.round(lines.filter((t) => r.f(t) && q.months.includes(intakeMonth(t.intake))).reduce((a, t) => a + (r.sign ? r.sign(t) : 1) * aud(t.amount, t.currency), 0)).toLocaleString('en-GB') }))];
   return (
     <>
       <div className="ins-acts">
@@ -258,7 +260,7 @@ function Country({ d, apps, s, now, target, versions, res, n, aud }: { d: Report
       <Card title="RP payables" sub={`${toPay.length} approved RP lines to pay in ${region} (Finance › RP payables has them by week)`}>
         <p className="ins-note">{toPay.length ? `${new Set(toPay.map((t) => t.rpName)).size} RPs, the oldest due ${toPay.map((t) => t.due).sort()[0]}.` : 'Nothing approved to pay.'}</p>
       </Card>
-      <Card title="Quarterly P&L: the commission lines" sub="Revenue and RP cost from the portal, by course start. Marketing service income, other revenue and opex come from Xero." flush>
+      <Card title="Quarterly gross profit" sub="Revenue minus commission, from the portal, by course start. The P&L has many more items outside the portal (Xero)." flush>
         <Table rows={pl} cols={plCols} rowKey={(r) => r.k} />
       </Card>
     </>

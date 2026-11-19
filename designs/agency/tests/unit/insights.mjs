@@ -54,7 +54,7 @@ try {
   // rounds 2–5: durations, forecast rates, financial year
   const lo = m.between(d.apps, 'lodged', 'conditions');
   ok('time between steps: median ≤ 90th percentile, from applications with both dates', lo.n > 0 && lo.median <= lo.p90);
-  const rates = m.stageRates(d.apps, s, now);
+  const rates = m.stageRates(d.apps, { ...s, forecastMonths: 12 }, now);
   ok('conversion to enrolment never falls as an application moves on', s.milestones.every((x, i) => !i || rates.get(x.key) >= rates.get(s.milestones[i - 1].key) - 1e-9), [...rates.values()].map((x) => x.toFixed(2)).join());
   ok('an enrolled application converts at 100%', rates.get('enrolled') === 1);
   const fy = m.fyOf('2026-11', 4), fy2 = m.fyOf('2027-02', 4), fy3 = m.fyOf('2026-04', 4);
