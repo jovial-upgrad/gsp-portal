@@ -12,7 +12,7 @@ const FORMS = [
   ['Notices', 'Add Notice', ['The notice', 'Who it’s for', 'Which enrolments', 'What the RP gets']],
   ['University terms', 'Add University terms', ['The university and its contract', 'What GSP earns', 'How and when it pays', 'Tier', 'Promotions and additional commission', 'GSP’s own bonus schemes']],
   ['Institution partners', 'Add IP terms', ['Institution partner', 'IP tier', 'IP bonus schemes']],
-  ['Settings', 'Edit settings', ['Counting and dates', 'RPs', 'Invoices and regions', 'Lists', 'Reminders']],
+  ['Settings', 'Edit settings', ['Counting and dates', 'RPs', 'Invoices and regions', 'Invoice numbers', 'Reminders']],
 ];
 async function open(b, width) {
   const ctx = await b.newContext({ viewport: { width, height: 900 } });

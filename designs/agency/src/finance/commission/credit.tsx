@@ -436,13 +436,14 @@ export function XeroSheet({ open, title, sub, body, taken, go, onClose }: { open
   );
 }
 
-type Draft = { side: 'uni' | 'rp'; type: (typeof TX_TYPES)[number]; amount: number | null; period: number | null; date: string };
+type Draft = { side: 'uni' | 'rp' | ''; type: (typeof TX_TYPES)[number]; amount: number | null; period: number | null; date: string };
 /**
  * Add lines (Jovial, 17 Nov, after the Finance demo): what the rules don't make, added to an application by hand, one
  * or several at once, with why. A University → GSP line gives the RP its usual share.
  */
-export function AddLinesSheet({ app, res, by, onClose, onDone, ask }: { app: string | null; res: Result; by: string; onClose: () => void; onDone: (msg: string) => void; ask: AskFn }) {
-  const blank = (): Draft => ({ side: 'uni', type: TX_TYPES[0], amount: null, period: null, date: todayIso() });
+export function AddLinesSheet({ app, res, by, onClose, onDone, ask, side }: { app: string | null; res: Result; by: string; onClose: () => void; onDone: (msg: string) => void; ask: AskFn; side?: 'uni' | 'rp' }) {
+  // Jovial and Suman, 19 Nov: the side follows where Add lines was opened from (an RP line: GSP → RP); otherwise it's chosen
+  const blank = (): Draft => ({ side: side ?? '', type: TX_TYPES[0], amount: null, period: null, date: todayIso() });
   const [rows, setRows] = useState<Draft[]>([blank()]);
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
@@ -450,18 +451,18 @@ export function AddLinesSheet({ app, res, by, onClose, onDone, ask }: { app: str
     setRows([blank()]);
     setReason('');
     setTried(false);
-  }, [app]);
+  }, [app, side]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!app) return null;
   const a = res.byApp.get(app);
   const cur = a?.summary.currency ?? '';
-  const rowErr = (r: Draft) => (r.amount == null || Number.isNaN(r.amount) || r.amount === 0 ? 'Enter the amount (a minus for a credit).' : !r.date ? 'Choose the date it’s due from.' : null);
+  const rowErr = (r: Draft) => (!r.side ? 'Choose the side.' : r.amount == null || Number.isNaN(r.amount) || r.amount === 0 ? 'Enter the amount (a minus for a credit).' : !r.date ? 'Choose the date it’s due from.' : null);
   const err = { rows: rows.some(rowErr) ? 'Check each line.' : null, reason: reason.trim() ? null : 'Say why the rules don’t make this line.' };
   const set = (i: number, p: Partial<Draft>) => setRows((x) => x.map((r, k) => (k === i ? { ...r, ...p } : r)));
   const go = () => {
     setTried(true);
     if (err.rows || err.reason) return;
-    ask(`Add ${rows.length} ${rows.length === 1 ? 'line' : 'lines'} to ${a?.student ?? app}?`, 'Add', <p>{rows.map((r) => `${SIDES[r.side]}: ${r.type === 'Clawback' && r.side === 'rp' ? 'Clawback (a recovery)' : r.type}, ${money(MINUS_TYPES.includes(r.type) ? -Math.abs(r.amount!) : r.amount!, cur)}`).join('; ')}. They’re worked like any other line, and logged with why.{rows.some((r) => r.type === 'Clawback' && r.side === 'rp') ? ' A clawback from the RP is taken off its next invoice request.' : ''}</p>, () => {
-      addLines(app, rows.map((r) => ({ side: r.side, type: r.type, amount: r.amount!, period: r.period ?? undefined, date: r.date })), reason.trim(), by);
+    ask(`Add ${rows.length} ${rows.length === 1 ? 'line' : 'lines'} to ${a?.student ?? app}?`, 'Add', <p>{rows.map((r) => `${r.side ? SIDES[r.side] : ''}: ${r.type === 'Clawback' && r.side === 'rp' ? 'Clawback (a recovery)' : r.type}, ${money(MINUS_TYPES.includes(r.type) ? -Math.abs(r.amount!) : r.amount!, cur)}`).join('; ')}. They’re worked like any other line, and logged with why.{rows.some((r) => r.type === 'Clawback' && r.side === 'rp') ? ' A clawback from the RP is taken off its next invoice request.' : ''}</p>, () => {
+      addLines(app, rows.map((r) => ({ side: r.side as 'uni' | 'rp', type: r.type, amount: r.amount!, period: r.period ?? undefined, date: r.date })), reason.trim(), by);
       onDone(`${rows.length} ${rows.length === 1 ? 'line' : 'lines'} added to ${app}.`);
     });
   };
@@ -489,7 +490,7 @@ export function AddLinesSheet({ app, res, by, onClose, onDone, ask }: { app: str
         {rows.map((r, i) => (
           <div key={i} className="iform__wide cadd__row">
             <Field id={`cadd-side-${i}`} label="Side" required>
-              <SelectInput id={`cadd-side-${i}`} value={r.side} onChange={(e) => set(i, { side: e.target.value as Draft['side'] })}>
+              <SelectInput id={`cadd-side-${i}`} value={r.side} placeholder="Choose the side" invalid={tried && !r.side} onChange={(e) => set(i, { side: e.target.value as Draft['side'] })}>
                 {SIDE_KEYS.map((k) => (
                   <option key={k} value={k}>
                     {SIDES[k]}
